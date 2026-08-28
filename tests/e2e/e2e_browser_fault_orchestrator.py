@@ -24,12 +24,26 @@ SHORT_PROTOCOL_DIRECTORY = pathlib.Path("/private/tmp/ple-live-demo-browser-faul
 TOKEN_LENGTH = 43
 SOCKET_NAME_PATTERN = "fault-"
 SOCKET_NAME = re.compile(r"^fault-[0-9a-f]{24}\.sock$")
-PHASES = (
+GATEWAY_SUBMIT_OUTAGE_PHASES = (
 	"response_selected",
 	"gateway_stopped",
 	"network_recovery_visible",
 	"gateway_recovered",
 	"completed",
+)
+DETERMINISTIC_GRADER_EXCEPTION_PHASES = (
+	"submission_ready",
+	"ordinary_worker_stopped",
+	"accepted_pending_visible",
+	"fault_worker_started",
+	"fault_worker_exception_visible",
+	"instructor_retry_visible",
+	"ordinary_worker_recovered",
+	"completed",
+)
+PHASES = GATEWAY_SUBMIT_OUTAGE_PHASES
+ALL_PHASES = frozenset(
+	GATEWAY_SUBMIT_OUTAGE_PHASES + DETERMINISTIC_GRADER_EXCEPTION_PHASES
 )
 
 
@@ -118,8 +132,12 @@ def _marker_value(request: FaultScenarioRequest, phase: str, token: str) -> dict
 	}
 
 
-def _marker_path(directory: pathlib.Path, phase: str) -> pathlib.Path:
-	if phase not in PHASES:
+def _marker_path(
+	directory: pathlib.Path,
+	phase: str,
+	allowed_phases: tuple[str, ...] = PHASES,
+) -> pathlib.Path:
+	if phase not in allowed_phases:
 		raise FaultProtocolError("fault protocol phase is invalid")
 	return directory / f"fault-{phase}.json"
 
@@ -128,8 +146,17 @@ def _canonical(value: object) -> str:
 	return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def _write_marker(directory: pathlib.Path, request: FaultScenarioRequest, phase: str, token: str) -> None:
-	_private_file(_marker_path(directory, phase), _canonical(_marker_value(request, phase, token)))
+def _write_marker(
+	directory: pathlib.Path,
+	request: FaultScenarioRequest,
+	phase: str,
+	token: str,
+	allowed_phases: tuple[str, ...] = PHASES,
+) -> None:
+	_private_file(
+		_marker_path(directory, phase, allowed_phases),
+		_canonical(_marker_value(request, phase, token)),
+	)
 
 
 def _read_bounded_file(file_descriptor: int, size: int) -> str:
@@ -147,9 +174,15 @@ def _read_bounded_file(file_descriptor: int, size: int) -> str:
 		raise FaultProtocolError("fault protocol marker is malformed") from error
 
 
-def _require_marker(directory: pathlib.Path, request: FaultScenarioRequest, phase: str, token: str) -> None:
+def _require_marker(
+	directory: pathlib.Path,
+	request: FaultScenarioRequest,
+	phase: str,
+	token: str,
+	allowed_phases: tuple[str, ...] = PHASES,
+) -> None:
 	"""Read one marker descriptor-relatively without following path replacements."""
-	path = _marker_path(directory, phase)
+	path = _marker_path(directory, phase, allowed_phases)
 	directory_descriptor = -1
 	file_descriptor = -1
 	try:
@@ -177,7 +210,13 @@ def _require_marker(directory: pathlib.Path, request: FaultScenarioRequest, phas
 		raise FaultProtocolError("fault protocol marker is not canonical")
 
 
-def _require_marker_order(directory: pathlib.Path, completed: tuple[str, ...]) -> None:
+def _require_marker_order(
+	directory: pathlib.Path,
+	completed: tuple[str, ...],
+	allowed_phases: tuple[str, ...] = PHASES,
+) -> None:
+	if any(phase not in allowed_phases for phase in completed):
+		raise FaultProtocolError("fault protocol marker order is invalid")
 	expected = {f"fault-{phase}.json" for phase in completed}
 	actual = {path.name for path in directory.iterdir()}
 	if "fault.lock" not in actual:
@@ -287,7 +326,7 @@ def _require_private_directory(metadata: os.stat_result) -> FileIdentity:
 
 def _safe_protocol_entry(directory_descriptor: int, name: str) -> None:
 	metadata = os.stat(name, dir_fd=directory_descriptor, follow_symlinks=False)
-	if name in {f"fault-{phase}.json" for phase in PHASES}:
+	if name in {f"fault-{phase}.json" for phase in ALL_PHASES}:
 		if not stat.S_ISREG(metadata.st_mode):
 			raise FaultProtocolError("fault protocol cleanup marker is invalid")
 		_require_owner_private(metadata, "cleanup marker")
@@ -571,3 +610,175 @@ def run_gateway_submit_outage(
 	if child is None:
 		raise FaultProtocolError("fault protocol did not launch a browser child")
 	return FaultScenarioResult("gateway_submit_outage", injected, recovered, child.session)
+
+
+def run_deterministic_grader_exception(
+	request: FaultScenarioRequest,
+	run_command: Command,
+	launch_child: ChildLauncher = e2e_browser_suite_children.launch,
+	reap_child: Callable[
+		[e2e_browser_suite_children.BrowserChild, float], int
+	] = e2e_browser_suite_children.reap,
+	record_session: SessionRecorder = lambda _session: None,
+) -> FaultScenarioResult:
+	"""Drive the closed one-claim grader exception and visible Instructor retry.
+
+	The browser never selects a database target or asks for a fault.  Its visible
+	submission supplies the sole accepted execution; the profile-bound adapter
+	stops the ordinary worker, starts the feature-only one-claim worker, then
+	restores ordinary recovery after Elena's normal retry action.
+	"""
+	protocol: ProtocolDirectory | None = None
+	directory: pathlib.Path | None = None
+	socket_path: pathlib.Path | None = None
+	socket_identity: FileIdentity | None = None
+	listener: socket.socket | None = None
+	channel: socket.socket | None = None
+	child: e2e_browser_suite_children.BrowserChild | None = None
+	worker_stopped = False
+	worker_recovered = False
+	child_reaped = False
+	endpoint_quarantined = False
+	failures: list[BaseException] = []
+	try:
+		protocol = _create_protocol_directory()
+		directory = protocol.path
+		socket_path = _socket_path(directory)
+		listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		listener.settimeout(PROTOCOL_TIMEOUT_SECONDS)
+		listener.bind(str(socket_path))
+		os.chmod(socket_path, 0o600)
+		socket_identity = _socket_identity(socket_path)
+		listener.listen(1)
+		environment = dict(request.playwright_environment)
+		environment["PLE_BROWSER_SUITE_FAULT_SOCKET_PATH"] = str(socket_path)
+		token = _token()
+		environment["PLE_BROWSER_SUITE_FAULT_TOKEN"] = token
+		child = launch_child(request.playwright_argv, environment, request.root)
+		record_session(child.session)
+		channel, _address = listener.accept()
+		channel.settimeout(PROTOCOL_TIMEOUT_SECONDS)
+		_authenticate(channel, request, token)
+		_receive(channel, "submission_ready", token)
+		_require_marker(
+			directory, request, "submission_ready", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_marker_order(
+			directory, ("submission_ready",), DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_success(run_command(["stop-outage-service"]), "stop ordinary worker")
+		worker_stopped = True
+		_write_marker(
+			directory, request, "ordinary_worker_stopped", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_send(channel, "ordinary_worker_stopped", token)
+		_receive(channel, "accepted_pending_visible", token)
+		_require_marker(
+			directory, request, "accepted_pending_visible", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_marker_order(
+			directory,
+			("submission_ready", "ordinary_worker_stopped", "accepted_pending_visible"),
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_success(
+			run_command(["run-automated-grading-fault-worker"]),
+			"start deterministic fault worker",
+		)
+		_write_marker(
+			directory, request, "fault_worker_started", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_send(channel, "fault_worker_started", token)
+		_receive(channel, "fault_worker_exception_visible", token)
+		_require_marker(
+			directory, request, "fault_worker_exception_visible", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_marker_order(
+			directory,
+			(
+				"submission_ready", "ordinary_worker_stopped", "accepted_pending_visible",
+				"fault_worker_started", "fault_worker_exception_visible",
+			),
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_receive(channel, "instructor_retry_visible", token)
+		_require_marker(
+			directory, request, "instructor_retry_visible", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_success(
+			run_command(["restart", "--service", "worker", "--timeout-seconds", "240"]),
+			"restart ordinary worker",
+		)
+		worker_recovered = True
+		_write_marker(
+			directory, request, "ordinary_worker_recovered", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_send(channel, "ordinary_worker_recovered", token)
+		_receive(channel, "completed", token)
+		_require_marker(
+			directory, request, "completed", token,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		_require_marker_order(
+			directory,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+			DETERMINISTIC_GRADER_EXCEPTION_PHASES,
+		)
+		child_returncode = reap_child(child, PROTOCOL_TIMEOUT_SECONDS)
+		child_reaped = True
+		if child_returncode != 0:
+			raise FaultProtocolError("fault protocol browser child failed")
+	except BaseException as error:
+		failures.append(error)
+	finally:
+		if worker_stopped and not worker_recovered:
+			try:
+				_require_success(
+					run_command(["restart", "--service", "worker", "--timeout-seconds", "240"]),
+					"restore ordinary worker",
+				)
+				worker_recovered = True
+			except BaseException as error:
+				failures.append(error)
+		if child is not None and not child_reaped:
+			try:
+				reap_child(child, 5.0)
+			except BaseException as error:
+				failures.append(error)
+		if channel is not None:
+			try:
+				channel.close()
+			except BaseException as error:
+				failures.append(error)
+		if listener is not None:
+			try:
+				listener.close()
+			except BaseException as error:
+				failures.append(error)
+		if socket_path is not None and socket_identity is not None:
+			try:
+				_unlink_socket(socket_path, socket_identity)
+			except BaseException as error:
+				endpoint_quarantined = True
+				failures.append(error)
+		if protocol is not None:
+			try:
+				_remove_protocol_directory(
+					protocol, socket_path, socket_identity, endpoint_quarantined
+				)
+			except BaseException as error:
+				failures.append(error)
+	if failures:
+		if len(failures) == 1:
+			raise failures[0]
+		raise BaseExceptionGroup("fault protocol failures", failures)
+	if child is None:
+		raise FaultProtocolError("fault protocol did not launch a browser child")
+	return FaultScenarioResult("deterministic_grader_exception", True, worker_recovered, child.session)

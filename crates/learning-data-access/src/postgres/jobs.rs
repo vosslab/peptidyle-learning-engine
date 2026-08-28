@@ -308,7 +308,7 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         &self,
         context: TenantContext,
         command: crate::AssignmentScoringWorkerCommand,
-    ) -> Result<(), StoreError> {
+    ) -> Result<crate::AssignmentScoringPreparationOutcome, StoreError> {
         let tenant = context.tenant_id();
         let expected_payload = serde_json::to_value(JobPayload::RecalculateAssignment {
             assignment: command.assignment,
@@ -347,9 +347,6 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        if !current {
-            return Err(StoreError::Conflict);
-        }
         sqlx::query("DELETE FROM assignment_scoring_staging WHERE tenant_id = $1 AND job_id = $2")
             .bind(tenant.as_uuid())
             .bind(command.job.as_uuid())
@@ -365,6 +362,10 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
+        if !current {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(crate::AssignmentScoringPreparationOutcome::Superseded);
+        }
         sqlx::query(
             "DELETE FROM assignment_summary_staging \
              WHERE tenant_id = $1 AND job_id = $2",
@@ -618,7 +619,8 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(crate::AssignmentScoringPreparationOutcome::Prepared)
     }
 
     async fn commit_assignment_scoring(
@@ -653,8 +655,8 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
             transaction.rollback().await.map_err(map_sqlx_error)?;
             return Ok(crate::AssignmentScoringCommitOutcome::ClaimNoLongerActive);
         }
-        let current_generation: i64 = sqlx::query_scalar(
-            "SELECT scoring_generation FROM assignment \
+        let (current_generation, current_status): (i64, String) = sqlx::query_as(
+            "SELECT scoring_generation, scoring_status FROM assignment \
              WHERE tenant_id = $1 AND assignment_id = $2",
         )
         .bind(tenant.as_uuid())
@@ -662,9 +664,12 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let superseded = current_generation != generation;
-        let current_attempt_count: i64 = sqlx::query_scalar(
-            "SELECT count(*) \
+        let superseded = current_generation != generation || current_status != "recalculating";
+        let current_attempt_count = if superseded {
+            0_i64
+        } else {
+            sqlx::query_scalar(
+                "SELECT count(*) \
                FROM submission_evaluation se \
                JOIN question_attempt qa ON qa.tenant_id = se.tenant_id \
                     AND qa.attempt_id = se.attempt_id \
@@ -687,14 +692,16 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
                 AND se.grading_status = 'graded' \
                 AND qa.attempt_status NOT IN ('cleared', 'exempt') \
                 AND (ai.assignment_item_id IS NOT NULL OR sc.candidate_id IS NOT NULL)",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.assignment.as_uuid())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let prepared: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM assignment_scoring_staging \
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.assignment.as_uuid())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?
+        };
+        let prepared: bool = superseded
+            || sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM assignment_scoring_staging \
              WHERE tenant_id = $1 AND job_id = $2 AND assignment_id = $3 \
                AND scoring_generation = $4 \
                AND ($6 OR attempt_count = $5) \
@@ -702,16 +709,16 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
                     WHERE tenant_id = $1 AND job_id = $2) \
                AND enrollment_count = (SELECT count(*) FROM assignment_summary_staging \
                     WHERE tenant_id = $1 AND job_id = $2))",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.job.as_uuid())
-        .bind(command.assignment.as_uuid())
-        .bind(generation)
-        .bind(current_attempt_count)
-        .bind(superseded)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.job.as_uuid())
+            .bind(command.assignment.as_uuid())
+            .bind(generation)
+            .bind(current_attempt_count)
+            .bind(false)
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         if !prepared {
             return Err(StoreError::Conflict);
         }

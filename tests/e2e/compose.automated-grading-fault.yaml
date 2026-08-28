@@ -1,0 +1,63 @@
+# Acceptance-only deterministic-grader fault worker for the isolated W7a journey.
+# This profile gives its API the recovery-only fast-path facade and retains the
+# ordinary worker command for successful retry processing. The closed disposable
+# owner starts the feature-only one-claim service after stopping that worker.
+
+services:
+  api:
+    build:
+      target: live-demo-fault
+
+  worker:
+    build:
+      target: live-demo-fault
+
+  fault-worker:
+    labels: *ple-disposable-capability-label
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    build:
+      context: ..
+      dockerfile: containers/Containerfile.api
+      target: live-demo-fault
+    command: ["--deterministic-grader-exception-worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+      webwork-renderer:
+        condition: service_healthy
+    environment:
+      PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL:?set by the live-demo target}
+      PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set by the live-demo target}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
+      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
+      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
+      PLE_STORAGE_TOPOLOGY: disposable-local
+    restart: "no"
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+    cpus: "1.0"
+    mem_limit: 512m
+    pids_limit: 128
+    networks:
+      - default
+      - renderer_private

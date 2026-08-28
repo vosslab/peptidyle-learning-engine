@@ -20,6 +20,7 @@ export interface RouteContract {
     | "assignmentWorkspaceQuestions"
     | "assignmentWorkspacePolicies"
     | "assignmentWorkspaceStudentView"
+    | "assignmentWorkspaceGradingOperations"
     | "gradebook"
     | "courseGradeSettings"
     | "courseAppearance"
@@ -173,6 +174,13 @@ export const ROUTE_CONTRACT = [
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/student-view",
     surface: "Instructor assignment Student view",
     requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "assignmentWorkspaceGradingOperations",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/grading-operations",
+    surface: "Instructor automated-grading operations workspace",
+    // ASVS 8.3.1: mirror the server's explicit Instructor authority boundary.
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentAccess",

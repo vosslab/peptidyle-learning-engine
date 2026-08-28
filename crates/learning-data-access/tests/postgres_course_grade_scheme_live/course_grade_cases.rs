@@ -8,8 +8,9 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentEntitlementMaterialization, CourseGradeAssignmentMembership,
     CourseGradeSchemeRevision, CourseGradebookStore, CourseRosterContact, CourseRosterId,
-    CourseRosterStore, MaterializeAssignmentEntitlementCommand, Store, StoreError, TenantContext,
-    UpdateCourseGradeScheme, UpsertCourseMember,
+    CourseRosterStore, GradingOperationActionId, GradingOperationStore,
+    MaterializeAssignmentEntitlementCommand, RecalculateAssignmentCommand, Store, StoreError,
+    TenantContext, UpdateCourseGradeScheme, UpsertCourseMember,
 };
 use question_model::{
     CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, CourseId, EntitlementPurpose,
@@ -359,7 +360,9 @@ async fn postgres_course_grade_totals_use_only_summary_projection_and_preserve_t
     set_summary_scores(&pool, tenant, student, &scores, None).await;
     let total = store.course_gradebook_totals(context, token, course).await.expect("summary-only total");
     assert_eq!(total.rows[0].outcome.rounded_score, Some(0.24), "10/30-point weighting, missing zero, negative score, and zero-point extra credit contribute exactly once");
-    set_summary_scores(&pool, tenant, student, &[(assignments[0], Some(0.8))], Some("recalculating")).await;
+    set_summary_scores(&pool, tenant, student, &[(assignments[0], Some(0.8))], None).await;
+    let recalculated_assignment = store.get_assignment_for_edit(context, assignments[0]).await.expect("recalculation assignment query").expect("recalculation assignment");
+    store.recalculate_instructor_assignment(context, RecalculateAssignmentCommand { tenant, session: token, course, assignment: assignments[0], action: GradingOperationActionId::from_uuid(id()), expected_assignment_revision: recalculated_assignment.revision }).await.expect("production recalculation capability");
     assert_eq!(store.course_gradebook_totals(context, token, course).await.expect("recalculating row").rows[0].outcome.unavailable_reason, Some(domain::course_grade::CourseGradeUnavailableReason::Recalculating));
     set_summary_scores(&pool, tenant, student, &[(assignments[0], Some(0.8))], Some("failed")).await;
     assert_eq!(store.course_gradebook_totals(context, token, course).await.expect("failed row").rows[0].outcome.unavailable_reason, Some(domain::course_grade::CourseGradeUnavailableReason::Failed));

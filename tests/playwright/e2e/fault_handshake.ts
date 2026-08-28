@@ -3,19 +3,34 @@ import { closeSync, fsyncSync, lstatSync, openSync, writeSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 import { basename, dirname, join } from "node:path";
 
-const CHILD_PHASES = ["response_selected", "network_recovery_visible", "completed"] as const;
-const OWNER_PHASES = ["gateway_stopped", "gateway_recovered"] as const;
+const PHASES = {
+  gateway_submit_outage: {
+    child: ["response_selected", "network_recovery_visible", "completed"],
+    owner: ["gateway_stopped", "gateway_recovered"],
+  },
+  deterministic_grader_exception: {
+    child: [
+      "submission_ready",
+      "accepted_pending_visible",
+      "fault_worker_exception_visible",
+      "instructor_retry_visible",
+      "completed",
+    ],
+    owner: ["ordinary_worker_stopped", "fault_worker_started", "ordinary_worker_recovered"],
+  },
+} as const;
 const MAXIMUM_MESSAGE_BYTES = 256;
 const MAXIMUM_SOCKET_PATH_BYTES = 100;
 const SOCKET_TIMEOUT_MS = 600_000;
 const SOCKET_NAME = /^fault-[0-9a-f]{24}\.sock$/u;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/u;
-type ChildPhase = (typeof CHILD_PHASES)[number];
-type OwnerPhase = (typeof OWNER_PHASES)[number];
+export type FaultTransition = keyof typeof PHASES;
+type ChildPhase<T extends FaultTransition> = (typeof PHASES)[T]["child"][number];
+type OwnerPhase<T extends FaultTransition> = (typeof PHASES)[T]["owner"][number];
 
-export interface FaultHandshake {
-  notify(phase: ChildPhase): void;
-  waitFor(phase: OwnerPhase): Promise<void>;
+export interface FaultHandshake<T extends FaultTransition = "gateway_submit_outage"> {
+  notify(phase: ChildPhase<T>): void;
+  waitFor(phase: OwnerPhase<T>): Promise<void>;
   close(): void;
 }
 
@@ -73,16 +88,6 @@ function authentication(scenarioId: string, namespace: string, tokenValue: strin
 
 function accepted(tokenValue: string): string {
   return JSON.stringify({ kind: "accepted", token: tokenValue, version: 1 });
-}
-
-function childPhase(value: string): value is ChildPhase {
-  return (
-    value === "response_selected" || value === "network_recovery_visible" || value === "completed"
-  );
-}
-
-function ownerPhase(value: string): value is OwnerPhase {
-  return value === "gateway_stopped" || value === "gateway_recovered";
 }
 
 function readExact(channel: Socket, expected: string): Promise<void> {
@@ -170,7 +175,7 @@ async function connected(path: string): Promise<Socket> {
 
 function writePrivateMarker(
   directory: string,
-  phase: ChildPhase,
+  phase: string,
   scenarioId: string,
   namespace: string,
   tokenValue: string,
@@ -194,30 +199,43 @@ function writePrivateMarker(
   }
 }
 
+export function faultHandshakeFromEnvironment(
+  environment: NodeJS.ProcessEnv,
+  scenarioId: string,
+  namespace: string,
+): Promise<FaultHandshake<"gateway_submit_outage">>;
+export function faultHandshakeFromEnvironment<T extends FaultTransition>(
+  environment: NodeJS.ProcessEnv,
+  scenarioId: string,
+  namespace: string,
+  transition: T,
+): Promise<FaultHandshake<T>>;
 export async function faultHandshakeFromEnvironment(
   environment: NodeJS.ProcessEnv,
   scenarioId: string,
   namespace: string,
-): Promise<FaultHandshake> {
+  transition: FaultTransition = "gateway_submit_outage",
+): Promise<FaultHandshake<FaultTransition>> {
   const tokenValue = token(required(environment, "PLE_BROWSER_SUITE_FAULT_TOKEN"));
   const socket = privateSocket(required(environment, "PLE_BROWSER_SUITE_FAULT_SOCKET_PATH"));
   const channel = await connected(socket.path);
   channel.write(`${authentication(scenarioId, namespace, tokenValue)}\n`);
   await readExact(channel, accepted(tokenValue));
+  const phases = PHASES[transition];
   let childIndex = 0;
   let ownerIndex = 0;
 
   return {
-    notify(phase: ChildPhase): void {
-      if (!childPhase(phase) || CHILD_PHASES[childIndex] !== phase) {
+    notify(phase: ChildPhase<FaultTransition>): void {
+      if (phases.child[childIndex] !== phase) {
         throw new Error("fault protocol child phase order is invalid");
       }
       childIndex += 1;
       writePrivateMarker(socket.directory, phase, scenarioId, namespace, tokenValue);
       channel.write(`${message(phase, tokenValue)}\n`);
     },
-    async waitFor(phase: OwnerPhase): Promise<void> {
-      if (!ownerPhase(phase) || OWNER_PHASES[ownerIndex] !== phase) {
+    async waitFor(phase: OwnerPhase<FaultTransition>): Promise<void> {
+      if (phases.owner[ownerIndex] !== phase) {
         throw new Error("fault protocol owner phase order is invalid");
       }
       ownerIndex += 1;

@@ -30,6 +30,8 @@ def test_generated_runtime_has_closed_identity_private_files_and_no_url_in_yaml(
 	assert "ple.disposable_postgres_acceptance" in manifest
 	assert "postgres://" not in manifest
 	assert "postgres_admin_url: secrets/postgres-admin.url" in manifest
+	assert "postgres_fast_path_url: secrets/postgres-fast-path.url" in manifest
+	assert "postgres_recovery_url: secrets/postgres-recovery.url" in manifest
 	assert runtime.compose_environment_path.parent == tmp_path / "secrets"
 	assert len(runtime.cleanup_capability_path.read_bytes()) == 32
 	assert runtime.admin_url_path.read_text(encoding="ascii").startswith("postgres://")
@@ -153,7 +155,7 @@ def test_revalidation_refuses_a_replaced_admin_password_without_disclosing_it(
 	assert replacement not in str(raised.value)
 	with pytest.raises(SystemExit, match="2"):
 		local_stack_control.runtime_manifest.main(
-			["--emit-grader-password-update", str(tmp_path)]
+			["--emit-grader-login-provisioning", str(tmp_path)]
 		)
 	captured = capsys.readouterr()
 	assert captured.out == ""
@@ -194,17 +196,59 @@ def test_compose_command_revalidates_its_admin_password_source(tmp_path: pathlib
 
 
 #============================================
-def test_grader_password_helper_emits_one_fixed_statement_from_the_runtime(
+def test_grader_login_helper_emits_only_the_migration_owned_login(
 	tmp_path: pathlib.Path,
 	capsys: pytest.CaptureFixture[str],
 ) -> None:
-	"""The shell can pipe a validated grader update without a password-bearing file."""
+	"""The early baseline phase only provisions the established grader login."""
 	generated_runtime(tmp_path)
-	local_stack_control.runtime_manifest.emit_grader_password_update(tmp_path)
+	local_stack_control.runtime_manifest.emit_grader_login_provisioning(tmp_path)
 	output = capsys.readouterr().out
-	assert output.startswith("ALTER ROLE ple_grading_reader PASSWORD '")
-	assert output.endswith("';\n")
-	assert len(output) == len("ALTER ROLE ple_grading_reader PASSWORD '';\n") + 32
+	assert output.startswith("BEGIN;\nDO $$\nBEGIN\n")
+	assert output.endswith("COMMIT;\n")
+	assert "ALTER ROLE ple_grading_reader" in output
+	assert "ALTER ROLE ple_accepted_submission_fast_path_login" not in output
+	assert "ALTER ROLE ple_accepted_submission_recovery_login" not in output
+	assert (
+		"GRANT ple_grader TO ple_grading_reader "
+		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
+	) in output
+	grader_sql = output.split("ALTER ROLE ple_grading_reader", 1)[1].split(
+		"DO $$", 1
+	)[0]
+	assert "REVOKE ALL PRIVILEGES" not in grader_sql
+
+
+#============================================
+def test_accepted_submission_login_helper_emits_only_neutral_profiles(
+	tmp_path: pathlib.Path,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""The G1 phase provisions both neutral accepted-submission logins."""
+	generated_runtime(tmp_path)
+	local_stack_control.runtime_manifest.emit_accepted_submission_login_provisioning(tmp_path)
+	output = capsys.readouterr().out
+	assert "ALTER ROLE ple_grading_reader" not in output
+	assert "ALTER ROLE ple_accepted_submission_fast_path_login" in output
+	assert "ALTER ROLE ple_accepted_submission_recovery_login" in output
+	assert (
+		"REVOKE ALL PRIVILEGES ON SCHEMA public FROM "
+		"ple_accepted_submission_fast_path_login;"
+	) in output
+	assert (
+		"REVOKE ALL PRIVILEGES ON SCHEMA public FROM "
+		"ple_accepted_submission_recovery_login;"
+	) in output
+	assert (
+		"GRANT ple_accepted_submission_execution_fast_path TO "
+		"ple_accepted_submission_fast_path_login "
+		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
+	) in output
+	assert (
+		"GRANT ple_accepted_submission_execution TO "
+		"ple_accepted_submission_recovery_login "
+		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
+	) in output
 
 
 #============================================

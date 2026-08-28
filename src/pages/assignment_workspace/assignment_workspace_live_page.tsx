@@ -37,6 +37,7 @@ import {
   type AssignmentWorkspaceSection,
 } from "./assignment_workspace_nav";
 import { AssignmentWorkspaceOverviewPage } from "./assignment_workspace_overview_page";
+import { AssignmentWorkspaceOperationsPage } from "./assignment_workspace_operations_page";
 import { AssignmentWorkspacePoliciesPage } from "./assignment_workspace_policies_page";
 import { AssignmentWorkspaceQuestionsPage } from "./assignment_workspace_questions_page";
 import { AssignmentWorkspaceStudentViewPage } from "./assignment_workspace_student_view_page";
@@ -149,6 +150,8 @@ function WorkspaceChild(props: { readonly section: AssignmentWorkspaceSection })
       return <AssignmentWorkspacePoliciesPage />;
     case "studentView":
       return <AssignmentWorkspaceStudentViewPage />;
+    case "gradingOperations":
+      return <AssignmentWorkspaceOperationsPage />;
   }
 }
 

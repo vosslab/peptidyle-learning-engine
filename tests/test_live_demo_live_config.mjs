@@ -64,6 +64,10 @@ test("live-demo parser binds its namespace, origin, optional service evidence, a
     version: 1,
     artifacts: [{ artifactId: "account_security", stateId: "passkey_ready" }],
   });
+  assert.equal(
+    parse(input({ faultTransition: "deterministic_grader_exception" }))?.faultTransition,
+    "deterministic_grader_exception",
+  );
   for (const invalid of [
     input({ namespace: "bs1-0123456789ab-other" }),
     input({ baseUrl: "http://localhost:55001/" }),

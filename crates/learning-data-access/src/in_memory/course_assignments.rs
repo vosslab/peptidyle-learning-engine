@@ -116,44 +116,20 @@ impl crate::CourseAssignmentStore for MemoryStore {
             return Err(StoreError::Conflict);
         }
         let scoring_changed = assignment_scoring_changed(previous, &assignment);
-        let (generation, _) = state
+        let (generation, status) = state
             .assignment_scoring
             .get(&key)
             .copied()
             .ok_or(StoreError::NotFound)?;
-        let scoring_generation = if scoring_changed {
-            generation.next().ok_or(StoreError::Conflict)?
-        } else {
-            generation
-        };
-        let scoring_status =
-            if scoring_changed && memory_assignment_has_results(&state, &assignment) {
-                ScoringStatus::Recalculating
-            } else {
-                ScoringStatus::Current
-            };
-        if scoring_status == ScoringStatus::Recalculating {
-            let job = crate::JobId::generate()?;
-            let queued = StoredJob {
-                tenant: assignment.tenant,
-                payload: crate::JobPayload::RecalculateAssignment {
-                    assignment: assignment.id,
-                    generation: scoring_generation,
-                },
-                state: JobState::Ready,
-                available_at: state.authoritative_time,
-                lease_token: None,
-                lease_expires_at: None,
-                attempt_count: 0,
-                max_attempts: 10,
-                failure: None,
-            };
-            if state.jobs.insert(job, queued).is_some() {
-                *state = snapshot;
-                return Err(StoreError::Conflict);
-            }
-        }
-        let stored = StoredAssignment {
+        let has_results = memory_assignment_has_results(&state, &assignment);
+        let (scoring_generation, scoring_status, requires_scoring_invalidation) =
+            super::scoring_invalidation::definition_scoring_state(
+                generation,
+                status,
+                scoring_changed,
+                has_results,
+            )?;
+        let mut stored = StoredAssignment {
             record: assignment,
             revision: next_revision,
             base_policy: state
@@ -169,6 +145,33 @@ impl crate::CourseAssignmentStore for MemoryStore {
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
+        if requires_scoring_invalidation {
+            let origin = crate::ScoringInvalidationOrigin::assignment_definition(
+                stored.record.id.as_uuid(),
+                stored.revision,
+                actor,
+            );
+            match super::scoring_invalidation::request_scoring_invalidation(
+                &mut state,
+                context.tenant_id(),
+                stored.record.course_id,
+                stored.record.id,
+                origin,
+                crate::JobId::from_uuid(origin.id.as_uuid()),
+            ) {
+                Ok(invalidation) => {
+                    stored.scoring_generation = invalidation.generation;
+                    stored.scoring_status = ScoringStatus::Recalculating;
+                    state
+                        .assignment_scoring
+                        .insert(key, (stored.scoring_generation, stored.scoring_status));
+                }
+                Err(error) => {
+                    *state = snapshot;
+                    return Err(error);
+                }
+            }
+        }
         if course_grade_projection_changed
             && let Err(error) = super::course_gradebook::advance_course_grade_scheme_revision(
                 &mut state,

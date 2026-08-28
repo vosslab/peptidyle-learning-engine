@@ -13,7 +13,18 @@ enum ProcessMode {
     Worker,
     InvitationDeliveryWorker,
     PublicAssetPublisher,
+    #[cfg(feature = "e2e-grader-fault")]
+    DeterministicGraderExceptionWorker,
 }
+
+#[cfg(feature = "e2e-grader-fault")]
+const PROCESS_USAGE: &str = concat!(
+    "peptidyle-api [--health-probe|--worker|--invitation-delivery-worker|",
+    "--public-asset-publisher|--deterministic-grader-exception-worker]",
+);
+#[cfg(not(feature = "e2e-grader-fault"))]
+const PROCESS_USAGE: &str =
+    "peptidyle-api [--health-probe|--worker|--invitation-delivery-worker|--public-asset-publisher]";
 
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
     match arguments {
@@ -24,9 +35,11 @@ fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
             Ok(ProcessMode::InvitationDeliveryWorker)
         }
         [flag] if flag == "--public-asset-publisher" => Ok(ProcessMode::PublicAssetPublisher),
-        _ => anyhow::bail!(
-            "usage: peptidyle-api [--health-probe|--worker|--invitation-delivery-worker|--public-asset-publisher]"
-        ),
+        #[cfg(feature = "e2e-grader-fault")]
+        [flag] if flag == "--deterministic-grader-exception-worker" => {
+            Ok(ProcessMode::DeterministicGraderExceptionWorker)
+        }
+        _ => anyhow::bail!("usage: {PROCESS_USAGE}"),
     }
 }
 
@@ -49,6 +62,11 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     }
     if mode == ProcessMode::PublicAssetPublisher {
         return server_core::composition::run_public_asset_publisher_from_env().await;
+    }
+    #[cfg(feature = "e2e-grader-fault")]
+    if mode == ProcessMode::DeterministicGraderExceptionWorker {
+        return server_core::composition::run_deterministic_grader_exception_worker_from_env()
+            .await;
     }
     // Container health check mode. The same binary probes its own /health so
     // the runtime image needs no curl or wget, which keeps the attack surface
@@ -185,5 +203,17 @@ mod tests {
         ] {
             assert!(process_mode(&invalid).is_err());
         }
+    }
+
+    #[test]
+    fn deterministic_grader_exception_mode_is_feature_gated() {
+        let arguments = ["--deterministic-grader-exception-worker".to_string()];
+        #[cfg(feature = "e2e-grader-fault")]
+        assert_eq!(
+            process_mode(&arguments).expect("feature mode"),
+            ProcessMode::DeterministicGraderExceptionWorker
+        );
+        #[cfg(not(feature = "e2e-grader-fault"))]
+        assert!(process_mode(&arguments).is_err());
     }
 }

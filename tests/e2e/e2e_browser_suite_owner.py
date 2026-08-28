@@ -6,8 +6,11 @@ import os
 import pathlib
 import re
 import secrets
+import shutil
+import stat
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from typing import Protocol
 
 SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
@@ -23,6 +26,7 @@ import local_stack_control.worker_readiness
 
 import e2e_browser_scenario_contract
 import e2e_browser_scenario_execution
+import e2e_browser_scenario_partition
 import e2e_browser_screenshot_contract
 import e2e_browser_screenshot_owner
 import e2e_browser_screenshot_publisher
@@ -42,7 +46,18 @@ WEBWORK_SEED_RUNTIME_ENVIRONMENT_NAMES = (
 )
 BrowserSuiteError = browser_scenario_execution.BrowserSuiteError
 ScenarioRunReceipt = browser_scenario_execution.ScenarioRunReceipt
-StateFactory = Callable[[pathlib.Path, pathlib.Path, str], local_stack_control.private_state.PrivateState]
+
+
+class BrowserPrivateState(Protocol):
+	"""Private lifecycle state shared by full-suite and isolated-profile owners."""
+
+	directory: pathlib.Path
+
+	def remove(self) -> None:
+		"""Remove the validated private state directory."""
+
+
+StateFactory = Callable[[pathlib.Path, pathlib.Path, str], BrowserPrivateState]
 InputWriter = Callable[[pathlib.Path, int, browser_scenario_contract.ScenarioContract], None]
 PortChecker = Callable[[tuple[int, int, int, int], local_stack_control.process.CommandRunner, pathlib.Path], None]
 LifecycleValidator = Callable[
@@ -457,6 +472,8 @@ def ordered_execution_contracts(
 ) -> tuple[browser_scenario_contract.ScenarioContract, ...]:
 	"""Keep selected scenarios independent and in their catalog-selected order."""
 	return tuple(contracts)
+
+
 def default_dependencies() -> BrowserSuiteDependencies:
 	"""Create the real external boundaries owned by the standalone runner."""
 	root = repo_root()
@@ -492,7 +509,7 @@ def report_receipt(receipt: BrowserSuiteReceipt) -> None:
 class BrowserSuiteLifecycleState:
 	"""Mutable private state for one launch, scenario run, and cleanup sequence."""
 
-	private_state: local_stack_control.private_state.PrivateState
+	private_state: BrowserPrivateState
 	origin: str
 	project: str
 	provider: browser_suite_oracles.ProviderReceipt
@@ -516,16 +533,37 @@ class BrowserSuiteLifecycleState:
 	private_state_removed: bool = False
 
 
+@dataclasses.dataclass(frozen=True)
+class _ProfilePrivateState:
+	"""One checked child beneath the lease-owned private browser workspace."""
+
+	directory: pathlib.Path
+
+	def remove(self) -> None:
+		metadata = self.directory.lstat()
+		if (
+			self.directory.is_symlink()
+			or not stat.S_ISDIR(metadata.st_mode)
+			or stat.S_IMODE(metadata.st_mode) != 0o700
+			or metadata.st_uid != os.getuid()
+		):
+			raise BrowserSuiteError("browser profile private state is invalid")
+		shutil.rmtree(self.directory)
+
+
 def prepare_lifecycle_state(
 	selection: BrowserSuiteSelection,
 	dependencies: BrowserSuiteDependencies,
+	private_state: BrowserPrivateState | None = None,
+	screenshot_staging: pathlib.Path | None = None,
 ) -> BrowserSuiteLifecycleState:
 	"""Allocate private suite state after every public input boundary has passed."""
-	private_state = dependencies.state_factory(
-		dependencies.root,
-		PRIVATE_STATE_RELATIVE_DIRECTORY,
-		PRIVATE_STATE_DIRECTORY_PREFIX,
-	)
+	if private_state is None:
+		private_state = dependencies.state_factory(
+			dependencies.root,
+			PRIVATE_STATE_RELATIVE_DIRECTORY,
+			PRIVATE_STATE_DIRECTORY_PREFIX,
+		)
 	project = "not-created"
 	origin = f"https://localhost:{dependencies.ports[3]}/"
 	provider = browser_suite_oracles.ProviderReceipt("unavailable", (), False)
@@ -543,8 +581,12 @@ def prepare_lifecycle_state(
 		origin_receipt=browser_suite_oracles.unavailable_origin_receipt(origin),
 		scenario_receipts=[],
 		sessions=[],
-		screenshot_staging=e2e_browser_screenshot_owner.prepare_staging(
-			private_state.directory, selection.screenshots
+		screenshot_staging=(
+			screenshot_staging
+			if screenshot_staging is not None
+			else e2e_browser_screenshot_owner.prepare_staging(
+				private_state.directory, selection.screenshots
+			)
 		),
 		pending_screenshots=None,
 		capture_dist_digest=None,
@@ -562,13 +604,14 @@ def require_target_path(path: pathlib.Path | None, description: str) -> pathlib.
 
 def launch_production_stack(
 	selection: BrowserSuiteSelection,
+	profile: local_stack_control.models.LiveDemoProfile,
 	dependencies: BrowserSuiteDependencies,
 	lifecycle: BrowserSuiteLifecycleState,
 ) -> pathlib.Path:
 	"""Generate the private target and launch its production services."""
 	live_target = local_stack_control.live_demo_target.write_private_target(
 		lifecycle.private_state.directory,
-		local_stack_control.models.LiveDemoProfile.BROWSER,
+		profile,
 		local_stack_control.live_demo_target.ports_from_tuple(dependencies.ports),
 		dependencies.selections,
 	)
@@ -650,6 +693,7 @@ def execute_visible_scenarios(
 		selection.screenshots,
 		lifecycle.screenshot_staging,
 		lifecycle.capture_dist_digest,
+		not selection.screenshots,
 		lifecycle.sessions,
 		scenario_dependencies,
 	)
@@ -762,6 +806,60 @@ def collect_screenshots_and_report(
 		lifecycle.failures.append(error)
 
 
+def run_profile_group(
+	selection: BrowserSuiteSelection,
+	contracts: tuple[browser_scenario_contract.ScenarioContract, ...],
+	profile: local_stack_control.models.LiveDemoProfile,
+	dependencies: BrowserSuiteDependencies,
+	private_state: BrowserPrivateState | None = None,
+	screenshot_staging: pathlib.Path | None = None,
+) -> BrowserSuiteLifecycleState:
+	"""Run one closed profile group through its own fresh stack and cleanup."""
+	lifecycle = prepare_lifecycle_state(
+		selection, dependencies, private_state, screenshot_staging
+	)
+	try:
+		manifest_path = launch_production_stack(
+			selection, profile, dependencies, lifecycle
+		)
+		execute_visible_scenarios(
+			selection,
+			contracts,
+			ordered_execution_contracts(contracts),
+			manifest_path,
+			dependencies,
+			lifecycle,
+		)
+	except BaseException as error:
+		lifecycle.failures.append(error)
+	cleanup_and_observe(dependencies, lifecycle)
+	return lifecycle
+
+
+def merge_profile_groups(
+	lifecycles: tuple[BrowserSuiteLifecycleState, ...],
+) -> BrowserSuiteLifecycleState:
+	"""Retain all public-safe child receipts while the final group owns cleanup proof."""
+	if not lifecycles:
+		raise BrowserSuiteError("browser suite did not run a profile group")
+	last = lifecycles[-1]
+	if len(lifecycles) == 1:
+		return last
+	if any(lifecycle.pending_screenshots is not None for lifecycle in lifecycles):
+		raise BrowserSuiteError(
+			"screenshot publication requires one profile group per capture invocation"
+		)
+	return dataclasses.replace(
+		last,
+		before_inventory=lifecycles[0].before_inventory,
+		scenario_receipts=[
+			receipt for lifecycle in lifecycles for receipt in lifecycle.scenario_receipts
+		],
+		sessions=[session for lifecycle in lifecycles for session in lifecycle.sessions],
+		failures=[failure for lifecycle in lifecycles for failure in lifecycle.failures],
+	)
+
+
 def run_selection(
 	selection: BrowserSuiteSelection,
 	dependencies: BrowserSuiteDependencies,
@@ -779,28 +877,85 @@ def run_selection(
 			browser_scenario_contract.scenario_contracts()
 		)
 	execution_contracts = ordered_execution_contracts(contracts)
+	try:
+		profile_groups = e2e_browser_scenario_partition.partition(execution_contracts)
+	except e2e_browser_scenario_partition.ScenarioPartitionError as error:
+		raise BrowserSuiteError(str(error)) from error
 	require_canonical_selections(dependencies.selections)
 	dependencies.port_checker(dependencies.ports, dependencies.runner, dependencies.root)
-	lifecycle = prepare_lifecycle_state(selection, dependencies)
-	try:
-		manifest_path = launch_production_stack(
-			selection, dependencies, lifecycle
+	shared_state = None
+	if selection.screenshots:
+		shared_state = dependencies.state_factory(
+			dependencies.root,
+			PRIVATE_STATE_RELATIVE_DIRECTORY,
+			PRIVATE_STATE_DIRECTORY_PREFIX,
 		)
-		execute_visible_scenarios(
-			selection,
-			contracts,
-			execution_contracts,
-			manifest_path,
-			dependencies,
-			lifecycle,
+		# Keep capture material outside each profile's removable private state.
+		# Each isolated stack receives its own staging directory; the lease-owned
+		# parent remains available for the post-reset full-corpus join.
+		shared_staging_root = shared_state.directory / "screenshots"
+		shared_staging_root.mkdir(mode=0o700)
+	profile_lifecycles = []
+	for group in profile_groups:
+		group_state = None
+		group_staging = None
+		if shared_state is not None:
+			group_directory = shared_state.directory / group.profile.value
+			group_directory.mkdir(mode=0o700)
+			group_state = _ProfilePrivateState(group_directory)
+			group_staging = shared_staging_root / group.profile.value
+			group_staging.mkdir(mode=0o700)
+		profile_lifecycles.append(
+			run_profile_group(
+				selection, group.contracts, group.profile, dependencies,
+				group_state, group_staging,
+			)
 		)
-	except BaseException as error:
-		lifecycle.failures.append(error)
-	cleanup_and_observe(dependencies, lifecycle)
+	lifecycle = merge_profile_groups(tuple(profile_lifecycles))
+	if shared_state is not None:
+		try:
+			if lifecycle.failures:
+				raise BrowserSuiteError("screenshot capture did not complete for every profile group")
+			pending_groups = []
+			for group, group_lifecycle in zip(profile_groups, profile_lifecycles, strict=True):
+				group_artifacts = tuple(
+					artifact for artifact in e2e_browser_screenshot_contract.ARTIFACTS
+					if artifact.scenario_id in {item.scenario_id for item in group.contracts}
+				)
+				pending_groups.append(
+					e2e_browser_screenshot_owner.pending_after_capture(
+						dependencies.root,
+						group_lifecycle.screenshot_staging,
+						group_lifecycle.origin,
+						group_lifecycle.capture_dist_digest,
+						group_artifacts,
+					)
+				)
+			pending = e2e_browser_screenshot_publisher.combine_pending(tuple(pending_groups))
+			lifecycle.scenario_receipts = [
+				dataclasses.replace(
+					receipt,
+					screenshot_artifacts=e2e_browser_screenshot_owner.artifact_evidence_for_scenario(
+						pending, receipt.scenario_id
+					),
+				)
+				for receipt in lifecycle.scenario_receipts
+			]
+			lifecycle.pending_screenshots = pending
+		except BaseException as error:
+			lifecycle.failures.append(error)
 	receipt = lifecycle_receipt(contracts, lifecycle)
 	collect_screenshots_and_report(receipt, dependencies, lifecycle)
+	if shared_state is not None:
+		try:
+			shared_state.remove()
+			lifecycle.private_state_removed = True
+		except BaseException as error:
+			lifecycle.failures.append(error)
 	raise_lifecycle_failures(lifecycle.failures)
 	return receipt
+
+
 def run_selected_scenario(
 	scenario: str,
 	dependencies: BrowserSuiteDependencies,
@@ -808,12 +963,17 @@ def run_selected_scenario(
 	"""Keep H0 callers on the default unfiltered canonical journey."""
 	selection = BrowserSuiteSelection(scenario, None, False)
 	return run_selection(selection, dependencies)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
 	"""Run a closed public selection through the shared production-stack owner."""
 	arguments = sys.argv[1:] if argv is None else argv
 	selection = parse_selection(arguments)
 	import e2e_browser_suite_lifecycle
+
 	e2e_browser_suite_lifecycle.run_owned_selection(selection, default_dependencies)
+
+
 def command_line_main() -> None:
 	"""Present closed-selection errors without allocating a stack or printing a traceback."""
 	try:
@@ -821,5 +981,7 @@ def command_line_main() -> None:
 	except BrowserSuiteError as error:
 		print("ERROR: " + str(error), file=sys.stderr)
 		raise SystemExit(2) from error
+
+
 if __name__ == "__main__":
 	command_line_main()

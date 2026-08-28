@@ -64,9 +64,10 @@ submissions, grades, and instructor review are ordinary PLE records created by t
 ### Visual evidence profiles
 
 Instructor and Sysadmin evidence uses a desktop 16:10 profile at 1280 by 800 CSS pixels or larger. Student profiles
-remain variable; the maintained corpus declares laptop, portrait tablet, iPhone Pro aspect, and square profiles for
-the workflows that need them. Visual evidence supports semantic usability, accessibility, privacy, and task
-completion rather than pixel equivalence.
+remain variable across the maintained corpus. The corpus name `laptop` is the established 1280 by 800 desktop 16:10
+evidence label; it remains that exact profile name for the G1 Instructor captures. Other Student captures use the
+declared portrait tablet, iPhone Pro aspect, and square profiles where the workflow needs them. Visual evidence
+supports semantic usability, accessibility, privacy, and task completion rather than pixel equivalence.
 
 ### WebWork catalog baseline
 
@@ -113,12 +114,27 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Add students to courses.
 - Preview current assignment policy, then exercise delivery and automated grading through the normal Student
   workflow.
+- Open **Grading operations** to review assignment-local automatic-grading interruptions, retry one eligible
+  operation, or request an assignment recalculation. The page exposes metadata and safe next actions only.
 - Manage and review student activity and grades.
 
 The assignment workspace keeps one clear path for teaching work: the linked title opens Overview, local navigation
-connects Overview, Questions, Policies, and Student view, and each page reports its current state. Student view
+connects Overview, Questions, Policies, Grading operations, and Student view, and each page reports its current state. Student view
 creates no learner work. Entering as the ordinary demo Student does create a real run, submission, and grade through
 the normal workflow; the Instructor can see that graded work in the gradebook after a fresh read.
+
+### Automated grading recovery
+
+The connected recovery journey uses ordinary visible Student and Instructor actions. The Student submits one answer
+and sees **Response received** with a cleared answer buffer and **Check grading status**. The answer POST is not
+replayed after acknowledgement; each status GET is answer-free and `no-store`.
+
+The acceptance-only fault profile then records one deterministic grader exception. The Student sees **Your response
+needs instructor attention**. Elena opens the assignment's **Grading operations** page, reviews the safe metadata row,
+and selects **Retry grading operation** exactly once. The ordinary worker claims the new execution generation and runs
+the accepted private response through the shared server handler. After completion and current-score publication, Elena
+opens the current Gradebook and observes Mary's resulting total. Learner status, operation responses, and receipts do
+not contain the answer, feedback internals, grading source, or score values.
 
 Instructors invite already-approved colleagues into their own teaching course. Sysadmins own global
 Instructor approval; an invitation grants only the accepted course membership.
@@ -258,6 +274,11 @@ Regenerating the demo restores the seeded baseline and discards the passkey stat
 PLE generates and manages any internal demo credentials needed for process isolation, service startup, or reset.
 These credentials are disposable process-isolation capabilities for the current demo installation; they are not
 visitor secrets, role claims, or durable application credentials, and they stay out of public browser evidence.
+The accepted-submission API fast path and recovery worker receive separate generated
+credentials through `PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL` and
+`PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL`; the fast-path value stays API-only
+and the recovery value stays worker-only. The private baseline runtime carries both
+values without placing either in the browser or its evidence.
 
 SOPS is reserved for a later deployment design that needs persistent or externally supplied credentials. The public
 live demo does not require SOPS to protect its disposable internal process-isolation credentials.

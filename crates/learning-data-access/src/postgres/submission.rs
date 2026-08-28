@@ -228,14 +228,7 @@ pub(super) async fn apply_postgres_attempt_support(
     .fetch_one(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    if action == AttemptSupportAction::Clear && has_evaluation {
-        super::assignment_recalculation::enqueue_assignment_recalculation(
-            transaction,
-            tenant,
-            assignment.id,
-        )
-        .await?;
-    }
+    let requires_scoring_invalidation = action == AttemptSupportAction::Clear && has_evaluation;
 
     let occurred_at = database_timestamp(transaction).await?;
     let audit_payload = AttemptSupportAuditPayload {
@@ -261,6 +254,22 @@ pub(super) async fn apply_postgres_attempt_support(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
+    if requires_scoring_invalidation {
+        let binding = super::assignment_recalculation::enqueue_assignment_recalculation(
+            transaction,
+            tenant,
+            assignment.id,
+            JobId::from_uuid(action_id.as_uuid()),
+        )
+        .await?;
+        super::scoring_invalidation::bind_attempt_support(
+            transaction,
+            tenant,
+            action_id.as_uuid(),
+            binding,
+        )
+        .await?;
+    }
     Ok(AttemptSupportRecord {
         tenant,
         action: action_id,

@@ -1,6 +1,7 @@
 mod archive_fence;
 mod catalog_identity;
 mod external_projection;
+mod fast_path;
 mod feedback;
 mod imathas_launch;
 mod imathas_submission;
@@ -12,6 +13,7 @@ mod start_binding;
 mod submission;
 mod submission_run_advance;
 mod support;
+use fast_path::*;
 use imathas_support::*;
 use support::*;
 

@@ -184,15 +184,19 @@ pub use crate::flat_question_assets::{
     WorkspaceFlatQuestionAsset, validate_workspace_flat_question_asset_record,
 };
 pub use crate::grading_operations::{
-    AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionCommitError,
-    AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
-    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionOutcome,
-    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionWorkerStore,
-    AcceptedSubmissionGrade, AcceptedSubmissionId, AutomatedGradingStore, CanonicalAttemptResult,
-    GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt, GradingExecutionState,
-    GradingOperation, GradingOperationActionId, GradingOperationReceipt, GradingOperationRevision,
-    GradingOperationTarget, WorkerId, canonical_attempt_result_json,
-    canonical_student_response_json,
+    ACCEPTED_SUBMISSION_JOB_MAX_ATTEMPTS, AcceptedSubmission, AcceptedSubmissionCommand,
+    AcceptedSubmissionCommitError, AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
+    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionFastPathClaimStore,
+    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
+    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, AcceptedSubmissionGrade,
+    AcceptedSubmissionId, AutomatedGradingStore, CanonicalAttemptResult, GradingExecution,
+    GradingExecutionGeneration, GradingExecutionReceipt, GradingExecutionState, GradingOperation,
+    GradingOperationActionId, GradingOperationActionReceipt, GradingOperationGroup,
+    GradingOperationGroupBy, GradingOperationRevision, GradingOperationStore,
+    GradingOperationTarget, GradingOperationTrustGeneration, InstructorGradingOperationProjection,
+    InstructorGradingOperationRow, ListInstructorGradingOperationsCommand,
+    MAX_INSTRUCTOR_GRADING_RETRY_COUNT, RecalculateAssignmentCommand, RetryGradingOperationCommand,
+    WorkerId, canonical_attempt_result_json, canonical_student_response_json,
 };
 pub use crate::invitation_delivery::MAX_COURSE_INVITATION_DELIVERY_ATTEMPTS;
 pub use crate::invitation_delivery::{
@@ -240,7 +244,9 @@ pub use crate::policy::{
     UpdateCourseGroupPurposePolicyCommand,
 };
 #[cfg(feature = "postgres")]
-pub use crate::postgres::PostgresAcceptedSubmissionExecutionStore;
+pub use crate::postgres::{
+    PostgresAcceptedSubmissionFastPathStore, PostgresAcceptedSubmissionRecoveryStore,
+};
 pub use crate::qti::{
     CommitPreparedQtiImport, CommitPreparedQtiImportOutcome, CreateQtiImportCommand,
     QtiGradingStore, QtiImportGradingPayload, QtiImportItem, QtiImportItemRegistration,

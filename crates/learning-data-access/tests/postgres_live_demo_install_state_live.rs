@@ -11,7 +11,7 @@ use base_course_installation::{
 };
 use learning_data_access::StoreError;
 use learning_data_access::postgres::{
-    BaseCourseInstallerPool, PostgresStore, ProductionLoginProfile, apply_migrations,
+    BaseCourseInstallerPool, PostgresStore, ProductionLoginProfile,
     local_base_course_application_pool, local_base_course_installer_pool, local_development_pool,
     verify_base_course_freshness_capability,
 };
@@ -27,7 +27,11 @@ mod completion_evidence;
 #[path = "postgres_live_demo_install_state_live/product_lifecycle.rs"]
 mod product_lifecycle;
 
-const LIVE_DEMO_INSTALL_STATE_MIGRATION: i64 = 2_026_081_808;
+/// LD1 owns the live-demo installation marker, recipe, and completion receipt contract.
+///
+/// Child databases exercise that fixed product epoch so later work packages cannot silently
+/// become part of this installation oracle. The main-database migration proof remains current.
+const LIVE_DEMO_INSTALL_STATE_EPOCH_MIGRATION: i64 = 2_026_081_808;
 const INSTALLER_LOGIN: &str = "ple_base_course_installer_login";
 const INSTALLER_PASSWORD: &str = "install-state-installer-fixture";
 const APPLICATION_LOGIN: &str = "ple_base_course_app_login";
@@ -227,7 +231,7 @@ fn fresh() -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-fn migrations_through(version: i64) -> std::path::PathBuf {
+fn replay_migrations_through(cutoff: i64) -> std::path::PathBuf {
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas/migrations");
     let target = std::env::temp_dir().join(format!("ple-ld1-migrations-{}", fresh()));
     fs::create_dir_all(&target).expect("temporary migration directory");
@@ -238,11 +242,46 @@ fn migrations_through(version: i64) -> std::path::PathBuf {
         let Some(prefix) = text.split('_').next() else {
             continue;
         };
-        if prefix.parse::<i64>().is_ok_and(|found| found <= version) {
+        if prefix.parse::<i64>().is_ok_and(|found| found <= cutoff) {
             fs::copy(entry.path(), target.join(name)).expect("copy migration");
         }
     }
     target
+}
+
+fn pre_live_demo_install_state_epoch_migrations() -> std::path::PathBuf {
+    replay_migrations_through(LIVE_DEMO_INSTALL_STATE_EPOCH_MIGRATION - 1)
+}
+
+fn live_demo_install_state_epoch_migrations() -> std::path::PathBuf {
+    replay_migrations_through(LIVE_DEMO_INSTALL_STATE_EPOCH_MIGRATION)
+}
+
+async fn apply_live_demo_install_state_epoch_migrations(pool: &sqlx::PgPool) -> std::path::PathBuf {
+    let migrations = live_demo_install_state_epoch_migrations();
+    sqlx::migrate::Migrator::new(migrations.clone())
+        .await
+        .expect("LD1 epoch migrator")
+        .run(pool)
+        .await
+        .expect("migrate isolated child database through the LD1 epoch");
+    migrations
+}
+
+async fn assert_live_demo_install_state_epoch(pool: &sqlx::PgPool) {
+    let migration_bounds: (i64, i64) = sqlx::query_as(
+        "SELECT count(*) FILTER(WHERE success AND version=$1), \
+         coalesce(max(version) FILTER(WHERE success),0) FROM public._sqlx_migrations",
+    )
+    .bind(LIVE_DEMO_INSTALL_STATE_EPOCH_MIGRATION)
+    .fetch_one(pool)
+    .await
+    .expect("LD1 migration ledger bounds");
+    assert_eq!(migration_bounds.0, 1, "LD1 migration applies exactly once");
+    assert_eq!(
+        migration_bounds.1, LIVE_DEMO_INSTALL_STATE_EPOCH_MIGRATION,
+        "child database replay ends at the LD1 installation epoch"
+    );
 }
 
 async fn admin_pool(url: &str) -> sqlx::PgPool {
@@ -358,7 +397,7 @@ async fn run_freshness_case(admin: &sqlx::PgPool, url: &str, case: FreshnessCase
         .connect_with(options)
         .await
         .expect("freshness database connection");
-    let before = migrations_through(LIVE_DEMO_INSTALL_STATE_MIGRATION - 1);
+    let before = pre_live_demo_install_state_epoch_migrations();
     sqlx::migrate::Migrator::new(before.clone())
         .await
         .expect("pre-LD1 migrator")
@@ -371,21 +410,12 @@ async fn run_freshness_case(admin: &sqlx::PgPool, url: &str, case: FreshnessCase
             .await
             .expect("seed pre-marker freshness case");
     }
-    apply_migrations(&pool)
+    let epoch = apply_live_demo_install_state_epoch_migrations(&pool).await;
+    verify_base_course_freshness_capability(&pool)
         .await
-        .expect("ordinary application schema upgrades through the current product migration");
-    verify_base_course_freshness_capability(&pool).await.expect(
-        "Base Course freshness capability reconciles through the current product migration",
-    );
+        .expect("Base Course freshness capability reconciles through the LD1 installation epoch");
     case.seed_after_migrations(&pool).await;
-    let ledger_count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM public._sqlx_migrations \
-         WHERE success AND version = 2026081808",
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("LD1 migration ledger row");
-    assert_eq!(ledger_count, 1);
+    assert_live_demo_install_state_epoch(&pool).await;
 
     let product = ProductDatabase::provision(admin, url, &database).await;
     let installer = product.installer_pool();
@@ -451,6 +481,7 @@ async fn run_freshness_case(admin: &sqlx::PgPool, url: &str, case: FreshnessCase
     drop(installer);
     pool.close().await;
     fs::remove_dir_all(before).expect("remove pre-LD1 migrations");
+    fs::remove_dir_all(epoch).expect("remove LD1 epoch migrations");
     let _ = sqlx::query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1")
         .bind(&database)
         .execute(admin)

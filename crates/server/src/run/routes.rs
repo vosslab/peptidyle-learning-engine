@@ -15,6 +15,9 @@ use learning_data_access::{
 };
 use question_model::{AssignmentId, CourseId, RunId};
 
+use crate::accepted_submission_worker::{
+    AcceptedSubmissionFastPath, UnavailableAcceptedSubmissionFastPath,
+};
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::contracts::RunBackend;
@@ -22,9 +25,10 @@ use super::manual_grading;
 use super::prefetch::{ensure_active_questions, prefetch_next_question};
 use super::queries::{
     all_attempts, get_attempt, get_attempt_question, get_enrollment, get_run, get_run_summary,
-    get_submission_status, get_summary, list_attempts, list_runs, release_attempt_feedback,
+    get_summary, list_attempts, list_runs, release_attempt_feedback,
 };
 use super::submission::submit_response;
+use super::submission_status::get_submission_status;
 use super::support::{
     MAX_SUBMISSION_BODY_BYTES, RunRouteState, no_store_response, store_error_response,
 };
@@ -40,6 +44,40 @@ pub fn router<S, B>(
     sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
     learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
     automated_grading: Arc<dyn AutomatedGradingStore>,
+) -> Router
+where
+    S: Store
+        + CatalogStore
+        + CourseAppearanceStore
+        + CourseItemAnalysisStore
+        + ManualGradingStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + 'static,
+    B: RunBackend + 'static,
+{
+    router_with_accepted_submission_fast_path(
+        store,
+        backend,
+        sealed_execution,
+        learner_submission_status,
+        automated_grading,
+        Arc::new(UnavailableAcceptedSubmissionFastPath),
+    )
+}
+
+/// Builds run routes with the narrow exact-claim execution capability.
+///
+/// The composition root supplies a typed implementation when its dedicated
+/// fast-path pool is available. Keeping this argument separate from `Store`
+/// prevents browser route persistence from becoming grading authority.
+pub(crate) fn router_with_accepted_submission_fast_path<S, B>(
+    store: Arc<S>,
+    backend: Arc<B>,
+    sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
+    learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
+    automated_grading: Arc<dyn AutomatedGradingStore>,
+    accepted_submission_fast_path: Arc<dyn AcceptedSubmissionFastPath>,
 ) -> Router
 where
     S: Store
@@ -102,6 +140,7 @@ where
             sealed_execution,
             learner_submission_status,
             automated_grading,
+            accepted_submission_fast_path,
         })
 }
 

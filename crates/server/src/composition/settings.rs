@@ -1,5 +1,6 @@
 //! Fail-closed production configuration and secret ingestion.
 
+pub(super) use super::accepted_submission_execution::AcceptedSubmissionExecutionSettings;
 use super::backend::ConfiguredImathas;
 use super::*;
 
@@ -337,6 +338,12 @@ impl PublisherStorageDependencies {
 
 pub(super) struct ProductionSettings {
     pub(super) storage: StorageSettings,
+    #[cfg(any(not(feature = "e2e-grader-fault"), test))]
+    #[cfg_attr(feature = "e2e-grader-fault", allow(dead_code))]
+    pub(super) accepted_submission_execution: AcceptedSubmissionExecutionSettings,
+    #[cfg(any(not(feature = "e2e-grader-fault"), test))]
+    #[cfg_attr(feature = "e2e-grader-fault", allow(dead_code))]
+    pub(super) accepted_submission_fast_path_database_url: String,
     pub(super) public_asset_base_url: PublicAssetBaseUrl,
     pub(super) grading: GradingBackendSettings,
     pub(super) imathas_provider_key: Option<String>,
@@ -459,6 +466,12 @@ impl ProductionSettings {
         let live_demo_selector = live_demo_selector_from_env(&webauthn_origin)?;
         Ok(Self {
             storage: StorageSettings::from_env(runtime)?,
+            #[cfg(any(not(feature = "e2e-grader-fault"), test))]
+            accepted_submission_execution: AcceptedSubmissionExecutionSettings::from_env()?,
+            #[cfg(any(not(feature = "e2e-grader-fault"), test))]
+            accepted_submission_fast_path_database_url: required_env(
+                "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL",
+            )?,
             public_asset_base_url,
             grading: GradingBackendSettings::from_env()?,
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
@@ -680,6 +693,26 @@ pub(super) fn invitation_delivery_worker_from_env() -> Result<
 
 pub(super) fn invitation_delivery_worker_database_url_from_env() -> Result<String> {
     required_env("PLE_INVITATION_DELIVERY_DATABASE_URL")
+}
+
+pub(super) fn bounded_env<T>(name: &str, default: T, minimum: T, maximum: T) -> Result<T>
+where
+    T: Copy + Ord + std::str::FromStr,
+{
+    let value = optional_env(name)?;
+    let value = value
+        .as_deref()
+        .map(|value| {
+            value
+                .parse::<T>()
+                .map_err(|_| anyhow::anyhow!("{name} must be an integer"))
+        })
+        .transpose()?
+        .unwrap_or(default);
+    if value < minimum || value > maximum {
+        bail!("{name} is outside its supported range");
+    }
+    Ok(value)
 }
 
 impl EnrollmentSecretSettings {

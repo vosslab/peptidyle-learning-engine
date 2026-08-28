@@ -2,11 +2,17 @@
 
 use std::str::FromStr;
 
-use learning_data_access::postgres::apply_migrations;
 use sqlx::AssertSqlSafe;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
 use super::*;
+
+// This child database exists to prove the closed course-creation recipe that
+// migration 1818 introduced. Its schema therefore stops at that authority
+// epoch instead of inheriting unrelated later product capabilities.
+static COURSE_CREATION_RECIPE_MIGRATOR: sqlx::migrate::Migrator =
+    sqlx::migrate!("../../schemas/migrations");
+const COURSE_CREATION_RECIPE_MIGRATION_CUTOFF: i64 = COURSE_CREATION_MIGRATION;
 
 // Isolated databases are created concurrently by the authority oracle.  Keep
 // their migration setup serialized while the shared live schema is validated
@@ -46,9 +52,10 @@ impl IsolatedDatabase {
             .await
             .expect("isolated authority database connection");
         let _migration_guard = ISOLATED_MIGRATION_LOCK.lock().await;
-        apply_migrations(&pool)
+        COURSE_CREATION_RECIPE_MIGRATOR
+            .run_to(COURSE_CREATION_RECIPE_MIGRATION_CUTOFF, &pool)
             .await
-            .expect("migrate isolated authority database");
+            .expect("migrate isolated authority database through the course-creation recipe epoch");
         Self { pool, admin, name }
     }
 

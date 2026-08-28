@@ -5,6 +5,8 @@
 //! focused contract fixtures, while this root makes it impossible for the API
 //! binary to acquire process-local educational state by accident.
 
+#[path = "composition/accepted_submission_execution.rs"]
+mod accepted_submission_execution;
 #[path = "composition/backend.rs"]
 mod backend;
 #[path = "composition/router.rs"]
@@ -16,6 +18,8 @@ mod worker;
 
 use backend::PersistentDependencies;
 use settings::StorageRuntime;
+#[cfg(feature = "e2e-grader-fault")]
+pub use worker::run_deterministic_grader_exception_worker_from_env;
 pub use worker::{
     run_production_invitation_delivery_worker_from_env, run_production_worker_from_env,
     run_public_asset_publisher_from_env,
@@ -40,8 +44,14 @@ use axum::{
 pub(super) use base64::Engine;
 pub(super) use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 pub(super) use learning_data_access::postgres::{
-    Pool, PostgresAcceptedSubmissionExecutionStore, PostgresGraderStore, PostgresStore,
-    ProductionLoginProfile, SchemaCompatibilityError, production_pool,
+    Pool, PostgresAcceptedSubmissionRecoveryStore, PostgresGraderStore, PostgresStore,
+    ProductionLoginProfile, SchemaCompatibilityError, accepted_submission_recovery_pool,
+    local_accepted_submission_recovery_pool, production_pool,
+};
+#[cfg(not(feature = "e2e-grader-fault"))]
+pub(super) use learning_data_access::postgres::{
+    PostgresAcceptedSubmissionFastPathStore, accepted_submission_fast_path_pool,
+    local_accepted_submission_fast_path_pool,
 };
 pub(super) use learning_data_access::{
     AssetStore, AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore,

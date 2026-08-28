@@ -2,16 +2,23 @@
 
 use super::*;
 use crate::{
-    AcceptedSubmissionGrade, GradingExecution, GradingExecutionGeneration, Store,
-    SubmissionReceiptRead, canonical_attempt_result_json,
+    AcceptedSubmissionGrade, AcceptedSubmissionId, AssignmentScoringPreparationOutcome,
+    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, GradingExecution,
+    GradingExecutionGeneration, GradingOperation, GradingOperationActionId,
+    GradingOperationGroupBy, GradingOperationRevision, GradingOperationStore,
+    GradingOperationTarget, JobClaimFilter, JobKind, JobStore,
+    ListInstructorGradingOperationsCommand, RetryGradingOperationCommand, SessionLifetime,
+    SessionStore, SessionSubject, SessionTokenHash, Store, SubmissionReceiptRead,
+    canonical_attempt_result_json,
 };
 use question_model::envelope::ContentBlock;
 use question_model::{
     AssignmentEnrollment, AssignmentItem, AssignmentItemId, AssignmentRun, AttemptResult,
-    CourseMembershipId, CourseMembershipRole, CourseTerm, FeedbackContent, RunMode, StudentId,
+    CourseMembershipId, CourseMembershipRole, CourseTerm, FeedbackContent, GradingOperationAction,
+    GradingOperationReason, GradingOperationReference, GradingOperationState, RunMode, StudentId,
 };
 
-pub(super) fn seed_complete_issued_execution(
+pub(crate) fn seed_complete_issued_execution(
     store: &MemoryStore,
 ) -> (TenantId, UserId, QuestionAttemptId, AcceptedSubmissionId) {
     let tenant = TenantId::from_uuid(Uuid::from_u128(75_001));
@@ -188,6 +195,117 @@ pub(super) fn seed_complete_issued_execution(
 }
 
 #[tokio::test]
+async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations() {
+    let store = MemoryStore::default();
+    let (tenant, actor, attempt, submission) = seed_complete_issued_execution(&store);
+    let course = CourseId::from_uuid(Uuid::from_u128(75_003));
+    let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
+    let operation = GradingOperationReference::new(1).expect("positive operation reference");
+    let membership = CourseMembershipId::from_uuid(Uuid::from_u128(75_013));
+    let session = SessionTokenHash::compute(b"instructor operation session");
+    store
+        .create_session(
+            session,
+            SessionSubject::new(
+                tenant,
+                actor,
+                "Instructor",
+                vec![question_model::UserRole::Instructor],
+            )
+            .expect("session subject"),
+            SessionLifetime::from_seconds(60).expect("session lifetime"),
+        )
+        .await
+        .expect("session");
+    {
+        let mut state = store.write_state().expect("fixture state");
+        state
+            .course_memberships
+            .get_mut(&(tenant, membership))
+            .expect("membership")
+            .role = CourseMembershipRole::Instructor;
+        state.assignment_revisions.insert(
+            (tenant, assignment),
+            question_model::AssignmentRevision::INITIAL,
+        );
+        state
+            .automated_grading_executions
+            .get_mut(&(tenant, attempt))
+            .expect("execution")
+            .state = crate::GradingExecutionState::Exception;
+        state.automated_grading_operations.insert(
+            (tenant, operation),
+            GradingOperation {
+                tenant,
+                course,
+                assignment,
+                reference: operation,
+                target: GradingOperationTarget::SubmissionRecovery { submission },
+                reason: GradingOperationReason::GraderExecutionFailure,
+                state: GradingOperationState::Actionable,
+                revision: GradingOperationRevision::INITIAL,
+                next_action: Some(GradingOperationAction::Retry),
+            },
+        );
+    }
+    let command = RetryGradingOperationCommand {
+        tenant,
+        session,
+        course,
+        assignment,
+        operation,
+        action: GradingOperationActionId::from_uuid(Uuid::from_u128(75_100)),
+        expected_revision: GradingOperationRevision::INITIAL,
+    };
+    let context = TenantContext::from_authenticated_session(tenant);
+    let receipt = store
+        .retry_instructor_grading_operation(context, command.clone())
+        .await
+        .expect("current Instructor retry");
+    assert_eq!(
+        store
+            .retry_instructor_grading_operation(context, command.clone())
+            .await
+            .expect("exact replay"),
+        receipt
+    );
+    {
+        let state = store.read_state().expect("retried state");
+        let execution = state.automated_grading_executions[&(tenant, attempt)];
+        assert_eq!(execution.generation.as_u64(), 2);
+        let expected_job = crate::JobId::from_uuid(command.action.as_uuid());
+        assert_eq!(execution.job, expected_job);
+        assert_eq!(state.jobs[&expected_job].state, JobState::Ready);
+    }
+
+    store
+        .write_state()
+        .expect("revoke state")
+        .course_memberships
+        .get_mut(&(tenant, membership))
+        .expect("membership")
+        .status = CourseMemberStatus::Revoked;
+    assert_eq!(
+        store
+            .list_instructor_grading_operations(
+                context,
+                ListInstructorGradingOperationsCommand {
+                    tenant,
+                    session,
+                    course,
+                    assignment,
+                    group_by: GradingOperationGroupBy::Question,
+                    page: crate::PageRequest::first(
+                        crate::PageSize::new(1).expect("bounded page"),
+                    ),
+                },
+            )
+            .await,
+        Err(StoreError::NotFound)
+    );
+}
+
+#[tokio::test]
 async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculation() {
     let store = MemoryStore::default();
     let (tenant, actor, attempt, submission) = seed_complete_issued_execution(&store);
@@ -318,6 +436,313 @@ async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculat
     assert_eq!(
         state.automated_grading_executions[&(tenant, attempt)].submission,
         submission
+    );
+}
+
+#[tokio::test]
+async fn worker_outcomes_project_the_exact_instructor_operation_threads() {
+    let store = MemoryStore::default();
+    let (tenant, _actor, _attempt, submission) = seed_complete_issued_execution(&store);
+    let course = CourseId::from_uuid(Uuid::from_u128(75_003));
+    let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
+    let submission_operation = GradingOperationReference::new(1).expect("positive reference");
+    {
+        let mut state = store.write_state().expect("memory state");
+        state.automated_grading_operations.insert(
+            (tenant, submission_operation),
+            GradingOperation {
+                tenant,
+                course,
+                assignment,
+                reference: submission_operation,
+                target: GradingOperationTarget::SubmissionRecovery { submission },
+                reason: GradingOperationReason::GraderExecutionFailure,
+                state: GradingOperationState::ActionInProgress,
+                revision: GradingOperationRevision::INITIAL,
+                next_action: None,
+            },
+        );
+    }
+    let claim = store
+        .claim_next_accepted_submission_execution(
+            WorkerId::from_uuid(Uuid::from_u128(75_110)),
+            JobLeaseDuration::from_seconds(30).expect("valid lease"),
+        )
+        .await
+        .expect("claim succeeds")
+        .expect("issued execution is claimable");
+    let grade = AcceptedSubmissionGrade {
+        evidence: canonical_attempt_result_json(AttemptResult {
+            correct: true,
+            points_earned: 2.0,
+            points_possible: 2.0,
+        })
+        .expect("canonical result"),
+        feedback: FeedbackContent::default(),
+    };
+    assert_eq!(
+        store
+            .commit_or_fail_accepted_submission_execution(
+                TenantContext::from_authenticated_session(tenant),
+                claim,
+                AcceptedSubmissionExecutionOutcome::Evaluated { grade },
+            )
+            .await
+            .expect("worker completion"),
+        AcceptedSubmissionExecutionDisposition::Committed
+    );
+
+    let generation = ScoringGeneration::new(2).expect("next generation");
+    let scoring_operation = GradingOperationReference::new(2).expect("positive reference");
+    {
+        let mut state = store.write_state().expect("completed state");
+        state.automated_grading_operations.insert(
+            (tenant, scoring_operation),
+            GradingOperation {
+                tenant,
+                course,
+                assignment,
+                reference: scoring_operation,
+                target: GradingOperationTarget::AssignmentScoringGeneration {
+                    requested_generation: generation,
+                },
+                reason: GradingOperationReason::InstructorRequestedRecalculation,
+                state: GradingOperationState::ActionInProgress,
+                revision: GradingOperationRevision::INITIAL,
+                next_action: None,
+            },
+        );
+    }
+    let scoring_claim = store
+        .claim_next_job(
+            &JobClaimFilter::new([JobKind::RecalculateAssignment]).expect("scoring filter"),
+            JobLeaseDuration::from_seconds(30).expect("valid lease"),
+        )
+        .await
+        .expect("scoring claim")
+        .expect("recalculation is queued");
+    let command = AssignmentScoringWorkerCommand {
+        job: scoring_claim.id,
+        lease: scoring_claim.lease_token,
+        assignment,
+        generation,
+    };
+    store
+        .prepare_assignment_scoring(TenantContext::from_authenticated_session(tenant), command)
+        .await
+        .expect("scoring preparation");
+    assert_eq!(
+        store
+            .commit_assignment_scoring(TenantContext::from_authenticated_session(tenant), command)
+            .await
+            .expect("scoring publication"),
+        crate::AssignmentScoringCommitOutcome::Committed
+    );
+
+    let state = store.read_state().expect("projected state");
+    assert_eq!(
+        state.automated_grading_operations[&(tenant, submission_operation)].state,
+        GradingOperationState::Completed
+    );
+    let scoring = state.automated_grading_operations[&(tenant, scoring_operation)];
+    assert_eq!(scoring.state, GradingOperationState::Completed);
+    assert_eq!(scoring.next_action, None);
+}
+
+#[tokio::test]
+async fn terminal_worker_failure_reopens_the_existing_submission_thread() {
+    let store = MemoryStore::default();
+    let (tenant, _actor, _attempt, submission) = seed_complete_issued_execution(&store);
+    let course = CourseId::from_uuid(Uuid::from_u128(75_003));
+    let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
+    let reference = GradingOperationReference::new(1).expect("positive reference");
+    {
+        let mut state = store.write_state().expect("memory state");
+        state.automated_grading_operations.insert(
+            (tenant, reference),
+            GradingOperation {
+                tenant,
+                course,
+                assignment,
+                reference,
+                target: GradingOperationTarget::SubmissionRecovery { submission },
+                reason: GradingOperationReason::GraderExecutionFailure,
+                state: GradingOperationState::ActionInProgress,
+                revision: GradingOperationRevision::INITIAL,
+                next_action: None,
+            },
+        );
+    }
+    let claim = store
+        .claim_next_accepted_submission_execution(
+            WorkerId::from_uuid(Uuid::from_u128(75_111)),
+            JobLeaseDuration::from_seconds(30).expect("valid lease"),
+        )
+        .await
+        .expect("claim succeeds")
+        .expect("issued execution is claimable");
+    assert_eq!(
+        store
+            .commit_or_fail_accepted_submission_execution(
+                TenantContext::from_authenticated_session(tenant),
+                claim,
+                AcceptedSubmissionExecutionOutcome::TerminalFailure,
+            )
+            .await
+            .expect("terminal failure is committed"),
+        AcceptedSubmissionExecutionDisposition::Terminal
+    );
+
+    let state = store.read_state().expect("failed state");
+    let operation = state.automated_grading_operations[&(tenant, reference)];
+    assert_eq!(operation.state, GradingOperationState::Actionable);
+    assert_eq!(operation.next_action, Some(GradingOperationAction::Retry));
+}
+
+#[tokio::test]
+async fn scoring_worker_retires_a_generation_superseded_before_preparation() {
+    let store = MemoryStore::default();
+    let (tenant, _actor, _attempt, _submission) = seed_complete_issued_execution(&store);
+    let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
+    let stale_generation = ScoringGeneration::INITIAL;
+    let current_generation = ScoringGeneration::new(2).expect("next generation");
+    let job = crate::JobId::from_uuid(Uuid::from_u128(75_111));
+    {
+        let mut state = store.write_state().expect("memory state");
+        let now = state.authoritative_time;
+        state.assignment_scoring.insert(
+            (tenant, assignment),
+            (current_generation, ScoringStatus::Recalculating),
+        );
+        state.jobs.insert(
+            job,
+            StoredJob {
+                tenant,
+                payload: JobPayload::RecalculateAssignment {
+                    assignment,
+                    generation: stale_generation,
+                },
+                state: JobState::Ready,
+                available_at: now,
+                lease_token: None,
+                lease_expires_at: None,
+                attempt_count: 0,
+                max_attempts: 3,
+                failure: None,
+            },
+        );
+    }
+    let claim = store
+        .claim_exact_job(
+            job,
+            JobLeaseDuration::from_seconds(30).expect("valid lease"),
+        )
+        .await
+        .expect("claim succeeds")
+        .expect("stale generation remains claimable");
+    let command = AssignmentScoringWorkerCommand {
+        job,
+        lease: claim.lease_token,
+        assignment,
+        generation: stale_generation,
+    };
+
+    assert_eq!(
+        store
+            .prepare_assignment_scoring(TenantContext::from_authenticated_session(tenant), command,)
+            .await
+            .expect("valid stale claim has a terminal preparation outcome"),
+        AssignmentScoringPreparationOutcome::Superseded
+    );
+    assert_eq!(
+        store
+            .commit_assignment_scoring(TenantContext::from_authenticated_session(tenant), command,)
+            .await
+            .expect("superseded scoring job retires normally"),
+        crate::AssignmentScoringCommitOutcome::Superseded
+    );
+    assert_eq!(
+        store.read_state().expect("completed state").jobs[&job].state,
+        JobState::Completed
+    );
+}
+
+#[tokio::test]
+async fn terminal_scoring_failure_reopens_the_exact_recalculation_thread() {
+    let store = MemoryStore::default();
+    let (tenant, _actor, _attempt, _submission) = seed_complete_issued_execution(&store);
+    let course = CourseId::from_uuid(Uuid::from_u128(75_003));
+    let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
+    let generation = ScoringGeneration::new(2).expect("next generation");
+    let operation = GradingOperationReference::new(1).expect("positive reference");
+    let job = crate::JobId::from_uuid(Uuid::from_u128(75_112));
+    {
+        let mut state = store.write_state().expect("memory state");
+        let now = state.authoritative_time;
+        state.assignment_scoring.insert(
+            (tenant, assignment),
+            (generation, ScoringStatus::Recalculating),
+        );
+        state.jobs.insert(
+            job,
+            StoredJob {
+                tenant,
+                payload: JobPayload::RecalculateAssignment {
+                    assignment,
+                    generation,
+                },
+                state: JobState::Ready,
+                available_at: now,
+                lease_token: None,
+                lease_expires_at: None,
+                attempt_count: 0,
+                max_attempts: 1,
+                failure: None,
+            },
+        );
+        state.automated_grading_operations.insert(
+            (tenant, operation),
+            GradingOperation {
+                tenant,
+                course,
+                assignment,
+                reference: operation,
+                target: GradingOperationTarget::AssignmentScoringGeneration {
+                    requested_generation: generation,
+                },
+                reason: GradingOperationReason::InstructorRequestedRecalculation,
+                state: GradingOperationState::ActionInProgress,
+                revision: GradingOperationRevision::INITIAL,
+                next_action: None,
+            },
+        );
+    }
+    let claim = store
+        .claim_exact_job(
+            job,
+            JobLeaseDuration::from_seconds(30).expect("valid lease"),
+        )
+        .await
+        .expect("claim succeeds")
+        .expect("recalculation is queued");
+    assert_eq!(
+        store
+            .fail_job(job, claim.lease_token, crate::JobFailureKind::Permanent)
+            .await
+            .expect("terminal failure"),
+        crate::JobFailureDisposition::Dead
+    );
+
+    let state = store.read_state().expect("failed state");
+    assert_eq!(
+        state.assignment_scoring[&(tenant, assignment)],
+        (generation, ScoringStatus::Failed)
+    );
+    let operation = state.automated_grading_operations[&(tenant, operation)];
+    assert_eq!(operation.state, GradingOperationState::Actionable);
+    assert_eq!(
+        operation.next_action,
+        Some(GradingOperationAction::Recalculate)
     );
 }
 

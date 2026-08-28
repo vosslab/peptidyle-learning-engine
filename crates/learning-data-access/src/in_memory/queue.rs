@@ -8,25 +8,33 @@ fn mark_export_failed(state: &mut State, job: JobId) {
     }
 }
 
-fn mark_assignment_scoring_failed(state: &mut State, job: JobId) {
-    let Some(StoredJob {
-        tenant,
-        payload:
-            JobPayload::RecalculateAssignment {
-                assignment,
-                generation,
-            },
-        ..
-    }) = state.jobs.get(&job)
-    else {
-        return;
+fn mark_assignment_scoring_failed(state: &mut State, job: JobId) -> Result<(), StoreError> {
+    let Some((tenant, assignment, generation)) = state.jobs.get(&job).and_then(|stored| {
+        let JobPayload::RecalculateAssignment {
+            assignment,
+            generation,
+        } = stored.payload
+        else {
+            return None;
+        };
+        Some((stored.tenant, assignment, generation))
+    }) else {
+        return Ok(());
     };
-    let key = (*tenant, *assignment);
-    if state.assignment_scoring.get(&key) == Some(&(*generation, ScoringStatus::Recalculating)) {
+    let key = (tenant, assignment);
+    if state.assignment_scoring.get(&key) == Some(&(generation, ScoringStatus::Recalculating)) {
         state
             .assignment_scoring
-            .insert(key, (*generation, ScoringStatus::Failed));
+            .insert(key, (generation, ScoringStatus::Failed));
+        super::grading_operation_lifecycle::project_assignment_scoring_operation(
+            state,
+            tenant,
+            assignment,
+            generation,
+            ScoringStatus::Failed,
+        )?;
     }
+    Ok(())
 }
 
 pub(super) fn retry_delay_seconds(attempt_count: u16) -> i32 {
@@ -102,7 +110,7 @@ impl JobStore for MemoryStore {
         }
         for id in expired_export_jobs {
             mark_export_failed(&mut state, id);
-            mark_assignment_scoring_failed(&mut state, id);
+            mark_assignment_scoring_failed(&mut state, id)?;
         }
 
         let id = [false, true].into_iter().find_map(|analysis_only| {
@@ -171,6 +179,9 @@ impl JobStore for MemoryStore {
             job.lease_token = None;
             job.lease_expires_at = None;
             job.failure = Some(JobFailureKind::TimedOut);
+            let _ = job;
+            mark_export_failed(&mut state, id);
+            mark_assignment_scoring_failed(&mut state, id)?;
             return Ok(None);
         }
         job.state = JobState::Leased;
@@ -227,7 +238,7 @@ impl JobStore for MemoryStore {
         if failure == JobFailureKind::Permanent || job.attempt_count >= job.max_attempts {
             job.state = JobState::Dead;
             mark_export_failed(&mut state, id);
-            mark_assignment_scoring_failed(&mut state, id);
+            mark_assignment_scoring_failed(&mut state, id)?;
             return Ok(JobFailureDisposition::Dead);
         }
         let delay_seconds = retry_delay_seconds(job.attempt_count);
@@ -370,7 +381,7 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
         &self,
         context: TenantContext,
         command: crate::AssignmentScoringWorkerCommand,
-    ) -> Result<(), StoreError> {
+    ) -> Result<crate::AssignmentScoringPreparationOutcome, StoreError> {
         let mut state = self.write_state()?;
         let job = state.jobs.get(&command.job).ok_or(StoreError::NotFound)?;
         if job.tenant != context.tenant_id()
@@ -387,6 +398,14 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
+        if state
+            .assignment_scoring
+            .get(&(context.tenant_id(), command.assignment))
+            != Some(&(command.generation, ScoringStatus::Recalculating))
+        {
+            state.assignment_score_staging.remove(&command.job);
+            return Ok(crate::AssignmentScoringPreparationOutcome::Superseded);
+        }
         let prepared = build_memory_assignment_scoring(
             &state,
             context.tenant_id(),
@@ -394,7 +413,7 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
             command.generation,
         )?;
         state.assignment_score_staging.insert(command.job, prepared);
-        Ok(())
+        Ok(crate::AssignmentScoringPreparationOutcome::Prepared)
     }
 
     async fn commit_assignment_scoring(
@@ -419,27 +438,27 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
         if !claim_active {
             return Ok(crate::AssignmentScoringCommitOutcome::ClaimNoLongerActive);
         }
-        let prepared = state
-            .assignment_score_staging
-            .remove(&command.job)
-            .ok_or(StoreError::Conflict)?;
-        if prepared.tenant != context.tenant_id()
-            || prepared.assignment != command.assignment
-            || prepared.generation != command.generation
-        {
-            return Err(StoreError::Conflict);
-        }
         let key = (context.tenant_id(), command.assignment);
         let current = state
             .assignment_scoring
             .get(&key)
             .copied()
             .ok_or(StoreError::NotFound)?;
-        let superseded = current.0 != command.generation;
-        let analysis_job = (!superseded)
-            .then(|| super::item_analysis::allocate_course_item_analysis_job(&state))
-            .transpose()?;
-        if !superseded {
+        let superseded = current != (command.generation, ScoringStatus::Recalculating);
+        if superseded {
+            state.assignment_score_staging.remove(&command.job);
+        } else {
+            let prepared = state
+                .assignment_score_staging
+                .remove(&command.job)
+                .ok_or(StoreError::Conflict)?;
+            if prepared.tenant != context.tenant_id()
+                || prepared.assignment != command.assignment
+                || prepared.generation != command.generation
+            {
+                return Err(StoreError::Conflict);
+            }
+            let analysis_job = super::item_analysis::allocate_course_item_analysis_job(&state)?;
             let current_attempt_count = state
                 .submissions
                 .values()
@@ -510,9 +529,16 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
             state
                 .assignment_scoring
                 .insert(key, (command.generation, ScoringStatus::Current));
+            super::grading_operation_lifecycle::project_assignment_scoring_operation(
+                &mut state,
+                context.tenant_id(),
+                command.assignment,
+                command.generation,
+                ScoringStatus::Current,
+            )?;
             super::item_analysis::enqueue_course_item_analysis_after_scoring(
                 &mut state,
-                analysis_job.expect("current scoring generation allocates item-analysis work"),
+                analysis_job,
                 context.tenant_id(),
                 command.assignment,
                 command.generation,

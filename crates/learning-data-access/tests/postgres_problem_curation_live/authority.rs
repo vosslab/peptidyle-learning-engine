@@ -12,6 +12,41 @@ use uuid::Uuid;
 
 use crate::fixture::Fixture;
 
+#[derive(Clone, Copy, Debug)]
+pub(super) enum BrokerAuthorityStage {
+    D2,
+    FullyMigrated,
+}
+
+impl BrokerAuthorityStage {
+    fn expected_function_capabilities(self) -> Vec<&'static str> {
+        let mut capabilities = vec![
+            "public.ple_current_tenant()",
+            "public.ple_catalog_discovery_actor(character,uuid)",
+            "public.ple_instructor_approval_eligible(uuid)",
+            "public.ple_saved_problem_search_filter_v1_is_valid(jsonb)",
+            "public.ple_problem_curation_actor(character,uuid)",
+            "public.ple_problem_curation_instructor_actor(character,uuid)",
+            "public.ple_problem_curation_preflight_v1(uuid,character,text)",
+            "public.ple_problem_collection_readable(uuid,uuid,integer)",
+            "public.ple_ensure_problem_favorites_v1(uuid,character)",
+            "public.ple_list_problem_collections_v1(uuid,character,integer,integer)",
+            "public.ple_problem_collection_summary_v1(uuid,character,integer)",
+            "public.ple_problem_collection_members_v1(uuid,character,integer,integer,integer)",
+            "public.ple_replace_problem_collection_v1(uuid,character,integer,bigint,text,text,text[])",
+            "public.ple_replace_saved_problem_search_v1(uuid,character,integer,bigint,text,jsonb)",
+            "public.ple_list_saved_problem_searches_v1(uuid,character,integer,integer)",
+            "public.ple_saved_problem_search_v1(uuid,character,integer)",
+            "public.ple_delete_problem_collection_v1(uuid,character,integer,bigint)",
+            "public.ple_delete_saved_problem_search_v1(uuid,character,integer,bigint)",
+        ];
+        if matches!(self, Self::FullyMigrated) {
+            capabilities.push("public.digest(bytea,text)");
+        }
+        capabilities
+    }
+}
+
 fn fresh_id() -> Uuid {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).expect("D2 migration fixture randomness");
@@ -113,7 +148,7 @@ pub(super) async fn pre_d2_broker_drift_converges(url: &str) {
             .run(&pool)
             .await
             .expect("1836 converges arbitrary broker drift");
-        broker_role_and_forced_rls_are_sealed(&pool).await;
+        broker_role_and_forced_rls_are_sealed(&pool, BrokerAuthorityStage::D2).await;
         let applied: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM public._sqlx_migrations WHERE success AND version=2026081836",
         )
@@ -148,7 +183,10 @@ pub(super) async fn pre_d2_broker_drift_converges(url: &str) {
     result.expect("pre-D2 drift fixture task");
 }
 
-pub(super) async fn broker_role_and_forced_rls_are_sealed(pool: &PgPool) {
+pub(super) async fn broker_role_and_forced_rls_are_sealed(
+    pool: &PgPool,
+    stage: BrokerAuthorityStage,
+) {
     let author_ids_index: String = sqlx::query_scalar(
         "SELECT pg_get_indexdef('public.problem_version_author_ids_gin_idx'::regclass)",
     )
@@ -272,19 +310,21 @@ pub(super) async fn broker_role_and_forced_rls_are_sealed(pool: &PgPool) {
         ],
         "D2 sequence ACLs are exact"
     );
+    let expected_function_capabilities = stage
+        .expected_function_capabilities()
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let expected_function_capability_count = expected_function_capabilities.len() as i64;
     let function_acl: (i64, i64) = sqlx::query_as(
-        "SELECT count(*),count(*) FILTER (WHERE function_row.oid <> ALL(ARRAY[ \
-          'public.ple_current_tenant()'::regprocedure,'public.ple_catalog_discovery_actor(character,uuid)'::regprocedure, \
-          'public.ple_instructor_approval_eligible(uuid)'::regprocedure,'public.ple_saved_problem_search_filter_v1_is_valid(jsonb)'::regprocedure, \
-          'public.ple_problem_curation_actor(character,uuid)'::regprocedure,'public.ple_problem_curation_instructor_actor(character,uuid)'::regprocedure, \
-          'public.ple_problem_curation_preflight_v1(uuid,character,text)'::regprocedure,'public.ple_problem_collection_readable(uuid,uuid,integer)'::regprocedure, \
-          'public.ple_ensure_problem_favorites_v1(uuid,character)'::regprocedure,'public.ple_list_problem_collections_v1(uuid,character,integer,integer)'::regprocedure, \
-          'public.ple_problem_collection_summary_v1(uuid,character,integer)'::regprocedure,'public.ple_problem_collection_members_v1(uuid,character,integer,integer,integer)'::regprocedure, \
-          'public.ple_replace_problem_collection_v1(uuid,character,integer,bigint,text,text,text[])'::regprocedure, \
-          'public.ple_replace_saved_problem_search_v1(uuid,character,integer,bigint,text,jsonb)'::regprocedure, \
-          'public.ple_list_saved_problem_searches_v1(uuid,character,integer,integer)'::regprocedure,'public.ple_saved_problem_search_v1(uuid,character,integer)'::regprocedure, \
-          'public.ple_delete_problem_collection_v1(uuid,character,integer,bigint)'::regprocedure, \
-          'public.ple_delete_saved_problem_search_v1(uuid,character,integer,bigint)'::regprocedure])) \
+        "WITH expected_capability AS ( \
+           SELECT to_regprocedure(capability)::oid AS oid \
+             FROM unnest($1::text[]) AS capability \
+         ) \
+         SELECT count(*),count(*) FILTER (WHERE NOT EXISTS ( \
+           SELECT 1 FROM expected_capability \
+            WHERE expected_capability.oid=function_row.oid \
+         )) \
          FROM pg_proc AS function_row JOIN pg_namespace AS namespace \
            ON namespace.oid=function_row.pronamespace \
          CROSS JOIN LATERAL aclexplode(coalesce( \
@@ -292,10 +332,15 @@ pub(super) async fn broker_role_and_forced_rls_are_sealed(pool: &PgPool) {
          WHERE namespace.nspname='public' \
            AND privilege.grantee='ple_problem_curation_broker'::regrole",
     )
+    .bind(expected_function_capabilities)
     .fetch_one(pool)
     .await
     .expect("D2 broker function ACLs");
-    assert_eq!(function_acl, (18, 0), "D2 function ACLs are exact");
+    assert_eq!(
+        function_acl,
+        (expected_function_capability_count, 0),
+        "{stage:?} function ACLs are exact"
+    );
     for relation in [
         "problem_collection",
         "problem_collection_member",

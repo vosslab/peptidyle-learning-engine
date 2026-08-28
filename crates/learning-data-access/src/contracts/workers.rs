@@ -155,6 +155,15 @@ pub struct AssignmentScoringWorkerCommand {
     pub generation: ScoringGeneration,
 }
 
+/// Result of preparing one claimed assignment-scoring generation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AssignmentScoringPreparationOutcome {
+    /// Private staging is complete for the claimed generation.
+    Prepared,
+    /// A later invalidation or terminal publication made this generation obsolete.
+    Superseded,
+}
+
 /// Result of atomically publishing one prepared scoring generation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AssignmentScoringCommitOutcome {
@@ -174,7 +183,7 @@ pub trait AssignmentScoringWorkerStore: Send + Sync {
         &self,
         context: TenantContext,
         command: AssignmentScoringWorkerCommand,
-    ) -> Result<(), StoreError>;
+    ) -> Result<AssignmentScoringPreparationOutcome, StoreError>;
 
     /// Conditionally replaces current rows and completes the exact queue lease.
     async fn commit_assignment_scoring(

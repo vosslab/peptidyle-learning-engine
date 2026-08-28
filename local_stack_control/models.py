@@ -63,6 +63,7 @@ class LiveDemoProfile(enum.StrEnum):
 	WEBWORK_RENDER_RPC = "webwork_render_rpc"
 	REPLICA_RESTART = "replica_restart"
 	DATABASE_BASELINE = "database_baseline"
+	AUTOMATED_GRADING_FAULT = "automated_grading_fault"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -78,6 +79,7 @@ class LiveDemoProfilePolicy:
 	diagnostic_services: tuple[str, ...] = ()
 	application_image: str | None = None
 	service_replica_counts: tuple[tuple[str, int], ...] = ()
+	fault_worker_service: str | None = None
 
 
 LIVE_DEMO_PROFILE_POLICIES = (
@@ -120,6 +122,17 @@ LIVE_DEMO_PROFILE_POLICIES = (
 		diagnostic_services=("api", "gateway"),
 		application_image=LIVE_DEMO_REPLICA_APPLICATION_IMAGE,
 		service_replica_counts=(("api", 2),),
+	),
+	LiveDemoProfilePolicy(
+		profile=LiveDemoProfile.AUTOMATED_GRADING_FAULT,
+		compose_relative_paths=(
+			PRIMARY_COMPOSE_FILE,
+			"tests/e2e/compose.live-demo-browser.yaml",
+			"tests/e2e/compose.automated-grading-fault.yaml",
+		),
+		child_capabilities=("automated_grading_fault_worker",),
+		outage_service="worker",
+		fault_worker_service="fault-worker",
 	),
 	LiveDemoProfilePolicy(
 		profile=LiveDemoProfile.DATABASE_BASELINE,

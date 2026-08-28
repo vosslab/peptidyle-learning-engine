@@ -42,22 +42,22 @@ resource "aws_iam_role_policy_attachment" "publisher_execution" {
 resource "aws_iam_role_policy" "api_execution_secrets" {
   name = "read-api-runtime-secret"
   role = aws_iam_role.api_execution.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{
-    Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.api_application_secrets_arn
-    }, {
-    Effect    = "Allow", Action = ["kms:Decrypt"], Resource = var.api_application_secrets_kms_key_arn,
-    Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = var.api_application_secrets_arn } }
-  }] })
+  policy = jsonencode({ Version = "2012-10-17", Statement = [
+    { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.api_application_secrets_arn },
+    { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.fast_path_application_secrets_arn },
+    { Effect = "Allow", Action = ["kms:Decrypt"], Resource = var.api_application_secrets_kms_key_arn, Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = var.api_application_secrets_arn } } },
+    { Effect = "Allow", Action = ["kms:Decrypt"], Resource = var.fast_path_application_secrets_kms_key_arn, Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = var.fast_path_application_secrets_arn } } }
+  ] })
 }
 resource "aws_iam_role_policy" "worker_execution_secrets" {
   name = "read-worker-runtime-secret"
   role = aws_iam_role.worker_execution.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{
-    Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.worker_application_secrets_arn
-    }, {
-    Effect    = "Allow", Action = ["kms:Decrypt"], Resource = var.worker_application_secrets_kms_key_arn,
-    Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = var.worker_application_secrets_arn } }
-  }] })
+  policy = jsonencode({ Version = "2012-10-17", Statement = [
+    { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.worker_application_secrets_arn },
+    { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.recovery_application_secrets_arn },
+    { Effect = "Allow", Action = ["kms:Decrypt"], Resource = var.worker_application_secrets_kms_key_arn, Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = var.worker_application_secrets_arn } } },
+    { Effect = "Allow", Action = ["kms:Decrypt"], Resource = var.recovery_application_secrets_kms_key_arn, Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com", "kms:EncryptionContext:SecretARN" = var.recovery_application_secrets_arn } } }
+  ] })
 }
 resource "aws_iam_role_policy" "publisher_execution_secrets" {
   name = "read-publisher-runtime-secret"
@@ -156,9 +156,15 @@ locals {
     for key in concat(local.api_required_secret_keys, var.enable_imathas ? local.imathas_secret_keys : [], var.enable_smtp ? local.smtp_secret_keys : [], var.enable_webwork ? local.webwork_secret_keys : []) :
     { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }
   ]
+  fast_path_secrets = [
+    { name = "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL", valueFrom = "${var.fast_path_application_secrets_arn}:PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL::" }
+  ]
   worker_secrets = [
     for key in ["PLE_WORKER_DATABASE_URL", "PLE_GRADER_DATABASE_URL"] :
     { name = key, valueFrom = "${var.worker_application_secrets_arn}:${key}::" }
+  ]
+  recovery_secrets = [
+    { name = "PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL", valueFrom = "${var.recovery_application_secrets_arn}:PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL::" }
   ]
   publisher_secrets = [
     { name = "PLE_PUBLISHER_DATABASE_URL", valueFrom = "${var.publisher_application_secrets_arn}:PLE_PUBLISHER_DATABASE_URL::" }
@@ -186,7 +192,7 @@ resource "aws_ecs_task_definition" "api" {
       name             = "api", image = var.api_image, essential = true, user = "10001", readonlyRootFilesystem = true, stopTimeout = 45,
       dependsOn        = var.enable_smtp ? [{ containerName = "secret-files", condition = "SUCCESS" }] : [],
       portMappings     = [{ containerPort = 3000, protocol = "tcp" }],
-      environment      = concat(local.runtime_environment, var.enable_smtp ? [{ name = "PLE_SMTP_PASSWORD_FILE", value = "/run/ple-secrets/smtp-password" }, { name = "PLE_INVITATION_TOKEN_SECRET_FILE", value = "/run/ple-secrets/invitation-token" }] : []), secrets = local.api_secrets,
+      environment      = concat(local.runtime_environment, var.enable_smtp ? [{ name = "PLE_SMTP_PASSWORD_FILE", value = "/run/ple-secrets/smtp-password" }, { name = "PLE_INVITATION_TOKEN_SECRET_FILE", value = "/run/ple-secrets/invitation-token" }] : []), secrets = concat(local.api_secrets, local.fast_path_secrets),
       mountPoints      = [{ sourceVolume = "runtime-secrets", containerPath = "/run/ple-secrets", readOnly = true }],
       linuxParameters  = { initProcessEnabled = true },
       logConfiguration = { logDriver = "awslogs", options = { awslogs-group = aws_cloudwatch_log_group.application["api"].name, awslogs-region = var.aws_region, awslogs-stream-prefix = "ecs" } },
@@ -206,7 +212,7 @@ resource "aws_ecs_task_definition" "worker" {
   task_role_arn            = aws_iam_role.worker.arn
   container_definitions = jsonencode([{
     name             = "worker", image = var.worker_image, essential = true, user = "10001", readonlyRootFilesystem = true, stopTimeout = 45,
-    command          = ["--worker"], environment = local.runtime_environment, secrets = local.worker_secrets,
+    command          = ["--worker"], environment = local.runtime_environment, secrets = concat(local.worker_secrets, local.recovery_secrets),
     linuxParameters  = { initProcessEnabled = true },
     logConfiguration = { logDriver = "awslogs", options = { awslogs-group = aws_cloudwatch_log_group.application["worker"].name, awslogs-region = var.aws_region, awslogs-stream-prefix = "ecs" } }
   }])

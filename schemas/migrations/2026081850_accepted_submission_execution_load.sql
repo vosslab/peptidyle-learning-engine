@@ -167,6 +167,7 @@ DECLARE
     v_existing public.submission_idempotency%ROWTYPE;
     v_existing_response text;
     v_existing_sha256 character(64);
+    v_job_max_attempts CONSTANT integer := 3;
 BEGIN
     IF p_tenant IS NULL OR p_actor IS NULL OR p_expected_course IS NULL
        OR p_expected_assignment IS NULL OR p_attempt IS NULL OR p_job IS NULL
@@ -326,7 +327,7 @@ BEGIN
     VALUES (p_job, p_tenant, jsonb_build_object(
             'kind', 'gradeAcceptedSubmission', 'attempt', p_attempt::text,
             'submission', v_submission::text, 'execution_generation', 1
-        ), 'ready', 3);
+        ), 'ready', v_job_max_attempts);
     INSERT INTO public.grading_execution
         (tenant_id, attempt_id, submission_id, submission_occurred_at, course_id,
          execution_generation, state, current_job_id)

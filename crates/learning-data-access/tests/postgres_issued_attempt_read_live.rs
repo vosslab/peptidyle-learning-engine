@@ -17,6 +17,8 @@ use course_creation_support::sysadmin_course_creation_authority;
 mod authority;
 #[path = "postgres_issued_attempt_read_live/fixture.rs"]
 mod issued_fixture;
+#[path = "postgres_issued_attempt_read_live/migration_epoch.rs"]
+mod migration_epoch;
 #[path = "postgres_issued_attempt_read_live/receipt_integrity.rs"]
 mod receipt_integrity;
 #[path = "postgres_issued_attempt_read_live/sealed_webwork.rs"]
@@ -25,12 +27,11 @@ mod sealed_webwork;
 mod timing;
 use authority::assert_application_authority_catalog;
 use issued_fixture::{IssueFixture, issue_webwork};
+use migration_epoch::DisposableDatabase;
 use receipt_integrity::ReceiptIntegrityOracle;
 use timing::OracleTimingWindow;
 
-use learning_data_access::postgres::{
-    PostgresGraderStore, PostgresStore, apply_migrations, lazy_pool, verify_application_schema,
-};
+use learning_data_access::postgres::{PostgresGraderStore, PostgresStore};
 use learning_data_access::{
     AssignmentRecord, AttemptSupportActionId, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
@@ -65,8 +66,8 @@ use question_model::{
     QuestionBackend, QuestionMetadata, QuestionSource, RenderedItemIdV1, RunId, SourceArtifact,
     StudentResponse, TenantId, UserId, UserRole, VersionId, WorkspaceId,
 };
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{AssertSqlSafe, ConnectOptions, PgPool, Postgres, Transaction};
+use sqlx::postgres::PgConnectOptions;
+use sqlx::{ConnectOptions, PgPool, Postgres, Transaction};
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -74,59 +75,6 @@ fn id() -> Uuid {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).expect("live fixture UUID randomness");
     Uuid::from_bytes(bytes)
-}
-
-struct DisposableDatabase {
-    admin: PgPool,
-    database: String,
-    pool: PgPool,
-}
-
-impl DisposableDatabase {
-    async fn provision(url: &str) -> Self {
-        let admin = lazy_pool(url).expect("valid PostgreSQL administration URL");
-        let database = format!("ple_t4_issued_read_{:x}", id().as_u128());
-        assert!(
-            database.len() < 64,
-            "child database identifier fits PostgreSQL"
-        );
-        sqlx::query(AssertSqlSafe(format!("CREATE DATABASE {database}")))
-            .execute(&admin)
-            .await
-            .expect("create isolated issued-read PostgreSQL database");
-        let options = PgConnectOptions::from_str(url)
-            .expect("PostgreSQL URL")
-            .database(&database);
-        let pool = PgPoolOptions::new()
-            .max_connections(8)
-            .connect_with(options)
-            .await
-            .expect("connect isolated issued-read PostgreSQL database");
-        apply_migrations(&pool)
-            .await
-            .expect("apply full migration epoch to isolated database");
-        Self {
-            admin,
-            database,
-            pool,
-        }
-    }
-
-    async fn cleanup(self) {
-        self.pool.close().await;
-        sqlx::query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1")
-            .bind(&self.database)
-            .execute(&self.admin)
-            .await
-            .expect("disconnect issued-read child database");
-        sqlx::query(AssertSqlSafe(format!(
-            "DROP DATABASE IF EXISTS {}",
-            self.database
-        )))
-        .execute(&self.admin)
-        .await
-        .expect("drop isolated issued-read child database");
-    }
 }
 
 struct FixedNonce([u8; 16]);
@@ -413,9 +361,6 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     let grader_url = runtime.grader_url().expose();
     let database = DisposableDatabase::provision(database_url).await;
     let pool = database.pool.clone();
-    verify_application_schema(&pool)
-        .await
-        .expect("migrated application schema");
     let version: i32 = sqlx::query_scalar("SELECT current_setting('server_version_num')::int4")
         .fetch_one(&pool)
         .await
@@ -428,7 +373,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
     let grader_options = PgConnectOptions::from_str(grader_url)
         .expect("valid disposable grader PostgreSQL URL")
-        .database(&database.database);
+        .database(database.database_name());
     let child_grader_url = grader_options.to_url_lossy().to_string();
     let grader = PostgresGraderStore::connect_local_development(&child_grader_url)
         .await
@@ -531,14 +476,12 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     };
     let active = issues.issue(&store, 0, 11).await;
     let binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let active_read = store
+        .read_issued_attempt_evidence(context, student, binding, active)
+        .await;
     assert!(
-        matches!(
-            store
-                .read_issued_attempt_evidence(context, student, binding, active)
-                .await,
-            Ok(IssuedAttemptRead::Active(_))
-        ),
-        "active issuance returns the active-only capability"
+        matches!(&active_read, Ok(IssuedAttemptRead::Active(_))),
+        "active issuance returns the active-only capability, got {active_read:?}"
     );
     assert_eq!(
         store

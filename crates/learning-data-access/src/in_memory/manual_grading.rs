@@ -3,9 +3,7 @@
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use objects::Sha256Digest;
-use question_model::{
-    AttemptResult, AttemptStatus, CourseMembershipRole, FeedbackContent, ScoringStatus,
-};
+use question_model::{AttemptResult, AttemptStatus, CourseMembershipRole, FeedbackContent};
 
 use super::*;
 use crate::{
@@ -351,19 +349,6 @@ fn set_memory_manual_grade(
     let mut graded = previous_attempt.clone();
     graded.status = AttemptStatus::Submitted;
     graded.result = Some(result);
-    let scoring_key = (tenant, assignment.id);
-    let (current_generation, _) = state
-        .assignment_scoring
-        .get(&scoring_key)
-        .copied()
-        .ok_or(StoreError::NotFound)?;
-    let generation = current_generation.next().ok_or(StoreError::Conflict)?;
-    let job = loop {
-        let candidate = crate::JobId::generate()?;
-        if !state.jobs.contains_key(&candidate) {
-            break candidate;
-        }
-    };
     let run_items = state
         .run_items
         .get(&(tenant, run.id))
@@ -388,26 +373,17 @@ fn set_memory_manual_grade(
         }
         run.score = Some(score);
     }
-    state.jobs.insert(
-        job,
-        StoredJob {
-            tenant,
-            payload: crate::JobPayload::RecalculateAssignment {
-                assignment: assignment.id,
-                generation,
-            },
-            state: JobState::Ready,
-            available_at: now,
-            lease_token: None,
-            lease_expires_at: None,
-            attempt_count: 0,
-            max_attempts: 10,
-            failure: None,
-        },
-    );
-    state
-        .assignment_scoring
-        .insert(scoring_key, (generation, ScoringStatus::Recalculating));
+    let invalidation = super::scoring_invalidation::request_scoring_invalidation(
+        state,
+        tenant,
+        assignment.course_id,
+        assignment.id,
+        crate::ScoringInvalidationOrigin::manual_grade(
+            crate::ScoringInvalidationOriginId::from_uuid(command.action.as_uuid()),
+            command.actor,
+        ),
+        crate::JobId::from_uuid(command.action.as_uuid()),
+    )?;
     state.attempt_current.insert((tenant, graded.id), graded);
     state
         .manual_evaluations
@@ -419,7 +395,7 @@ fn set_memory_manual_grade(
             attempt: command.attempt,
             expected_revision: command.expected_revision,
             resulting_revision,
-            scoring_generation: generation,
+            scoring_generation: invalidation.generation,
             request_sha256: digest,
             occurred_at: now,
         },
@@ -429,7 +405,7 @@ fn set_memory_manual_grade(
         action: command.action,
         attempt: command.attempt,
         resulting_revision,
-        scoring_generation: generation,
+        scoring_generation: invalidation.generation,
         occurred_at: now,
     })
 }

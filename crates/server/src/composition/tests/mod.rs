@@ -15,9 +15,9 @@ use super::router::{
     e2e_replica_attribution_from_values, postgres_schema_probe,
 };
 use super::settings::{
-    GradingBackendSettingValues, GradingBackendSettings, ObjectStorageConnection, ProcessRole,
-    ProductionSettings, StorageRuntime, StorageSettings, StorageTopology, parse_positive_u64,
-    parse_positive_usize, parse_secret32, required_env,
+    AcceptedSubmissionExecutionSettings, GradingBackendSettingValues, GradingBackendSettings,
+    ObjectStorageConnection, ProcessRole, ProductionSettings, StorageRuntime, StorageSettings,
+    StorageTopology, parse_positive_u64, parse_positive_usize, parse_secret32, required_env,
 };
 use super::*;
 use crate::auth::CookieTransport;
@@ -160,6 +160,7 @@ pub(super) fn composed_memory_router_and_store_with_live_demo_selector(
             .expect("valid test WebAuthn configuration"),
         ),
         health,
+        Arc::new(crate::accepted_submission_worker::UnavailableAcceptedSubmissionFastPath),
     );
     (router, store)
 }
@@ -368,6 +369,11 @@ fn production_settings() -> ProductionSettings {
             student_records_bucket: "student-records".to_string(),
             temp_processing_bucket: "temp-processing".to_string(),
         },
+        accepted_submission_execution: AcceptedSubmissionExecutionSettings::from_values(None, None)
+            .expect("valid accepted-submission execution settings"),
+        accepted_submission_fast_path_database_url:
+            "postgres://ple_accepted_submission_fast_path_login:password@127.0.0.1:1/ple"
+                .to_string(),
         public_asset_base_url: PublicAssetBaseUrl::new("https://cdn.example.test/content")
             .expect("valid public asset base"),
         grading: grading_settings(),
@@ -403,6 +409,40 @@ fn grading_values() -> GradingBackendSettingValues<'static> {
 
 fn grading_settings() -> GradingBackendSettings {
     GradingBackendSettings::from_values(grading_values()).expect("valid grading settings")
+}
+
+#[test]
+fn accepted_submission_execution_settings_share_validated_lease_and_deadline() {
+    let defaults = AcceptedSubmissionExecutionSettings::from_values(None, None)
+        .expect("default execution settings");
+    let expected_defaults =
+        crate::worker::WorkerSettings::new(120, std::time::Duration::from_secs(90), 1)
+            .expect("default execution bounds");
+    assert_eq!(
+        defaults.worker_settings().lease(),
+        expected_defaults.lease()
+    );
+    assert_eq!(
+        defaults.worker_settings().execution_deadline(),
+        std::time::Duration::from_secs(90)
+    );
+
+    let configured = AcceptedSubmissionExecutionSettings::from_values(Some("180"), Some("45"))
+        .expect("configured execution settings");
+    let expected_configured =
+        crate::worker::WorkerSettings::new(180, std::time::Duration::from_secs(45), 1)
+            .expect("configured execution bounds");
+    assert_eq!(
+        configured.worker_settings().lease(),
+        expected_configured.lease()
+    );
+    assert_eq!(
+        configured.worker_settings().execution_deadline(),
+        std::time::Duration::from_secs(45)
+    );
+    assert!(AcceptedSubmissionExecutionSettings::from_values(Some("0"), Some("45")).is_err());
+    assert!(AcceptedSubmissionExecutionSettings::from_values(Some("45"), Some("45")).is_err());
+    assert!(AcceptedSubmissionExecutionSettings::from_values(Some("120"), Some("nope")).is_err());
 }
 
 #[test]

@@ -15,6 +15,7 @@ mod preview_plane;
 mod problem_curation;
 mod reusable_curriculum;
 mod runs;
+mod scoring_invalidation;
 mod store;
 mod store_capabilities;
 mod store_error;
@@ -45,6 +46,7 @@ pub use reusable_curriculum::{
     ReusableCurriculumStore,
 };
 pub use runs::*;
+pub use scoring_invalidation::*;
 pub use store::Store;
 pub(crate) use store_capabilities::{
     ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,

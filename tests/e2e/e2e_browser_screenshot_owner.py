@@ -46,6 +46,7 @@ def pending_after_capture(
 	staging: pathlib.Path,
 	origin: str,
 	captured_dist_digest: str | None,
+	artifacts: tuple[e2e_browser_screenshot_contract.ScreenshotArtifact, ...] | None = None,
 ) -> e2e_browser_screenshot_publisher.PendingScreenshotPublication:
 	"""Require the captured production dist digest before reading private artifacts."""
 	if captured_dist_digest is None:
@@ -57,7 +58,7 @@ def pending_after_capture(
 			"production dist changed during screenshot capture"
 		)
 	return e2e_browser_screenshot_publisher.pending_from_staging(
-		staging, origin, captured_dist_digest
+		staging, origin, captured_dist_digest, artifacts
 	)
 
 

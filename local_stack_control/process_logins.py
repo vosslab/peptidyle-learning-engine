@@ -1,4 +1,4 @@
-"""Closed disposable PostgreSQL API and worker login provisioning."""
+"""Closed disposable PostgreSQL service-login provisioning."""
 
 import pathlib
 import secrets
@@ -13,8 +13,26 @@ import local_stack_control.process
 
 API_LOGIN = "ple_api_login"
 WORKER_LOGIN = "ple_worker_login"
+RECOVERY_LOGIN = "ple_accepted_submission_recovery_login"
+FAST_PATH_LOGIN = "ple_accepted_submission_fast_path_login"
 API_ROLES = ("ple_app", "ple_auth")
-WORKER_ROLES = ("ple_app", "ple_accepted_submission_execution")
+WORKER_ROLES = ("ple_app",)
+RECOVERY_ROLES = ("ple_accepted_submission_execution",)
+FAST_PATH_ROLES = ("ple_accepted_submission_execution_fast_path",)
+LOGIN_PROFILES = (
+	(API_LOGIN, API_ROLES, "PLE_API_DATABASE_URL"),
+	(WORKER_LOGIN, WORKER_ROLES, "PLE_WORKER_DATABASE_URL"),
+	(
+		RECOVERY_LOGIN,
+		RECOVERY_ROLES,
+		"PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL",
+	),
+	(
+		FAST_PATH_LOGIN,
+		FAST_PATH_ROLES,
+		"PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL",
+	),
+)
 
 
 #============================================
@@ -24,15 +42,18 @@ def provision(
 	values: dict[str, str],
 	environment: dict[str, str],
 ) -> None:
-	"""Reconcile disposable API and worker logins and write child-only URLs.
+	"""Reconcile disposable service logins and write capability-specific URLs.
 
 	The administrator is confined to this migration-adjacent psql child.  Each
-	service later receives its own generated URL through the private Compose env
-	file (ASVS 8.1-8.4, 13.3.1, and 14.2.4).
+	service receives only its needed generated URL through the private Compose
+	env file (ASVS 13.2.2, 13.3.2, and 14.2.4).
 	"""
-	api_password = secrets.token_hex(32)
-	worker_password = secrets.token_hex(32)
+	passwords = tuple(secrets.token_hex(32) for _ in LOGIN_PROFILES)
 	child = dict(environment)
+	# The psql administrator consumes its one administrator password.  Service
+	# credentials belong only in the mode-0600 Compose env file, never this child.
+	for _, _, setting_name in LOGIN_PROFILES:
+		child.pop(setting_name, None)
 	child["PGPASSWORD"] = values["POSTGRES_PASSWORD"]
 	argv = local_stack_control.compose.compose_argv(
 		target,
@@ -41,23 +62,31 @@ def provision(
 			"-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"],
 		],
 	)
-	sql = "BEGIN;\n" + login_sql(API_LOGIN, API_ROLES, api_password)
-	sql += login_sql(WORKER_LOGIN, WORKER_ROLES, worker_password) + "COMMIT;\n"
+	sql = "BEGIN;\n"
+	for (login, roles, _), password in zip(LOGIN_PROFILES, passwords, strict=True):
+		sql += login_sql(login, roles, password)
+	sql += "COMMIT;\n"
 	result = runner.run(argv, child, target.repo_root, sql)
-	require_provision_success(
-		result, (values["POSTGRES_PASSWORD"], api_password, worker_password)
+	private_values = (values["POSTGRES_PASSWORD"],) + passwords
+	require_provision_success(result, private_values)
+	urls = tuple(
+		database_url(values, login, password)
+		for (login, _, _), password in zip(LOGIN_PROFILES, passwords, strict=True)
 	)
 	write_runtime_urls(
 		target.env_file,
-		database_url(values, API_LOGIN, api_password),
-		database_url(values, WORKER_LOGIN, worker_password),
+		urls,
 	)
 
 
 #============================================
 def login_sql(login: str, roles: tuple[str, ...], password: str) -> str:
 	"""Return fixed, idempotent SQL for one allowlisted process profile."""
-	if (login, roles) not in ((API_LOGIN, API_ROLES), (WORKER_LOGIN, WORKER_ROLES)):
+	valid_profiles = tuple(
+		(profile_login, profile_roles)
+		for profile_login, profile_roles, _ in LOGIN_PROFILES
+	)
+	if (login, roles) not in valid_profiles:
 		raise local_stack_control.models.ControllerError("process login profile is invalid")
 	if len(password) != 64 or not password.isascii() or not password.isalnum():
 		raise local_stack_control.models.ControllerError("process login password is invalid")
@@ -106,33 +135,36 @@ REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {login};
 def database_url(values: dict[str, str], login: str, password: str) -> str:
 	"""Construct one local process URL from validated private settings."""
 	port = values.get("PLE_POSTGRES_HOST_PORT", "5432")
+	database_name = values["POSTGRES_DB"]
 	if (
-		login not in (API_LOGIN, WORKER_LOGIN)
+		login not in tuple(profile_login for profile_login, _, _ in LOGIN_PROFILES)
 		or not port.isdecimal()
+		or not database_name.isascii()
+		or not database_name.isidentifier()
 		or len(password) != 64
 		or not password.isascii()
 		or not password.isalnum()
 	):
 		raise local_stack_control.models.ControllerError("process login database settings are invalid")
-	result = f"postgres://{login}:{password}@postgres:5432/{values['POSTGRES_DB']}"
+	result = f"postgres://{login}:{password}@postgres:5432/{database_name}"
 	return result
 
 
 #============================================
 def write_runtime_urls(
 	env_file: pathlib.Path,
-	api_url: str,
-	worker_url: str,
+	urls: tuple[str, ...],
 ) -> None:
-	"""Replace only service URLs inside the selected mode-0600 Compose input."""
+	"""Replace the four service URLs inside the selected mode-0600 Compose input."""
 	local_stack_control.env_file.require_mutation_env_file(env_file)
-	api_valid = api_url.startswith("postgres://ple_api_login:")
-	worker_valid = worker_url.startswith("postgres://ple_worker_login:")
-	if api_url == worker_url or not api_valid or not worker_valid:
+	if len(urls) != len(LOGIN_PROFILES) or len(set(urls)) != len(LOGIN_PROFILES):
 		raise local_stack_control.models.ControllerError("process login URLs are invalid")
+	for url, (login, _, _) in zip(urls, LOGIN_PROFILES, strict=True):
+		if not url.startswith(f"postgres://{login}:"):
+			raise local_stack_control.models.ControllerError("process login URLs are invalid")
 	settings = local_stack_control.env_file.env_settings(env_file)
-	settings["PLE_API_DATABASE_URL"] = api_url
-	settings["PLE_WORKER_DATABASE_URL"] = worker_url
+	for url, (_, _, setting_name) in zip(urls, LOGIN_PROFILES, strict=True):
+		settings[setting_name] = url
 	content = "".join(f"{name}={value}\n" for name, value in settings.items()).encode("utf-8")
 	local_stack_control.private_files.write_atomic_file(env_file, content, 0o600)
 

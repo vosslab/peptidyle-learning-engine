@@ -60,6 +60,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
     createComponent(AssignmentWorkspaceLivePage, { section: "policies" }),
   assignmentWorkspaceStudentView: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "studentView" }),
+  assignmentWorkspaceGradingOperations: () =>
+    createComponent(AssignmentWorkspaceLivePage, { section: "gradingOperations" }),
   assignmentAccess: AssignmentAccessLivePage,
   assignmentPreview: AssignmentPreviewPage,
   gradebook: GradebookPage,

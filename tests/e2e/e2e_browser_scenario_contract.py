@@ -51,7 +51,9 @@ RESOURCE_KINDS = frozenset(
 )
 SEED_STATE_TRANSITIONS = frozenset({"avery_instructor_approval"})
 SERVICE_RECEIPTS = frozenset({"renderer_delivery", "worker_completion"})
-FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
+FAULT_TRANSITIONS = frozenset(
+	{"gateway_submit_outage", "deterministic_grader_exception"}
+)
 REQUIRED_ROLE_SECURITY_SCENARIOS = {
 	"direct_role_entry": (
 		"tests/playwright/e2e/direct_role_entry.spec.ts",

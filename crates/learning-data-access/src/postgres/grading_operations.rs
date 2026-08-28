@@ -1,27 +1,27 @@
 //! PostgreSQL atomic accepted-input persistence for automated grading.
 
 use async_trait::async_trait;
-use question_model::{
-    GradingOperationAction, GradingOperationReason, GradingOperationReference,
-    GradingOperationState, SubmissionEvaluationStatus,
-};
+use question_model::{GradingOperationReason, SubmissionEvaluationStatus};
 use sqlx::Row;
 
 use super::*;
 use crate::{
     AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionCommitError,
     AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
-    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionOutcome,
-    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionWorkerStore, AcceptedSubmissionId,
+    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionFastPathClaimStore,
+    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
+    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, AcceptedSubmissionId,
     AutomatedGradingStore, GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt,
-    GradingExecutionState, GradingOperation, GradingOperationRevision, GradingOperationTarget,
-    JobLeaseDuration, JobLeaseToken, StoreError, TenantContext, WorkerId,
+    GradingExecutionState, JobLeaseDuration, JobLeaseToken, StoreError, TenantContext, WorkerId,
     canonical_student_response_json,
 };
 
 #[path = "grading_operations_completion.rs"]
 mod grading_operations_completion;
 use grading_operations_completion::*;
+
+#[path = "grading_operations_instructor.rs"]
+mod grading_operations_instructor;
 
 #[async_trait]
 impl AutomatedGradingStore for PostgresStore {
@@ -125,24 +125,6 @@ impl AutomatedGradingStore for PostgresStore {
         Ok(execution)
     }
 
-    async fn automated_grading_operation(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-        reference: GradingOperationReference,
-    ) -> Result<Option<GradingOperation>, StoreError> {
-        let tenant = context.tenant_id();
-        let mut transaction = self.begin_tenant(context).await?;
-        let row = sqlx::query("SELECT assignment_id, target_kind, submission_id, requested_scoring_generation, reason, state, revision, next_action FROM grading_operation WHERE tenant_id=$1 AND course_id=$2 AND grading_operation_id=$3")
-            .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(i64::from(reference.number()))
-            .fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
-        let operation = row
-            .map(|row| decode_operation(tenant, course, reference, &row))
-            .transpose()?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(operation)
-    }
-
     async fn record_automated_grading_execution_receipt(
         &self,
         _context: TenantContext,
@@ -155,8 +137,7 @@ impl AutomatedGradingStore for PostgresStore {
     }
 }
 
-#[async_trait]
-impl AcceptedSubmissionExecutionStore for PostgresAcceptedSubmissionExecutionStore {
+impl AcceptedSubmissionExecutionCore {
     async fn load_accepted_submission_for_execution(
         &self,
         context: TenantContext,
@@ -251,10 +232,30 @@ impl AcceptedSubmissionExecutionStore for PostgresAcceptedSubmissionExecutionSto
             prepared: Box::new(prepared),
         })
     }
+
+    async fn commit_or_fail_accepted_submission_execution(
+        &self,
+        context: TenantContext,
+        claim: AcceptedSubmissionExecutionClaim,
+        outcome: AcceptedSubmissionExecutionOutcome,
+    ) -> Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError> {
+        if context.tenant_id() != claim.tenant {
+            return Err(StoreError::Conflict.into());
+        }
+        match outcome {
+            AcceptedSubmissionExecutionOutcome::Evaluated { grade } => {
+                self.complete_accepted_submission_execution(context, claim, grade)
+                    .await
+            }
+            outcome => {
+                self.fail_accepted_submission_execution(context, claim, outcome)
+                    .await
+            }
+        }
+    }
 }
 
-#[async_trait]
-impl AcceptedSubmissionExecutionWorkerStore for PostgresAcceptedSubmissionExecutionStore {
+impl AcceptedSubmissionExecutionCore {
     async fn claim_next_accepted_submission_execution(
         &self,
         worker: WorkerId,
@@ -283,15 +284,82 @@ impl AcceptedSubmissionExecutionWorkerStore for PostgresAcceptedSubmissionExecut
         Ok(Some(claim))
     }
 
+    async fn claim_exact_accepted_submission_execution(
+        &self,
+        target: AcceptedSubmissionExecutionTarget,
+        worker: WorkerId,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError> {
+        let lease_token = JobLeaseToken::generate()?;
+        let mut transaction = self.begin_execution_worker().await?;
+        // ASVS 2.3.1, 2.3.3, and 8.2.1: this private capability performs the
+        // exact target transition atomically. Every returned tuple field is
+        // checked before it becomes an in-process lease capability.
+        let row = sqlx::query(
+            "SELECT * FROM public.ple_claim_exact_accepted_submission_execution_v1(\
+             $1,$2,$3,$4,$5,$6,$7)",
+        )
+        .bind(target.tenant.as_uuid())
+        .bind(target.attempt.as_uuid())
+        .bind(target.submission.as_uuid())
+        .bind(target.job.as_uuid())
+        .bind(lease_token.as_uuid())
+        .bind(worker.as_uuid())
+        .bind(lease.seconds())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let Some(row) = row else {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        };
+        let claim = decode_worker_claim(&row, worker, lease_token)?;
+        if claim.tenant != target.tenant
+            || claim.job != target.job
+            || claim.submission != target.submission
+        {
+            return Err(StoreError::Unavailable(
+                "exact execution-claim broker returned a different target".to_string(),
+            ));
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(Some(claim))
+    }
+}
+
+/// Type-private bridge from a sealed adapter to its capability-specific pool.
+///
+/// Each public adapter implements only the claim trait backed by its private
+/// login, while all leased work reaches this one core (ASVS 8.2.1 and 13.2.2).
+trait AcceptedSubmissionExecutionHandle {
+    fn execution_core(&self) -> &AcceptedSubmissionExecutionCore;
+}
+
+impl AcceptedSubmissionExecutionHandle for PostgresAcceptedSubmissionRecoveryStore {
+    fn execution_core(&self) -> &AcceptedSubmissionExecutionCore {
+        &self.core
+    }
+}
+
+impl AcceptedSubmissionExecutionHandle for PostgresAcceptedSubmissionFastPathStore {
+    fn execution_core(&self) -> &AcceptedSubmissionExecutionCore {
+        &self.core
+    }
+}
+
+#[async_trait]
+impl<T> AcceptedSubmissionExecutionStore for T
+where
+    T: AcceptedSubmissionExecutionHandle + Send + Sync,
+{
     async fn load_accepted_submission_for_execution(
         &self,
         context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
     ) -> Result<AcceptedSubmissionExecution, StoreError> {
-        <Self as AcceptedSubmissionExecutionStore>::load_accepted_submission_for_execution(
-            self, context, claim,
-        )
-        .await
+        self.execution_core()
+            .load_accepted_submission_for_execution(context, claim)
+            .await
     }
 
     async fn commit_or_fail_accepted_submission_execution(
@@ -300,23 +368,41 @@ impl AcceptedSubmissionExecutionWorkerStore for PostgresAcceptedSubmissionExecut
         claim: AcceptedSubmissionExecutionClaim,
         outcome: AcceptedSubmissionExecutionOutcome,
     ) -> Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError> {
-        if context.tenant_id() != claim.tenant {
-            return Err(StoreError::Conflict.into());
-        }
-        match outcome {
-            AcceptedSubmissionExecutionOutcome::Evaluated { grade } => {
-                self.complete_accepted_submission_execution(context, claim, grade)
-                    .await
-            }
-            outcome => {
-                self.fail_accepted_submission_execution(context, claim, outcome)
-                    .await
-            }
-        }
+        self.execution_core()
+            .commit_or_fail_accepted_submission_execution(context, claim, outcome)
+            .await
     }
 }
 
-impl PostgresAcceptedSubmissionExecutionStore {
+#[async_trait]
+#[async_trait]
+impl AcceptedSubmissionExecutionRecoveryClaimStore for PostgresAcceptedSubmissionRecoveryStore {
+    async fn claim_next_accepted_submission_execution(
+        &self,
+        worker: WorkerId,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError> {
+        self.core
+            .claim_next_accepted_submission_execution(worker, lease)
+            .await
+    }
+}
+
+#[async_trait]
+impl AcceptedSubmissionExecutionFastPathClaimStore for PostgresAcceptedSubmissionFastPathStore {
+    async fn claim_exact_accepted_submission_execution(
+        &self,
+        target: AcceptedSubmissionExecutionTarget,
+        worker: WorkerId,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError> {
+        self.core
+            .claim_exact_accepted_submission_execution(target, worker, lease)
+            .await
+    }
+}
+
+impl AcceptedSubmissionExecutionCore {
     async fn complete_accepted_submission_execution(
         &self,
         context: TenantContext,
@@ -333,7 +419,7 @@ impl PostgresAcceptedSubmissionExecutionStore {
             )
             .into());
         }
-        let generation = execution_generation_i64(claim)?;
+        let execution_generation = execution_generation_i64(claim)?;
         let mut transaction = self.begin_execution_tenant(context).await?;
         // ASVS 2.3.1/2.3.3: this locks the exact leased execution after the
         // grader has returned. No row lock spans grader I/O.
@@ -344,7 +430,7 @@ impl PostgresAcceptedSubmissionExecutionStore {
         .bind(claim.job.as_uuid())
         .bind(claim.lease_token.as_uuid())
         .bind(claim.submission.as_uuid())
-        .bind(generation)
+        .bind(execution_generation)
         .bind(claim.worker.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
@@ -430,7 +516,7 @@ impl PostgresAcceptedSubmissionExecutionStore {
         .bind(claim.job.as_uuid())
         .bind(claim.lease_token.as_uuid())
         .bind(claim.submission.as_uuid())
-        .bind(generation)
+        .bind(execution_generation)
         .bind(claim.worker.as_uuid())
         .bind(
             i16::try_from(expected_evidence.canonical_json_version).map_err(|_| {
@@ -491,6 +577,32 @@ impl PostgresAcceptedSubmissionExecutionStore {
         .await
         .map_err(map_sqlx_error)?;
         let disposition = decode_worker_disposition(row.as_ref())?;
+        if disposition == AcceptedSubmissionExecutionDisposition::Committed {
+            let scoring_generation =
+                ScoringGeneration::new(u64::try_from(source.scoring_generation).map_err(|_| {
+                    StoreError::Unavailable(
+                        "accepted completion lock has an invalid scoring generation".to_string(),
+                    )
+                })?)
+                .and_then(ScoringGeneration::next)
+                .ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "accepted completion cannot advance scoring generation".to_string(),
+                    )
+                })?;
+            super::scoring_invalidation::bind_accepted_completion(
+                &mut transaction,
+                claim.tenant,
+                claim.job,
+                claim.submission.as_uuid(),
+                execution_generation,
+                super::scoring_invalidation::ScoringInvalidationBinding {
+                    generation: scoring_generation,
+                    job: recalculation_job,
+                },
+            )
+            .await?;
+        }
         transaction
             .commit()
             .await
@@ -583,6 +695,10 @@ fn reason_name(reason: GradingOperationReason) -> &'static str {
         GradingOperationReason::GraderExecutionFailure => "grader_execution_failure",
         GradingOperationReason::IssuedEvidenceIntegrity => "issued_evidence_integrity",
         GradingOperationReason::RetryExhausted => "retry_exhausted",
+        GradingOperationReason::InstructorRequestedRecalculation => {
+            "instructor_requested_recalculation"
+        }
+        GradingOperationReason::ScoringRecalculationRequested => "scoring_recalculation_requested",
         GradingOperationReason::ScoringRecalculationFailed => "scoring_recalculation_failed",
     }
 }
@@ -701,123 +817,20 @@ fn decode_execution(row: sqlx::postgres::PgRow) -> Result<GradingExecution, Stor
     })
 }
 
-fn decode_operation(
-    tenant: TenantId,
-    course: CourseId,
-    reference: GradingOperationReference,
-    row: &sqlx::postgres::PgRow,
-) -> Result<GradingOperation, StoreError> {
-    let target_kind = row
-        .try_get::<String, _>("target_kind")
-        .map_err(map_sqlx_error)?;
-    let target = match target_kind.as_str() {
-        "submission" => GradingOperationTarget::SubmissionRecovery {
-            submission: row
-                .try_get::<Option<Uuid>, _>("submission_id")
-                .map_err(map_sqlx_error)?
-                .map(AcceptedSubmissionId::from_uuid)
-                .ok_or_else(|| {
-                    StoreError::InvalidRecord("submission target is missing its source".to_string())
-                })?,
-        },
-        "assignment_scoring_generation" => GradingOperationTarget::AssignmentScoringGeneration {
-            requested_generation: question_model::ScoringGeneration::new(
-                u64::try_from(
-                    row.try_get::<Option<i64>, _>("requested_scoring_generation")
-                        .map_err(map_sqlx_error)?
-                        .ok_or_else(|| {
-                            StoreError::InvalidRecord(
-                                "scoring target is missing its generation".to_string(),
-                            )
-                        })?,
-                )
-                .map_err(|_| StoreError::InvalidRecord("invalid scoring generation".to_string()))?,
-            )
-            .ok_or_else(|| StoreError::InvalidRecord("invalid scoring generation".to_string()))?,
-        },
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "invalid grading operation target".to_string(),
-            ));
-        }
-    };
-    let reason = match row
-        .try_get::<String, _>("reason")
-        .map_err(map_sqlx_error)?
-        .as_str()
-    {
-        "grader_contract_failure" => GradingOperationReason::GraderContractFailure,
-        "grader_execution_failure" => GradingOperationReason::GraderExecutionFailure,
-        "issued_evidence_integrity" => GradingOperationReason::IssuedEvidenceIntegrity,
-        "retry_exhausted" => GradingOperationReason::RetryExhausted,
-        "scoring_recalculation_failed" => GradingOperationReason::ScoringRecalculationFailed,
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "invalid grading operation reason".to_string(),
-            ));
-        }
-    };
-    let state = match row
-        .try_get::<String, _>("state")
-        .map_err(map_sqlx_error)?
-        .as_str()
-    {
-        "actionable" => GradingOperationState::Actionable,
-        "action_in_progress" => GradingOperationState::ActionInProgress,
-        "completed" => GradingOperationState::Completed,
-        "repair_required" => GradingOperationState::RepairRequired,
-        "failed" => GradingOperationState::Failed,
-        "superseded" => GradingOperationState::Superseded,
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "invalid grading operation state".to_string(),
-            ));
-        }
-    };
-    let next_action = match row
-        .try_get::<Option<String>, _>("next_action")
-        .map_err(map_sqlx_error)?
-        .as_deref()
-    {
-        None => None,
-        Some("retry") => Some(GradingOperationAction::Retry),
-        Some("recalculate") => Some(GradingOperationAction::Recalculate),
-        Some(_) => {
-            return Err(StoreError::InvalidRecord(
-                "invalid grading operation action".to_string(),
-            ));
-        }
-    };
-    let revision: i64 = row.try_get("revision").map_err(map_sqlx_error)?;
-    Ok(GradingOperation {
-        tenant,
-        course,
-        assignment: AssignmentId::from_uuid(row.try_get("assignment_id").map_err(map_sqlx_error)?),
-        reference,
-        target,
-        reason,
-        state,
-        revision: GradingOperationRevision::from_u64(u64::try_from(revision).map_err(|_| {
-            StoreError::InvalidRecord("invalid grading operation revision".to_string())
-        })?)
-        .ok_or_else(|| {
-            StoreError::InvalidRecord("invalid grading operation revision".to_string())
-        })?,
-        next_action,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn dedicated_worker_handle_owns_the_private_execution_capability() {
+    fn sealed_execution_adapters_bind_only_their_owned_claim_capabilities() {
         fn requires_execution_store<T: AcceptedSubmissionExecutionStore>() {}
-        fn requires_worker_store<T: AcceptedSubmissionExecutionWorkerStore>() {}
+        fn requires_recovery_claim_store<T: AcceptedSubmissionExecutionRecoveryClaimStore>() {}
+        fn requires_fast_path_claim_store<T: AcceptedSubmissionExecutionFastPathClaimStore>() {}
 
-        requires_execution_store::<PostgresAcceptedSubmissionExecutionStore>();
-        requires_worker_store::<PostgresAcceptedSubmissionExecutionStore>();
+        requires_execution_store::<PostgresAcceptedSubmissionRecoveryStore>();
+        requires_recovery_claim_store::<PostgresAcceptedSubmissionRecoveryStore>();
+        requires_execution_store::<PostgresAcceptedSubmissionFastPathStore>();
+        requires_fast_path_claim_store::<PostgresAcceptedSubmissionFastPathStore>();
     }
 
     #[test]

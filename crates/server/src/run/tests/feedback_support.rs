@@ -1,9 +1,9 @@
 use super::*;
 use learning_data_access::{
-    AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
-    CourseItemAnalysisCommitOutcome, CourseItemAnalysisWorkerCommand,
-    CourseItemAnalysisWorkerStore, EnqueueJob, JobClaimFilter, JobFailureKind, JobLeaseDuration,
-    JobPayload, JobStore,
+    AssignmentScoringCommitOutcome, AssignmentScoringPreparationOutcome,
+    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, CourseItemAnalysisCommitOutcome,
+    CourseItemAnalysisWorkerCommand, CourseItemAnalysisWorkerStore, EnqueueJob, JobClaimFilter,
+    JobFailureKind, JobLeaseDuration, JobPayload, JobStore,
 };
 pub(super) fn assert_redacted_item_surface(value: &serde_json::Value, status: &str, surface: &str) {
     assert_eq!(value["scoringStatus"], status, "{surface} status");
@@ -654,21 +654,16 @@ pub(super) async fn publish_pending_assignment_scoring(
                     generation,
                 };
                 match store.prepare_assignment_scoring(context, command).await {
-                    Ok(()) => {
-                        assert!(matches!(
-                            store
-                                .commit_assignment_scoring(context, command)
-                                .await
-                                .expect("publish assignment score"),
-                            AssignmentScoringCommitOutcome::Committed
-                                | AssignmentScoringCommitOutcome::Superseded
-                        ));
-                        published = true;
+                    Ok(
+                        AssignmentScoringPreparationOutcome::Prepared
+                        | AssignmentScoringPreparationOutcome::Superseded,
+                    ) => {
+                        let outcome = store
+                            .commit_assignment_scoring(context, command)
+                            .await
+                            .expect("publish or retire assignment score");
+                        published |= outcome == AssignmentScoringCommitOutcome::Committed;
                     }
-                    Err(learning_data_access::StoreError::Conflict) => store
-                        .complete_job(claim.id, claim.lease_token)
-                        .await
-                        .expect("complete stale assignment scoring job"),
                     Err(error) => panic!("score assignment: {error}"),
                 }
             }
@@ -819,6 +814,11 @@ async fn feedback_release_is_content_free_audit_not_projection_authority() {
         .expect("submission");
     assert_eq!(submitted.status(), StatusCode::ACCEPTED);
     drain_one_accepted_submission(&store, Arc::clone(&backend)).await;
+    publish_pending_assignment_scoring(
+        store.as_ref(),
+        TenantContext::from_authenticated_session(TenantId::from_uuid(id(201))),
+    )
+    .await;
     let submitted = app
         .clone()
         .oneshot(

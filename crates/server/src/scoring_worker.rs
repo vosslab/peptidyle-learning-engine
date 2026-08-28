@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use learning_data_access::{
-    AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
-    JobFailureKind, JobPayload, StoreError, TenantContext,
+    AssignmentScoringCommitOutcome, AssignmentScoringPreparationOutcome,
+    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, JobFailureKind, JobPayload,
+    StoreError, TenantContext,
 };
 
 use crate::worker::{
@@ -46,7 +47,8 @@ where
         if execution.cancellation_requested() {
             return Err(JobFailureKind::TimedOut);
         }
-        self.store
+        match self
+            .store
             .prepare_assignment_scoring(
                 context,
                 AssignmentScoringWorkerCommand {
@@ -57,7 +59,11 @@ where
                 },
             )
             .await
-            .map_err(scoring_failure)?;
+            .map_err(scoring_failure)?
+        {
+            AssignmentScoringPreparationOutcome::Prepared
+            | AssignmentScoringPreparationOutcome::Superseded => {}
+        }
         if execution.cancellation_requested() {
             return Err(JobFailureKind::TimedOut);
         }

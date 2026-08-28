@@ -754,6 +754,30 @@
       "viewport": "laptop",
       "path": "docs/screenshots/instructor/curriculum_adoption/05_completed_destination_evidence_laptop.png",
       "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "automated_grading_recovery_operation_laptop",
+      "scenarioId": "automated_grading_recovery",
+      "stateId": "instructor_operation",
+      "role": "instructor",
+      "journey": "automated_grading_recovery",
+      "captureOrder": 62,
+      "journeyStep": 1,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/automated_grading_recovery/01_instructor_operation_laptop.png",
+      "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "automated_grading_recovery_gradebook_laptop",
+      "scenarioId": "automated_grading_recovery",
+      "stateId": "instructor_gradebook",
+      "role": "instructor",
+      "journey": "automated_grading_recovery",
+      "captureOrder": 63,
+      "journeyStep": 2,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/automated_grading_recovery/02_instructor_gradebook_laptop.png",
+      "privacyChecks": ["no_private_material"]
     }
   ],
   "corpusDirectory": "docs/screenshots"

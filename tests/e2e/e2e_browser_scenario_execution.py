@@ -136,6 +136,7 @@ class ScenarioExecutionRequest:
 	screenshot_mode: bool
 	screenshot_staging: pathlib.Path | None
 	capture_dist_digest: str | None
+	finalize_screenshots: bool
 	sessions: list[local_stack_control.process.ProcessSession]
 	dependencies: ScenarioExecutionDependencies
 
@@ -374,7 +375,7 @@ def run_prepared_scenario(
 	request: ScenarioExecutionRequest,
 	prepared: PreparedScenario,
 ) -> e2e_browser_fault_orchestrator.FaultScenarioResult | None:
-	"""Run the ordinary child or its controlled real gateway fault transition."""
+	"""Run the ordinary child or its one registered real fault transition."""
 	if prepared.contract.fault_transition is None:
 		child_result = request.dependencies.command_runner(
 			request.dependencies.runner,
@@ -396,12 +397,19 @@ def run_prepared_scenario(
 		prepared.child_environment,
 	)
 	runner = FaultAdapterRunner(request)
-	result = e2e_browser_fault_orchestrator.run_gateway_submit_outage(
-		fault_request,
-		runner,
-		record_session=request.sessions.append,
-	)
-	return result
+	if prepared.contract.fault_transition == "gateway_submit_outage":
+		return e2e_browser_fault_orchestrator.run_gateway_submit_outage(
+			fault_request,
+			runner,
+			record_session=request.sessions.append,
+		)
+	if prepared.contract.fault_transition == "deterministic_grader_exception":
+		return e2e_browser_fault_orchestrator.run_deterministic_grader_exception(
+			fault_request,
+			runner,
+			record_session=request.sessions.append,
+		)
+	raise BrowserSuiteError("browser scenario fault transition is unsupported")
 
 
 def renderer_call_witness(
@@ -471,6 +479,8 @@ def captured_screenshot_result(
 ]:
 	"""Validate staged screenshots and attach their evidence to scenario receipts."""
 	if request.screenshot_staging is None:
+		return receipts, None
+	if not request.finalize_screenshots:
 		return receipts, None
 	try:
 		pending = e2e_browser_screenshot_owner.pending_after_capture(

@@ -1,4 +1,4 @@
-// assignment_workspace_nav.tsx - four-task navigation for an Instructor assignment.
+// assignment_workspace_nav.tsx - task navigation for an Instructor assignment.
 
 import { A } from "@solidjs/router";
 import type { JSX } from "solid-js";
@@ -51,6 +51,16 @@ export function AssignmentWorkspaceNav(props: AssignmentWorkspaceNavProps): JSX.
         aria-current={current(props.active === "policies")}
       >
         Policies
+      </A>
+      <A
+        href={assignmentWorkspacePath(
+          props.courseReference,
+          props.assignmentReference,
+          "gradingOperations",
+        )}
+        aria-current={current(props.active === "gradingOperations")}
+      >
+        Grading operations
       </A>
       <A
         href={assignmentWorkspacePath(

@@ -3,7 +3,7 @@
 use super::completion_tests::seed_complete_issued_execution;
 use crate::{
     AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionOutcome,
-    AcceptedSubmissionExecutionWorkerStore, AcceptedSubmissionGrade, GradingExecutionState,
+    AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionGrade, GradingExecutionState,
     JobLeaseDuration, LearnerSubmissionStatusRead, LearnerSubmissionStatusStore,
     LearnerWorkRoutingBinding, StoreError, WorkerId, canonical_attempt_result_json,
 };

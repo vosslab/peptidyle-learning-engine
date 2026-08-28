@@ -7,12 +7,12 @@ use std::time::Duration;
 use base_course_installation::{
     BaseCourseAction, BaseCourseInstallError, BaseCourseInstallStateOutput,
 };
-use learning_data_access::postgres::apply_migrations;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{AssertSqlSafe, PgPool, Postgres};
 
 use super::{
-    Participants, ProductDatabase, fresh, install_request, prepare_request,
+    Participants, ProductDatabase, apply_live_demo_install_state_epoch_migrations,
+    assert_live_demo_install_state_epoch, fresh, install_request, prepare_request,
     reset_disposable_course_capability_memberships,
 };
 
@@ -28,6 +28,7 @@ struct CompletionFixture {
     admin: PgPool,
     database: String,
     pool: PgPool,
+    migration_replay: std::path::PathBuf,
     product: ProductDatabase,
     participants: Participants,
     generation: uuid::Uuid,
@@ -57,9 +58,8 @@ impl CompletionFixture {
             .connect_with(options)
             .await
             .expect("connect isolated completion-evidence child database");
-        apply_migrations(&pool)
-            .await
-            .expect("apply full schema to isolated completion-evidence child database");
+        let migration_replay = apply_live_demo_install_state_epoch_migrations(&pool).await;
+        assert_live_demo_install_state_epoch(&pool).await;
         let version: i32 = sqlx::query_scalar("SELECT current_setting('server_version_num')::int4")
             .fetch_one(&pool)
             .await
@@ -115,6 +115,7 @@ impl CompletionFixture {
             admin,
             database,
             pool,
+            migration_replay,
             product,
             participants,
             generation: prepared.installation_generation(),
@@ -124,6 +125,8 @@ impl CompletionFixture {
 
     async fn cleanup(self) {
         self.pool.close().await;
+        std::fs::remove_dir_all(&self.migration_replay)
+            .expect("remove completion-evidence LD1 migration replay");
         let _ =
             sqlx::query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1")
                 .bind(&self.database)

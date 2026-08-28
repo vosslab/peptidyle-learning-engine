@@ -15,6 +15,8 @@ pub(super) struct PersistentDependencies {
     /// It is never included in route state or browser-facing APIs.
     grader: Arc<PostgresGraderStore>,
     objects: Arc<objects::s3::S3ObjectStore>,
+    accepted_submission_fast_path:
+        Arc<dyn crate::accepted_submission_worker::AcceptedSubmissionFastPath>,
     public_assets: Arc<PublicAssetBaseUrl>,
     grading: GradingBackendSettings,
     imathas: Option<ConfiguredImathas>,
@@ -220,10 +222,61 @@ impl PersistentDependencies {
             };
         let grader =
             connect_production_grader(&settings.grading, settings.storage.runtime.topology).await?;
+        #[cfg(not(feature = "e2e-grader-fault"))]
+        let fast_path_pool = match settings.storage.runtime.topology {
+            StorageTopology::DisposableLocal => {
+                super::local_accepted_submission_fast_path_pool(
+                    &settings.accepted_submission_fast_path_database_url,
+                )
+                .await
+            }
+            StorageTopology::AwsWorkload => {
+                super::accepted_submission_fast_path_pool(
+                    &settings.accepted_submission_fast_path_database_url,
+                )
+                .await
+            }
+        }
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "accepted-submission fast-path database connection configuration was rejected"
+            )
+        })?;
+        let accepted_submission_fast_path: Arc<
+            dyn crate::accepted_submission_worker::AcceptedSubmissionFastPath,
+        > = {
+            #[cfg(feature = "e2e-grader-fault")]
+            {
+                // The feature-only fault profile keeps the accepted response
+                // in durable recovery.  Its separate process exercises the
+                // common handler and real failure persistence exactly once.
+                Arc::new(crate::accepted_submission_worker::RecoveryOnlyAcceptedSubmissionFastPath)
+            }
+            #[cfg(not(feature = "e2e-grader-fault"))]
+            {
+                Arc::new(
+                    crate::accepted_submission_worker::AcceptedSubmissionExecutionWorker::new(
+                        super::PostgresAcceptedSubmissionFastPathStore::from_fast_path_pool(
+                            fast_path_pool,
+                        ),
+                        build_production_grading_backend(
+                            Arc::clone(&store),
+                            Arc::clone(&objects),
+                            Arc::clone(&grader),
+                            &settings.grading,
+                        ),
+                        learning_data_access::WorkerId::from_uuid(uuid::Uuid::new_v4()),
+                        settings.accepted_submission_execution.worker_settings(),
+                    )
+                    .context("accepted-submission fast-path settings are incompatible")?,
+                )
+            }
+        };
         Ok(Self {
             store,
             grader,
             objects,
+            accepted_submission_fast_path,
             public_assets,
             grading: settings.grading.clone(),
             imathas,
@@ -295,6 +348,7 @@ impl PersistentDependencies {
             self.live_demo_selector.clone(),
             Some(self.webauthn.clone()),
             Arc::clone(&self.health),
+            Arc::clone(&self.accepted_submission_fast_path),
         );
         if let Some(imathas) = &self.imathas {
             router = router.merge(external_tool_router(

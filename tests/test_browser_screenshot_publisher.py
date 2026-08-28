@@ -28,11 +28,16 @@ def png(width: int = 1280, height: int = 800) -> bytes:
 	return value
 
 
-def staging(path: pathlib.Path) -> publisher.PendingScreenshotPublication:
+def staging(
+	path: pathlib.Path,
+	artifacts: tuple[contract.ScreenshotArtifact, ...] | None = None,
+	origin: str = "https://localhost:55000",
+) -> publisher.PendingScreenshotPublication:
 	"""Produce one private fixed twenty-artifact bundle with exact receipts."""
+	selected = contract.ARTIFACTS if artifacts is None else artifacts
 	path.mkdir(mode=0o700)
 	path.chmod(0o700)
-	for artifact in contract.ARTIFACTS:
+	for artifact in selected:
 		viewport = contract.VIEWPORT_PROFILES[artifact.viewport]
 		content = png(viewport.width, viewport.height)
 		digest = hashlib.sha256(content).hexdigest()
@@ -40,11 +45,11 @@ def staging(path: pathlib.Path) -> publisher.PendingScreenshotPublication:
 		image.write_bytes(content)
 		image.chmod(0o600)
 		checks = publisher.privacy_checks(artifact)
-		receipt = {"artifactId": artifact.artifact_id, "scenarioId": artifact.scenario_id, "stateId": artifact.state_id, "sha256": digest, "viewport": artifact.viewport, "width": viewport.width, "height": viewport.height, "origin": "https://localhost:55000", "privacyValidated": True, "privacyChecks": checks}
+		receipt = {"artifactId": artifact.artifact_id, "scenarioId": artifact.scenario_id, "stateId": artifact.state_id, "sha256": digest, "viewport": artifact.viewport, "width": viewport.width, "height": viewport.height, "origin": origin, "privacyValidated": True, "privacyChecks": checks}
 		item = path / f"{artifact.artifact_id}.json"
 		item.write_text(json.dumps(receipt), encoding="ascii")
 		item.chmod(0o600)
-	pending = publisher.pending_from_staging(path, "https://localhost:55000", "b" * 64)
+	pending = publisher.pending_from_staging(path, origin, "b" * 64, selected)
 	return pending
 
 
@@ -404,3 +409,32 @@ def test_production_dist_digest_rejects_links_without_following(
 	(dist / "unsafe").symlink_to(dist / "index.html")
 	with pytest.raises(publisher.ScreenshotPublicationError):
 		publisher.production_dist_digest(tmp_path)
+
+
+def test_profile_bundles_join_only_after_exact_origin_attestation(tmp_path: pathlib.Path) -> None:
+	"""Independent stack captures join into one ordered, fully mapped generation."""
+	first = contract.ARTIFACTS[:1]
+	second = contract.ARTIFACTS[1:]
+	left = staging(tmp_path / "ordinary", first)
+	right = staging(tmp_path / "fault", second)
+	combined = publisher.combine_pending((left, right))
+	assert tuple(item[0] for item in combined.artifacts) == contract.ARTIFACTS
+	assert tuple(item_id for item_id, _ in combined.artifact_origins) == tuple(
+		item.artifact_id for item in contract.ARTIFACTS
+	)
+	publisher._validate_pending(combined)
+
+
+def test_profile_bundle_join_rejects_missing_or_duplicate_artifacts(tmp_path: pathlib.Path) -> None:
+	"""A partial or repeated profile group cannot reach the publisher."""
+	first = staging(tmp_path / "ordinary", contract.ARTIFACTS[:1])
+	with pytest.raises(publisher.ScreenshotPublicationError, match="cover the closed corpus"):
+		publisher.combine_pending((first, first))
+
+
+def test_profile_bundle_join_rejects_different_gateway_origins(tmp_path: pathlib.Path) -> None:
+	"""Every profile group must prove the same publication gateway origin."""
+	left = staging(tmp_path / "ordinary", contract.ARTIFACTS[:1])
+	right = staging(tmp_path / "fault", contract.ARTIFACTS[1:], "https://localhost:55001")
+	with pytest.raises(publisher.ScreenshotPublicationError, match="different gateway origins"):
+		publisher.combine_pending((left, right))

@@ -11,7 +11,7 @@ export interface BrowserScenarioInputV1 {
   readonly baselineReads: readonly string[];
   readonly visibleObservation: string;
   readonly serviceReceipt?: string;
-  readonly faultTransition?: "gateway_submit_outage";
+  readonly faultTransition?: "gateway_submit_outage" | "deterministic_grader_exception";
   readonly screenshotCapture?: ScreenshotCapture;
 }
 export interface ScreenshotCapture {
@@ -128,7 +128,9 @@ function parse(contents: string): BrowserScenarioInputV1 {
     !visibleObservation(input.visibleObservation) ||
     (input.serviceReceipt !== undefined &&
       (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt))) ||
-    (input.faultTransition !== undefined && input.faultTransition !== "gateway_submit_outage") ||
+    (input.faultTransition !== undefined &&
+      input.faultTransition !== "gateway_submit_outage" &&
+      input.faultTransition !== "deterministic_grader_exception") ||
     (input.screenshotCapture !== undefined && !screenshotCapture(input.screenshotCapture))
   )
     throw new Error("browser-suite input has an invalid shape");

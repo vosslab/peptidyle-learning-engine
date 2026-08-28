@@ -39,6 +39,8 @@ status reports live under [active_plans/](active_plans/) and remain separate fro
    +- browser_suite_reset.py      Fixed-owner resource reset and cleanup proof
    +- private_files.py   Atomic private-file creation and replacement boundary
    +- private_state.py   Descriptor-anchored repository-target E2E state owner
+   +- process_logins.py  Capability-specific disposable PostgreSQL login provisioning
+   +- runtime_manifest.py Private baseline runtime manifest and service-URL handoff
    +- renderer.py        Selected renderer OCI provenance and probe boundary
    +- _consumer_cli.py   Private disposable-consumer adapter
 `- run_playwright_tests.sh Browser test entry point
@@ -64,6 +66,7 @@ container build context, or runtime dependency.
 | [crates/adapters/imathas/](../crates/adapters/imathas/)         | iMathAS provider and broker boundary.                                                                                 |
 | [crates/export/](../crates/export/)                             | Print model plus PDF and DOCX writers.                                                                                |
 | [crates/wasm/](../crates/wasm/)                                 | `wasm-bindgen` facade over answer-free domain behavior.                                                               |
+| `crates/acceptance-runtime/`                                    | Private manifest loader and capability-specific PostgreSQL URL handoff for disposable acceptance lanes.               |
 | [crates/server/](../crates/server/)                             | Axum API, auth, authorization, broker, ordinary worker, dedicated public-asset publisher, and dependency composition. |
 | [crates/project-tools/](../crates/project-tools/)               | Direct `base-course` CLI adapter plus repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands. |
 
@@ -86,6 +89,7 @@ crates/learning-data-access/
 |  +- contracts/       Store and capability contracts
 |  |  `- catalog.rs    Catalog query contract and HMAC continuation codec
 |  |  `- assignment_editing.rs Focused assignment draft, content, and policy commands
+|  |  `- grading_operations.rs Accepted-submission execution and Instructor recovery contracts
 |  |  `- curriculum_adoption.rs Revision-bound `CurriculumAdoptionStore` contract
 |  +- in_memory/       `test-support`-gated deterministic contract adapters
 |  |  +- catalog.rs    Catalog state projection, pagination, and snapshot assembly
@@ -104,10 +108,19 @@ crates/learning-data-access/
 |  |  `- effective_policy_receipts.rs Sealed effective-policy receipt persistence and reconstruction
 |  |  `- assignment_records/learner_disclosure.rs Closed five-field disclosure-column decoder
 |  |  `- item_analysis/learner_class_statistics.rs Learner-safe current course analysis projection
+|  |  `- grading_operations.rs Instructor operation projections and guarded actions
+|  |  `- grading_operations_completion.rs Accepted execution completion and score enqueue
+|  |  `- grading_operations_instructor.rs Instructor retry and recalculation persistence
 |  +- in_memory/assignment_workspace.rs Focused draft/content/policy mutations and revision checks
+|  +- in_memory/grading_operations.rs Deterministic operation and recovery projections
+|  +- in_memory/grading_operation_store.rs Instructor operation state and action receipts
+|  +- in_memory/grading_execution_worker.rs Sealed accepted-submission worker behavior
+|  +- in_memory/scoring_invalidation.rs Generation-fenced recalculation origins
 |  +- in_memory/course_policy.rs Atomic teaching-settings mutation and current policy resolution
 |  +- postgres/course_assignments.rs PostgreSQL assignment draft/content/policy mutations
 |  +- postgres/course_policy.rs PostgreSQL teaching-settings CAS, lifecycle gate, and receipt update
+|  +- postgres/grading_operations.rs Accepted execution and Instructor operation persistence
+|  +- postgres/scoring_invalidation.rs Canonical scoring-invalidation capability
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
 |  +- assignment_revision.rs Checked conversion between the canonical domain revision and stored BIGINT
 |  +- external_tool.rs External broker leases, dispatch, and finalization contracts
@@ -152,6 +165,15 @@ Forward migration
 adds the monotonic publication/disclosure boundary, normalized search
 projection, discovery indexes, and forced-RLS disclosure broker.
 
+G1 adds the typed accepted-submission and Instructor-operation files named in
+the tree above. The PostgreSQL connection execution-pool seam is
+`crates/learning-data-access/src/postgres/connection_execution_pools.rs`; the
+scoring-invalidation persistence files own causal origin and source bindings.
+`crates/server/src/composition/accepted_submission_execution.rs` supplies the
+shared validated lease/deadline settings. These files keep the API, ordinary
+worker, sealed execution worker, and Instructor operation capability as
+separate composition boundaries.
+
 ## Server application
 
 ```text
@@ -159,17 +181,20 @@ crates/server/src/
 +- auth/                             Passwordless email, passkey, session, and request-boundary behavior
 +- catalog/                           Catalog query and immutable publication behavior
 +- course/                            Course, roster, invitation, assignment, and grade routes
+|  +- grading_operations.rs            Assignment-local answer-free retry and recalculation routes
 |  +- assignments.rs                   Assignment route facade and shared response assembly
 |  +- assignments/
 |  |  +- definition_request.rs          Strict assignment content resolution and validation
 |  |  +- learner.rs                     Learner detail and shared answer-free landing projection
-|  |  `- workspace.rs                   Draft, Questions, Policies, and Instructor Student-view routes
+|  |  `- workspace.rs                   Draft, Questions, Policies, Grading operations, and Student-view routes
 |  `- gradebook.rs                     Course-grade scheme, compact totals, and CSV export routes
-+- run/                               Attempt issue, prefetch, submission, current disclosure redaction, and external-tool routes
++- run/                               Attempt issue, prefetch, submission/status, current disclosure redaction, and external-tool routes
+|  `- submission_status.rs             Route-bound answer-free accepted-submission status projection
 +- workspace/                         Authoring workspace behavior
 +- curriculum_adoption/               Instructor-authorized preview/apply, inspection, and reconciliation routes for reusable-curriculum adoption
 +- flat_question_publication/         Native publication routes and tests
 +- public_asset_publication_worker/   Outbox handler and conditional registry activation
++- accepted_submission_worker.rs      Sealed claim/load/grade/commit worker for accepted input
 +- qti_*/                             QTI import, conversion, publication, and runtime paths
 +- composition/                       Concrete API, worker, and publisher dependency assembly
 +- asset.rs                           Authorized object delivery
@@ -194,6 +219,7 @@ src/
 |  +- decoders/assignment_policy.ts            Exact five-field assignment-policy decoder
 |  +- decoders/assignment_policy_validation.ts Focused Policies correction decoder
 |  `- decoders/assignment_workspace.ts         Assignment workspace and issued-work decoder
+|  `- decoders/grading_operations.ts           Answer-free Instructor operation decoder
 +- auth/            Account and course-session browser state
 +- components/      Reusable prompt, response, feedback, and accessibility UI
 |  `- learner_assignment_presentation.tsx Shared answer-free learner/Student-view landing
@@ -205,6 +231,8 @@ src/
 |  |  +- assignment_workspace_overview_page.tsx  Assignment home and readiness actions
 |  |  +- assignment_workspace_questions_page.tsx Questions and pool authoring
 |  |  +- assignment_workspace_policies_page.tsx  Delivery, lifecycle, and disclosure policy
+|  |  +- assignment_workspace_operations_page.tsx Instructor grading recovery actions
+|  |  +- assignment_workspace_operations_model.ts Pure operation state and safe action wording
 |  |  +- assignment_workspace_authoring.css      Shared Create, Questions, pool, and Policies controls
 |  |  `- assignment_workspace_student_view_page.tsx Shared learner landing in Instructor context
 |  +- assignment_editor_*   Picker, reuse, content-list, model, and repository helpers
@@ -245,7 +273,7 @@ source and replay selection is in
 
 ```text
 schemas/
-`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, 2026081805 assignment learner-disclosure policy, and 2026081848 assignment workspace drafts
+`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, 2026081805 assignment learner-disclosure policy, 2026081848 assignment workspace drafts, and 2026081849-2026081865 accepted-submission and grading-operation capabilities
 
 containers/
 +- compose.yaml       Common local and disposable topology, private networks, hardening, and one-shot setup
@@ -267,6 +295,14 @@ deploy/opentofu/
 `- DATABASE_PROVISIONING.md Production login and capability-role provisioning procedure
 ```
 
+The G1 forward migrations are append-only and ordered. `2026081849` creates
+automated-grading operation prerequisites and `2026081850` adds the accepted
+response loader boundary. Migrations `2026081851` through `2026081860` own the
+accepted-submission schema, integrity, authority, claim, read, load,
+completion-lock, commit, and failure layers. Migrations `2026081861` through
+`2026081865` own Instructor operation capabilities, lifecycle projection,
+scoring-invalidation origin, capability, and source bindings.
+
 The default local services are PostgreSQL, MinIO, API, ordinary worker,
 gateway, and a private standalone renderer. PostgreSQL and MinIO use named
 volumes; the other service containers can be rebuilt from configuration.
@@ -284,6 +320,13 @@ operator operations; and `consumer.py` limits disposable E2E ownership.
 
 `local_stack_control/_consumer_cli.py` is intentionally narrower than the public controller.
 It accepts a private, owner-specific manifest and only runs scoped Compose
+
+The private `DATABASE_BASELINE` runtime is materialized by the acceptance-runtime
+crate and validated by `runtime_manifest.py`. Its mode-0600 handoff contains
+separate PostgreSQL URLs for the grader, accepted-submission fast path, and
+accepted-submission recovery; `process_logins.py` provisions the matching
+capability-specific local logins. The API consumes only the fast-path URL, and
+the worker consumes only the recovery URL.
 actions or the matching scoped cleanup plan. The controller's default mutation
 target is `containers`; its disposable adapter does not provide arbitrary
 Podman or Compose-project access.
@@ -303,8 +346,10 @@ tests/
 +- test_*.mjs         Deterministic browser-contract checks without a browser
 +- playwright/        Production-browser scenarios and private live-validation helpers
 |  `- e2e/*.spec.ts    Catalog-owned scenarios selected by run_playwright_tests.sh
+|     `- automated_grading_recovery.spec.ts Student exception and Instructor recovery journey
 +- e2e/               Generic disposable whole-system runners
 |  +- `compose.live-demo-browser.yaml` Owner-locked disposable production-auth/TLS E2E overlay; not an operator production deployment
+|  +- `compose.automated-grading-fault.yaml` Acceptance-only deterministic exception overlay
 |  `- `Caddyfile.live-demo-browser` Owner-locked disposable production-auth/TLS E2E gateway; not an operator production deployment
 `- fixtures/          Small checked-in fixture evidence
 
@@ -321,6 +366,12 @@ The generated API tree is ignored output, recreated by `cargo tools tsgen` or
 TypeScript decoders under `src/api/decoders/` are the
 strict browser boundary for those projections.
 
+G1 also derives `AutomatedGradingStatus`, `SubmissionEvaluationStatus`,
+`GradingOperationAction`, `GradingOperationReason`, `GradingOperationState`,
+`GradingOperationReference`, and `GradingOperationVisibleState` from the Rust
+question model. The operation decoder rejects unknown or answer-bearing fields
+before the page can render them.
+
 `dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report directories are reproducible
 ignored output. `local_runtime/live_demo_browser/` is separate ignored mode-0700 lifecycle state; a
 build cleanup may remove `target/` while the authenticated demo owner retains its lease and control
@@ -333,7 +384,7 @@ Committed visual evidence lives under `docs/screenshots/`, organized by role and
 
 ```text
 docs/screenshots/
-+- instructor/       Desktop professor evidence at 1280 by 800 or larger
++- instructor/       Desktop professor evidence at the `laptop` 1280 by 800 16:10 profile or larger
 +- student/           Allowed learner surfaces across the student viewport matrix
 |  `- access/         Student denial and no-transport access evidence
 `- shared/            Evidence shared by instructor and student surfaces
@@ -346,6 +397,12 @@ names, routes, roles, pipelines, viewports, and evidence purposes. The
 directories describe evidence boundaries. A retained image is not canonical
 acceptance evidence until V1 captures it from the real origin and its
 provenance verifier and visual review pass.
+
+The `automated_grading_recovery` scenario owns the G1 operation and Gradebook
+captures. Its `laptop` value uses the established 1280 by 800 desktop 16:10
+profile name. The deterministic-grader fault overlay is an acceptance-only
+profile; it injects one closed exception and restores the ordinary worker
+before cleanup. It is not included in production composition.
 
 `source source_me.sh && python3 local_stack.py acceptance` is the explicit live aggregate entry
 point. `local_stack_control/commands.py` owns conflict preflight and environment sanitization;

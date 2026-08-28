@@ -186,6 +186,15 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
         "PUT",
     ),
     read("/api/courses/{course}/assignments/{assignment}/student-view"),
+    read("/api/courses/{course}/assignments/{assignment}/grading-operations"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/grading-operations/{operation}/retry",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/grading-operations/recalculate",
+        "POST",
+    ),
     read("/api/courses/{course}/roster"),
     mutation("/api/courses/{course}/members/{member}", "DELETE"),
     mutation(

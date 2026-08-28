@@ -16,8 +16,12 @@ secret_file_writer_image = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-sec
 # These are ARNs only. Secret values must be created and rotated outside OpenTofu.
 api_application_secrets_arn               = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-api-runtime-REPLACE"
 worker_application_secrets_arn            = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-worker-runtime-REPLACE"
+recovery_application_secrets_arn          = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-accepted-submission-recovery-REPLACE"
+fast_path_application_secrets_arn         = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-accepted-submission-fast-path-REPLACE"
 api_application_secrets_kms_key_arn       = "arn:aws:kms:us-west-2:111122223333:key/REPLACE"
 worker_application_secrets_kms_key_arn    = "arn:aws:kms:us-west-2:111122223333:key/REPLACE"
+recovery_application_secrets_kms_key_arn  = "arn:aws:kms:us-west-2:111122223333:key/REPLACE"
+fast_path_application_secrets_kms_key_arn = "arn:aws:kms:us-west-2:111122223333:key/REPLACE"
 publisher_application_secrets_arn         = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-publisher-runtime-REPLACE"
 publisher_application_secrets_kms_key_arn = "arn:aws:kms:us-west-2:111122223333:key/REPLACE"
 smtp_security_group_id                    = "sg-REPLACE"

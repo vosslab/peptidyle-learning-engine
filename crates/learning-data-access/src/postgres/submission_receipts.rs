@@ -16,14 +16,19 @@ impl crate::LearnerSubmissionStatusStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         // ASVS V8.2.2/V8.3.1: the complete nested route assertion is part of
         // this authoritative status boundary.
-        if require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
-            .await?
-            != binding
-        {
+        let authorized_binding =
+            require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
+                .await?;
+        if authorized_binding != binding {
             return Err(StoreError::NotFound);
         }
-        let status =
-            learner_submission_status(&mut transaction, context.tenant_id(), attempt).await?;
+        let status = learner_submission_status(
+            &mut transaction,
+            context.tenant_id(),
+            authorized_binding,
+            attempt,
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(status)
     }
@@ -38,7 +43,8 @@ impl crate::LearnerSubmissionStatusStore for PostgresStore {
 pub(super) enum AcceptedSubmissionStatusState {
     Pending,
     InstructorAttention,
-    Completed,
+    CompletedGraded,
+    CompletedExempt,
     Contradictory,
 }
 
@@ -77,7 +83,8 @@ pub(super) async fn load_accepted_submission_status_state(
             (_, "needs_manual_grading") | ("exception", "automated_exception") => {
                 AcceptedSubmissionStatusState::InstructorAttention
             }
-            ("completed", "graded" | "exempt") => AcceptedSubmissionStatusState::Completed,
+            ("completed", "graded") => AcceptedSubmissionStatusState::CompletedGraded,
+            ("completed", "exempt") => AcceptedSubmissionStatusState::CompletedExempt,
             _ => AcceptedSubmissionStatusState::Contradictory,
         })
     })
@@ -91,16 +98,22 @@ pub(super) async fn load_accepted_submission_status_state(
 pub(super) async fn learner_submission_status(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
+    binding: LearnerWorkRoutingBinding,
     attempt: QuestionAttemptId,
 ) -> Result<crate::LearnerSubmissionStatusRead, StoreError> {
-    let receipt = load_submission_record(transaction, tenant, attempt)
-        .await
-        .map_err(|error| match error {
-            StoreError::Conflict | StoreError::NotFound => StoreError::Unavailable(
-                "learner submission status has an invalid durable aggregate".to_string(),
-            ),
-            other => other,
-        })?;
+    let receipt = load_submission_record_with_evaluation_verification(
+        transaction,
+        tenant,
+        attempt,
+        AcceptedEvaluationVerification::StatusRoute,
+    )
+    .await
+    .map_err(|error| match error {
+        StoreError::Conflict | StoreError::NotFound => StoreError::Unavailable(
+            "learner submission status has an invalid durable aggregate".to_string(),
+        ),
+        other => other,
+    })?;
     let durable = load_accepted_submission_status_state(transaction, tenant, attempt).await?;
     match (receipt, durable) {
         (crate::SubmissionReceiptRead::Missing, _) => Err(StoreError::NotFound),
@@ -116,8 +129,31 @@ pub(super) async fn learner_submission_status(
         )),
         (
             crate::SubmissionReceiptRead::Completed(record),
-            Some(AcceptedSubmissionStatusState::Completed),
+            Some(AcceptedSubmissionStatusState::CompletedGraded),
         ) => {
+            validate_accepted_completed_graded_evaluation(
+                transaction,
+                tenant,
+                binding,
+                attempt,
+                &record.attempt,
+            )
+            .await?;
+            let next_pending =
+                completed_successor_is_eligible(transaction, tenant, &record).await?;
+            Ok(crate::LearnerSubmissionStatusRead::Completed {
+                record,
+                next_pending,
+            })
+        }
+        (
+            crate::SubmissionReceiptRead::Completed(record),
+            Some(AcceptedSubmissionStatusState::CompletedExempt),
+        ) => {
+            // Exempt completions have no automated-result canonical evidence.
+            // Their existing terminal projection remains receipt-checked here.
+            validate_accepted_completed_evaluation(transaction, tenant, attempt, &record.attempt)
+                .await?;
             let next_pending =
                 completed_successor_is_eligible(transaction, tenant, &record).await?;
             Ok(crate::LearnerSubmissionStatusRead::Completed {
@@ -345,6 +381,33 @@ pub(super) async fn load_submission_record(
     tenant: TenantId,
     attempt: QuestionAttemptId,
 ) -> Result<crate::SubmissionReceiptRead, StoreError> {
+    load_submission_record_with_evaluation_verification(
+        transaction,
+        tenant,
+        attempt,
+        AcceptedEvaluationVerification::Direct,
+    )
+    .await
+}
+
+/// Selects how an accepted completed evaluation is verified after receipt
+/// decoding. The learner status route supplies the route witness required by
+/// the four-key database verifier; general receipt readers retain their
+/// established direct projection verification.
+#[cfg(feature = "postgres")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AcceptedEvaluationVerification {
+    Direct,
+    StatusRoute,
+}
+
+#[cfg(feature = "postgres")]
+async fn load_submission_record_with_evaluation_verification(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    evaluation_verification: AcceptedEvaluationVerification,
+) -> Result<crate::SubmissionReceiptRead, StoreError> {
     let Some(metadata) = load_submission_replay_metadata(transaction, tenant, attempt).await?
     else {
         return Ok(crate::SubmissionReceiptRead::Missing);
@@ -364,7 +427,9 @@ pub(super) async fn load_submission_record(
             ))
         };
     };
-    if metadata.request_contract_version == 2 {
+    if metadata.request_contract_version == 2
+        && evaluation_verification == AcceptedEvaluationVerification::Direct
+    {
         validate_accepted_completed_evaluation(transaction, tenant, attempt, &receipt.attempt)
             .await?;
     }
@@ -434,6 +499,67 @@ async fn validate_accepted_completed_evaluation(
         ));
     }
     Ok(())
+}
+
+/// Verifies a graded accepted completion through the route-bound W4 database
+/// capability. Its result is a safe projection, never a replacement for the
+/// immutable receipt that remains this reader's canonical evidence source.
+#[cfg(feature = "postgres")]
+async fn validate_accepted_completed_graded_evaluation(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    binding: LearnerWorkRoutingBinding,
+    attempt: QuestionAttemptId,
+    receipt_attempt: &QuestionAttempt,
+) -> Result<(), StoreError> {
+    let receipt_result = accepted_completed_receipt_result(receipt_attempt)?;
+    // ASVS 1.5.2 and 2.2.1-2.2.3: the SECURITY DEFINER function verifies the
+    // complete tenant/course/assignment/attempt tuple and closed JSON source
+    // before this typed decode. Actor entitlement is already established in
+    // this same transaction by require_attempt_owner_for_read.
+    let projection: Value = sqlx::query_scalar::<_, Option<Value>>(
+        "SELECT evaluation_payload \
+         FROM public.ple_read_accepted_submission_evaluation_v1($1, $2, $3, $4)",
+    )
+    .bind(tenant.as_uuid())
+    .bind(binding.course.as_uuid())
+    .bind(binding.assignment.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .flatten()
+    .ok_or_else(|| {
+        StoreError::Unavailable("completed graded evaluation is unavailable".to_string())
+    })?;
+    let projection: AttemptResult = serde_json::from_value(projection).map_err(|_| {
+        StoreError::Unavailable("completed graded evaluation is malformed".to_string())
+    })?;
+    crate::validate_attempt_result(projection).map_err(|_| {
+        StoreError::Unavailable("completed graded evaluation is invalid".to_string())
+    })?;
+    if receipt_result != projection {
+        return Err(StoreError::Unavailable(
+            "completed receipt result disagrees with verified evaluation".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "postgres")]
+fn accepted_completed_receipt_result(
+    receipt_attempt: &QuestionAttempt,
+) -> Result<AttemptResult, StoreError> {
+    if receipt_attempt.status != AttemptStatus::Submitted {
+        return Err(StoreError::Unavailable(
+            "accepted completed receipt has an invalid terminal attempt".to_string(),
+        ));
+    }
+    receipt_attempt.result.ok_or_else(|| {
+        StoreError::Unavailable(
+            "accepted completed receipt has an invalid terminal attempt".to_string(),
+        )
+    })
 }
 
 /// Reads one complete immutable, answer-free receipt aggregate.

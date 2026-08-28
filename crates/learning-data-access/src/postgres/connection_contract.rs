@@ -48,6 +48,10 @@ pub(super) struct ExpectedMembership {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum LoginContract {
     Production(ProductionLoginProfile),
+    /// Private arm used only by the sealed recovery-execution pool factories.
+    AcceptedSubmissionRecovery,
+    /// Private arm used only by the sealed exact-execution pool factories.
+    AcceptedSubmissionFastPath,
     /// Private arm used exclusively by the dedicated application-pool factories.
     BaseCourseApplication,
     /// Private arm used exclusively by the opaque installer-pool factories.
@@ -60,6 +64,8 @@ impl LoginContract {
         match self {
             Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
             Self::Production(ProductionLoginProfile::Worker) => "ple_worker_login",
+            Self::AcceptedSubmissionRecovery => "ple_accepted_submission_recovery_login",
+            Self::AcceptedSubmissionFastPath => "ple_accepted_submission_fast_path_login",
             Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
                 "ple_invitation_delivery_worker_login"
             }
@@ -82,16 +88,18 @@ impl LoginContract {
                     set_option: true,
                 },
             ],
-            Self::Production(ProductionLoginProfile::Worker) => &[
-                ExpectedMembership {
-                    role_name: "ple_app",
-                    set_option: true,
-                },
-                ExpectedMembership {
-                    role_name: "ple_accepted_submission_execution",
-                    set_option: true,
-                },
-            ],
+            Self::Production(ProductionLoginProfile::Worker) => &[ExpectedMembership {
+                role_name: "ple_app",
+                set_option: true,
+            }],
+            Self::AcceptedSubmissionRecovery => &[ExpectedMembership {
+                role_name: "ple_accepted_submission_execution",
+                set_option: true,
+            }],
+            Self::AcceptedSubmissionFastPath => &[ExpectedMembership {
+                role_name: "ple_accepted_submission_execution_fast_path",
+                set_option: true,
+            }],
             Self::BaseCourseApplication => &[ExpectedMembership {
                 role_name: "ple_app",
                 set_option: true,
@@ -128,9 +136,11 @@ mod tests {
     use crate::postgres::ProductionLoginProfile;
 
     #[test]
-    fn api_and_worker_roles_have_closed_distinct_capabilities() {
+    fn process_logins_have_closed_distinct_capabilities() {
         let api = LoginContract::Production(ProductionLoginProfile::Api);
         let worker = LoginContract::Production(ProductionLoginProfile::Worker);
+        let recovery = LoginContract::AcceptedSubmissionRecovery;
+        let fast_path = LoginContract::AcceptedSubmissionFastPath;
 
         assert_eq!(
             api.expected_memberships(),
@@ -147,16 +157,24 @@ mod tests {
         );
         assert_eq!(
             worker.expected_memberships(),
-            [
-                ExpectedMembership {
-                    role_name: "ple_app",
-                    set_option: true,
-                },
-                ExpectedMembership {
-                    role_name: "ple_accepted_submission_execution",
-                    set_option: true,
-                },
-            ]
+            [ExpectedMembership {
+                role_name: "ple_app",
+                set_option: true,
+            }]
+        );
+        assert_eq!(
+            recovery.expected_memberships(),
+            [ExpectedMembership {
+                role_name: "ple_accepted_submission_execution",
+                set_option: true,
+            }]
+        );
+        assert_eq!(
+            fast_path.expected_memberships(),
+            [ExpectedMembership {
+                role_name: "ple_accepted_submission_execution_fast_path",
+                set_option: true,
+            }]
         );
     }
 }

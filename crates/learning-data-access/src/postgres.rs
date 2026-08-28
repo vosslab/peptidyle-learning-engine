@@ -134,6 +134,8 @@ mod assignment_records;
 #[cfg(feature = "postgres")]
 mod assignment_scoring_publication;
 #[cfg(feature = "postgres")]
+mod scoring_invalidation;
+#[cfg(feature = "postgres")]
 use assignment_records::*;
 #[cfg(feature = "postgres")]
 mod assignment_definition_capability;
@@ -254,9 +256,12 @@ mod teaching_authority;
 mod teaching_authority_references;
 #[cfg(feature = "postgres")]
 pub use connection::{
-    BaseCourseInstallerPool, ProductionLoginProfile, base_course_application_pool,
-    base_course_installer_pool, lazy_pool, local_base_course_application_pool,
-    local_base_course_installer_pool, local_development_pool, production_pool,
+    AcceptedSubmissionFastPathPool, AcceptedSubmissionRecoveryPool, BaseCourseInstallerPool,
+    ProductionLoginProfile, accepted_submission_fast_path_pool, accepted_submission_recovery_pool,
+    base_course_application_pool, base_course_installer_pool, lazy_pool,
+    local_accepted_submission_fast_path_pool, local_accepted_submission_recovery_pool,
+    local_base_course_application_pool, local_base_course_installer_pool, local_development_pool,
+    production_pool,
 };
 #[cfg(feature = "postgres")]
 use connection::{
@@ -347,16 +352,38 @@ pub struct PostgresGraderStore {
     pool: PgPool,
 }
 
-/// Worker-only sealed accepted-submission execution handle.
-///
-/// Construction consumes a pool that has already been attested with the
-/// `ProductionLoginProfile::Worker` authority contract.  The handle has no
-/// general application-store methods, so API composition cannot accidentally
-/// gain the response-bearing loader capability (ASVS 8.1-8.4, 14.2).
+/// Sealed recovery-worker adapter. Its constructor accepts only the opaque
+/// pool attested for generic recovery claims.
 #[cfg(feature = "postgres")]
 #[derive(Clone)]
-pub struct PostgresAcceptedSubmissionExecutionStore {
+pub struct PostgresAcceptedSubmissionRecoveryStore {
+    core: AcceptedSubmissionExecutionCore,
+}
+
+/// Sealed synchronous adapter. Its constructor accepts only the opaque pool
+/// attested for exact accepted-submission claims.
+#[cfg(feature = "postgres")]
+#[derive(Clone)]
+pub struct PostgresAcceptedSubmissionFastPathStore {
+    core: AcceptedSubmissionExecutionCore,
+}
+
+/// Shared private lease handler for sealed accepted-submission adapters.
+///
+/// The role travels with the opaque-pool constructor and each transaction
+/// installs it locally before private work (ASVS 2.3.3, 8.2.1, and 13.2.2).
+#[cfg(feature = "postgres")]
+#[derive(Clone)]
+pub(super) struct AcceptedSubmissionExecutionCore {
     pool: PgPool,
+    capability: AcceptedSubmissionExecutionCapability,
+}
+
+#[cfg(feature = "postgres")]
+#[derive(Clone, Copy)]
+pub(super) enum AcceptedSubmissionExecutionCapability {
+    Recovery,
+    FastPath,
 }
 
 /// Dedicated worker handle whose pool login is attested to assume only the
@@ -385,19 +412,45 @@ impl PostgresInvitationDeliveryWorkerStore {
 }
 
 #[cfg(feature = "postgres")]
-impl PostgresAcceptedSubmissionExecutionStore {
-    /// Wraps an already worker-attested pool for the sole lease-bound private
-    /// accepted-submission execution read.
-    pub fn from_worker_pool(pool: PgPool) -> Self {
-        Self { pool }
+impl PostgresAcceptedSubmissionRecoveryStore {
+    /// Wraps the private pool attested for generic recovery claims.
+    pub fn from_recovery_pool(pool: AcceptedSubmissionRecoveryPool) -> Self {
+        Self {
+            core: AcceptedSubmissionExecutionCore::new(
+                pool.into_pool(),
+                AcceptedSubmissionExecutionCapability::Recovery,
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl PostgresAcceptedSubmissionFastPathStore {
+    /// Wraps the private pool attested for exact accepted-submission claims.
+    pub fn from_fast_path_pool(pool: AcceptedSubmissionFastPathPool) -> Self {
+        Self {
+            core: AcceptedSubmissionExecutionCore::new(
+                pool.into_pool(),
+                AcceptedSubmissionExecutionCapability::FastPath,
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl AcceptedSubmissionExecutionCore {
+    fn new(pool: PgPool, capability: AcceptedSubmissionExecutionCapability) -> Self {
+        Self { pool, capability }
     }
 
     /// Establishes the worker-only execution capability before a claim has a
     /// tenant.  The claim broker supplies the tenant as an opaque result; all
     /// later private operations install that returned tenant transaction-locally.
-    async fn begin_execution_worker(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+    pub(super) async fn begin_execution_worker(
+        &self,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_accepted_submission_execution")
+        sqlx::query(self.capability.set_role_query())
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -408,12 +461,12 @@ impl PostgresAcceptedSubmissionExecutionStore {
     /// transaction before a private descriptor can be loaded.  Both settings
     /// are transaction-local, so a pooled connection cannot retain authority
     /// or tenant state after commit or rollback (ASVS 2.3, 8.1-8.4, 15.4).
-    async fn begin_execution_tenant(
+    pub(super) async fn begin_execution_tenant(
         &self,
         context: TenantContext,
     ) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_accepted_submission_execution")
+        sqlx::query(self.capability.set_role_query())
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -423,6 +476,16 @@ impl PostgresAcceptedSubmissionExecutionStore {
             .await
             .map_err(map_sqlx_error)?;
         Ok(transaction)
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl AcceptedSubmissionExecutionCapability {
+    const fn set_role_query(self) -> &'static str {
+        match self {
+            Self::Recovery => "SET LOCAL ROLE ple_accepted_submission_execution",
+            Self::FastPath => "SET LOCAL ROLE ple_accepted_submission_execution_fast_path",
+        }
     }
 }
 

@@ -13,16 +13,15 @@ order, validation, and acceptance. Durable product decisions remain in
 ## Current handoff
 
 - **Current package:** `WP-PROF-G1` - the automated-grading operation boundary. W1, W2, and W3
-  are accepted below. `G1-W4` is the current dependency-ordered stage: it owns the first
-  accepted-submission effect, split generic-recovery/exact-fast-path claim authority, common
-  tuple-fenced load/lock/commit/fail, and learner status read across migrations 1851 through
-  1860. `ple_accepted_submission_execution` is the existing recovery caller; W4 adds the
-  fast-path caller, its exact private pool, and a separate recovery private pool. The next
-  defined task is the contract-paired stabilization gate: readable ordered apply, second-pass
-  no-op, compatibility, exhaustive function ACL/role-pool proof, and same-transaction
-  entitlement-then-four-key-read evidence. The
-  accepted W3 handoff and W4's sealed contract-paired
-  dispatch are its prerequisites. The
+  are accepted below. `G1-W5` is the current dependency-ordered implementation stage: it owns
+  the course-scoped Instructor operation list, retry, and generation-fenced recalculation
+  capability and canonical scoring-invalidation ownership in allocated migrations 1861 through
+  1865. W4's source and migration handoff is stable: the API
+  exact fast path and background recovery use distinct eagerly attested private pools, one common
+  tuple-fenced handler, canonical completed evidence, and the route-bound learner status reader
+  across migrations 1851 through 1860. W4 acceptance remains open for W7b's contract-named
+  executable PostgreSQL oracle and final Validation; that later joint evidence does not block W5
+  from consuming the stable W4 operation boundary. The
   [G1 binding plan](active/automated_grading_operations_plan.md) makes immutable accepted
   `submission`/`submission_idempotency` metadata parents authoritative before grading, keeps their
   payload marker answer-free, and stores the canonical response only in a composite-FK private
@@ -46,7 +45,7 @@ order, validation, and acceptance. Durable product decisions remain in
 
 `WP-PROF-G1 / G1-W2` is accepted on 2026-08-27 for its static/offline implementation and fresh
 schema evidence. This acceptance kept `WP-PROF-G1` incomplete while W3 stabilized the typed
-pending/read boundary. W4 owns 1851 through 1860, W5 owns 1861, W7b owns executable PostgreSQL authority proof,
+pending/read boundary. W4 owns 1851 through 1860, W5 owns 1861 through 1865, W7b owns executable PostgreSQL authority proof,
 and final `all_test.sh` remains required.
 
 - **Accepted artifacts:** typed `SubmissionPreparation::AcceptedPending` and
@@ -93,6 +92,35 @@ does not accept `WP-PROF-G1`, whose W4-W7 work and final Validation remain requi
   1851 schema/roles layer plus integrity, public-function authority, table authority, acquisition, read, load, completion-lock, commit, and fail capabilities through 1860. The aggregate `all_test.sh` remains the
   manager-owned final gate; a subagent aggregate invocation has no retained terminal result and is
   intentionally unverified.
+
+## G1-W4 stable implementation handoff
+
+`WP-PROF-G1 / G1-W4` reached its stable implementation handoff on 2026-08-27. This advances source
+work to W5 while keeping W4 acceptance open for W7b's full executable PostgreSQL oracle and the
+final material-tree Validation gate.
+
+- **Implemented boundary:** one immutable accepted-submission effect; split exact-fast-path and
+  generic-recovery claims; type-distinct eagerly connected pools and service logins; one shared
+  leased grading handler; canonical source/digest/projection evidence; atomic tuple-fenced
+  load/lock/commit/fail; route-bound verified completed reads; and answer-free pending, attention,
+  and completed learner projections.
+- **Focused evidence:** `learning-data-access` passed 332 tests with 1 intentional connected ignore;
+  `server_core` passed 413 tests with 3 intentional connected ignores; the five process-login tests
+  and 1,754 source-length checks passed; strict Clippy, formatting, and diff hygiene were green.
+- **Connected stabilization:** a fresh PostgreSQL 17 baseline applied all 90 tracked migrations,
+  repeated migration as a no-op, passed compatibility and every registered connected phase, and
+  left no disposable resources. The production-shaped headless stack then started the API, worker,
+  and HTTPS gateway through the eager private-pool login, membership, and function-surface
+  preflights; API and gateway were healthy, the worker remained running, and exact stop cleanup left
+  no labelled container, network, or volume.
+- **Independent review:** the initial review found lazy private-pool startup; the durable repair made
+  typed factories eagerly connect and preflight their exact allowed and denied function surfaces.
+  Re-review approved the resulting fail-closed composition with no remaining blocker in the W4
+  source handoff.
+- **Open acceptance evidence:** W7b still owns
+  `postgres_automated_grading_operations_live`, its database-baseline registration, exhaustive
+  role/RLS/function proof, outcome and immutable-evidence behavior, ordinary-versus-worker parity,
+  and the 1830-to-1831 score-publication sequence. Final `all_test.sh` remains required after W5-W7.
 
 ## T6 accepted evidence
 
@@ -275,13 +303,20 @@ an allocation before implementation. Non-schema packages do not receive an impli
 | `2026081859`              | `WP-PROF-G1 / G1-W4` | Commit-v2; proof: full 36-input signature commits one immutable aggregate                                          |
 | `2026081860`              | `WP-PROF-G1 / G1-W4` | Fail; proof: NULL-safe closed failure validation preserves invalid-call state                                      |
 | `2026081861`              | `WP-PROF-G1 / G1-W5` | W5 Instructor grading-operation capability and broker surface                                                      |
+| `2026081862`              | `WP-PROF-G1 / G1-W5` | W5 worker-authoritative grading-operation lifecycle projection                                                     |
+| `2026081863`              | `WP-PROF-G1 / G1-W5` | W5 immutable scoring-invalidation origin evidence                                                                  |
+| `2026081864`              | `WP-PROF-G1 / G1-W5` | W5 canonical generation, job, operation, and supersession capability                                               |
+| `2026081865`              | `WP-PROF-G1 / G1-W5` | W5 source-specific invalidation witnesses and least-privilege adapters                                             |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
 their numeric identities. T6 owns `2026081848`; G1 accepted `2026081849` and `2026081850` in
 addition to reserved enqueue/publication capabilities `2026081830` and `2026081831`. G3 retains
 `2026081832`. G1-W4 owns ordered forward allocations `2026081851` through `2026081860`: schema/roles,
-integrity, public-function authority, table authority, claim, read, load, completion lock, commit, then fail. G1-W5 owns `2026081861`.
+integrity, public-function authority, table authority, claim, read, load, completion lock, commit,
+then fail. G1-W5 owns `2026081861` through `2026081865`: Instructor operations, lifecycle
+projection, immutable invalidation origins, the canonical invalidation capability, and
+source-specific least-privilege witnesses.
 None changes W2's accepted status or rewrites an accepted
 migration. The professor plan owns dependencies among reserved capabilities.
 
@@ -306,9 +341,9 @@ The authoritative package sequence is in the [release completion plan](active/re
 and [professor capability plan](active/professor_capability_architecture_plan.md). The current
 handoff is:
 
-1. Implement `WP-PROF-G1` from its approved binding plan. W2 and W3 are accepted; begin with
-   current stage G1-W4's sealed contract-paired acceptance, worker, and learner-status dispatch,
-   then follow W5 through W7 in dependency order. Prove deterministic replay, current-total
+1. Implement `WP-PROF-G1` from its approved binding plan. W2 and W3 are accepted and W4 has a
+   stable implementation handoff; continue current stage G1-W5, then follow W6 and W7 in
+   dependency order. Prove deterministic replay, current-total
    recalculation, and visible exception recovery.
 2. Continue the professor plan's remaining grading-operation and final
    production-stack packages in its declared dependency order.

@@ -19,6 +19,23 @@ use crate::{
     TenantContext,
 };
 
+/// Worker-attempt budget shared by initial and Instructor-retried accepted submissions.
+///
+/// Store adapters use this public contract constant so every backend applies
+/// the same bounded recovery policy.
+pub const ACCEPTED_SUBMISSION_JOB_MAX_ATTEMPTS: u16 = 3;
+
+mod instructor;
+
+pub use instructor::MAX_INSTRUCTOR_GRADING_RETRY_COUNT;
+pub use instructor::{
+    GradingOperationActionReceipt, GradingOperationGroup, GradingOperationGroupBy,
+    GradingOperationStore, GradingOperationTrustGeneration, InstructorGradingOperationProjection,
+    InstructorGradingOperationRow, ListInstructorGradingOperationsCommand,
+    RecalculateAssignmentCommand, RetryGradingOperationCommand,
+};
+pub(crate) use instructor::{GradingOperationCursor, operation_group_key};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AcceptedSubmissionId(Uuid);
 
@@ -181,6 +198,20 @@ pub struct AcceptedSubmissionExecutionClaim {
     pub worker: WorkerId,
 }
 
+/// Exact identity supplied by the synchronous accepted-submission path.
+///
+/// The target is intentionally smaller than a leased claim: it names durable
+/// work before the store atomically decides whether that work is currently
+/// eligible.  The store supplies the lease token and execution generation only
+/// after it wins the shared state transition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AcceptedSubmissionExecutionTarget {
+    pub tenant: TenantId,
+    pub attempt: QuestionAttemptId,
+    pub submission: AcceptedSubmissionId,
+    pub job: JobId,
+}
+
 impl std::fmt::Debug for AcceptedSubmissionExecutionClaim {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AcceptedSubmissionExecutionClaim")
@@ -341,16 +372,6 @@ pub struct GradingExecutionReceipt {
     pub occurred_at: ActivityTimestamp,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GradingOperationReceipt {
-    pub action: GradingOperationActionId,
-    pub reference: GradingOperationReference,
-    pub actor: UserId,
-    pub action_kind: GradingOperationAction,
-    pub resulting_revision: GradingOperationRevision,
-    pub occurred_at: ActivityTimestamp,
-}
-
 /// All data required to atomically accept input and create initial projections.
 #[derive(Clone, PartialEq)]
 pub struct AcceptedSubmissionCommand {
@@ -414,12 +435,6 @@ pub trait AutomatedGradingStore: Send + Sync {
         context: TenantContext,
         submission: AcceptedSubmissionId,
     ) -> Result<Option<GradingExecution>, StoreError>;
-    async fn automated_grading_operation(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-        reference: GradingOperationReference,
-    ) -> Result<Option<GradingOperation>, StoreError>;
     async fn record_automated_grading_execution_receipt(
         &self,
         context: TenantContext,
@@ -428,29 +443,14 @@ pub trait AutomatedGradingStore: Send + Sync {
     ) -> Result<(), StoreError>;
 }
 
-/// Separate server-private capability for lease-bound accepted-input reload.
+/// Server-private capability for lease-bound accepted-input reload and its
+/// single durable completion transition.
+///
+/// Claim selection is deliberately outside this trait.  Both recovery and the
+/// exact synchronous path hand the same already-won claim to this shared
+/// execution capability, preserving one load/commit state machine.
 #[async_trait]
 pub trait AcceptedSubmissionExecutionStore: Send + Sync {
-    async fn load_accepted_submission_for_execution(
-        &self,
-        context: TenantContext,
-        claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError>;
-}
-
-/// Worker-only active-execution capability.
-///
-/// The generic queue cannot claim this job family. Each operation carries the
-/// complete tenant/job/lease/submission/generation/worker tuple, which the
-/// store revalidates under its mutation authority (ASVS V2.3).
-#[async_trait]
-pub trait AcceptedSubmissionExecutionWorkerStore: Send + Sync {
-    async fn claim_next_accepted_submission_execution(
-        &self,
-        worker: WorkerId,
-        lease: crate::JobLeaseDuration,
-    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError>;
-
     async fn load_accepted_submission_for_execution(
         &self,
         context: TenantContext,
@@ -463,6 +463,34 @@ pub trait AcceptedSubmissionExecutionWorkerStore: Send + Sync {
         claim: AcceptedSubmissionExecutionClaim,
         outcome: AcceptedSubmissionExecutionOutcome,
     ) -> Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError>;
+}
+
+/// Recovery-worker authority to select the next eligible accepted submission.
+///
+/// This capability has no private-input loader or completion operation.  It
+/// supplies one claim for the shared execution capability to process.
+#[async_trait]
+pub trait AcceptedSubmissionExecutionRecoveryClaimStore: Send + Sync {
+    async fn claim_next_accepted_submission_execution(
+        &self,
+        worker: WorkerId,
+        lease: crate::JobLeaseDuration,
+    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError>;
+}
+
+/// Exact-claim authority used by the synchronous accepted-submission path.
+///
+/// The target and process identity are explicit so a browser request cannot
+/// select another learner's work.  The same eligible-state transition used by
+/// recovery decides whether this call wins (ASVS V2.3.1 and V2.3.4).
+#[async_trait]
+pub trait AcceptedSubmissionExecutionFastPathClaimStore: Send + Sync {
+    async fn claim_exact_accepted_submission_execution(
+        &self,
+        target: AcceptedSubmissionExecutionTarget,
+        worker: WorkerId,
+        lease: crate::JobLeaseDuration,
+    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError>;
 }
 
 #[cfg(test)]

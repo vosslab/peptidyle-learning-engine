@@ -34,7 +34,11 @@ async fn postgres_problem_curation_live_oracle_is_sealed_and_atomic() {
     verify_application_schema(&pool)
         .await
         .expect("fully migrated D2 schema");
-    authority::broker_role_and_forced_rls_are_sealed(&pool).await;
+    authority::broker_role_and_forced_rls_are_sealed(
+        &pool,
+        authority::BrokerAuthorityStage::FullyMigrated,
+    )
+    .await;
 
     let fixture = fixture::Fixture::new(pool.clone()).await;
     authority::actor_authority_privacy_and_tenant_isolation(&fixture).await;

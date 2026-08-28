@@ -2,7 +2,16 @@
 
 import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
 
-export type AssignmentWorkspaceSection = "overview" | "questions" | "policies" | "studentView";
+export type AssignmentWorkspaceSection =
+  "overview" | "questions" | "policies" | "studentView" | "gradingOperations";
+
+const ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS = {
+  overview: "",
+  questions: "questions",
+  policies: "policies",
+  studentView: "student-view",
+  gradingOperations: "grading-operations",
+} as const satisfies Readonly<Record<AssignmentWorkspaceSection, string>>;
 
 /** The one route owner for starting a persisted Instructor assignment draft. */
 export function assignmentWorkspaceCreatePath(courseReference: CourseRouteReference): string {
@@ -15,6 +24,6 @@ export function assignmentWorkspacePath(
   section?: AssignmentWorkspaceSection,
 ): string {
   const base = `/instructor/courses/${courseReference}/assignments/${assignmentReference}`;
-  if (section === undefined || section === "overview") return base;
-  return `${base}/${section === "studentView" ? "student-view" : section}`;
+  const segment = ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS[section ?? "overview"];
+  return segment.length === 0 ? base : `${base}/${segment}`;
 }

@@ -14,6 +14,11 @@ local-disposable-storage = []
 # container-replica E2E harness.  Production images deliberately do not
 # enable it, and enabling the feature alone still exposes nothing.
 e2e-observability = []
+# Builds the isolated, disposable-stack-only deterministic grader exception
+# capability used by the connected recovery acceptance journey.  The ordinary
+# API and worker binaries omit this feature and therefore expose no fault
+# process mode or recovery-only fast-path composition.
+e2e-grader-fault = []
 
 [dependencies]
 anyhow.workspace = true

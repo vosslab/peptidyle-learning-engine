@@ -226,7 +226,7 @@ CREATE POLICY accepted_execution_worker_attempt ON public.question_attempt
     USING (true);
 CREATE POLICY accepted_execution_worker_attempt_completion ON public.question_attempt
     FOR UPDATE TO ple_accepted_submission_execution_worker
-    USING (true) WITH CHECK (true);
+    USING (true) WITH CHECK (false);
 CREATE POLICY accepted_execution_worker_run ON public.assignment_run
     FOR SELECT TO ple_accepted_submission_execution_worker
     USING (true);
@@ -242,6 +242,12 @@ CREATE POLICY accepted_execution_worker_enrollment_completion ON public.enrollme
 CREATE POLICY accepted_execution_worker_assignment ON public.assignment
     FOR SELECT TO ple_accepted_submission_execution_worker
     USING (true);
+-- The key-column grant and false check are a lock capability, not mutation
+-- authority. They let the completion function take a full row lock while the
+-- nested recalculation capability advances the generation in that transaction.
+CREATE POLICY accepted_execution_worker_assignment_lock ON public.assignment
+    FOR UPDATE TO ple_accepted_submission_execution_worker
+    USING (true) WITH CHECK (false);
 CREATE POLICY accepted_execution_worker_audience ON public.assignment_audience_group
     FOR SELECT TO ple_accepted_submission_execution_worker
     USING (true);
@@ -349,10 +355,14 @@ GRANT INSERT ON
     public.submission_receipt_snapshot
 TO ple_accepted_submission_execution_worker;
 
-GRANT UPDATE (attempt_status, submitted_at) ON public.question_attempt
+-- Lock-only authority: submission acceptance owns the lifecycle transition.
+GRANT UPDATE (attempt_id) ON public.question_attempt
     TO ple_accepted_submission_execution_worker;
 
 GRANT UPDATE (completed_at, payload, payload_sha256) ON public.assignment_run
+    TO ple_accepted_submission_execution_worker;
+
+GRANT UPDATE (assignment_id) ON public.assignment
     TO ple_accepted_submission_execution_worker;
 
 GRANT UPDATE (
@@ -626,11 +636,11 @@ BEGIN
                     ),
                     ('public.submission_evaluation', 'evaluated_at', 'UPDATE'),
                     ('public.submission_evaluation', 'evaluation_revision', 'UPDATE'),
-                    ('public.question_attempt', 'attempt_status', 'UPDATE'),
-                    ('public.question_attempt', 'submitted_at', 'UPDATE'),
+                    ('public.question_attempt', 'attempt_id', 'UPDATE'),
                     ('public.assignment_run', 'completed_at', 'UPDATE'),
                     ('public.assignment_run', 'payload', 'UPDATE'),
                     ('public.assignment_run', 'payload_sha256', 'UPDATE'),
+                    ('public.assignment', 'assignment_id', 'UPDATE'),
                     ('public.enrollment', 'first_completed_at', 'UPDATE'),
                     ('public.enrollment', 'current_grade_run_id', 'UPDATE'),
                     ('public.enrollment', 'best_grade_run_id', 'UPDATE'),
@@ -772,13 +782,15 @@ BEGIN
                     'r', 'true', NULL),
                 ('question_attempt', 'accepted_execution_worker_attempt', 'r', 'true', NULL),
                 ('question_attempt', 'accepted_execution_worker_attempt_completion',
-                    'w', 'true', 'true'),
+                    'w', 'true', 'false'),
                 ('assignment_run', 'accepted_execution_worker_run', 'r', 'true', NULL),
                 ('assignment_run', 'accepted_execution_worker_run_completion', 'w', 'true', 'true'),
                 ('enrollment', 'accepted_execution_worker_enrollment', 'r', 'true', NULL),
                 ('enrollment', 'accepted_execution_worker_enrollment_completion',
                     'w', 'true', 'true'),
                 ('assignment', 'accepted_execution_worker_assignment', 'r', 'true', NULL),
+                ('assignment', 'accepted_execution_worker_assignment_lock',
+                    'w', 'true', 'false'),
                 ('assignment_audience_group', 'accepted_execution_worker_audience',
                     'r', 'true', NULL),
                 ('assignment_item', 'accepted_execution_worker_items', 'r', 'true', NULL),

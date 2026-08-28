@@ -212,23 +212,46 @@ browser projection is accepted.
 ### The attempt is the grading authority
 
 **Decision.** `QuestionAttemptId`, authenticated session, and idempotency key bind a submission;
-the browser does not resend the question, course, assignment, version, seed, backend, or response
-family as authority.
+the server durably accepts one immutable private response before grading. The browser does not
+resend the question, course, assignment, version, seed, backend, or response family as authority.
 
 **Why.** An issued attempt already binds learner, tenant, run, immutable version, seed, timing,
 policy, response schema, and grading backend. Repeating those values expands traffic and creates
 conflicting sources of truth.
 
-**Consequence.** Server code loads and validates the issued attempt before decoding and grading an
-answer. The browser uses a compact response and receives a policy-projected receipt rather than a
-persistence record.
+**Consequence.** Server code loads and validates the issued attempt before accepting a response.
+The acceptance transaction creates the immutable submission, pending evaluation, execution job,
+and receipt; the sealed worker later reloads that private response and grades it. Exact replay and
+status reads return the answer-free current projection rather than resubmitting the answer.
 
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#attempt-authority),
 [crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs), and MOD-API-RUN
 in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
-**Planned closure.** The atomic minimal learner screen and type-free answer decoder replace the
-current broader attempt projection under the payload plan's compatibility and acceptance rules.
+**Current boundary.** The learner submission and submission-status routes return a flattened,
+answer-free tagged union with `no-store`. A `202 Accepted` response clears the browser response
+buffer and exposes **Check grading status**; the worker owns later progress.
+
+### Accepted grading has one recovery owner
+
+**Decision.** Accepted automated grading uses one private execution handler shared by the
+synchronous exact-claim path and the background recovery worker. `AcceptedSubmissionExecutionWorker`
+owns the worker-only claim, private load, grading call, and tuple-fenced completion or failure.
+The ordinary worker retains the existing queue families; automated execution uses a dedicated
+store capability and process login, while Instructor operations receive metadata-only recovery
+commands.
+
+**Why.** A learner acknowledgement must remain recoverable when the request ends before grading,
+and a second scheduler or a browser-held answer would create competing authority.
+
+**Consequence.** A deterministic exception produces one assignment-local operation. The visible
+journey is Student exception -> Instructor Retry -> ordinary worker -> current Gradebook. Retry
+reuses the accepted private response, advances the execution generation, and leaves the existing
+`1830` enqueue and `1831` current-score publication path as the sole score authority.
+
+**Owner.** `crates/server/src/accepted_submission_worker.rs`,
+`crates/learning-data-access/src/contracts/grading_operations.rs`, and the
+`GradingOperationStore` route in [CONTRACTS.md](CONTRACTS.md).
 
 ### Render once, answer compactly
 
@@ -494,7 +517,8 @@ status can claim the behavior is accepted.
 ### Viewport and visual evidence profiles
 
 **Decision.** Instructor and Sysadmin design and permanent visual evidence use the canonical 1280
-by 800 CSS-pixel desktop profile. Student design covers 1280 by 800 laptop, 800 by 1280 portrait
+by 800 CSS-pixel desktop profile. The corpus label `laptop` is exactly the established 1280 by 800
+desktop 16:10 evidence profile. Student design also covers 800 by 1280 portrait
 tablet, 393 by 852 narrow phone, and 800 by 800 square profiles; profile weights guide planning and
 do not create screenshot quotas or pixel-equivalence acceptance.
 
@@ -514,8 +538,8 @@ on active teaching.
 
 ### Teaching workspaces use task-owned composition
 
-**Decision.** Instructor assignment work is composed as focused Overview, Questions, Policies, and
-Student-view tasks over one authoritative assignment. Useful desktop width goes to scanning and
+**Decision.** Instructor assignment work is composed as focused Overview, Questions, Policies,
+Grading operations, and Student-view tasks over one authoritative assignment. Useful desktop width goes to scanning and
 editing; the complete current task and primary save action should fit comfortably at 1280 by 800.
 
 **Why.** Task-level hierarchy is easier to teach and operate than a grid of equally padded cards.

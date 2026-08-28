@@ -1,18 +1,304 @@
-//! Deterministic in-memory automated-grading acceptance boundary.
-
 use async_trait::async_trait;
 use question_model::{
-    CourseMembershipRole, GradingOperationReference, IssuedAttemptCapabilityV1,
-    SubmissionEvaluationStatus,
+    CourseMembershipRole, IssuedAttemptCapabilityV1, SubmissionEvaluationStatus, UserRole,
 };
 
 use super::*;
 use crate::{
-    AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionExecution,
-    AcceptedSubmissionExecutionClaim, AcceptedSubmissionExecutionStore, AcceptedSubmissionId,
-    AutomatedGradingStore, GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt,
-    GradingOperation, StoreError, TenantContext,
+    AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionId, AutomatedGradingStore,
+    GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt, GradingOperation,
+    GradingOperationGroup, GradingOperationGroupBy, GradingOperationRevision,
+    GradingOperationTrustGeneration, InstructorGradingOperationProjection,
+    InstructorGradingOperationRow, StoreError, TenantContext,
 };
+
+pub(super) fn require_instructor_operation_authority(
+    state: &State,
+    tenant: TenantId,
+    session: crate::SessionTokenHash,
+    course: CourseId,
+    assignment: AssignmentId,
+) -> Result<UserId, StoreError> {
+    let subject = super::sessions::active_subject(
+        state,
+        TenantContext::from_authenticated_session(tenant),
+        session,
+    )
+    .ok_or(StoreError::NotFound)?;
+    let actor = subject.user();
+    // ASVS 8.2.1-8.2.2: keep explicit role and course membership checks in the Store boundary.
+    if !subject.roles().contains(&UserRole::Instructor) {
+        return Err(StoreError::NotFound);
+    }
+    let assignment_record = assignment_record(state, tenant, assignment)?;
+    if assignment_record.course_id != course
+        || super::entitlement::current_course_role(state, tenant, course, actor)
+            != Some(CourseMembershipRole::Instructor)
+    {
+        return Err(StoreError::NotFound);
+    }
+    require_course_records_accessible(state, tenant, course)?;
+    Ok(actor)
+}
+pub(super) fn operation_row(
+    state: &State,
+    tenant: TenantId,
+    operation: GradingOperation,
+    group_by: GradingOperationGroupBy,
+) -> Result<InstructorGradingOperationRow, StoreError> {
+    let projection = InstructorGradingOperationProjection {
+        reference: operation.reference,
+        reason: operation.reason,
+        state: operation.state,
+        revision: operation.revision,
+        next_action: operation.next_action,
+    };
+    let (_attempt, learner, enrollment_id, question_id, title, generation) = match operation.target
+    {
+        crate::GradingOperationTarget::SubmissionRecovery { submission } => {
+            let attempt = state
+                .automated_grading_executions
+                .iter()
+                .find_map(|((stored_tenant, attempt), execution)| {
+                    (*stored_tenant == tenant && execution.submission == submission)
+                        .then_some(*attempt)
+                })
+                .ok_or(StoreError::NotFound)?;
+            let record = state
+                .attempts
+                .get(&(tenant, attempt))
+                .ok_or(StoreError::NotFound)?;
+            let run = state
+                .runs
+                .get(&(tenant, record.run))
+                .ok_or(StoreError::NotFound)?;
+            let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+            let published = state
+                .published
+                .get(&(record.problem, record.question_version))
+                .ok_or(StoreError::NotFound)?;
+            let issued = state
+                .attempt_issued_question_snapshots
+                .get(&(tenant, attempt))
+                .ok_or(StoreError::NotFound)?;
+            if issued.question().problem != record.problem
+                || issued.question().version != record.question_version
+            {
+                return Err(StoreError::InvalidRecord(
+                    "issued question snapshot does not match its attempt".to_string(),
+                ));
+            }
+            let execution = state
+                .automated_grading_executions
+                .get(&(tenant, attempt))
+                .ok_or(StoreError::NotFound)?;
+            (
+                attempt,
+                enrollment.user,
+                enrollment.id,
+                published.question_id.clone(),
+                issued.question().metadata.title.clone(),
+                GradingOperationTrustGeneration::Execution(execution.generation),
+            )
+        }
+        crate::GradingOperationTarget::AssignmentScoringGeneration {
+            requested_generation,
+        } => {
+            return Ok(InstructorGradingOperationRow {
+                operation: projection,
+                group: GradingOperationGroup::Assignment,
+                affected_learner_count: assignment_group_impact(
+                    state,
+                    tenant,
+                    operation.assignment,
+                )?,
+                trust_generation: GradingOperationTrustGeneration::AssignmentScoring(
+                    requested_generation,
+                ),
+                stable_cursor: crate::GradingOperationCursor::encode(
+                    tenant,
+                    operation.course,
+                    operation.assignment,
+                    group_by,
+                    &GradingOperationGroup::Assignment,
+                    operation.reference,
+                ),
+            });
+        }
+    };
+    let group = match group_by {
+        GradingOperationGroupBy::Question => GradingOperationGroup::Question { question_id, title },
+        GradingOperationGroupBy::Learner => GradingOperationGroup::Learner {
+            membership: state
+                .entitlement_materializations
+                .get(&(tenant, enrollment_id))
+                .map(|materialization| materialization.membership)
+                .and_then(|membership| {
+                    state
+                        .course_membership_references
+                        .get(&(tenant, membership))
+                })
+                .copied()
+                .ok_or(StoreError::NotFound)?,
+            display_name: question_model::TeachingDisplayLabel::try_from(
+                state
+                    .accounts
+                    .get(&learner)
+                    .ok_or(StoreError::NotFound)?
+                    .display_name
+                    .clone(),
+            )
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
+        },
+    };
+    let stable_cursor = crate::GradingOperationCursor::encode(
+        tenant,
+        operation.course,
+        operation.assignment,
+        group_by,
+        &group,
+        operation.reference,
+    );
+    Ok(InstructorGradingOperationRow {
+        operation: projection,
+        affected_learner_count: operation_group_impact(
+            state,
+            tenant,
+            operation.course,
+            operation.assignment,
+            &group,
+        )?,
+        group,
+        trust_generation: generation,
+        stable_cursor,
+    })
+}
+fn assignment_group_impact(
+    state: &State,
+    tenant: TenantId,
+    assignment: AssignmentId,
+) -> Result<u32, StoreError> {
+    u32::try_from(
+        state
+            .enrollments
+            .values()
+            .filter(|enrollment| enrollment.tenant == tenant && enrollment.assignment == assignment)
+            .count(),
+    )
+    .map_err(|_| StoreError::InvalidRecord("operation impact exceeds u32".to_string()))
+}
+fn operation_group_impact(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentId,
+    group: &GradingOperationGroup,
+) -> Result<u32, StoreError> {
+    let mut members = std::collections::BTreeSet::new();
+    for operation in state
+        .automated_grading_operations
+        .values()
+        .filter(|operation| {
+            operation.tenant == tenant
+                && operation.course == course
+                && operation.assignment == assignment
+        })
+    {
+        let crate::GradingOperationTarget::SubmissionRecovery { submission } = operation.target
+        else {
+            continue;
+        };
+        let Some(attempt) = state.automated_grading_executions.iter().find_map(
+            |((stored_tenant, attempt), execution)| {
+                (*stored_tenant == tenant && execution.submission == submission).then_some(*attempt)
+            },
+        ) else {
+            continue;
+        };
+        let record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, record.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+        let membership = state
+            .entitlement_materializations
+            .get(&(tenant, enrollment.id))
+            .map(|materialization| materialization.membership)
+            .and_then(|membership| {
+                state
+                    .course_membership_references
+                    .get(&(tenant, membership))
+            })
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let matches = match group {
+            GradingOperationGroup::Question { question_id, .. } => state
+                .published
+                .get(&(record.problem, record.question_version))
+                .is_some_and(|published| &published.question_id == question_id),
+            GradingOperationGroup::Learner {
+                membership: selected,
+                ..
+            } => membership == *selected,
+            GradingOperationGroup::Assignment => false,
+        };
+        if matches {
+            members.insert(membership);
+        }
+    }
+    u32::try_from(members.len())
+        .map_err(|_| StoreError::InvalidRecord("operation impact exceeds u32".to_string()))
+}
+pub(super) fn next_operation_revision(
+    revision: GradingOperationRevision,
+) -> Result<GradingOperationRevision, StoreError> {
+    GradingOperationRevision::from_u64(
+        revision
+            .as_u64()
+            .checked_add(1)
+            .ok_or(StoreError::Conflict)?,
+    )
+    .ok_or(StoreError::Conflict)
+}
+
+pub(super) fn page_rows(
+    rows: Vec<InstructorGradingOperationRow>,
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentId,
+    group_by: GradingOperationGroupBy,
+    page: crate::PageRequest,
+) -> Result<crate::Page<InstructorGradingOperationRow>, StoreError> {
+    let seek = page
+        .after
+        .as_ref()
+        .map(|cursor| {
+            crate::GradingOperationCursor::decode(cursor, tenant, course, assignment, group_by)
+        })
+        .transpose()?;
+    let start = seek.map_or(0, |seek| {
+        rows.iter()
+            .position(|row| {
+                (
+                    crate::operation_group_key(&row.group),
+                    row.operation.reference,
+                ) > (seek.group_key.clone(), seek.operation)
+            })
+            .unwrap_or(rows.len())
+    });
+    let end = start
+        .saturating_add(usize::from(page.size.get()))
+        .min(rows.len());
+    let next_cursor = (end < rows.len()).then(|| rows[end - 1].stable_cursor.clone());
+    Ok(crate::Page {
+        items: rows[start..end].to_vec(),
+        next_cursor,
+    })
+}
 
 #[async_trait]
 impl AutomatedGradingStore for MemoryStore {
@@ -174,7 +460,7 @@ impl AutomatedGradingStore for MemoryStore {
                 lease_token: None,
                 lease_expires_at: None,
                 attempt_count: 0,
-                max_attempts: 3,
+                max_attempts: crate::ACCEPTED_SUBMISSION_JOB_MAX_ATTEMPTS,
                 failure: None,
             },
         );
@@ -206,21 +492,6 @@ impl AutomatedGradingStore for MemoryStore {
                 (*stored_tenant == tenant && execution.submission == submission)
                     .then_some(*execution)
             }))
-    }
-
-    async fn automated_grading_operation(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-        reference: GradingOperationReference,
-    ) -> Result<Option<GradingOperation>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        Ok(state
-            .automated_grading_operations
-            .get(&(tenant, reference))
-            .copied()
-            .filter(|operation| operation.course == course))
     }
 
     async fn record_automated_grading_execution_receipt(
@@ -259,86 +530,7 @@ impl AutomatedGradingStore for MemoryStore {
     }
 }
 
-#[async_trait]
-impl AcceptedSubmissionExecutionStore for MemoryStore {
-    async fn load_accepted_submission_for_execution(
-        &self,
-        context: TenantContext,
-        claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        if claim.tenant != tenant {
-            return Err(StoreError::Conflict);
-        }
-        let now = state.authoritative_time;
-        let job = state.jobs.get(&claim.job).ok_or(StoreError::NotFound)?;
-        if job.tenant != tenant
-            || job.state != crate::JobState::Leased
-            || job.lease_token != Some(claim.lease_token)
-            || !job.lease_expires_at.is_some_and(|expiry| expiry > now)
-        {
-            return Err(StoreError::Conflict);
-        }
-        let crate::JobPayload::GradeAcceptedSubmission {
-            attempt,
-            submission,
-            execution_generation,
-        } = job.payload
-        else {
-            return Err(StoreError::Conflict);
-        };
-        if submission != claim.submission || execution_generation != claim.execution_generation {
-            return Err(StoreError::Conflict);
-        }
-        let execution = state
-            .automated_grading_executions
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        if execution.submission != claim.submission
-            || execution.generation != claim.execution_generation
-            || execution.job != claim.job
-            || execution.state != crate::GradingExecutionState::Running
-            || state
-                .automated_grading_execution_workers
-                .get(&(tenant, attempt))
-                != Some(&claim.worker)
-        {
-            return Err(StoreError::Conflict);
-        }
-        let stored = state
-            .submissions
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        let accepted = stored.accepted_pending().ok_or(StoreError::Conflict)?;
-        if accepted.submission != claim.submission || accepted.tenant != tenant {
-            return Err(StoreError::Conflict);
-        }
-        let private = state
-            .private_submission_responses
-            .get(&(tenant, attempt))
-            .ok_or_else(|| {
-                StoreError::Unavailable("accepted response authority is missing".to_string())
-            })?;
-        let canonical = crate::canonical_student_response_json(&private.response)?;
-        if canonical != private.canonical_text
-            || objects::Sha256Digest::compute(canonical.as_bytes()) != private.sha256
-            || private.sha256 != accepted.request_sha256
-        {
-            return Err(StoreError::Unavailable(
-                "accepted response authority disagrees with immutable metadata".to_string(),
-            ));
-        }
-        let prepared = load_prepared_accepted_submission(&state, tenant, attempt)?;
-        Ok(AcceptedSubmissionExecution {
-            accepted: accepted.clone(),
-            response: private.response.clone(),
-            prepared: Box::new(prepared),
-        })
-    }
-}
-
-fn load_prepared_accepted_submission(
+pub(super) fn load_prepared_accepted_submission(
     state: &State,
     tenant: question_model::TenantId,
     attempt_id: question_model::QuestionAttemptId,
@@ -454,75 +646,4 @@ fn load_prepared_accepted_submission(
             .get(&(tenant, attempt_id))
             .cloned(),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use uuid::Uuid;
-
-    #[test]
-    fn accepted_pending_submission_has_no_fabricated_completed_receipt() {
-        let tenant = question_model::TenantId::from_uuid(Uuid::from_u128(301));
-        let submission = AcceptedSubmissionId::from_uuid(Uuid::from_u128(302));
-        let stored = StoredSubmission {
-            key: crate::SubmissionIdempotencyKey::parse("accepted-pending")
-                .expect("bounded idempotency key"),
-            state: StoredSubmissionState::AcceptedPending(AcceptedSubmission {
-                tenant,
-                course: CourseId::from_uuid(Uuid::from_u128(303)),
-                assignment: AssignmentId::from_uuid(Uuid::from_u128(304)),
-                attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(305)),
-                submission,
-                actor: UserId::from_uuid(Uuid::from_u128(306)),
-                idempotency_key: crate::SubmissionIdempotencyKey::parse("accepted-pending")
-                    .expect("bounded idempotency key"),
-                request_sha256: objects::Sha256Digest::compute(b"accepted"),
-                accepted_at: ActivityTimestamp::from_unix_millis(0),
-            }),
-        };
-
-        assert!(stored.completed_record_opt().is_none());
-        assert_eq!(
-            stored
-                .accepted_pending()
-                .map(|accepted| accepted.submission),
-            Some(submission)
-        );
-        let debug = format!("{stored:?}");
-        assert!(!debug.contains("accepted-pending"));
-        assert!(!debug.contains("88"));
-        assert!(!debug.contains("response"));
-    }
-
-    #[test]
-    fn private_response_identity_requires_canonical_text_digest_and_typed_value() {
-        let tenant = question_model::TenantId::from_uuid(Uuid::from_u128(401));
-        let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(402));
-        let response = question_model::StudentResponse::Numeric { value: 88.0 };
-        let private = StoredPrivateSubmissionResponse::from_response(response.clone())
-            .expect("closed response serializes");
-        let mut state = State::default();
-        state
-            .private_submission_responses
-            .insert((tenant, attempt), private.clone());
-
-        assert!(
-            stored_submission_matches_response(&state, tenant, attempt, &response)
-                .expect("stored private response")
-        );
-        assert!(
-            !stored_submission_matches_response(
-                &state,
-                tenant,
-                attempt,
-                &question_model::StudentResponse::Numeric { value: 89.0 },
-            )
-            .expect("stored private response")
-        );
-        let debug = format!("{private:?}");
-        assert!(!debug.contains("88"));
-        assert!(!debug.contains(&private.canonical_text));
-        assert!(debug.contains("[SERVER-ONLY]"));
-    }
 }

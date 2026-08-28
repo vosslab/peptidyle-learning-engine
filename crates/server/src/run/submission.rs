@@ -2,7 +2,9 @@
 
 use super::contracts::RunBackend;
 use super::prefetch::ensure_active_questions;
+use super::submission_status::learner_submission_status_projection;
 use super::support::*;
+use crate::accepted_submission_worker::AcceptedSubmissionHandlerResult;
 
 pub(super) async fn submit_response<S, B>(
     State(state): State<RunRouteState<S, B>>,
@@ -129,7 +131,86 @@ where
         Ok(accepted) => accepted,
         Err(error) => return store_error_response(error),
     };
-    accepted_pending_response(accepted.attempt)
+    let target = learning_data_access::AcceptedSubmissionExecutionTarget {
+        tenant: accepted.tenant,
+        attempt: accepted.attempt,
+        submission: accepted.submission,
+        job: execution_job,
+    };
+    match state
+        .accepted_submission_fast_path
+        .execute_accepted_submission(target)
+        .await
+    {
+        Ok(
+            AcceptedSubmissionHandlerResult::Committed | AcceptedSubmissionHandlerResult::Terminal,
+        ) => {
+            match learner_submission_status_projection(
+                &state,
+                &authenticated,
+                binding,
+                accepted.attempt,
+            )
+            .await
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    log_accepted_submission_fast_path_error(
+                        course,
+                        assignment,
+                        accepted.attempt,
+                        &error,
+                    );
+                    accepted_pending_response(accepted.attempt)
+                }
+            }
+        }
+        #[cfg(feature = "e2e-grader-fault")]
+        Ok(AcceptedSubmissionHandlerResult::RecoveryQueued) => {
+            accepted_pending_response(accepted.attempt)
+        }
+        Ok(
+            AcceptedSubmissionHandlerResult::Rescheduled
+            | AcceptedSubmissionHandlerResult::ClaimNoLongerActive
+            | AcceptedSubmissionHandlerResult::OutcomeUnknown,
+        ) => accepted_pending_response(accepted.attempt),
+        Err(error) => {
+            log_accepted_submission_fast_path_error(course, assignment, accepted.attempt, &error);
+            accepted_pending_response(accepted.attempt)
+        }
+    }
+}
+
+/// Emits bounded, answer-free telemetry after durable acceptance. The learner
+/// receives the stable pending projection while recovery owns later progress.
+fn log_accepted_submission_fast_path_error(
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+    error: &StoreError,
+) {
+    tracing::warn!(
+        event = "accepted_submission_fast_path_pending",
+        error_class = accepted_submission_fast_path_error_class(error),
+        course = %course,
+        assignment = %assignment,
+        attempt = %attempt,
+    );
+}
+
+fn accepted_submission_fast_path_error_class(error: &StoreError) -> &'static str {
+    match error {
+        StoreError::NotFound => "not_found",
+        StoreError::AlreadyExists => "already_exists",
+        StoreError::TenantMismatch => "tenant_mismatch",
+        StoreError::Conflict => "conflict",
+        StoreError::RetryableTransaction => "retryable_transaction",
+        StoreError::Forbidden => "forbidden",
+        StoreError::InvalidRecord(_) => "invalid_record",
+        StoreError::RunModel(_) => "run_model",
+        StoreError::TimedOut => "timed_out",
+        StoreError::Unavailable(_) => "unavailable",
+    }
 }
 
 /// Removes the combined legacy result unless every field it contains is

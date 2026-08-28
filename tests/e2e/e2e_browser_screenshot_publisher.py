@@ -62,6 +62,9 @@ class PendingScreenshotPublication:
 	origin: str
 	production_dist_digest: str
 	generation_identity: str
+	# Each artifact retains the origin attested by the profile group that
+	# captured it.  The map is closed and checked before publication.
+	artifact_origins: tuple[tuple[str, str], ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -110,16 +113,20 @@ def pending_from_staging(
 	staging: pathlib.Path,
 	origin: str,
 	production_dist_digest: str,
+	artifacts: tuple[e2e_browser_screenshot_contract.ScreenshotArtifact, ...] | None = None,
 ) -> PendingScreenshotPublication:
 	"""Read declared artifacts through one held private-directory descriptor."""
 	origin = normalize_https_gateway_origin(origin)
 	_require_hex(production_dist_digest, 64, "production dist digest")
+	selected_artifacts = e2e_browser_screenshot_contract.ARTIFACTS if artifacts is None else artifacts
+	if not selected_artifacts or len({item.artifact_id for item in selected_artifacts}) != len(selected_artifacts):
+		raise ScreenshotPublicationError("private screenshot staging has an invalid artifact selection")
 	directory_fd = _open_staging(staging)
 	try:
-		expected = {f"{item.artifact_id}.{suffix}" for item in e2e_browser_screenshot_contract.ARTIFACTS for suffix in ("png", "json")}
+		expected = {f"{item.artifact_id}.{suffix}" for item in selected_artifacts for suffix in ("png", "json")}
 		if set(os.listdir(directory_fd)) != expected: raise ScreenshotPublicationError("private screenshot staging has unexpected artifacts")
 		entries = []
-		for artifact in e2e_browser_screenshot_contract.ARTIFACTS:
+		for artifact in selected_artifacts:
 			content = _read_private(directory_fd, f"{artifact.artifact_id}.png", MAXIMUM_PNG_BYTES)
 			width, height = _validate_png(content, artifact)
 			digest = hashlib.sha256(content).hexdigest()
@@ -130,7 +137,56 @@ def pending_from_staging(
 		raise ScreenshotPublicationError("private screenshot staging is invalid") from error
 	finally: os.close(directory_fd)
 	generation = _generation_identity(origin, production_dist_digest, entries)
-	return PendingScreenshotPublication(tuple(entries), origin, production_dist_digest, generation)
+	return PendingScreenshotPublication(
+		tuple(entries), origin, production_dist_digest, generation,
+		tuple((item.artifact_id, origin) for item in selected_artifacts),
+	)
+
+
+def combine_pending(
+	groups: tuple[PendingScreenshotPublication, ...],
+) -> PendingScreenshotPublication:
+	"""Join complete private profile bundles into one publication candidate."""
+	if not groups:
+		raise ScreenshotPublicationError("screenshot capture produced no profile bundles")
+	entries = tuple(
+		sorted(
+			(item for group in groups for item in group.artifacts),
+			key=lambda item: item[0].capture_order,
+		)
+	)
+	if tuple(item[0] for item in entries) != e2e_browser_screenshot_contract.ARTIFACTS:
+		raise ScreenshotPublicationError("screenshot profile bundles do not cover the closed corpus")
+	digests = {group.production_dist_digest for group in groups}
+	if len(digests) != 1:
+		raise ScreenshotPublicationError("screenshot profile bundles use different production dist digests")
+	origin_pairs = tuple(
+		(item_id, origin)
+		for group in groups
+		for item_id, origin in group.artifact_origins
+	)
+	if len(origin_pairs) != len({item_id for item_id, _ in origin_pairs}):
+		raise ScreenshotPublicationError("screenshot profile bundles have duplicate origin mappings")
+	origins_by_id = dict(origin_pairs)
+	origins = tuple((item[0].artifact_id, origins_by_id[item[0].artifact_id]) for item in entries)
+	if len(origins) != len(entries) or len({artifact_id for artifact_id, _ in origins}) != len(origins):
+		raise ScreenshotPublicationError("screenshot profile bundles have missing or duplicate origin mappings")
+	if {artifact_id for artifact_id, _ in origins} != {item[0].artifact_id for item in entries}:
+		raise ScreenshotPublicationError("screenshot profile bundles have unknown origin mappings")
+	for _, origin in origins:
+		normalize_https_gateway_origin(origin)
+	common_origin = groups[0].origin
+	if any(group.origin != common_origin for group in groups):
+		raise ScreenshotPublicationError("screenshot profile bundles use different gateway origins")
+	dist_digest = next(iter(digests))
+	pending = PendingScreenshotPublication(
+		entries,
+		common_origin,
+		dist_digest,
+		_generation_identity(common_origin, dist_digest, list(entries), origins),
+		origins,
+	)
+	return pending
 
 
 def evidence_for(pending: PendingScreenshotPublication, committed: bool = False) -> ScreenshotEvidence:
@@ -533,10 +589,13 @@ def _validate_prior_public_artifact(
 
 def _validate_prior_provenance_record(record: object) -> tuple[pathlib.PurePosixPath, str, int]:
 	"""Validate the complete stable shape of one older publisher artifact receipt."""
-	if not isinstance(record, dict) or set(record) != {
+	if not isinstance(record, dict) or set(record) not in ({
 		"artifactId", "scenarioId", "stateId", "role", "journey", "captureOrder",
 		"journeyStep", "viewport", "path", "sha256", "width", "height", "privacyChecks",
-	}:
+	}, {
+		"artifactId", "scenarioId", "stateId", "role", "journey", "captureOrder",
+		"journeyStep", "viewport", "path", "sha256", "width", "height", "privacyChecks", "origin",
+	}):
 		raise ScreenshotPublicationError("prior screenshot provenance is invalid")
 	text_keys = ("artifactId", "scenarioId", "stateId", "role", "journey", "path", "sha256")
 	if any(not isinstance(record[key], str) or not record[key].isascii() or not record[key] for key in text_keys):
@@ -544,6 +603,9 @@ def _validate_prior_provenance_record(record: object) -> tuple[pathlib.PurePosix
 	if any(isinstance(record[key], bool) or not isinstance(record[key], int) or record[key] < 1 for key in ("captureOrder", "journeyStep", "width", "height")):
 		raise ScreenshotPublicationError("prior screenshot provenance is invalid")
 	_require_hex(record["sha256"], 64, "prior screenshot provenance")
+	if "origin" in record:
+		if not isinstance(record["origin"], str) or normalize_https_gateway_origin(record["origin"]) != record["origin"]:
+			raise ScreenshotPublicationError("prior screenshot provenance is invalid")
 	try:
 		path = pathlib.PurePosixPath(record["path"])
 		parts = _path_parent_parts(path)
@@ -571,6 +633,7 @@ def _prior_generation_identity(origin: str, dist_digest: str, records: list[obje
 		{
 			"artifactId": record["artifactId"], "captureOrder": record["captureOrder"],
 			"path": record["path"], "sha256": record["sha256"], "viewport": record["viewport"],
+			**({"origin": record["origin"]} if "origin" in record else {}),
 		}
 		for record in records
 		if isinstance(record, dict)
@@ -582,21 +645,26 @@ def _prior_generation_identity(origin: str, dist_digest: str, records: list[obje
 def _generation_record(
 	artifact: e2e_browser_screenshot_contract.ScreenshotArtifact,
 	evidence: ScreenshotArtifactEvidence,
+	origin: str | None = None,
 ) -> dict[str, object]:
 	"""Return the ordered public identity bound into a generation digest."""
 	viewport = e2e_browser_screenshot_contract.VIEWPORT_PROFILES[artifact.viewport]
-	return {
+	result: dict[str, object] = {
 		"artifactId": artifact.artifact_id,
 		"captureOrder": artifact.capture_order,
 		"path": str(artifact.path),
 		"sha256": evidence.digest,
 		"viewport": {"name": artifact.viewport, "width": viewport.width, "height": viewport.height, "deviceScaleFactor": viewport.device_scale_factor},
 	}
+	if origin is not None:
+		result["origin"] = origin
+	return result
 
 
 def _provenance_record(
 	artifact: e2e_browser_screenshot_contract.ScreenshotArtifact,
 	evidence: ScreenshotArtifactEvidence,
+	origin: str,
 ) -> dict[str, object]:
 	"""Return one complete artifact receipt from the manifest and held PNG bytes."""
 	viewport = e2e_browser_screenshot_contract.VIEWPORT_PROFILES[artifact.viewport]
@@ -614,6 +682,7 @@ def _provenance_record(
 		"width": evidence.width,
 		"height": evidence.height,
 		"privacyChecks": privacy_checks(artifact),
+		"origin": origin,
 	}
 
 
@@ -623,12 +692,17 @@ def _validate_pending(pending: PendingScreenshotPublication) -> None:
 	normalize_https_gateway_origin(pending.origin)
 	_require_hex(pending.production_dist_digest, 64, "screenshot provenance")
 	_require_hex(pending.generation_identity, 64, "screenshot provenance")
+	origins = dict(pending.artifact_origins)
+	if len(origins) != len(pending.artifact_origins) or set(origins) != {item[0].artifact_id for item in pending.artifacts}:
+		raise ScreenshotPublicationError("screenshot publication has an incomplete origin mapping")
+	if any(normalize_https_gateway_origin(origin) != origin for origin in origins.values()):
+		raise ScreenshotPublicationError("screenshot publication has an invalid origin mapping")
 	for artifact, content, evidence in pending.artifacts:
 		if not isinstance(content, bytes): raise ScreenshotPublicationError("screenshot artifact content is invalid")
 		width, height = _validate_png(content, artifact)
 		digest = hashlib.sha256(content).hexdigest()
 		if evidence != _artifact_evidence(artifact, digest, width, height): raise ScreenshotPublicationError("screenshot artifact evidence is invalid")
-	if pending.generation_identity != _generation_identity(pending.origin, pending.production_dist_digest, list(pending.artifacts)): raise ScreenshotPublicationError("screenshot provenance generation is invalid")
+	if pending.generation_identity != _generation_identity(pending.origin, pending.production_dist_digest, list(pending.artifacts), pending.artifact_origins): raise ScreenshotPublicationError("screenshot provenance generation is invalid")
 
 
 def _require_hex(value: str, length: int, label: str) -> None:
@@ -667,10 +741,17 @@ def _framed_dist_file_digest(relative: str, item: pathlib.Path) -> bytes:
 	return value
 
 
-def _generation_identity(origin: str, production_dist_digest: str, entries: list[tuple[object, bytes, ScreenshotArtifactEvidence]] | tuple[tuple[e2e_browser_screenshot_contract.ScreenshotArtifact, bytes, ScreenshotArtifactEvidence], ...]) -> str:
-	value = json.dumps({"artifacts": [_generation_record(item[0], item[2]) for item in entries], "origin": origin, "productionDistDigest": production_dist_digest}, separators=(",", ":"), sort_keys=True)
+def _generation_identity(
+	origin: str,
+	production_dist_digest: str,
+	entries: list[tuple[object, bytes, ScreenshotArtifactEvidence]] | tuple[tuple[e2e_browser_screenshot_contract.ScreenshotArtifact, bytes, ScreenshotArtifactEvidence], ...],
+	artifact_origins: tuple[tuple[str, str], ...] = (),
+) -> str:
+	origin_map = dict(artifact_origins)
+	value = json.dumps({"artifacts": [_generation_record(item[0], item[2], origin_map.get(item[0].artifact_id, origin)) for item in entries], "origin": origin, "productionDistDigest": production_dist_digest}, separators=(",", ":"), sort_keys=True)
 	return hashlib.sha256(value.encode("ascii")).hexdigest()
 
 
 def _provenance_value(pending: PendingScreenshotPublication) -> dict[str, object]:
-	return {"schemaVersion": 2, "pipeline": "realStack", "browserSuite": "ple-live-demo-browser", "origin": pending.origin, "productionDistDigest": pending.production_dist_digest, "generationIdentity": pending.generation_identity, "artifacts": [_provenance_record(item[0], item[2]) for item in pending.artifacts]}
+	origins = dict(pending.artifact_origins)
+	return {"schemaVersion": 2, "pipeline": "realStack", "browserSuite": "ple-live-demo-browser", "origin": pending.origin, "productionDistDigest": pending.production_dist_digest, "generationIdentity": pending.generation_identity, "artifacts": [_provenance_record(item[0], item[2], origins.get(item[0].artifact_id, pending.origin)) for item in pending.artifacts]}

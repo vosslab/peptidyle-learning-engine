@@ -671,24 +671,8 @@ pub(super) fn apply_memory_attempt_support(
         current.timer.submitted_at = Some(now);
     }
 
-    let scoring_update = if action == AttemptSupportAction::Clear && previous.result.is_some() {
-        let key = (tenant, assignment.id);
-        let (generation, _) = state
-            .assignment_scoring
-            .get(&key)
-            .copied()
-            .ok_or(StoreError::NotFound)?;
-        let generation = generation.next().ok_or(StoreError::Conflict)?;
-        let job = loop {
-            let candidate = crate::JobId::generate()?;
-            if !state.jobs.contains_key(&candidate) {
-                break candidate;
-            }
-        };
-        Some((key, generation, job))
-    } else {
-        None
-    };
+    let requires_scoring_invalidation =
+        action == AttemptSupportAction::Clear && previous.result.is_some();
     let record = AttemptSupportRecord {
         tenant,
         action: action_id,
@@ -700,25 +684,18 @@ pub(super) fn apply_memory_attempt_support(
         occurred_at: now,
     };
 
-    if let Some((key, generation, job)) = scoring_update {
-        let queued = StoredJob {
+    if requires_scoring_invalidation {
+        super::scoring_invalidation::request_scoring_invalidation(
+            state,
             tenant,
-            payload: crate::JobPayload::RecalculateAssignment {
-                assignment: assignment.id,
-                generation,
-            },
-            state: JobState::Ready,
-            available_at: now,
-            lease_token: None,
-            lease_expires_at: None,
-            attempt_count: 0,
-            max_attempts: 10,
-            failure: None,
-        };
-        state.jobs.insert(job, queued);
-        state
-            .assignment_scoring
-            .insert(key, (generation, ScoringStatus::Recalculating));
+            assignment.course_id,
+            assignment.id,
+            crate::ScoringInvalidationOrigin::learner_support(
+                crate::ScoringInvalidationOriginId::from_uuid(action_id.as_uuid()),
+                actor,
+            ),
+            crate::JobId::from_uuid(action_id.as_uuid()),
+        )?;
     }
     state.attempt_current.insert((tenant, attempt_id), current);
     state.webwork_grade_replay.remove(&(tenant, attempt_id));

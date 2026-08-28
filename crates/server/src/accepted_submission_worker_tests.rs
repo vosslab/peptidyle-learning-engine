@@ -6,10 +6,11 @@ use async_trait::async_trait;
 use learning_data_access::{
     AcceptedSubmission, AcceptedSubmissionCommitError, AcceptedSubmissionExecution,
     AcceptedSubmissionExecutionClaim, AcceptedSubmissionExecutionDisposition,
-    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionWorkerStore,
-    GradingExecutionGeneration, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, JobId,
-    JobLeaseDuration, JobLeaseToken, PreparedQuestionSubmission, SubmissionIdempotencyKey,
-    WorkerId,
+    AcceptedSubmissionExecutionFastPathClaimStore, AcceptedSubmissionExecutionOutcome,
+    AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionExecutionStore,
+    AcceptedSubmissionExecutionTarget, GradingExecutionGeneration, IssuedQuestionFamilyWitnessV1,
+    IssuedQuestionSnapshotV1, JobId, JobLeaseDuration, JobLeaseToken, PreparedQuestionSubmission,
+    SubmissionIdempotencyKey, WorkerId,
 };
 use question_model::answer::TextMatchMode;
 use question_model::definition::{GradingDefinition, QuestionMetadata};
@@ -40,7 +41,7 @@ struct FakeStore {
 }
 
 #[async_trait]
-impl AcceptedSubmissionExecutionWorkerStore for FakeStore {
+impl AcceptedSubmissionExecutionRecoveryClaimStore for FakeStore {
     async fn claim_next_accepted_submission_execution(
         &self,
         worker: WorkerId,
@@ -52,7 +53,26 @@ impl AcceptedSubmissionExecutionWorkerStore for FakeStore {
             .push((worker, lease));
         self.claim_result.clone()
     }
+}
 
+#[async_trait]
+impl AcceptedSubmissionExecutionFastPathClaimStore for FakeStore {
+    async fn claim_exact_accepted_submission_execution(
+        &self,
+        _: AcceptedSubmissionExecutionTarget,
+        worker: WorkerId,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<AcceptedSubmissionExecutionClaim>, StoreError> {
+        self.claim_requests
+            .lock()
+            .expect("fake claim requests lock")
+            .push((worker, lease));
+        self.claim_result.clone()
+    }
+}
+
+#[async_trait]
+impl AcceptedSubmissionExecutionStore for FakeStore {
     async fn load_accepted_submission_for_execution(
         &self,
         _: TenantContext,
@@ -282,6 +302,16 @@ fn claim() -> AcceptedSubmissionExecutionClaim {
     }
 }
 
+fn target() -> AcceptedSubmissionExecutionTarget {
+    let claim = claim();
+    AcceptedSubmissionExecutionTarget {
+        tenant: claim.tenant,
+        attempt: attempt_id(),
+        submission: claim.submission,
+        job: claim.job,
+    }
+}
+
 fn execution() -> AcceptedSubmissionExecution {
     let question = QuestionDefinition {
         problem: problem_id(),
@@ -454,6 +484,54 @@ async fn sealed_worker_claims_once_with_the_exact_process_and_execution_identity
 }
 
 #[tokio::test]
+async fn exact_fast_path_claim_uses_the_common_handler_and_commits_once() {
+    let expected_claim = claim();
+    let (worker, claim_requests, load_claims, submit_calls) = sealed_worker(
+        Ok(Some(expected_claim)),
+        Ok(AcceptedSubmissionExecutionDisposition::Committed),
+    );
+
+    assert_eq!(
+        worker
+            .execute_accepted_submission(target())
+            .await
+            .expect("exact fast path"),
+        AcceptedSubmissionHandlerResult::Committed
+    );
+    assert_eq!(
+        claim_requests.lock().expect("claim requests").as_slice(),
+        [(
+            expected_claim.worker,
+            JobLeaseDuration::from_seconds(60).expect("lease")
+        )]
+    );
+    assert_eq!(
+        load_claims.lock().expect("load claims").as_slice(),
+        [expected_claim]
+    );
+    assert_eq!(submit_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn exact_fast_path_claim_loss_is_answered_without_loading_or_grading() {
+    let (worker, claim_requests, load_claims, submit_calls) = sealed_worker(
+        Ok(None),
+        Ok(AcceptedSubmissionExecutionDisposition::Committed),
+    );
+
+    assert_eq!(
+        worker
+            .execute_accepted_submission(target())
+            .await
+            .expect("exact fast path"),
+        AcceptedSubmissionHandlerResult::ClaimNoLongerActive
+    );
+    assert_eq!(claim_requests.lock().expect("claim requests").len(), 1);
+    assert!(load_claims.lock().expect("load claims").is_empty());
+    assert_eq!(submit_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn sealed_worker_reports_an_empty_pass_without_loading_or_grading() {
     let (worker, claim_requests, load_claims, submit_calls) = sealed_worker(
         Ok(None),
@@ -600,6 +678,46 @@ async fn deterministic_error_is_committed_without_a_retry() {
             reason: GradingOperationReason::GraderContractFailure
         }]
     ));
+}
+
+#[cfg(feature = "e2e-grader-fault")]
+#[tokio::test]
+async fn feature_fault_backend_commits_the_closed_execution_exception_once() {
+    let (prototype, _, commits) = handler(
+        grade_disposition(),
+        Ok(AcceptedSubmissionExecutionDisposition::Terminal),
+    );
+    let handler = AcceptedSubmissionExecutionHandler::new(
+        prototype.store,
+        crate::accepted_submission_worker::DeterministicGraderExceptionBackend,
+        EXECUTION_DEADLINE,
+    )
+    .expect("positive deadline");
+    assert_eq!(
+        handler
+            .execute_claim(claim())
+            .await
+            .expect("feature fault handler"),
+        AcceptedSubmissionHandlerResult::Terminal
+    );
+    assert!(matches!(
+        commits.lock().expect("commits").as_slice(),
+        [AcceptedSubmissionExecutionOutcome::DeterministicFailure {
+            reason: GradingOperationReason::GraderExecutionFailure
+        }]
+    ));
+}
+
+#[cfg(feature = "e2e-grader-fault")]
+#[tokio::test]
+async fn feature_fault_fast_path_leaves_durable_work_for_recovery_without_a_claim() {
+    assert_eq!(
+        RecoveryOnlyAcceptedSubmissionFastPath
+            .execute_accepted_submission(target())
+            .await
+            .expect("recovery-only facade"),
+        AcceptedSubmissionHandlerResult::RecoveryQueued
+    );
 }
 
 #[tokio::test]

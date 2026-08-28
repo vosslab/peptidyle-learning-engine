@@ -1,4 +1,4 @@
-"""Offline contracts for disposable API and worker PostgreSQL logins."""
+"""Offline contracts for disposable PostgreSQL service logins."""
 
 import pathlib
 
@@ -99,14 +99,27 @@ def values() -> dict[str, str]:
 
 #============================================
 def test_process_login_profiles_have_exact_set_only_memberships() -> None:
-	"""Role reset grants only the API or ordinary worker capability set."""
-	sql = local_stack_control.process_logins.login_sql(
-		local_stack_control.process_logins.WORKER_LOGIN,
-		local_stack_control.process_logins.WORKER_ROLES,
-		"a" * 64,
-	)
-	assert "GRANT ple_accepted_submission_execution TO ple_worker_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE" in sql
-	assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS" in sql
+	"""Role reset grants each service its one intended capability profile."""
+	expected_roles = {
+		local_stack_control.process_logins.API_LOGIN: ("ple_app", "ple_auth"),
+		local_stack_control.process_logins.WORKER_LOGIN: ("ple_app",),
+		local_stack_control.process_logins.RECOVERY_LOGIN: (
+			"ple_accepted_submission_execution",
+		),
+		local_stack_control.process_logins.FAST_PATH_LOGIN: (
+			"ple_accepted_submission_execution_fast_path",
+		),
+	}
+	actual_roles = {
+		login: roles
+		for login, roles, _ in local_stack_control.process_logins.LOGIN_PROFILES
+	}
+	assert actual_roles == expected_roles
+	for login, roles, _ in local_stack_control.process_logins.LOGIN_PROFILES:
+		sql = local_stack_control.process_logins.login_sql(login, roles, "a" * 64)
+		for role in roles:
+			assert f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE" in sql
+		assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS" in sql
 
 
 #============================================
@@ -121,13 +134,13 @@ def test_process_login_profiles_reject_unallowlisted_capability() -> None:
 
 
 #============================================
-def test_provision_writes_separate_service_urls_without_password_child_environment(
+def test_provision_writes_separate_service_urls_without_service_credentials_in_child(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""Compose reads only role-specific URLs from its selected private file."""
+	"""Compose reads service credentials only from its selected private file."""
 	runner = RecordingRunner()
-	passwords = iter(("a" * 64, "b" * 64))
+	passwords = iter(("a" * 64, "b" * 64, "c" * 64, "d" * 64))
 	monkeypatch.setattr(
 		local_stack_control.process_logins.secrets,
 		"token_hex",
@@ -135,36 +148,65 @@ def test_provision_writes_separate_service_urls_without_password_child_environme
 	)
 	selected = target(tmp_path)
 	local_stack_control.process_logins.provision(
-		selected, runner, values(), {"PATH": "/bin"}
+		selected,
+		runner,
+		values(),
+		{
+			"PATH": "/bin",
+			"PLE_API_DATABASE_URL": "postgres://ambient-service-credential@postgres/ple",
+		},
 	)
 	content = selected.env_file.read_text(encoding="utf-8")
 	assert "PLE_API_DATABASE_URL=postgres://ple_api_login:" + "a" * 64 in content
 	assert "PLE_WORKER_DATABASE_URL=postgres://ple_worker_login:" + "b" * 64 in content
+	recovery_url = (
+		"PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL="
+		"postgres://ple_accepted_submission_recovery_login:" + "c" * 64
+	)
+	fast_path_url = (
+		"PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL="
+		"postgres://ple_accepted_submission_fast_path_login:" + "d" * 64
+	)
+	assert recovery_url in content
+	assert fast_path_url in content
 	assert runner.environment == {"PATH": "/bin", "PGPASSWORD": "admin-private"}
+	service_passwords = ("a" * 64, "b" * 64, "c" * 64, "d" * 64)
+	assert all(password not in runner.environment.values() for password in service_passwords)
 
 
 #============================================
 def test_provisioning_failure_redacts_ephemeral_process_passwords() -> None:
 	"""Failed provisioning provides an actionable bounded diagnostic."""
+	private_values = (
+		"admin-private",
+		"private-api",
+		"private-worker",
+		"private-recovery",
+		"private-fast-path",
+	)
 	result = local_stack_control.models.CommandResult(
-		("psql",), 1, "failed private-api private-worker", "database refused",
+		("psql",), 1, "failed " + " ".join(private_values), "database refused",
 	)
 	with pytest.raises(local_stack_control.models.ControllerError) as error:
 		local_stack_control.process_logins.require_provision_success(
-			result, ("private-api", "private-worker")
+			result, private_values
 		)
-	assert "private-api" not in str(error.value)
+	assert all(value not in str(error.value) for value in private_values)
 
 
 #============================================
 def test_compose_assigns_distinct_database_variables_to_api_and_worker() -> None:
-	"""The shipped service topology preserves the two process authority paths."""
+	"""The shipped topology gives each service exactly its required private URLs."""
 	compose_path = pathlib.Path(file_utils.get_repo_root()) / "containers" / "compose.yaml"
 	services = _load_compose_mapping(compose_path)["services"]
 	api_environment = services["api"]["environment"]
 	worker_environment = services["worker"]["environment"]
 	assert "PLE_API_DATABASE_URL" in api_environment["DATABASE_URL"]
 	assert "DATABASE_URL" not in worker_environment and "PLE_WORKER_DATABASE_URL" in worker_environment
+	assert "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL" in api_environment
+	assert "PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL" not in api_environment
+	assert "PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL" in worker_environment
+	assert "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL" not in worker_environment
 	assert worker_environment["PLE_GRADER_DATABASE_URL"] == api_environment["PLE_GRADER_DATABASE_URL"]
 	assert {
 		name: worker_environment[name]
@@ -190,7 +232,10 @@ def test_compose_assigns_distinct_database_variables_to_api_and_worker() -> None
 	}
 	assert services["worker"]["networks"] == ["default", "renderer_private"]
 
-	overlay_path = pathlib.Path(file_utils.get_repo_root()) / "tests/e2e/compose.live-demo-browser.yaml"
+	overlay_path = (
+		pathlib.Path(file_utils.get_repo_root())
+		/ "tests/e2e/compose.live-demo-browser.yaml"
+	)
 	overlay = _load_compose_mapping(overlay_path)["services"]
 	assert overlay["api"]["environment"]["PLE_QTI_RUNTIME_ENABLED"] == "1"
 	assert overlay["worker"]["environment"]["PLE_QTI_RUNTIME_ENABLED"] == "1"

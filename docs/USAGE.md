@@ -62,6 +62,8 @@ assignment's Instructor home and its assignment-local navigation:
   ordered content.
 - **Policies** - append `/policies`; configure delivery and visibility rules, then save teaching
   operations.
+- **Grading operations** - append `/grading-operations`; review safe automatic-grading operation
+  metadata, retry an eligible operation, or request an assignment recalculation.
 - **Student view** - append `/student-view`; inspect the current live, answer-free learner landing
   while retaining the Instructor session.
 
@@ -72,6 +74,27 @@ assignment**. Submit through visible response controls. When **Response received
 **Check grading status** until the live worker returns feedback or instructor attention. The
 resulting learner run, submission, receipt, grade, and instructor gradebook history are ordinary live
 records.
+
+When an accepted submission needs recovery, the Student sees **Response received**, a cleared answer
+buffer, and **Check grading status**. Select that control to read the current answer-free status;
+the browser does not submit the answer again. If the status becomes **Your response needs instructor
+attention**, Elena opens **Grading operations**, reviews the metadata-only operation, and selects its
+named retry action once. The ordinary worker completes the accepted private response, and Elena
+refreshes the current Gradebook to observe the resulting total.
+
+The grading-operations API is assignment-local and metadata-only:
+
+```text
+GET  /api/courses/{course}/assignments/{assignment}/grading-operations
+POST /api/courses/{course}/assignments/{assignment}/grading-operations/{operation}/retry
+POST /api/courses/{course}/assignments/{assignment}/grading-operations/recalculate
+```
+
+All three routes return `Cache-Control: no-store`. Action requests have an empty body and require
+`If-Match` plus `Idempotency-Key`; the server derives Instructor authority from the session and
+rechecks it in the Store transaction. Responses contain operation state, safe reason, bounded
+grouping, revisions, and action receipts, never learner responses, answer keys, feedback internals,
+or score values.
 
 ## Build and validation
 

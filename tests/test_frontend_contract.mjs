@@ -8,6 +8,7 @@ import test from "node:test";
 import { createBrowserSessionBoundary } from "../src/auth/browser_session_boundary.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
+import { assignmentWorkspacePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
 import { rolesMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
@@ -32,16 +33,30 @@ test("route contracts fail closed and reserve authoring routes for teaching role
     routeContractForPathname("/instructor/courses/C-1/assignments/A-1/student-view")?.id,
     "assignmentWorkspaceStudentView",
   );
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1/grading-operations")?.id,
+    "assignmentWorkspaceGradingOperations",
+  );
   assert.equal(routeContractForPathname("/instructor/courses/C-1/assignments/A-1/edit"), undefined);
   assert.equal(rolesMayAccessRoute("assignmentOverview", ["student"]), true);
   assert.equal(rolesMayAccessRoute("assignmentOverview", ["instructor"]), false);
   assert.equal(rolesMayAccessRoute("assignmentWorkspaceOverview", ["student"]), false);
   assert.equal(rolesMayAccessRoute("assignmentWorkspaceOverview", ["instructor"]), true);
+  assert.equal(rolesMayAccessRoute("assignmentWorkspaceGradingOperations", ["student"]), false);
+  assert.equal(rolesMayAccessRoute("assignmentWorkspaceGradingOperations", ["instructor"]), true);
+  assert.equal(rolesMayAccessRoute("assignmentWorkspaceGradingOperations", ["sysadmin"]), false);
   assert.equal(rolesMayAccessRoute("workspaceEditor", ["student"]), false);
   assert.equal(rolesMayAccessRoute("workspaceEditor", ["instructor"]), true);
   assert.equal(rolesMayAccessRoute("curriculum", ["student"]), false);
   assert.equal(rolesMayAccessRoute("curriculum", ["sysadmin"]), false);
   assert.equal(rolesMayAccessRoute("curriculum", ["instructor"]), true);
+});
+
+test("assignment workspace paths use the declared grading-operations route", () => {
+  assert.equal(
+    assignmentWorkspacePath("C-1", "A-1", "gradingOperations"),
+    "/instructor/courses/C-1/assignments/A-1/grading-operations",
+  );
 });
 
 test("session bootstrap retains only safe session state with direct narrow dependencies", async () => {

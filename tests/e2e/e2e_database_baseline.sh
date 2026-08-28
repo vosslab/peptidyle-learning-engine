@@ -285,7 +285,7 @@ printf '%s\n' "$final_status" | grep -q "2026081836 problem curation capabilitie
 run_project_tools verify
 (
 	cd "$REPO_ROOT"
-	python3 -m local_stack_control.runtime_manifest --emit-grader-password-update "$WORKSPACE"
+	python3 -m local_stack_control.runtime_manifest --emit-grader-login-provisioning "$WORKSPACE"
 ) | psql_in_container -d "$DATABASE_NAME"
 
 echo "database baseline E2E: bounded SQLx serialization retry"
@@ -504,6 +504,17 @@ echo "database baseline E2E: B2 curriculum adoption, rollover, term shift, and r
 run_live_cargo_test "B2 curriculum adoption, rollover, term shift, and reconciliation" cargo test -p learning-data-access --features postgres \
 	--test postgres_curriculum_adoption_live \
 	postgres_curriculum_adoption_live::postgres_curriculum_adoption_is_brokered_atomic_and_recoverable \
+	-- --ignored --exact --test-threads=1
+
+(
+	cd "$REPO_ROOT"
+	python3 -m local_stack_control.runtime_manifest \
+		--emit-accepted-submission-login-provisioning "$WORKSPACE"
+) | psql_in_container -d "$DATABASE_NAME"
+
+run_live_cargo_test "G1 Instructor grading-operation authority, replay, and lifecycle projection" cargo test -p learning-data-access --features postgres \
+	--test postgres_automated_grading_operations_live \
+	postgres_automated_grading_operations_live_oracle_is_brokered_replay_safe_and_projected \
 	-- --ignored --exact --test-threads=1
 
 TEMP_DIR="$WORKSPACE/migration-checksum"

@@ -131,9 +131,21 @@ Every submission carries a bounded idempotency key. Repeating the exact key and
 response returns the same accepted or completed projection without grading twice. Reusing
 either the attempt with a different key or the key with a different response
 is a conflict. The first transaction atomically records the accepted response,
-issued-work witness, pending evaluation, execution, and ready job. The sealed
-worker's successful transaction atomically records the grade event, attempt and
-run transitions, enrollment pointers, summary projection, and completed receipt.
+issued-work witness, pending evaluation, execution, and ready job. The response
+is immutable server-private acceptance evidence; its metadata parent is
+answer-free and its canonical UTF-8 response is held by the private execution
+capability. The sealed worker's successful transaction atomically records the
+grade event, attempt and run transitions, enrollment pointers, summary
+projection, and completed receipt.
+
+An acknowledged learner response is recoverable without another answer POST.
+The submission route returns `accepted_pending` when the exact synchronous
+claim does not complete, clears the browser response buffer, and exposes
+**Check grading status**. The route-bound status GET returns the same
+answer-free union. A deterministic execution failure projects
+`instructor_attention`; an Instructor retry creates a new execution generation
+for the same immutable submission. The ordinary worker then uses the shared
+handler, and the assignment scoring path publishes the current Gradebook total.
 
 The server repeats key-free response-format validation before invoking a
 trusted grading backend. Storage independently rejects malformed point values.
@@ -261,6 +273,11 @@ each page can update its own slice without replacing a sibling page's changes.
   and teaching-authority workflows. Those actions may resolve effective
   delivery or entitlement, but they do not make the workspace's Questions or
   Policies pages interchangeable.
+- Grading operations owns assignment-local automatic-grading recovery. It
+  groups safe operation metadata by question or learner, includes assignment-
+  wide recalculation rows, and exposes guarded retry and recalculation commands;
+  it does not own responses, evaluation
+  payloads, or score mutation.
 - Student view is an Instructor-authorized, answer-free inspection of the
   current assignment. It is a no-store read and creates no enrollment, run,
   attempt, submission, receipt, score, gradebook row, or preview record.
@@ -272,6 +289,10 @@ These are presentation and command ownership boundaries over the same
 assignment aggregate. They do not alter the historical activity invariants:
 completion remains a milestone, post-completion runs remain possible when
 policy allows, and only server-owned Student delivery creates learner activity.
+
+The fifth workspace page is **Grading operations**. It completes the visible
+recovery path from Student status to Instructor action while preserving the
+same assignment revision and server-owned activity records.
 
 ## Instructor activity types
 

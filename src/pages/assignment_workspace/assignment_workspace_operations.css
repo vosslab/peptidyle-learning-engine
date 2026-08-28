@@ -1,0 +1,197 @@
+/* assignment_workspace_operations.css - Instructor-only automated-grading recovery surface. */
+
+.assignment-workspace-operations {
+  display: grid;
+  max-inline-size: 76rem;
+  gap: var(--ple-section-gap, 0.75rem);
+}
+
+.assignment-workspace-operations-header {
+  display: grid;
+  gap: 0.32rem;
+  max-inline-size: 66ch;
+}
+
+.assignment-workspace-operations-header h1,
+.assignment-workspace-operations-header p,
+.assignment-workspace-recalculation h2,
+.assignment-workspace-recalculation p,
+.assignment-workspace-operation-row h2,
+.assignment-workspace-operation-row p,
+.assignment-workspace-operations-list-state h2,
+.assignment-workspace-operations-list-state p {
+  margin: 0;
+}
+
+.assignment-workspace-recalculation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ple-layout-gap, 1rem);
+  align-items: center;
+  padding: calc(var(--ple-panel-padding, 0.85rem) + 0.12rem);
+  border-inline-start: 0.35rem solid var(--ple-accent-strong);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-theme-primary) 9%, var(--ple-card-surface));
+  box-shadow: var(--ple-shadow);
+}
+
+.assignment-workspace-recalculation > div {
+  display: grid;
+  gap: 0.28rem;
+  min-inline-size: 0;
+}
+
+.assignment-workspace-recalculation p,
+.assignment-workspace-operation-reason,
+.assignment-workspace-operation-row-heading p,
+.assignment-workspace-operations-list-state p {
+  color: var(--ple-muted);
+}
+
+.assignment-workspace-operations-controls,
+.assignment-workspace-operations-group-actions,
+.assignment-workspace-operations-status,
+.assignment-workspace-operations-list,
+.assignment-workspace-operation-row,
+.assignment-workspace-operations-list-state,
+.assignment-workspace-operations-inline-error {
+  display: grid;
+  gap: var(--ple-compact-gap, 0.35rem);
+}
+
+.assignment-workspace-operations-controls {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
+}
+
+.assignment-workspace-operations-controls > p {
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.assignment-workspace-operations-group-actions {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+}
+
+.assignment-workspace-operations-group-actions .quiet-action[aria-pressed="true"] {
+  border-color: var(--ple-accent-strong);
+  background: color-mix(in srgb, var(--ple-theme-primary) 12%, var(--ple-card-surface));
+  color: var(--ple-accent-strong);
+}
+
+.assignment-workspace-operations-status,
+.assignment-workspace-operations-list-state,
+.assignment-workspace-operations-inline-error {
+  padding: var(--ple-panel-padding, 0.85rem);
+  border-inline-start: 0.35rem solid var(--ple-focus);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-focus) 7%, var(--ple-card-surface));
+}
+
+.assignment-workspace-operations-status:focus-visible {
+  outline: 0.2rem solid var(--ple-focus);
+  outline-offset: 0.15rem;
+}
+
+.assignment-workspace-operations-status p,
+.assignment-workspace-operations-inline-error p {
+  margin: 0;
+}
+
+.assignment-workspace-operations-status--error,
+.assignment-workspace-operations-inline-error {
+  border-inline-start-color: var(--ple-danger, #a33a26);
+  background: color-mix(in srgb, var(--ple-danger, #a33a26) 9%, var(--ple-card-surface));
+}
+
+.assignment-workspace-operations-status--success {
+  border-inline-start-color: var(--ple-success, #237447);
+  background: color-mix(in srgb, var(--ple-success, #237447) 10%, var(--ple-card-surface));
+}
+
+.assignment-workspace-operations-list {
+  min-inline-size: 0;
+}
+
+.assignment-workspace-operation-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  min-inline-size: 0;
+  padding: var(--ple-panel-padding, 0.85rem);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
+  box-shadow: var(--ple-shadow);
+}
+
+.assignment-workspace-operation-row-heading,
+.assignment-workspace-operation-reason,
+.assignment-workspace-operation-facts {
+  grid-column: 1;
+  min-inline-size: 0;
+}
+
+.assignment-workspace-operation-row > .quiet-action {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  align-self: center;
+}
+
+.assignment-workspace-operation-row-heading {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.assignment-workspace-operation-row-heading h2 {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.assignment-workspace-operation-row-heading p {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.assignment-workspace-operation-reason {
+  max-inline-size: 64ch;
+  overflow-wrap: anywhere;
+}
+
+.assignment-workspace-operation-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem var(--ple-layout-gap, 1rem);
+  margin: 0.15rem 0 0;
+}
+
+.assignment-workspace-operation-facts > div {
+  min-inline-size: 0;
+}
+
+.assignment-workspace-operation-facts dt {
+  color: var(--ple-muted);
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.assignment-workspace-operation-facts dd {
+  margin: 0.12rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+}
+
+.assignment-workspace-operations-refresh {
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+}

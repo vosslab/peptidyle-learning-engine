@@ -8,11 +8,11 @@ use uuid::Uuid;
 
 use super::backend::{build_production_grading_backend, connect_production_grader};
 use super::settings::{
-    GradingBackendSettings, LazyStorageDependencies, ProcessRole, PublisherStorageDependencies,
-    StorageRuntime, StorageSettings, invitation_delivery_worker_database_url_from_env,
-    invitation_delivery_worker_from_env,
+    AcceptedSubmissionExecutionSettings, GradingBackendSettings, LazyStorageDependencies,
+    ProcessRole, PublisherStorageDependencies, StorageRuntime, StorageSettings,
+    invitation_delivery_worker_database_url_from_env, invitation_delivery_worker_from_env,
 };
-use super::{PostgresAcceptedSubmissionExecutionStore, WorkerId};
+use super::{PostgresAcceptedSubmissionRecoveryStore, WorkerId};
 use crate::{
     accepted_submission_worker::AcceptedSubmissionExecutionWorker,
     course::invitation_delivery_worker::InvitationDeliveryWorker,
@@ -31,10 +31,9 @@ use crate::{
     },
 };
 
-const DEFAULT_LEASE_SECONDS: u32 = 120;
-const DEFAULT_PREPARATION_TIMEOUT_SECONDS: u64 = 90;
-const PRODUCTION_BATCH_SIZE: usize = 1;
 const DEFAULT_POLL_MILLIS: u64 = 500;
+const DEFAULT_LEASE_SECONDS: u32 = 120;
+const PRODUCTION_BATCH_SIZE: usize = 1;
 
 /// These are the complete generic queue families. Accepted submissions are
 /// intentionally absent: their private material is reachable only through the
@@ -82,58 +81,23 @@ impl WorkerExecutionPlan {
 }
 
 struct ProductionWorkerSettings {
-    worker: WorkerSettings,
+    execution: AcceptedSubmissionExecutionSettings,
     poll_interval: Duration,
 }
 
 impl ProductionWorkerSettings {
     fn from_env() -> Result<Self> {
-        let lease_seconds = bounded_env(
-            "PLE_WORKER_LEASE_SECONDS",
-            DEFAULT_LEASE_SECONDS,
-            1_u32,
-            900_u32,
-        )?;
-        let preparation_timeout_seconds = bounded_env(
-            "PLE_WORKER_PREPARATION_TIMEOUT_SECONDS",
-            DEFAULT_PREPARATION_TIMEOUT_SECONDS,
-            1_u64,
-            899_u64,
-        )?;
-        let poll_millis = bounded_env(
+        let poll_millis = super::settings::bounded_env(
             "PLE_WORKER_POLL_MILLIS",
             DEFAULT_POLL_MILLIS,
             50_u64,
             60_000_u64,
         )?;
-        let worker = WorkerSettings::new(
-            lease_seconds,
-            Duration::from_secs(preparation_timeout_seconds),
-            PRODUCTION_BATCH_SIZE,
-        )
-        .context("worker execution settings are incompatible")?;
         Ok(Self {
-            worker,
+            execution: AcceptedSubmissionExecutionSettings::from_env()?,
             poll_interval: Duration::from_millis(poll_millis),
         })
     }
-}
-
-fn bounded_env<T>(name: &str, default: T, minimum: T, maximum: T) -> Result<T>
-where
-    T: Copy + Ord + std::str::FromStr,
-{
-    let value = match std::env::var(name) {
-        Ok(value) => value
-            .parse::<T>()
-            .map_err(|_| anyhow::anyhow!("{name} must be an integer"))?,
-        Err(std::env::VarError::NotPresent) => default,
-        Err(std::env::VarError::NotUnicode(_)) => bail!("{name} must be valid UTF-8"),
-    };
-    if value < minimum || value > maximum {
-        bail!("{name} is outside its supported range");
-    }
-    Ok(value)
 }
 
 /// Starts the complete production registry. Render and generic Import remain
@@ -141,6 +105,48 @@ where
 /// have both a handler and an atomic committer.
 pub async fn run_production_worker_from_env() -> Result<()> {
     run_worker_from_env(StorageRuntime::worker_from_env()?).await
+}
+
+/// Runs one sealed accepted submission through the deterministic exception
+/// backend used by the isolated connected recovery journey.
+///
+/// The feature is compiled into a disposable acceptance image only.  This
+/// process owns neither generic queue work nor an API route: it opens the
+/// existing recovery capability, claims at most one accepted execution, and
+/// delegates the failure commit to the common handler.
+#[cfg(feature = "e2e-grader-fault")]
+pub async fn run_deterministic_grader_exception_worker_from_env() -> Result<()> {
+    let runtime = StorageRuntime::worker_from_env()?;
+    if runtime.topology != super::settings::StorageTopology::DisposableLocal {
+        bail!("deterministic grader exception worker requires disposable-local storage");
+    }
+    let settings = ProductionWorkerSettings::from_env()?;
+    let recovery_database_url =
+        super::accepted_submission_execution::recovery_database_url_from_env()?;
+    let recovery_pool = super::local_accepted_submission_recovery_pool(&recovery_database_url)
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "accepted-submission recovery database connection configuration was rejected"
+            )
+        })?;
+    let store = PostgresAcceptedSubmissionRecoveryStore::from_recovery_pool(recovery_pool);
+    let worker = AcceptedSubmissionExecutionWorker::new(
+        store,
+        crate::accepted_submission_worker::DeterministicGraderExceptionBackend,
+        WorkerId::from_uuid(Uuid::new_v4()),
+        settings.execution.worker_settings(),
+    )
+    .context("deterministic grader exception worker settings are incompatible")?;
+    let report = worker
+        .drain_one()
+        .await
+        .context("deterministic grader exception worker could not complete its one-claim pass")?;
+    eprintln!(
+        "peptidyle deterministic grader exception worker completed one sealed pass: no_claim={}, terminal={}",
+        report.no_claim, report.terminal
+    );
+    Ok(())
 }
 
 /// Starts the production invitation-delivery process. Its database login has
@@ -165,7 +171,11 @@ pub async fn run_public_asset_publisher_from_env() -> Result<()> {
         PublicAssetPublicationCommitter::new(Arc::clone(&store)),
     )])
     .context("public-asset publisher registry is invalid")?;
-    let worker = Worker::new(Arc::clone(&store), registry, settings.worker);
+    let worker = Worker::new(
+        Arc::clone(&store),
+        registry,
+        settings.execution.worker_settings(),
+    );
     eprintln!("peptidyle public-asset publisher ready");
     runtime::run_until_shutdown(worker, settings.poll_interval, runtime::shutdown_signal())
         .await
@@ -184,10 +194,24 @@ async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
 
     let store = dependencies.store;
     let objects = dependencies.objects;
-    // ASVS 13.2.2: the worker profile attests the execution-store pool, while
-    // the grader uses its separate least-authority connection capability.
-    let sealed_store =
-        PostgresAcceptedSubmissionExecutionStore::from_worker_pool(dependencies.pool.clone());
+    let recovery_database_url =
+        super::accepted_submission_execution::recovery_database_url_from_env()?;
+    // ASVS 13.2.2: the recovery login is isolated from both the generic
+    // worker store and the separate grader connection capability.
+    let recovery_pool = match storage.runtime.topology {
+        super::settings::StorageTopology::DisposableLocal => {
+            super::local_accepted_submission_recovery_pool(&recovery_database_url).await
+        }
+        super::settings::StorageTopology::AwsWorkload => {
+            super::accepted_submission_recovery_pool(&recovery_database_url).await
+        }
+    }
+    .map_err(|_| {
+        anyhow::anyhow!(
+            "accepted-submission recovery database connection configuration was rejected"
+        )
+    })?;
+    let sealed_store = PostgresAcceptedSubmissionRecoveryStore::from_recovery_pool(recovery_pool);
     let grader = connect_production_grader(&grading, storage.runtime.topology).await?;
     let backend = build_production_grading_backend(
         Arc::clone(&store),
@@ -228,7 +252,10 @@ async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
         ),
     ])
     .context("production worker registry is invalid")?;
-    let execution = WorkerExecutionPlan::new(settings.worker, WorkerId::from_uuid(Uuid::new_v4()));
+    let execution = WorkerExecutionPlan::new(
+        settings.execution.worker_settings(),
+        WorkerId::from_uuid(Uuid::new_v4()),
+    );
     let generic_worker = Worker::new(store, registry, execution.generic_settings());
     let accepted_worker = AcceptedSubmissionExecutionWorker::new(
         sealed_store,

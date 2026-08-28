@@ -104,6 +104,38 @@ import type { LiveDemoClient } from "./live_demo";
 import type { ProblemCurationClient } from "./problem_curation";
 import type { ReusableCurriculumClient } from "./reusable_curriculum";
 import type { CurriculumAdoptionClient } from "./curriculum_adoption";
+import type {
+  GradingOperationActionId,
+  GradingOperationActionReceipt,
+  GradingOperationGroupBy,
+  GradingOperationStrongEtag,
+  InstructorGradingOperationsPage,
+} from "./decoders/grading_operations";
+import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+
+/** Instructor-only browser capability for answer-free automated-grading recovery metadata. */
+export interface GradingOperationsClient {
+  readonly listInstructorGradingOperations: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    groupBy?: GradingOperationGroupBy,
+    cursor?: string,
+    pageSize?: number,
+  ) => Promise<InstructorGradingOperationsPage>;
+  readonly retryInstructorGradingOperation: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    operation: GradingOperationReference,
+    expectedRevision: GradingOperationStrongEtag,
+    idempotencyKey: GradingOperationActionId,
+  ) => Promise<GradingOperationActionReceipt>;
+  readonly recalculateInstructorAssignment: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    expectedRevision: GradingOperationStrongEtag,
+    idempotencyKey: GradingOperationActionId,
+  ) => Promise<GradingOperationActionReceipt>;
+}
 
 /** Sysadmin-only discovery capability over generated public account references. */
 export interface SysadminInstructorCandidateClient {
@@ -118,7 +150,8 @@ export interface ApiClient
     CourseRosterClient,
     ProblemCurationClient,
     ReusableCurriculumClient,
-    CurriculumAdoptionClient {
+    CurriculumAdoptionClient,
+    GradingOperationsClient {
   readonly listCourseGroups: (
     courseId: CourseId,
     cursor?: string,

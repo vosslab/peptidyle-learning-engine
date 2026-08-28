@@ -138,7 +138,23 @@ variable "worker_application_secrets_arn" {
 }
 variable "worker_application_secrets_kms_key_arn" {
   type        = string
-  description = "CMK ARN encrypting worker_application_secrets_arn; its policy permits only worker and publisher execution roles via Secrets Manager."
+  description = "CMK ARN encrypting worker_application_secrets_arn; its policy permits only the worker execution role through Secrets Manager."
+}
+variable "recovery_application_secrets_arn" {
+  type        = string
+  description = "Existing accepted-submission recovery-only Secrets Manager JSON ARN. It contains only PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL for the dedicated recovery login."
+}
+variable "recovery_application_secrets_kms_key_arn" {
+  type        = string
+  description = "CMK ARN encrypting recovery_application_secrets_arn; its policy permits only the worker execution role through Secrets Manager."
+}
+variable "fast_path_application_secrets_arn" {
+  type        = string
+  description = "Existing accepted-submission fast-path-only Secrets Manager JSON ARN. It contains only PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL for the dedicated fast-path login."
+}
+variable "fast_path_application_secrets_kms_key_arn" {
+  type        = string
+  description = "CMK ARN encrypting fast_path_application_secrets_arn; its policy permits only the API execution role through Secrets Manager."
 }
 variable "publisher_application_secrets_arn" {
   type        = string

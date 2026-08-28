@@ -19,7 +19,10 @@ fn id() -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-fn migration_copy(maximum_version: Option<i64>) -> std::path::PathBuf {
+/// The final D1 migration whose broker-role repair this fixture proves.
+const D1_BROKER_ROLE_REPAIR_CUTOFF: i64 = 2026081828;
+
+fn migration_copy_through(maximum_version: i64) -> std::path::PathBuf {
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas/migrations");
     let destination = std::env::temp_dir().join(format!("ple-d1-migrations-{}", id()));
     fs::create_dir_all(&destination).expect("temporary D1 migration directory");
@@ -32,7 +35,7 @@ fn migration_copy(maximum_version: Option<i64>) -> std::path::PathBuf {
             .next()
             .and_then(|value| value.parse::<i64>().ok())
             .expect("migration filename begins with a numeric version");
-        if maximum_version.is_some_and(|maximum| version > maximum) {
+        if version > maximum_version {
             continue;
         }
         fs::copy(entry.path(), destination.join(name)).expect("copy D1 migration input");
@@ -157,7 +160,7 @@ async fn postgres_catalog_broker_role_sealing_repairs_pre_d1_epoch_drift() {
             .connect_with(options)
             .await
             .expect("isolated D1 migration database connection");
-        let pre_d1 = migration_copy(Some(2026081826));
+        let pre_d1 = migration_copy_through(2026081826);
         sqlx::migrate::Migrator::new(pre_d1.clone())
             .await
             .expect("pre-D1 migration source")
@@ -178,10 +181,10 @@ async fn postgres_catalog_broker_role_sealing_repairs_pre_d1_epoch_drift() {
         .execute(&pool)
         .await
         .expect("inject pre-D1 broker role and bidirectional membership drift");
-        let full = migration_copy(None);
-        sqlx::migrate::Migrator::new(full.clone())
+        let d1_repair = migration_copy_through(D1_BROKER_ROLE_REPAIR_CUTOFF);
+        sqlx::migrate::Migrator::new(d1_repair.clone())
             .await
-            .expect("full D1 migration source")
+            .expect("bounded D1 broker-role repair migration source")
             .run(&pool)
             .await
             .expect("1827 and 1828 repair the pre-D1 broker drift exactly once");
@@ -196,7 +199,7 @@ async fn postgres_catalog_broker_role_sealing_repairs_pre_d1_epoch_drift() {
         assert_eq!(applied, 2, "both canonical D1 migrations apply once");
         pool.close().await;
         fs::remove_dir_all(pre_d1).expect("remove pre-D1 migration copy");
-        fs::remove_dir_all(full).expect("remove full D1 migration copy");
+        fs::remove_dir_all(d1_repair).expect("remove bounded D1 migration copy");
     })
     .await;
     let _ = sqlx::query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1")

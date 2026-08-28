@@ -20,17 +20,32 @@
   private-response child, canonical UTF-8 response identity, Memory/PostgreSQL parity, dedicated
   worker-only execution store, separate API/worker process logins, and migrations 1849/1850. G1
   remains incomplete; G1-W3 then became the next dependency-ordered stage.
-- W4 owns forward migration `2026081851` and its exact worker claim/load/commit/fail capability;
-  W5 owns forward migration `2026081852` and its dedicated Instructor operation capability. W7b
+- W4 owns forward migrations `2026081851` through `2026081860` and their split claim, verified-read,
+  load, completion-lock, commit, and fail capabilities; W5 owns `2026081861` and its dedicated
+  Instructor operation capability. W7b
   owns executable API-denial/worker-lease/RLS proof, and final `all_test.sh` remains required.
 - Accepted `WP-PROF-G1 / G1-W3` for exhaustive typed pending reads, the answer-free no-store
   `accepted_pending` replay projection, closed deterministic grader categories, Native/WebWork/QTI/
   composite classification, the preserved opaque iMathAS broker boundary, and Memory learner-read
-  projection parity. `G1-W4` is now current; it owns allocated migration `2026081851` and consumes
+  projection parity. `G1-W4` is now current; it owns migrations `2026081851` through `2026081860` and consumes
   W3's sealed contract-paired dispatch dependency before its first learner effect.
 
 ### Developer Tests and Notes
 
+- Hardened migration \`2026081861\`'s immutable grading-operation receipt check:
+  retry and recalculation now require every subtype-owned result field to be non-NULL and
+  reject all opposite-subtype fields. The connected PostgreSQL oracle rollback-probes malformed
+  rows for both actions; its focused Rust compile, formatting, and diff checks pass, while the
+  ignored live run still requires the canonical acceptance runtime.
+- Reconciled the G1 Instructor operations pagination boundary: the Rust adapter now forwards the
+  validated public page size (`1..=100`), while migration 1861 performs its bounded one-row
+  overfetch internally. The Memory max-page assertion passes; the disposable PostgreSQL oracle
+  now owns the corresponding maximum-page assertion, but its current run is blocked earlier by
+  the existing auth-session role fixture constraint.
+- Split the automated-grading operations plan into a binding architecture/dependency plan and the
+  linked [automated_grading_operations_delivery_plan.md](active_plans/active/automated_grading_operations_delivery_plan.md)
+  companion. The focused companion owns W5-W7 delivery, evidence, acceptance, risks, closeout,
+  and dispatch while retaining migrations 2026081861 through 2026081865.
 - Regenerated the complete live-demo screenshot corpus through the canonical
   `./capture_screenshots.sh` entry point. The disposable production-shaped HTTPS stack completed
   every registered browser scenario, validated all 61 declared PNG artifacts and their privacy
@@ -75,6 +90,16 @@
   and qualified the earlier aggregate receipt. The three affected Rust lifecycle tests, strict
   server Clippy, all five `./check_codebase.sh` gates with 359 Node tests, 1,993 source/link checks,
   and `git diff --check` pass. Final-tree aggregate Validation remains open.
+- Completed the G1-W4 stable implementation handoff. The API exact fast path and background
+  recovery now use type-distinct private logins and eagerly connected pools, one validated
+  lease/deadline contract, and the same tuple-fenced grading handler. Canonical completed reads use
+  the four-key verifier; learner POST/status remain answer-free. A fresh PostgreSQL baseline applied
+  all 90 migrations, repeated as a no-op, passed every registered connected phase, and cleaned up
+  exactly. The production-shaped headless stack then started API, worker, and HTTPS gateway through
+  login/membership/function preflight and stopped with no labelled resources. Focused Rust,
+  process-login, source-length, strict Clippy, format, and diff gates passed; independent re-review
+  approved the fail-closed repair. W5 may consume this stable handoff, while W4 acceptance remains
+  open for W7b's dedicated executable PostgreSQL oracle and final material-tree Validation.
 - Aggressively restored `docs/HUMAN_GUIDANCE.md` to terse owner-level statements. Moved uncertain
   technical interpretation, rationale, compliance mechanics, demo evidence, content-format detail,
   authentication policy, and local-stack behavior into structured `docs/DESIGN_DECISIONS.md`

@@ -25,6 +25,8 @@ use sqlx::AssertSqlSafe;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use uuid::Uuid;
 
+const COURSE_GRADE_SCHEME_MIGRATION: u64 = 2026081806;
+
 fn fresh() -> Uuid {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).expect("fixture randomness");
@@ -76,8 +78,8 @@ fn copied_migrations(maximum_version: Option<u64>) -> std::path::PathBuf {
 async fn create_pre_s6_course(pool: &sqlx::PgPool, tenant: Uuid, course: Uuid) {
     // This connection is the disposable migration principal, not the app role.
     // The values satisfy the pre-S6 course shape through migration 1805.  The
-    // same helper also runs after the full upgrade, where the canonical course
-    // topology trigger requires the tenant-scoped default module write.
+    // same helper also runs after S6, where the course trigger installs the
+    // tenant-scoped default grade scheme.
     let mut transaction = pool.begin().await.expect("pre-S6 course transaction");
     sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
         .bind(tenant.to_string())
@@ -130,10 +132,11 @@ async fn assert_upgrade_backfill() {
         let tenant = fresh();
         let existing = fresh();
         create_pre_s6_course(&upgrade_pool, tenant, existing).await;
-        let full = copied_migrations(None);
-        sqlx::migrate::Migrator::new(full.clone())
+        let through_course_grade_scheme =
+            copied_migrations(Some(COURSE_GRADE_SCHEME_MIGRATION));
+        sqlx::migrate::Migrator::new(through_course_grade_scheme.clone())
             .await
-            .expect("full migrator")
+            .expect("course-grade-scheme migrator")
             .run(&upgrade_pool)
             .await
             .expect("apply S6 migration exactly once");
@@ -173,7 +176,8 @@ async fn assert_upgrade_backfill() {
         .expect("S6 checksum count");
         assert_eq!(checksums, 1, "S6 ledger checksum is singular");
         fs::remove_dir_all(before).expect("remove copied pre-S6 migrations");
-        fs::remove_dir_all(full).expect("remove copied full migrations");
+        fs::remove_dir_all(through_course_grade_scheme)
+            .expect("remove copied course-grade-scheme migrations");
     })
     .await;
     // Terminate fixture connections before dropping its generated database.

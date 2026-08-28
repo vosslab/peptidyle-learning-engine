@@ -32,6 +32,7 @@ pub(super) use question_model::{
 };
 pub(super) use serde::{Deserialize, Serialize};
 
+pub(super) use crate::accepted_submission_worker::AcceptedSubmissionFastPath;
 pub(super) use crate::auth::{
     AuthenticatedSession, auth_error_response, no_store, resolve_request_session,
 };
@@ -81,6 +82,9 @@ pub(super) struct RunRouteState<S, B> {
     /// First-effect acceptance capability. Submission owns its use; sibling
     /// route code receives no broad grading-operation authority.
     pub(super) automated_grading: Arc<dyn AutomatedGradingStore>,
+    /// The one exact-claim execution capability used after durable acceptance.
+    /// It exposes no private input, grader, result, or receipt-writer surface.
+    pub(super) accepted_submission_fast_path: Arc<dyn AcceptedSubmissionFastPath>,
 }
 
 impl<S, B> Clone for RunRouteState<S, B> {
@@ -91,6 +95,7 @@ impl<S, B> Clone for RunRouteState<S, B> {
             sealed_execution: Arc::clone(&self.sealed_execution),
             learner_submission_status: Arc::clone(&self.learner_submission_status),
             automated_grading: Arc::clone(&self.automated_grading),
+            accepted_submission_fast_path: Arc::clone(&self.accepted_submission_fast_path),
         }
     }
 }

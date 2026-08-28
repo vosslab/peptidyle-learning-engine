@@ -543,20 +543,28 @@ async fn set_postgres_manual_grade(
         transaction,
         tenant,
         assignment.id,
+        JobId::from_uuid(command.action.as_uuid()),
     )
     .await?;
     let occurred_at = database_timestamp(transaction).await?;
     sqlx::query(
         "INSERT INTO manual_grade_receipt \
          (tenant_id, manual_grade_action_id, attempt_id, actor_id, request_sha256, expected_evaluation_revision, \
-          resulting_evaluation_revision, scoring_generation, occurred_at, course_id) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, transaction_timestamp(), $9)",
+          resulting_evaluation_revision, scoring_generation, occurred_at, course_id, assignment_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, transaction_timestamp(), $9, $10)",
     )
     .bind(tenant.as_uuid()).bind(command.action.as_uuid()).bind(command.attempt.as_uuid()).bind(command.actor.as_uuid())
     .bind(digest.to_string()).bind(i64::try_from(command.expected_revision.as_u64()).map_err(|_| StoreError::Conflict)?)
     .bind(i64::try_from(resulting_revision.as_u64()).map_err(|_| StoreError::Conflict)?)
-    .bind(i64::try_from(generation.value()).map_err(|_| StoreError::Conflict)?).bind(assignment.course_id.as_uuid())
+    .bind(i64::try_from(generation.generation.value()).map_err(|_| StoreError::Conflict)?).bind(assignment.course_id.as_uuid()).bind(assignment.id.as_uuid())
     .execute(&mut **transaction).await.map_err(map_sqlx_error)?;
+    super::scoring_invalidation::bind_manual_grade(
+        transaction,
+        tenant,
+        command.action.as_uuid(),
+        generation,
+    )
+    .await?;
     let (audit_payload, audit_checksum) =
         encode_payload(&serde_json::json!({"kind": "manual_grade"}))?;
     sqlx::query(
@@ -570,7 +578,7 @@ async fn set_postgres_manual_grade(
         action: command.action,
         attempt: command.attempt,
         resulting_revision,
-        scoring_generation: generation,
+        scoring_generation: generation.generation,
         occurred_at,
     })
 }

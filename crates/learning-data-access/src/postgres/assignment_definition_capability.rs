@@ -161,9 +161,18 @@ pub(super) async fn replace(
     .fetch_one(&mut **tx)
     .await
     .map_err(map_sqlx_error)?;
-    let job = (assignment_scoring_changed(previous, assignment) && has_scores)
-        .then(JobId::generate)
-        .transpose()?;
+    let expected_resulting_revision = expected_revision
+        .checked_next()
+        .ok_or(StoreError::Conflict)?;
+    let job = (assignment_scoring_changed(previous, assignment) && has_scores).then(|| {
+        crate::JobId::from_uuid(
+            crate::assignment_definition_scoring_invalidation_origin_id(
+                assignment.id.as_uuid(),
+                expected_resulting_revision,
+            )
+            .as_uuid(),
+        )
+    });
     let row = sqlx::query(
         "SELECT revision, scoring_generation, scoring_status \
          FROM ple_replace_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -179,6 +188,28 @@ pub(super) async fn replace(
     .fetch_one(&mut **tx)
     .await
     .map_err(map_sqlx_error)?;
+    let resulting_revision =
+        assignment_revision_from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
+    if resulting_revision != expected_resulting_revision {
+        return Err(StoreError::Unavailable(
+            "assignment definition capability returned an unexpected revision".to_string(),
+        ));
+    }
+    if let Some(job) = job {
+        super::scoring_invalidation::bind_assignment_definition(
+            tx,
+            context.tenant_id(),
+            actor.as_uuid(),
+            assignment.course_id,
+            assignment.id,
+            i64::try_from(resulting_revision.value()).map_err(|_| StoreError::Conflict)?,
+            super::scoring_invalidation::ScoringInvalidationBinding {
+                generation: decode_scoring_generation(&row)?,
+                job,
+            },
+        )
+        .await?;
+    }
     let stored = reload_and_compare(tx, assignment, base_policy, &row).await?;
     // The capability owns the authoritative revision transition; reresolution
     // consumes that committed-in-transaction state and rolls the whole save

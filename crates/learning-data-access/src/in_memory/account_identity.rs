@@ -17,6 +17,20 @@ use crate::{
 };
 use uuid::Uuid;
 
+/// Private installation lifecycle retained with its account-facing reader.
+#[cfg_attr(not(feature = "test-support"), allow(dead_code))]
+#[derive(Debug, Default, Clone)]
+pub(super) enum StoredLiveDemoInstallationState {
+    #[default]
+    Missing,
+    Installing {
+        generation: Uuid,
+    },
+    Complete {
+        generation: Uuid,
+    },
+}
+
 #[async_trait]
 impl LiveDemoInstallationStore for MemoryStore {
     async fn completed_live_demo_installation_generation(
@@ -24,9 +38,9 @@ impl LiveDemoInstallationStore for MemoryStore {
     ) -> Result<Option<Uuid>, StoreError> {
         let state = self.read_state()?;
         Ok(match state.live_demo_installation_state {
-            super::StoredLiveDemoInstallationState::Complete { generation } => Some(generation),
-            super::StoredLiveDemoInstallationState::Missing => None,
-            super::StoredLiveDemoInstallationState::Installing { generation } => {
+            StoredLiveDemoInstallationState::Complete { generation } => Some(generation),
+            StoredLiveDemoInstallationState::Missing => None,
+            StoredLiveDemoInstallationState::Installing { generation } => {
                 let _ = generation;
                 None
             }

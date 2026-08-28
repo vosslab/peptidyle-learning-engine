@@ -51,6 +51,14 @@ impl BaseCourseInstallerPool {
     }
 }
 
+#[path = "connection_execution_pools.rs"]
+mod execution_pools;
+pub use execution_pools::{
+    AcceptedSubmissionFastPathPool, AcceptedSubmissionRecoveryPool,
+    accepted_submission_fast_path_pool, accepted_submission_recovery_pool,
+    local_accepted_submission_fast_path_pool, local_accepted_submission_recovery_pool,
+};
+
 fn pool_options(max_connections: u32) -> PgPoolOptions {
     PgPoolOptions::new()
         .max_connections(max_connections)
@@ -155,11 +163,25 @@ fn attested_pool(
     contract: LoginContract,
     max_connections: u32,
 ) -> PgPool {
-    pool_options(max_connections)
-        .after_connect(move |connection, _metadata| {
-            Box::pin(async move { verify_login_authority(connection, contract).await })
-        })
-        .connect_lazy_with(options)
+    attested_pool_options(contract, max_connections).connect_lazy_with(options)
+}
+
+fn attested_pool_options(contract: LoginContract, max_connections: u32) -> PgPoolOptions {
+    pool_options(max_connections).after_connect(move |connection, _metadata| {
+        Box::pin(async move { verify_login_authority(connection, contract).await })
+    })
+}
+
+/// Connects a bounded pool only after its first connection passes the login
+/// and capability-role authority attestation.
+async fn connect_attested_pool(
+    options: PgConnectOptions,
+    contract: LoginContract,
+    max_connections: u32,
+) -> Result<PgPool, sqlx::Error> {
+    attested_pool_options(contract, max_connections)
+        .connect_with(options)
+        .await
 }
 
 /// Connects the bounded dedicated QTI grader pool.
@@ -548,6 +570,8 @@ mod tests {
             );
         }
 
+        assert_eq!(execution_pools::execution_pool_max_connections(), 4);
+
         let production_installer = base_course_installer_pool(
             "postgres://ple_base_course_installer_login:secret@db.example/ple?sslmode=verify-full",
         )
@@ -682,6 +706,29 @@ mod tests {
             )
             .is_ok()
         );
+        let recovery = LoginContract::AcceptedSubmissionRecovery;
+        assert!(
+            verified_connect_options(
+                "postgres://ple_accepted_submission_recovery_login:secret@db.example/ple?sslmode=verify-full",
+                recovery,
+            )
+            .is_ok()
+        );
+        let fast_path = LoginContract::AcceptedSubmissionFastPath;
+        assert!(
+            verified_connect_options(
+                "postgres://ple_accepted_submission_fast_path_login:secret@db.example/ple?sslmode=verify-full",
+                fast_path,
+            )
+            .is_ok()
+        );
+        assert!(
+            verified_connect_options(
+                "postgres://ple_worker_login:secret@db.example/ple?sslmode=verify-full",
+                recovery,
+            )
+            .is_err()
+        );
         let base_course_installer = LoginContract::BaseCourseInstaller;
         assert!(
             verified_connect_options(
@@ -704,6 +751,8 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::AcceptedSubmissionRecovery,
+            LoginContract::AcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,
@@ -740,6 +789,8 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::AcceptedSubmissionRecovery,
+            LoginContract::AcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,
@@ -786,11 +837,11 @@ mod tests {
     }
 
     #[test]
-    fn worker_authority_accepts_postgresql_catalog_membership_order() {
-        let contract = LoginContract::Production(ProductionLoginProfile::Worker);
+    fn api_authority_accepts_postgresql_catalog_membership_order() {
+        let contract = LoginContract::Production(ProductionLoginProfile::Api);
         let mut catalog_authority = authority(contract);
         // The attestation query orders by granted role name, putting the
-        // accepted-submission capability before ple_app.
+        // auth capability after ple_app.
         catalog_authority
             .direct_memberships
             .sort_unstable_by(|left, right| left.role_name.cmp(&right.role_name));
@@ -814,6 +865,8 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::AcceptedSubmissionRecovery,
+            LoginContract::AcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,
@@ -838,6 +891,8 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::AcceptedSubmissionRecovery,
+            LoginContract::AcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,

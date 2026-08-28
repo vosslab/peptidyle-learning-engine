@@ -246,6 +246,9 @@ services:
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
       DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL:-postgres://ple_accepted_submission_fast_path_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
+      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
       PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
@@ -318,6 +321,7 @@ services:
         condition: service_healthy
     environment:
       PLE_WORKER_DATABASE_URL: ${PLE_WORKER_DATABASE_URL:-postgres://ple_worker_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL:-postgres://ple_accepted_submission_recovery_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
       PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1

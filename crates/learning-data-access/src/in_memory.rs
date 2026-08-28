@@ -33,7 +33,12 @@ mod flat_import_provenance;
 mod flat_question;
 mod flat_question_assets;
 mod grading_execution_worker;
+mod grading_execution_worker_claim;
+mod grading_operation_lifecycle;
+mod grading_operation_store;
 mod grading_operations;
+#[cfg(test)]
+mod grading_operations_tests;
 mod invitation_delivery;
 mod item_analysis;
 mod manual_grade_export;
@@ -51,6 +56,7 @@ mod reusable_curriculum;
 #[cfg(test)]
 mod reusable_curriculum_tests;
 mod runs;
+mod scoring_invalidation;
 mod sessions;
 mod state;
 mod statistics;
@@ -369,12 +375,14 @@ impl MemoryStore {
         state: MemoryLiveDemoInstallationState,
     ) -> Result<(), StoreError> {
         self.write_state()?.live_demo_installation_state = match state {
-            MemoryLiveDemoInstallationState::Missing => StoredLiveDemoInstallationState::Missing,
+            MemoryLiveDemoInstallationState::Missing => {
+                account_identity::StoredLiveDemoInstallationState::Missing
+            }
             MemoryLiveDemoInstallationState::Installing { generation } => {
-                StoredLiveDemoInstallationState::Installing { generation }
+                account_identity::StoredLiveDemoInstallationState::Installing { generation }
             }
             MemoryLiveDemoInstallationState::Complete { generation } => {
-                StoredLiveDemoInstallationState::Complete { generation }
+                account_identity::StoredLiveDemoInstallationState::Complete { generation }
             }
         };
         Ok(())
@@ -444,7 +452,7 @@ impl MemorySealedPrivateExecutionStore {
 #[derive(Debug, Default, Clone)]
 struct State {
     authoritative_time: ActivityTimestamp,
-    live_demo_installation_state: StoredLiveDemoInstallationState,
+    live_demo_installation_state: account_identity::StoredLiveDemoInstallationState,
     next_course_reference: u32,
     next_assignment_reference: u32,
     next_run_reference: u32,
@@ -651,6 +659,7 @@ struct State {
     assignment_individual_policy_exceptions:
         BTreeMap<(TenantId, AssignmentId, StudentId), crate::StoredIndividualPolicyException>,
     assignment_scoring: BTreeMap<(TenantId, AssignmentId), (ScoringGeneration, ScoringStatus)>,
+    scoring_invalidations: scoring_invalidation::MemoryScoringInvalidations,
     assignment_score_staging: BTreeMap<JobId, PreparedAssignmentScoring>,
     item_analysis_staging: BTreeMap<JobId, PreparedCourseItemAnalysis>,
     item_analysis:
@@ -722,6 +731,7 @@ struct State {
         BTreeMap<(TenantId, QuestionAttemptId), question_model::SubmissionEvaluationStatus>,
     automated_grading_operations:
         BTreeMap<(TenantId, question_model::GradingOperationReference), crate::GradingOperation>,
+    instructor_grading_operation_actions: grading_operation_store::MemoryGradingOperationActions,
     automated_grading_execution_receipts:
         BTreeMap<(TenantId, QuestionAttemptId), Vec<crate::GradingExecutionReceipt>>,
     /// Active worker fence for one leased accepted-submission execution. This
@@ -762,19 +772,6 @@ struct State {
     asset_access_events: Vec<AssetAccessEvent>,
     jobs: BTreeMap<JobId, StoredJob>,
     exports: BTreeMap<(TenantId, ExportId), StoredExport>,
-}
-
-#[cfg_attr(not(feature = "test-support"), allow(dead_code))]
-#[derive(Debug, Default, Clone)]
-enum StoredLiveDemoInstallationState {
-    #[default]
-    Missing,
-    Installing {
-        generation: Uuid,
-    },
-    Complete {
-        generation: Uuid,
-    },
 }
 
 /// Test-only lifecycle inputs for live-demo installation-state conformance.

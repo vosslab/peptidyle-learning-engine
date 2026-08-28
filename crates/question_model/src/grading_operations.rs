@@ -38,18 +38,20 @@ impl From<SubmissionEvaluationStatus> for AutomatedGradingStatus {
 
 /// Safe Instructor-visible reason for an actionable recovery thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum GradingOperationReason {
     GraderContractFailure,
     GraderExecutionFailure,
     IssuedEvidenceIntegrity,
     RetryExhausted,
+    ScoringRecalculationRequested,
+    InstructorRequestedRecalculation,
     ScoringRecalculationFailed,
 }
 
 /// Current server-owned operation state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum GradingOperationState {
     Actionable,
     ActionInProgress,
@@ -61,7 +63,7 @@ pub enum GradingOperationState {
 
 /// The one action an operation may expose at a given revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum GradingOperationAction {
     Retry,
     Recalculate,
@@ -98,6 +100,28 @@ mod tests {
             serde_json::to_string(&AutomatedGradingStatus::InstructorAttention)
                 .expect("serializes"),
             "\"instructor_attention\""
+        );
+    }
+
+    #[test]
+    fn operation_symbols_use_snake_case_across_runtimes() {
+        assert_eq!(
+            serde_json::to_string(&GradingOperationReason::InstructorRequestedRecalculation)
+                .expect("serializes"),
+            "\"instructor_requested_recalculation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GradingOperationReason::ScoringRecalculationRequested)
+                .expect("serializes"),
+            "\"scoring_recalculation_requested\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GradingOperationState::ActionInProgress).expect("serializes"),
+            "\"action_in_progress\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GradingOperationAction::Recalculate).expect("serializes"),
+            "\"recalculate\""
         );
     }
 }

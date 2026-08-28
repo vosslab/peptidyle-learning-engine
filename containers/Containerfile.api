@@ -32,6 +32,12 @@ RUN cargo build --release --locked --bin server_core --features e2e-observabilit
 FROM builder AS live-demo-builder
 RUN cargo build --release --locked --bin server_core --features local-disposable-storage
 
+# This acceptance-only target carries the feature-gated deterministic grader
+# exception process.  Neither the ordinary live-demo nor production targets
+# include the process mode or its backend.
+FROM builder AS live-demo-fault-builder
+RUN cargo build --release --locked --bin server_core --features local-disposable-storage,e2e-grader-fault
+
 FROM builder AS production-builder
 RUN cargo build --release --locked --bin server_core
 
@@ -69,6 +75,10 @@ ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 FROM runtime-base AS live-demo
 COPY --from=live-demo-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
+ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
+
+FROM runtime-base AS live-demo-fault
+COPY --from=live-demo-fault-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 # Keep this final target production-safe for direct `podman build` use. The

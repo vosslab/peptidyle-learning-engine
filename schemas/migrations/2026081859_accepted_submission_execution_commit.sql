@@ -62,6 +62,7 @@ DECLARE
     v_summary_total_question_attempts bigint;
     v_summary_last_activity_at_millis bigint;
     v_expected_last_activity_at_millis bigint;
+    v_expected_first_completed_at_millis bigint;
     v_expected_best_score double precision;
     v_expected_current_score double precision;
     v_expected_current_grade_run_id uuid;
@@ -320,8 +321,8 @@ BEGIN
     -- Repeat the complete lease and accepted-response witness in the same
     -- transaction that writes the aggregate. A stale or racing holder gets a
     -- closed, answer-free disposition and changes no row.
-    SELECT witness, assignment.attempt_selection_policy
-      INTO v_witness, v_attempt_selection_policy
+    SELECT witness.*
+      INTO v_witness
       FROM public.ple_accepted_submission_execution_witness_v1 AS witness
       JOIN public.grading_execution AS execution
         ON (execution.tenant_id, execution.attempt_id) =
@@ -371,12 +372,13 @@ BEGIN
        AND witness.automated_result_canonical_json IS NULL
        AND witness.automated_result_sha256 IS NULL
        AND witness.run_completed_at IS NULL
-       AND attempt.attempt_status = 'in_progress'
-       AND attempt.submitted_at IS NULL
+       AND attempt.attempt_status = 'submitted'
+       AND floor(extract(epoch FROM attempt.submitted_at) * 1000)::bigint
+            = witness.accepted_millis
        AND witness.scoring_generation = p_expected_scoring_generation
        AND assignment.revision = witness.assignment_revision
        AND assignment.scoring_generation = p_expected_scoring_generation
-    FOR UPDATE OF execution, job, evaluation, attempt, run, enrollment, summary;
+    FOR UPDATE OF execution, job, evaluation, attempt, run, enrollment, summary, assignment;
 
     IF NOT FOUND THEN
         RETURN QUERY
@@ -385,6 +387,21 @@ BEGIN
             NULL::text,
             NULL::text;
         RETURN;
+    END IF;
+
+    -- PostgreSQL row variables are single INTO targets. The witness query
+    -- above exclusively locks the assignment with the completion aggregate;
+    -- read its policy from that already-locked row rather than weakening the
+    -- atomic lock or splitting the witness into parallel scalar authority.
+    SELECT assignment.attempt_selection_policy
+      INTO v_attempt_selection_policy
+      FROM public.assignment AS assignment
+     WHERE assignment.tenant_id = p_tenant_id
+       AND assignment.assignment_id = v_witness.assignment_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'accepted-submission assignment disappeared after completion lock'
+            USING ERRCODE = '40001';
     END IF;
 
     IF p_attempt_payload ->> 'id' IS DISTINCT FROM v_witness.attempt_id::text
@@ -540,19 +557,21 @@ BEGIN
                 THEN v_witness.run_id
             ELSE v_witness.best_grade_run_id
         END;
+        v_expected_first_completed_at_millis := CASE
+            WHEN v_witness.first_completed_at IS NULL
+                THEN v_witness.accepted_millis
+            ELSE floor(
+                extract(epoch FROM v_witness.first_completed_at) * 1000
+            )::bigint
+        END;
 
         IF v_summary_completed_run_count
                 IS DISTINCT FROM v_witness.completed_run_count + 1
            OR v_summary_latest_score IS DISTINCT FROM v_run_score
            OR v_summary_best_score IS DISTINCT FROM v_expected_best_score
            OR v_summary_current_score IS DISTINCT FROM v_expected_current_score
-           OR p_enrollment_first_completed_at_millis IS DISTINCT FROM CASE
-                WHEN v_witness.first_completed_at IS NULL
-                    THEN v_witness.accepted_millis
-                ELSE floor(
-                    extract(epoch FROM v_witness.first_completed_at) * 1000
-                )::bigint
-           END
+           OR p_enrollment_first_completed_at_millis
+                IS DISTINCT FROM v_expected_first_completed_at_millis
            OR p_enrollment_current_grade_run_id
                 IS DISTINCT FROM v_expected_current_grade_run_id
            OR p_enrollment_best_grade_run_id
@@ -606,23 +625,9 @@ BEGIN
             USING ERRCODE = '40001';
     END IF;
 
-    -- Complete the answer-free lifecycle while leaving the immutable issued
-    -- attempt payload and accepted private response untouched.
-    UPDATE public.question_attempt AS attempt
-       SET attempt_status = 'submitted',
-           submitted_at = to_timestamp(
-               v_witness.accepted_millis::double precision / 1000
-           )
-     WHERE attempt.tenant_id = p_tenant_id
-       AND attempt.attempt_id = v_witness.attempt_id
-       AND attempt.attempt_status = 'in_progress'
-       AND attempt.submitted_at IS NULL;
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'accepted-submission attempt lifecycle changed'
-            USING ERRCODE = '40001';
-    END IF;
-
+    -- Submission acceptance already owns the public lifecycle transition.
+    -- Completion keeps that accepted timestamp immutable while adding only
+    -- evaluated result and aggregate evidence.
     INSERT INTO public.attempt_feedback(
         tenant_id,
         attempt_id,

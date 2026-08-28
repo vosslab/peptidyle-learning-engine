@@ -5,6 +5,7 @@
 
 mod assignments;
 mod gradebook;
+mod grading_operations;
 mod invitation_capability;
 pub(crate) mod invitation_delivery_worker;
 mod invitation_email;

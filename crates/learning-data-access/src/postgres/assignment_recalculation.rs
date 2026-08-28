@@ -1,18 +1,20 @@
 //! Server-owned assignment scoring invalidation and worker enqueue.
 
-use question_model::{AssignmentId, ScoringGeneration, TenantId};
+use question_model::{AssignmentId, TenantId};
 use sqlx::{Postgres, Transaction};
 
 use super::{decode_scoring_generation, map_sqlx_error};
-use crate::{JobId, StoreError};
+use crate::StoreError;
+
+use super::scoring_invalidation::ScoringInvalidationBinding;
 
 /// Atomically advances one assignment generation and creates its matching job.
 pub(super) async fn enqueue_assignment_recalculation(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     assignment: AssignmentId,
-) -> Result<ScoringGeneration, StoreError> {
-    let job = JobId::generate()?;
+    job: crate::JobId,
+) -> Result<ScoringInvalidationBinding, StoreError> {
     let row = sqlx::query(
         "SELECT public.ple_enqueue_assignment_recalculation($1, $2, $3, 10) \
                 AS scoring_generation",
@@ -23,5 +25,8 @@ pub(super) async fn enqueue_assignment_recalculation(
     .fetch_one(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    decode_scoring_generation(&row)
+    Ok(ScoringInvalidationBinding {
+        generation: decode_scoring_generation(&row)?,
+        job,
+    })
 }

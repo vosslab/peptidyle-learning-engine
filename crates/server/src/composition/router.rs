@@ -37,6 +37,9 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
     health: Arc<HealthState>,
+    accepted_submission_fast_path: Arc<
+        dyn crate::accepted_submission_worker::AcceptedSubmissionFastPath,
+    >,
 ) -> Router
 where
     S: Store
@@ -70,6 +73,7 @@ where
         + learning_data_access::PreviewPlaneStore
         + learning_data_access::LearnerSubmissionStatusStore
         + learning_data_access::AutomatedGradingStore
+        + learning_data_access::GradingOperationStore
         + AssetStore
         + CourseAppearanceStore
         + AuthoritativeTimeStore
@@ -153,12 +157,13 @@ where
         .merge(crate::item_analysis::router(Arc::clone(&store)))
         .merge(crate::export::router(Arc::clone(&store)))
         .merge(crate::retention::router(Arc::clone(&store)))
-        .merge(crate::run::router(
+        .merge(crate::run::router_with_accepted_submission_fast_path(
             Arc::clone(&store),
             backends,
             sealed_execution,
             store.clone(),
             store.clone(),
+            accepted_submission_fast_path,
         ))
         .merge(crate::asset::router(store.clone(), objects, public_assets))
         .merge(crate::validation::router(Arc::clone(&store)))

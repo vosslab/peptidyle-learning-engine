@@ -26,7 +26,9 @@ use prefetch::*;
 mod queries;
 mod routes;
 pub use routes::router;
+pub(crate) use routes::router_with_accepted_submission_fast_path;
 mod submission;
+mod submission_status;
 pub(crate) mod support;
 #[cfg(test)]
 use support::{MAX_JSON_SAFE_INTEGER, *};

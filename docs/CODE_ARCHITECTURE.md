@@ -90,7 +90,7 @@ browser-visible assessment transition.
 | Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                                                                                                                                                     |
 | Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                                                                                                                                                       |
 | External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities.                                                                                                                                                                                            |
-| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, instructor assignment workspace and course-grade routes, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and public-asset publisher process.                              |
+| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, instructor assignment workspace, answer-free grading-operation and course-grade routes, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and sealed accepted-submission execution. |
 | Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer, strict browser decoder/editor boundary, shared answer-free assignment landing presentation, focused assignment workspace pages, and answer-free browser bridge to shared domain logic. |
 | Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, E2E seed commands, and the direct `base-course` CLI adapter.                                                                                                    |
 | Deployment configuration | `deploy/opentofu/`                                                                        | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions.                                                                                                                                                                                     |
@@ -160,14 +160,18 @@ authorized author publishes immutable version
   -> active enrolled learner starts or resumes a run
   -> API issues one attempt-bound browser-safe presentation
   -> browser submits response identity and value
-  -> API authorizes, validates, grades, and commits the result
+  -> API authorizes, validates, and durably accepts one immutable submission
+  -> sealed execution worker reloads the private response and commits grading
   -> API projects only currently released score, per-item, feedback, and solution fields
 ```
 
 `crates/server/src/run/` coordinates issue, prefetch, submission, manual
-grading, and external-tool paths. `crates/learning-data-access/` commits run,
-submission, score, summary, and outbox transitions. The browser decodes the
-response schema and selects a response widget; it does not select a grading
+grading, external-tool, and answer-free submission-status paths. The first
+submission transaction records the immutable accepted input and creates the
+pending execution; the sealed worker owns private reload, grading, evaluation,
+receipt, and completion transitions. `crates/learning-data-access/` commits
+run, submission, score, summary, and outbox transitions. The browser decodes
+the response schema and selects a response widget; it does not select a grading
 backend or derive a correct response.
 
 Published content is immutable and shared. Courses, memberships, enrollments,
@@ -177,9 +181,9 @@ course-record deletion separate from reusable published content.
 ## Assignment workspace flow
 
 The Instructor assignment workspace is a course-bound, revisioned aggregate
-with four focused pages. A linked assignment title opens the assignment home;
+with five focused pages. A linked assignment title opens the assignment home;
 the home provides status, publication readiness, and local navigation to
-Questions, Policies, and Student view. New assignment creation persists an
+Questions, Policies, Grading operations, and Student view. New assignment creation persists an
 empty Draft before the Questions page opens. Draft and Archived definitions may
 remain empty; a transition to Published requires publication readiness, including
 an active deliverable position and supported question capabilities.
@@ -188,7 +192,7 @@ an active deliverable position and supported question capabilities.
 Instructor course assignments
   -> linked title
   -> assignment home
-  -> Questions | Policies | Student view
+  -> Questions | Policies | Grading operations | Student view
   -> focused revision-checked save or no-store read
 ```
 
@@ -233,6 +237,39 @@ repository behavior. The independent `/workspace/:workspaceRef` editor remains
 the private question-draft editor and is unrelated to course assignment workspace
 routing.
 
+The fifth page, `Grading operations`, is the assignment-local Instructor
+recovery surface. Its list groups bounded metadata by question or learner and
+includes assignment-wide recalculation rows. It exposes only safe operation
+state, reason, revision, trust generation, and the
+next action. Body-free retry and recalculation commands use `If-Match` and an
+idempotency key. The page never receives learner responses, answer keys,
+feedback internals, private source, or score values.
+
+The route owner is `crates/server/src/course/grading_operations.rs`; the
+Store boundary is `GradingOperationStore`. The browser decoder and client live
+in `src/api/decoders/grading_operations.ts` and
+`src/api/http_client/grading_operations.ts`, while
+`assignment_workspace_operations_page.tsx` and its model own the visible
+states, action wording, and focus recovery.
+
+The recovery sequence is one shared server path:
+
+```text
+Student submits one accepted response
+  -> 202 accepted_pending clears the response buffer
+  -> Student checks answer-free submission status
+  -> deterministic exception projects instructor_attention
+  -> Instructor selects one visible Retry action
+  -> ordinary worker claims the new execution generation
+  -> migration 1830 enqueues recalculation; 1831 publishes the current score
+  -> Instructor reads the current Gradebook total
+```
+
+The learner submission and status routes are `no-store`; the grading
+operations list and actions are also `no-store`. An acknowledged response is
+recovered from the immutable server-private submission, never from browser
+state or a second answer POST.
+
 ## Identity and authorization
 
 `crates/server/src/auth/` implements passwordless email and passkey flows,
@@ -247,6 +284,12 @@ boundary. Learner operations accept an actor and require active learner access;
 Instructor-history operations use their own contracts. PostgreSQL evaluates those
 operations in transactions with tenant context and row-level security. The compiler-gated
 in-memory adapter supplies deterministic contract behavior for unit and conformance testing.
+
+Automated-grading operation routes require direct Instructor authority for the
+requested course: the authenticated session carries the Instructor role, the
+account has an active direct Instructor course membership, and the course is
+accessible in the tenant context. The route and Store both enforce this boundary;
+a browser-supplied role, operation state, or action target cannot grant access.
 
 The effective-policy resolver is a separate pure domain boundary. It consumes the entitlement
 decision and evaluator-approved scopes supplied by S5, then applies lifecycle, entitlement, and
@@ -421,10 +464,26 @@ the bytes that do not belong in relational rows. The four typed domains are:
   signable for browser delivery.
 
 The normal worker claims the supported educational job families. The
-public-asset publisher is a separate process (`--public-asset-publisher`) with
+accepted-submission execution is a sealed family in the same existing worker
+runtime, with a dedicated worker-only recovery store and login. The ordinary
+worker process claims the six generic families and dispatches the accepted
+family to `AcceptedSubmissionExecutionWorker`, which owns its private
+claim/load/commit capability; neither route nor browser can load private
+response data. The public-asset publisher is a separate process (`--public-asset-publisher`) with
 its own database login, queue filter, and object-store authority. A restart
 does not erase a job or educational result because the state transitions remain
 in shared storage.
+
+The API fast path and background recovery path use separate capability-specific
+database URLs: `PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL` is API-only,
+while `PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL` is worker-only. Their
+deployment secrets and PostgreSQL logins are distinct from the ordinary API and
+worker credentials: `ple_accepted_submission_fast_path_login` receives only the
+fast-path execution capability, and `ple_accepted_submission_recovery_login`
+receives only the recovery execution capability. The disposable `DATABASE_BASELINE` runtime manifest carries
+the same two validated private URLs through `crates/acceptance-runtime/`,
+`local_stack_control/runtime_manifest.py`, and `process_logins.py`; the
+manifest exposes them only at the connection boundary.
 
 ## Browser and local/deployed topology
 
@@ -488,6 +547,11 @@ The `DATABASE_BASELINE` profile is a browser-free PostgreSQL oracle under that
 same fixed `ple-live-demo-browser` lease and project. It runs serially and
 resets the owner afterward; it is not an independently named stack.
 
+Automated-grading fault injection is a separate acceptance-only profile. Its
+private fault-worker capability is selected by profile policy and its overlay
+restores the ordinary worker before cleanup; production composition does not
+include that fault worker.
+
 ### Assignment delivery preview
 
 The preview plane keeps delivery-policy authority on the server. Its route
@@ -537,6 +601,11 @@ evidence that an AWS account has been provisioned or operated correctly.
   then runs its distinct browser-free service oracles serially.
 - [tests/e2e/](../tests/e2e/) contains disposable PostgreSQL, replica,
   WebAssembly, local-stack, and publication evidence.
+- `tests/playwright/e2e/automated_grading_recovery.spec.ts` and its focused
+  helpers prove the visible Student exception -> Instructor Retry -> ordinary
+  worker -> current Gradebook journey on the real HTTPS stack. The
+  acceptance-only `e2e-grader-fault` profile is one-time connected evidence;
+  it is not a production grading mode or a permanent offline test substitute.
 - `tests/test_local_stack_control.py` is an offline behavior suite for typed
   controller contracts. It supplies in-memory command results rather than
   starting Podman, Compose, a browser, or a network service.

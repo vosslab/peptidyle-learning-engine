@@ -6,8 +6,8 @@ use axum::routing::{get, post, put};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseGradebookStore, CourseGroupManagementStore,
     CourseInvitationDeliveryStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
-    CourseRosterStore, ManualGradeExportStore, NavigationReferenceStore, PoolPreviewStore,
-    PreviewPlaneStore, SessionStore, Store, TeachingAuthorityReferenceStore,
+    CourseRosterStore, GradingOperationStore, ManualGradeExportStore, NavigationReferenceStore,
+    PoolPreviewStore, PreviewPlaneStore, SessionStore, Store, TeachingAuthorityReferenceStore,
     TeachingAuthorityStore,
 };
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,9 @@ use super::assignments::{
     create_assignment_draft, get_assignment_summary, get_assignment_workspace,
     get_instructor_student_view, get_learner_assignment, replace_assignment_content,
     replace_assignment_fixed_item, replace_assignment_policies,
+};
+use super::grading_operations::{
+    list_grading_operations, recalculate_assignment, retry_grading_operation,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
@@ -36,6 +39,7 @@ where
         + ManualGradeExportStore
         + CourseGradebookStore
         + CourseGroupManagementStore
+        + GradingOperationStore
         + SessionStore
         + TeachingAuthorityStore
         + TeachingAuthorityReferenceStore
@@ -60,6 +64,7 @@ where
         + ManualGradeExportStore
         + CourseGradebookStore
         + CourseGroupManagementStore
+        + GradingOperationStore
         + SessionStore
         + TeachingAuthorityStore
         + TeachingAuthorityReferenceStore
@@ -123,6 +128,18 @@ where
         .route(
             "/api/courses/{course}/assignments/{assignment}/student-view",
             get(get_instructor_student_view::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/grading-operations",
+            get(list_grading_operations::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/grading-operations/{operation}/retry",
+            post(retry_grading_operation::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/grading-operations/recalculate",
+            post(recalculate_assignment::<S>),
         )
         .layer(DefaultBodyLimit::max(MAX_COURSE_BODY_BYTES))
         .with_state(CourseRouteState {

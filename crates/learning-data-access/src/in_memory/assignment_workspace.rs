@@ -67,6 +67,7 @@ pub(super) async fn replace_assignment_content(
         &existing,
         replacement,
         base_policy,
+        actor,
     ) {
         Ok(stored) => stored,
         Err(error) => {
@@ -128,6 +129,7 @@ pub(super) async fn replace_assignment_policies(
         &existing,
         replacement,
         base_policy,
+        actor,
     ) {
         Ok(stored) => stored,
         Err(error) => {
@@ -193,6 +195,7 @@ pub(super) fn stage_assignment_replacement(
     previous: &AssignmentRecord,
     replacement: AssignmentRecord,
     base_policy: question_model::BaseAssignmentPolicy,
+    actor: UserId,
 ) -> Result<StoredAssignment, StoreError> {
     let key = (context.tenant_id(), replacement.id);
     if replacement.tenant != context.tenant_id()
@@ -213,45 +216,21 @@ pub(super) fn stage_assignment_replacement(
         .copied()
         .ok_or(StoreError::NotFound)?;
     let next_revision = assignment_revision_checked_next(current)?;
-    let (generation, _) = state
+    let (generation, status) = state
         .assignment_scoring
         .get(&key)
         .copied()
         .ok_or(StoreError::NotFound)?;
     let scoring_changed = assignment_scoring_changed(previous, &replacement);
-    let scoring_generation = if scoring_changed {
-        generation.next().ok_or(StoreError::Conflict)?
-    } else {
-        generation
-    };
-    let scoring_status = if scoring_changed
-        && super::course_policy::memory_assignment_has_results(state, &replacement)
-    {
-        ScoringStatus::Recalculating
-    } else {
-        ScoringStatus::Current
-    };
-    if scoring_status == ScoringStatus::Recalculating {
-        let job = crate::JobId::generate()?;
-        let queued = StoredJob {
-            tenant: replacement.tenant,
-            payload: crate::JobPayload::RecalculateAssignment {
-                assignment: replacement.id,
-                generation: scoring_generation,
-            },
-            state: JobState::Ready,
-            available_at: state.authoritative_time,
-            lease_token: None,
-            lease_expires_at: None,
-            attempt_count: 0,
-            max_attempts: 10,
-            failure: None,
-        };
-        if state.jobs.insert(job, queued).is_some() {
-            return Err(StoreError::Conflict);
-        }
-    }
-    let stored = StoredAssignment {
+    let has_results = super::course_policy::memory_assignment_has_results(state, &replacement);
+    let (scoring_generation, scoring_status, requires_scoring_invalidation) =
+        super::scoring_invalidation::definition_scoring_state(
+            generation,
+            status,
+            scoring_changed,
+            has_results,
+        )?;
+    let mut stored = StoredAssignment {
         record: replacement,
         revision: next_revision,
         base_policy,
@@ -282,6 +261,33 @@ pub(super) fn stage_assignment_replacement(
             revision: stored.revision,
         },
     );
+    if requires_scoring_invalidation {
+        let invalidation = super::scoring_invalidation::request_scoring_invalidation(
+            state,
+            context.tenant_id(),
+            stored.record.course_id,
+            stored.record.id,
+            crate::ScoringInvalidationOrigin::assignment_definition(
+                stored.record.id.as_uuid(),
+                stored.revision,
+                actor,
+            ),
+            crate::JobId::from_uuid(
+                crate::ScoringInvalidationOrigin::assignment_definition(
+                    stored.record.id.as_uuid(),
+                    stored.revision,
+                    actor,
+                )
+                .id
+                .as_uuid(),
+            ),
+        )?;
+        stored.scoring_generation = invalidation.generation;
+        stored.scoring_status = ScoringStatus::Recalculating;
+        state
+            .assignment_scoring
+            .insert(key, (stored.scoring_generation, stored.scoring_status));
+    }
     Ok(stored)
 }
 

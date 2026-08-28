@@ -9,9 +9,10 @@ use std::time::Duration;
 
 use learning_data_access::{
     AcceptedSubmissionCommitError, AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
-    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionOutcome,
-    AcceptedSubmissionExecutionWorkerStore, AcceptedSubmissionGrade, StoreError, TenantContext,
-    WorkerId, canonical_attempt_result_json,
+    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionFastPathClaimStore,
+    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
+    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, AcceptedSubmissionGrade,
+    StoreError, TenantContext, WorkerId, canonical_attempt_result_json,
 };
 use question_model::{GradingOperationReason, ProblemVersionRef, StudentResponse};
 
@@ -29,8 +30,125 @@ pub(crate) enum AcceptedSubmissionHandlerResult {
     Committed,
     Rescheduled,
     Terminal,
+    /// Durable acceptance remains queued for the sealed recovery worker.
+    ///
+    /// The acceptance-only fault profile deliberately selects this result
+    /// without claiming, loading, or grading learner work in the API process.
+    /// It is an explicit outcome rather than borrowing claim-loss semantics,
+    /// so a route's pending projection accurately reflects the ownership
+    /// boundary.
+    #[cfg(feature = "e2e-grader-fault")]
+    RecoveryQueued,
     ClaimNoLongerActive,
     OutcomeUnknown,
+}
+
+/// Server-internal capability for one exact accepted-submission execution.
+///
+/// Browser routes receive this opaque facade rather than an execution store or
+/// a [`RunBackend`]. The facade owns the claim-before-load sequence, while the
+/// common handler remains the sole owner of private input and outcome writes.
+/// ASVS 2.3.1 and 8.3.1: the target originates from durable acceptance and the
+/// route cannot select, load, or grade work on its own.
+#[async_trait::async_trait]
+pub(crate) trait AcceptedSubmissionFastPath: Send + Sync {
+    async fn execute_accepted_submission(
+        &self,
+        target: AcceptedSubmissionExecutionTarget,
+    ) -> Result<AcceptedSubmissionHandlerResult, StoreError>;
+}
+
+/// Explicit composition placeholder until the typed fast-path PostgreSQL pool
+/// is supplied. It preserves durable acceptance and leaves recovery available.
+pub(crate) struct UnavailableAcceptedSubmissionFastPath;
+
+#[async_trait::async_trait]
+impl AcceptedSubmissionFastPath for UnavailableAcceptedSubmissionFastPath {
+    async fn execute_accepted_submission(
+        &self,
+        _: AcceptedSubmissionExecutionTarget,
+    ) -> Result<AcceptedSubmissionHandlerResult, StoreError> {
+        Err(StoreError::Unavailable(
+            "accepted-submission fast path is not configured".to_string(),
+        ))
+    }
+}
+
+/// Acceptance-only facade for the isolated deterministic-fault stack.
+///
+/// This type exists only in a purpose-built acceptance binary.  It preserves
+/// the ordinary durable accept transition while leaving the execution claim to
+/// the feature-only one-claim worker.  The API cannot observe private work or
+/// cause grading through this facade.
+#[cfg(feature = "e2e-grader-fault")]
+pub(crate) struct RecoveryOnlyAcceptedSubmissionFastPath;
+
+#[cfg(feature = "e2e-grader-fault")]
+#[async_trait::async_trait]
+impl AcceptedSubmissionFastPath for RecoveryOnlyAcceptedSubmissionFastPath {
+    async fn execute_accepted_submission(
+        &self,
+        _: AcceptedSubmissionExecutionTarget,
+    ) -> Result<AcceptedSubmissionHandlerResult, StoreError> {
+        Ok(AcceptedSubmissionHandlerResult::RecoveryQueued)
+    }
+}
+
+/// A feature-only grader that produces the one closed exception class used by
+/// the connected recovery journey.
+///
+/// It is composed solely by the dedicated one-claim process mode.  Its submit
+/// implementation does not inspect or serialize any accepted input, so the
+/// connected evidence exercises the production handler and durable failure
+/// path without a browser-side answer channel.
+#[cfg(feature = "e2e-grader-fault")]
+pub(crate) struct DeterministicGraderExceptionBackend;
+
+#[cfg(feature = "e2e-grader-fault")]
+#[async_trait::async_trait]
+impl RunBackend for DeterministicGraderExceptionBackend {
+    async fn issue(
+        &self,
+        _: TenantContext,
+        _: ProblemVersionRef,
+        _: &question_model::QuestionDefinition,
+        _: u64,
+    ) -> Result<crate::run::IssuedAttemptMetadata, RunBackendError> {
+        Err(RunBackendError::Unsupported(
+            "deterministic grader exception backend only executes accepted submissions".to_string(),
+        ))
+    }
+
+    async fn reproduce(
+        &self,
+        _: TenantContext,
+        _: ProblemVersionRef,
+        _: &question_model::QuestionDefinition,
+        _: &question_model::QuestionAttempt,
+    ) -> Result<question_model::QuestionEnvelope, RunBackendError> {
+        Err(RunBackendError::Unsupported(
+            "deterministic grader exception backend only executes accepted submissions".to_string(),
+        ))
+    }
+
+    async fn grade(
+        &self,
+        _: TenantContext,
+        _: ProblemVersionRef,
+        _: &question_model::QuestionDefinition,
+        _: &question_model::QuestionAttempt,
+        _: &StudentResponse,
+    ) -> Result<grading::GradeOutcome, RunBackendError> {
+        Err(RunBackendError::Unsupported(
+            "deterministic grader exception backend only executes accepted submissions".to_string(),
+        ))
+    }
+
+    async fn submit(&self, _: RunSubmission<'_>) -> Result<SubmissionDisposition, RunBackendError> {
+        Err(RunBackendError::Deterministic(
+            crate::run::DeterministicGraderFailure::Execution,
+        ))
+    }
 }
 
 /// Rejects a handler deadline that cannot bound an execution.
@@ -72,7 +190,7 @@ impl<S, B> AcceptedSubmissionExecutionHandler<S, B> {
 
 impl<S, B> AcceptedSubmissionExecutionHandler<S, B>
 where
-    S: AcceptedSubmissionExecutionWorkerStore,
+    S: AcceptedSubmissionExecutionStore,
     B: RunBackend,
 {
     /// Executes exactly one previously-won claim.
@@ -208,7 +326,7 @@ impl<S, B> AcceptedSubmissionExecutionWorker<S, B> {
 
 impl<S, B> AcceptedSubmissionExecutionWorker<S, B>
 where
-    S: AcceptedSubmissionExecutionWorkerStore,
+    S: AcceptedSubmissionExecutionStore + AcceptedSubmissionExecutionRecoveryClaimStore,
     B: RunBackend,
 {
     /// Claims and handles at most one sealed execution.
@@ -237,6 +355,10 @@ where
             AcceptedSubmissionHandlerResult::Committed => report.committed = 1,
             AcceptedSubmissionHandlerResult::Rescheduled => report.rescheduled = 1,
             AcceptedSubmissionHandlerResult::Terminal => report.terminal = 1,
+            #[cfg(feature = "e2e-grader-fault")]
+            AcceptedSubmissionHandlerResult::RecoveryQueued => {
+                unreachable!("the recovery worker always claims before invoking the handler")
+            }
             AcceptedSubmissionHandlerResult::ClaimNoLongerActive => report.stale_claim = 1,
             AcceptedSubmissionHandlerResult::OutcomeUnknown => report.outcome_unknown = 1,
         }
@@ -244,10 +366,56 @@ where
     }
 }
 
+impl<S, B> AcceptedSubmissionExecutionWorker<S, B>
+where
+    S: AcceptedSubmissionExecutionStore + AcceptedSubmissionExecutionFastPathClaimStore,
+    B: RunBackend,
+{
+    /// Claims and handles one exact accepted submission through the same
+    /// private handler used by background recovery.
+    pub(crate) async fn execute_accepted_submission(
+        &self,
+        target: AcceptedSubmissionExecutionTarget,
+    ) -> Result<AcceptedSubmissionHandlerResult, StoreError> {
+        let Some(claim) = self
+            .handler
+            .store
+            .claim_exact_accepted_submission_execution(target, self.worker_id, self.lease)
+            .await?
+        else {
+            return Ok(AcceptedSubmissionHandlerResult::ClaimNoLongerActive);
+        };
+
+        self.handler.execute_claim(claim).await
+    }
+}
+
+#[async_trait::async_trait]
+impl<S, B> AcceptedSubmissionFastPath for AcceptedSubmissionExecutionWorker<S, B>
+where
+    S: AcceptedSubmissionExecutionStore
+        + AcceptedSubmissionExecutionFastPathClaimStore
+        + Send
+        + Sync
+        + 'static,
+    B: RunBackend + Send + Sync + 'static,
+{
+    async fn execute_accepted_submission(
+        &self,
+        target: AcceptedSubmissionExecutionTarget,
+    ) -> Result<AcceptedSubmissionHandlerResult, StoreError> {
+        AcceptedSubmissionExecutionWorker::execute_accepted_submission(self, target).await
+    }
+}
+
 #[async_trait::async_trait]
 impl<S, B> AcceptedOneClaimDrain for AcceptedSubmissionExecutionWorker<S, B>
 where
-    S: AcceptedSubmissionExecutionWorkerStore + Send + Sync + 'static,
+    S: AcceptedSubmissionExecutionStore
+        + AcceptedSubmissionExecutionRecoveryClaimStore
+        + Send
+        + Sync
+        + 'static,
     B: RunBackend + Send + Sync + 'static,
 {
     async fn drain_one(&self) -> Result<AcceptedSubmissionExecutionWorkerReport, StoreError> {
