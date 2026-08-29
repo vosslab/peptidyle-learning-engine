@@ -44,7 +44,7 @@ pub(in crate::postgres) async fn hydrate_prepared_student_attempt_work(
         tenant: source.tenant,
         course: source.course,
         assignment: source.assignment,
-        learner: source.learner,
+        student_user: source.student_user,
         membership,
         audience,
         current_groups: groups,
@@ -75,7 +75,7 @@ pub(in crate::postgres) async fn hydrate_prepared_student_attempt_work(
     let enrollment = crate::postgres::decode_postgres_enrollment_row(&enrollment_row)?;
     if enrollment.tenant != source.tenant
         || enrollment.assignment != source.assignment
-        || enrollment.user != source.learner
+        || enrollment.user != source.student_user
         || enrollment.student != grant.student()
         || enrollment_row
             .try_get::<Uuid, _>("course_id")
@@ -240,6 +240,6 @@ pub(in crate::postgres) async fn hydrate_prepared_student_attempt_work(
 
 fn invalid(name: &'static str) -> StoreError {
     StoreError::InvalidRecord(format!(
-        "prepared Student attempt {name} disagrees with its learner-work witness"
+        "prepared Student attempt {name} disagrees with its Student-work witness"
     ))
 }

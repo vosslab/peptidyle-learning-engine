@@ -339,7 +339,7 @@ async fn alpha_is_public_only_creator_owned_and_cross_tenant_readable() {
         b"alpha-unapproved",
     )
     .await;
-    let input = alpha_definition(public_id);
+    let input = alpha_definition(public_id.clone());
     let created = store
         .replace_alpha_course(
             TenantContext::from_authenticated_session(creator_tenant),
@@ -486,6 +486,20 @@ async fn alpha_is_public_only_creator_owned_and_cross_tenant_readable() {
         )
         .await
         .expect("deprecate the exact retained publication");
+    assert!(matches!(
+        store
+            .replace_alpha_course(
+                TenantContext::from_authenticated_session(creator_tenant),
+                creator_session,
+                ReplaceAlphaCourseCommand {
+                    reference: None,
+                    expected_revision: None,
+                    definition: alpha_definition(public_id),
+                },
+            )
+            .await,
+        Err(StoreError::NotFound)
+    ));
     let retained = store
         .get_alpha_course(
             TenantContext::from_authenticated_session(creator_tenant),

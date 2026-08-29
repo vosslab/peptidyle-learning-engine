@@ -133,7 +133,7 @@ impl std::fmt::Display for CurriculumImportRevisionError {
 
 impl std::error::Error for CurriculumImportRevisionError {}
 
-/// A validated display title for a new ordinary course or independent Alpha fork.
+/// A validated display title for a new ordinary course or BlueprintCourse fork.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CurriculumAdoptionTitle(String);

@@ -19,6 +19,10 @@ use uuid::Uuid;
 
 use crate::{AcceptedSubmissionId, GradingExecutionGeneration, StoreError, TenantContext};
 
+mod target_selector;
+
+pub use target_selector::JobTargetSelector;
+
 /// Opaque tenant-owned identifier for one assignment-export request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ExportId(Uuid);

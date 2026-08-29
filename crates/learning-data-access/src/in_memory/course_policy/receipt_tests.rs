@@ -2,7 +2,11 @@
 
 use super::*;
 use domain::effective_assignment_policy::{EffectiveAssignmentPolicy, PolicySource, ResolvedField};
-use question_model::{AssignmentDeadlineBehavior, LateSubmissionPolicy};
+use question_model::{
+    AssignmentAudience, AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentItem,
+    AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode, CourseTerm, LateSubmissionPolicy,
+    RunPolicies, StudentDisclosurePolicy,
+};
 
 fn policy_with_sources(
     available_at: PolicySource,
@@ -98,4 +102,89 @@ fn effective_policy_receipts_reject_hypothetical_sources_without_mutation() {
     assert_eq!(state.issued_effective_policy_receipts, receipts_before);
     assert_eq!(state.issued_effective_policy_field_sources, sources_before);
     assert_eq!(state.attempt_effective_policy_current, current_before);
+}
+
+#[test]
+fn assignment_reference_validation_requires_published_new_pins_and_retains_exact_history() {
+    let tenant = TenantId::from_uuid(uuid::Uuid::from_u128(73_101));
+    let course = CourseId::from_uuid(uuid::Uuid::from_u128(73_102));
+    let retained_assignment = AssignmentId::from_uuid(uuid::Uuid::from_u128(73_103));
+    let new_assignment = AssignmentId::from_uuid(uuid::Uuid::from_u128(73_104));
+    let mut published = super::super::catalog_search_tests::record(73_105);
+    let reference = question_model::ProblemVersionRef {
+        problem: published.problem,
+        version: published.version,
+    };
+    published.lifecycle = question_model::CatalogLifecycle::Archived {
+        reason: "Historical immutable evidence".to_string(),
+    };
+    let assignment = |id| AssignmentRecord {
+        id,
+        tenant,
+        course_id: course,
+        title: "Reference validation".to_string(),
+        lifecycle: AssignmentLifecycle::Draft,
+        instructions: AssignmentInstructions::default(),
+        audience: AssignmentAudience::CourseWide,
+        items: vec![AssignmentItem {
+            id: AssignmentItemId::from_uuid(uuid::Uuid::from_u128(73_106)),
+            reference,
+            position: 0,
+            points_possible: question_model::PointValue::from_whole(1),
+            delivery_state: question_model::AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        }],
+        selection_groups: Vec::new(),
+        disclosure_policy: StudentDisclosurePolicy::default(),
+        policies: RunPolicies {
+            completion: question_model::CompletionRequirement::AnswerAll,
+            grade: question_model::GradePolicy::First,
+            continued_practice: question_model::ContinuedPractice::Unlimited,
+            variation: question_model::VariationPolicy::NewSeeds,
+        },
+    };
+    let mut state = State::default();
+    state.courses.insert(
+        (tenant, course),
+        CourseRecord {
+            id: course,
+            tenant,
+            title: "Reference validation course".to_string(),
+            term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+                .expect("valid course term"),
+        },
+    );
+    state
+        .published
+        .insert((published.problem, published.version), published);
+    let retained = assignment(retained_assignment);
+    state
+        .assignments
+        .insert((tenant, retained_assignment), retained.clone());
+
+    validate_memory_assignment_references(
+        &state,
+        TenantContext::from_authenticated_session(tenant),
+        &retained,
+    )
+    .expect("unchanged exact archived pin remains valid evidence");
+    assert!(matches!(
+        validate_memory_assignment_references(
+            &state,
+            TenantContext::from_authenticated_session(tenant),
+            &assignment(new_assignment),
+        ),
+        Err(StoreError::InvalidRecord(_))
+    ));
+    state
+        .published
+        .remove(&(reference.problem, reference.version));
+    assert!(matches!(
+        validate_memory_assignment_references(
+            &state,
+            TenantContext::from_authenticated_session(tenant),
+            &retained,
+        ),
+        Err(StoreError::InvalidRecord(_))
+    ));
 }

@@ -67,7 +67,11 @@ pub mod postgres;
 mod publication_validation;
 mod qti;
 mod qti_ingress;
+/// Server-owned question-catalog curation aggregates.
+mod question_curation;
 mod question_id;
+/// Durable, server-only improvement-proposal aggregate and exact-head witnesses.
+pub mod question_stewardship;
 mod random_uuid;
 /// Pure retention lifecycle policy; persistence and worker execution land in MOD-RETENTION R2+.
 pub mod retention;
@@ -89,7 +93,25 @@ pub(crate) use crate::assignment_revision::assignment_revision_checked_next;
 pub(crate) use crate::assignment_revision::{
     assignment_revision_from_stored, assignment_revision_to_stored,
 };
+pub use crate::question_curation::{
+    NamedQuestionCollection, NamedQuestionCollectionError, NamedQuestionCollectionId,
+    NamedQuestionCollectionReplacementOutcome, NamedQuestionCollectionRevision,
+    NamedQuestionCollectionShare, NamedQuestionCollectionShareError,
+    NamedQuestionCollectionShareGrantOutcome, NamedQuestionCollectionShareRevokeOutcome,
+    NamedQuestionCollectionShareState, NamedQuestionSavedSearch, NamedQuestionSavedSearchError,
+    NamedQuestionSavedSearchId, NamedQuestionSavedSearchReplacementOutcome,
+    NamedQuestionSavedSearchRevision, QuestionStar, QuestionWatch, QuestionWatchNoticeKind,
+    QuestionWatchTarget,
+};
 pub use crate::question_id::QuestionIdCodec;
+pub use crate::question_stewardship::{
+    CurrentQuestionHead, MintedQuestionSuccessor, QuestionChangeProposal,
+    QuestionChangeProposalDecision, QuestionChangeProposalId, QuestionChangeProposalState,
+    QuestionChangeProposalTransitionError, QuestionChangeProposalValidation,
+    QuestionChangeProposalValidationError, QuestionGradingImpact, QuestionImprovementEvent,
+    QuestionImprovementEventError, QuestionImprovementEventId, QuestionImprovementEventKind,
+    QuestionSemanticChange,
+};
 pub use question_model::{AssignmentRevision, AssignmentRevisionError};
 
 pub use crate::account_identity::{
@@ -123,8 +145,7 @@ pub use crate::contracts::{
     ProblemCurationStore, ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
 };
 pub use crate::contracts::{
-    ReplaceAlphaCourseCommand, ReplaceBlueprintCommand, ReusableCurriculumCapability,
-    ReusableCurriculumStore,
+    ReplaceBlueprintCourseCommand, ReusableCurriculumCapability, ReusableCurriculumStore,
 };
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
@@ -275,8 +296,8 @@ pub use crate::retention::{
 };
 pub use crate::rls::TenantContext;
 pub use crate::session::{
-    SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionSubjectError,
-    SessionTokenHash, SessionTokenHashParseError,
+    ActorContext, SessionId, SessionLifetime, SessionRecord, SessionStore, SessionSubject,
+    SessionSubjectError, SessionTokenHash, SessionTokenHashParseError,
 };
 pub use crate::student_work_inspection::{
     InspectStudentWorkRequest, InspectedStudentSubmissionV1, InspectedStudentWorkDetailV1,

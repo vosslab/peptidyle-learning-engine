@@ -18,7 +18,7 @@ The system is stable enough for this architecture change: the preceding material
 
 - **One calculator.** `domain::course_grade::calculate_course_grade` remains the sole course-total authority.
 - **One calculated Gradebook.** `CourseGradebookStore` assembles a bounded, roster-ordered server projection from current summaries and the active scheme. Derived totals remain derived.
-- **One inspection broker.** `StudentWorkInspectionStore` resolves the public composite, verifies immutable evidence, writes both audit facts, and returns the allowed detail projection.
+- **One inspection broker.** `StudentWorkInspectionStore` receives only server-derived `ActorContext`, resolves the exact course and Student-work composite, verifies immutable evidence, writes both audit facts, and returns the allowed detail projection.
 - **One exact Student choice.** Operation and Gradebook routes converge only after an Instructor chooses a named Student and run.
 - **One safe rendering ownership boundary.** `question_model::presentation` translates durable submitted responses into the identifiers and labels of the issued presentation. Browser code renders that closed projection.
 
@@ -79,7 +79,7 @@ only after this human-visible run choice is exact.
 
 PostgreSQL reads every page in one repeatable-read snapshot. A structural scheme or roster revision produces the typed reload result. Cursor continuation preserves structural roster order; score outcomes can advance on each later page and each page carries its own observation time plus per-assignment scoring generation/status witness. The interface labels that live state truthfully.
 
-All public references use existing typed, human-safe forms. The browser receives no internal tenant, enrollment, attempt, submission, job, provider, or database identifiers. `CourseGradeExportRow` is an export-only PII type with no page serializer or conversion into `CalculatedGradebookRow`. Grade Settings owns scheme configuration and audited CSV export; Gradebook owns calculated Student totals.
+All public references use existing typed, human-safe forms. The browser receives no internal account, enrollment, attempt, submission, job, provider, or database identifiers. `CourseGradeExportRow` is an export-only PII type with no page serializer or conversion into `CalculatedGradebookRow`. Grade Settings owns scheme configuration and audited CSV export; Gradebook owns calculated Student totals.
 
 ### Audited Student-work inspection
 
@@ -90,7 +90,7 @@ The canonical browser destination and API are:
 GET /api/courses/{course}/gradebook/students/{membership}/assignments/{assignment}/runs/{run}
 ```
 
-The Store resolves the full `TenantId + CourseId + CourseMembershipReference + AssignmentReference + RunReference` composite, active direct-Instructor membership, retention state, immutable receipt/issued-capability identity, disclosure policy, and scoring state. Its `return_context` is a closed Gradebook or grading-operation context with safe public references and a focus target; reload/back/direct-link recovery restores that context or gives a visible reselect action when exact evidence is unavailable.
+The Store resolves the full `ActorContext + CourseId + CourseMembershipReference + AssignmentReference + RunReference` composite. `ActorContext` comes only from the authenticated session and contains server-derived `UserId` and session identity; it never accepts a caller-selected actor or organization scope. The protected read re-evaluates current exact co-Instructor membership for that `CourseId`, Student membership ownership for the named work, retention state, immutable receipt/issued-capability identity, disclosure policy, and scoring state in the same transaction. Every current co-Instructor receives the same Gradebook and inspection capability for equivalent course state. Its `return_context` is a closed Gradebook or grading-operation context with safe public references and a focus target; reload/back/direct-link recovery restores that context or gives a visible reselect action when exact evidence is unavailable.
 
 `question_model::presentation` owns the pure `project_durable_response_to_rendered_v1` conversion. It accepts durable submitted response plus verified issued-presentation descriptor and returns `InspectedStudentResponseV1`, a closed union of rendered response identifiers, display text, and safe typed artifact/external states. Its variants express allowed Student-facing facts such as a rendered selected option, entered text, uploaded-artifact state, or external-tool completion state. They carry no answer key, expected response, checker/rubric, private source, provider payload, hidden diagnostic, canonical durable object keys, or grading authority. The server performs this projection before serialization.
 
@@ -116,23 +116,71 @@ The audit-writing GET accepts two closed browser request profiles before Store i
 
 The server applies an exact header decision table. Cross-site resource or navigation initiation and
 requests outside these profiles receive the same generic secure unavailable response as other
-concealed authorization failures. Session, tenant, direct-Instructor course authority, purpose,
-action, target, and audit payload are derived only by the server.
+concealed authorization failures. `ActorContext`, current co-Instructor course authority, typed audit
+purpose, action, target, and audit payload are derived only by the server.
 
 `StudentWorkInspectionStore::inspect_student_work` performs one atomic transaction:
 
-1. Resolve authenticated session, tenant, direct-Instructor course membership, request-origin witness, and retention state.
+1. Resolve the authenticated session into `ActorContext`, then re-evaluate current co-Instructor membership for the exact `CourseId`, the named Student-work ownership chain, request-origin witness, and retention state.
 2. Resolve the public composite and verify immutable receipt, issued-capability/presentation, disclosure, and scoring evidence.
 3. Write the server-owned Student-record `record_access_log` fact and metadata-only `audit_event` fact.
 4. Return the closed solution-free detail projection.
 
-Successful audit records contain the server-derived actor, purpose `gradebook_inspection`, action, authoritative timestamp, protected internal `TenantId`, `CourseId`, `CourseMembershipId`, `AssignmentId`, and `RunId`, plus one ordered per-submission evidence witness. Each witness retains only its internal attempt identity, receipt timestamp, and either an issued-presentation digest or the closed no-presentation capability state. Browser navigation uses public course, membership, assignment, and run references only; those locators do not enter persisted inspection facts. Audit facts contain no response, score, feedback body, email, key, provider payload, source, diagnostic, token, lease, SQL value, or public UUID. The SQL broker uses typed parameters for every request-provided value. A failure to append either audit row makes detail unavailable.
+Successful audit records contain the server-derived `ActorContext` identity, typed `AuditPurpose::GradebookInspection`, action, authoritative timestamp, protected internal `CourseId`, `CourseMembershipId`, `AssignmentId`, and `RunId`, plus one ordered per-submission evidence witness. Each witness retains only its internal attempt identity, receipt timestamp, and either an issued-presentation digest or the closed no-presentation capability state. Browser navigation uses public course, membership, assignment, and run references only; those locators do not enter persisted inspection facts. Audit facts contain no response, score, feedback body, email, key, provider payload, source, diagnostic, token, lease secret, SQL value, or public UUID. The SQL broker uses typed parameters for every request-provided value. A failure to append either audit row makes detail unavailable.
 
 The W4 route and SQL broker own denial telemetry. They classify rejected request origin, authorization, and broker failures with server-owned reason/context before the Store can read Student work. That telemetry records no Student-work target or Student-record access fact, so the access log remains an accurate statement of successful FERPA record reads. W2B returns the ordinary concealed unavailable result and appends neither successful inspection fact when its resolved evidence is unavailable.
 
-### Migration authority
+### Future observer boundary
 
-Every migration leaves a closed authority state; each migration establishes its own owner, fixed `search_path`, explicit revocations, least-privilege grants, and catalog/ACL proof before the next migration adds capability.
+The G2 Gradebook roster, Student chooser, run chooser, inspected-work endpoint, direct links, and
+`AuditPurpose::GradebookInspection` are available only to a current co-Instructor. A Sysadmin
+without that membership has no Gradebook or inspected-work authority. If a later support workflow
+needs an exact-course operation, it must be explicitly registered as a `SysadminSupportCapability` through
+the closed [AUTHORIZATION_CONTRACTS.md](../../AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry)
+registry, with its own purpose, expiry, revocation, audit event, and minimum projection; a platform
+role never supplies the authority and the support workflow does not reuse a Gradebook or inspection
+projection.
+
+The future Course Observer package uses a distinct, read-only `course_relationship` bound to exactly
+one `CourseId`. Its assignment-content projection is exact-course and answer-free: it may expose
+assignment titles, instructions, release state, and the ordered public content of the published
+questions assigned in that course. Its separate named assignment-completion projection contains
+only a safe Student display label, assignment identity, and `completed` or `not_completed` state.
+It never
+contains a score, grade, response, attempt detail, feedback, accommodation, enrollment detail,
+Student-record asset, private source, answer key, grading rule, rubric, provider payload, or hidden
+diagnostic.
+
+Course Observer aggregate grades use another typed projection. The server releases only an anonymous,
+formula-labeled, privacy-safe course aggregate after its disclosure threshold is met; the
+projection
+has no Student subject, enrollment, row-level score, small cell, or linkable metadata. Threshold
+evaluation considers the combination of named completion and aggregate output and suppresses an
+aggregate if that combination could identify a Student or infer an individual score. Completion and
+aggregate projections never share a Student key in routes, cursors, browser state, audit payloads,
+or caches, and neither satisfies the current Instructor, Gradebook, or inspection predicates.
+
+Every successful observer read records a server-owned audit event with the actor, exact course,
+grant, purpose, projection kind, disclosure-policy revision, result, and authoritative time. The
+event contains no Student name, response, score, answer material, or private content. A denied or
+revoked request returns the normal concealed result and creates no Student-record access fact. The
+Store rechecks exact-course binding, purpose, expiry, revocation, and disclosure policy in the same
+transaction as each projection; revocation is serialized with reads and invalidates cached data.
+
+Student Observer is a separate future relationship, bound to one exact Student and explicit Student
+consent, stated purpose/disclosure policy, expiry, immediate revocation, and audit events. Its
+read-only projection is separately typed and limited to the consented records. It does not inherit
+Course Observer or Instructor authority, and Course Observer completion visibility never satisfies
+its consent predicate. Observer responses use `Cache-Control: no-store`; completion and aggregate
+data never enters URLs, cursors, browser storage, or a generic cache.
+
+### Migration authority and SD1 rebase
+
+The G2 migration names below identify accepted predecessor evidence. `WP-SD1-C` owns the fresh
+schema epoch that realizes this plan's global-session `ActorContext`, exact `CourseId`, current
+membership, Student ownership, typed audit-purpose, and leased-worker scopes. Each resulting
+migration establishes its own owner, fixed `search_path`, explicit revocations, least-privilege
+grants, and catalog/ACL proof before the next migration adds capability.
 
 | Migration                                           | Owner                | Atomic responsibility                                                                                                                                                                                |
 | --------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,7 +188,7 @@ Every migration leaves a closed authority state; each migration establishes its 
 | `2026081871_student_work_inspection_witness.sql`    | immutable evidence   | Private composite receipt/issued-presentation/response witness, integrity rules, private access owner, and catalog proof.                                                                            |
 | `2026081872_student_work_inspection_capability.sql` | inspection broker    | The only application-executable inspection function, owned by the dedicated role with fixed search path, parameter-bound SQL, revocations/grant, composite resolution, and atomic dual audit writes. |
 | `2026081873_student_work_inspection_indexes.sql`    | query evidence       | Query-demonstrated indexes and bounded plan evidence while retaining the closed broker authority.                                                                                                    |
-| `2026081874_tenant_bound_worker_failure.sql`        | queue failure broker | Tenant-bound failure finalization, exact leased-job ownership, publisher adaptation, and retirement of the unscoped capability.                                                                       |
+| `2026081874_tenant_bound_worker_failure.sql`        | queue failure broker | Historical predecessor evidence for failure finalization. Its SD1-C successor derives exact course, assignment, operation, and generation scope from a locked recalculation lease.                     |
 | `2026081875_student_work_inspection_rowset_contract.sql` | broker rowset repair | Forward repair that aligns the broker's transient JSON rowset with exact PostgreSQL field names.                                                                                                      |
 | `2026081876_student_work_inspection_safe_labels.sql` | inspection detail labels | Server-owned validated Student display label and assignment title in the existing audited inspection broker response, with labels excluded from audit facts.                                           |
 
@@ -154,46 +202,47 @@ The inspection capability is the single app-executable private-response reader.
 
 ### G2-W1: freeze bindings and reserve migrations
 
-**Owner:** architecture and documentation. Record this plan, decision record, handoff, four
-inspection migrations, and the tenant-bound worker-failure migration discovered by the connected
-Gradebook acceptance path.
+**Owner:** architecture and documentation. Record this plan, decision record, handoff, and the
+G2 predecessor migration evidence. Allocate the fresh runtime schema through the SD1-C
+single-installation migration register.
 
 **Narrow verification:** documentation-link and package/migration-registry checks pass.
 
 ### G2-W2A: calculated Gradebook contracts and Memory parity
 
-**Owner files:** `crates/question_model/src/course_grade.rs`, public-route and cursor modules, `crates/learning-data-access/src/course_gradebook.rs`, and Memory course-grade/run implementations. Build closed page/row/cell/filter, cursor/reload, and export-separation contracts.
+**Owner files:** `crates/question_model/src/course_grade.rs`, public-route and cursor modules, `crates/learning-data-access/src/course_gradebook.rs`, and Memory course-grade/run implementations. Build closed page/row/cell/filter, cursor/reload, export-separation, and `ActorContext`/exact-`CourseId` contracts.
 
 **Narrow verification:** deterministic model/Memory conformance for both grade modes, dropped work, live scoring state, cursor binding, and foreign references.
 
 ### G2-W2B: inspected-response/detail contracts and Memory parity
 
-**Owner files:** `crates/question_model/src/presentation/`, inspected-detail models, `crates/domain/src/disclosure_policy.rs`, `StudentWorkInspectionStore`, and Memory inspection implementation. Build pure response projection, closed `IssuedPresentation`/`PresentationNotApplicable` evidence states, score/correctness-only inspection feedback, composite/retention/integrity checks, internal audit witnesses, and return context.
+**Owner files:** `crates/question_model/src/presentation/`, inspected-detail models, `crates/domain/src/disclosure_policy.rs`, `StudentWorkInspectionStore`, and Memory inspection implementation. Build pure response projection, closed `IssuedPresentation`/`PresentationNotApplicable` evidence states, score/correctness-only inspection feedback, exact-course/current-co-Instructor/Student-ownership checks, typed audit-purpose witnesses, and return context.
 
 **Narrow verification:** exhaustive deterministic pure response-projection coverage remains in `question_model::presentation`; Store conformance covers one rendered response family and one verified `PresentationNotApplicable` ExternalTool receipt, plus exact composite binding, concealment, retention, and paired audit witnesses. This division proves each owner without duplicating a fixture matrix through Store setup.
 
 ### G2-W3A: PostgreSQL paged Gradebook
 
-**Owner files:** `crates/learning-data-access/src/postgres/course_gradebook.rs`, the tenant-bound
-`JobStore` failure contract, migration `2026081874`, and focused PostgreSQL support modules.
-Implement bulk roster page assembly and stable structural continuation with page-local score
-witnesses. Preserve tenant context when a recalculation worker reports terminal failure so the
-assignment and grading-operation transition commits through the production queue capability.
+**Owner files:** `crates/learning-data-access/src/postgres/course_gradebook.rs`, the exact-scope
+`JobStore` failure contract, the SD1-C successor to predecessor migration `2026081874`, and focused
+PostgreSQL support modules. Implement bulk roster page assembly and stable structural continuation
+with page-local score witnesses. When a recalculation worker reports terminal failure, its locked
+lease supplies the exact `CourseId`, assignment, grading-operation, and generation scope for the
+one permitted state transition; the worker never supplies a caller-selected course or actor.
 
-**Narrow verification:** disposable PostgreSQL proof for repeatable-read page, reload response, structural order, live score witness, and export separation.
+**Narrow verification:** disposable PostgreSQL proof for repeatable-read page, reload response, structural order, live score witness, export separation, and generation-fenced leased recalculation failure.
 
 ### G2-W3B: SQL inspection broker and PostgreSQL detail
 
-**Owner files:** migrations `2026081870` through `2026081873`, forward broker-rowset repair
-`2026081875`, safe-label projection `2026081876`, and
+**Owner files:** SD1-C successors to predecessor migrations `2026081870` through `2026081873`,
+the rowset and safe-label contracts recorded by `2026081875` and `2026081876`, and
 `crates/learning-data-access/src/postgres/student_work_inspection.rs`. Implement the closed
 witness, only executable broker, and PostgreSQL Store projection/audit integration. The broker
-joins `accepted_submission_private_response` through its full immutable submission composite,
-recomputes canonical `StudentResponse` bytes, and compares `response_sha256` before projecting
-that private response against the verified receipt presentation. Migration `1876` recreates only
-the existing broker under its established owner, `SECURITY DEFINER`, fixed search path, and ACL
-proof; it returns validated `student_display_label` and `assignment_title` in each transient row
-after composite resolution, while the paired audit payload remains label-free.
+accepts server-derived `ActorContext`, resolves exact current co-Instructor membership and the
+Student-owned immutable submission composite, recomputes canonical `StudentResponse` bytes, and
+compares `response_sha256` before projecting that private response against the verified receipt
+presentation. The SD1-C broker uses its dedicated owner, `SECURITY DEFINER`, fixed search path,
+and ACL proof; it returns validated `student_display_label` and `assignment_title` in each
+transient row after composite resolution, while the paired audit payload remains label-free.
 
 **Narrow verification:** disposable PostgreSQL proof for role/RLS/ACL, parameter binding, origin
 witness, exact composite, retention, atomic audit, generic security failures, required bounded
@@ -246,7 +295,7 @@ audited detail request. It keeps Gradebook and grading-operation return behavior
 | V2.3.1-V2.3.4                                                               | Keep selection and inspection in the declared order and make evidence verification plus both audit writes one atomic transaction.                                                                |
 | V3.5.1-V3.5.3                                                               | Accept the closed same-origin and explicit user-initiated top-level navigation Fetch Metadata profiles and reject cross-site initiation before Store access.                                     |
 | V4.1.1, V4.1.4                                                              | Return the declared UTF-8 JSON content type and expose only the registered HTTP methods.                                                                                                         |
-| V8.1.1-V8.1.2; V8.2.1-V8.2.3; V8.3.1-V8.3.3; V8.4.1                         | Apply function-, record-, and field-level authorization from the originating Instructor at route, Store, and PostgreSQL layers, including tenant isolation and immediate membership state.       |
+| V8.1.1-V8.1.2; V8.2.1-V8.2.3; V8.3.1-V8.3.3; V8.4.1                         | Apply function-, record-, and field-level authorization from server-derived `ActorContext` at route, Store, and PostgreSQL layers, with immediate exact co-Instructor membership and Student-ownership evaluation. |
 | V14.1.1-V14.1.2; V14.2.1-V14.2.7; V14.3.1-V14.3.3                           | Classify Student work, minimize the explicit response, honor retention, use `no-store`, keep it out of URLs and browser storage, and clear reactive detail state when the session or route ends. |
 | V16.1.1; V16.2.1-V16.2.5; V16.3.2-V16.3.4; V16.4.1-V16.4.2; V16.5.1-V16.5.3 | Inventory the paired audit/security telemetry, use structured server-owned metadata and synchronized timestamps, protect logs, and return generic fail-closed errors.                            |
 

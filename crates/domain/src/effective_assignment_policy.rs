@@ -1,4 +1,4 @@
-//! Pure resolution of a learner's current assignment policy.
+//! Pure resolution of a Student's current assignment policy.
 //!
 //! S5 is the sole authority that evaluates membership and mints an
 //! [`EntitlementGrant`]. This module consumes that grant: it validates supplied
@@ -205,7 +205,7 @@ pub struct IndividualPolicyException {
     pub patch: PolicyPatchSet,
 }
 
-/// A preview-only individual policy modifier with no persisted learner key.
+/// A preview-only individual policy modifier with no persisted Student key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HypotheticalIndividualPolicyException {
     pub mode: PolicyModificationMode,
@@ -307,10 +307,10 @@ pub enum EffectivePolicyError {
     InvalidScheduleOrder,
 }
 
-/// Validates one persisted base policy independently of learner authority.
+/// Validates one persisted base policy independently of Student authority.
 ///
 /// Store writes call this before opening a mutation. The resolver deliberately
-/// keeps its gate-first behavior, so a denied learner request never exposes
+/// keeps its gate-first behavior, so a denied Student request never exposes
 /// policy-shape errors or causes modifier reads.
 pub fn validate_base_assignment_policy(
     base: BaseAssignmentPolicy,
@@ -419,13 +419,13 @@ pub fn resolve_effective_policy(
         input.base,
         input.group_schedule_offsets,
         input.group_accommodations,
-        input.individual_exception.map(IndividualPatch::Learner),
+        input.individual_exception.map(IndividualPatch::Student),
     )
 }
 
 /// Resolves a synthetic preview policy after lifecycle, S5 synthetic
 /// entitlement, and action authorization. A hypothetical modifier cannot carry
-/// a persisted learner identifier or receipt authority.
+/// a persisted Student identifier or receipt authority.
 pub fn resolve_synthetic_preview_policy(
     input: ResolveSyntheticPreviewPolicyInput,
 ) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
@@ -730,28 +730,28 @@ fn more_permissive<T: Ord>(
 
 #[derive(Clone, Copy)]
 enum IndividualPatch {
-    Learner(IndividualPolicyException),
+    Student(IndividualPolicyException),
     Hypothetical(HypotheticalIndividualPolicyException),
 }
 
 impl IndividualPatch {
     fn mode(self) -> PolicyModificationMode {
         match self {
-            Self::Learner(value) => value.mode,
+            Self::Student(value) => value.mode,
             Self::Hypothetical(value) => value.mode,
         }
     }
 
     fn patch(self) -> PolicyPatchSet {
         match self {
-            Self::Learner(value) => value.patch,
+            Self::Student(value) => value.patch,
             Self::Hypothetical(value) => value.patch,
         }
     }
 
     fn source(self) -> ModifierSource {
         match self {
-            Self::Learner(value) => ModifierSource::Individual(value.student),
+            Self::Student(value) => ModifierSource::Individual(value.student),
             Self::Hypothetical(_) => ModifierSource::HypotheticalIndividual,
         }
     }

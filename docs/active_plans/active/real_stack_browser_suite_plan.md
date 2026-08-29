@@ -7,10 +7,13 @@ Playwright, canonical screenshots, direct browser development, and aggregate acc
 same production `dist/` bundle through the private HTTPS gateway. That browser uses the real Rust
 API, PostgreSQL, MinIO, worker, renderer, authentication, authorization, and seeded live-demo data.
 The developer profile uses deployment-gated seeded production-auth entry. Any visitor can select one
-of five fixed personas; the server resolves that persona to the ordinary PLE account, account
-session, course selection, tenant session, and stored role state. Generic passkey enrollment and
-sign-in are exercised inside independent Elena Instructor and Morgan Sysadmin scenarios, so daily
-browser work and canonical evidence share one browser application.
+of five fixed seeded-account personas; the server resolves that key to a global PLE `UserId`, issues
+the ordinary account session, and derives `ActorContext { user_id, session_id }`. Visible course
+selection is constrained by exact current course membership, Student records by Student ownership,
+and the shared tagged published-question catalog by approved-Instructor authority. No persona key,
+course selection, or displayed role establishes authority. Generic passkey enrollment and sign-in
+are exercised inside independent Elena Instructor and Morgan Sysadmin scenarios, so daily browser
+work and canonical evidence share one browser application.
 
 The suite owns one exact Compose project, `ple-live-demo-browser`. Each invocation regenerates a fresh
 disposable installation from the declared seed baseline under that fixed project: a focused invocation
@@ -54,6 +57,56 @@ shapes and limits; same-origin sensitive requests; server-side session and autho
 at the gateway; least-privilege private input files; and safe browser persistence and caching. Existing
 security authorities continue to own broader ASVS baseline coverage.
 
+## Blueprint Course model
+
+The browser suite uses the binding course model. `BlueprintCourse` is course-level reusable content and
+structure, visible to every vetted (approved) Instructor. It has no enrolled Students, live deadlines,
+releases, accommodations, grades, or delivery settings. `CourseInstance` is created from exactly one
+Blueprint Course, retains that immutable parent identity, and is private to its current equal
+co-Instructors and enrolled Students. The Course Instance owns deadlines, releases, accommodations,
+grades, and delivery settings.
+
+UI course creation selects an existing Blueprint Course or creates a minimal new Blueprint Course first.
+A referenced Blueprint Course archives instead of being hard-deleted. Its applied revision and any
+controlled-update state remain visible where the Instructor reviews propagation. When an Instructor
+adds an assignment to a Blueprint Course, every daughter Course Instance receives that assignment as
+unreleased; the current co-Instructors explicitly review and release it before enrolled Students can
+receive it. ADAPT's alpha course is comparison vocabulary only, not a PLE aggregate, route, or browser
+workflow.
+
+## Question stewardship workflow
+
+The canonical browser suite includes a vetted Instructor stewardship journey against the shared catalog.
+Star is the canonical visible endorsement: a vetted Instructor stars a published question, and vetted-Instructor
+question detail shows the star count and identities of vetted Instructors who starred it. Watch is separate and is
+only the current Instructor's private in-app subscription; changes appear in Watched activity because email delivery
+is not configured. Student and anonymous flows expose neither star identities nor watch state, and collections and
+saved searches remain separate features. The detail view identifies the immutable publication represented by its
+Question ID and shows its visible fork lineage; hidden exact `(ProblemId, VersionId)` evidence remains server-side.
+
+The Instructor forks the publication into a private draft, validates it, and publishes the fork as a
+new immutable Question ID. The catalog then shows the source/fork lineage and a controlled-update impact
+item. The Instructor views version-specific, privacy-safe aggregate evidence for attempts, correct
+outcomes, and eligible choices. Disclosure thresholds apply, and no Student identity, raw response,
+answer key, grading payload, or private source crosses the browser boundary.
+
+Blueprint Course and Course Instance assignments retain their exact published Question ID and hidden
+version evidence until an Instructor explicitly adopts a controlled update. No assignment resolves a
+latest version implicitly, and watching or publishing a fork does not alter existing Course Instance or
+Student work.
+
+## Forced question correction workflow
+
+The canonical suite includes the named `ForcedQuestionCorrection` workflow. A vetted Instructor submits a
+validated replacement and reviews its FERPA-safe impact summary. The Sysadmin then approves it through the
+ordinary visible workflow; approval atomically advances the active reference to the replacement while preserving
+the immutable original question, version-specific evidence, and prior Student work. The browser shows the
+deterministic affected-delivery result (reissue, excuse, or recalculation), the immutable original evidence, and
+the superseding correction receipt.
+
+The originating Instructor observes the impact and result without per-course approval. The browser boundary
+redacts Student identity, raw responses, answer keys, grading payloads, and private source.
+
 ## Frozen baseline and scenario isolation
 
 The sole allowed non-UI product-state bootstrap is the live-demo baseline defined by
@@ -62,7 +115,7 @@ not create a parallel demo application. The owner freezes these exact baseline r
 
 | Baseline record                              | Fixed identifier or state                                                 | Allowed scenario use                                                         |
 | -------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Demo tenant                                  | `00000000-0000-0000-0000-000000000100`                                    | Tenant context and baseline reads                                            |
+| Installation seed harness identifier        | `00000000-0000-0000-0000-000000000100`                                    | Disposable baseline/bootstrap correlation only; never account or course authority |
 | Dr. Elena Rivera                             | `00000000-0000-0000-0000-000000000101`, seeded Instructor                 | Ordinary Instructor entry and baseline reads                                 |
 | Mary Okafor                                  | `00000000-0000-0000-0000-000000000102`, seeded Student                    | Installed-course completed-run observation                                   |
 | Jack Chen                                    | `00000000-0000-0000-0000-000000000103`, seeded Student                    | Installed-course in-progress-run observation                                 |
@@ -70,22 +123,24 @@ not create a parallel demo application. The owner freezes these exact baseline r
 | Morgan Reyes                                 | `00000000-0000-0000-0000-000000000105`, seeded Sysadmin                   | Direct Sysadmin selection, ordinary authorization, and generic passkey login |
 | Biochemistry: Protein Structure and Function | `2026-01-01` through `2099-12-31`, `America/Chicago`                      | Baseline course, roster, activity, and assignment reads                      |
 | Genetics Practice Course                     | Seeded course with Morgan as Instructor and Avery as Student              | Cross-course authorization and baseline reads                                |
-| Genetics: Foundations of Inheritance         | Ordinary Chapter 1 teaching course with assignments and learner work      | Discovery, item analysis, and course evidence                                |
-| Biochemistry: Molecular Foundations          | Ordinary Chapter 1 teaching course with assignments and learner work      | Discovery, item analysis, and course evidence                                |
+| Genetics: Foundations of Inheritance         | Ordinary Chapter 1 teaching course with assignments and Student work       | Discovery, item analysis, and course evidence                                |
+| Biochemistry: Molecular Foundations          | Ordinary Chapter 1 teaching course with assignments and Student work       | Discovery, item analysis, and course evidence                                |
 | Peptide bond publication                     | Published `peptide_bond_geometry` question and one-point assignment       | Visible problem, delivery, and grading baseline reads                        |
 | WebWork catalog item                         | One provenance-validated catalog publication and immutable private source | Visible Library discovery; its teaching state is UI-created                  |
 
 Mary has one completed correctly graded deterministic-seed-17 run; Jack has one open deterministic-
 seed-23 attempt. Elena, Mary, and Jack are active members of `Biochemistry: Protein Structure and
 Function`. The Chapter 1 teaching courses contain their reviewed four-question assignments plus the
-`Molecular Foundations: Charged Functional Groups` assignment; five named learners contribute five
-completed deterministic runs across those two courses through ordinary memberships and learner-work
-records. The five closed selector personas are Elena Instructor, Mary Student, Jack Student, Avery
-Student, and Morgan Sysadmin. The one provenance-validated WebWork catalog item is recorded in
+`Molecular Foundations: Charged Functional Groups` assignment; five named Students contribute five
+completed deterministic runs across those two courses through ordinary memberships and Student work
+records. The five closed seeded-account personas are Elena Instructor, Mary Student, Jack Student,
+Avery Student, and Morgan Sysadmin. The one provenance-validated WebWork catalog item is recorded in
 [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) and is the sole WebWork publication bootstrap; teaching
 state that uses that WebWork item is created through visible UI. Every selector entry establishes an
-ordinary server session; the server continues to derive roles, tenant context, memberships, and
-authorization from stored PLE state.
+ordinary global account session; the server derives `ActorContext`, approved-Instructor status, exact
+course membership, Student ownership, and all other authorization from stored PLE state. The fixed
+installation seed identifier above remains a disposable harness identifier, not an application
+authority or browser field.
 The installation generation, cryptographic service inputs, and selected infrastructure faults are
 harness concerns rather than product-state setup.
 
@@ -98,9 +153,9 @@ multi-persona authorization journey and Elena's passkey journey.
 
 Each scenario declares:
 
-- its allowed baseline personas and baseline records;
+- its allowed seeded-account personas and baseline records;
 - a scenario ID and collision-resistant namespace for scenario identities that require uniqueness;
-- the visible actions that create and mutate product state;
+- the visible actions that create and mutate product state under the current account session;
 - the reload, cross-session, or cross-role observation that proves its outcome; and
 - any read-only receipt and its service-specific claim.
 
@@ -139,7 +194,7 @@ interaction, or inspection prerequisite.
 | BS1-7     | `WP-INST-BS1-B1` | Prove generic passkeys in independent browser journeys                | B0                      | Visible Elena and Morgan enrollment/sign-in, ordinary authorization, and repeat-run cleanup evidence                                                           |
 | BS1-8     | `WP-INST-BS1-B2` | Make the browser project single-flight with exact reset recovery      | B1                      | Fixed project, owner-labelled reset before regeneration and final cleanup, and sequential real-run proof                                                       |
 | BS1-9     | `WP-INST-BS1-I1` | Migrate one instructor authoring/course family                        | B0, C0                  | Reload and second-session behavior evidence                                                                                                                    |
-| BS1-10    | `WP-INST-BS1-L1` | Migrate one learner delivery/response family                          | B0, C0                  | Reload or second-session learner evidence                                                                                                                      |
+| BS1-10    | `WP-INST-BS1-L1` | Migrate one Student delivery/response family                           | B0, C0                  | Reload or second-session Student evidence                                                                                                                       |
 | BS1-11    | `WP-INST-BS1-A1` | Migrate ordinary auth, direct-role entry, and role-boundary families  | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
 | BS1-12    | `WP-INST-BS1-S1` | Add semantic persistence receipts where claims require them           | I1, L1, A1              | Read-only Store/service receipts tied to named claims                                                                                                          |
 | BS1-13    | `WP-INST-BS1-U1` | Map browser-independent behavior to isolated unit owners              | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
@@ -148,7 +203,7 @@ interaction, or inspection prerequisite.
 | BS1-16    | `WP-INST-BS1-V1` | Capture canonical screenshots from accepted real scenarios            | I1, L1, X1, F1          | Origin/provenance verifier and image-evaluator report                                                                                                          |
 | BS1-17    | `WP-INST-BS1-R1` | Retire the alternate browser application and runtime graph            | U1, X1, F1, V1          | One-time build/consumer closure inventory and canonical suite run                                                                                              |
 | BS1-18    | `WP-INST-BS1-D1` | Converge developer entry on the seeded production-auth HTTPS profile  | B2, C0                  | Daily-workflow experiment, one production `dist/` artifact, and seeded-auth lifecycle receipts                                                                 |
-| BS1-19    | `WP-INST-BS1-W1` | Add the catalog-only WebWork baseline and canonical delivery scenario | B0, I1, L1, S1          | UI-first instructor/learner flow, one renderer-call receipt, and fresh-session persistence                                                                     |
+| BS1-19    | `WP-INST-BS1-W1` | Add the catalog-only WebWork baseline and canonical delivery scenario | B0, I1, L1, S1          | UI-first Instructor/Student flow, one renderer-call receipt, and fresh-session persistence                                                                      |
 | BS1-20    | `WP-INST-BS1-Q1` | Add canonical assignment-question replacement behavior                | B0, I1, L1, X1          | Issued-problem stability, visible replacement, stale-editor reload, and new-run replacement evidence                                                           |
 | BS1-21    | `WP-INST-BS1-R2` | Retire every remaining alternate browser owner and browser tail       | R1, D1, W1, Q1          | One-time static consumer closure inventory, canonical complete suite, and retained non-browser oracle receipts                                                 |
 | BS1-22    | `WP-INST-BS1-C1` | Invoke the suite once from aggregate acceptance and complete closure  | B2, C0, R2              | Final Validation and repeat-run cleanup evidence                                                                                                               |
@@ -218,13 +273,13 @@ C1 follows R2 after the B2 gate.
 - Owner: expert coder.
 - Deliverable: the catalog and owner use a closed `schemaVersion: 2` private ABI. Every child gets
   a distinct input and origin receipt containing only scenario ID, namespace, HTTPS origin, closed
-  personas, baseline reads, visible observation, and declared optional receipts or faults. The
+  seeded-account personas, baseline reads, visible observation, and declared optional receipts or faults. The
   registry rejects duplicate IDs and paths. Seed-state transitions use a closed catalog and may be
   repeated by independently runnable scenarios when the visible workflow safely verifies or reaches
   the same state from either the regenerated baseline or an earlier ordered scenario.
 - Current contract: `direct_role_entry` is Morgan's independently runnable Sysadmin scenario and
   `auth_authorization` is the independently runnable multi-persona authorization scenario. Both
-  begin from the regenerated baseline, use visible seeded identity and course selection, and retain
+  begin from the regenerated baseline, use visible seeded-account and course selection, and retain
   no browser credential or authenticated state from another scenario.
 - Acceptance: focused contract and owner tests prove deterministic exact selection, ordered
   independent execution, strict input decoding, origin receipts, and the exact closed field set.
@@ -297,26 +352,48 @@ C1 follows R2 after the B2 gate.
 ### WP-INST-BS1-I1: Migrate instructor behavior
 
 - Owner: expert coder.
-- Deliverable: UI-first instructor scenarios for questions, courses, assignments, roster changes,
-  teaching operations, and real concurrent edit conflicts that carry behavior value.
-- Acceptance: visible actions create meaningful scenario-owned state; reload and a second authorized instructor
-  observe the intended result. PostgreSQL or MinIO inspection appears only for a stated service claim.
+- Deliverable: UI-first Instructor scenarios for questions, Blueprint Courses, Course Instances,
+  assignments, roster changes, teaching operations, and real concurrent edit conflicts that carry
+  behavior value. The workflow creates or revises a Blueprint Course, creates a Course Instance from
+  exactly one immutable parent, adds an assignment to the Blueprint Course, and observes that daughter
+  Course Instance receive it unreleased. It also covers question stewardship: star/watch a published
+  question, inspect immutable version and fork lineage, fork and publish a private draft, observe a
+  controlled-update impact item, and inspect privacy-safe version-specific evidence. The visible stewardship
+  contract uses Star as the sole endorsement term; it confirms star count and vetted-Instructor identities while
+  keeping Watch private to the current Instructor and keeping collections and saved searches separate.
+  The same Instructor/Sysadmin evidence lane covers `ForcedQuestionCorrection`: validated replacement, FERPA-safe
+  impact summary, Sysadmin approval, atomic active-reference advance, deterministic reissue/excuse/recalculation,
+  immutable original evidence, superseding receipt, and Instructor impact/results without per-course approval.
+- Acceptance: visible actions create meaningful scenario-owned state; reload and a second authorized
+  Instructor observe the intended result. The scenario confirms the Course Instance's current equal
+  co-Instructor and Student boundary, instance-only delivery settings, and explicit release before
+  Student delivery. Stewardship uses private in-app Watched activity (email is not configured), preserves exact
+  version pins until explicit adoption, shows Star count and vetted-Instructor star identities only to vetted
+  Instructors, and exposes neither those identities nor Watch state to Students or anonymous visitors. It redacts
+  Student identity, raw responses, keys, grading payloads, and private source. Forced correction proves the
+  validated replacement, FERPA-safe impact summary, Sysadmin approval, atomic active-reference advance, visible
+  deterministic affected-delivery result, immutable original evidence, superseding receipt, and Instructor
+  impact/results without per-course approval. PostgreSQL or MinIO inspection appears only for a stated service
+  claim.
 
-### WP-INST-BS1-L1: Migrate learner behavior
+### WP-INST-BS1-L1: Migrate Student behavior
 
 - Owner: expert coder.
-- Deliverable: UI-first learner scenarios that create their course/assignment prerequisites through
-  normal visible instructor and student sessions, then cover issue, response, grade, feedback,
+- Deliverable: UI-first Student scenarios that create their course/assignment prerequisites through
+  normal visible Instructor and Student sessions, then cover issue, response, grade, feedback,
   repeat, leave/return, and summary behavior with value in the inventory.
-- Acceptance: a fresh or second authorized learner session observes the expected durable product
+- Acceptance: a fresh or second authorized Student session observes the expected durable product
   result; browser traffic preserves answer and credential boundaries.
 
 ### WP-INST-BS1-A1: Migrate auth and authorization
 
 - Owner: expert coder.
-- Deliverable: real seeded entry for the five fixed personas, ordinary account and course sessions,
+- Deliverable: real seeded-account entry for the five fixed personas, ordinary global account sessions,
+  `ActorContext` derivation, exact course-membership checks, Student ownership checks, and shared
+  approved-Instructor catalog access,
   in-scenario generic passkey enrollment and sign-in for Elena Instructor and Morgan Sysadmin, and
-  role/cross-course route scenarios. The auth catalog registers `direct_role_entry` and
+  role/cross-course route scenarios. Instructor Student view remains stable-identity and answer-free;
+  Student delivery receives only exact assignment-entitled questions. The auth catalog registers `direct_role_entry` and
   `auth_authorization`; Avery's instructor-approval mutation remains owned only by
   `auth_authorization`.
 - Acceptance: visible role workflows and direct navigation demonstrate server enforcement; protected
@@ -340,7 +417,7 @@ C1 follows R2 after the B2 gate.
   checkpoint, and other browser-independent behavior tests whose values are literal or supplied by
   test-local narrow fakes outside the application runtime graph. The U1 behavior-value allocation
   records every remaining mock Playwright or runtime consumer with its meaningful behavior and its
-  later owner: I1 for instructor/teaching mutations, L1 for learner delivery and recovery, A1 for
+  later owner: I1 for Instructor/teaching mutations, L1 for Student delivery and recovery, A1 for
   sign-in and role boundaries, S1 for service-specific claims, V1 for retained visual behavior, F1
   for lifecycle faults, X1 for conflicts, or R1 for browser-graph integration coverage.
 - Acceptance: each retained U1 test protects one isolated behavior using literal fixtures or a
@@ -360,10 +437,10 @@ C1 follows R2 after the B2 gate.
 ### WP-INST-BS1-F1: Exercise real failure behavior
 
 - Owner: expert coder.
-- Deliverable: one visible learner saved-response recovery scenario with lifecycle-owner control of
+- Deliverable: one visible Student saved-response recovery scenario with lifecycle-owner control of
   the fixed stack's real HTTPS gateway.
-- Acceptance: visible recovery preserves the learner's selected response, keyboard retry completes,
-  a fresh learner session observes the persisted score, and the typed lifecycle receipt proves the
+- Acceptance: visible recovery preserves the Student's selected response, keyboard retry completes,
+  a fresh Student session observes the persisted score, and the typed lifecycle receipt proves the
   declared gateway fault was injected, recovered, and completely cleaned up.
 
 ### WP-INST-BS1-V1: Capture canonical visual evidence
@@ -402,7 +479,7 @@ C1 follows R2 after the B2 gate.
   The WebWork and replica service oracles use seeded production authentication with their narrow
   service-observability capabilities. Unit/static tests stay with their owning implementation.
   The bounded developer-profile experiment then proves daily seeded Student and Instructor work, the
-  real Sysadmin direct-role/passkey flow, reload and re-entry, real course authoring and learner submission,
+  real Sysadmin direct-role/passkey flow, reload and re-entry, real course authoring and Student submission,
   the production `dist/` artifact, normal session/auth traffic, and empty suite-labelled cleanup. This
   package is distinct from R1's production browser-build ownership.
 - Acceptance: fresh Student and Instructor browser contexts complete normal daily workflows and the
@@ -423,7 +500,7 @@ C1 follows R2 after the B2 gate.
   the baseline installer validates tracked provenance, publishes one immutable private source/catalog
   record, and exposes no private source, object key, renderer identity, credential, answer, or opaque
   provider ID to Playwright. The scenario then uses visible PLE UI to find the public Question ID and
-  creates its meaningful course, assignment, roster, invitation, learner run, and submission state
+  creates its meaningful course, assignment, roster, invitation, Student run, and submission state
   through visible UI. It verifies durable completion in a fresh session and records one narrow,
   non-sensitive renderer-call receipt; cache/replay, grading, outage, and privacy service claims
   remain bounded non-browser oracles.
@@ -444,8 +521,8 @@ C1 follows R2 after the B2 gate.
   authoritative revision; Mary reloads and retains her issued original while a new run receives the
   replacement. This is distinct from grade-settings conflict behavior.
 - Acceptance: focused and complete invocations start from a fresh stack, create their own UI state,
-  demonstrate the issued learner problem remains stable, visibly show the instructor replacement and
-  stale-editor reload, and show the replacement only for a newly issued learner run.
+  demonstrate the issued Student problem remains stable, visibly show the Instructor replacement and
+  stale-editor reload, and show the replacement only for a newly issued Student run.
 
 ### WP-INST-BS1-R2: Establish the canonical browser owner
 
@@ -482,16 +559,21 @@ subordinate gates prove that outcome:
 - Production origin: every Playwright page and screenshot uses the disposable HTTPS gateway serving
   `dist/`; the origin verifier rejects direct service and external origins.
 - One browser application: developer entry and the canonical suite use the same production `dist/`
-  client and production-shaped session/auth graph. The deployment-gated seeded persona entry stays
-  server-resolved; it exposes five fixed personas and preserves ordinary account, course, and
-  server-owned authorization behavior.
+  client and production-shaped global account/session graph. The deployment-gated seeded-account
+  entry stays server-resolved; it exposes five fixed personas, establishes `ActorContext`, and
+  preserves exact course membership, Student ownership, shared catalog, and server-owned
+  authorization behavior.
+- Shared catalog and assignment entitlement: approved Instructor sessions browse the one global tagged
+  published-question corpus; Student sessions do not browse that corpus and receive only questions
+  entitled by their exact assignment and current course membership.
 - UI-created state: scenario actions use visible PLE workflows, with the frozen seed baseline and
   harness-only infrastructure inputs as the declared exceptions.
 - Product-visible persistence: scenario results survive reload, a new authorized session, or a
   different authorized role as appropriate to the behavior.
 - Generic passkeys: Elena Instructor and Morgan Sysadmin each enroll a passkey through the visible
-  account UI, sign out, use the visible passkey sign-in path, choose an authorized course, and prove
-  their stored server-authorized capability. Each journey is self-contained; receipts omit
+  account UI, sign out, use the visible passkey sign-in path, choose an exact course for which the
+  current session is authorized, and prove the server-derived capability. Each journey is
+  self-contained; receipts omit
   credentials, cookies, and private state.
 - Service-specific receipts: read-only PostgreSQL, MinIO, worker, renderer, and network evidence
   appears only for a requirement about that service boundary.

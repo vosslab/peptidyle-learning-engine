@@ -14,7 +14,7 @@ A public type belongs in this crate when it is answer-free and may cross a
 browser-facing boundary. A type that would let a caller learn a correct
 response belongs in `crates/grading`, which runs server-side and sits outside
 the WebAssembly dependency closure. This is a security classification, not a
-claim that every answer-free model field belongs in every learner payload:
+claim that every answer-free model field belongs in every Student payload:
 the presentation projection further removes provenance and grading-adjacent
 details the renderer does not need.
 
@@ -28,7 +28,7 @@ Applied to answers, the split is:
 | Whether partial credit applies, and the points available   | The per-part weighting of a key |
 
 The left column is answer-free shared-model information. An individual
-learner projection may still omit it when it is not needed to render an input;
+Student projection may still omit it when it is not needed to render an input;
 for example, `ResponseSchemaV1` omits numeric tolerance and text match mode.
 Everything in the right column decides correctness and remains server-only.
 
@@ -52,7 +52,7 @@ transition.
 
 UUIDs name durable records; they are not credentials, authorization evidence,
 or browser-facing choice codes. A submission places its `QuestionAttemptId`
-once in the route. The server resolves learner, assignment, version, seed,
+once in the route. The server resolves Student, assignment, version, seed,
 backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
@@ -60,27 +60,126 @@ The draft rule is carried by the type rather than a flag:
 `QuestionDefinition::problem` is `Option<ProblemId>`, and `is_draft()` reads
 that option. There is no separate boolean to fall out of sync with it.
 
-Each Question ID names exactly one immutable published question. Publishing
-creates its fresh opaque `(ProblemId, VersionId)` pair; a content change
-receives a new Question ID and another fresh pair. `ProblemVersionRef` keeps
-that exact pair only in trusted delivery, grading, replay, audit, and optional
-non-operative provenance records. `PublicationScope` distinguishes
-institution-visible and public immutable publications; private content remains
-a draft and therefore has no publication-scope variant or `ProblemId`.
+`QuestionId` is stable across one question lineage. Each publication in that
+lineage has a fresh immutable `VersionId`, and `ProblemVersionRef` keeps the
+exact `(ProblemId, VersionId)` evidence only in trusted delivery, grading,
+replay, audit, assignment pins, and optional non-operative provenance records.
+An allowed original-lineage correction may retain the `QuestionId` while
+archiving the replaced version. A major objective, task, or response-family
+change is a fork: its creator edits a private draft and publication gives it a
+new `QuestionId`, a new version, and exact source ancestry. Every successful
+publication enters one installation-wide shared catalog for approved
+Instructors. Private content remains a draft and therefore has no published
+identity.
+
+Tags and taxonomy guide search within the shared catalog; they do not partition
+questions by subject, author, course, or audience. Every assignment item
+resolves a Question ID already present in this published corpus. A draft must
+validate and publish before an Instructor can place it in an assignment, so an
+assignment cannot contain private question content.
 
 `CatalogProblemSummary` is the hot browse projection. It contains the Question
-ID, backend family, capabilities, metadata, scope, lifecycle, and publication
-time, but not prompt, response, private source-locator fields, or the opaque
-internal pair. Trusted server work resolves the Question ID and loads the
-separate internal `QuestionDefinition` payload. Browser catalog detail uses
-that safe Question-ID projection and presents one immutable publication.
+ID, backend family, capabilities, metadata, lifecycle, and publication time,
+but not prompt, response, private source-locator fields, or the opaque internal
+pair. Trusted server work resolves the Question ID and loads the separate
+internal `QuestionDefinition` payload. Browser catalog detail uses that safe
+Question-ID projection and presents one selected immutable version within the
+stable lineage. Approved
+Instructors may inspect this published content even when another course
+references it; that access does not expose the other course's assignment
+composition or Student records.
+
+The catalog uses semantic change classes to define compatible evolution.
+Transport-size limits protect request handling and do not define compatibility.
+The original creator or an authorized lineage steward may publish only an
+allowed same-lineage correction or compatible improvement under the existing
+Question ID. A grading-semantic correction records an impact and starts a
+controlled recalculation operation; it never silently rewrites issued evidence.
+Major objective, task, or response-family changes require a fork and new
+identity. Any approved Instructor may create a fork draft, but that draft is
+private to its creator until validation succeeds. The published fork is global,
+records exact Question ID and version ancestry, and preserves the improvement
+thread without granting the fork author access to edit the source.
+
+`QuestionChangeProposal` is the lightweight improvement workflow. Any vetted
+Instructor submits one patch and rationale against one exact immutable base
+version. Publication validation and semantic/grading-impact analysis complete
+before submission reaches the lineage owner, who accepts or rejects it. A
+stale base requires rebase and resubmission. An accepted `ModerateEdit` creates
+a new immutable version in the original `QuestionId` lineage, preserves the
+canonical author and compatible CC license, records contributor credit and
+proposal ancestry, and leaves all assignment and evidence pins unchanged.
+`ModerateEdit` is a compatible same-lineage operation; `FullFork` is the
+separate major-change operation that creates a creator-private draft and, after
+validation, a new global Question ID; `ForcedQuestionCorrection` is the
+separate Sysadmin-only emergency replacement operation. The user-facing action
+is **Suggest an improvement**. A GitHub analogy is documentation-only and
+does not define the domain or authorization contract.
+
+Existing assignments pin their exact Question ID and `ProblemVersionRef`.
+Future availability changes only through an explicit, revision-checked
+assignment update; publication, correction, lifecycle work, and recalculation
+never advance an assignment automatically. Star is one vetted-Instructor-visible
+endorsement per Question ID; approved Instructors may see its count and the
+identities of vetted Instructors who starred. Students and anonymous callers
+see neither the identity list nor star state. Watch is a private notification
+subscription for versions, forks, improvements, and impact events. Neither
+changes catalog visibility or grants course authority.
+
+The shared catalog is not a Student delivery path. A Student receives question
+content only after the server grants an exact assignment entitlement for the
+authenticated Student, active Student membership, `CourseId`, `AssignmentId`,
+assignment audience, assignment lifecycle, and current policy. Anonymous
+requests have no catalog authority and cannot use Question IDs to obtain
+published content.
 
 `CourseMembershipRole` represents only the student and instructor values that
 may be stored on a direct membership. There is no second effective-course-role
 enum.
 
+`CatalogLifecycle` has three published states: `Published` (the active state),
+`Deprecated`, and `Archived`. The shared Instructor catalog includes every
+published state and labels the state and any deprecation reason. The ordinary
+new-assignment selector accepts only `Published`; Deprecated and Archived
+questions remain available for exact resolution, evidence, provenance, and
+retained assignments.
+
+Catalog evidence is version-specific and excludes previews and the Instructor
+Student view. After the configured privacy threshold, the safe aggregate may
+expose accepted-attempt count, graded-attempt count, correct count, and
+eligible-choice selection counts for supported choice families. Below the
+threshold it exposes availability only; it never exposes raw responses,
+small-cell counts, linkable cohorts, or Student identities. Course-local
+item-analysis metrics remain separately authorized and never become global
+catalog evidence.
+
+### ForcedQuestionCorrection
+
+Published versions are immutable. A Sysadmin may approve a closed
+`ForcedQuestionCorrection` only for `security_flaw` or
+`critical_correctness_flaw`. It immediately activates the authoritative mapping
+from the flawed version to the validated replacement, so new selection and
+issuance resolve to the replacement. The old version is preserved solely as
+immutable historical evidence and is never edited or deleted.
+
+Replacement publication requires validated content and a closed, privacy-safe
+impact manifest. The resulting correction generation is handed to bounded
+idempotent, generation-fenced workers for active-binding and remediation
+materialization across every active Blueprint, CourseInstance, assignment,
+selection-pool, and future-issuance reference. A deterministic compatibility
+check governs reissue or excuse for in-progress work. Issued or graded evidence
+remains pinned to the original immutable version; completed work receives
+superseding receipts and deterministic recalculation under the correction.
+
+The operation has no per-course approval step. Instructors receive audited,
+course-authorized results, while Sysadmin projections contain no FERPA-bearing
+course or Student records. Every approval, validation, manifest, atomic
+advance, reissue, excuse, superseding receipt, recalculation, and publication
+event is append-only audited.
+
 `Sysadmin` is a platform `UserRole`, never a course-membership value; it cannot
-replace direct Instructor membership for general FERPA access. `CourseSummary`
+replace direct Instructor membership for general FERPA access or view the
+Question ID star identity list or any private watch state. `CourseSummary`
 and `AssignmentSummary` are Rust-owned browser projections. Their item and
 selection-candidate summaries carry Question IDs and safe display metadata,
 never an opaque `ProblemVersionRef` or question payload.
@@ -171,10 +270,11 @@ Server-side grading loads the attempt's exact published `QuestionDefinition`
 and calls `grading::grade(question, response, key)`. The definition supplies
 the response comparison and point policy that are intentionally absent from
 the compact attempt row; the key remains in the server-only grading boundary.
+Grading is deterministic and automated for every supported question family.
 
 ### Attempt presentation
 
-`presentation` is a second, narrower contract for an issued learner screen.
+`presentation` is a second, narrower contract for an issued Student screen.
 It does not replace `QuestionDefinition`, `QuestionEnvelope`, or
 `StudentResponse`; it projects their public rendering portion for a specific
 attempt and provides a consistency binding for that presentation.
@@ -212,11 +312,11 @@ durable identity nor a security credential.
 
 The canonical binary descriptor covers the envelope, rendered-item bases, and
 asset bindings. PLE stores its full SHA-256 digest with the attempt and gives
-the learner only a 128-bit `pd1_` base64url prefix in
-`LearnerAttemptDescriptorV1`. The browser can rebuild and check the public
+the Student only a 128-bit `pd1_` base64url prefix in
+`StudentAttemptDescriptorV1`. The browser can rebuild and check the public
 descriptor through Wasm; the server checks the full digest when reproducing
 the attempt. The digest and rendered IDs detect a stale or incoherent render,
-but do not authenticate a learner, authorize a request, or determine whether
+but do not authenticate a Student, authorize a request, or determine whether
 an answer is correct.
 
 This is an accepted v1 presentation contract, not a statement that the live
@@ -244,9 +344,9 @@ error.
 
 Question-level policies are authored with the question: `AttemptPolicy`
 (a retry bound) and `TimingPolicy` (untimed, per question, or per attempt,
-each with a grace period for network delay). Learner disclosure is not a
-question policy: the assignment owns its five-field `LearnerDisclosurePolicy`
-and the server evaluates it for current learner projections.
+each with a grace period for network delay). Student disclosure is not a
+question policy: the assignment owns its five-field `StudentDisclosurePolicy`
+and the server evaluates it for current Student projections.
 For timed work, `AttemptTimerRecord.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.
@@ -261,7 +361,7 @@ mode enum would offer a fixed menu instead.
 Assignment teaching operations form a separate closed contract.
 `AssignmentTeachingSettings` stores one `AssignmentLifecycle`, validated
 plain-text `AssignmentInstructions`, and the absolute `BaseAssignmentPolicy`.
-New assignments default to Draft and therefore are not learner-visible until an
+New assignments default to Draft and therefore are not Student-visible until an
 instructor explicitly publishes them. The instructor transport uses
 `InstructorAssignmentTeachingSettingsLocal`: local timestamps include
 milliseconds and the exact course IANA zone, but the server performs every
@@ -271,12 +371,13 @@ Draft, scheduled, open, closed, or archived at one authoritative instant. Its
 scheduled and clock-closed variants carry only the matching course-local
 boundary, so a browser displays current state without inferring it.
 
-Learners receive `LearnerAssignmentDetail`, not the instructor aggregate. Its
-delivery values are already resolved and omit lifecycle intent, base-policy
-provenance, tenant/course identifiers, and evaluation clocks. `ScoringStatus`
+Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
+delivery values are already resolved from exact assignment entitlement and omit
+lifecycle intent, base-policy provenance, course identifiers, and evaluation
+clocks. `ScoringStatus`
 is also independent: Current allows the otherwise authorized score projection;
 Recalculating and Failed retain the semantic score state while omitting every
-numeric learner score, attempt result, and disclosed point value.
+numeric Student score, attempt result, and disclosed point value.
 
 ### Generation
 
@@ -342,7 +443,7 @@ fallback, or compatibility behavior. Version 2 is the only current native
 source shape: a closed contract with eight families, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
 and `hotspot`. V2 input is answer-bearing private authoring material, not a
-learner payload. It does not claim file-upload or external-tool authoring
+Student payload. It does not claim file-upload or external-tool authoring
 support. The compiler emits an answer-free draft/public model and separately
 checksummed grader-only key and feedback material.
 

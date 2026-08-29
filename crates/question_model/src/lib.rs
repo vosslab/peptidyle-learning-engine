@@ -60,7 +60,7 @@ pub mod preview_plane;
 /// Human-facing route locators that resolve to internal identities under authorization.
 pub mod public_route;
 pub mod response;
-/// Browser-safe reusable blueprint and public Alpha curriculum contracts.
+/// Browser-safe reusable BlueprintCourse contracts.
 pub mod reusable_curriculum;
 pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
@@ -116,17 +116,17 @@ pub use crate::catalog::{
     CatalogDiscoveryEvidence, CatalogDiscoveryItem, CatalogEvidenceAvailability,
     CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
     CatalogOwnCourseUsage, CatalogProblemDetail, CatalogProblemSummary, CatalogPromptProjection,
-    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchPage,
-    CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet,
-    CatalogTaxonomyFilter, CatalogUsageDetail, CatalogUsageSummary, CatalogUsedInMyCourses,
-    CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS, MAX_CATALOG_BYLINE_FACETS,
-    MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_OWN_COURSE_USAGES, MAX_CATALOG_RESPONSE_FAMILY_FACETS,
-    MAX_CATALOG_RESPONSE_FAMILY_FILTERS, MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
-    MAX_CATALOG_TAXONOMY_FACETS, MAX_QUESTION_ID_COUNT, ProblemDisplayRef, ProblemVersionRef,
-    PublicationScope, QUESTION_ID_ALPHABET, QUESTION_ID_COMPACT_LENGTH,
-    QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
+    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchFilter,
+    CatalogSearchPage, CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet,
+    CatalogTaxonomyFacet, CatalogTaxonomyFilter, CatalogUsageDetail, CatalogUsageSummary,
+    CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS,
+    MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_OWN_COURSE_USAGES,
+    MAX_CATALOG_RESPONSE_FAMILY_FACETS, MAX_CATALOG_RESPONSE_FAMILY_FILTERS,
+    MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS, MAX_CATALOG_TAXONOMY_FACETS,
+    MAX_QUESTION_ID_COUNT, ProblemDisplayRef, ProblemVersionRef, PublicationScope,
+    QUESTION_ID_ALPHABET, QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH,
+    QuestionBackend, QuestionId,
 };
-pub use crate::catalog_facets::CatalogSearchFilter;
 pub use crate::course::{
     AssignmentItemSummary, AssignmentLandingPresentation, AssignmentSelectionCandidateSummary,
     AssignmentSelectionGroupSummary, AssignmentSummary, CourseMembershipRole, CourseSummary,
@@ -158,40 +158,7 @@ pub use crate::curation::{
     ProblemCollectionSummaryView, ProblemCollectionVisibility, ProblemCurationTitleError,
     SavedProblemSearchRevision, SavedProblemSearchView, validate_problem_curation_title,
 };
-pub use crate::curriculum_adoption::{
-    AlphaInstantiationCommand, AlphaInstantiationCompleted, AlphaInstantiationPreviewRequest,
-    AlphaInstantiationPreviewView, AssignmentDefinitionSourceView, AssignmentFastForwardCommand,
-    AssignmentFastForwardCompleted, AssignmentFastForwardDecision,
-    AssignmentFastForwardPreviewRequest, AssignmentFastForwardPreviewView,
-    BlueprintInstantiationCommand, BlueprintInstantiationCompleted,
-    BlueprintInstantiationPreviewRequest, BlueprintInstantiationPreviewView, CourseRolloverCommand,
-    CourseRolloverCompleted, CourseRolloverPreviewRequest, CourseRolloverPreviewView,
-    CourseScheduleRevision, CourseScheduleRevisionError, CourseScheduleWitness,
-    CourseScheduleWitnessError, CourseTermShiftCommand, CourseTermShiftCompleted,
-    CourseTermShiftIneligibility, CourseTermShiftPreviewOutcome, CourseTermShiftPreviewRequest,
-    CourseTermShiftPreviewView, CourseTermShiftRecoveryAction,
-    CreateSourceDerivedAssignmentCommand, CurriculumAdoptionCommandError,
-    CurriculumAdoptionIdempotencyKey, CurriculumAdoptionIdempotencyKeyError,
-    CurriculumAdoptionReceiptBinding, CurriculumAdoptionReconciliationResult,
-    CurriculumAdoptionRepairedProjection, CurriculumAdoptionRepairedProjections,
-    CurriculumAdoptionRepairedProjectionsError, CurriculumAdoptionTitle,
-    CurriculumAdoptionTitleError, CurriculumAssignmentImportSourceView, CurriculumAssignmentView,
-    CurriculumCourseImportOriginView, CurriculumCourseImportView, CurriculumCourseImportViewError,
-    CurriculumImportRevision, CurriculumImportRevisionError, CurriculumImportView,
-    CurriculumPinPosition, CurriculumPinPositionError, CurriculumPinReplacement,
-    CurriculumPinReplacements, CurriculumPinReplacementsError, CurriculumReplayStatus,
-    CurriculumScheduleCorrection, CurriculumSourceView, ForkAlphaCommand, ForkAlphaCompleted,
-    ForkAlphaPreviewRequest, ForkAlphaPreviewView, ObservedAlphaAssignmentSource,
-    ObservedAlphaAssignmentSourceError, ObservedAlphaSource, ObservedAssignmentRevision,
-    ObservedBlueprintSource, PreparedCurriculumAssignmentView, PreparedCurriculumCourseView,
-    PreservedAssignmentRecoveryAction, ReconcileCurriculumAdoptionCommand,
-    ReplacementQuestionChoices, ReplacementQuestionChoicesError,
-    ResolvedRelativeAssignmentSchedule, ResolvedRelativeScheduleMoment,
-    RolloverAssignmentSourceView, RolloverAssignmentSourceViewError,
-    RolloverCourseImportOriginView, SourceDerivedAssignmentCompleted,
-    SourceDerivedAssignmentPreviewRequest, SourceDerivedAssignmentPreviewView,
-    UnavailablePinRecoveryAction,
-};
+pub use crate::curriculum_adoption::*;
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionDefinition, QuestionMetadata, QuestionSource,
@@ -236,17 +203,15 @@ pub use crate::preview_plane::{
     SyntheticPreviewModifiers, SyntheticPreviewSubjectRequest, preview_group_role,
 };
 pub use crate::public_route::{
-    AccountReference, AlphaCourseReference, AssignmentReference, BlueprintReference,
-    CoInstructorInvitationReference, CourseGroupReference, CourseMembershipReference,
-    CourseReference, GradingOperationReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
-    ProblemCollectionReference, RESERVED_REFERENCE_PREFIXES, RunReference,
-    SavedProblemSearchReference, WorkspaceReference,
+    AccountReference, AssignmentReference, BlueprintReference, CoInstructorInvitationReference,
+    CourseGroupReference, CourseMembershipReference, CourseReference, GradingOperationReference,
+    MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution, ProblemCollectionReference,
+    RESERVED_REFERENCE_PREFIXES, RunReference, SavedProblemSearchReference, WorkspaceReference,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::reusable_curriculum::{
-    AlphaCourseAccess, AlphaCourseDefinitionInput, AlphaCourseModuleInput, AlphaCourseModuleView,
-    AlphaCourseRevision, AlphaCourseSummaryView, AlphaCourseView, BlueprintAccess,
-    BlueprintDefinitionInput, BlueprintRevision, BlueprintSummaryView, BlueprintView,
+    BlueprintCourseAccess, BlueprintCourseDefinitionInput, BlueprintCourseModuleInput,
+    BlueprintCourseModuleView, BlueprintCourseSummaryView, BlueprintCourseView, BlueprintRevision,
     LocalTimeOfDay, LocalTimeOfDayError, MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS,
     RelativeAssignmentSchedule, RelativeScheduleMoment, ReusableAssignmentDefaults,
     ReusableAssignmentDefinitionInput, ReusableAssignmentDefinitionView,

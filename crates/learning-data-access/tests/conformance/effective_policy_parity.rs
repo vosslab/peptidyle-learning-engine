@@ -140,7 +140,7 @@ where
     let tenant = TenantId::from_uuid(id(99_500));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(id(99_501));
-    let learner = UserId::from_uuid(id(99_502));
+    let student_user = UserId::from_uuid(id(99_502));
     let course = CourseId::from_uuid(id(99_503));
     let assignment = AssignmentId::from_uuid(id(99_504));
     let course_creation_authority =
@@ -167,20 +167,20 @@ where
             instructor,
             UpsertCourseMember {
                 course,
-                user: learner,
-                display_name: "Parity learner".to_string(),
+                user: student_user,
+                display_name: "Parity Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("create parity learner");
+        .expect("create parity Student");
     let student = store
-        .get_current_course_membership(context, course, learner)
+        .get_current_course_membership(context, course, student_user)
         .await
-        .expect("read parity learner")
-        .expect("parity learner exists")
+        .expect("read parity Student")
+        .expect("parity Student exists")
         .student
-        .expect("parity learner identity");
+        .expect("parity Student identity");
     let (reference, issued_question_snapshot) =
         published_reference(store, context, tenant, instructor).await;
     let assignment_record = AssignmentRecord {
@@ -409,7 +409,7 @@ where
         NonZeroU32::new(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
     );
     let entitlement = store
-        .evaluate_assignment_entitlement(context, learner, course, assignment)
+        .evaluate_assignment_entitlement(context, student_user, course, assignment)
         .await
         .expect("evaluate parity S5 grant");
     let resolved = store
@@ -427,7 +427,7 @@ where
         .expect("resolve parity policy")
         .expect("parity assignment exists");
     let EffectivePolicyDecision::Allowed { policy, .. } = resolved.decision else {
-        panic!("granted parity learner resolves an allowed policy");
+        panic!("granted parity Student resolves an allowed policy");
     };
     assert_eq!(
         policy.time_limit_seconds.value,
@@ -441,16 +441,16 @@ where
     let active = store
         .start_or_resume_run(
             context,
-            learner,
+            student_user,
             StudentWorkRoutingBinding::new(course, assignment),
             question_model::RunId::from_uuid(id(99_514)),
         )
         .await
         .expect("first limited run starts");
     let active_list = store
-        .list_learner_entitled_assignments(
+        .list_student_entitled_assignments(
             context,
-            learner,
+            student_user,
             course,
             learning_data_access::PageRequest::first(
                 learning_data_access::PageSize::new(10).expect("bounded page"),
@@ -467,7 +467,7 @@ where
     let resumed = store
         .start_or_resume_run(
             context,
-            learner,
+            student_user,
             StudentWorkRoutingBinding::new(course, assignment),
             question_model::RunId::from_uuid(id(99_515)),
         )
@@ -478,7 +478,7 @@ where
         .issue_or_resume_question_attempt(
             context,
             IssueQuestionAttemptCommand {
-                actor: learner,
+                actor: student_user,
                 binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id(99_516)),
                 run: active.id,
@@ -521,7 +521,7 @@ where
         .submit_question_attempt(
             context,
             SubmitQuestionAttemptCommand {
-                actor: learner,
+                actor: student_user,
                 binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: attempt.id,
                 response: StudentResponse::Numeric { value: 1.0 },
@@ -540,9 +540,9 @@ where
     assert_eq!(completed.run.id, active.id);
     assert!(completed.run.completed_at.is_some());
     let exhausted_list = store
-        .list_learner_entitled_assignments(
+        .list_student_entitled_assignments(
             context,
-            learner,
+            student_user,
             course,
             learning_data_access::PageRequest::first(
                 learning_data_access::PageSize::new(10).expect("bounded page"),
@@ -560,7 +560,7 @@ where
         store
             .start_or_resume_run(
                 context,
-                learner,
+                student_user,
                 StudentWorkRoutingBinding::new(course, assignment),
                 question_model::RunId::from_uuid(id(99_517)),
             )

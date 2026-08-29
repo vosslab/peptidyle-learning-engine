@@ -16,21 +16,138 @@ W4 supplies the exact active worker claim, private load, one atomic completion
 transition, route-bound learner status read, and common execution handler. The
 W4 implementation gate is a narrow stabilization sequence: it proves the
 fresh ordered install before adapter, route, or handler implementation resumes.
-The approved exact-claim model remains binding.
+The approved exact-claim model remains binding. PostgreSQL realization and its
+connected proof are owned by
+[automated_grading_execution_database_contract.md](automated_grading_execution_database_contract.md);
+this document remains the semantic execution/evidence/state/handler authority.
+
+## SD1-A5 identity and authorization correction
+
+This revision supersedes the former installation-bound wording in the G1
+execution contract. PLE is one installation with global accounts and one shared
+published question corpus; it has no institution selector. Every authenticated
+operation starts with the server-derived `ActorContext { user_id, session_id }`.
+The context is resolved only from the active session and never from a route,
+header, JSON body, queue payload, or browser state. It identifies the actor but
+does not itself grant a course, Student, workspace, question, or grading
+capability.
+
+The protected Store and broker boundary derives and checks the complete exact
+ownership chain in one transaction: `CourseId`, assignment, Student `UserId`,
+`RunId`, `QuestionAttemptId`, and `AcceptedSubmissionId`. It also checks the
+immutable published question reference (`QuestionId` plus its exact
+`ProblemVersionRef`) and every immutable evidence reference/digest used by the
+issued attempt and receipt. A foreign user, course, assignment, run, attempt,
+submission, question, evidence reference, revoked membership, or stale route
+returns the same concealed no-row/unauthorized result; it never broadens a
+query by actor or by a current catalog lookup.
+
+Workers do not impersonate an actor. A queue claim locks a typed
+`WorkerLease` containing `JobId`, `JobLeaseToken`, `WorkerId`, exact scope,
+execution generation, and manifest digest. The locked `WorkerManifest` binds
+the exact course, Student, run, attempt, submission, immutable question and
+evidence references, and accepted-input digest. Claim, load, completion, fail,
+and recalculation brokers recheck that lease, manifest, and generation in the
+same transaction; `FOR UPDATE SKIP LOCKED` permits one winner and generation
+fencing makes stale workers harmless. The manifest contains references and
+digests only, never browser answers, keys, feedback, or grader diagnostics.
+
+Automated grading is deterministic and server-owned. Manual score ownership is
+outside the product model and no automated-grading route, status, worker, or
+receipt may introduce a manual or exemption transition.
+
+This documentation repair adds no tests and does not claim runtime acceptance.
+Future validation is split by evidence class: permanent offline Memory/Rust/
+TypeScript tests cover actor-context handling, exact ownership, immutable
+question/evidence references, canonical evidence, and lease/manifest/generation
+state transitions; a disposable PostgreSQL oracle covers broker signatures,
+forced RLS, ACLs, locked manifests, `FOR UPDATE SKIP LOCKED`, and stale-worker
+fences; the canonical HTTPS browser suite covers answer-free status and
+Instructor recovery plus cross-user/cross-course/foreign-target refusal; and
+one-time Graphify/source, migration, SQL catalog, route, consumer, and rendered
+evidence reviews document this rebase without becoming permanent tests.
+
+## Immutable question versions and correction evidence
+
+Every assignment item, issued attempt, accepted submission, worker manifest,
+completion receipt, and grading evidence pins the exact published question
+identity: public `QuestionId` plus its immutable `ProblemVersionRef` (including
+the exact problem/version evidence digest). A worker, status reader, or
+recalculation broker never resolves a mutable latest question. Published
+question versions and their grading semantics are append-only; a correction to
+the prompt, generator, answer semantics, rubric, or grader contract publishes
+a new version and never edits the old version in place.
+
+Publishing a corrected version creates replacement-impact evidence linked to
+the originating improvement thread and the old/new immutable references. The
+evidence is answer-free and records affected assignment references, pinned
+attempt/run/submission populations, the safe impact summary, and the explicit
+deterministic recalculation decision. Existing attempts remain pinned to the
+old version. A decision of `preserve_pinned_history` or
+`future_runs_only` leaves those attempts untouched; a decision to recalculate
+any eligible existing work creates a separate generation-fenced operation
+bound to the old/new references and its immutable evidence, with an auditable
+Instructor action and receipt. That operation never retargets the pinned
+attempt or evidence; it publishes only a separately identified derived-score
+generation while preserving the original receipt. No correction silently
+mutates a question, attempt, evidence record, score, or receipt.
+
+Version-specific metrics count only accepted, server-graded attempts for the
+exact published version: `accepted_server_graded_attempt_count`,
+`correct_outcome_count`, and `eligible_flat_choice_selection_count`. Preview work, the answer-free
+Instructor Student view, aborted attempts, and pending/ungraded work are
+excluded. Privacy-thresholded rollups may aggregate these counts only when the
+disclosure threshold is satisfied, must contain no Student identity, and must
+label the exact formula version, question version, and evidence timestamp;
+below threshold the projection is the sole insufficient-evidence state. The actionable Instructor queue keeps
+the question title/public ID, correction linkage, safe impact, generation, and
+next operation visible without exposing Student identity or answer material.
+
+### Emergency forced correction and validated replacement
+
+A Sysadmin may approve a `ForcedQuestionCorrection` only for a security or
+critical-correctness defect. The operation publishes a new immutable
+`QuestionId`/`ProblemVersionRef` and a closed, privacy-safe
+impact/remediation manifest. It never mutates the defective version, rewrites
+its grading semantics, or silently swaps any already-issued, accepted,
+graded, or receipt-pinned work. Original attempts, responses, evidence,
+scores, and receipts remain resolvable against their exact pinned references.
+
+The correction commits one authoritative active-reference mapping and
+generation before fan-out; from that commit, new selection and issuance no
+longer resolve the defective reference. Deterministic compatibility applies
+only to unissued work; idempotent generation-fenced workers materialize compatible
+reference updates and remediation from the immutable manifest. This avoids an
+unbounded cross-course transaction while making every new resolution follow
+the committed mapping. In-progress work receives deterministic reissue or
+excuse treatment. For completed work with no correct answer, the manifest
+selects deterministic full-credit or exclude-and-rescale remediation. No
+course Instructor approval is required after the Sysadmin decision; authorized
+Instructors receive an exact-course, audited result projection and actionable
+follow-up without owning manual scores.
+
+The manifest and Sysadmin projection contain no Student identity, response,
+grade, answer, or raw private evidence. They expose only thresholded impact,
+old/new references, compatibility, remediation disposition, formula/version
+labels, and audit metadata. The correction, active-reference commit, worker
+fan-out, reissue/excuse, remediation, and any recalculation append typed
+superseding correction/recalculation receipts while preserving all original
+receipts. Every action is idempotent, generation-fenced, and append-only.
 
 ## Execution model
 
 G1-W4 has one private accepted-submission execution boundary with two caller
 roles. The closed `GradeAcceptedSubmission` job family reaches that boundary
 directly. The generic `JobStore` families retain their established queue
-paths. An exact
-fast-path target carries the accepted metadata tuple `(tenant, attempt,
-submission, job)` and never carries a response, result, feedback, score, or
-reason. Both generic next-ready and exact-target entry points use one shared
-claim-state machine. They return the same opaque tenant-bound claim tuple
-`(tenant, job, lease_token, submission, execution_generation, worker)` before
-tenant-bound material is loaded. Every answer-bearing load and outcome uses
-that complete claim tuple.
+paths. An exact fast-path target carries the accepted metadata tuple
+`(course, assignment, student, run, attempt, submission, job, question_ref, evidence_ref)`
+and never carries a response, result, feedback, score, or reason. Both generic
+next-ready and exact-target entry points use one shared claim-state machine.
+They return the same opaque scope-bound claim tuple
+`(course, assignment, student, run, attempt, submission, job, lease_token,
+execution_generation, worker, manifest_digest)` before private material is
+loaded. Every answer-bearing load and outcome uses that complete claim and
+manifest tuple.
 
 An inactive claim has the typed `ClaimNoLongerActive` disposition. It preserves
 execution, evaluation, receipt, queue, operation, and score state. A known
@@ -53,54 +170,15 @@ accepted-submission worker under one bounded claim budget; together they serve
 the six established families and the sealed seventh family. The authenticated
 one-use iMathAS broker retains its atomic external-tool path.
 
-## Current correction architecture
+## PostgreSQL boundary
 
-`ple_accepted_submission_execution` is the existing generic recovery caller.
-Migration 1851 adds
-`ple_accepted_submission_execution_fast_path` as the exact-target caller. Both
-caller roles receive the common load, completion-lock, commit, and fail
-functions directly. The recovery caller executes only the generic claim
-wrapper; the fast-path caller executes only the exact claim wrapper. Neither
-caller executes its sibling wrapper or the owner-only internal claim
-transition. `ple_accepted_submission_execution_worker` remains the
-membership-free NOLOGIN definer owner; it is not a process capability.
+The paired [automated_grading_execution_database_contract.md](automated_grading_execution_database_contract.md) owns the W4 PostgreSQL migration decomposition, caller roles,
+function signatures, RLS and grants, transaction-held completion workflow, and
+connected database validation. This execution contract keeps the cross-backend
+semantics: a recovery caller and an exact fast-path caller use one leased handler,
+while the database contract proves the least-privilege realization. The
+implementation status ledger remains the sole migration-allocation authority.
 
-W4 adds a recovery login/pool with only
-`ple_accepted_submission_execution` and a fast-path login/pool with only
-`ple_accepted_submission_execution_fast_path`. Each membership is `SET TRUE`,
-`INHERIT FALSE`, and `ADMIN FALSE`. The API and general worker retain their
-ordinary pools, while the fast-path adapter and recovery worker receive their
-respective private pool through type-distinct composition. Both adapters claim
-through their own role and delegate a won claim to the same common handler,
-which alone loads, locks, commits, or fails the claim tuple.
-
-## Existing authority
-
-| Artifact | W4 use |
-| --- | --- |
-| Migration `2026081849` | Creates immutable accepted input, `grading_execution`, a ready job, and `grading_execution_receipt`. |
-| Migration `2026081850` | Owns the private child, atomic acceptance/replay, RLS, retention, caller capability, and W2 ready-state loader v1. |
-| Migrations `2026081851`-`2026081860` | Own the ordered W4 schema/roles, integrity, public-function authority, table authority, claim, verified read, load, completion-lock, commit-v2, and fail capabilities. |
-| Migration `2026081830` | Receives the successful execution's conditional recalculation enqueue. |
-| Migration `2026081831` | Remains the sole publisher of current scores, summaries, and totals. |
-
-The schema/roles layer adds `grading_execution.active_worker_id uuid NULL`. This field
-fences the worker that owns an active lease. It adds the nullable pair
-`submission_evaluation.automated_result_canonical_json text` and
-`automated_result_sha256 character(64)`. Pair, size, digest, and focused update
-guards apply. A populated pair persists until the existing retention capability
-deletes governed records. Existing `payload` and `payload_sha256` retain their
-queryable-projection semantics.
-
-The integrity layer establishes one receipt invariant across native,
-external-tool, and accepted-submission receipt writers: every
-`submission_receipt_snapshot` carries `receipt_attempt_payload` and
-`receipt_attempt_payload_sha256`, an answer-free attempt snapshot in the
-legitimate terminal state owned by that writer. A normal or automated
-completed receipt uses `Submitted`. The normalized snapshot remains the immutable source for
-receipt replay and status reads; it never consults mutable catalog sources to
-reconstruct Student work. The accepted-submission completed branch additionally
-requires the full `Submitted` plus `graded | exempt` completion aggregate.
 
 ## Canonical immutable evidence protocol
 
@@ -140,7 +218,7 @@ private three-element feedback tuple `[hint, correct_response, rationale]`;
 `jsonb_build_array(hint, correct_response, rationale)`. Existing content-block
 shape checks continue to apply. Receipt source text, projections, digests, and
 version are immutable after insertion alongside the established answer-free
-terminal and tenant/identity guards.
+terminal, exact ownership, immutable-question, and immutable-evidence guards.
 
 Current lifecycle projections remain distinct. `question_attempt.payload`
 retains the immutable issuance record; its relational status and submission
@@ -159,20 +237,66 @@ Lane A defines these types in
 re-exports them through `grading_operations.rs` and `lib.rs`.
 
 ```rust
+pub struct ActorContext {
+    pub user_id: UserId,
+    pub session_id: SessionId,
+}
+
+pub struct ImmutableQuestionReference {
+    pub question_id: QuestionId,
+    pub version: ProblemVersionRef,
+}
+
+pub struct ImmutableEvidenceReference {
+    pub issued_snapshot_digest: Sha256Digest,
+    pub grading_source_digest: Sha256Digest,
+}
+
+pub struct WorkerLease {
+    pub job: JobId,
+    pub lease_token: JobLeaseToken,
+    pub worker: WorkerId,
+    pub generation: GradingExecutionGeneration,
+}
+
+pub struct WorkerManifest {
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub student: UserId,
+    pub run: RunId,
+    pub attempt: QuestionAttemptId,
+    pub submission: AcceptedSubmissionId,
+    pub question: ImmutableQuestionReference,
+    pub evidence: ImmutableEvidenceReference,
+    pub manifest_digest: Sha256Digest,
+}
+
 pub struct AcceptedSubmissionExecutionTarget {
-    pub tenant: TenantId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub student: UserId,
+    pub run: RunId,
     pub attempt: QuestionAttemptId,
     pub submission: AcceptedSubmissionId,
     pub job: JobId,
+    pub question: ImmutableQuestionReference,
+    pub evidence: ImmutableEvidenceReference,
 }
 
 pub struct AcceptedSubmissionExecutionClaim {
-    pub tenant: TenantId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub student: UserId,
+    pub run: RunId,
+    pub attempt: QuestionAttemptId,
     pub job: JobId,
     pub lease_token: JobLeaseToken,
     pub submission: AcceptedSubmissionId,
+    pub question: ImmutableQuestionReference,
+    pub evidence: ImmutableEvidenceReference,
     pub execution_generation: GradingExecutionGeneration,
     pub worker: WorkerId,
+    pub manifest_digest: Sha256Digest,
 }
 
 pub struct AcceptedSubmissionGrade {
@@ -229,13 +353,15 @@ pub enum AcceptedSubmissionCommitError {
 pub trait AcceptedSubmissionExecutionStore: Send + Sync {
     async fn load_accepted_submission_for_execution(
         &self,
-        context: TenantContext,
+        lease: WorkerLease,
+        manifest: WorkerManifest,
         claim: AcceptedSubmissionExecutionClaim,
     ) -> Result<AcceptedSubmissionExecution, StoreError>;
 
     async fn commit_or_fail_accepted_submission_execution(
         &self,
-        context: TenantContext,
+        lease: WorkerLease,
+        manifest: WorkerManifest,
         claim: AcceptedSubmissionExecutionClaim,
         outcome: AcceptedSubmissionExecutionOutcome,
     ) -> Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError>;
@@ -276,10 +402,10 @@ the accepted submission. `Some(claim)` means the caller won the exact lease.
 terminal, it is no longer pending, it is retention-inactive, or its exact
 job-payload witness no longer matches. `None` has no reason payload and maps
 to `ClaimNoLongerActive`; it never exposes private material. The exact method
-requires all four target identifiers to match the persisted
-`GradeAcceptedSubmission` payload. It returns the existing six-column claim
-tuple, and load, completion lock, commit, and fail continue to fence every
-field of that tuple.
+requires every target identifier, immutable question/evidence reference, and
+manifest digest to match the persisted `GradeAcceptedSubmission` payload. It
+returns the typed scope/lease claim, and load, completion lock, commit, and fail
+continue to fence every field of that claim.
 
 The generic and exact methods are alternate entry points to one state machine,
 not separate queues: they share candidate eligibility, controlled expiry and
@@ -315,11 +441,10 @@ read-time projection: it combines this aggregate with current
 `accepted_submission_private_response` / `private_submission_responses` and is
 available only through the lease-fenced execution capability.
 
-Automated execution writes only `graded`. `SubmissionEvaluationStatus::Exempt`
-remains a general read-model state and maps to learner-safe completed/graded
-visibility. An authorized Instructor/policy capability owns any exemption
-transition; the worker outcome, `RunBackend`, `GradeReceipt`, and completion
-function do not carry that authority.
+Manual score ownership and exemption transitions are outside the automated
+grading product model. The worker writes only deterministic `graded`,
+`automated_exception`, or retry/pending state; no route, receipt, or status DTO
+creates a manual score path.
 `GradingOperationReason` is the only deterministic or integrity datum crossing
 the handler/store boundary. W3 maps `DeterministicGraderFailure` to this closed
 type. `MemoryStore` and `PostgresAcceptedSubmissionExecutionStore` implement
@@ -390,236 +515,19 @@ sole publisher of assignment and course scores and totals.
 Memory invokes the planner under one `write_state()` lock. Its accepted
 submission state changes from a stored `SubmissionRecord` to
 `Completed(Box<CompletedSubmissionReceipt>)`; receipt replay and status reads
-apply current disclosure only when projecting that aggregate. PostgreSQL owns
-the same transaction-scoped workflow through the lock/commit capability below.
+apply current disclosure only when projecting that aggregate. PostgreSQL
+realizes the same transaction-scoped workflow through the lock/commit
+capability owned by
+[automated_grading_execution_database_contract.md](automated_grading_execution_database_contract.md).
 
-## W4 SQL migration decomposition
+## Database capability handoff
 
-The sole mutable allocation is the [implementation status
-ledger](../implementation_status.md). It assigns nine small, pre-production
-W4 migrations in dependency order. Each owns one independently reviewable
-capability and one focused PostgreSQL proof. W5 receives `2026081861` in the
-ledger and begins schema work after its allocation and W4 stable handoff.
-W4 keeps explicit identity, capability, transition, and immutable-evidence
-boundaries that support the roadmap's later database normalization work; that
-roadmap evolves the broader relational model in its own package.
+The database-specific W4 decomposition and PostgreSQL obligations are owned by
+[automated_grading_execution_database_contract.md](automated_grading_execution_database_contract.md). It preserves migrations `2026081851` through `2026081860`, the exact
+caller/function/RLS/grant boundary, transaction and recovery rules, and W7b's
+connected database oracle. Lanes A, C, and D consume its stable capability;
+portable execution, evidence, state, and handler semantics remain here.
 
-| Migration | Owns | Focused PostgreSQL proof |
-| --- | --- | --- |
-| `2026081851_accepted_submission_execution_schema.sql` | Roles and schema, including the exact fast-path caller role and `active_worker_id`/canonical-evidence columns. | Exact role shape, zero memberships, and no direct data authority. |
-| `2026081852_accepted_submission_execution_integrity.sql` | Immutable guards and triggers. | Invalid or repeated immutable writes fail. |
-| `2026081853_public_function_authority.sql` | Global PUBLIC function-EXECUTE revocation, migration-current-role default-privilege revocation, effective privilege catalog proof, and legacy loader retirement. | PUBLIC and migration-owner defaults grant no executable path; legacy v1 load is absent or denied. |
-| `2026081854_accepted_submission_execution_authority.sql` | Witness, RLS/policies, table/sequence authority, receipt `canonical_json_version` SELECT, and exact authority attestation. | Definer receipt version read succeeds; caller and app direct reads remain denied. |
-| `2026081855_accepted_submission_execution_claim.sql` | One owner-only internal transition, generic and exact claim wrappers, and ready/max convergence. | Generic/exact race has one winner; each caller is denied its sibling wrapper and the internal transition. |
-| `2026081856_accepted_submission_execution_read.sql` | Four-key structural integrity reader for the safe graded projection. | Authorized route read succeeds; wrong structural key, direct canonical data, and cross-tenant access fail. |
-| `2026081857_accepted_submission_execution_load.sql` | Exact private execution load wrapper. | Exact claim loads once; a mismatched tuple loads nothing. |
-| `2026081858_accepted_submission_execution_completion_lock.sql` | Exact completion-lock wrapper. | A stale or duplicate claim cannot acquire completion rows. |
-| `2026081859_accepted_submission_execution_commit.sql` | Commit-v2 wrapper. | One graded completion writes the expected immutable aggregate through all 36 ordered inputs. |
-| `2026081860_accepted_submission_execution_fail.sql` | Fail wrapper with closed NULL-aware failure validation. | Invalid NULL vocabulary raises `22023` and preserves all state. |
-
-Migration 1851 creates the exact fast-path caller with NOLOGIN, NOINHERIT,
-no memberships, schema USAGE only, and no direct relation, sequence, or
-unrelated function authority. Migration 1852 applies immutable guards and
-triggers. Migration 1853 removes global PUBLIC function EXECUTE, removes
-function default EXECUTE for the role that runs the migration, and proves the
-effective catalog privilege set is closed. It explicitly retires
-`ple_load_accepted_submission_execution_v1`: the legacy function is absent or
-has no executable path for every non-owner role. Migration 1854 establishes
-the witness and sealed table authority; it grants the definer exactly the
-receipt columns it reads, including `canonical_json_version`, while `ple_app`
-receives no private canonical source, digest, or version column. Its authority
-proof compares actual and expected non-owner function ACLs as complete
-`aclexplode` sets, including grant options.
-
-Migrations 1855 through 1860 each create their one public `SECURITY DEFINER`
-wrapper or tightly paired claim wrappers with
-`SET search_path TO 'pg_catalog', 'public', pg_temp` and server-owned time. The
-shared claim transition is owner-only `SECURITY INVOKER` and receives no public
-grant. Each capability's catalog assertion proves owner, security-definer flag,
-fixed search path, signature, and exact complete non-owner execute ACL. The
-1852 trigger functions attest an empty external ACL; 1855 attests the internal
-transition as empty, the generic wrapper for recovery only, and the exact
-wrapper for fast path only; 1856 attests `ple_app` only; and 1857-1860 attest
-exactly both caller roles. Every `ALTER FUNCTION`, revoke, and grant statement
-remains individually readable and executable.
-
-```sql
-public.ple_claim_accepted_submission_execution_v1(
-    p_lease_token uuid, p_worker_id uuid, p_lease_seconds integer
-) RETURNS TABLE (
-    tenant_id uuid, worker_job_id uuid, worker_lease_token uuid,
-    submission_id uuid, execution_generation bigint, worker_id uuid
-);
-
-public.ple_claim_exact_accepted_submission_execution_v1(
-    p_tenant_id uuid, p_attempt_id uuid, p_submission_id uuid,
-    p_worker_job_id uuid, p_lease_token uuid, p_worker_id uuid,
-    p_lease_seconds integer
-) RETURNS TABLE (
-    tenant_id uuid, worker_job_id uuid, worker_lease_token uuid,
-    submission_id uuid, execution_generation bigint, worker_id uuid
-);
-
-public.ple_read_accepted_submission_evaluation_v1(
-    p_tenant_id uuid, p_course_id uuid, p_assignment_id uuid,
-    p_attempt_id uuid
-) RETURNS TABLE (evaluation_payload jsonb);
-
-public.ple_load_accepted_submission_execution_v2(
-    p_tenant_id uuid, p_worker_job_id uuid, p_lease_token uuid,
-    p_submission_id uuid, p_execution_generation bigint, p_worker_id uuid
-) RETURNS TABLE (
-    worker_job_id uuid, worker_lease_token uuid, execution_generation bigint,
-    worker_id uuid, execution_state text,
-    accepted_tenant_id uuid, accepted_course_id uuid,
-    accepted_assignment_id uuid, accepted_attempt_id uuid,
-    accepted_submission_id uuid, accepted_actor_id uuid,
-    accepted_idempotency_key text, accepted_request_sha256 character(64),
-    accepted_millis bigint, response_canonical_json text,
-    attempt_payload jsonb, attempt_payload_sha256 character(64),
-    presentation_descriptor_version smallint, presentation_nonce bytea,
-    presentation_digest bytea, presentation_capability text,
-    presentation_payload jsonb, presentation_payload_sha256 character(64),
-    grading_envelope_payload jsonb, grading_envelope_payload_sha256 character(64),
-    issued_question_snapshot_payload jsonb,
-    issued_question_snapshot_payload_sha256 character(64),
-    flat_required boolean, flat_payload jsonb, flat_payload_sha256 character(64),
-    webwork_required boolean, webwork_payload jsonb,
-    webwork_payload_sha256 character(64), webwork_replay_payload jsonb,
-    webwork_replay_payload_sha256 character(64), qti_required boolean,
-    qti_payload bytea, qti_payload_sha256 character(64)
-);
-
-public.ple_lock_accepted_submission_completion_v1(
-    p_tenant_id uuid, p_worker_job_id uuid, p_lease_token uuid,
-    p_submission_id uuid, p_execution_generation bigint, p_worker_id uuid
-) RETURNS TABLE (
-    /* exact private completion input, including the private accepted response
-       and named scalar summary fields */
-);
-
-public.ple_commit_accepted_submission_completion_v2(
-    p_tenant_id uuid, p_worker_job_id uuid, p_lease_token uuid,
-    p_submission_id uuid, p_execution_generation bigint, p_worker_id uuid,
-    p_canonical_json_version smallint, p_evaluation_status text,
-    p_evaluation_canonical_json text, p_evaluation_sha256 character(64),
-    p_attempt_canonical_json text, p_attempt_payload jsonb,
-    p_attempt_payload_sha256 character(64), p_feedback_canonical_json text,
-    p_feedback_content_sha256 character(64), p_run_canonical_json text,
-    p_run_payload jsonb, p_run_payload_sha256 character(64),
-    p_run_current_canonical_json text,
-    p_run_current_payload_sha256 character(64),
-    p_run_completed_at_millis bigint,
-    p_enrollment_first_completed_at_millis bigint,
-    p_enrollment_current_grade_run_id uuid, p_enrollment_best_grade_run_id uuid,
-    p_summary_canonical_json text, p_summary_payload jsonb,
-    p_summary_payload_sha256 character(64), p_presentation_canonical_json text,
-    p_presentation_payload jsonb, p_presentation_payload_sha256 character(64),
-    p_presentation_required boolean, p_assignment_item_id uuid,
-    p_statistics jsonb, p_expected_scoring_generation bigint,
-    p_recalculation_job_id uuid, p_recalculation_max_attempts integer
-) RETURNS TABLE (
-    disposition text, resulting_execution_state text,
-    resulting_evaluation_status text
-);
-
-public.ple_fail_accepted_submission_execution_v1(
-    p_tenant_id uuid, p_worker_job_id uuid, p_lease_token uuid,
-    p_submission_id uuid, p_execution_generation bigint, p_worker_id uuid,
-    p_failure_kind text, p_operation_reason text
-) RETURNS TABLE (
-    disposition text, resulting_execution_state text,
-    resulting_evaluation_status text
-);
-```
-
-The full commit signature has 36 inputs; canonical JSON version is explicitly
-position 7, before evaluation status. The 1855 generic and exact wrappers call
-the same internal transition. It
-performs closed-payload and target-witness checks, controlled exhausted-work
-convergence, candidate eligibility, `FOR UPDATE SKIP LOCKED`, lease and
-`active_worker_id` updates, and one running receipt. The exact wrapper returns
-zero rows for a noneligible or racing target. The reader accepts
-tenant/course/assignment/attempt and structurally verifies the exact attempt ->
-run -> enrollment -> assignment -> course chain in the tenant transaction. It
-returns only the existing app-readable `submission_evaluation.payload` after
-proving `completed`, `Submitted`, `graded`, receipt, canonical version, UTF-8
-digest, payload digest, and canonical-text/projection equality. It is an
-integrity-and-route verifier, not an independent actor-authorization API: the
-module-private call follows the canonical `require_attempt_owner_for_read`
-entitlement check in the same Rust transaction, and
-`LearnerSubmissionStatusStore` is the sole public capability for this result.
-Route values are assertions; no-row or contradiction maps to unavailable. It
-contains no exempt branch; the existing authorized exempt receipt path remains
-separate.
-
-Migration 1855 converges both supported exhausted stored states before leasing:
-an expired leased job at its maximum and a ready or retry-wait job at its
-maximum. The candidate query and guarded lease update require
-`attempt_count < max_attempts`; convergence writes the one terminal exception
-aggregate and immutable receipt. A ready exhausted job retains its permitted
-`last_error` or uses `permanent` when absent, so generic and exact wrappers
-share one closed state transition.
-
-The lock/load capability acquires the exact completion rows with `FOR UPDATE`
-after rechecking the complete lease tuple, active retention, immutable accepted
-response digest, issued witness, and pending evaluation. It returns the typed
-summary's named scalar fields for `decode_summary_row_named`, not a fabricated
-current JSON payload, and returns private response material only to the
-execution capability. The Rust PostgreSQL store holds that transaction open,
-validates and decodes the result, invokes the shared pure planner, and calls
-commit v2 before committing. Thus locks persist from source load through the
-complete write.
-
-Migration 1859 installs commit v2 and migration 1860 installs fail after the
-acquisition/read layers are available. Commit v2 accepts only server-derived
-plan payloads plus canonical evidence.
-For each immutable evidence value it receives source text and `jsonb`
-projection, verifies the `ple-canonical-json-v1` text digest, parses the text,
-requires parsed-text/projection structural equality, and applies the closed
-W4 identity, lifecycle, and tenant invariants. For the receipt summary, it
-accepts exactly the eight canonical `StudentAssignmentSummary` fields:
-`tenant`, `enrollment`, `currentScore`, `bestScore`, `latestScore`,
-`completedRunCount`, `totalQuestionAttempts`, and `lastActivityAt`. It validates
-their identities and scalar bounds, stores the exact immutable receipt-summary
-source/projection/digest triplet, and derives the typed scalar
-`student_assignment_summary` update from that parsed value. The capability has
-exactly 36 positional values. It rechecks the full claim and validates every
-identity and checksum against locked source rows, writes the evaluation,
-feedback, answer-free completed attempt, normalized receipt-attempt snapshot,
-run/enrollment/summary transition, one-time statistics inputs, execution/job
-receipts, and one 1830 enqueue. A valid inactive claim returns
-`claim_no_longer_active` and changes no row. This keeps grading and lifecycle
-semantics in the shared Rust planner rather than reproducing the scoring
-algorithm in PL/pgSQL.
-
-The ten migrations are independently atomic: each starts and commits its own
-transaction, and each either installs its single capability or rolls back
-entirely. A fresh installer applies 1851 through 1860 in order and does not
-launch an API or worker until the migration tail is compatible. A failure
-leaves an incompatible disposable database for diagnosis, never a partially
-installed capability. The pre-production baseline rejects nonempty legacy receipt
-or feedback tables with a clear rebuild instruction and never fabricates source
-text from historical `jsonb`. Fresh disposable apply of all nine layers, a
-second no-op pass, and compatibility verification are required evidence for
-the ordered stack.
-
-The commit function accepts only `graded` as `p_evaluation_status`. Its
-canonical-text parameter is bounded. The failure function accepts only
-non-NULL `deterministic`, `transient`, `timed_out`, and `terminal` values as
-`p_failure_kind`. A deterministic failure carries a non-NULL reason from the
-existing closed reason set; every other failure kind carries no reason. Invalid
-NULL or vocabulary inputs raise `22023` before a lock and preserve every job,
-execution, evaluation, receipt, and operation row. SQL derives
-`retry_exhausted` from persisted attempt state.
-
-V2 load reads only after rechecking the full tuple, `running` state, active
-worker, unexpired lease, response digest, issued witness, course, and active
-retention fences. It returns zero rows when a predicate fails. The completion
-lock and commit v2 repeat every predicate in their shared mutation transaction.
-A predicate failure returns `claim_no_longer_active` and preserves state.
-
-## State transitions
 
 | Outcome | Execution and evaluation | Job and receipt | Other effect | Disposition |
 | --- | --- | --- | --- | --- |
@@ -706,16 +614,18 @@ GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission
 
 Lane D receives one focused server-only `LearnerSubmissionStatusStore`; it is
 injected beside the existing sealed execution capability rather than added to
-the broad `Store` facade. It proves tenant, Student, course, assignment, run,
-and attempt in one authoritative read before returning the union. Memory reads
+the broad `Store` facade. It accepts `ActorContext` and proves the exact
+Student, course, assignment, run, attempt, submission, and immutable
+question/evidence references in one authoritative read before returning the
+union. Memory reads
 the completed aggregate under one lock; PostgreSQL checks the exact route
-binding and receipt in one tenant transaction. Both use the same closed table:
+binding and receipt in one actor-scoped transaction. Both use the same closed table:
 
 | Execution / evaluation / receipt | Read result |
 | --- | --- |
 | `ready`, `running`, or `retry_wait` / `automated_pending` / no completed receipt | `accepted_pending` |
 | `exception` / `automated_exception` / no completed receipt | `instructor_attention` |
-| `completed` / `graded` or `exempt` / valid immutable completed receipt | `completed` |
+| `completed` / `graded` / valid immutable completed receipt | `completed` |
 | Any other combination | unavailable closed failure |
 
 The completed branch verifies the receipt-attempt payload/checksum,
@@ -732,9 +642,9 @@ status action, and reads this route.
 | Lane | Owned files | Deliverable |
 | --- | --- | --- |
 | A: Rust contract and Memory completion | `canonical_json.rs`, `contracts/grading_operations.rs`, `contracts/runs.rs`, `submission_completion.rs`, `grading_operations.rs`, `lib.rs`, `in_memory.rs`, `in_memory/grading_execution_worker.rs`, `in_memory/runs/issued_contracts.rs`, `in_memory/runs.rs` | Common execution, recovery-claim, and exact-claim traits; metadata-only target; type-distinct Memory behavior over one state machine; graded-only outcomes and convergent receipt state. |
-| B: SQL authority | `schemas/migrations/2026081851_accepted_submission_execution_schema.sql` through `schemas/migrations/2026081860_accepted_submission_execution_fail.sql` | Ten readable W4 layers: schema/roles, integrity, public-function authority, table authority, claim, read, load, completion lock, commit, and fail. The ordered stack provides versioned evidence, closed executable authority, one-winner claims, verified reads, and W7b setup. |
+| B: SQL authority | [automated_grading_execution_database_contract.md](automated_grading_execution_database_contract.md); `schemas/migrations/2026081851_accepted_submission_execution_schema.sql` through `schemas/migrations/2026081860_accepted_submission_execution_fail.sql` | The database companion owns ten readable W4 layers, executable authority, one-winner claims, verified reads, and W7b setup. |
 | A1: Login and deployment | `postgres/connection.rs`, `postgres/connection_contract.rs`, `local_stack_control/process_logins.py`, pool composition/settings, and focused tests | Exact recovery and fast-path login profiles, one membership each, bounded private pools, and constructors that keep both pools out of general stores. |
-| A2: PostgreSQL execution and receipt implementation | `postgres/grading_operations.rs`, `postgres/submission_receipts.rs`, `postgres/submission.rs`, `postgres/manual_grading.rs`, `postgres/external_tool.rs`, `postgres/feedback_data.rs`, `postgres/feedback.rs`, `postgres/row_decode.rs`, `postgres.rs`, focused PostgreSQL-gated unit tests | Type-distinct recovery/fast-path wrappers over a private shared execution core; same-transaction entitlement then four-key verified read; one held transaction from lock through Rust planning and commit v2. |
+| A2: PostgreSQL execution and receipt implementation | `postgres/grading_operations.rs`, `postgres/submission_receipts.rs`, `postgres/submission.rs`, `postgres/external_tool.rs`, `postgres/feedback_data.rs`, `postgres/feedback.rs`, `postgres/row_decode.rs`, `postgres.rs`, focused PostgreSQL-gated unit tests | Type-distinct recovery/fast-path wrappers over a private shared execution core; same-transaction actor entitlement then exact ownership and immutable-reference verification; one held transaction from lock through Rust planning and commit v2. |
 | C: common handler and dispatch | Focused `accepted_submission_worker.rs`, `worker.rs`, `scoring_worker.rs` registration seam, `composition/worker.rs`, `composition/settings.rs`, focused tests | One handler-owned validated deadline and cancellation-safe timeout-to-one-`TimedOut` outcome; C2 passes the same existing worker setting to fast and recovery callers; closed grade plus feedback mapping and durable uncertainty handling. Depends on A/A2/B. |
 | D: acceptance, status, and learner client | `contracts/runs/issue_contracts.rs`, `contracts/store_capabilities.rs`, `in_memory/runs/learner_submission_status.rs`, `postgres/runs/learner_submission_status.rs`, `run/submission.rs`, `run/support.rs`, `run/queries.rs`, `run/routes.rs`, `composition/router.rs`, `composition/backend.rs`, `src/api/contracts.ts`, `src/api/decoders/run.ts`, `src/api/http_client/{request,response}.ts`, `src/api/client.ts`, `src/features/attempt/attempt_state.ts`, focused page/tests | First acceptance effect, route-bound convergent status capability, answer-free union, decoder/client state, and visible learner recovery. Depends on completed receipt delivery from A/A2/C. |
 
@@ -756,8 +666,8 @@ pixel comparisons. They prove:
   target/claim-tuple mismatch rejection, expiry, reclaim, ready-at-max and
   expired-lease-at-max convergence, and sibling/internal claim-wrapper denial.
 - Graded, deterministic, transient, timed-out, exhausted, and terminal outcome
-  transitions; the worker cannot originate `exempt`, while general status reads
-  preserve it as completed/graded visibility.
+  transitions; the worker emits only deterministic graded, exception, or retry
+  state and cannot originate a manual score transition.
 - `ple-canonical-json-v1` creates one source text and SHA-256 for each typed
   evidence value; altered text or digest and source/projection disagreement
   fail closed. The small result source-text example remains the public wire
@@ -776,8 +686,8 @@ pixel comparisons. They prove:
   `TimedOut` commit, and the durable store disposition after the validated
   deadline. C2 tests prove the same existing worker setting reaches fast and
   recovery handler construction.
-- Same-transaction actor-entitlement ordering before the four-key verified
-  read; a same-tenant other actor or changed route remains unavailable, and
+- Same-transaction actor-entitlement ordering before the exact ownership and
+  immutable-reference read; a different user, foreign course, foreign target, or changed route remains unavailable, and
   only the existing safe evaluation projection can reach the caller.
 - Exact route-bound status authorization, state-table projection, and
   answer-free 202/status recovery with no second answer POST. Fast `Committed`
@@ -786,29 +696,12 @@ pixel comparisons. They prove:
   return pending (`202`); terminal work re-reads as instructor attention
   (`202`). No route synthesizes a receipt or replays an accepted answer.
 
-W7b owns connected executable proof in
-`crates/learning-data-access/tests/postgres_automated_grading_operations_live.rs`
-and `tests/e2e/e2e_database_baseline.sh`. It runs against a fresh database
-migrated through 1851 through 1860, followed by a second no-op pass and
-compatibility check. It proves capability and private-read denial,
-exact role/login/pool membership, generic-queue separation,
-generic-versus-exact one-winner claim competition,
-worker claim/load/one-time outcome, claim fences,
-receipt append-only protection, retention and witness closure,
-retry/reclaim/exhaustion including ready-at-max convergence, executable
-role/RLS/catalog authority including exhaustive non-owner function ACLs, the
-app's verified-read success after canonical actor entitlement, and direct-column
-denial; it proves NULL failure kind and NULL deterministic reason yield `22023`
-without durable changes. It also verifies canonical source-text/digest and JSONB-projection
-evidence across normal, manual, and automated writers, normalized receipt
-immutability, transaction-scoped lock/commit-v2 claim fencing, and completion
-replay/status convergence. It proves known function/statement failure remains
-`Known(StoreError)` and uses the reviewed final-acknowledgement fault seam to
-prove `OutcomeUnknown` only after a decoded completion result. It compares ordinary synchronous completion and
-accepted-worker completion for the same transition, requiring equal run,
-enrollment, and scalar summary results. It also proves 1830 enqueue followed
-by the 1831-only assignment/course current-score publication path. The proof
-uses controlled stored lease timestamps rather than elapsed waiting.
+The connected PostgreSQL proof is owned by
+[automated_grading_execution_database_contract.md](automated_grading_execution_database_contract.md).
+The paired document keeps the offline deterministic, handler, route, and
+learner-status criteria; the database companion owns fresh migration install,
+ACL/RLS, claim/load/commit, receipt, recovery, replay, and 1830/1831
+publication evidence.
 
 W4 succeeds only after the fresh disposable stabilization sequence, all five
 lanes' focused deterministic gates, and W7b's connected authority oracle are

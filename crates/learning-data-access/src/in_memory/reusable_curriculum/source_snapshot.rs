@@ -1,17 +1,16 @@
-//! Exact-pin B2 source snapshots built from private B1 rows.
+//! Exact-pin BlueprintCourse source snapshots built from private Store rows.
 
 use question_model::curriculum_adoption::{
     CurriculumSemanticAssignment, CurriculumSemanticAssignmentEntry, CurriculumSemanticCourse,
     CurriculumSemanticPayload,
 };
 use question_model::{
-    AlphaCourseRevision, AssignmentDefinitionSourceView, CurriculumSourceView,
-    ObservedAlphaAssignmentSource, ObservedAlphaSource, ObservedBlueprintSource,
+    AssignmentDefinitionSourceView, CurriculumSourceView, ObservedBlueprintSource,
 };
 
 use super::{
-    AlphaCourseId, StoredAlphaCourse, StoredDefinition, StoredEntry, allocate_alpha_reference,
-    creator_byline, random_uuid, reconciliation_error,
+    BlueprintCourseId, StoredBlueprintCourse, StoredDefinition, StoredEntry,
+    allocate_blueprint_course_reference, random_uuid, reconciliation_error,
 };
 use crate::curriculum_adoption::{
     SemanticAssignmentEntryInputV1, SemanticAssignmentInputV1, SemanticModuleInputV1,
@@ -20,10 +19,7 @@ use crate::curriculum_adoption::{
 use crate::in_memory::State;
 use crate::{StoreError, UserId};
 
-/// Private exact-pin source snapshot used by B2 under the already-held Memory lock.
-///
-/// Source locators are re-resolved in the trusted tier and never grant tenant or
-/// object authority (ASVS 8.2.2, 8.3.1, 8.4.1).
+/// Private exact-pin source snapshot used under the already-held Memory lock.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReusableSourceSnapshot {
     pub(crate) payload: CurriculumSemanticPayload,
@@ -35,40 +31,24 @@ pub(crate) fn curriculum_source_snapshot(
     actor: UserId,
     source: CurriculumSourceView,
 ) -> Result<ReusableSourceSnapshot, StoreError> {
-    let payload = match source {
-        CurriculumSourceView::Blueprint(observed) => {
-            let id = *state
-                .blueprints_by_reference
-                .get(&(tenant, observed.reference))
-                .ok_or(StoreError::NotFound)?;
-            let row = state
-                .blueprints
-                .get(&(tenant, id))
-                .ok_or_else(|| reconciliation_error("blueprint"))?;
-            if row.owner != actor {
-                return Err(StoreError::NotFound);
-            }
-            if row.revision != observed.revision {
-                return Err(StoreError::Conflict);
-            }
-            CurriculumSemanticPayload::assignment(semantic_assignment(&row.definition)?)
-        }
-        CurriculumSourceView::Alpha(observed) => {
-            let id = *state
-                .alpha_courses_by_reference
-                .get(&observed.reference)
-                .ok_or(StoreError::NotFound)?;
-            let row = state
-                .alpha_courses
-                .get(&id)
-                .ok_or_else(|| reconciliation_error("Alpha curriculum"))?;
-            if row.revision != observed.revision {
-                return Err(StoreError::Conflict);
-            }
-            CurriculumSemanticPayload::course(semantic_course(row)?)
-        }
-    };
-    Ok(ReusableSourceSnapshot { payload })
+    let observed = source.source();
+    let id = *state
+        .blueprint_courses_by_reference
+        .get(&(tenant, observed.reference))
+        .ok_or(StoreError::NotFound)?;
+    let row = state
+        .blueprint_courses
+        .get(&(tenant, id))
+        .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
+    if row.creator != actor {
+        return Err(StoreError::NotFound);
+    }
+    if row.revision != observed.revision {
+        return Err(StoreError::Conflict);
+    }
+    Ok(ReusableSourceSnapshot {
+        payload: CurriculumSemanticPayload::course(semantic_course(row)?),
+    })
 }
 
 pub(crate) fn curriculum_assignment_source_snapshot(
@@ -77,79 +57,25 @@ pub(crate) fn curriculum_assignment_source_snapshot(
     actor: UserId,
     source: AssignmentDefinitionSourceView,
 ) -> Result<ReusableSourceSnapshot, StoreError> {
-    let payload = match source {
-        AssignmentDefinitionSourceView::Blueprint(observed) => {
-            curriculum_source_snapshot(
-                state,
-                tenant,
-                actor,
-                CurriculumSourceView::Blueprint(observed),
-            )?
-            .payload
-        }
-        AssignmentDefinitionSourceView::Alpha(observed) => {
-            let whole = curriculum_source_snapshot(
-                state,
-                tenant,
-                actor,
-                CurriculumSourceView::Alpha(observed.source()),
-            )?;
-            let CurriculumSemanticPayload::Course(course) = whole.payload else {
-                unreachable!("Alpha source snapshots are course-sized")
-            };
-            let assignment = course
-                .modules()
-                .get(usize::from(observed.module_index()))
-                .and_then(|module| {
-                    module
-                        .assignments()
-                        .get(usize::from(observed.assignment_index()))
-                })
-                .cloned()
-                .ok_or(StoreError::NotFound)?;
-            CurriculumSemanticPayload::assignment(assignment)
-        }
+    let observed = source.source();
+    let whole =
+        curriculum_source_snapshot(state, tenant, actor, CurriculumSourceView::new(observed))?;
+    let CurriculumSemanticPayload::Course(course) = whole.payload else {
+        unreachable!("BlueprintCourse snapshots are course-sized")
     };
-    Ok(ReusableSourceSnapshot { payload })
-}
-
-pub(crate) fn current_curriculum_source(
-    state: &State,
-    tenant: question_model::TenantId,
-    actor: UserId,
-    source: CurriculumSourceView,
-) -> Result<CurriculumSourceView, StoreError> {
-    match source {
-        CurriculumSourceView::Blueprint(observed) => {
-            let id = *state
-                .blueprints_by_reference
-                .get(&(tenant, observed.reference))
-                .ok_or(StoreError::NotFound)?;
-            let row = state
-                .blueprints
-                .get(&(tenant, id))
-                .filter(|row| row.owner == actor)
-                .ok_or(StoreError::NotFound)?;
-            Ok(CurriculumSourceView::Blueprint(ObservedBlueprintSource {
-                reference: observed.reference,
-                revision: row.revision,
-            }))
-        }
-        CurriculumSourceView::Alpha(observed) => {
-            let id = *state
-                .alpha_courses_by_reference
-                .get(&observed.reference)
-                .ok_or(StoreError::NotFound)?;
-            let row = state
-                .alpha_courses
-                .get(&id)
-                .ok_or_else(|| reconciliation_error("Alpha curriculum"))?;
-            Ok(CurriculumSourceView::Alpha(ObservedAlphaSource {
-                reference: observed.reference,
-                revision: row.revision,
-            }))
-        }
-    }
+    let assignment = course
+        .modules()
+        .get(usize::from(source.module_index()))
+        .and_then(|module| {
+            module
+                .assignments()
+                .get(usize::from(source.assignment_index()))
+        })
+        .cloned()
+        .ok_or(StoreError::NotFound)?;
+    Ok(ReusableSourceSnapshot {
+        payload: CurriculumSemanticPayload::assignment(assignment),
+    })
 }
 
 pub(crate) fn current_assignment_source(
@@ -158,48 +84,35 @@ pub(crate) fn current_assignment_source(
     actor: UserId,
     source: AssignmentDefinitionSourceView,
 ) -> Result<AssignmentDefinitionSourceView, StoreError> {
-    let current = match source {
-        AssignmentDefinitionSourceView::Blueprint(observed) => {
-            let CurriculumSourceView::Blueprint(current) = current_curriculum_source(
-                state,
-                tenant,
-                actor,
-                CurriculumSourceView::Blueprint(observed),
-            )?
-            else {
-                unreachable!()
-            };
-            AssignmentDefinitionSourceView::Blueprint(current)
-        }
-        AssignmentDefinitionSourceView::Alpha(observed) => {
-            let CurriculumSourceView::Alpha(current) = current_curriculum_source(
-                state,
-                tenant,
-                actor,
-                CurriculumSourceView::Alpha(observed.source()),
-            )?
-            else {
-                unreachable!()
-            };
-            AssignmentDefinitionSourceView::Alpha(
-                ObservedAlphaAssignmentSource::new(
-                    current,
-                    observed.module_index(),
-                    observed.assignment_index(),
-                )
-                .expect("stored bounded Alpha assignment position remains valid"),
-            )
-        }
-    };
+    let observed = source.source();
+    let id = *state
+        .blueprint_courses_by_reference
+        .get(&(tenant, observed.reference))
+        .ok_or(StoreError::NotFound)?;
+    let row = state
+        .blueprint_courses
+        .get(&(tenant, id))
+        .filter(|row| row.creator == actor)
+        .ok_or(StoreError::NotFound)?;
+    let current = AssignmentDefinitionSourceView::new(
+        ObservedBlueprintSource {
+            reference: observed.reference,
+            revision: row.revision,
+        },
+        source.module_index(),
+        source.assignment_index(),
+    )
+    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
     curriculum_assignment_source_snapshot(state, tenant, actor, current)?;
     Ok(current)
 }
 
-pub(crate) fn create_alpha_from_semantic_locked(
+pub(crate) fn create_blueprint_course_from_semantic_locked(
     state: &mut State,
+    tenant: question_model::TenantId,
     actor: UserId,
     semantic: &CurriculumSemanticCourse,
-) -> Result<question_model::AlphaCourseReference, StoreError> {
+) -> Result<question_model::BlueprintReference, StoreError> {
     let modules = semantic
         .modules()
         .iter()
@@ -214,15 +127,13 @@ pub(crate) fn create_alpha_from_semantic_locked(
             ))
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
-    let id = AlphaCourseId(random_uuid("Alpha curriculum fork")?);
-    let reference = allocate_alpha_reference(state, id)?;
-    let byline = creator_byline(state, actor)?;
-    state.alpha_courses.insert(
-        id,
-        StoredAlphaCourse {
+    let id = BlueprintCourseId(random_uuid("BlueprintCourse fork")?);
+    let reference = allocate_blueprint_course_reference(state, tenant, id)?;
+    state.blueprint_courses.insert(
+        (tenant, id),
+        StoredBlueprintCourse {
             creator: actor,
-            creator_byline: byline,
-            revision: AlphaCourseRevision::INITIAL,
+            revision: question_model::BlueprintRevision::INITIAL,
             title: semantic.title().to_owned(),
             modules,
         },
@@ -264,7 +175,7 @@ fn stored_definition(
     })
 }
 
-fn semantic_course(row: &StoredAlphaCourse) -> Result<CurriculumSemanticCourse, StoreError> {
+fn semantic_course(row: &StoredBlueprintCourse) -> Result<CurriculumSemanticCourse, StoreError> {
     let modules = row
         .modules
         .iter()
@@ -273,28 +184,16 @@ fn semantic_course(row: &StoredAlphaCourse) -> Result<CurriculumSemanticCourse, 
             assignments: definitions.iter().map(semantic_assignment_input).collect(),
         })
         .collect();
-    let payload = normalize_payload(SemanticPayloadInputV1::Course {
-        title: row.title.clone(),
-        modules,
-    })
-    .map_err(semantic_error)?;
-    let CurriculumSemanticPayload::Course(course) = payload else {
+    let CurriculumSemanticPayload::Course(course) =
+        normalize_payload(SemanticPayloadInputV1::Course {
+            title: row.title.clone(),
+            modules,
+        })
+        .map_err(semantic_error)?
+    else {
         unreachable!("course input normalizes to course meaning")
     };
     Ok(course)
-}
-
-fn semantic_assignment(
-    definition: &StoredDefinition,
-) -> Result<CurriculumSemanticAssignment, StoreError> {
-    let payload = normalize_payload(SemanticPayloadInputV1::Assignment {
-        definition: semantic_assignment_input(definition),
-    })
-    .map_err(semantic_error)?;
-    let CurriculumSemanticPayload::Assignment(assignment) = payload else {
-        unreachable!("assignment input normalizes to assignment meaning")
-    };
-    Ok(assignment)
 }
 
 fn semantic_assignment_input(definition: &StoredDefinition) -> SemanticAssignmentInputV1 {

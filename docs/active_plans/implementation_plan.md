@@ -2,6 +2,15 @@
 
 ## Status
 
+**Binding single-installation architecture (2026-08-29).** PLE operates as one installation with
+global accounts, an Instructor-visible shared catalog for every published assignment question,
+private drafts, equal approved Instructors, multiple equal co-Instructors per course, and exact
+course/Student authorization for educational records. The active
+[single-installation authorization plan](active/single_installation_authorization_plan.md) owns the
+domain, schema, Store, service, browser, live-demo, and documentation correction before the
+remaining package sequence resumes. Its fresh pre-production migration epoch is the authority for
+database ownership and authorization.
+
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
 question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4
@@ -16,18 +25,15 @@ validation are in
 and dependency order, while [implementation_status.md](implementation_status.md) owns the sole global
 current-package handoff; this foundation plan does not duplicate that changing handoff.
 
-**2026-08-14 WP-R2 acceptance.** WP-R2 establishes the no-drift release truth: each published
-Question ID names one immutable content identity; every content change mints a new assigned Question
-ID and fresh opaque hidden `(ProblemId, VersionId)` evidence; existing assignments and issued runs
-remain exact; and an Instructor explicitly, revision-checked replaces an assignment item for future
-runs. Hidden exact references remain only for authorized replay, grading, audit, provenance, and
-transport; they are neither public locators nor a latest-resolution or instructor-selection feature.
-The pre-production schema and code use opaque Question IDs and immutable content identity. Each
-native and WeBWorK host seed publication mints fresh opaque evidence; a rerun resumes through a
-protected explicit manifest or verified existing record. Final material-tree evidence is
-recorded in [implementation_status.md](implementation_status.md) and the changelog. WP-PY-L1 is
-accepted on 2026-08-15. The Instructor roadmap records M0 as accepted from the four evidenced
-release-truth packages; its subsequent work follows the Instructor dependency queue.
+**Historical 2026-08-14 WP-R2 acceptance.** WP-R2 recorded the original no-drift publication
+cutover, exact hidden snapshot evidence, and explicit assignment replacement behavior. That receipt
+remains evidence of the work completed at the time. The current stable-lineage and immutable-version
+authority below supersedes its earlier one-Question-ID-per-content-snapshot interpretation while
+preserving all exact assignment, issued-run, grading, audit, provenance, and transport pins. Final
+material-tree evidence is recorded in [implementation_status.md](implementation_status.md) and the
+changelog. WP-PY-L1 is accepted on 2026-08-15. The Instructor roadmap records M0 as accepted from
+the four evidenced release-truth packages; its subsequent work follows the Instructor dependency
+queue.
 
 Current browser evidence is owned by the
 [real_stack_browser_suite_plan.md](active/real_stack_browser_suite_plan.md); the sole current-package
@@ -56,6 +62,100 @@ read that is response-bearing, solution-free, and no-store. The shared status re
 current handoff and migration allocation; the Instructor capability plan retains the accepted
 capability contracts and evidence boundaries.
 
+**BlueprintCourse/CourseInstance binding (2026-08-29).** The accepted historical B1/B2 behavior is
+re-based for the SD1 cutover as one canonical reusable source model. `BlueprintCourse` is one
+answer-free, ordered, revisioned course-level aggregate: a vetted Instructor-visible published
+projection contains ordered modules and assignments, and every entry pins an exact published
+`ProblemVersionRef`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
+the separate exact-`CourseId` teaching aggregate created from that source; it owns copied assignment
+definitions, Students, releases, live deadlines, accommodations, grades, and delivery settings.
+It has exactly one immutable Blueprint parent and applied source revision. A blank CourseInstance is
+created from a minimal Blueprint, not from a second course type. Relative calendar-day and local-wall-
+clock intent is resolved against the destination term and IANA zone; it never becomes a live
+Blueprint deadline. New upstream assignments propagate to daughters as unreleased, while explicit
+release and local delivery edits remain CourseInstance decisions. Archived referenced Blueprints stay
+resolvable for history and evidence.
+
+`CourseStore::create_course_impl`, composed as `Store::create_course`, owns canonical blank-course
+creation. Its SD1 broker atomically obtains or creates the normal minimal BlueprintCourse revision,
+creates the non-null bound CourseInstance, and adds the first Instructor membership. This capability
+remains outside the closed seven-operation CurriculumAdoptionStore envelope: fork, assignment
+adoption, Blueprint instantiation, rollover, term shift, controlled update, and selected copy.
+
+This is a clean pre-production cutover, not a compatibility layer. The SD1 sequence removes Alpha
+types, routes, schema branches, Store capabilities, generated aliases, and browser resource kinds;
+`BlueprintReference` (`BP-*`) is the only reusable-course locator. Existing `WP-INST-B1` and
+`WP-INST-B2` acceptance records remain historical evidence; the current handoff and migration
+allocation remain solely in [implementation_status.md](implementation_status.md). `WP-R0`, `WP-R1`,
+`WP-R2`, and `WP-PY-L1` retain their registered package identities and acceptance status.
+
+**Current authority for the SD1 cutover.** The server derives `ActorContext` from the authenticated
+global session and grants access through exact typed system, catalog, workspace, course,
+course-membership, Student-ownership, and short-lived capability scopes. Published QuestionIds are
+stable lineages with immutable QuestionVersions: moderate steward edits preserve original authorship
+and license in the lineage, while full forks give their author a private draft and, after validation,
+a separately attributed and source-compatible licensed lineage. `QuestionChangeProposal` is the
+lightweight middle path: it pins an exact base version, carries a proposed patch and rationale,
+passes automated validation, and lets the lineage steward accept or reject it. An accepted proposal
+creates an immutable same-lineage version with contributor credit; a stale base is rebased and
+resubmitted. Proposals reuse improvement threads through a focused accept/reject workflow.
+Assignments and evidence pin exact versions and receive only explicit controlled
+updates. A Sysadmin-approved `ForcedQuestionCorrection` is the separate critical-flaw path with a
+validated replacement, deterministic remediation, privacy-safe impact, and immutable superseding
+receipts. Automated grading is the sole score authority; exception handling, inspection, and
+recalculation are audited operations rather than manual grading. This authority governs SD1 work
+without advancing the current package status.
+
+**SD1-B1 compile-coordinated session cutover (2026-08-29).** The global-session end state is one
+server-owned `SessionId`, one resolved-record `ActorContext { user_id, session_id }`, and one
+`SessionStore`. An actor is created only after the store resolves an opaque credential to its durable
+record; it carries identity rather than a role, capability, course, workspace, or Student grant.
+Exact domain scopes authorize protected work. The session record therefore owns only the durable
+session identity and global `UserId`; account and authority records supply display information and
+current roles when a response or an authorization predicate needs them.
+
+This conversion uses compile-coordinated, atomic package outcomes rather than a fabricated
+installation-wide tenant or a lasting dual session API:
+
+1. `SD1-B1-P0` owns the `learning-data-access::session` public type boundary. `SessionId` is
+   server-only; `ActorContext` has private fields and no public construction path. It introduces no
+   grant. The accepted P0 receipt proves only this type boundary; it does not claim B1 acceptance
+   or that current routes resolve an actor. Its narrow evidence is
+   `cargo check -p learning-data-access --no-default-features`.
+2. `WP-SD1-B1-P1`, after `SD1-C2` and before `SD1-D1`, persists `SessionId` on `SessionRecord` and
+   exposes only `SessionRecord::actor_context()` from a resolved record. It enables actor-aware Store
+   transactions without converting routes or removing legacy session models. `SD1-D1` depends on
+   `SD1-C7` and P1. `SD1-B1-F` follows accepted D1--D6 and performs the single route/model cutover:
+   it removes `SessionSubject`, `AccountSession*`, and tenant-shaped auth/session seams. `SD1-B5`
+   follows B1-F and regenerates browser-safe contracts.
+3. `SD1-B2` through `SD1-B4` own course/Student, catalog/workspace, and job/object/external-tool
+   exact-scope contract definitions respectively. Each names `ActorContext` and its typed durable
+   resource input, but does not claim existing routes have switched authentication. C/D provide the
+   matching Store/RLS/service implementation before final route integration. Their package receipts
+   record the owning focused contract lane.
+4. `SD1-C` and `SD1-D` own the fresh PostgreSQL schema, Store/RLS, and direct protected-service
+   implementation for those scopes. They prove their own migration, restricted-role, and service
+   behavior against the disposable stack before the authentication integration. No global tenant
+   replacement is introduced.
+5. `SD1-B1-F` owns session record/store, account-identity session types, Memory/PostgreSQL adapters,
+   server authentication, direct composition callers, and retirement of the prior tenant-shaped auth
+   route seam. `SessionRecord` owns `SessionId` plus global `UserId`; `SessionSubject` and every
+   `AccountSession*` durable-session type/trait are removed; the server derives `ActorContext` from
+   the resolved record; and all affected consumers use their B2-B4 exact-scope path. This is the B1
+   acceptance boundary. Evidence combines focused learning-data-access/server checks with the
+   relevant C/D protected-route, Store, and RLS lanes.
+6. `SD1-B5` owns generated auth/browser contracts and direct decoders. The browser-safe account
+   projection reflects the completed auth boundary and contains no session credential, actor, or
+   obsolete tenant compatibility field. Its evidence is the B5 generated-contract and TypeScript
+   compilation lanes.
+
+`SD1-B1-P0` is accepted preparatory progress, not a partial replacement for the singular session
+model. `SD1-B2` through `SD1-B4` establish the typed scope inputs; C/D implement and prove those
+inputs; `SD1-B1-F` then removes the old subject and duplicate account-session model in one
+compile-coordinated integration. B5 follows the final server boundary, and later E/F/G work builds
+on it. This order preserves a coherent end state without a global-tenant fallback or a compatibility
+alias.
+
 ## Grounded evidence rule for open packages
 
 Open-package acceptance starts with a binding contract that names owned modules, routes, migrations
@@ -65,6 +165,13 @@ multi-replica, and controlled-clock exercises retain connected behavior. Source 
 rendered captures, capacity measurements, and query-plan inspections are one-time implementation or
 release evidence when they support a documented decision. Final Validation is the `./all_test.sh`
 gate on the final material tree after each package's local lanes are green.
+
+For the BlueprintCourse cutover, evidence has five non-substitutable lanes: permanent offline
+behavior tests; recurring PostgreSQL/RLS and service acceptance; production-browser behavior against
+the real stack; human semantic visual acceptance; and one-time Graphify/source/schema/generated
+inventories, rendered-capture publication, cleanup, and migration receipts. A green browser mock,
+source inventory, screenshot, or visual review cannot substitute for another lane. Required unrun or
+skipped lanes keep the package incomplete under [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md).
 
 Role-specific visual coverage follows Human Guidance: Instructor and Sysadmin evidence uses only the
 canonical 1280 by 800 desktop profile; Student evidence may use the maintained laptop, portrait,
@@ -170,9 +277,9 @@ release boundary while writing code.
   per-row cost small enough to survive hundreds of millions of rows.
 - Separate draft identity from published identity so an abandoned experiment never occupies a durable
   catalog number.
-- Keep published content shared and immutable while every educational record carries a tenant ID and
-  is protected by database-enforced row-level security.
-- Delete student records on a privacy-by-default schedule with configurable institutional retention,
+- Keep published content shared and immutable while every educational record carries exact course,
+  Student, workspace, or UserId ownership and is protected by database-enforced row-level security.
+- Delete Student records on a privacy-by-default schedule with the configured course lifecycle policy,
   while anonymous question statistics survive so the library keeps improving.
 - Keep binary and archival content out of PostgreSQL, with every artifact carrying checksum, size,
   media type, license, and provenance.
@@ -191,7 +298,7 @@ release boundary while writing code.
   or canonical-onboarding dependency.
 - Treat all repository-owned Rust, TypeScript, SQL, container, OpenTofu, test, and documentation
   artifacts as in scope for the working-codebase release.
-- Treat institutional credentials, legal certification, and named human-pilot participation as
+- Treat externally supplied institutional credentials, legal certification, and named human-pilot participation as
   production-activation evidence with explicit external owners, not unfinished code.
 - Require a real implementation, behavior gate, and independent review for every claimed capability.
 
@@ -208,28 +315,28 @@ That is a property of the format, and it sets the adapter's honest capability de
 parallelism afterward. It only works if the contracts are complete, so the contract-freeze milestone
 ships executable reference implementations and conformance suites, not just type definitions.
 
-**Logical tenancy over physical tenancy.** The owner's chosen boundary -- shared content, tenant-owned
-records -- is preserved exactly. Its _implementation_ is one PostgreSQL cluster with a tenant ID on
-every tenant-owned row and forced row-level security. Database-per-tenant at 1,000 instructors buys
-operational overhead rather than safety, and RLS supplies the boundary physical separation was wanted
-for: the database itself refuses a cross-tenant read, so correctness does not rest on every query
-carrying the right filter. One cluster means one connection pool, one migration run, and one backup
-policy, and the tenant ID column keeps a later physical split available without a schema change.
+**Single-installation actor scoping.** The product boundary is one installation with global accounts,
+shared published content, private authoring workspaces, and exact course/Student educational records.
+Its implementation is one PostgreSQL cluster with server-derived `ActorContext { user_id, session_id }`,
+operation-specific ownership predicates, and forced row-level security. A missing actor, foreign course,
+another UserId, revoked membership, or absent workspace relationship returns no protected rows. One
+cluster means one connection pool, one migration run, and one backup policy; typed course, workspace,
+catalog, and system scopes preserve future adaptability without a tenant boundary.
 
 Cited from [REPO_STYLE.md](../REPO_STYLE.md):
 
 - **Fix the design, not the symptom.** Grading lives in a crate the WASM build cannot depend on, so
-  shipping a key to the browser is a compile error. Tenant isolation is a database policy, not a
-  code-review habit.
+  shipping a key to the browser is a compile error. Actor, membership, and ownership isolation is a
+  database policy, not a code-review habit.
 - **Design for adaptability.** Every engine enters through one adapter trait publishing capabilities.
   Physical storage hides behind an object service. Catalog search hides behind a repository so a
   dedicated search service can replace PostgreSQL full-text without touching callers.
 - **Atomic task decomposition.** The module catalog gives every module one owner, one contract, one
   independent verification.
 - **Long-term over short-term.** Hidden immutable publication snapshots, random checked Question
-  IDs, tenant IDs on every record, and cursor pagination are foundational because all four are
-  painful to retrofit. The snapshots preserve grading; instructors still work with one current
-  question rather than a version catalog.
+  IDs, exact course/Student/workspace ownership, and cursor pagination are foundational because all
+  four are painful to retrofit. The snapshots preserve grading; instructors still work with one
+  current question rather than a version catalog.
 - **Perfect is the enemy of good.** No Kubernetes, Redis, Kafka, sharding, dedicated search index, or
   microservice fleet. M0 through M4 run on `podman compose` with MinIO.
 
@@ -240,8 +347,8 @@ Evidence strategy for uncertain methods:
   primitive is replaced before any dependent lane starts.
 - The secret-free WASM claim is settled by WP-C5: an export allowlist plus a dependency-graph
   assertion. "We were careful" is not evidence.
-- Tenant isolation is settled by a test that sets a foreign tenant context and proves the query
-  returns zero rows, run in `tests/e2e/` on every gate.
+- Authorization isolation is settled by tests for missing actor context, foreign course, another
+  UserId, and revoked membership returning zero rows, run in `tests/e2e/` on every gate.
 - Performance gates assert correctness absolutely and speed relatively. A first run establishes a
   recorded baseline; later gates compare against that baseline rather than against a number chosen in
   advance. Grading latency is split into server-side processing time, which this project controls and
@@ -260,13 +367,15 @@ Evidence strategy for uncertain methods:
   capability validation, and audit events in Rust.
 - Implement the enrollment, run, and attempt model with independent completion, grading, and
   variation policies, plus transactionally maintained summary rows.
-- Implement the shared content catalog and tenant-owned records in one cluster with forced RLS.
+- Implement the shared content catalog, private workspaces, and exact course/Student records in one
+  cluster with forced RLS.
 - Implement the object store with immutable keys, checksums, and three-bucket separation.
 - Implement the first-party algorithmic adapter, then WeBWorK, QTI, H5P, and iMathAS.
 - Build the Solid student assignment interface and instructor assignment editor.
 - Implement DOCX and PDF export, and the worker pool that produces them and drains render work.
 - Implement LTI Advantage grade passback.
-- Document architecture, contracts, question model, identity, storage, tenancy, and determinism.
+- Document architecture, contracts, question model, identity, storage, database authorization, and
+  determinism.
 
 ## Non-goals
 
@@ -290,7 +399,7 @@ instruction directly.
 - Serve every asset through a stored object record.
 - Read grades from `student_assignment_summary`.
 - Paginate every list endpoint with a cursor.
-- Model assignments as tenant-owned course artifacts that select explicitly chosen immutable published
+- Model assignments as exact-course artifacts that select explicitly chosen immutable published
   Question IDs while retaining the exact hidden publication snapshot needed for grading reproducibility.
 - Use executable in-memory reference backends for fast tests and PostgreSQL for every environment
   holding durable student records.
@@ -346,11 +455,11 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Server runtime       | Native Rust `axum`; shared crates also built for `wasm32`                                                                          | Owner-selected. Native is fastest and keeps direct database access                                                                                                                                                     |
 | Web server           | No Apache, nginx, or lighttpd in the request path                                                                                  | See the LAMP mapping below; all reviews agree the load balancer replaces Apache                                                                                                                                        |
 | Database             | **PostgreSQL on RDS**, one cluster                                                                                                 | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                                                        |
-| Tenancy              | **Logical: tenant ID on every tenant-owned row, forced RLS. Not a database per tenant**                                            | Reviewer 3. Database-per-instructor at 1,000 instructors is operational overhead without safety gain; RLS is database-enforced, so a missing `WHERE` cannot cross tenants. The column preserves a later physical split |
+| Authorization boundary | **One installation: global UserId accounts, ActorContext, exact course/Student/workspace ownership, forced RLS**                 | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; missing actor, foreign course, another UserId, and revoked membership fail closed |
 | Grading location     | **Server only**                                                                                                                    | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                                    |
 | H5P grading          | Native H5P is ungraded practice; `serverGrading: false`                                                                            | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                        |
 | WASM contents        | Parameter generation, answer-format validation, timer display, state transitions                                                   | Non-secret work only, enforced by the dependency graph                                                                                                                                                                 |
-| Sharing boundary     | **Shared educational content; tenant-owned records and course artifacts**                                                          | Owner-selected, refined by reviewers. Assignments may be imported or copied as teaching structures while authorization and course records remain tenant-owned                                                          |
+| Sharing boundary     | **Shared published content; private workspaces and exact course/Student records**                                                  | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships |
 | Activity model       | `assignment_enrollment` / `assignment_run` / `question_attempt`                                                                    | Owner-reported repeated-practice observation used for planning; completion is not terminal and practice continues with new variants                                                                                    |
 | Grade computation    | Transactionally maintained summary rows; never scan attempt history                                                                | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                                          |
 | Question identity    | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                              | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                                          |
@@ -457,8 +566,8 @@ browser                     ALB          stateless replicas
         ^                       PostgreSQL      jobs queue   S3: four domains
         | immutable catalog      one cluster:        |      public-assets
    CloudFront (tag-gated)        shared content      v      private-content
-        |                        + tenant rows   worker x N  student-records
-   POST /api/assets/{id}         + forced RLS    exports,     temp-processing
+        |                        + exact course  worker x N  student-records
+   POST /api/assets/{id}         + forced RLS    exports,    temp-processing
    for protected delivery                        imports
                                                      |
                                                      +--> dedicated public-asset publisher
@@ -474,7 +583,7 @@ The boundary is **educational content versus educational records**, which is als
 the reuse line. Those turn out to be the same line, which is why the design works. Both live in one
 cluster; the distinction is ownership and policy, not physical separation.
 
-| Shared content (no tenant ID)                    | Tenant-owned (tenant ID on every row, RLS enforced) |
+| Shared installation content                     | Exact relationship-owned records (RLS enforced)    |
 | ------------------------------------------------ | --------------------------------------------------- |
 | Published problem catalog                        | Courses and sections                                |
 | Immutable problem versions                       | Assignments                                         |
@@ -492,16 +601,75 @@ which is what lets one published problem serve thousands of instructors without 
 Published Problem Version (shared, immutable)
         |                         |
         v                         v
-Assignment (Tenant A)     Assignment (Tenant B)
+Assignment (Course A)     Assignment (Course B)
         |                         |
         v                         v
 Runs and Attempts (A)     Runs and Attempts (B)
 ```
 
-RLS is enforced, not advisory: every tenant-owned table declares `FORCE ROW LEVEL SECURITY`, the
-application connects as a non-superuser role that cannot bypass it, and the tenant context comes from
-a session variable set from the authenticated session -- never from a client-supplied parameter. A
-test in `tests/e2e/` sets a foreign tenant context and asserts zero rows.
+RLS is enforced, not advisory: every protected table declares `FORCE ROW LEVEL SECURITY`, the
+application connects as a non-superuser role that cannot bypass it, and transaction-local actor
+context comes from the authenticated session -- never from a client-supplied parameter. Operation
+predicates enforce exact course membership, Student ownership, workspace relationship, or leased
+capability. Tests in `tests/e2e/` cover missing actor, foreign course, another UserId, and revoked
+membership denial.
+
+### Reusable source and teaching delivery boundary
+
+The reusable-course model has one canonical source aggregate and one delivery aggregate:
+
+```text
+BlueprintCourse (workspace-owned, revisioned, answer-free)
+  -> ordered BlueprintModule -> ordered BlueprintAssignment
+  -> exact published ProblemVersionRef pins and relative schedule intent
+
+CourseInstance (exact CourseId, private teaching aggregate)
+  -> copied definitions, resolved deadlines, releases, accommodations,
+     Students, runs, grades, and delivery settings
+```
+
+Every CourseInstance has exactly one immutable Blueprint parent and applied source revision. Blank
+course creation uses a minimal Blueprint. A BlueprintCourse revision is the complete ordered tree;
+published revisions are visible and reusable by every vetted Instructor, while draft source remains
+owner/workspace-collaborator scoped. A BlueprintCourse has no Students, enrollments, releases, live
+deadlines, accommodations, grades, or activity. Relative schedule intent is resolved against the
+destination CourseInstance term and IANA zone and becomes CourseInstance-owned state. New upstream
+assignments arrive in daughter instances as unreleased; release and divergent delivery edits require
+an explicit CourseInstance action. Archived referenced Blueprints remain resolvable for provenance
+and history.
+
+The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintReference`
+(`BP-*`) and one Store/route/decoder/editor family; it removes Alpha types, route families, schema
+branches, capabilities, aliases, and browser resource kinds. One-assignment reuse is a bounded
+module/assignment projection of the same BlueprintCourse. Fork, assignment adoption, and whole-course
+instantiation are distinct operations selected by destination, with no live source tether.
+
+Question stewardship remains a shared dependency of both aggregates. Stable human-facing
+`QuestionId` lineage carries immutable `QuestionVersion` history; every BlueprintCourse and
+CourseInstance entry pins an exact version. Presentation/metadata, learner-content, and grading-
+semantic changes use the closed semantic classes: the last class is a major change and mints a new
+QuestionId. Forks show lineage and remain creator-private drafts until complete publication
+validation. Active versions are ordinarily selectable; deprecated/archived versions remain
+discoverable and resolvable for evidence and existing pins. One UserId-owned Star concept replaces
+favorites; vetted Instructors may see aggregate Star count and Star identities, while Students and
+anonymous users see neither identities nor private Watch state. Durable improvement events remain
+separate from publication authority. Grading corrections record affected
+pins and assignment/run impact, then use generation-fenced recalculation without mutating issued
+evidence. Attempts, correct counts, and eligible-choice counts are version-specific and disclosed
+only under the existing privacy-threshold formula. Existing `WP-INST-D1`, `D2`, `G1`, `G2`, `G3`, and
+`G4` packages own these behaviors; SD1 introduces no package ID.
+
+The emergency QuestionVersion path is a Sysadmin-approved `ForcedQuestionCorrection`: a validated
+replacement and closed, FERPA-safe impact manifest precede one atomic authoritative replacement
+mapping and generation. New selection and issuance resolve to the replacement immediately. Bounded
+idempotent generation-fenced workers materialize affected BlueprintCourse/CourseInstance/assignment/
+pool/future-issuance references and deterministic remediation without an unbounded cross-course
+transaction. The flawed version and issued/graded evidence remain immutable; in-progress items are
+reissued or excused and completed work receives the manifest's deterministic remediation, with
+superseding recalculation receipts. Course Instructors receive audited impact and actionable results;
+Sysadmin receives privacy-safe aggregate impact only. D1 owns availability/impact, G1
+compatibility/recalculation, G2 audited inspection, and G5 action routing. Permanent, PostgreSQL/RLS,
+and production-browser lanes prove the behavior independently.
 
 Object-storage domains are physically separated so IAM, encryption keys, retention, and delivery
 policy are enforceable rather than conventions:
@@ -509,7 +677,7 @@ policy are enforceable rather than conventions:
 | Domain            | Contents                                                               | Delivery                                                               | Authority and retention                                                        |
 | ----------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `public-assets`   | Published shared catalog assets only                                   | CloudFront only, immutable keys, exact public tag required             | Dedicated publisher is the only writer; published tags/bytes cannot be mutated |
-| `private-content` | Source packages, restricted institution assets, cached/private renders | Authorized application path only; no CDN origin                        | API/workers use least privilege; immutable published source/version records    |
+| `private-content` | Source packages, restricted course assets, cached/private renders      | Authorized application path only; no CDN origin                        | API/workers use least privilege; immutable published source/version records    |
 | `student-records` | Student-specific exports, uploads, annotated exams                     | Authorized `POST /api/assets/{id}` then short-lived URL, always logged | Explicit expiration and deletion; five-minute signed URLs                      |
 | `temp-processing` | Extraction, conversion, and inspection workspaces                      | Never served or signable                                               | Isolated worker-only lifecycle in days                                         |
 
@@ -621,13 +789,13 @@ is: _This course ended 30 days ago. Student records are still available. If they
 archive or delete the course now. Student records will be automatically removed after 100 days unless
 the course is archived or the retention period is extended by a sysadmin._
 
-Retention is configurable per institution because institutional policy varies -- 100 days, one year,
-five years, or never-automatic for a research institution -- with the privacy-preserving default
-applying when nothing is configured. The software encourages the short default without forcing it.
+Retention follows the configured course lifecycle policy, with the privacy-preserving default applying
+when no course-specific policy is present. Any broader operational retention capability is an explicit,
+audited Sysadmin operation rather than ambient course or catalog authority.
 
 ### How backups interact with deletion
 
-Stated plainly because institutions will ask, and because the honest answer is a constraint rather
+Stated plainly because external institutions may ask, and because the honest answer is a constraint rather
 than a feature. Deletion removes student records from live systems immediately and irreversibly.
 Encrypted backups and point-in-time recovery snapshots taken before the deletion still contain those
 records until they age out under the backup window's own retention.
@@ -635,15 +803,15 @@ records until they age out under the backup window's own retention.
 Selective purge from a point-in-time recovery window is not possible with managed snapshots, so the
 documented guarantee is: _deleted student records are immediately unrecoverable through the
 application, and expire from encrypted backups within the configured backup window._
-`docs/RETENTION_POLICY.md` states the current window numerically. An institution requiring a shorter
-total exposure must shorten its backup window, which is a deliberate durability-versus-privacy
-trade-off for that institution to make rather than one this platform makes for them.
+`docs/RETENTION_POLICY.md` states the current window numerically. An external institutional policy
+requiring a shorter total exposure must shorten its backup window, which is a deliberate
+durability-versus-privacy trade-off for that institution to make rather than one this platform makes.
 
 ### Anonymous question statistics survive deletion
 
 The feature that makes deletion sustainable: the question library should keep improving after the
-records that taught it are gone. Aggregate statistics live in **shared content**, carry no tenant or
-student identifiers, and survive record deletion:
+records that taught it are gone. Aggregate statistics live in **shared content**, carry no course or
+Student identifiers, and survive record deletion:
 
 ```text
 Question 123 (version_id ...)
@@ -670,29 +838,42 @@ One human identity sits above three implementation identities with distinct jobs
 
 | ID             | Scope                                       | Mutability                      | Visibility                              |
 | -------------- | ------------------------------------------- | ------------------------------- | --------------------------------------- |
-| Question ID    | One immutable published question            | Never changes after publication | Human-facing, discoverable, and citable |
-| `workspace_id` | One instructor's sandbox item, tenant-owned | Freely editable and deletable   | Private implementation identity         |
-| `problem_id`   | Fresh opaque shared-content evidence        | Immutable per publication       | Hidden implementation identity          |
-| `version_id`   | Fresh opaque immutable publication evidence | Never changes after publication | Hidden grading and provenance identity  |
+| Question ID    | One published-question lineage              | Stable for its lineage          | Human-facing, discoverable, and citable |
+| `workspace_id` | One Instructor's private authoring item     | Freely editable and deletable   | Private implementation identity         |
+| `problem_id`   | Opaque shared-content lineage evidence      | Stable for the lineage          | Hidden implementation identity          |
+| `version_id`   | One immutable published QuestionVersion     | Never changes after publication | Hidden grading and provenance identity  |
 
 Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
 
 - A draft gets an internal UUID immediately so it can be referenced and collaborated on, but that
   UUID is never presented as a problem number.
-- Only the publish transition mints fresh opaque `problem_id` and `version_id`, and only after
-  validation passes. Sequential `P-...`/`ProblemPublicId`, `ProblemVersionNumber`, and predecessor
-  identity are not alternate published-question identities.
-- Editing published content never mutates the historical snapshot or the published question. It
-  publishes a distinct replacement with a new Question ID and its own hidden immutable
-  `(problem_id, version_id)` evidence; explicit immutable provenance may link it to the source.
+- The first publish transition mints the stable `QuestionId`, opaque `problem_id`, and immutable
+  `version_id` only after validation passes. A later same-lineage publication mints a new immutable
+  `version_id` after the same validation. Sequential `P-...`/`ProblemPublicId` and display version
+  numbers are not alternate published-question identities.
+- Editing never mutates a historical QuestionVersion. A moderate lineage-steward edit publishes a
+  validated immutable successor under the same `QuestionId`, preserves original authorship and the
+  existing Creative Commons license, and records its semantic class and impact. A full fork by any
+  vetted Instructor creates a private draft with fork-author authorship plus source attribution and
+  a source-compatible Creative Commons license; validation publishes it as a new `QuestionId`
+  lineage.
+- `QuestionChangeProposal` is the lightweight contribution path. It pins one exact base version and
+  carries a patch and rationale through automated validation; the lineage steward accepts or rejects
+  it. Acceptance creates an immutable same-lineage version with contributor credit and preserved
+  original authorship/license. A stale base is rebased and resubmitted. Proposals reuse improvement
+  threads through a focused accept/reject workflow.
 - Replacing an image creates a new asset object with a new checksum and key; the old object stays so
   historical attempts remain reproducible.
-- Assignments and issued runs retain hidden exact `(problem_id, version_id)` snapshot evidence. A
-  content change, including an original-owner bug fix, publishes a new Question ID; no background
-  action advances an assignment. An Instructor deliberately performs any replacement under the
-  assignment's strong revision contract.
-- `deprecated` hides a published question from new selection while retaining exact internal resolution
-  for existing assignments and issued runs; `archived` additionally blocks new references.
+- Assignments and issued runs retain hidden exact `(problem_id, version_id)` snapshot evidence. No
+  ordinary successor advances assignment, issued-run, or grading evidence; an Instructor applies a
+  controlled update under the assignment's strong revision contract. A
+  `ForcedQuestionCorrection` follows its separately authorized, deterministic replacement and
+  remediation contract.
+- Every published question remains discoverable and exactly resolvable to every approved Instructor
+  throughout its lifecycle, with the current lifecycle state and any deprecation/archive reason
+  visible in catalog results and detail. `active` published questions are ordinarily selectable for
+  new assignments. `deprecated` and `archived` questions remain discoverable and resolvable for
+  evidence, provenance, and history, but are excluded from ordinary new selection and new references.
   Deprecation carries a stated reason, which is how an author signals that the published question
   contains an error.
 
@@ -701,32 +882,35 @@ Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
 Who may publish into a shared catalog is a product decision that shapes the data model, so it is
 settled here rather than discovered during M4.
 
-Three publication scopes, each a different visibility contract:
-
-| Scope         | Visible to                                     | Requires                                                                                     |
-| ------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `private`     | The owning workspace and invited collaborators | Nothing                                                                                      |
-| `institution` | Every course in the tenant                     | Validation passing                                                                           |
-| `public`      | The shared catalog, every tenant               | Instructor or Sysadmin action, validation passing, and an optional institutional review gate |
-
-The review gate is configurable per institution and off by default, because a two-instructor
-deployment does not need editorial process and a large institution may require it.
+Publication has one shared catalog state. Drafts remain private to their authoring workspace and
+explicit collaborators until validation succeeds. A validated publication is discoverable and
+resolvable by every approved Instructor, regardless of course, with a visible lifecycle state. Active
+published questions are ordinarily selectable; deprecated and archived questions remain available for
+evidence/history resolution but are excluded from ordinary new selection. Publication authority uses
+the approved-Instructor predicate; Sysadmin status alone is not a publication or course-creation
+authority.
 
 Conflicting changes from multiple authors are prevented structurally rather than merged. A published
-question has an owning author or author set and one human-facing Question ID. Any author, including
-the source owner fixing a bug, publishes a distinct replacement Question ID; a third party does the
-same rather than changing the source. Optional immutable `derived_from` provenance records the source
-internal evidence, preserving attribution and license lineage without making version management an
-instructor task.
+QuestionId has a lineage steward or steward set; validated moderate edits use that authority and
+preserve original authorship and license. Every vetted Instructor may instead create a private fork
+draft with its own authorship, source attribution, and source-compatible license; validation gives
+that fork its own published QuestionId lineage. Optional immutable `derived_from` provenance records
+the source internal evidence without making version management an Instructor task.
+
+An Instructor who wants to contribute a focused improvement without creating a fork submits a
+`QuestionChangeProposal` against an exact published version. Automated validation runs before the
+lineage steward's accept/reject decision. Acceptance records the contributor, preserves original
+authorship and license, creates an immutable successor in the existing lineage, and adds the result
+to the existing improvement thread. A proposal whose base is stale is rebased and resubmitted.
 
 ### Replacing questions and teaching sets
 
-Every content change, including an original-owner bug correction, publishes a new Question ID. The
-source Question ID and all existing assignments and issued runs remain unchanged. An Instructor may
-explicitly replace an assignment item after revision checking; publication and background work never
-do so. Assignment import/copy and selectable checklists from existing assignments are the normal way
-to reuse a teaching set; direct Question ID entry is a bounded lookup tool, not a range or
-batch-selection language.
+A validated moderate edit publishes a new immutable version in the same QuestionId lineage; a full
+fork that becomes a distinct teaching task has a new QuestionId. Existing assignments and issued runs
+remain pinned. An Instructor may explicitly apply a controlled assignment update after revision
+checking; publication itself leaves teaching records unchanged. Assignment import/copy and selectable
+checklists from existing assignments are the normal way to reuse a teaching set; direct Question ID
+entry is a bounded lookup tool, not a range or batch-selection language.
 
 ## Object storage and content identity
 
@@ -736,7 +920,7 @@ Keys are immutable and derived from IDs and versions, never from user-supplied f
 private-content/problems/{problem_id}/versions/{version_id}/source/{object_id}
 public-assets/problems/{problem_id}/versions/{version_id}/assets/{asset_id}/{object_id}
 private-content/problems/{problem_id}/versions/{version_id}/restricted-assets/{asset_id}/{object_id}
-student-records/exports/{tenant_id}/{export_id}/exam.pdf
+student-records/exports/{course_id}/{export_id}/exam.pdf
 temp-processing/imports/{import_id}/
 ```
 
@@ -852,10 +1036,12 @@ question model in `problem_version_payload` is a derived, cached projection for
 rendering and search, regenerable from the pinned generator at any time.
 
 The consequence that matters: **a generator evolving leaves every historical publication snapshot
-intact.** Generator version remains part of hidden snapshot identity. Any generator or content change
-publishes a distinct replacement with a new Question ID; existing assignments and completed attempts
-keep resolving to their exact evidence until an Instructor explicitly replaces an assignment item.
-Generator implementations are therefore additive-only while referenced by historical grading evidence.
+intact.** Generator version remains part of hidden snapshot identity. A validated moderate generator
+or content edit publishes a new immutable QuestionVersion in the same QuestionId lineage; a full fork
+publishes a new QuestionId with explicit provenance. Existing assignments and completed attempts keep
+resolving to their exact evidence until an Instructor explicitly applies a controlled assignment
+update. Generator implementations are therefore additive-only while referenced by historical grading
+evidence.
 
 For a static flat question, **the canonical, versioned PLE flat-question JSON
 source is authoritative.** Publication preserves it as a private immutable
@@ -966,10 +1152,10 @@ later search-index replacement safe when observed query volume or configured cap
 
 ### Planning sizing observation: 1,000 instructors
 
-This scenario tests the logical-tenancy choice. One cluster with forced RLS remains the configured
-starting model; observed tenant workload, regulatory requirements, and the deployment capacity model
-decide whether a later physical split is warranted. A one-time operations review records that
-decision and its evidence.
+This scenario tests the single-installation capacity choice. One cluster with forced RLS remains the
+configured starting model; observed workload, regulatory requirements, and the deployment capacity
+model decide whether a later storage or service split is warranted. A one-time operations review
+records that decision and its evidence.
 
 Simultaneous students are evaluated as observed concurrency against the configured replica and
 database budgets, with stateless replicas added when the measured workload requires them.
@@ -988,8 +1174,8 @@ server-side regardless of caching.
 | ---------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
 | `FOR UPDATE SKIP LOCKED` job queue | Observed queue pressure exceeds its configured budget   | Evaluate a durable external queue with the same job contract   |
 | PostgreSQL faceted search          | Observed query workload exceeds configured index budget | Add a search index fed from immutable versions                 |
-| Single writer                      | Observed sustained writes exceed configured DB budget   | Add catalog/reporting replicas, then evaluate tenant partition |
-| One cluster, logical tenancy       | Regulatory or contractual physical-separation need      | Split by tenant ID, which every record already carries         |
+| Single writer                      | Observed sustained writes exceed configured DB budget   | Add catalog/reporting replicas, then evaluate typed scope partitioning |
+| One installation, one cluster      | Regulatory or contractual separation need              | Evaluate a separately approved installation boundary; do not reintroduce tenant fields into this model |
 
 These are decision procedures, not permanent numeric gates. Each replacement requires a dated
 workload observation, the active configuration, and an architect-approved receipt.
@@ -1017,7 +1203,8 @@ governs palette contrast.
 ### Route map
 
 Human-facing route parameters are typed public references. The server resolves them inside the
-authenticated tenant and role boundary before loading the existing internal UUID model. Public
+authenticated `ActorContext` and exact course/membership boundary before loading the existing internal
+UUID model. Public
 references are locators, never authorization. Internal UUIDs may remain in background API and asset
 requests, but they do not appear in the address bar or user-copyable navigation links.
 
@@ -1258,7 +1445,8 @@ snapshot needed for deterministic grading without exposing a version choice. The
 assignment-level `RunPolicies` controls with their current values visible. Timing and attempt
 policies remain properties of each published question rather than assignment overrides. The browser
 submits only the ordered resolved references and policy choices. The server resolves every Question
-ID through tenant-visible catalog state, uses the persisted capability declaration, and returns the
+ID through the shared catalog after the approved-Instructor and exact-course checks, uses the persisted
+capability declaration, and returns the
 complete deterministic
 `validate_assignment_config` violation list. Capability failures render beside the affected selections so
 the instructor sees every violation at once rather than one per submission.
@@ -1274,15 +1462,16 @@ decision.
 generating parameters in WASM so an author sees a real variant per seed without a server round trip.
 The preview shows the student view and the answer-key view side by side, since an author needs both.
 
-**Publish flow.** Validation results, the target scope, and an optional content diff against an
-explicitly chosen source question for provenance review. Every publication creates a new immutable
-question with a new Question ID and fresh hidden exact evidence. The interface shows that assigned
-Question ID after publication, never presents a historical snapshot ID, and offers a one-way
-derived-from provenance choice rather than an update-in-place path.
+**Publish flow.** Validation results identify whether an edit is a moderate same-lineage successor or
+a full fork, show the resulting authorship and license, and offer a content diff against the selected
+source. A moderate steward edit publishes a new immutable QuestionVersion under the same QuestionId;
+a validated full fork publishes a new QuestionId lineage with source attribution. The interface shows
+the stable QuestionId and version history without exposing a hidden snapshot ID, and records
+controlled-update impact separately from publication.
 
-**Course appearance.** One focused instructor surface selects a closed, measured three-color biome
+**Course appearance.** One focused Instructor surface selects a closed, measured three-color biome
 or habitat theme and optionally uploads one small centered banner. The theme is authoritative
-tenant-owned course state and applies through one route scope to every learner and instructor page
+course-scoped state and applies through one route scope to every learner and Instructor page
 inside that course; it never recolors global PLE pages, authored scientific content, or semantic
 success/danger/correctness states. The banner appears only on the course entry page. Theme and
 banner changes share one strong appearance revision so a stale instructor tab preserves its local
@@ -1315,7 +1504,7 @@ substitution for a required production path.
 | MOD-GRD          | Grading (server-only)                                                    | `grade(question, response, key)` and typed flat private integrity                 | MOD-QM, MOD-STATE                                                     | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                  |
 | MOD-OBJ          | Object store                                                             | `ObjectStore` trait                                                               | MOD-ID                                                                | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                 |
 | MOD-STO          | Persistence and RLS context                                              | `Store` trait                                                                     | MOD-QM, MOD-ID, MOD-RUN, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                    |
-| MOD-SCHEMA       | Migrations, RLS policies, partitions                                     | Shared and tenant schema                                                          | MOD-ID, MOD-RUN                                                       | n/a                                  | Fresh apply; foreign tenant context returns zero rows                                                                                                                                                                                  |
+| MOD-SCHEMA       | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                  | MOD-ID, MOD-RUN                                                       | n/a                                  | Fresh apply; missing actor, foreign course, another UserId, and revoked membership return zero rows                                                                                                                                   |
 | MOD-ADP-NAT      | Native adapter                                                           | Algorithmic families and strict PLE flat-question compiler                        | MOD-QM, MOD-GEN, MOD-GRD                                              | n/a                                  | End-to-end generated family; flat JSON public/private split and reproducible hash                                                                                                                                                      |
 | MOD-ADP-WW       | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                       | MOD-QM, MOD-OBJ                                                       | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL corpus compatibility is out of scope |
 | MOD-ADP-QTI      | QTI adapter                                                              | Import pipeline, export                                                           | MOD-QM, MOD-OBJ                                                       | `MemoryObjectStore`                  | Hostile-ZIP corpus rejected; unsupported features recorded                                                                                                                                                                             |
@@ -1330,7 +1519,7 @@ substitution for a required production path.
 | MOD-API-ASSET    | Asset delivery                                                           | `POST /api/assets/{id}`                                                           | MOD-OBJ, MOD-STO                                                      | `MemoryObjectStore`                  | Authorizes and logs before a bounded signed URL; only activated public catalog assets bypass to CDN                                                                                                                                    |
 | MOD-WORKER       | Jobs queue and worker pool                                               | Enqueue and drain                                                                 | MOD-STO                                                               | `MemoryStore`                        | Two workers never claim one job; scales on queue depth                                                                                                                                                                                 |
 | MOD-STATS        | Anonymous question statistics                                            | Incremental aggregation, k-anonymity gate                                         | MOD-RUN, MOD-STO                                                      | `MemoryStore`                        | Aggregates match a hand-computed fixture; below-threshold cohorts suppressed; aggregates survive record deletion                                                                                                                       |
-| MOD-RETENTION    | Retention lifecycle                                                      | Scheduled notify, archive, delete; per-institution config                         | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | Controlled-clock checks exercise configured notification, archive, and deletion stages; deletion removes records and bucket artifacts while catalog content and statistics retain their declared state                                 |
+| MOD-RETENTION    | Retention lifecycle                                                      | Scheduled notify, archive, delete; configured course policy                       | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | Controlled-clock checks exercise configured notification, archive, and deletion stages; deletion removes records and bucket artifacts while catalog content and statistics retain their declared state                                 |
 | MOD-CLIENT       | Typed API client                                                         | TS client from generated types                                                    | Generated types                                                       | Mock handler set                     | Type tests; no `any`, no unchecked `as`                                                                                                                                                                                                |
 | MOD-UI-SHELL     | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                    | MOD-CLIENT, WP-C9                                                     | Mock handlers                        | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                              |
 | MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow     | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                                  |
@@ -1360,7 +1549,7 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 | --- | ------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | M0  | Foundation and toolchain | Workspace, Solid build, containers, gates                             | Both toolchains green on a hello-path                                        |
 | M1  | Contract freeze          | Every contract, reference backend, and conformance suite              | Six or more lanes start without coordinating                                 |
-| M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, native adapter, API | Parity, secrecy, and tenant-isolation gates green                            |
+| M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, native adapter, API | Parity, secrecy, and cross-course/cross-user authorization gates green       |
 | M3  | Experience lanes         | Student and instructor UIs, worker pool, export                       | Long run history remains usable and correctly summarized                     |
 | M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                   | Adapter behavior is green and a one-time source-boundary receipt is accepted |
 | M5  | Integration hardening    | Cross-cutting E2E, isolation, hostile inputs, retention               | Every gate green together, not just per lane                                 |
@@ -1412,7 +1601,8 @@ widget exist to build against.
   MOD-WASM; (4) MOD-OBJ; (5) MOD-SCHEMA, MOD-STO; (6) the five API modules; (7) MOD-CLIENT.
 - Entry criteria: M1 exit criteria met.
 - Exit criteria: seed parity green on both targets; WASM allowlist and dependency assertion green;
-  conformance suites green against PostgreSQL and MinIO; a foreign tenant context returns zero rows;
+  conformance suites green against PostgreSQL and MinIO; missing actor, foreign course, another
+  UserId, and revoked membership return zero rows;
   the student-facing role cannot read any answer-key table; an in-progress run resumes across restart
   and across replicas; a replayed submission returns the first result; every list endpoint uses a
   cursor; flat JSON publication preserves the non-signable canonical source and binds grader-only
@@ -1483,12 +1673,14 @@ iMathAS provider, not a second backend. Before MOD-ADP-IMATHAS begins, land the 
 draft-identity refactor. It is a prerequisite for every adapter, not an iMathAS-lane repair, and no
 adapter may consume an intermediate form:
 
-- MOD-QM defines a tenant-owned `DraftQuestionDefinition` with workspace-only identity and no
+- MOD-QM defines a private workspace-owned `DraftQuestionDefinition` with workspace-only identity and no
   `ProblemId` or `VersionId`; published-only definitions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
-  `ProblemVersionRef` and assigned Question ID only after all publication validation succeeds. Every
-  content change mints a distinct `ProblemId`, `VersionId`, and Question ID; optional immutable
-  provenance may link it to its source. A failed publication mints neither ID.
+  `ProblemVersionRef`, stable QuestionId lineage, and immutable QuestionVersion only after all
+  publication validation succeeds. A validated moderate steward edit mints a successor version in
+  its existing lineage; a validated full fork mints a new lineage with fork authorship, source
+  attribution, and a source-compatible license. A failed publication mints neither published
+  reference nor version.
 - MOD-STO and MOD-SCHEMA update the memory and PostgreSQL stores, migration and JSON payload
   boundaries so drafts store only their workspace identity and published rows store the immutable
   reference. Catalog and API publication paths use that transition rather than a draft-held version.
@@ -1506,9 +1698,9 @@ After that prerequisite:
 - Add `QuestionSource::Imathas` and `QuestionBackend::Imathas`. A draft sandbox preview may retain
   only an unversioned, private provider/question reference. Publishing first fetches and validates a
   supported profile, then stores immutable source bytes with an `ObjectId` and SHA-256 and pins the
-  integration profile. The prerequisite publication transition mints IDs only after that work
-  succeeds; any source or profile change publishes a distinct question with a new Question ID and
-  hidden exact evidence.
+  integration profile. The prerequisite publication transition mints the applicable immutable
+  version only after that work succeeds; a moderate steward update remains in its QuestionId lineage
+  and a full fork creates a new lineage with hidden exact evidence.
 - Keep provider endpoint, credentials, accepted origin, and egress policy deployment configuration
   keyed by an opaque provider name. Never persist or serialize an arbitrary iframe URL, launch JWT,
   answer, solution, remote session state, or credential as question source.
@@ -1525,8 +1717,9 @@ After that prerequisite:
   fallback. Unsupported verification or deterministic seeding makes the requested graded feature
   unavailable rather than pretending capability.
 - Source snapshots are answer-bearing objects, not CDN assets. Student launches, responses, and
-  provider transcripts are tenant-owned records under RLS and retention; immutable shared content
-  stays outside tenant records. Cache keys include immutable version and seed, never tenant data.
+  provider transcripts are exact course/Student/attempt records under RLS and retention; immutable
+  shared content stays outside course records. Cache keys include immutable version and seed, never
+  Student or course data.
 - iMathAS failures show a question-local retry/degraded state with saved editable response. They do
   not become incorrect grades, block adjacent questions, or weaken disclosure policy. Solutions are
   requested, sanitized, and returned only after server policy permits them.
@@ -1535,7 +1728,7 @@ Permanent behavior gates use recorded, redacted protocol fixtures and a test-loc
 sandbox
 publication refusal without a snapshot or durable IDs; immutable replay after provider mutation;
 deterministic render cache; forged or stale browser/provider messages leaving attempts ungraded;
-idempotent grade replay and tenant isolation; copied launch URLs and disclosure traces free of source,
+idempotent grade replay and cross-course isolation; copied launch URLs and disclosure traces free of source,
 provider launch material, secrets, answer, and unauthorized score; outage isolation; and capability
 refusal for unsupported profiles. A dedicated
 non-production iMathAS/MyOpenMath compatibility probe is a one-time release-readiness check, never a
@@ -1545,12 +1738,12 @@ permanent credentialed or network test.
 
 - Depends on: M3, M4.
 - Deliverables: cross-cutting `tests/e2e/` suite; orphaned-object reconciliation; MOD-STATS
-  incremental aggregation with the k-anonymity gate; MOD-RETENTION lifecycle with per-institution
-  configuration; asynchronous analytics; `docs/SECURITY_MODEL.md`, `docs/RETENTION_POLICY.md`.
+  incremental aggregation with the k-anonymity gate; MOD-RETENTION lifecycle with configured course
+  policy; asynchronous analytics; `docs/SECURITY_MODEL.md`, `docs/RETENTION_POLICY.md`.
 - Lanes: (1) MOD-STATS; (2) MOD-RETENTION; (3) cross-cutting E2E, owned by `integrator`.
 - Entry criteria: M3 and M4 exit criteria met.
 - Exit criteria: package-local lanes are green before final Validation; controlled-clock expiry,
-  tenant isolation, answer-key grants, object round trip, partition pruning under the documented
+  cross-course/cross-user authorization, answer-key grants, object round trip, partition pruning under the documented
   workload model, and
   renderer-outage degradation all proven together; a course deletion test proves student records and
   `student-records` bucket artifacts are gone while catalog content, instructor drafts, and anonymous
@@ -1586,7 +1779,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
 
 1. **Discover.** Elena searches the published Library by concept, filters to safe evidence, and
    opens a public question detail.
-2. **Collect.** Elena favorites the selected questions and places them in a named collection. The
+2. **Collect.** Elena Stars the selected questions and places them in a named collection. The
    same live selection is available to the assignment picker. If `WP-INST-D3` is accepted, she may
    review and confirm a proposed tag with recorded provenance; otherwise human taxonomy is the
    demonstrated path.
@@ -1606,10 +1799,10 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
 7. **Recover and recalculate.** A deterministic grader exception for one issued item routes to
    Elena's operation view. After the bounded correction, she requests the generation-fenced
    recalculation and observes the refreshed course total without changing the original receipt.
-8. **Analyze and replace.** Elena opens course-local item analysis, inspects the affected learner
-   evidence and usage context, publishes a distinct linked replacement Question ID, and records the
-   decision. The replacement is selected for future teaching while the issued run remains pinned to
-   its original evidence.
+8. **Analyze and improve.** Elena opens course-local item analysis, inspects the affected learner
+   evidence and usage context, and publishes either a linked immutable successor or a validated fork
+   according to the change class. She records the controlled-update decision; future teaching can use
+   the selected improvement while the issued run remains pinned to its original evidence.
 9. **Rollover.** Elena previews and creates the next-term rollover. The manifest carries reusable
    teaching definitions and improvement notes while excluding roster membership, accommodations,
    learner work, attempts, grades, and retention state.
@@ -1687,8 +1880,8 @@ or implementer-authored specification is required.
 - Touch points: `crates/learning-data-access/src/{lib,in_memory}.rs`, `crates/objects/src/{lib,in_memory}.rs`, both
   conformance suites.
 - Acceptance criteria: `Store` covers every entity, exposes cursor pagination only with no `OFFSET`
-  parameter anywhere in the trait, and carries an explicit tenant context type that cannot be
-  defaulted; `ObjectStore` exposes `put`, `get`, `delete`, `signed_url` with keys built only from IDs
+  parameter anywhere in the trait, and carries explicit `ActorContext` plus typed target scopes that
+  cannot be defaulted; `ObjectStore` exposes `put`, `get`, `delete`, `signed_url` with keys built only from IDs
   and versions and no caller-supplied key; checksums computed on write and verified on read; both
   memory backends pass conformance suites the PostgreSQL and S3 backends will later run unchanged; no
   SQL or AWS type leaks through either trait.
@@ -1783,7 +1976,7 @@ or implementer-authored specification is required.
   generated client, Playwright, and durable documentation owners.
 - Progress: WP-CA1 through WP-CA7/WP-RC1 passed on 2026-08-09. The closed browser-safe
   Rust/generated-TypeScript contract, supported theme variants and Grass default, strong revision and banner
-  mutation shapes, executable instructor route, and tenant/course-bound candidate/current banner
+  mutation shapes, executable Instructor route, and exact-course candidate/current banner
   object identities are accepted. Candidates are temporary and non-signable; current banners are
   protected course content whose delivery now requires the exact persisted current pointer. Memory
   and PostgreSQL create and retain the revisioned appearance, revalidate persisted Instructor authority,
@@ -1841,8 +2034,8 @@ or implementer-authored specification is required.
 - Determinism gate: WP-C5 parity green on both targets. Blocks every generation-dependent lane.
 - Secrecy gate: WP-C6 allowlist and dependency assertions green, plus the M3 network trace. A red
   secrecy gate is a release blocker with no workaround.
-- Tenant isolation gate: from M2, a foreign tenant context returns zero rows and the student-facing
-  role cannot read any answer-key table.
+- Authorization isolation gate: from M2, missing actor context, a foreign course, another UserId, or
+  revoked membership returns zero rows and the Student-facing role cannot read any answer-key table.
 - Scale gate: typed bounded-page Store contracts and behavior tests remain green. A one-time source and
   query-plan review verifies that new query paths use stable cursor predicates; a repository-wide
   lexical SQL scanner is not retained as a permanent pytest.
@@ -1873,7 +2066,7 @@ or implementer-authored specification is required.
   and the network trace proving no answer crosses the wire. Timing measurements are diagnostic output,
   not pass/fail assertions.
 - `tests/e2e/`: container-dependent checks -- restart durability, replica independence, clock-skew
-  invariance, submission replay, migration application, RLS foreign-tenant isolation, answer-key
+  invariance, submission replay, migration application, RLS cross-course/cross-user isolation, answer-key
   grants, object round trip, partition selection under the declared workload model, render cache hit,
   hostile-ZIP handling, worker queue concurrency, renderer-outage degradation. Excluded from pytest by
   the existing `collect_ignore`.
@@ -1886,21 +2079,21 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Risk                                                | Impact                                                                       | Trigger                                                                                                                       | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                            |
 | --------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | An answer or key reaches the browser                | Assessment integrity lost, silent until exploited                            | A new WASM export, or grading code moved into `domain`                                                                        | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                           |
-| RLS is bypassed, unset, or outlives membership      | Cross-tenant or revoked-learner exposure of educational records              | Application connects as a bypassing role, tenant context comes from client input, or a revoked learner uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; actor-scoped Store reads/mutations lock and recheck active Student membership; foreign-context and revocation-race tests on every gate                                                                                                                                                                       |
+| RLS is bypassed, unset, or outlives membership      | Cross-course, cross-user, or revoked-Student exposure of educational records | Application connects as a bypassing role, actor context comes from client input, or a revoked learner uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; actor-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-UserId, and revocation-race tests on every gate |
 | A frozen contract turns out incomplete              | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                                                                | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                     |
 | Native and wasm32 generation diverge                | Historical attempts not reproducible; render cache serves wrong content      | Parity mismatch                                                                                                               | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                  |
 | Attempt tables outgrow the design                   | Slow gradebook, painful migrations                                           | Observed workload approaches a configured storage or query budget                                                             | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                                |
 | Grade computed by scanning history                  | Course pages time out at scale                                               | A convenient aggregate query in a page path                                                                                   | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                                                                                                                                                                                                          |
 | Database bloat from payloads in operational tables  | Slow backups, restores, replication                                          | A payload exceeds its documented operational-storage budget                                                                   | `expert_coder`   | Role-based split; configured payload ceilings refuse oversized writes; archival source and binary data use typed object storage; hot and cold records remain separate                                                                                                                                                                                                                                 |
 | WeBWorK renderer saturates                          | Timed questions fail to load under burst                                     | Many students on WeBWorK questions at once                                                                                    | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                                                                                                                                                                                                           |
-| External-tool callback or retry accepted as a grade | Assessment integrity or tenant isolation lost                                | Browser message, stale launch, an unverifiable provider response, or an ambiguous failed launch POST reaches grading          | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before provider contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-tenant, expiry, and crash-window gates |
+| External-tool callback or retry accepted as a grade | Assessment integrity or cross-course isolation lost                          | Browser message, stale launch, an unverifiable provider response, or an ambiguous failed launch POST reaches grading          | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before provider contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-course, expiry, and crash-window gates |
 | Malicious archive during QTI import                 | Remote code execution or disk exhaustion                                     | A crafted ZIP uploaded                                                                                                        | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile corpus test                                                                                                                                                                                                                                 |
 | Course banner exhausts image processing             | Availability failure or active-content exposure                              | Oversized decoded raster, SVG, animation, malformed codec input                                                               | `expert_coder`   | Pre-read byte cap; decoded-pixel cap; JPEG/PNG/WebP raster allowlist; metadata-stripping normalization; hostile-image tests                                                                                                                                                                                                                                                                           |
 | Course theme bleeds across route scope              | Wrong course identity or unreadable global/status UI                         | Prior course variables remain after navigation                                                                                | `ui-ux-engineer` | One course-subtree provider; cross-course/global cleanup tests; computed rendered-pair contrast and contact-sheet review                                                                                                                                                                                                                                                                              |
 | Orphaned objects accumulate                         | Storage cost and retention drift                                             | Deleted records leaving objects behind                                                                                        | `expert_coder`   | Reconciliation job comparing object records to bucket inventory; lifecycle rules; M5 deliverable                                                                                                                                                                                                                                                                                                      |
 | Small-cohort statistics re-identify a student       | Privacy failure disguised as an anonymous aggregate                          | A question attempted by one or two students publishes its statistics                                                          | `architect`      | k-anonymity threshold (default 5) gates publication; suppression test in M5 exit                                                                                                                                                                                                                                                                                                                      |
 | Statistics lost when records are deleted            | The library stops learning, and deletion becomes something instructors avoid | Statistics computed on demand from attempt history                                                                            | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                       |
-| Retention deletes reusable content                  | Instructors lose authored work and stop trusting the system                  | A deletion path following assignment references into shared content                                                           | `expert_coder`   | Deletion is scoped to tenant-owned records by construction; the M5 deletion test asserts catalog content and drafts survive                                                                                                                                                                                                                                                                           |
+| Retention deletes reusable content                  | Instructors lose authored work and stop trusting the system                  | A deletion path following assignment references into shared content                                                           | `expert_coder`   | Deletion is scoped to exact course/Student records by construction; the M5 deletion test asserts catalog content and private drafts survive                                                                                                                                                                                                                                                        |
 | Signed URL leakage                                  | Educational records exposed                                                  | A URL is shared, logged, or used after its configured expiry                                                                  | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                       |
 | Draft problems leak into shared content             | The exact ADAPT failure this design exists to avoid                          | A code path minting `ProblemId` outside publish                                                                               | `architect`      | Keep the `ProblemId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                    |
 | Parallel lanes collide on a shared artifact         | Merge conflicts and lost work                                                | Two lanes editing migrations or the seed table                                                                                | `integrator`     | One owning module per shared artifact, tabulated in the catalog                                                                                                                                                                                                                                                                                                                                       |
@@ -1930,8 +2123,8 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - [ ] Restore-from-backup exercised; the recovery evidence and environment are recorded.
 - [ ] FERPA control checklist completed with evidence per control; retention and deletion implemented
       for `student-records` and render traces.
-- [ ] Retention default configured to the privacy-preserving value, with the per-institution override
-      documented and one non-default institution exercised.
+- [ ] Retention default configured to the privacy-preserving value, with the configured course-policy
+      override documented and one non-default course policy exercised.
 - [ ] A real course deletion exercised end to end: records and bucket artifacts gone, catalog content
       and anonymous statistics intact, and the result recorded.
 - [ ] Course appearance acceptance completed: real-role RLS/current-pointer oracle, centered
@@ -1949,7 +2142,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
   `docs/CODE_ARCHITECTURE.md`, `docs/FILE_STRUCTURE.md`, `docs/INSTALL.md`, `docs/USAGE.md`,
   `docs/LOCAL_STACK_OPERATIONS.md`, `docs/MACOS_PODMAN.md`, `docs/QUESTION_MODEL.md`,
   `docs/ACTIVITY_MODEL.md`,
-  `docs/PROBLEM_IDENTITY.md`, `docs/OBJECT_STORAGE.md`, `docs/DATABASE_TENANCY.md`,
+  `docs/PROBLEM_IDENTITY.md`, `docs/OBJECT_STORAGE.md`, `docs/DATABASE_AUTHORIZATION.md`,
   `docs/DETERMINISM_CONTRACT.md`, `docs/ADAPTER_DEVELOPMENT.md`, `docs/SECURITY_MODEL.md`,
   `docs/RETENTION_POLICY.md`, `docs/SOLID_MODEL.md`, `docs/FRONTEND_ARCHITECTURE.md`,
   `docs/DEVELOPMENT.md`.

@@ -25,31 +25,59 @@ The owner has observed students voluntarily run a completed assignment 30 or
 more times. The dedicated WP-C3 acceptance test therefore completes 31 runs and
 checks the compact summary rather than treating the first completion as terminal.
 
-## Tenant ownership
+## Single-installation authorization
 
-All three activity records and `StudentAssignmentSummary` are educational
-records. Each row carries `TenantId` directly. The PostgreSQL implementation in
-MOD-SCHEMA can therefore apply forced row-level security to every table without
-depending on a parent-table join to discover the tenant.
+PLE is one installation with global accounts. It has no institution selector,
+`TenantId`, tenant-leading key, or client-selected database context. Institution
+policy configuration is deployment metadata; it is not an account boundary,
+authorization partition, or activity-record owner. Historical pre-SD1 source
+still contains tenant-shaped fields and `TenantContext`; that source is migration
+input, not the target activity contract.
 
-The browser never chooses this value. The server supplies tenant context from
-the authenticated session, and storage later verifies that context under its
-conformance suite.
+`CourseId` is the exact educational-record boundary. An assignment belongs to
+one course and stores ordered `(ProblemId, VersionId)` references to shared
+immutable published content; it never owns or copies the question payload. Each
+activity record is resolved to one exact course, and learner-owned records also
+name their exact `StudentId` owner. Child identities must agree with the
+enrollment, assignment, and course chain; a direct child identifier never widens
+that scope.
 
-Courses and assignments sit immediately above this activity hierarchy. A
-course is tenant-owned and grants explicit course-local membership to
-authenticated `UserId` values. An assignment belongs to exactly one course and
-stores ordered `(ProblemId, VersionId)` references to shared immutable content;
-it never owns or copies the question payload. Enrollment then links a student
-record to that tenant-owned assignment.
+The server derives `ActorContext { user_id, session_id }` from the authenticated
+global account session. A browser field, request path, header, queue payload,
+object key, or provider response can identify a candidate record, but cannot
+establish actor authority or select a course. The Store and PostgreSQL boundary
+re-evaluate the exact relationship in the same transaction as each protected
+operation.
+
+| Activity record | Durable ownership scope | Allowed human authority |
+| --- | --- | --- |
+| `AssignmentEnrollment` | `CourseId`, `AssignmentId`, and exact `StudentId` | That Student, or a current course Instructor |
+| `AssignmentRun` | `CourseId`, `EnrollmentId`, and its Student owner | That Student, or a current course Instructor |
+| `QuestionAttempt` | `CourseId`, `RunId`, and its Student owner | That Student, or a current course Instructor |
+| `StudentAssignmentSummary` | `CourseId`, `EnrollmentId`, and its Student owner | That Student projection, or a current course Instructor |
+
+Student access requires current active Student membership for the exact course
+and ownership of the exact `StudentId`; another Student, another course, a
+revoked membership, and an inactive retention state fail closed. Instructor
+access requires current approved-Instructor status and current direct Instructor
+membership for that exact course. All current co-Instructors receive the same
+teaching and FERPA-read decisions for equivalent state. Sysadmin status alone is
+not FERPA authority; support and coarse retention lifecycle operations are
+narrow, audited exceptions defined by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
+
+Membership revocation, approval withdrawal, and retention fencing serialize with
+activity reads and writes. A stale browser identifier therefore cannot read,
+mutate, disclose, or delete a record after its relationship has ended. These
+authorization checks do not rewrite historical activity evidence.
 
 ## Enrollment
 
 `AssignmentEnrollment` owns cross-run state:
 
-- `user` is the authenticated person authorized to act on the enrollment;
-- `student` is the institution's pedagogical record identity and is not
-  inferred to be the same identifier as `user`;
+- `student` is the exact Student record owner for this course and is not
+  inferred to be the same identifier as the authenticated `UserId`;
+- the request actor is the server-derived `ActorContext`, not a browser-supplied
+  enrollment field;
 - `first_completed_at` records the first server time a run met completion.
 - `current_grade_run` points to the run selected by grade policy.
 - `best_grade_run` points to the highest-scoring completed run.
@@ -71,7 +99,8 @@ the server records the completion timestamp and score as a transition.
 
 `QuestionAttempt` belongs to one run and records:
 
-- its tenant and run IDs;
+- its exact course, run, and Student-owner scope, resolved through the parent
+  enrollment and assignment;
 - its zero-based assignment position, which distinguishes repeated references
   to the same published problem version and groups retries correctly;
 - the immutable published `ProblemId` and `VersionId`;
@@ -358,16 +387,18 @@ Invalid score fractions and point values are explicit errors.
 
 ## Summary projection
 
-`StudentAssignmentSummary` is the compact internal and instructor gradebook
-projection. It holds current, best, and latest scores, completed-run count,
-total question attempts, and last activity time. Historical runs remain
-separate for analysis.
+`StudentAssignmentSummary` is the compact course- and Student-owned internal
+projection used by the gradebook. It holds current, best, and latest scores,
+completed-run count, total question attempts, and last activity time. Historical
+runs remain separate for analysis. The Store updates the summary only for the
+same exact course, enrollment, and Student owner represented by the transition.
 
 Learner routes instead receive the key-free `LearnerAssignmentProgress`
 projection. `score_state` is `NoActivity`, `Withheld`, or `Available`. Scores
 are present only for `Available`; `NoActivity` means no submitted response and takes precedence over
 disclosure. Starting a run may set `last_activity_at` without changing that score state.
-The learner projection omits the internal tenant and enrollment identifiers.
+The learner projection omits internal course, Student, and enrollment
+identifiers.
 Its independent `scoring_status` is `Current`, `Recalculating`, or `Failed`.
 Recalculating and Failed omit aggregate scores, run scores, attempt results,
 and disclosed point values even when disclosure would otherwise permit them,
@@ -393,26 +424,50 @@ until an instructor names a completed run. The incremental summary and batch
 selection are checked against the same hand-computed fixture. The compatibility
 re-export from `domain::run` remains available to WP-C3 consumers.
 
-The gradebook reads this compact projection together with tenant-owned course
-and assignment records. It does not scan every historical run or attempt when
-a student has returned for continued practice many times. Historical records
-remain available to authorized history and analysis paths until retention
-removes the tenant-owned learner graph.
+The gradebook reads this compact projection together with the exact course and
+assignment records. It does not scan every historical run or attempt when a
+student has returned for continued practice many times. Historical records
+remain available to authorized history and analysis paths until course
+retention removes the course-owned Student graph.
 
 ## Retention boundary
 
 Enrollment, run, attempt, summary, feedback, and associated learner-owned
-artifacts are student records. Course retention archives their ordinary
-learner-facing access before permanent deletion, then removes the course-owned
-record graph and its typed artifacts while preserving immutable shared
-published content and identity-free question statistics. The default lifecycle
-is notification after 30 days, archive after 100 days, and deletion after 365
-days; an institution can configure another ordered policy.
+artifacts are course-scoped Student records. Course retention archives their
+ordinary learner-facing access before permanent deletion, then removes the
+course-owned record graph and its typed artifacts while preserving immutable
+shared published content, private authoring workspaces, and identity-free
+question statistics.
 
-The lifecycle is server- and scheduler-owned. A browser cannot choose the
-tenant, deletion scope, work-set identity, lease, or generation, and a passed
-deadline alone does not claim that cleanup succeeded. The detailed contract is
-[RETENTION_POLICY.md](RETENTION_POLICY.md).
+The deployment retention policy is trusted policy metadata. It supplies ordered
+notification, archive, and deletion windows (the defaults are 30, 100, and 365
+days), but it is not an account property, an institution partition, a request
+field, or an authorization grant. The Store resolves this metadata when a course
+ends and records an immutable schedule snapshot for that exact `CourseId`.
+
+Every scheduled stage has a typed identity:
+`(CourseId, RetentionStage, generation)`. `generation` is a positive stale-work
+fence. A private worker payload adds only the exact job and active lease; it does
+not carry Student IDs, object prefixes, record payloads, or browser authority.
+The Store resolves a `RetentionCleanupManifest` for that course, stage, and
+generation. The manifest contains the exact typed `StudentRecord` object
+metadata to revoke and delete, never a bucket prefix or caller-provided list.
+The worker validates the manifest against its lease before each object effect,
+and the Store commits the lifecycle transition only when the same generation and
+lease remain current.
+
+Archive first revokes ordinary Student-facing access. Permanent deletion then
+removes only the course-owned Student rows and exact artifacts after residual
+checks; an absent object is idempotent success. A passed deadline makes a stage
+eligible but never claims that its effects completed. The detailed lifecycle and
+backup boundary are in [RETENTION_POLICY.md](RETENTION_POLICY.md).
+
+Retention and grading share the same evidence rule: while records are retained,
+deletion or rescoring cannot rewrite an immutable accepted response, attempt
+provenance, receipt, or prior grade event. Retention deletion is a separate,
+generation-fenced terminal operation. Current summaries and Gradebook totals may
+be recalculated only by the server's deterministic grading contract and the
+active scoring generation.
 
 ## Behavior evidence
 

@@ -10,7 +10,7 @@ pub(super) async fn start_or_resume_run(
     proposed_run: RunId,
 ) -> Result<AssignmentRun, StoreError> {
     let tenant = context.tenant_id();
-    let command = crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
+    let command = crate::MaterializeAssignmentEntitlementCommand::for_student_action(
         actor,
         binding.course,
         binding.assignment,

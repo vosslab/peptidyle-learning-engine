@@ -7,7 +7,8 @@
 
 use question_model::{
     ActivityTimestamp, CoInstructorInvitation, CoInstructorInvitationState,
-    CourseGroupPurposePolicy, CourseId, InstructorApproval, MultipleMembershipDisposition, UserId,
+    CourseGroupPurposePolicy, CourseId, CourseMembershipId, CourseMembershipRole,
+    InstructorApproval, MultipleMembershipDisposition, StudentId, UserId,
 };
 
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
@@ -30,7 +31,11 @@ pub const fn evaluate_multiple_membership(
     }
 }
 
-/// Course-local direct Instructor membership used only to project teaching authority.
+/// Current direct Instructor-membership facts for one exact course.
+///
+/// The Store supplies this projection after locking the durable membership
+/// record. It deliberately contains no creator distinction: the course creator
+/// and every accepted co-Instructor use the same exact membership relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DirectInstructorMembership {
     pub course: CourseId,
@@ -38,29 +43,109 @@ pub struct DirectInstructorMembership {
     pub active: bool,
 }
 
-/// Explicit course authority result; global approval is intentionally absent.
+/// Explicit result of a current course-Instructor authorization evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstructorAuthority {
-    DirectCourseInstructor,
+    CurrentCourseInstructor,
+    ApprovalRequired,
     NoDirectCourseMembership,
 }
 
-/// Projects teaching authority only from active, exact-course direct membership.
+/// Returns whether `actor` currently has global Instructor capability.
 ///
-/// `InstructorApproval` is not an input by design: it is eligibility to be
-/// invited, never a platform role or a source of course authority.
+/// A supplied timestamp keeps the predicate deterministic and lets the
+/// transaction owner provide its authoritative clock. A malformed, future, or
+/// revoked approval fails closed.
+pub fn approved_instructor(
+    approval: Option<InstructorApproval>,
+    actor: UserId,
+    now: ActivityTimestamp,
+) -> bool {
+    match approval {
+        Some(approval) => {
+            approval.user == actor && approval.approved_at <= now && approval.revoked_at.is_none()
+        }
+        None => false,
+    }
+}
+
+/// Returns whether `actor` is a current Instructor for exactly `course`.
+///
+/// This is the canonical pure predicate for all course-Instructor operations:
+/// current global approval and an active direct Instructor membership are both
+/// required. Neither a creator flag nor a co-Instructor distinction exists.
+pub fn current_course_instructor(
+    approval: Option<InstructorApproval>,
+    membership: Option<DirectInstructorMembership>,
+    actor: UserId,
+    course: CourseId,
+    now: ActivityTimestamp,
+) -> bool {
+    approved_instructor(approval, actor, now)
+        && matches!(
+            membership,
+            Some(membership)
+                if membership.active && membership.course == course && membership.user == actor
+        )
+}
+
+/// Current Student-membership facts that bind a global account to one exact
+/// Student educational-record identity in one course.
+///
+/// The membership episode remains distinct from the global account and from
+/// the Student identity, so revocation and re-enrollment cannot rewrite past
+/// evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StudentCourseMembership {
+    pub membership: CourseMembershipId,
+    pub course: CourseId,
+    pub user: UserId,
+    pub student: StudentId,
+    pub role: CourseMembershipRole,
+    pub active: bool,
+}
+
+/// Returns whether one account currently owns the exact Student record in an
+/// exact course.
+///
+/// Callers must supply the membership projection from the same protected
+/// transaction as the educational-record access. A foreign course, account,
+/// Student identity, membership episode, revoked episode, or non-Student role
+/// fails closed.
+pub fn student_owns_course_record(
+    membership: Option<StudentCourseMembership>,
+    actor: UserId,
+    course: CourseId,
+    record_membership: CourseMembershipId,
+    student: StudentId,
+) -> bool {
+    matches!(
+        membership,
+        Some(membership)
+            if membership.active
+                && membership.role == CourseMembershipRole::Student
+                && membership.course == course
+                && membership.user == actor
+                && membership.membership == record_membership
+                && membership.student == student
+    )
+}
+
+/// Classifies the exact course-Instructor predicate for callers that need a
+/// denial reason without turning a role label into authority.
 pub fn evaluate_course_instructor_authority(
+    approval: Option<InstructorApproval>,
     membership: Option<DirectInstructorMembership>,
     course: CourseId,
     user: UserId,
+    now: ActivityTimestamp,
 ) -> InstructorAuthority {
-    match membership {
-        Some(membership)
-            if membership.active && membership.course == course && membership.user == user =>
-        {
-            InstructorAuthority::DirectCourseInstructor
-        }
-        _ => InstructorAuthority::NoDirectCourseMembership,
+    if !approved_instructor(approval, user, now) {
+        InstructorAuthority::ApprovalRequired
+    } else if current_course_instructor(approval, membership, user, course, now) {
+        InstructorAuthority::CurrentCourseInstructor
+    } else {
+        InstructorAuthority::NoDirectCourseMembership
     }
 }
 
@@ -296,18 +381,171 @@ mod tests {
     }
 
     #[test]
-    fn approval_is_not_course_authority() {
+    fn current_course_instructor_requires_active_approval_and_membership() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
         let approval = InstructorApproval {
-            user: UserId::from_uuid(id(3)),
+            user: actor,
             approved_by: UserId::from_uuid(id(9)),
             approved_at: stamp(10),
             revoked_at: None,
         };
-        assert_eq!(approval.user, UserId::from_uuid(id(3)));
+        let membership = DirectInstructorMembership {
+            course,
+            user: actor,
+            active: true,
+        };
         assert_eq!(
-            evaluate_course_instructor_authority(None, CourseId::from_uuid(id(2)), approval.user,),
-            InstructorAuthority::NoDirectCourseMembership
+            evaluate_course_instructor_authority(
+                Some(approval),
+                Some(membership),
+                course,
+                actor,
+                stamp(11),
+            ),
+            InstructorAuthority::CurrentCourseInstructor
         );
+    }
+
+    #[test]
+    fn approval_withdrawal_revokes_course_instructor_authority() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        let approval = approval(actor);
+        assert!(!current_course_instructor(
+            Some(InstructorApproval {
+                revoked_at: Some(stamp(1_001)),
+                ..approval
+            }),
+            Some(DirectInstructorMembership {
+                course,
+                user: actor,
+                active: true,
+            }),
+            actor,
+            course,
+            stamp(1_001),
+        ));
+    }
+
+    #[test]
+    fn foreign_course_membership_cannot_authorize_an_instructor() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        assert!(!current_course_instructor(
+            Some(approval(actor)),
+            Some(DirectInstructorMembership {
+                course: CourseId::from_uuid(id(4)),
+                user: actor,
+                active: true,
+            }),
+            actor,
+            course,
+            stamp(1_001),
+        ));
+    }
+
+    #[test]
+    fn foreign_actor_membership_cannot_authorize_an_instructor() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        assert!(!current_course_instructor(
+            Some(approval(actor)),
+            Some(DirectInstructorMembership {
+                course,
+                user: UserId::from_uuid(id(4)),
+                active: true,
+            }),
+            actor,
+            course,
+            stamp(1_001),
+        ));
+    }
+
+    #[test]
+    fn revoked_membership_cannot_authorize_an_instructor() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        assert!(!current_course_instructor(
+            Some(approval(actor)),
+            Some(DirectInstructorMembership {
+                course,
+                user: actor,
+                active: false,
+            }),
+            actor,
+            course,
+            stamp(1_001),
+        ));
+    }
+
+    #[test]
+    fn exact_student_record_is_permitted_and_other_student_is_denied() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        let membership = student_membership(actor, course);
+        assert!(student_owns_course_record(
+            Some(membership),
+            actor,
+            course,
+            membership.membership,
+            membership.student,
+        ));
+        assert!(!student_owns_course_record(
+            Some(membership),
+            actor,
+            course,
+            membership.membership,
+            StudentId::from_uuid(id(7)),
+        ));
+    }
+
+    #[test]
+    fn mismatched_student_membership_episode_cannot_authorize_course_record_access() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        let membership = student_membership(actor, course);
+        assert!(!student_owns_course_record(
+            Some(membership),
+            actor,
+            course,
+            CourseMembershipId::from_uuid(id(7)),
+            membership.student,
+        ));
+    }
+
+    #[test]
+    fn inactive_student_membership_cannot_authorize_course_record_access() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        let membership = student_membership(actor, course);
+        assert!(!student_owns_course_record(
+            Some(StudentCourseMembership {
+                active: false,
+                ..membership
+            }),
+            actor,
+            course,
+            membership.membership,
+            membership.student,
+        ));
+    }
+
+    #[test]
+    fn non_student_membership_cannot_authorize_course_record_access() {
+        let actor = UserId::from_uuid(id(3));
+        let course = CourseId::from_uuid(id(2));
+        let membership = student_membership(actor, course);
+        assert!(!student_owns_course_record(
+            Some(StudentCourseMembership {
+                role: CourseMembershipRole::Instructor,
+                ..membership
+            }),
+            actor,
+            course,
+            membership.membership,
+            membership.student,
+        ));
     }
 
     #[test]
@@ -543,6 +781,17 @@ mod tests {
             approved_by: UserId::from_uuid(id(9)),
             approved_at: stamp(900),
             revoked_at: None,
+        }
+    }
+
+    fn student_membership(actor: UserId, course: CourseId) -> StudentCourseMembership {
+        StudentCourseMembership {
+            membership: CourseMembershipId::from_uuid(id(6)),
+            course,
+            user: actor,
+            student: StudentId::from_uuid(id(5)),
+            role: CourseMembershipRole::Student,
+            active: true,
         }
     }
 }

@@ -33,7 +33,7 @@ test("disclosed feedback preserves allowed accessible blocks and optional omissi
   assert.deepEqual(decodeDisclosedFeedback({}), {});
 });
 
-test("learner attempts require score freshness and redact stale numeric results", () => {
+test("Student attempts require score freshness and redact stale numeric results", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   const current = { ...attempt, scoringStatus: "current" };
   assert.deepEqual(decodeStudentQuestionAttempt(current), current);
@@ -69,7 +69,7 @@ test("attempt decoder rejects the retired manual attempt status", () => {
   );
 });
 
-test("learner pool provenance exposes only a valid server-selected ordinal", () => {
+test("Student pool provenance exposes only a valid server-selected ordinal", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   const pooled = {
     ...attempt,

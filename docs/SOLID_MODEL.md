@@ -117,7 +117,7 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 
 | Browser owns                                                                     | Server owns                                                                                                                |
 | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, tenant context, private drafts, and durable revisions                                       |
+| Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, actor context, private drafts, and durable revisions |
 | Course-theme presentation from an authorized route projection                    | Course identity, appearance revision, banner-object authorization, and conflict decisions                                  |
 | Native author editing state and local QTI archive selection                      | Flat-source persistence, publication review, correctness, points, and feedback disclosure                                  |
 | QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, provenance, and atomic draft replacement |
@@ -129,7 +129,7 @@ and object-URL state, which never crosses it. The generated client surface deriv
 `crates/question_model`; answer-bearing `crates/grading` types never enter it. The external-tool
 launch DTO is intentionally only a same-origin path, never a provider URL, token, score, source,
 or provenance record. The durable broker roles remain narrow and subject to forced RLS; see
-`docs/DATABASE_TENANCY.md` and `docs/ADAPTER_DEVELOPMENT.md`.
+`docs/DATABASE_AUTHORIZATION.md#row-level-security` and `docs/ADAPTER_DEVELOPMENT.md`.
 
 ## Reactivity verification
 

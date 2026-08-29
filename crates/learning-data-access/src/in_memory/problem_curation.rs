@@ -636,12 +636,13 @@ fn resolve_members(
                 .values()
                 .find(|record| &record.question_id == question_id)
                 .ok_or(StoreError::NotFound)?;
-            (catalog_record_visible(state, tenant, record) && record.lifecycle.is_assignable())
-                .then_some(ProblemVersionRef {
-                    problem: record.problem,
-                    version: record.version,
-                })
-                .ok_or(StoreError::NotFound)
+            (catalog_record_visible(state, tenant, record)
+                && record.lifecycle.is_eligible_for_ordinary_new_selection())
+            .then_some(ProblemVersionRef {
+                problem: record.problem,
+                version: record.version,
+            })
+            .ok_or(StoreError::NotFound)
         })
         .collect()
 }
@@ -845,7 +846,7 @@ fn member_view(
         question_id: record.question_id.clone(),
         summary: record.summary(),
         selection_availability: if catalog_record_visible(state, tenant, record)
-            && record.lifecycle.is_assignable()
+            && record.lifecycle.is_eligible_for_ordinary_new_selection()
         {
             ProblemCollectionSelectionAvailability::Available
         } else {

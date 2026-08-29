@@ -2,7 +2,250 @@
 
 ## 2026-08-29
 
+### Additions and New Features
+
+- Recorded the SD1 curriculum and actor authority repair in the planning authorities. Minimal
+  Blueprint construction, immutable CourseInstance adoption evidence, execute-only adoption brokers,
+  and CourseInstance forced RLS now have their assigned migration ownership; `WP-SD1-B1-P1` is the
+  required resolved-record actor-factory prerequisite for D1. This documentation-only change leaves
+  implementation, PostgreSQL, runtime, browser, and human acceptance open.
+
+- Implemented preparatory `WP-SD1-C/M1` private Memory curriculum-adoption state. The
+  replacement has eight BP/CourseInstance-only receipt operation kinds, globally scoped
+  `(UserId, CurriculumAdoptionIdempotencyKey)` identity, and one retained canonical request intent:
+  its exact source, parsed projection, protocol version, SHA-256 digest, and closed operation are
+  available to both Memory idempotency and the later PostgreSQL broker without re-serialization.
+  Domain-separated receipt-target digests remain distinct server-only reconciliation bindings.
+  Immutable answer-free evidence, exact replay/conflict lookup, retained reconciliation targets, and
+  derived-projection rebuild support remain in place. Receipt insertion refuses every occupied target
+  identity before state changes, and CourseInstance outcomes bind the retained target destination
+  course. It removes Alpha and tenant receipt vocabulary from the owned state roots. The focused
+  facade repair keeps `request_digest` private, re-exports the selected intent/digest surface and
+  reconciliation helper through the crate facade, and adds deterministic source/projection and
+  domain-separation tests. Question-model format/check and 20 focused curriculum-adoption tests
+  pass. Existing downstream Memory operation/dispatch code remains intentionally unconverted for
+  M2-M5, so the feature-enabled LDA compilation baseline is still red; this is not Store,
+  PostgreSQL/RLS, service, browser, or release acceptance.
+
+- Implemented the preparatory `WP-SD1-B2` CurriculumAdoptionStore lifecycle contract.
+  One closed, direct-`snake_case` operation envelope now covers exactly fork,
+  existing-instance assignment adoption, BlueprintCourse instantiation, rollover,
+  term shift, controlled update, and selected copy. Browser apply carries only its
+  request and idempotency key; Store implementations own atomic record
+  issuance/consumption and immutable receipt persistence. Reconciliation accepts the
+  non-Serde receipt target. Focused question-model format/check/test/strict-Clippy
+  gates pass, and the no-default `learning-data-access` compile passes with its
+  existing 141-warning baseline. Memory/PostgreSQL implementation, service routes,
+  browser flows, connected acceptance, and release completion remain downstream
+  SD1-C/D work.
+
+- Accepted preparatory `WP-SD1-B3-B6` as a child execution package of `WP-SD1-B3`, without a new
+  top-level roadmap package or migration allocation. `ProblemVersionRef` remains the durable selected
+  result; one Published-only ordinary-new-selection predicate admits new references, while Deprecated
+  and Archived exact pins remain authorized history and re-resolve at their server/Memory destination.
+  The repair requires retained pins to keep an existing authorized visible publication; no selection
+  aggregate or browser-trusted exact version exists. Formatting and manager gates pass: question-model
+  9+3+2, curation 4, curriculum 8, policy 2, reusable curriculum 2, and server 10. B3 remains
+  incomplete pending SD1-C/D persistence/RLS/services and browser/live/aggregate closure.
+
+- Accepted preparatory `WP-SD1-B3-B7-improvement-event-contract` as a child execution package of
+  `WP-SD1-B3`, with no migration allocation. The immutable server-only, non-Serde
+  `QuestionImprovementEvent` retains opaque event identity and exact proposal/base ancestry;
+  accepted events retain a same-lineage advancing successor, while resubmissions retain both their
+  new proposal/base and distinct predecessor proposal/base link. Contributor credit remains owned
+  exclusively by `QuestionChangeProposal`. The focused default `question_stewardship` selector
+  passes, while persistence, authorization, transport, browser, SD1-C/D, and release completion
+  remain downstream work; `WP-SD1-B3` remains incomplete.
+
+- Accepted preparatory `WP-SD1-B4-J1`: one server-only, non-Serde `JobTargetSelector`
+  exhaustively projects the ten current `JobPayload` families into bounded target and generation
+  evidence. It is non-authorizing and retains the existing single queue/broker boundary. The jobs
+  facade and selector module are below source limits; seven focused tests, formatting, the default
+  warning baseline, source-size, and independent `ACCEPT` are green. `WP-SD1-B4` remains
+  incomplete while SD1-C/D resolve selectors into locked exact-scope manifests and retire
+  tenant-shaped queue authority.
+
+- Accepted preparatory `WP-SD1-B2-A` and `WP-SD1-B3-A` contract roots after independent final
+  `ACCEPT` rechecks. B2-A provides pure active-approval, exact current-course Instructor, and
+  exact Student membership-episode authorization plus a non-authorizing course-creation intent.
+  B3-A provides a server-only Change Proposal lifecycle with checked semantic/grading-impact
+  classification, exact-head and minted-successor witnesses, public contributor credit, stale
+  rebase/resubmission, and no browser aggregate. Focused format, crate check, strict domain
+  Clippy, and contract-state-machine tests pass. `WP-SD1-B2` and `WP-SD1-B3` remain incomplete
+  pending their remaining roots and SD1-C/D Store, PostgreSQL/RLS, runtime-service, and browser
+  implementation; this receipt does not claim runtime, PostgreSQL, or browser completion.
+
+- Accepted preparatory `WP-SD1-B3-B1` and `WP-SD1-B3-B2` after independent `ACCEPT` rechecks.
+  B3-B1 is the server-only, non-Serde, non-authorizing `QuestionStar` relation intent with only
+  global `UserId` ownership and lineage `QuestionId`, exported through the crate root. B3-B2 is
+  the private-owner, server-only, non-Serde, non-authorizing `QuestionWatch` aggregate with only
+  a published-lineage or exact `ProblemVersionRef` target and exactly four notice kinds:
+  `Version`, `Fork`, `ImprovementThread`, and `Impact`. Focused format/check, the existing
+  141-warning baseline, direct source-size counts, and independent `ACCEPT` are green. `WP-SD1-B3`
+  remains incomplete pending collections, saved searches, sharing, selection, SD1-C/D
+  persistence/services, and B5/browser work; no runtime, PostgreSQL/RLS, or browser completion is
+  claimed.
+
+- Accepted preparatory `WP-SD1-B3-B3` after the report 40 identity-opacity correction and report 43
+  final `ACCEPT` recheck, with reports 34 and 38 supplying architecture and implementation evidence.
+  `NamedQuestionCollection` now has a new opaque server identity, global `UserId` ownership,
+  canonical validated title, storage-safe strong revision/CAS behavior, and bounded ordered unique
+  exact `ProblemVersionRef` pins. Its private child module and selected crate-root API provide no
+  browser, tenant, institution, sharing, route, Serde, or authorization path. Eight focused
+  deterministic behavioral tests pass. `WP-SD1-B3` remains incomplete pending saved searches,
+  collection sharing, selection, SD1-C/D Store/PostgreSQL/RLS/service work, B5, and browser/live
+  work; no runtime, persistence, or browser acceptance is claimed.
+
+- Accepted preparatory `WP-SD1-B3-B5` collection sharing after report 46's `REVISE` and report
+  47's final `ACCEPT`, using report 42's architecture and report 45's implementation evidence.
+  `NamedQuestionCollectionShare` is a server-only, non-Serde, non-authorizing, recipient-specific
+  relation over an exact existing `NamedQuestionCollectionId`, immutable owner and distinct
+  recipient `UserId`s, and exactly `Active`/`Revoked` state. Self-sharing is refused, and
+  grant/reactivation and revoke expose explicit changed/unchanged outcomes. The relation has no
+  visibility, access-level, collaborator/editor, publication, tenant, institution, session, role,
+  Student, browser, approval, authorization, persistence, or audit field; it does not itself
+  grant access. The corrected full-target gate,
+  `cargo test -p learning-data-access --features test-support question_curation::collection_share`,
+  passes all five matching unit tests and compiles package integration targets with zero matching
+  tests. Report 45's `--lib` selector is narrowed evidence only. Focused format/check, the
+  existing 141-warning baseline, direct source-size counts (209, 22, and 349 lines), and
+  independent acceptance cover only this value contract. SD1-C/D still own authoritative-time
+  approval, owner authorization, persistence, transactional uniqueness/owner consistency,
+  RLS/broker behavior, concealment, and revoked-read denial; SD1-B5/F owns browser projections
+  and workflows. `WP-SD1-B3` remains incomplete pending saved searches, selection, downstream
+  Store/PostgreSQL/RLS/service work, B5/F browser work, and live/release completion; no runtime,
+  persistence, or browser acceptance is claimed.
+
+- Accepted preparatory `WP-SD1-B3-B4` saved-search value contract after independent `ACCEPT` in
+  reports 56, 57, and 59. The server-only `NamedQuestionSavedSearch` retains one immutable global
+  `UserId` owner, one opaque server-only UUID identity, one validated title, one normalized no-scope
+  `CatalogSearchFilter` (`text`, `bylines`, `backends`, `tags`, `response_families`, `taxonomy`,
+  `capabilities`, `licenses`, `evidence`, `used_in_my_courses`, and `authorship`), and one positive
+  storage-safe revision. It has no tenant, course, saved-owner identity, cursor, page size, route,
+  DTO, browser, or Serde boundary; reruns execute a fresh current-catalog query for the rerunning
+  actor. Revision CAS rejects stale expected revisions with expected/actual evidence before candidate
+  work, treats normalization-equivalent state as unchanged, increments changed state once, and
+  refuses checked exhaustion without mutation. Eight deterministic full-target behavior tests pass.
+  C/D still own Store/PostgreSQL persistence, owner/reference mapping, canonical bytes/digest/schema,
+  uniqueness/cap/concurrency, authorization/concealment, broker/RLS, and protected service behavior;
+  B5/F/G still own browser projections, routes, live-browser, and visual acceptance. `WP-SD1-B3`
+  remains incomplete pending selection and downstream completion; no runtime, persistence,
+  authorization, RLS, or browser acceptance is claimed.
+
+- Independently reviewed `ACCEPT-PREPARATORY` for
+  `WP-SD1-B3-CATALOG-SCOPE-QUERY-RETIREMENT` under architecture report 41, implementation reports
+  49-54, and review report 55. One no-scope, direct `snake_case` catalog and saved-search meaning
+  now converges across Rust query roots, Memory/PostgreSQL query code, server parsing, regenerated
+  TypeScript, and browser clients/models/tests. Passing focused gates are `cargo fmt --all --check`,
+  focused `question_model` catalog-facet tests (3/3), Memory catalog search (13/13 plus the
+  shared-corpus test 1/1), the PostgreSQL cursor-fingerprint test (1/1), server catalog-query
+  (2/2), server catalog HTTP (4/4), saved-search HTTP (7/7), `cargo tools tsgen` (482 declarations),
+  both repository TypeScript configurations, the six-file catalog/curation/picker Node lane
+  (33/33), and the source-line-limit check (1,856/1,856). Full package acceptance remains
+  incomplete pending the fresh SD1-C schema/broker rewrite and connected live PostgreSQL oracle,
+  followed by final material-tree gates. Record-level `PublicationScope` remains a separately
+  deferred publication/asset security boundary; no persistence, production-browser, or full-package
+  acceptance is claimed.
+
 ### Fixes and Maintenance
+
+- Strengthened the preparatory `BlueprintCourse`/`CourseInstance` adoption value contract.
+  CourseInstance receipt bindings now retain the authorized actor supplied by the consumed
+  server-held record (or rollover creation witness), alongside the existing operation,
+  destination, idempotency, digest, and time evidence. Course-instance witnesses and reusable
+  rollover manifests now use private checked bounded collections for both browser decoding and
+  direct Rust construction. Five strict answer-free CourseInstance completion DTOs and a
+  receipt-targeted non-Serde reconciliation projection provide the exact Store-facing result
+  shapes without serializing immutable receipt evidence. Focused actor, bounds, closed-decoding,
+  answer-free, and reconciliation behavior tests pass, as do question-model format/check/test/
+  strict-Clippy and the repository codebase gate. Store, PostgreSQL, service, browser, and
+  real-stack acceptance remain downstream SD1-C/D work.
+
+- Restored the SD1 catalog lifecycle contract: an authorized Instructor can
+  discover and resolve Published, Deprecated, and Archived publications with
+  lifecycle labels. Only Published publications remain eligible for ordinary
+  new selection. The catalog lifecycle behavior test covers the valid
+  Published -> Deprecated -> Archived transition and a separately Deprecated
+  publication, requiring listed lifecycle labels and stable-ID detail for both.
+  Memory and PostgreSQL search/list resolution share the same three-state rule.
+
+- Recorded two bounded validation-maintenance receipts. The durable Cargo integration-target feature
+  boundary requires `test-support` only for `conformance` and `course_creation_memory`, preserving
+  an empty default production feature set; the default B7 selector and both feature-enabled target
+  compile gates pass. The B3-B6 Memory conformance fixture creates retained references while
+  Published, then deprecates the exact retained visible pin before update, preserving Published-only
+  ordinary-new-selection and exact-pin history; its focused conformance gate passes. The separate
+  feature-enabled full conformance lifecycle failure remains with `WP-SD1-B3-B6`.
+
+- Accepted preparatory `WP-SD1-B1-P0` with the server-only `SessionId` and
+  `ActorContext { user_id, session_id }` root in `learning-data-access`. The durable session-record
+  ID remains separate from the hashed browser credential, while `ActorContext` carries no course,
+  workspace, Student, role, or capability grant. It is presently unconstructible until
+  `SessionRecord` owns `SessionId` and exposes the resolved-record factory in `SD1-B1-F`.
+  Focused format, crate-check, and session-contract tests pass; independent recheck accepts this
+  preparatory boundary only, and `WP-SD1-B1` remains incomplete pending exact-scope consumer
+  conversion and singular session-model convergence.
+
+- Clarified the settled Published Question stewardship decision: owner moderate edits,
+  publication-validated exact-base Change Proposals, Instructor full forks, and audited Sysadmin
+  forced corrections are distinct paths. The UI says **Suggest an improvement**, while
+  Change Proposal remains the domain term and `QuestionChangeProposal` the code type. Authorship,
+  contribution, licensing, history, and exact immutable assignment and grading pins remain explicit;
+  ordinary later revisions never rewrite those pins automatically.
+
+- Split the `WP-INST-G1 / G1-W4` accepted-submission contract into the semantic
+  [automated_grading_execution_contract.md](active_plans/active/automated_grading_execution_contract.md)
+  and its PostgreSQL companion
+  [automated_grading_execution_database_contract.md](active_plans/active/automated_grading_execution_database_contract.md).
+  Graphify at commit `dc227871d18d` and direct source inspection assigned the
+  ten W4 migrations, roles/functions, RLS/ACLs, transaction-held recovery, and
+  connected database oracle to the companion while retaining immutable
+  execution, evidence, state, handler, route, and learner-status semantics in
+  the main contract. Both documents are below 1,000 lines and pass focused
+  whitespace, ASCII, and reciprocal-link checks; no runtime acceptance is
+  claimed by this documentation-only split.
+
+- Independent review `ACCEPT`ed the SD1 authorization-plan authority split:
+  `implementation_status.md` is now the sole complete 32-allocation `WP-SD1-C`
+  registry; `single_installation_authorization_plan.md` owns product/privacy and
+  concise C/D handoffs; and the new
+  `single_installation_database_authorization_plan.md` owns principals, ACLs,
+  actor installation, forced RLS, Store parity, staging/promotion, and connected
+  acceptance. `release_completion_plan.md` remains release authority. The
+  main/companion/status documents are 786/142/825 lines; source-size and
+  ASCII/whitespace gates pass, the B6 digest is unchanged, and independent review
+  is `ACCEPT`ed. The Markdown link gate remains open only for tracked-target
+  recognition of new/concurrent untracked docs; no authored relative path is
+  missing. This receipt advances documentation authority only and keeps SD1-A5
+  and SD1-C/D implementation/acceptance open.
+
+- Implemented `WP-SD1-A-decisions-and-impact-contract` through its A1-A5 pre-acceptance
+  documentation and impact-bookkeeping slices. The owner and authority documents now describe one
+  installation with global accounts, equal approved Instructors and co-Instructors, shared
+  published-question discovery with lifecycle labels, exact course/Student ownership, the approved
+  Instructor predicate for course creation, and the fresh SD1-C migration epoch. Migrations
+  `2026081881` and `2026081882` are retained as historical WN1-D evidence/input absorbed by that
+  fresh epoch. Focused guidance-format checks (2 passed), ASCII checks (1,823 passed), and
+  whitespace checks are green. The tracked-file Markdown-link inventory remains open because the
+  new SD1 authority targets are untracked. SD1-A is implemented but acceptance-open pending
+  independent architecture/privacy `ACCEPT`; no runtime, PostgreSQL/RLS, browser, or full-suite
+  acceptance is claimed.
+
+- Accepted `WP-INST-WN1-SR4A-student-authority-source`. Rust entitlement, materialization,
+  assignment visibility, Memory identity, feedback authorization, and Gradebook calculation now
+  use canonical Student vocabulary while preserving the `student_user: UserId` and
+  `student: StudentId` distinction. PostgreSQL-owned legacy spellings are isolated for SR5.
+  Independent re-review accepts the corrected boundary; strict all-target/all-feature Clippy,
+  focused entitlement/run/Gradebook behavior, and all 3,790 source-style checks pass.
+
+- Accepted `WP-INST-WN1-SR4-browser-direct-clients`. Browser contracts, strict decoders,
+  presentation components, progress and response helpers, recovery helpers, and direct consumers
+  now use canonical Student vocabulary without aliases. The ordinary assignment endpoint is
+  `/api/assignments/{assignment}/student` end to end. The landing-summary decoder follows its
+  distinct `StudentAssignmentLandingSummary` type instead of colliding with the activity summary
+  decoder. Independent review accepts the boundary; focused Rust route behavior, the server
+  all-target/all-feature check, and the complete five-part codebase gate pass with 387 Node tests.
+  The whole-tree follow-up allocated previously omitted Student authority identifiers to SR4A.
 
 - Accepted `WP-INST-WN1-SR3-student-run-store-capability`. Run and Store capabilities, Memory and
   PostgreSQL modules, routing bindings, submission-status projections, assignment behavior, and
@@ -343,6 +586,13 @@
 
 ### Decisions and Failures
 
+- Recorded the owner-confirmed single-installation model in Human Guidance, Design Decisions, User
+  Roles, the active handoff, and a new atomic implementation plan. PLE uses global accounts, one
+  open published-question catalog for approved Instructors, private drafts, exact course/Student
+  FERPA authority, and multiple equal co-Instructors. Student question delivery remains
+  assignment-bound, while anonymous web requests receive no catalog authority. `WP-SD1` owns the
+  clean pre-production schema and contract rebase; broad Graphify/source inventories remain
+  one-time evidence.
 - Advanced WP-INST-G1's accepted-input boundary: immutable server-private submissions remain the
   grading authority, replay returns the original receipt, and answer-free learner and Instructor
   projections keep response material private. Source/projection digests, receipt immutability,
@@ -367,6 +617,17 @@
   owns audited learner-work inspection and the grade-scheme-aware calculated Gradebook.
 
 ### Developer Tests and Notes
+
+- Repaired the BlueprintCourse/CourseInstance server-authority contract: non-Serde server-held
+  records now exclusively construct fork, assignment-adoption, instantiation, rollover, term-shift,
+  controlled-update, selected-copy, and receipt-targeted reconciliation commands. Each record
+  retains its exact source/destination, import or schedule evidence where applicable, authenticated
+  actor, canonical request digest, idempotency key, and creation reservation where applicable.
+  Immutable controlled-update, selected-copy, and reconciliation receipts now provide checked
+  construction and read-only evidence access. Browser previews remain answer-free explanation;
+  deterministic mutation-resistance tests prove later preview changes cannot affect a record-built
+  command. Store/PostgreSQL integration remains the downstream owner of record persistence,
+  atomic compare-and-consume, and runtime authorization.
 
 - Regenerated all 63 screenshots through the canonical production-stack owner after the evidence
   fixes. Every ordinary scenario and the isolated deterministic grader-exception profile passed,

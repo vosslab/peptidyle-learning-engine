@@ -17,37 +17,45 @@ pub trait Store:
     + NavigationReferenceStore
     + AccountPresentationStore
 {
-    /// Lists the current learner-visible assignment definitions for one
+    /// Lists the current Student-visible assignment definitions for one
     /// course.  This is non-mutating and uses the same entitlement evaluator
     /// as receipt materialization.
-    async fn list_learner_entitled_assignments(
+    async fn list_student_entitled_assignments(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRecord>, StoreError> {
-        EntitlementStore::list_learner_entitled_assignments_impl(
-            self, context, learner, course, page,
+        EntitlementStore::list_student_entitled_assignments_impl(
+            self,
+            context,
+            student_user,
+            course,
+            page,
         )
         .await
     }
 
-    /// Evaluates present learner authority without materializing a receipt.
+    /// Evaluates present Student authority without materializing a receipt.
     async fn evaluate_assignment_entitlement(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<domain::entitlement::EntitlementDecision, StoreError> {
         EntitlementStore::evaluate_assignment_entitlement_impl(
-            self, context, learner, course, assignment,
+            self,
+            context,
+            student_user,
+            course,
+            assignment,
         )
         .await
     }
 
-    /// Explicit instructor issue of a learner receipt. Learner start, attempt,
+    /// Explicit instructor issue of a Student receipt. Student start, attempt,
     /// submission, and replay must materialize only inside their owning action.
     async fn issue_assignment_entitlement(
         &self,
@@ -334,7 +342,7 @@ pub trait Store:
         CourseAssignmentStore::get_enrollment_impl(self, context, enrollment).await
     }
 
-    /// Browser learner capability; storage proves current active membership.
+    /// Browser Student capability; storage proves current active membership.
     async fn student_get_enrollment(
         &self,
         context: TenantContext,
@@ -344,7 +352,7 @@ pub trait Store:
         ActivityStore::student_get_enrollment_impl(self, context, actor, enrollment).await
     }
 
-    /// Resolves one active learner enrollment for an assignment by assignment
+    /// Resolves one active Student enrollment for an assignment by assignment
     /// identity, including course visibility and active-membership checks.
     async fn student_get_enrollment_for_assignment(
         &self,
@@ -499,7 +507,7 @@ pub trait Store:
     }
 
     /// Reads one coherent server-only issued evidence aggregate through the
-    /// explicit learner-work route binding.
+    /// explicit Student-work route binding.
     async fn read_issued_attempt_evidence(
         &self,
         context: TenantContext,
@@ -610,7 +618,7 @@ pub trait Store:
         RunStore::student_pending_submission_for_run_impl(self, context, actor, run).await
     }
 
-    /// Browser learner capability for the current enrollment's attempt list.
+    /// Browser Student capability for the current enrollment's attempt list.
     async fn student_list_question_attempts(
         &self,
         context: TenantContext,
@@ -753,7 +761,7 @@ pub trait Store:
         ActivityStore::get_run_impl(self, context, run).await
     }
 
-    /// Browser learner capability; checks current membership in storage.
+    /// Browser Student capability; checks current membership in storage.
     async fn student_get_run(
         &self,
         context: TenantContext,

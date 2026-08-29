@@ -11,8 +11,10 @@ The canonical browser path is the single production-shaped live-demo application
 and one-time wire fixtures in this document describe bounded codec evidence only; they are not a
 second browser application or a source of seeded learner records.
 
-The exact codec, migration, cutover, ownership, and acceptance requirements remain normative in the
+The exact codec and cutover requirements remain normative in the
 [secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md).
+The single-installation ownership and authorization target is normative in the
+[single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md).
 The [release_completion_plan.md](active_plans/active/release_completion_plan.md) owns dependency
 order. This durable guide explains why those decisions exist and how the boundaries fit together.
 
@@ -41,11 +43,38 @@ Browser                                      PLE
    |<-----------------------------------------|
 ```
 
-The authenticated `QuestionAttemptId` in the route is the primary learner-response binding. A
-presentation digest checks that the browser answered the same render state PLE issued. Compact
+The authenticated `QuestionAttemptId` in the route is the primary learner-response binding. The
+server resolves it to one exact `CourseId`, `StudentId`, `RunId`, and immutable
+`ProblemVersionRef` plus seed before reading or mutating anything. A presentation digest checks that
+the browser answered the same render state PLE issued. Compact
 CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, and hotspot
 surfaces within that presentation. Neither the digest nor CRC16 authenticates the learner or proves
 correctness.
+
+### SD1 authorization binding
+
+An issued attempt is an educational record with one closed server-side identity tuple:
+
+```text
+(CourseId, StudentId, RunId, QuestionAttemptId,
+ ProblemVersionRef { problem, version }, seed)
+```
+
+`CourseId` and `StudentId` are checked against the authenticated account's exact course membership
+and Student ownership. `RunId` and `QuestionAttemptId` must resolve through that same relationship;
+the immutable `ProblemVersionRef` and seed must match the issued run item. A route parameter,
+browser field, cache key, provider identifier, or queue payload cannot widen or replace this tuple.
+The protected read or write performs the relationship check and data operation in one forced-RLS
+transaction.
+
+The attempt also carries a server-owned typed capability such as
+`IssuedAttemptCapabilityV1::FlatPresentation` or `WebworkPresentation`. Its matching private
+grading envelope, presentation snapshot, and (for WeBWorK) replay state are required or explicitly
+`NotApplicable`; a missing or mismatched required capability is unavailable. Worker execution uses
+the same exact target from a locked typed lease. Provider metadata remains external protocol data
+only: renderer identity, provider profile, upstream field/value names, and source-artifact details
+may support one server-to-provider exchange but never act as an actor, course, Student, attempt, or
+authorization selector.
 
 ## Current PLE boundary
 
@@ -80,14 +109,14 @@ routes. This keeps a large image from being retransmitted with every question or
 The current browser run screen receives a complete
 [QuestionAttempt](../crates/question_model/src/activity.rs). That persistence record contains:
 
-- tenant, run, problem, immutable version, assignment position, and seed;
+- course, Student, run, immutable problem/version reference, assignment position, and seed;
 - parameter hash, response, status, result, and timer state; and
 - adapter, renderer, generator, source-object, asset-object, grading, and rendered-hash provenance.
 
 Most of those fields are legitimate server evidence but unnecessary browser data. The active UI
 needs only the attempt ID, learner-visible deadline, presentation binding, and public envelope. It
-does not need tenant IDs, problem IDs, parameter hashes, source-object IDs, implementation versions,
-or complete provenance.
+does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
+implementation versions, or complete provenance.
 
 The implemented `getRunScreen` client currently assembles a screen by loading the run, enrollment,
 cursor-paged attempts, assignment, course, appearance, and issued question. In a one-time wire
@@ -147,9 +176,9 @@ renderer field names, credentials, or raw provider results.
 
 An issued attempt already binds the facts required to grade safely:
 
-- authenticated learner and tenant through the owned run and enrollment;
+- authenticated learner through exact CourseId and Student ownership;
 - course and assignment context;
-- exact published problem version and assignment position;
+- exact immutable ProblemVersionRef and assignment position;
 - generated seed and immutable provenance;
 - expected response family and grading backend;
 - issue time, effective deadline, and submission state; and
@@ -208,8 +237,10 @@ descriptor, and one public envelope:
 ```
 
 The run ID is already in the request path. The response omits complete enrollment, assignment,
-course, attempt, and provenance records. The browser receives `version` and `seed` because they help
-identify and reproduce the public render, but it does not send either value back when answering.
+course, Student, attempt, and provenance records. The authenticated server resolves Student ownership
+from the exact course membership; the browser does not choose or receive a Student identifier. The
+browser receives `version` and `seed` because they help identify and reproduce the public render, but
+it does not send either value back when answering.
 
 ### Student response
 
@@ -402,7 +433,8 @@ source from server-only object storage and caches the safe render by problem, ve
 **issue** cache hit reuses that public render but still makes one private same-seed renderer call to
 recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
 reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
-attempt-bound replay mapping is loaded separately from tenant storage.
+attempt-bound replay mapping is loaded separately from the protected record for the exact
+`CourseId`, `StudentId`, `RunId`, and `QuestionAttemptId`.
 
 PLE privately calls the external standalone `/render-api` form endpoint with source, file path,
 seed, fixed display controls, and signed renderer state. Those fields never cross the browser
@@ -554,8 +586,8 @@ counts or arbitrary latency thresholds into permanent tests.
 
 ### Safe caching
 
-PLE may cache public render data by immutable version, seed, and the presentation binding. Cache
-entries may contain only the answer-free envelope, sanitized markup, public asset references, and
+PLE may cache public render data by immutable `ProblemVersionRef`, seed, and the presentation binding.
+Cache entries may contain only the answer-free envelope, sanitized markup, public asset references, and
 renderer identity needed for provenance. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
 
@@ -569,7 +601,7 @@ PLE can prepare one next question while the learner works on the current questio
 it. The server, not the browser:
 
 - chooses the next assignment position and fresh seed;
-- creates the tenant/learner/run/predecessor-bound reservation;
+- creates the CourseId/StudentId/run/predecessor-attempt-bound reservation;
 - resolves source and backend;
 - renders and stores the public presentation binding; and
 - promotes the reservation atomically only after the predecessor commits.
@@ -587,7 +619,7 @@ The security boundary is:
 
 - TLS and same-origin browser transport;
 - authenticated HttpOnly session;
-- tenant RLS and owned run/attempt lookup;
+- exact CourseId and StudentId ownership through forced RLS and run/attempt lookup;
 - immutable version, seed, timing, and backend binding;
 - strict schema-selected answer decoding;
 - attempt lifecycle checks;
@@ -623,8 +655,9 @@ easy to navigate without duplicating its exact migration and codec specification
   prefetch promotion, retention, backup/restore, and conformance tests.
 - Behavior: persist the presentation version, nonce, digest, request-contract version, prefetch
   binding, and bounded private WeBWorK replay state under forced RLS.
-- Success: constraints reject malformed data; foreign tenants cannot read or write it; Memory and
-  PostgreSQL agree; retention and restore preserve or remove bindings correctly.
+- Success: constraints reject malformed data; another UserId, another course, and a foreign attempt
+  cannot read or write it; Memory and PostgreSQL agree; retention and restore preserve or remove
+  bindings correctly.
 - Validation: fresh/no-op migration, malformed-version tests, forced-RLS tests, Store parity,
   retention, backup/restore, and independent PostgreSQL review.
 
@@ -682,6 +715,10 @@ Permanent tests protect stable behavior:
 
 - attempt-selected strict answer decoding;
 - response `kind` absent from the public submission wire;
+- missing actor, another UserId, another course, and a foreign attempt are concealed before protected
+  payload access;
+- every issued and replayed record matches its exact CourseId, StudentId, RunId, QuestionAttemptId,
+  ProblemVersionRef, and seed;
 - rendered-ID membership, role, collision retry, and fail-closed issuance;
 - presentation mismatch causes no grade or mutation;
 - exact idempotent replay and changed-replay conflict;

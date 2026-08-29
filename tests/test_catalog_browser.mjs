@@ -145,8 +145,8 @@ test("catalog browser carries server-provided discovery facets into one resettab
   assert.deepEqual(receivedQuery.bylines, ["Fixture Instructor"]);
   assert.deepEqual(receivedQuery.backends, ["native"]);
   assert.deepEqual(receivedQuery.tags, ["protein structure"]);
-  assert.deepEqual(receivedQuery.responseFamilies, ["numeric"]);
-  assert.equal(receivedQuery.usedInMyCourses, "used");
+  assert.deepEqual(receivedQuery.response_families, ["numeric"]);
+  assert.equal(receivedQuery.used_in_my_courses, "used");
   assert.equal(receivedQuery.authorship, "any");
   assert.deepEqual(
     page.aggregates.map((facet) => facet.group),
@@ -185,7 +185,7 @@ test("catalog repository composes the closed Mine scope without an actor identif
   assert.equal(Object.hasOwn(receivedQuery, "actorId"), false);
 });
 
-test("catalog repository carries the public-only Alpha selection scope to the server", async () => {
+test("catalog repository always requests the one shared catalog", async () => {
   let receivedQuery;
   const repository = createCatalogRepository(
     {
@@ -209,10 +209,10 @@ test("catalog repository carries the public-only Alpha selection scope to the se
       },
     },
     "any",
-    ["public"],
   );
 
   await repository.search(EMPTY_CATALOG_QUERY, null);
 
-  assert.deepEqual(receivedQuery.publicationScopes, ["public"]);
+  assert.equal(Object.hasOwn(receivedQuery, "publication_scopes"), false);
+  assert.equal(Object.hasOwn(receivedQuery, "publicationScopes"), false);
 });

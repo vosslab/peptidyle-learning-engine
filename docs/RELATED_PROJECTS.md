@@ -49,9 +49,9 @@ current acceptance status remains in
   science courses, including course management and a large community problem library.
 - Evidence: the [official WeBWorK project](https://github.com/openwebwork/webwork2) describes an
   open-source online homework system, and its [Open Problem Library guide](https://wiki.openwebwork.org/wiki/Open_Problem_Library)
-  documents reviewed, reusable problem contributions. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#course-and-content-choices)
-  names WeBWorK as part of the course content and question-engine choices that inform PLE's
-  implementation history.
+  documents reviewed, reusable problem contributions. PLE's
+  [question content philosophy](HUMAN_GUIDANCE.md#question-content-philosophy) records the
+  deterministic, server-owned question model that bounds this prior-art comparison.
 - Notes: PLE owns its own courses, rosters, assignments, attempts, and gradebook; WeBWorK2 is not a
   second application inside the PLE runtime.
 

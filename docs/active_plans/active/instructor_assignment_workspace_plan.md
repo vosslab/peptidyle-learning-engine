@@ -10,13 +10,14 @@ This plan is the accepted execution record for `WP-INST-T6`. It followed accepte
 The resulting product owns one coherent Instructor assignment workspace before grading operations
 add more assignment-local work.
 
-T6 owns forward capability migration `2026081848`. The migration permits persisted assignments with
-empty ordered definitions while their lifecycle is `Draft` or `Archived`; a `Published` assignment
-must satisfy publication readiness with at least one active deliverable position. The existing
-assignment, policy, preview, and learner-projection records remain authoritative. Allocate this
-migration before schema edits; land the T6-W1 shared domain contract first, then implement the
-migration and PostgreSQL capability while enforcing the readiness boundary on every transition to or
-while `Published`.
+The prior T6 implementation allocated capability migration `2026081848`. That allocation remains
+historical T6 evidence; the active single-installation schema authority is the fresh `WP-SD1-C`
+epoch. The assignment capability still permits persisted assignments with empty ordered definitions
+while their lifecycle is `Draft` or `Archived`; a `Published` assignment must satisfy publication
+readiness with at least one active deliverable position. The existing assignment, policy, preview,
+and learner-projection records remain authoritative. Land the T6-W1 shared domain contract through
+the SD1 successor boundaries, then implement the active schema and Store capability while enforcing
+the readiness boundary on every transition to or while `Published`.
 
 Parallel-plan ready: yes. The domain/API contract lands first; the Questions, Policies, workspace,
 and Student-view surfaces can then proceed in focused lanes before connected integration.
@@ -198,6 +199,21 @@ Questions owns the assignment definition slice:
 - accessible reorder, add, remove, and future-run replacement; and
 - one **Save questions and order** action.
 
+Assignment composition accepts only published Question IDs from the global catalog. The server
+resolves each selected reference through the safe catalog projection under the current
+`approved_instructor` predicate. Every approved Instructor may inspect published question content
+and its safe lifecycle, provenance, and aggregate evidence even when other courses use that
+question; only `active` questions are eligible for ordinary new selection. Deprecated and archived
+questions remain resolvable for retained historical references but cannot become new assignment
+references.
+
+Private draft questions, source, and answer-bearing material remain owned by the creating
+Instructor's exact workspace (`WorkspaceId`). Assignment course authority cannot browse or mutate
+private workspace material. Collaborative draft authoring is a separately designed future
+capability; current co-Instructor membership does not imply access to another Instructor's private
+workspace. A draft must pass validated publication before it can enter the shared catalog or be
+selected here.
+
 The page does not render run, disclosure, schedule, lifecycle, entitlement, or accommodation fields.
 It links to Policies when server publication readiness reports a policy issue.
 
@@ -308,10 +324,23 @@ same builder.
 
 ### Authorization and privacy contract
 
-- **ASVS 8.1.1, 8.2.1, 8.2.2, 8.3.1, and 8.4.1:** every assignment workspace route resolves the
-  authenticated tenant, current direct course membership, Instructor role, assignment, and exact
-  course/assignment relationship at the trusted server layer. Browser route guards improve
-  navigation and never supply authority.
+- **ASVS 8.1.1, 8.2.1, 8.2.2, 8.3.1, and 8.4.1:** every assignment workspace route derives
+  `ActorContext { user_id, session_id }` from the authenticated server session, then requires
+  `current_course_instructor(user_id, course_id, now)`: current `approved_instructor` approval plus
+  a current direct Instructor membership for that exact course. The trusted Store/database layer
+  resolves the assignment and exact course/assignment relationship in the same protected boundary.
+  Browser route guards improve navigation and never supply authority.
+- Assignment Questions reads use the global `approved_instructor` predicate for the safe published
+  catalog projection. They do not grant access to another course's policies, roster, submissions,
+  grades, or other course records. Private draft questions and source require the creating
+  Instructor's exact workspace ownership; collaborative draft authoring is a separately designed
+  future capability and is not implied by equal co-Instructor membership. Publication is the
+  boundary that makes a question available to the global approved-Instructor catalog.
+- A Student, former member, unapproved account, or Instructor without current direct membership
+  cannot read or mutate this course assignment. A different account cannot read or mutate another
+  user's private workspace. A foreign course, mismatched course/assignment pair, or foreign
+  assignment reference returns the common non-enumerating refusal before assignment facts or
+  mutation, and the same rule applies to cross-user workspace references.
 - **ASVS 2.1.1-2.1.3 and 2.2.1-2.2.3:** strict generated request types, bounded title/instruction
   values, closed discriminants, entry limits, and contextual policy validation are documented and
   enforced before Store commands run.
@@ -395,8 +424,12 @@ generated contracts, shared CSS, existing test edits, and final deletion of the 
 
 ### Security and data integrity
 
-- Student and unrelated-course direct navigation is refused before assignment facts are returned.
-- A mismatched course and assignment pair is non-enumerating and performs no mutation.
+- Student, former-member, and unrelated-course direct navigation is refused before assignment facts
+  are returned.
+- A mismatched course and assignment pair, foreign assignment reference, or cross-user private
+  workspace reference is non-enumerating and performs no mutation.
+- Assignment composition accepts published global-catalog questions through the approved-Instructor
+  read predicate; unpublished drafts remain private to the creating Instructor's exact workspace.
 - Focused requests reject unknown fields and stale revisions and never update an unowned assignment
   slice.
 - Student-view responses contain no answer material, grader implementation, private source, PII,
@@ -413,8 +446,10 @@ generated contracts, shared CSS, existing test edits, and final deletion of the 
 - Question-model and Store conformance tests cover strict focused requests, valid empty draft state,
   content-only mutation, atomic policy mutation, shared-revision conflict, publication refusal for
   incomplete drafts, and issued-work structural fences.
-- Selected PostgreSQL/RLS coverage proves direct-Instructor exact-course authority, cross-tenant and
-  mismatched-course refusal, transactional policy save, and Memory/PostgreSQL behavior parity. It
+- Selected PostgreSQL/RLS coverage proves server-derived `ActorContext`, current approved-Instructor
+  plus direct-membership authority for the exact course, creating-Instructor exact workspace
+  ownership, global approved-Instructor catalog reads, cross-user refusal, cross-course and
+  mismatched-pair refusal, transactional policy save, and Memory/PostgreSQL behavior parity. It
   extends the existing assignment conformance/live owner instead of adding a new database harness.
 - Server route tests cover role/data authorization, strict decoding, `If-Match`, generic refusal,
   `ETag`, `no-store`, and answer-free Student-view serialization.

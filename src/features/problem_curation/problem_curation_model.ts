@@ -322,10 +322,10 @@ export function catalogSearchFilterFromLibraryQuery(
     backends:
       normalized.backend === null ? [] : ([normalized.backend] as CatalogSearchFilter["backends"]),
     tags: normalized.tag === null ? [] : [normalized.tag],
-    responseFamilies:
+    response_families:
       normalized.responseFamily === null
         ? []
-        : ([normalized.responseFamily] as CatalogSearchFilter["responseFamilies"]),
+        : ([normalized.responseFamily] as CatalogSearchFilter["response_families"]),
     taxonomy:
       taxonomy === null
         ? []
@@ -341,14 +341,13 @@ export function catalogSearchFilterFromLibraryQuery(
         : ([normalized.capability] as CatalogSearchFilter["capabilities"]),
     licenses:
       normalized.license === null ? [] : ([normalized.license] as CatalogSearchFilter["licenses"]),
-    publicationScopes: [...normalized.publicationScopes],
     evidence:
       normalized.evidence === null
         ? "any"
         : normalized.evidence === "available"
           ? "available"
           : "unavailable",
-    usedInMyCourses: normalized.usedInMyCourses === "used" ? "used" : "any",
+    used_in_my_courses: normalized.usedInMyCourses === "used" ? "used" : "any",
     authorship: normalized.authorship,
   };
 }
@@ -362,7 +361,7 @@ export function libraryQueryFromSavedSearch(search: SavedProblemSearchView): Cat
     byline: filter.bylines[0] ?? null,
     backend: filter.backends[0] ?? null,
     tag: filter.tags[0] ?? null,
-    responseFamily: filter.responseFamilies[0] ?? null,
+    responseFamily: filter.response_families[0] ?? null,
     taxonomy:
       filter.taxonomy[0] === undefined
         ? null
@@ -370,9 +369,8 @@ export function libraryQueryFromSavedSearch(search: SavedProblemSearchView): Cat
     capability: filter.capabilities[0] ?? null,
     license: filter.licenses[0] ?? null,
     evidence: filter.evidence === "any" ? null : filter.evidence,
-    usedInMyCourses: filter.usedInMyCourses === "any" ? null : filter.usedInMyCourses,
+    usedInMyCourses: filter.used_in_my_courses === "any" ? null : filter.used_in_my_courses,
     authorship: filter.authorship,
-    publicationScopes: [...filter.publicationScopes],
   };
 }
 

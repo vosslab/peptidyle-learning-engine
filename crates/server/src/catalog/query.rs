@@ -8,7 +8,7 @@ use learning_data_access::{
 use question_model::{
     Capability, CatalogAuthorship, CatalogEvidenceAvailability, CatalogLicenseValue,
     CatalogResponseFamily, CatalogSearchQuery, CatalogTaxonomyFilter, CatalogUsedInMyCourses,
-    ProblemDisplayRef, ProblemVersionRef, PublicationScope, QuestionBackend, UserRole,
+    ProblemDisplayRef, ProblemVersionRef, QuestionBackend, UserRole,
 };
 use serde::Deserialize;
 
@@ -21,7 +21,6 @@ use super::{error_response, store_error_response};
 const DEFAULT_PAGE_SIZE: u16 = 50;
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub(super) struct CatalogQuery {
     cursor: Option<String>,
@@ -41,7 +40,6 @@ pub(super) struct CatalogSearchHttpQuery {
     taxonomy: Vec<String>,
     capabilities: Vec<Capability>,
     licenses: Vec<CatalogLicenseValue>,
-    publication_scopes: Vec<PublicationScope>,
     evidence: Option<CatalogEvidenceAvailability>,
     used_in_my_courses: Option<CatalogUsedInMyCourses>,
     authorship: Option<CatalogAuthorship>,
@@ -64,7 +62,7 @@ impl CatalogSearchHttpQuery {
                     "catalog backend is not recognized",
                 )?),
                 "tags" => query.tags.push(value),
-                "responseFamilies" => query.response_families.push(parse_catalog_enum(
+                "response_families" => query.response_families.push(parse_catalog_enum(
                     &value,
                     "catalog response family is not recognized",
                 )?),
@@ -77,15 +75,11 @@ impl CatalogSearchHttpQuery {
                     &value,
                     "catalog license is not recognized",
                 )?),
-                "publicationScopes" => query.publication_scopes.push(parse_catalog_enum(
-                    &value,
-                    "catalog publication scope is not recognized",
-                )?),
                 "evidence" => set_catalog_scalar(
                     &mut query.evidence,
                     parse_catalog_enum(&value, "catalog evidence availability is not recognized")?,
                 )?,
-                "usedInMyCourses" => set_catalog_scalar(
+                "used_in_my_courses" => set_catalog_scalar(
                     &mut query.used_in_my_courses,
                     parse_catalog_enum(&value, "catalog course-use filter is not recognized")?,
                 )?,
@@ -94,11 +88,11 @@ impl CatalogSearchHttpQuery {
                     parse_catalog_enum(&value, "catalog authorship scope is not recognized")?,
                 )?,
                 "cursor" => set_catalog_scalar(&mut query.cursor, value)?,
-                "pageSize" => set_catalog_scalar(
+                "page_size" => set_catalog_scalar(
                     &mut query.page_size,
                     value
                         .parse::<u16>()
-                        .map_err(|_| "catalog pageSize must be an unsigned integer")?,
+                        .map_err(|_| "catalog page_size must be an unsigned integer")?,
                 )?,
                 _ => return Err("catalog query contains an unknown key"),
             }
@@ -149,7 +143,6 @@ impl TryFrom<CatalogSearchHttpQuery> for CatalogSearchQuery {
             taxonomy,
             capabilities: query.capabilities,
             licenses: query.licenses,
-            publication_scopes: query.publication_scopes,
             evidence: query.evidence.unwrap_or_default(),
             used_in_my_courses: query.used_in_my_courses.unwrap_or_default(),
             authorship: query.authorship.unwrap_or_default(),
@@ -386,18 +379,26 @@ mod tests {
     }
 
     #[test]
-    fn publication_scopes_are_strict_repeated_closed_values() {
+    fn search_query_uses_canonical_snake_case_and_rejects_retired_or_camel_case_keys() {
         let query = CatalogSearchHttpQuery::from_raw_query(Some(
-            "publicationScopes=public&publicationScopes=institution",
+            "response_families=numeric&used_in_my_courses=any&page_size=1",
         ))
         .and_then(CatalogSearchQuery::try_from)
-        .expect("publication scopes parse");
+        .expect("canonical search query parses");
         assert_eq!(
-            query.publication_scopes,
-            vec![PublicationScope::Public, PublicationScope::Institution]
+            query.response_families,
+            vec![CatalogResponseFamily::Numeric]
         );
-        assert!(
-            CatalogSearchHttpQuery::from_raw_query(Some("publicationScopes=unknown",)).is_err()
-        );
+        assert_eq!(query.used_in_my_courses, CatalogUsedInMyCourses::Any);
+        assert_eq!(query.page_size, Some(1));
+        for legacy_key in [
+            "publicationScopes=public",
+            "publication_scopes=public",
+            "responseFamilies=numeric",
+            "usedInMyCourses=any",
+            "pageSize=1",
+        ] {
+            assert!(CatalogSearchHttpQuery::from_raw_query(Some(legacy_key)).is_err());
+        }
     }
 }

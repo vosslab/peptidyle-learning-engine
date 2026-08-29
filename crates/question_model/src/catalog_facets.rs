@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
-use crate::catalog::{MAX_CATALOG_TAXONOMY_FACETS, PublicationScope, QuestionBackend, QuestionId};
+use crate::catalog::{MAX_CATALOG_TAXONOMY_FACETS, QuestionBackend, QuestionId};
 use crate::response::ResponseDefinition;
 use crate::taxonomy::{License, TaxonomyTerm};
 
@@ -27,9 +27,6 @@ pub const MAX_CATALOG_RESPONSE_FAMILY_FILTERS: usize = CatalogResponseFamily::AL
 
 /// Maximum response-family values returned in one catalog facet snapshot.
 pub const MAX_CATALOG_RESPONSE_FAMILY_FACETS: usize = CatalogResponseFamily::ALL.len();
-
-/// Maximum publication-scope values accepted in one catalog query.
-pub const MAX_CATALOG_PUBLICATION_SCOPE_FILTERS: usize = PublicationScope::ALL.len();
 
 /// Browser-safe immutable response family, derived at publication from the
 /// exact [`ResponseDefinition`] rather than a backend or grading implementation.
@@ -240,7 +237,7 @@ pub enum CatalogEvidenceAvailability {
 /// is opaque and tied to that normalized query; positional paging is not
 /// representable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CatalogSearchQuery {
     /// Optional full-text-like text query over hot catalog metadata.
     pub text: Option<String>,
@@ -258,8 +255,6 @@ pub struct CatalogSearchQuery {
     pub capabilities: Vec<Capability>,
     /// Accepted license classes; any supplied value may match.
     pub licenses: Vec<CatalogLicenseValue>,
-    /// Publication visibility scopes; an empty list includes all visible scopes.
-    pub publication_scopes: Vec<PublicationScope>,
     /// Whether disclosed independent learner observations must be available.
     pub evidence: CatalogEvidenceAvailability,
     /// Whether a current actor-visible course use is required.
@@ -281,7 +276,7 @@ pub struct CatalogSearchQuery {
 /// Pagination is intentionally absent: running a saved search always starts a
 /// fresh current-catalog search with a server-selected page size.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CatalogSearchFilter {
     pub text: Option<String>,
     pub bylines: Vec<String>,
@@ -291,8 +286,6 @@ pub struct CatalogSearchFilter {
     pub taxonomy: Vec<CatalogTaxonomyFilter>,
     pub capabilities: Vec<Capability>,
     pub licenses: Vec<CatalogLicenseValue>,
-    /// Publication visibility scopes; an empty list includes all visible scopes.
-    pub publication_scopes: Vec<PublicationScope>,
     pub evidence: CatalogEvidenceAvailability,
     pub used_in_my_courses: CatalogUsedInMyCourses,
     pub authorship: CatalogAuthorship,
@@ -316,7 +309,6 @@ impl CatalogSearchFilter {
             taxonomy: query.taxonomy,
             capabilities: query.capabilities,
             licenses: query.licenses,
-            publication_scopes: query.publication_scopes,
             evidence: query.evidence,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
@@ -340,7 +332,6 @@ impl From<CatalogSearchFilter> for CatalogSearchQuery {
             taxonomy: filter.taxonomy,
             capabilities: filter.capabilities,
             licenses: filter.licenses,
-            publication_scopes: filter.publication_scopes,
             evidence: filter.evidence,
             used_in_my_courses: filter.used_in_my_courses,
             authorship: filter.authorship,
@@ -361,7 +352,6 @@ impl Default for CatalogSearchQuery {
             taxonomy: Vec::new(),
             capabilities: Vec::new(),
             licenses: Vec::new(),
-            publication_scopes: Vec::new(),
             evidence: CatalogEvidenceAvailability::Any,
             used_in_my_courses: CatalogUsedInMyCourses::Any,
             authorship: CatalogAuthorship::Any,
@@ -432,7 +422,6 @@ impl CatalogSearchQuery {
             || self.licenses.len() > 6
             || self.backends.len() > QuestionBackend::ALL.len()
             || self.response_families.len() > MAX_CATALOG_RESPONSE_FAMILY_FILTERS
-            || self.publication_scopes.len() > MAX_CATALOG_PUBLICATION_SCOPE_FILTERS
         {
             return Err(CatalogSearchQueryError::TooLarge);
         }
@@ -446,8 +435,6 @@ impl CatalogSearchQuery {
         self.backends.dedup();
         self.response_families.sort();
         self.response_families.dedup();
-        self.publication_scopes.sort();
-        self.publication_scopes.dedup();
         if self.cursor.as_ref().is_some_and(String::is_empty) {
             return Err(CatalogSearchQueryError::EmptyCursor);
         }
@@ -602,16 +589,49 @@ mod tests {
     }
 
     #[test]
-    fn publication_scopes_normalize_and_survive_saved_search_conversion() {
+    fn catalog_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
         let query = CatalogSearchQuery {
-            publication_scopes: vec![PublicationScope::Public, PublicationScope::Public],
+            response_families: vec![CatalogResponseFamily::ShortText],
+            used_in_my_courses: CatalogUsedInMyCourses::Used,
+            cursor: Some("opaque-cursor".to_string()),
+            page_size: Some(25),
             ..CatalogSearchQuery::default()
         };
-        let filter = CatalogSearchFilter::from_query(query).expect("scope filter normalizes");
-        assert_eq!(filter.publication_scopes, vec![PublicationScope::Public]);
+        let query_json = serde_json::to_value(&query).expect("query serializes");
         assert_eq!(
-            filter.fresh_query().publication_scopes,
-            vec![PublicationScope::Public]
+            query_json["response_families"],
+            serde_json::json!(["shortText"])
         );
+        assert_eq!(query_json["used_in_my_courses"], serde_json::json!("used"));
+        assert_eq!(query_json["page_size"], serde_json::json!(25));
+        assert!(query_json.get("responseFamilies").is_none());
+        assert!(query_json.get("usedInMyCourses").is_none());
+
+        let filter = CatalogSearchFilter::from_query(query).expect("filter normalizes");
+        let filter_json = serde_json::to_value(&filter).expect("filter serializes");
+        assert_eq!(
+            filter_json["response_families"],
+            serde_json::json!(["shortText"])
+        );
+        assert!(filter_json.get("cursor").is_none());
+        assert!(filter_json.get("page_size").is_none());
+        assert_eq!(filter.fresh_query().cursor, None);
+        assert_eq!(filter.fresh_query().page_size, None);
+
+        for retired_field in ["publication_scopes", "publicationScopes"] {
+            let mut rejected_query = query_json.clone();
+            rejected_query[retired_field] = serde_json::json!(["public"]);
+            assert!(
+                serde_json::from_value::<CatalogSearchQuery>(rejected_query).is_err(),
+                "query rejects retired {retired_field}"
+            );
+
+            let mut rejected_filter = filter_json.clone();
+            rejected_filter[retired_field] = serde_json::json!(["public"]);
+            assert!(
+                serde_json::from_value::<CatalogSearchFilter>(rejected_filter).is_err(),
+                "filter rejects retired {retired_field}"
+            );
+        }
     }
 }

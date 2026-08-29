@@ -159,7 +159,7 @@ async fn verify_student_context_visibility_before_tenant_selection(pool: &sqlx::
     .await
     .expect("insert disposable Student account");
     sqlx::query(
-        "INSERT INTO tenant_learner_identity (tenant_id, user_id, student_id) \
+        "INSERT INTO tenant_student_identity (tenant_id, user_id, student_id) \
          VALUES ($1, $2, $3)",
     )
     .bind(tenant.as_uuid())

@@ -559,49 +559,6 @@ async fn pin_reauthorization_and_fast_forward_recovery_preserve_existing_meaning
             reason: "still assignable".into(),
         };
     }
-    let authorized_preview = fixture
-        .store
-        .preview_blueprint_instantiation(
-            fixture.context,
-            fixture.session,
-            BlueprintInstantiationPreviewRequest {
-                source: fixture.blueprint,
-                course: applied.course,
-                target_term: fixture.term.clone(),
-                replacements: CurriculumPinReplacements::default(),
-            },
-        )
-        .await
-        .expect("authorized pin preview");
-    {
-        let mut state = fixture.store.write_state().expect("state");
-        state
-            .published
-            .values_mut()
-            .find(|record| record.question_id == fixture.source_question)
-            .expect("source publication")
-            .lifecycle = question_model::CatalogLifecycle::Archived {
-            reason: "retired".into(),
-        };
-    }
-    let before_reauthorization = b2_snapshot(&fixture);
-    assert_eq!(
-        fixture
-            .store
-            .apply_blueprint_instantiation(
-                fixture.context,
-                fixture.session,
-                BlueprintInstantiationCommand::from_preview(
-                    &authorized_preview,
-                    key("pin-reauthorize"),
-                )
-                .expect("command"),
-            )
-            .await,
-        Err(StoreError::Conflict)
-    );
-    assert_eq!(b2_snapshot(&fixture), before_reauthorization);
-
     let recovery = fixture
         .store
         .preview_blueprint_instantiation(

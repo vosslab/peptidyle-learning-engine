@@ -1,342 +1,298 @@
 # Local stack operations
 
-Developer stack for the Peptidyle Learning Engine: the browser gateway, API
-server, worker, PostgreSQL, MinIO, and private standalone WeBWorK PG renderer.
-The normal Compose topology is
-`containers/compose.yaml` with optional `containers/compose.smtp.yaml`.
-The public developer entry uses the owner-locked production-auth composition
-and TLS gateway described by
-`tests/e2e/compose.live-demo-browser.yaml`; it does not select a local-file
-authentication overlay or accept a caller-selected project. The image model is in
-[containers/Containerfile.api](../containers/Containerfile.api).
-Replica scaling, shared-state ownership, failure behavior, and the planned
-production topology are in [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
-The necessity, persistence, and network boundary of every service are in
-[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
-`docs/CONTAINER_PORT_MAPPING.md` records which service ports are host-published
-and which remain private.
+This guide operates the local Podman stack for the Peptidyle Learning Engine.
+The canonical developer/browser entry point is [run_live_demo.sh](../run_live_demo.sh);
+it delegates to `local_stack.py` and the private `local_stack_control` owner.
+The topology is defined by [containers/compose.yaml](../containers/compose.yaml)
+and the fixed production-auth overlay at
+[tests/e2e/compose.live-demo-browser.yaml](../tests/e2e/compose.live-demo-browser.yaml).
+Replica behavior and the planned AWS shape are in
+[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 
-The root `.containerignore` is an allowlist for this
-image build. Only the Cargo manifests, Rust crates, embedded SQLx migrations,
-and owning Containerfiles enter the context; host `target/`, generated artifacts,
-local credentials, and unrelated source trees never reach the builder. The
-gateway image derives from the configured official Caddy digest and removes
-its low-port file capability before running on the owner-selected HTTPS port as UID 1000 with an
-empty runtime capability set.
+The local stack is a disposable development environment. It is not a
+production security boundary, a highly available database, or deployment
+acceptance evidence.
 
-The gateway also mounts the ignored `dist/` browser artifact read-only. It
-serves browser navigation while proxying `/api`, `/api/*`, and `/health` to the
-API, so the browser and its HttpOnly session use one origin.
+## Authority model
 
-The fixed developer lifecycle builds the production `dist/` bundle and serves
-it from the owner-locked HTTPS gateway. It uses seeded production authentication
-and the ordinary visible account/passkey flow; no local credential form or
-local-auth build switch participates.
+PLE is one installation with global accounts. The authenticated server session
+derives `ActorContext { user_id, session_id }`. It then authorizes the exact
+course selected by the user from current membership rows. A route course ID,
+workspace ID, catalog ID, object key, queue payload, or external-provider field
+is only a lookup/input value; it cannot establish authority.
 
-macOS setup for the Podman virtual machine lives in
-[MACOS_PODMAN.md](MACOS_PODMAN.md).
+| Data | Exact owner | Local enforcement |
+| --- | --- | --- |
+| Account, session, and passkey | Global `UserId` | Server session and PostgreSQL |
+| Published question | Global immutable `ProblemId`/`VersionId` | Approved-Instructor catalog |
+| Draft or curriculum | `WorkspaceId` plus owner/collaborators | Workspace relationship |
+| Course and assignment | `CourseId` and child records | Current direct Instructor membership |
+| Student work and grades | Exact course plus Student owner | Student self or current course Instructor |
+| Jobs and objects | Typed target from the locked lease | Store/PostgreSQL capability boundary |
+
+Current co-Instructors are equal. Course creation inserts the creator's first
+ordinary Instructor membership and does not create an elevated owner. Students
+see only their own work in enrolled courses. Published questions remain in one
+shared Instructor catalog across `active`, `deprecated`, and `archived`
+lifecycle states; only `active` questions are eligible for ordinary new
+selection. Draft source and answer-bearing material remain private.
+
+Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
+similar fields are metadata for presentation, audit, provenance, or routing.
+They are never account, actor, role, membership, course, Student, workspace,
+catalog, or lease authority. The PLE account/session and exact relationship are
+always authoritative.
 
 ## Services
 
-| Service                | Image                                       | Purpose                                           | Local port                   |
-| ---------------------- | ------------------------------------------- | ------------------------------------------------- | ---------------------------- |
-| `gateway`              | pinned official Caddy derivative            | browser files plus same-origin API gateway        | owner-selected loopback port |
-| `api`                  | shared locally built Rust application image | axum API server                                   | none                         |
-| `worker`               | API-owned shared Rust application image     | family-filtered durable job draining              | none                         |
-| `postgres`             | digest-pinned official PostgreSQL 17        | shared content and tenant-owned records           | 127.0.0.1:5432               |
-| `minio`                | digest-pinned official MinIO                | S3-compatible object storage                      | 127.0.0.1:9000, console 9001 |
-| `createbuckets`        | digest-pinned official MinIO Client         | one-shot bucket creation, then exits              | none                         |
-| `identity-secret-init` | pinned official Alpine                      | one-shot invitation-issuer and Question ID capability setup | none                         |
-| `webwork-renderer`     | external `webwork-pg-renderer` image        | private stateless PG/PGML render and grade engine | none                         |
+| Service | Purpose | Local exposure |
+| --- | --- | --- |
+| `gateway` | Serves read-only `dist/` and forwards same-origin `/api` and `/health` | One loopback host port |
+| `api` | Auth, course operations, attempts, grading, and delivery | Private network; no host port |
+| `worker` | Claims and completes typed PostgreSQL jobs | No HTTP endpoint |
+| `postgres` | Relational authority, queue, RLS, audit, and records | Loopback `5432` |
+| `minio` | S3-compatible object storage | Loopback `9000` and console `9001` |
+| `createbuckets` | Idempotently creates four storage buckets | One-shot, no host port |
+| `identity-secret-init` | Copies two host capabilities into an API-only volume | Networkless, one-shot |
+| `webwork-renderer` | Private stateless PG/PGML render and grade engine | No host port |
 
-Every published port binds to `127.0.0.1`, not `0.0.0.0`. The database holds
-educational records, so a development container must not be reachable from the
-local network. See `docs/CONTAINER_PORT_MAPPING.md` for the complete mapping,
-port ranges, and the distinction between container-local and host-published
-ports.
+All published ports bind to `127.0.0.1`. API and worker containers run from
+the same application image but have separate commands and runtime database
+capabilities. The renderer has no SQL database, course, roster, volume, or
+browser path; PLE remains the educational-record authority.
 
-## Stateful runtime containment
+The four buckets are `public-assets`, `private-content`, `student-records`,
+and `temp-processing`. Their distinct policies are part of the contract:
+public presentation assets are immutable and versioned, private content is
+authorized-only, Student records have explicit expiry/deletion handling, and
+temporary processing is never served.
 
-PostgreSQL, MinIO, and `createbuckets` run under fixed non-root UIDs with an
-immutable container root, an empty capability set, `no-new-privileges`, bounded
-CPU, memory, and PID budgets, and a bounded non-executable `/tmp`. PostgreSQL
-can write only `ple_pgdata`; MinIO can write only `ple_miniodata`; and the
-one-shot bucket creator has no durable mount. PostgreSQL receives an additional
-ephemeral Unix-socket directory under `/var/run/postgresql`.
+## Containment
 
-`local-data-volume-permissions` is the one networkless preflight that runs as
-root *inside the rootless Podman user namespace*. It has only `CAP_CHOWN`. It
-assigns the PostgreSQL volume root to UID 999 and the complete MinIO tree to UID
-10001 before their daemons start. PostgreSQL already owns its protected
-mode-0700 descendants; the MinIO traversal repairs retained local objects
-created by an older root-running image. The helper does not create or alter
-database/object content and does not retain a running process. This is
-necessary because a fresh rootless named volume is engine-owned, while
-PostgreSQL's official entrypoint requires its data directory to be writable by
-the selected runtime user. MinIO explicitly supports an arbitrary regular user
-when `/data` is writable; its transient home is the bounded `/tmp` tmpfs.
+PostgreSQL, MinIO, API, worker, gateway, and renderer use read-only container
+roots, dropped capabilities, `no-new-privileges`, bounded resources, and
+non-executable temporary filesystems. PostgreSQL runs as UID 999 and MinIO as
+UID 10001. The networkless `local-data-volume-permissions` helper runs as root
+inside the rootless Podman user namespace with only `CAP_CHOWN`, fixes retained
+volume ownership, and exits before daemons start. It does not change database
+or object content.
 
-This is a disposable developer containment boundary, not an authorization boundary
-or a production deployment claim. The service ports remain loopback-only, and
-operator access to the host account or its Podman socket can still read the
-named volumes. Production uses the separate AWS RDS, S3, IAM, and KMS design.
-If an image upgrade changes either documented UID or requires an additional
-writable path, the Compose policy test and a disposable Podman start must be
-updated together; do not silently remove the fixed-user or read-only settings.
+`ple_pgdata` and `ple_miniodata` are named volumes. A normal container stop or
+rebuild retains them. The read-only `postgres-major-guard` accepts an empty
+volume or PostgreSQL 17 data; it never performs a major upgrade. Upgrade by
+verified backup, new target-major volume, restore, validation, and recovery
+acceptance. Removing a populated volume is destructive.
 
-The API stops accepting new work and drains admitted requests for up to 30
-seconds. Compose provides a 45-second stop grace period, so a normal container
-stop cannot preempt that documented application drain. Workers have their own
-longer bounded stop allowance because a claimed durable job must finish or
-release safely. This timing is configuration evidence; verify it during a
-disposable live shutdown drill before relying on it operationally.
-
-## Buckets
-
-`createbuckets` creates four buckets, and they are separate because their
-rules differ, not for tidiness.
-
-| Bucket              | Holds                                        | Serving                                      | Retention                        |
-| ------------------- | -------------------------------------------- | -------------------------------------------- | -------------------------------- |
-| `public-assets`     | immutable learner-facing problem assets      | public immutable URLs                        | indefinite, versioned            |
-| `private-content`  | sources, archives, renders, course banners   | authorized delivery only, never public paths | indefinite, versioned            |
-| `student-records`  | exports, uploaded responses, annotated exams | 5-minute authorized URLs, always logged      | explicit expiration and deletion |
-| `temp-processing`  | extraction and conversion workspaces         | never served                                 | lifecycle rule, days             |
-
-A course deletion removes `student-records` artifacts and leaves shared
-content domains
-untouched. Separate buckets make that a policy rather than a filter over a
-shared prefix.
+The local hardening limits accidental exposure and confused operations. A
+person controlling the host account or rootless Podman socket can still inspect
+disposable data. Production uses managed RDS, S3, IAM, and KMS controls.
 
 ## First run
 
-`./run_live_demo.sh [--headless]` is the normal developer lifecycle. It resolves the fixed
-`ple-live-demo-browser` project and
-calls the canonical production-browser owner. The owner holds one lease through
-build, bootstrap, migration, seed, renderer provenance, readiness, and cleanup.
+Use the root script from the repository root:
 
 ```bash
 ./run_live_demo.sh
 ./run_live_demo.sh --headless
 ```
 
-`start` always builds production `dist/`, regenerates the disposable stack, and
-waits for the HTTPS origin. Without `--headless` it opens that origin; with
-`--headless` it prints the origin for a manually opened browser.
-Use the visible seeded production-auth UI to choose one of the five fixed
-personas and then an authorized course. The server resolves the persona to the
-ordinary account, account session, tenant session, and stored role state. The
-start boundary accepts no project, environment, identity, SMTP, or skipped-build
-option.
+The script sources [source_me.sh](../source_me.sh), runs
+[devel/setup_python.sh](../devel/setup_python.sh) for the repo-local Python
+3.12 environment, installs Node dependencies with
+[devel/setup_typescript.sh](../devel/setup_typescript.sh) when `node_modules`
+is absent, and runs `.venv/bin/python local_stack.py start`. Start always
+builds the production `dist/` bundle, creates a fresh fixed target, and waits
+for the HTTPS gateway. Without `--headless` it opens the URL; with it, it
+prints the URL for an operator to open.
 
-The lifecycle returns success only after `postgres`, `minio`,
-`webwork-renderer`, `api`, `worker`, and `gateway` are running, every declared
-health check is healthy, and the required one-shot services have exited with
-status zero. Developer and browser tests serialize through the same owner lease.
+The fixed target is always:
 
-## Process database authority
-
-After migrations, the lifecycle generates fresh in-memory passwords and reconciles two closed
-PostgreSQL logins in the selected mode-0600 runtime environment. The API receives only
-`PLE_API_DATABASE_URL` as its `DATABASE_URL`; the worker receives only
-`PLE_WORKER_DATABASE_URL`. The migration, Base Course, and grading setup children receive the
-administrator URL only for their bounded startup calls. The API login can assume `ple_app` and
-`ple_auth`; the worker login can assume `ple_app` and the worker-only
-`ple_accepted_submission_execution` capability. Each service reattests its exact login and direct
-membership set when a pool connection is opened or replaced. A missing login, changed membership,
-or mismatched URL stops that service instead of widening its authority.
-
-For startup failures, preserve the private owner receipt and follow
-[TROUBLESHOOTING.md](TROUBLESHOOTING.md). The owner does not authorize a
-caller-selected developer project.
-
-The API receives only the owner-generated runtime capabilities required by the
-production-auth seed. The browser never receives those capabilities. SMTP and
-deployment-provider setup are outside this fixed local developer session.
-
-## Private standalone PG renderer
-
-WeBWorK-backed questions are part of the normal stack. PLE relies on the
-external `webwork-pg-renderer` image named by `PLE_WEBWORK_RENDERER_IMAGE`; this
-repository neither rebuilds that service nor runs the full WebWork2 homework
-application. The renderer wraps upstream WeBWorK PG/PGML execution behind one
-private `/render-api` form endpoint.
-
-The renderer has no volume, SQL database, course, roster, assignment, user, or
-host-published port. It joins only `renderer_private` with the API. The gateway,
-browser, worker, PostgreSQL, and MinIO cannot reach that network. PLE remains the
-sole assignment distributor and educational-record authority.
-
-The owner creates renderer JWT secrets in private disposable state. They
-authenticate API-to-renderer requests and responses; they never enter browser
-data. The lifecycle records the selected OCI configuration ID and runs the
-renderer probe before the API starts.
-
-The renderer is stateless. Recreating it loses no PLE record. PostgreSQL and
-MinIO retain records in named volumes outside their writable container layers;
-normal `down` and rebuild operations preserve those volumes.
-
-The startup probe is not a substitute for PLE integration or browser testing.
-The browser-free renderer oracle and the canonical browser selection are the
-supported evidence paths; see [USAGE.md](USAGE.md#build-and-validation-commands).
-
-The worker handles one job per bounded pass and concurrency comes from scaling
-the service. Its production readiness receipt attests seven supported families:
-`RecalculateAssignment`, `RecalculateCourseItemAnalysis`,
-`AutoSubmitAttempt`, `Retention`, `Export`, `QtiImport`, and the sealed
-`GradeAcceptedSubmission` family. The six generic families use the ordinary
-worker claim filter; `GradeAcceptedSubmission` is dispatched through the
-sealed accepted-submission execution capability and is never claimed by that
-generic filter. The worker-only accepted-submission recovery login can load
-private accepted responses only under its exact lease and tenant fence.
-Reserved Render and generic Import rows remain ready until both preparation and
-atomic commit implementations exist. `PLE_WORKER_LEASE_SECONDS`,
-`PLE_WORKER_PREPARATION_TIMEOUT_SECONDS`, and `PLE_WORKER_POLL_MILLIS` are
-bounded in-process controls with documented defaults in `env.example`.
-
-## Verifying health
-
-`/health` returns 200 only after the bounded PostgreSQL compatibility verifier
-confirms the exact migration versions, states, and checksums expected by the
-running binary, plus a real `HeadBucket` request against the object store. It
-is not a liveness ping: a process that is running but cannot reach its database
-or reaches an incompatible schema reports 503.
-
-The gateway actively checks this dedicated route every five seconds. It does
-not treat an arbitrary application 503 as replica unhealthiness. That
-distinction keeps stored records diagnosable when a feature-local dependency
-fails closed. The normal lifecycle nevertheless requires the renderer to pass
-its semantic startup probe before it starts the API.
-
-Use the HTTPS origin printed by `start` when probing `/health`; the owner may
-select a free loopback port for the disposable run.
-
-A ready stack prints:
-
-```json
-{ "status": "ready" }
+```text
+owner:   live-demo-browser
+project: ple-live-demo-browser
+profile: browser
 ```
 
-A stack missing a dependency names it, which is the point of the endpoint:
+The owner holds one lease through build, private capability generation,
+PostgreSQL bootstrap, migration, seed, renderer provenance, readiness, and
+cleanup. It accepts no project, environment, identity, SMTP, or skipped-build
+selector. Bare `podman compose up` against an empty database is not an
+equivalent bootstrap path.
 
-```json
-{ "status": "degraded", "failing": ["object-store"] }
+## Demo accounts and courses
+
+The production-auth overlay seeds five ordinary PLE personas: Elena (Instructor),
+Mary and Jack (Students), Avery (Student approval candidate), and Morgan
+(Sysadmin). The public selector chooses only a known seeded persona key. The
+server resolves the global account and issues an ordinary session; it does not
+accept a browser role claim.
+
+The seeded course memberships are exact:
+
+- `Biochemistry: Protein Structure and Function`: Elena is the Instructor;
+  Mary and Jack are Students.
+- `Genetics Practice Course`: Morgan is the Instructor member and Avery is the
+  Student member.
+
+The visible course list is therefore membership-derived. Choosing a course
+does not grant access to another course, another Student, or another
+workspace. New browser scenarios may create additional course records through
+the ordinary Instructor workflow; those records remain scoped to their exact
+`CourseId`.
+
+## Startup order
+
+The lifecycle validates image digests, private files, Compose topology, and
+renderer provenance before mutating the selected target. It then:
+
+1. removes the prior fixed project while retaining no stale owner resources;
+2. runs `postgres-major-guard`, starts PostgreSQL, and waits for readiness;
+3. applies the migration set and provisions bounded runtime logins;
+4. prepares or resumes the installed Base Course and its immutable receipt;
+5. starts MinIO and idempotently creates all four buckets;
+6. starts, probes, and attests the private renderer;
+7. publishes the seeded Chapter 1 records, starts API initializers, builds API
+   and gateway images, and starts API, worker, and gateway; and
+8. waits for API semantic health and the worker's capability-bearing readiness
+   receipt before reporting the HTTPS origin.
+
+The API and worker receive separate runtime database URLs. Migration and seed
+children receive administrator authority only for their bounded startup calls.
+Raw passwords and invitation/Question ID capabilities remain in mode-0600
+private files or runtime volumes; the browser never receives them.
+
+## Renderer boundary
+
+`PLE_WEBWORK_RENDERER_IMAGE` names the external standalone
+`webwork-pg-renderer` image. PLE records its selected OCI configuration ID and
+probes the private `/render-api` contract. The renderer has no host port and
+joins only `renderer_private`; it cannot reach PostgreSQL, MinIO, gateway, or
+the browser. Its failure closes PG-backed work without losing PLE records.
+
+This is a bounded provider integration, not broad WeBWorK compatibility. The
+local stack does not run WebWork2 or MariaDB. Provider credentials, renderer
+configuration, answer material, source bytes, and upstream identifiers remain
+server-side. Provider fields in records are metadata/provenance and do not
+authorize a course, Student, or object.
+
+## Worker lease recovery
+
+Each worker claim locks one PostgreSQL queue row and receives an opaque
+`JobLeaseToken`. The immutable job manifest and current lease determine the
+exact course, workspace, catalog, object, export, retention, or system target.
+The handler family, target type, broker capability, lease token, and generation
+fence must agree before any read, write, provider dispatch, or finalization.
+
+The queue payload and retry input cannot widen the target. A foreign-course
+object, foreign job target, stale generation, wrong handler family, expired
+lease, stale token, or forged provider completion fails closed before effect.
+Preparation creates only replay-safe private output. A server-owned committer
+makes the effect visible and completes the same claim atomically.
+
+After crash or dependency loss, the lease expires and a later worker can
+reclaim the job under bounded retry/backoff. A late completion returns
+claim-no-longer-active and cannot publish a duplicate result. An external call
+whose effect is indeterminate remains closed to automatic relaunch until its
+own recovery policy resolves it. Defaults are:
+
+```text
+PLE_WORKER_LEASE_SECONDS=120
+PLE_WORKER_PREPARATION_TIMEOUT_SECONDS=90
+PLE_WORKER_POLL_MILLIS=500
 ```
 
-The worker exposes no HTTP endpoint, so Compose explicitly disables the API
-image health check for that service. Its liveness is the supervised process;
-its useful operational signal is the supported-family queue depth emitted with
-non-empty pass counters. Startup must also emit one coherent readiness receipt
-with the seven-family count and the sealed `GradeAcceptedSubmission` family.
-Worker startup verifies schema compatibility and refuses to drain when
-verification is unavailable or incompatible.
+These settings bound work; they do not grant authority. Add worker processes
+for concurrency rather than making one process an unbounded batch.
 
-Use the controller for ordinary inspection. Raw Compose remains a diagnosis or
-recovery tool for the owner, not the normal lifecycle interface.
+## Health and inspection
 
-## Common commands
+`/health` is readiness, not liveness. It returns 200 only when the API verifies
+expected migration versions/checksums and successfully probes the content
+bucket. A failing dependency returns 503 with safe names. The gateway polls
+this route; it does not evict a replica for every feature-local application
+failure.
+
+Inspect through the controller:
 
 ```bash
-./run_live_demo.sh                 # build, start, wait, and open
-./run_live_demo.sh --headless      # build, start, wait, and print the origin
-./run_live_demo.sh stop            # authenticated cleanup
+source source_me.sh && .venv/bin/python local_stack.py doctor
+source source_me.sh && .venv/bin/python local_stack.py status
+source source_me.sh && .venv/bin/python local_stack.py logs api worker
+source source_me.sh && .venv/bin/python local_stack.py validate
 ```
 
-`start` and `stop` are the only developer-session mutations. They do not accept
-project, environment, identity, SMTP, or build selectors. Cleanup is exact and
-owner-scoped; it does not retain a caller-selected data project.
-
-The fixed owner performs its own exact cleanup. Use
-`./run_live_demo.sh stop` after diagnostics or when
-finished; do not use a project selector, confirmation target, or global Podman
-cleanup.
-
-The developer and browser runners use one private manifest, capability, and
-lease through the canonical owner. On cleanup failure, retain its private
-evidence and inspect the owner receipt before retrying; do not broaden cleanup.
-
-Every disposable owner uses `podman-compose --in-pod false`. Disposable pods are intentionally
-forbidden because Podman Compose does not attach the resource labels needed for the controller's
-capability-bound discovery and cleanup proof to a provider-created pod.
-
-The disposable capability coordinates cooperative processes running as the
-same local user; mode 0600 prevents accidental disclosure but does not isolate
-against a malicious same-UID process. Before any mutation, the adapter checks
-the runner-held capability digest on every labelled resource. Once discovery
-proves that no labelled resource remains, it may remove only the owner's exact
-project-derived image tags (never an image ID, default tag, or shared image).
-
-The database-baseline owner holds its mode-0700 runtime workspace while it
-generates and validates the private manifest and companion files. Browser and
-visitor processes have no path into that workspace. Immediately before Compose
-starts PostgreSQL, the owner revalidates the bound administrative password;
-the resulting administrative database connection provides the post-start
-behavioral attestation. This boundary trusts the local stack owner: a
-same-UID Podman administrator already controls the engine and its mounts, so
-the runtime contract focuses on preventing accidental disclosure and confused
-cross-process configuration rather than treating that administrator as a
-separate tenant.
-
-## Whole-system verification
-
-The maintained non-browser E2E runner builds on the ordinary repository
-artifacts and uses disposable, loopback-only Compose projects. Its
-`replica_restart` profile is the only two-API-replica service oracle; PostgreSQL
-remains singular:
+Raw Compose inspection is diagnostic only and must use the exact env file:
 
 ```bash
-bash tests/e2e/e2e_run_all.sh
+podman compose -f containers/compose.yaml \
+  --env-file containers/env.local ps
 ```
 
-It exercises the Wasm bridge and export allowlist, production browser-build composition,
-PostgreSQL migration/RLS/live oracles, PostgreSQL-to-MinIO course-appearance cleanup, isolated
-WebWork rendering and grading, the complete installed-course lifecycle, and a real Student
-submission across two API replicas after stopping the replica that issued the question. The
-gateway image is derived from the pinned
-official digest and strips Caddy's unnecessary low-port file capability before
-running as UID 1000 with `cap_drop: ALL`. The replica lane builds the current
-checkout into exact nonce-scoped application and gateway tags, then removes
-only those tags after label discovery proves the project is empty. Cleanup is
-attempted on both success and failure; an unproved cleanup fails nonzero and
-retains its private recovery evidence. The runner never targets a long-lived
-development project.
+Do not direct browser traffic to an API container or worker, and do not publish
+the private renderer. The fixed HTTPS origin printed by the lifecycle is the
+only browser entry point.
 
-Permanent fast tests protect controller parsing, ownership, topology, and
-other deterministic contracts. Real Podman, PostgreSQL, MinIO, renderer,
-restart, and browser evidence belongs to an explicit disposable or live
-acceptance command; it is not a regular pytest dependency. The complete
-required command set for a goal is the active plan's Validation test suite;
-see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).
+## Stop and cleanup
 
-Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. The lifecycle
-runs the read-only `postgres-major-guard` before it starts PostgreSQL and
-accepts only a missing data directory or a populated PostgreSQL 17 directory.
-PostgreSQL data directories are not compatible across major versions. Upgrade
-through a documented, non-destructive migration: back up and verify the old
-cluster, create a new PostgreSQL-major volume, restore into it, validate the
-migration ledger and application behavior, then retain the old volume until
-recovery is accepted. Removing either volume destroys local data, so it is a
-deliberate step rather than part of the normal stop command.
+Stop the canonical live-demo session with:
 
-## Image shape
+```bash
+./run_live_demo.sh stop
+```
 
-`Containerfile.api` is a two-stage build. The `api` Compose service is the
-single build owner of `localhost/peptidyle-learning-engine:local`; `worker`
-uses that exact image with its own command and runtime settings. The lifecycle
-builds the application image once, then builds the gateway, and only then
-starts API, worker, and gateway. This prevents duplicate concurrent Cargo
-builds from exhausting a constrained Podman machine. The first stage compiles
-the Cargo workspace with `--locked`, so the image cannot quietly resolve a
-different dependency set than `Cargo.lock` records. The second stage carries
-only the binary and `ca-certificates`, and runs as a non-root user.
+The stop request authenticates to the private owner control socket. The owner
+then runs the exact fixed Compose cleanup (`down --volumes --remove-orphans`),
+rechecks all project-labelled containers, volumes, and networks, removes its
+private workspace artifacts, and only then removes project-derived image tags.
+It never runs a global Podman prune or accepts a caller-selected project. A
+cleanup failure retains private recovery evidence and returns nonzero.
 
-Manifests are copied before sources so dependency compilation caches
-separately from source edits.
+If the control socket is unavailable, the next invocation first reacquires the
+same exclusive lease, proves no owner is live, and purges only the fixed
+`ple-live-demo-browser` resources. It does not infer ownership from a process
+name or remove an unrelated project.
 
-The builder follows the current stable Rust channel declared by
-[rust-toolchain.toml](../rust-toolchain.toml).
+The default `containers` project has a separate explicit destructive reset for
+retained local data:
 
-## Health check inside the image
+```bash
+source source_me.sh && .venv/bin/python local_stack.py reset \
+  --confirm-project containers
+```
 
-The container `HEALTHCHECK` runs the API binary with `--health-probe`, which
-opens an HTTP request to its own `/health` and exits non-zero on anything but 200. Doing it this way keeps the runtime image free of `curl` and `wget`.
+Use it only when removal of `ple_pgdata`, `ple_miniodata`, and installation
+manifests is intended. Normal fixed live-demo stop and normal Compose stop do
+not imply this reset.
+
+## Validation commands
+
+The connected acceptance owner is:
+
+```bash
+source source_me.sh && .venv/bin/python local_stack.py acceptance
+```
+
+It refuses an existing default or fixed live-demo stack, runs the canonical
+real-stack browser lane and distinct browser-free service oracles, and cleans
+each disposable owner exactly. The only two-API service oracle is:
+
+```bash
+node tests/e2e/e2e_replica_restart.mjs
+```
+
+That profile uses one PostgreSQL and one MinIO, stops the API that issued the
+question, and proves exact replay and idempotent submission through its peer.
+Renderer, database, object-store, and worker checks are service evidence, not
+substitute browser journeys. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
+defines the required evidence classes and final gate order.
+
+## Production boundary
+
+The local lifecycle does not deploy AWS resources. The planned production
+baseline in [deploy/opentofu](../deploy/opentofu) uses private Fargate API,
+worker, and publisher services, RDS PostgreSQL, versioned SSE-KMS S3 domains,
+CloudFront/WAF/ALB, VPC endpoints, and role-separated Secrets Manager values.
+The external renderer is disabled there by default. OpenTofu validation,
+disposable apply, migration/health, restore, rollback, drift, and bounded
+destroy remain deployment gates. A successful local stack or browser journey
+does not establish production readiness or release acceptance.

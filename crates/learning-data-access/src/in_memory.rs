@@ -462,8 +462,7 @@ struct State {
     next_co_instructor_invitation_reference: u32,
     next_problem_collection_reference: u32,
     next_saved_problem_search_reference: u32,
-    next_blueprint_reference: u32,
-    next_alpha_course_reference: u32,
+    next_blueprint_course_reference: u32,
     course_references: BTreeMap<(TenantId, CourseId), question_model::CourseReference>,
     courses_by_reference: BTreeMap<(TenantId, question_model::CourseReference), CourseId>,
     assignment_references: BTreeMap<(TenantId, AssignmentId), question_model::AssignmentReference>,
@@ -532,20 +531,18 @@ struct State {
         (TenantId, problem_curation::SavedProblemSearchId),
         problem_curation::StoredSavedProblemSearch,
     >,
-    blueprint_references:
-        BTreeMap<(TenantId, reusable_curriculum::BlueprintId), question_model::BlueprintReference>,
-    blueprints_by_reference:
-        BTreeMap<(TenantId, question_model::BlueprintReference), reusable_curriculum::BlueprintId>,
-    blueprints: BTreeMap<
-        (TenantId, reusable_curriculum::BlueprintId),
-        reusable_curriculum::StoredBlueprint,
+    blueprint_course_references: BTreeMap<
+        (TenantId, reusable_curriculum::BlueprintCourseId),
+        question_model::BlueprintReference,
     >,
-    alpha_course_references:
-        BTreeMap<reusable_curriculum::AlphaCourseId, question_model::AlphaCourseReference>,
-    alpha_courses_by_reference:
-        BTreeMap<question_model::AlphaCourseReference, reusable_curriculum::AlphaCourseId>,
-    alpha_courses:
-        BTreeMap<reusable_curriculum::AlphaCourseId, reusable_curriculum::StoredAlphaCourse>,
+    blueprint_courses_by_reference: BTreeMap<
+        (TenantId, question_model::BlueprintReference),
+        reusable_curriculum::BlueprintCourseId,
+    >,
+    blueprint_courses: BTreeMap<
+        (TenantId, reusable_curriculum::BlueprintCourseId),
+        reusable_curriculum::StoredBlueprintCourse,
+    >,
     course_schedule_revisions:
         BTreeMap<(TenantId, CourseId), question_model::CourseScheduleRevision>,
     /// Immutable curriculum-adoption records. The single enclosing state lock
@@ -592,8 +589,8 @@ struct State {
     prepared_qti_grading:
         BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
     courses: BTreeMap<(TenantId, CourseId), CourseRecord>,
-    learner_by_user: BTreeMap<(TenantId, UserId), StudentId>,
-    learner_by_student: BTreeSet<(TenantId, StudentId, UserId)>,
+    student_by_user: BTreeMap<(TenantId, UserId), StudentId>,
+    student_user_by_student: BTreeSet<(TenantId, StudentId, UserId)>,
     roster_policies: BTreeMap<(TenantId, CourseId), CourseEnrollmentPolicy>,
     roster_profiles: BTreeMap<
         (TenantId, CourseId, CourseMembershipId),

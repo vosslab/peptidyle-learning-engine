@@ -5,7 +5,7 @@ use crate::StudentDisclosureInput;
 
 /// Builds the sole S4 disclosure input from the assignment-owned schedule,
 /// the current sealed S3 receipt, and the Memory authoritative clock.  The
-/// caller has already performed learner or instructor authorization.
+/// caller has already performed Student or Instructor authorization.
 pub(super) fn current_disclosure_input(
     state: &State,
     tenant: TenantId,
@@ -140,7 +140,7 @@ impl crate::FeedbackStore for MemoryStore {
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        let learner_self = super::entitlement::require_current_enrollment_entitlement(
+        let student_self = super::entitlement::require_current_enrollment_entitlement(
             &state,
             tenant,
             actor,
@@ -149,7 +149,7 @@ impl crate::FeedbackStore for MemoryStore {
             &enrollment,
         )
         .is_ok();
-        if !learner_self
+        if !student_self
             && super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
                 != Some(CourseMembershipRole::Instructor)
         {
@@ -178,7 +178,7 @@ impl crate::FeedbackStore for MemoryStore {
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        let learner_self = super::entitlement::require_current_enrollment_entitlement(
+        let student_self = super::entitlement::require_current_enrollment_entitlement(
             &state,
             tenant,
             actor,
@@ -187,7 +187,7 @@ impl crate::FeedbackStore for MemoryStore {
             &enrollment,
         )
         .is_ok();
-        if !learner_self
+        if !student_self
             && super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
                 != Some(CourseMembershipRole::Instructor)
         {
@@ -210,10 +210,10 @@ impl crate::FeedbackStore for MemoryStore {
             .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
         {
             let current = projected_attempt(&state, tenant, attempt);
-            if learner_self && current.status == AttemptStatus::Cleared {
+            if student_self && current.status == AttemptStatus::Cleared {
                 continue;
             }
-            if learner_self {
+            if student_self {
                 let assignment_item = state
                     .run_items
                     .get(&(tenant, run.id))

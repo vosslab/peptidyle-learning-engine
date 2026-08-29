@@ -519,7 +519,7 @@ impl CatalogStore for PostgresStore {
              JOIN problem_version AS pv USING (problem_id) \
              JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
              WHERE p.question_id = $1 \
-               AND pv.lifecycle IN ('published', 'deprecated')",
+               AND pv.lifecycle IN ('published', 'deprecated', 'archived')",
         )
         .bind(question_id)
         .fetch_optional(&mut *transaction)
@@ -546,7 +546,7 @@ impl CatalogStore for PostgresStore {
                     floor(extract(epoch FROM document.published_at) * 1000)::bigint \
                         AS published_at_millis \
              FROM catalog_search_document AS document \
-             WHERE document.lifecycle = 'published' \
+             WHERE document.lifecycle IN ('published', 'deprecated', 'archived') \
                AND ($1::text IS NULL \
                     OR document.question_id > $1) \
              ORDER BY document.question_id LIMIT $2",
@@ -581,7 +581,7 @@ impl CatalogStore for PostgresStore {
                             term AS taxonomy_term \
                      FROM catalog_search_document AS document \
                      CROSS JOIN LATERAL jsonb_array_elements(document.taxonomy) AS term \
-                     WHERE document.lifecycle = 'published' \
+                     WHERE document.lifecycle IN ('published', 'deprecated', 'archived') \
                  ) AS term_row \
                  ORDER BY term_row.stable_key, term_row.problem_id::text, \
                           term_row.version_id::text \

@@ -5,11 +5,55 @@ use std::num::NonZeroU32;
 use async_trait::async_trait;
 use objects::Sha256Digest;
 use question_model::{ActivityTimestamp, TenantId, UserId, UserRole};
+use uuid::Uuid;
 
 use crate::StoreError;
 
 /// Maximum displayed identity length accepted from an identity provider.
 pub const MAX_DISPLAY_NAME_CHARS: usize = 200;
+
+/// Opaque durable identity for one server-tracked login session.
+///
+/// This identity is distinct from [`SessionTokenHash`]: storage adapters
+/// reconstitute it from trusted session records, and it is never a browser
+/// credential or locator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SessionId(Uuid);
+
+impl SessionId {
+    /// Reconstitutes an ID read from trusted session storage.
+    pub fn from_uuid(value: Uuid) -> Self {
+        Self(value)
+    }
+
+    /// Returns the UUID used by server-side session storage.
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
+}
+
+/// Server-derived identity of an authenticated request actor.
+///
+/// This context carries no authorization grant. Protected operations authorize
+/// the actor against their exact durable scope. The coordinated session-record
+/// cutover will construct this context from a resolved [`SessionRecord`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ActorContext {
+    user_id: UserId,
+    session_id: SessionId,
+}
+
+impl ActorContext {
+    /// Returns the authenticated global account identity.
+    pub fn user_id(self) -> UserId {
+        self.user_id
+    }
+
+    /// Returns the resolved durable session-record identity.
+    pub fn session_id(self) -> SessionId {
+        self.session_id
+    }
+}
 
 /// SHA-256 of an opaque session credential.
 ///

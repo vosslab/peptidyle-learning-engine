@@ -172,7 +172,7 @@ async fn policies(pool: &PgPool) {
             ),
             (
                 "course_roster_mutator_identity_tenant",
-                "tenant_learner_identity",
+                "tenant_student_identity",
                 "*",
                 true,
                 true
@@ -213,8 +213,8 @@ async fn relation_authority(pool: &PgPool) {
             ("course_roster_profile", "INSERT"),
             ("course_roster_profile", "SELECT"),
             ("course_roster_state", "SELECT"),
-            ("tenant_learner_identity", "INSERT"),
-            ("tenant_learner_identity", "SELECT"),
+            ("tenant_student_identity", "INSERT"),
+            ("tenant_student_identity", "SELECT"),
         ]
         .map(|(relation, privilege)| (relation.to_owned(), privilege.to_owned()))
     );

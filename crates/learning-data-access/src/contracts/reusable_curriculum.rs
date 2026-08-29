@@ -1,10 +1,9 @@
-//! Persistence boundary for reusable personal Blueprints and shared Alpha curricula.
+//! Persistence boundary for revisioned, reusable BlueprintCourse trees.
 
 use async_trait::async_trait;
 use question_model::{
-    AlphaCourseDefinitionInput, AlphaCourseReference, AlphaCourseRevision, AlphaCourseSummaryView,
-    AlphaCourseView, BlueprintDefinitionInput, BlueprintReference, BlueprintRevision,
-    BlueprintSummaryView, BlueprintView,
+    BlueprintCourseDefinitionInput, BlueprintCourseSummaryView, BlueprintCourseView,
+    BlueprintReference, BlueprintRevision,
 };
 
 use super::{Page, PageRequest, SessionTokenHash, StoreError, TenantContext};
@@ -12,34 +11,21 @@ use super::{Page, PageRequest, SessionTokenHash, StoreError, TenantContext};
 /// Route authority selected by a server handler for reusable curriculum work.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReusableCurriculumCapability {
-    /// Read or create the active approved Instructor's personal Blueprints.
-    BlueprintPersonal,
-    /// Read shared Alpha curricula as an approved Instructor.
-    AlphaRead,
-    /// Create or replace an Alpha curriculum as its approved-Instructor creator.
-    AlphaCreatorWrite,
+    /// Read a published BlueprintCourse as an approved Instructor.
+    BlueprintCourseRead,
+    /// Create or replace an owned draft BlueprintCourse.
+    BlueprintCourseWrite,
 }
 
-/// Atomically create or replace one complete private Blueprint.
+/// Atomically create or replace one complete reusable BlueprintCourse tree.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ReplaceBlueprintCommand {
-    /// `None` creates a new aggregate; a reference replaces that aggregate.
+pub struct ReplaceBlueprintCourseCommand {
+    /// `None` creates an aggregate; a reference replaces that complete tree.
     pub reference: Option<BlueprintReference>,
     /// Required for replacement and absent for creation.
     pub expected_revision: Option<BlueprintRevision>,
-    /// The aggregate's sole reusable assignment definition.
-    pub definition: BlueprintDefinitionInput,
-}
-
-/// Atomically create or replace one complete public Alpha curriculum tree.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReplaceAlphaCourseCommand {
-    /// `None` creates a new public curriculum; a reference replaces it.
-    pub reference: Option<AlphaCourseReference>,
-    /// Required for replacement and absent for creation.
-    pub expected_revision: Option<AlphaCourseRevision>,
     /// Ordered modules and reusable definitions owned by the aggregate.
-    pub definition: AlphaCourseDefinitionInput,
+    pub definition: BlueprintCourseDefinitionInput,
 }
 
 /// Reusable-curriculum persistence separate from the general teaching Store.
@@ -53,48 +39,25 @@ pub trait ReusableCurriculumStore: Send + Sync {
         capability: ReusableCurriculumCapability,
     ) -> Result<(), StoreError>;
 
-    async fn list_blueprints(
+    /// Lists draft courses owned by the actor plus published courses readable globally.
+    async fn list_blueprint_courses(
         &self,
         context: TenantContext,
         session: SessionTokenHash,
         page: PageRequest,
-    ) -> Result<Page<BlueprintSummaryView>, StoreError>;
-    async fn get_blueprint(
+    ) -> Result<Page<BlueprintCourseSummaryView>, StoreError>;
+    /// Gets one draft-owner or published-approved-Instructor answer-free course view.
+    async fn get_blueprint_course(
         &self,
         context: TenantContext,
         session: SessionTokenHash,
         reference: BlueprintReference,
-    ) -> Result<Option<BlueprintView>, StoreError>;
-    async fn replace_blueprint(
+    ) -> Result<Option<BlueprintCourseView>, StoreError>;
+    /// Atomically replaces the complete course tree under optimistic revision control.
+    async fn replace_blueprint_course(
         &self,
         context: TenantContext,
         session: SessionTokenHash,
-        command: ReplaceBlueprintCommand,
-    ) -> Result<BlueprintView, StoreError>;
-    async fn delete_blueprint(
-        &self,
-        context: TenantContext,
-        session: SessionTokenHash,
-        reference: BlueprintReference,
-        expected_revision: BlueprintRevision,
-    ) -> Result<bool, StoreError>;
-
-    async fn list_alpha_courses(
-        &self,
-        context: TenantContext,
-        session: SessionTokenHash,
-        page: PageRequest,
-    ) -> Result<Page<AlphaCourseSummaryView>, StoreError>;
-    async fn get_alpha_course(
-        &self,
-        context: TenantContext,
-        session: SessionTokenHash,
-        reference: AlphaCourseReference,
-    ) -> Result<Option<AlphaCourseView>, StoreError>;
-    async fn replace_alpha_course(
-        &self,
-        context: TenantContext,
-        session: SessionTokenHash,
-        command: ReplaceAlphaCourseCommand,
-    ) -> Result<AlphaCourseView, StoreError>;
+        command: ReplaceBlueprintCourseCommand,
+    ) -> Result<BlueprintCourseView, StoreError>;
 }

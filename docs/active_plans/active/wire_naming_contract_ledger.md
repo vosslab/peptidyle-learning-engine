@@ -34,6 +34,8 @@ accepted WN1-A allocation
   -> dependency-ready C and QM rows
   -> WA and D rows
   -> WN1-OPS2..OPS10 PLE-owned shell-family closures before final acceptance
+  -> WN1-SR4A Student authority source closure
+  -> WN1-SR5 PostgreSQL vocabulary
   -> WN1-SR6 product-document review and WN1-FD filename disposition
   -> WN1-F naming review and full material-tree acceptance
   -> G2 W5/W6, then WP-INST-G3-IA1
@@ -209,6 +211,7 @@ the course landing type becomes `StudentAssignmentLandingSummary` to avoid a typ
 | `WN1-SR2 Student assignment projection`    | `LearnerScoreState`, `LearnerAssignmentProgress`, `LearnerAssignmentSummary`, `LearnerLateStatus`, `LearnerAssignmentDelivery`, and `LearnerAssignmentDetail` become `StudentScoreState`, `StudentAssignmentProgress`, `StudentAssignmentLandingSummary`, `StudentLateStatus`, `StudentAssignmentDelivery`, and `StudentAssignmentDetail`. `LearnerAssignmentSummarySnapshot` becomes `StudentAssignmentSummarySnapshot`; `LearnerNotActiveCourseStudent` becomes `StudentNotActiveCourse`. Effective Serde uses direct `snake_case` for every renamed projection field and discriminant owned by these six public model types. Owns those model definitions and generated modules, the private Store snapshot identity plus every direct Store/server run/course typed use of that snapshot, the domain entitlement variant and its PostgreSQL/test consumers, server course-assignment construction, direct TypeScript type consumers, and strict decoder wire-field updates. The existing `StudentAssignmentSummary` aggregate retains its identity and present wire contract until `QM-ACTIVITY`; the renamed snapshot carries it without transferring that aggregate's Serde ownership into SR2. SR3 retains run-path function/Store-capability vocabulary; SR4 retains decoder function, component, progress-helper, and filename renames.                                                                                                                        | Student list/detail/progress tests preserve score disclosure and answer-free Instructor Student view.             |
 | `WN1-SR3 Student run and Store capability` | The exact target map is the normative `WN1-SR3 exact run and Store register` below: every named public and `_impl` method, module, projection, local, and function changes once, with no alias.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Run issuance, prefetch, submission replay/recovery, cross-Student denial, and external-tool handoff.              |
 | `WN1-SR4 browser direct clients`           | The exact target map is the normative `WN1-SR4 exact browser register` below: all registered contracts, presentation names, components, converters, decoder exports, and client/runtime members change once.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Strict decoder and Student browser journey; browser projection remains answer-free.                               |
+| `WN1-SR4A Student authority source`         | Close the non-serialized Rust authority vocabulary discovered by the post-SR4 whole-tree review: entitlement grants/facts/denials, entitlement materialization commands, the Student-visible assignment-list Store capability, Memory identity indexes, PostgreSQL read helpers, direct server callers, and their behavior tests. The exact target map is below.                                                                                                                                                                                                                                                                                                                                         | Entitlement, enrollment, list visibility, materialization, and cross-Student denial behavior.                     |
 | `WN1-SR5 PostgreSQL vocabulary`            | The exact target map is the normative `WN1-SR5 exact PostgreSQL register` below: each role-bearing schema name, broker policy, authority function, fence, and direct SQLx caller changes once.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Clean-volume migration, Store conformance, RLS authorization, and unchanged Student/Instructor/Sysadmin behavior. |
 | `WN1-SR6 product documentation`            | Convert human-role uses to Student in `LIVE_DEMO_SPEC.md`, `STUDENT_GUIDE.md`, `INSTRUCTOR_GUIDE.md`, `COOKBOOK.md`, `FAQ.md`, `API_CONTRACTS.md`, `ENROLLMENT_DESIGN.md`, `CODE_ARCHITECTURE.md`, `FILE_STRUCTURE.md`, `FRONTEND_ARCHITECTURE.md`, `MASTERY_ASSIGNMENT_DESIGN.md`, `DATA_CLASSIFICATION.md`, `RETENTION_POLICY.md`, `CACHING_AND_PREFETCH.md`, `INSTRUCTOR_PAGE_VISUALS.md`, `STUDENT_PAGE_VISUALS.md`, `UI_DESIGN_REVIEW.md`, and `LOCAL_STACK_OPERATIONS.md`. Retain generic learning/teaching prose, `learning-*` system vocabulary, registered external terms, frozen history, and a clearly labeled `Current pre-WN1` evidence boundary where present-source spelling remains useful. | One-time independent documentation/material-tree review; it adds no permanent documentation inventory test.       |
 
@@ -273,6 +276,26 @@ trait, implementations, and direct callers still change atomically with this reg
 | `run.ts`                                    | `decodeLearnerQuestionAttempt`, `decodeLearnerAssignmentProgress`, `decodeLearnerAssignmentPage`                                  | `decodeStudentQuestionAttempt`, `decodeStudentAssignmentProgress`, `decodeStudentAssignmentPage`                                  |
 | `submission_status.ts`                      | `decodeLearnerSubmissionStatus`                                                                                                  | `decodeStudentSubmissionStatus`                                                                                                  |
 
+### WN1-SR4A exact Student authority source register
+
+This closure owns PLE-internal Rust authority and identity vocabulary that is neither a serialized
+question-model contract nor a PostgreSQL identifier. It completes before SR5 so the forward SQL
+rename can bind to already canonical Store and domain owners.
+
+| Current authority name | Exact target |
+| --- | --- |
+| `list_learner_entitled_assignments`, `list_learner_entitled_assignments_impl` | `list_student_entitled_assignments`, `list_student_entitled_assignments_impl` |
+| `MaterializeAssignmentEntitlementCommand::for_learner_action`, its `learner` field/accessor/parameters | `for_student_action`, with `student_user` for the role-bound `UserId` |
+| `EntitlementGrant::learner`, `EntitlementFacts::learner` | `student_user`; the distinct `student` value remains the `StudentId` |
+| `EntitlementDenial::AudienceExcludesLearner`, `IndividualPatch::Learner` | `AudienceExcludesStudent`, `IndividualPatch::Student` |
+| `learner_identity`, `learner_by_user`, `learner_by_student` in Memory roster state | `student_identity`, `student_by_user`, `student_user_by_student` |
+| `learner_enrollment_for_read`, `learner_enrollment_for_assignment_read` | `student_enrollment_for_read`, `student_enrollment_for_assignment_read` |
+| Role-bound Rust locals such as `learner_self` and `learner_inputs` in direct authority/feedback/grade calculation consumers | `student_self`, `student_inputs` |
+
+Question-model wire names, grading-operation grouping, catalog-statistics contracts, and current
+PostgreSQL columns/functions retain their separately registered QM/C6/SR5 owners. Focused behavior
+tests are permanent; the identifier inventory is one-time evidence.
+
 ### WN1-SR5 exact PostgreSQL register
 
 `2026081881` owns schema vocabulary. `2026081882` owns the role, policies, functions, fence,
@@ -281,8 +304,17 @@ grants, ownership, and direct SQLx callers. It performs no backfill or compatibi
 | Current schema or authority name                                        | Exact target                                                            |
 | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `tenant_learner_identity`                                               | `tenant_student_identity`                                               |
+| `tenant_learner_identity_pkey`                                          | `tenant_student_identity_pkey`                                          |
+| unique `(tenant_id, student_id)` on `tenant_learner_identity`           | `tenant_student_identity_tenant_id_student_id_key`                       |
+| unique `(tenant_id, user_id, student_id)` on `tenant_learner_identity`  | `tenant_student_identity_tenant_id_user_id_student_id_key`               |
+| `tenant_learner_identity_app`, `tenant_learner_identity_retention`      | `tenant_student_identity_app`, `tenant_student_identity_retention`      |
 | `course_roster_member_learner_fk_idx`, `course_membership_learner_fkey` | `course_roster_member_student_fk_idx`, `course_membership_student_fkey` |
 | `catalog_discovery_learner_fingerprint_receipt`, `learner_fingerprint`  | `catalog_discovery_student_fingerprint_receipt`, `student_fingerprint`  |
+| fingerprint receipt primary key                                        | `catalog_discovery_student_fingerprint_receipt_pkey`                    |
+| fingerprint receipt problem-version foreign key                        | `catalog_discovery_student_fingerprint_receipt_problem_fkey`            |
+| fingerprint receipt digest check                                       | `catalog_discovery_student_fingerprint_receipt_digest_check`            |
+| `catalog_discovery_learner_fingerprint_statistics_select`              | `catalog_discovery_student_fingerprint_statistics_select`              |
+| `catalog_discovery_learner_fingerprint_statistics_insert`              | `catalog_discovery_student_fingerprint_statistics_insert`              |
 | `learner_display_name`, `learner_id`, `p_learner`, `learner_support`    | `student_display_name`, `student_id`, `p_student`, `student_support`    |
 | `ple_learner_work_broker`, `ple_fence_learner_record_write`             | `ple_student_work_broker`, `ple_fence_student_record_write`             |
 
@@ -307,6 +339,15 @@ grants, ownership, and direct SQLx callers. It performs no backfill or compatibi
 | `ple_learner_work_deny_internal`            | `ple_student_work_deny_internal`            |
 | `ple_learner_work_probe_authority_internal` | `ple_student_work_probe_authority_internal` |
 | `ple_learner_work_prepare_internal`         | `ple_student_work_prepare_internal`         |
+
+The SR5 source closure also changes the Memory fingerprint helper and local to
+`discovery_student_fingerprint` and `student_fingerprint`, the support-origin test helper to
+`prove_student_support_origin`, and PLE-owned database decision/error text from role-bound
+`learner` to `student`. Historical migration text remains immutable; the effective schema,
+functions, active Rust callers, tests, and catalog assertions expose only the target vocabulary.
+Constraint lookup in `2026081881` uses relation identity plus constrained columns before assigning
+the explicit target names above, so PostgreSQL's truncated generated source names are not copied
+into the durable schema.
 
 ### WN1-SR6 live product-document register
 

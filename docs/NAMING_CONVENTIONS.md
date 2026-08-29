@@ -66,6 +66,43 @@ a stronger reason.
   stylistic uniformity. Work-package keys follow their active plan namespace and may be renamed
   atomically while they remain temporary planning metadata.
 
+## Domain owner map
+
+PLE has one installation and no tenant or institution authority. Name each
+PLE-owned key for the domain relationship that actually authorizes the record:
+
+| Owner | Names and scope |
+| --- | --- |
+| Account and actor | `user_id` identifies the global account; `session_id` identifies its authenticated session. |
+| Private authoring | `workspace_id` identifies a draft or curriculum workspace; owner and collaborator `user_id` values authorize it. |
+| Published catalog | The global catalog identity is `question_id`; hidden immutable `problem_id` and `version_id` values are exact server evidence. |
+| Teaching course | `BlueprintCourse` owns reusable structure; `CourseInstance` owns live teaching under its `course_id` and current direct Instructor membership. |
+| Student records | `student_id` identifies the Student relationship inside its exact `course_id`. |
+| Assignment | `assignment_id` identifies an assignment under its `course_id`; policy and Gradebook records use that parent. |
+| Activity | `run_id` identifies one pass through an assignment; `question_attempt_id` identifies one issued question within that run. |
+| Worker operations | `job_id`, its lease, and a typed target scope identify one bounded work unit; caller input cannot widen that scope. |
+| Objects | `object_id` and a typed object key identify stored bytes under catalog, workspace, or course-record scope. |
+
+Every assignment question resolves to an already published question in the one
+approved-Instructor shared catalog. Published means shared within that vetted
+Instructor audience, not anonymous internet access; a subject tag does not
+partition the catalog.
+
+## Blueprint and instance courses
+
+`BlueprintCourse` and `CourseInstance` are the canonical PLE course types.
+`BlueprintCourse` owns reusable course content and structure. It has no Students,
+live deadlines, releases, accommodations, grades, or delivery settings.
+`CourseInstance` is created from a Blueprint Course and owns enrollment,
+deadlines, releases, accommodations, grades, and delivery settings for one live
+teaching context.
+
+A newly added Blueprint assignment propagates to its daughter Course Instances
+as unreleased. Release is an explicit instance decision; propagation does not
+silently release the assignment. ADAPT's alpha-course language is comparison
+vocabulary only. PLE defines no `AlphaCourse` product type or compatibility
+alias.
+
 ## Boundary distinctions
 
 - A PLE-owned JSON object's field name and a portable discriminant value use `snake_case`; declared
@@ -127,22 +164,35 @@ learning outcomes.
 - Use unquoted lowercase `snake_case` for schemas, tables, columns, views, functions, triggers,
   policies, constraints, indexes, and roles. PostgreSQL case folding must not create a second
   identifier form.
-- Name entity and relationship keys for their domain object, such as `tenant_id`, `course_id`, and
-  `assignment_id`. Use `public_id` for a separately exposed public locator.
+- Name entity and relationship keys for their domain object, such as `user_id`, `workspace_id`,
+  `course_id`, `student_id`, `assignment_id`, `run_id`, and `question_attempt_id`. Use the global
+  catalog identity for published questions and `public_id` only for a separately exposed public
+  locator.
 - Name timestamps for their event or state transition with an `_at` suffix, such as `created_at`,
   `updated_at`, `occurred_at`, `expires_at`, and `revoked_at`.
 - Name serialized documents with a `_payload` suffix and their SHA-256 companions with
   `_payload_sha256`, such as `report_payload` and `report_payload_sha256`.
 - Use `revision` for one row or aggregate's optimistic revision. Qualify other revision and
   generation counters by subject, such as `schedule_revision` and `scoring_generation`.
-- Lead tenant-owned primary keys, foreign keys, and important indexes with `tenant_id` when the
-  relationship permits it.
+- Lead primary keys, foreign keys, and important indexes with the owning domain key when the
+  relationship permits it. Composite keys use the narrowest parent chain, such as
+  `course_id`, `assignment_id`, `run_id`, and `question_attempt_id`; worker and object records use
+  their typed lease or object scope rather than a generic installation key.
 - Prefix constraint and index names with the owning relation. Use the established PostgreSQL
   suffixes `_pkey`, `_fkey`, `_key`, `_check`, and `_idx`.
 - Prefix PLE-owned functions and roles with `ple_`. Contract-versioned functions end in `_v1` or
   their registered version.
 - A JSON or JSONB column name follows the PostgreSQL rule. PLE-owned document keys follow the
   direct Serde `snake_case` contract; registered external documents retain their owner spelling.
+
+## Historical and external names
+
+- Immutable migration filenames, migration IDs, and archived evidence may retain historical
+  `tenant` or `tenant_id` text so their lineage stays exact. These names are metadata only; they do
+  not authorize a record or define the fresh single-installation schema.
+- Registered external protocol fields, headers, XML/JSON names, and vendor identifiers retain their
+  owner's spelling, including a historical `tenant_id` field when required for interoperability.
+  External names are protocol metadata, not PLE actor, membership, course, or worker authority.
 
 ## Files and operations
 

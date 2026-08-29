@@ -13,7 +13,7 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
 pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "BP", "AC", "GO",
+    "C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "BP", "GO",
 ];
 
 macro_rules! impl_reference {
@@ -110,14 +110,10 @@ pub struct ProblemCollectionReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct SavedProblemSearchReference(NonZeroU32);
-/// An authorized locator for one personal reusable assignment blueprint.
+/// An authorized locator for one reusable BlueprintCourse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintReference(NonZeroU32);
-/// An authorized locator for one public reusable Alpha curriculum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct AlphaCourseReference(NonZeroU32);
 /// An authorized locator for one Instructor-facing automated-grading recovery thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -150,7 +146,6 @@ impl_reference!(
     "saved-problem-search reference"
 );
 impl_reference!(BlueprintReference, "BP", "blueprint reference");
-impl_reference!(AlphaCourseReference, "AC", "Alpha course reference");
 impl_reference!(
     GradingOperationReference,
     "GO",
@@ -292,18 +287,10 @@ mod tests {
         assert_reference_wire!(
             BlueprintReference,
             "BP-133",
-            "AC-133",
+            "GO-133",
             "BP-0",
             "BP-01",
             "BP-2147483648"
-        );
-        assert_reference_wire!(
-            AlphaCourseReference,
-            "AC-134",
-            "BP-134",
-            "AC-0",
-            "AC-01",
-            "AC-2147483648"
         );
         assert_reference_wire!(
             GradingOperationReference,
@@ -313,7 +300,7 @@ mod tests {
             "GO-01",
             "GO-2147483648"
         );
-        assert!(RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
+        assert!(!RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
         assert!(RESERVED_REFERENCE_PREFIXES.contains(&"GO"));
     }
 }

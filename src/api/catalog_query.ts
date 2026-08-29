@@ -31,22 +31,20 @@ const CATALOG_RESPONSE_FAMILIES = [
   "fileUpload",
   "externalTool",
 ] as const;
-const CATALOG_PUBLICATION_SCOPES = ["institution", "public"] as const;
 const CATALOG_QUERY_FIELDS = [
   "text",
   "bylines",
   "backends",
   "tags",
-  "responseFamilies",
+  "response_families",
   "taxonomy",
   "capabilities",
   "licenses",
   "evidence",
-  "usedInMyCourses",
+  "used_in_my_courses",
   "authorship",
-  "publicationScopes",
   "cursor",
-  "pageSize",
+  "page_size",
 ] as const;
 
 function catalogEnum(value: string, allowed: ReadonlyArray<string>, fieldName: string): string {
@@ -122,13 +120,13 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
     parameters.append("tags", normalizedCatalogFilterText(tag, "catalog tag", 256));
   }
   boundedCatalogFilterValues(
-    query.responseFamilies,
+    query.response_families,
     CATALOG_RESPONSE_FAMILIES.length,
-    "catalog responseFamilies",
+    "catalog response_families",
   );
-  for (const responseFamily of query.responseFamilies) {
+  for (const responseFamily of query.response_families) {
     parameters.append(
-      "responseFamilies",
+      "response_families",
       catalogEnum(responseFamily, CATALOG_RESPONSE_FAMILIES, "catalog response family"),
     );
   }
@@ -166,12 +164,12 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
     parameters.set("evidence", evidence);
   }
   const usedInMyCourses = catalogEnum(
-    query.usedInMyCourses,
+    query.used_in_my_courses,
     ["any", "used"],
-    "catalog usedInMyCourses",
+    "catalog used_in_my_courses",
   );
   if (usedInMyCourses !== "any") {
-    parameters.set("usedInMyCourses", usedInMyCourses);
+    parameters.set("used_in_my_courses", usedInMyCourses);
   }
   const authorship = catalogEnum(
     query.authorship,
@@ -181,31 +179,20 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
   // Keep the current visible source explicit in every cursor-bound request.
   // `any` is a closed scope, not an omitted identity fallback.
   parameters.set("authorship", authorship);
-  boundedCatalogFilterValues(
-    query.publicationScopes,
-    CATALOG_PUBLICATION_SCOPES.length,
-    "catalog publicationScopes",
-  );
-  for (const scope of query.publicationScopes) {
-    parameters.append(
-      "publicationScopes",
-      catalogEnum(scope, CATALOG_PUBLICATION_SCOPES, "catalog publication scope"),
-    );
-  }
   if (query.cursor !== null) {
     parameters.set("cursor", catalogCursor(query.cursor));
   }
-  if (query.pageSize !== null) {
+  if (query.page_size !== null) {
     if (
-      !Number.isSafeInteger(query.pageSize) ||
-      query.pageSize < 1 ||
-      query.pageSize > MAX_CATALOG_PAGE_SIZE
+      !Number.isSafeInteger(query.page_size) ||
+      query.page_size < 1 ||
+      query.page_size > MAX_CATALOG_PAGE_SIZE
     ) {
       throw new Error(
-        `catalog pageSize must be a safe integer between 1 and ${MAX_CATALOG_PAGE_SIZE}`,
+        `catalog page_size must be a safe integer between 1 and ${MAX_CATALOG_PAGE_SIZE}`,
       );
     }
-    parameters.set("pageSize", String(query.pageSize));
+    parameters.set("page_size", String(query.page_size));
   }
   const suffix = parameters.size === 0 ? "" : `?${parameters.toString()}`;
   return `/api/problems/search${suffix}`;

@@ -124,4 +124,4 @@ enhancement, not a replacement for the accessible path.
 - Submission boundary: [secure_question_grading_payload_plan.md](../decisions/secure_question_grading_payload_plan.md).
 - Keyboard contract: `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`.
 - Durable source and answer-secrecy decisions:
-  [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#flat-question-source).
+  [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#question-content-philosophy).

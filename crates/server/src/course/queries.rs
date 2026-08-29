@@ -245,7 +245,7 @@ where
         CourseMembershipRole::Student => {
             state
                 .store
-                .list_learner_entitled_assignments(
+                .list_student_entitled_assignments(
                     authenticated.tenant_context,
                     authenticated.record.subject.user(),
                     course,

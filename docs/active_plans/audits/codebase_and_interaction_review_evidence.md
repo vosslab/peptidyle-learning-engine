@@ -253,8 +253,10 @@ insert if followed.
 `crates/server/src/retention/access.rs:27,40` implements Instructor or Sysadmin.
 `docs/API_CONTRACTS.md` is the outlier and is the document consulted when auditing this boundary.
 
-**DOC-3.** `2026080923` through `2026080928`, `2026081401`, `2026081501`, and `2026081502` are absent
-from `docs/DATABASE_STRUCTURE.md:41-49,86-108` and `docs/DATABASE_TENANCY.md:300-317`.
+**DOC-3 (historical pre-SD1 evidence).** `2026080923` through `2026080928`, `2026081401`,
+`2026081501`, and `2026081502` are absent from the pre-SD1 inventory in
+`docs/DATABASE_STRUCTURE.md:41-49,86-108` and are superseded by the fresh epoch recorded in
+[DATABASE_AUTHORIZATION.md](../../DATABASE_AUTHORIZATION.md#fresh-migration-epoch).
 `docs/USER_ROLES.md:124-127` names `2026080928_user_roles.sql` as the canonical role migration.
 
 **DOC-4.** `schemas/migrations/` holds 34 files. `docs/ROADMAP.md:8` and `docs/TODO.md:7` say 28;
@@ -358,10 +360,11 @@ Recorded so the recommendation is read against an accurate picture of the system
 - Publication immutability is enforced in PostgreSQL. Six catalog tables carry triggers raising
   `published catalog content is immutable`
   (`schemas/migrations/2026080802_catalog_authoring.sql:1322-1327,1547-1569`).
-- `TenantContext` has one production constructor and no `Default`
-  (`crates/learning-data-access/src/rls.rs:9-27`); transactions set `ple_app` then the tenant GUC
-  (`crates/learning-data-access/src/postgres.rs:330-350`); eleven roles are `NOBYPASSRLS` with three
-  narrow brokers excepted (`schemas/migrations/2026080801_principals.sql:3-50`).
+- **Historical pre-SD1 evidence:** `TenantContext` had one production constructor and no `Default`
+  (`crates/learning-data-access/src/rls.rs:9-27`); transactions set `ple_app` then the legacy
+  context GUC (`crates/learning-data-access/src/postgres.rs:330-350`). The current authority is
+  the fresh epoch's global `ActorContext` and forced actor-scoped RLS in
+  [DATABASE_AUTHORIZATION.md](../../DATABASE_AUTHORIZATION.md#row-level-security).
 - The `AAA-BBBB` identity is implemented as specified, including the HMAC check character taken from
   the high five bits of digest byte zero
   (`crates/learning-data-access/src/question_id.rs:76-80`), with the capacity cap metered at

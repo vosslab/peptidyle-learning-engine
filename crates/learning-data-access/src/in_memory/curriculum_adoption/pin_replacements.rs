@@ -32,7 +32,7 @@ pub(crate) fn unavailable_destination_pin(
     payload: &CurriculumSemanticPayload,
 ) -> Result<Option<PositionedPin>, StoreError> {
     first_unavailable_pin(payload, |reference| {
-        pin_authorized(state, tenant, reference)
+        pin_eligible_for_destination(state, tenant, reference)
     })
     .map_err(semantic_error)
 }
@@ -107,7 +107,10 @@ pub(crate) fn apply_pin_replacements(
     substitute_resolved_pins(payload, &resolved).map_err(semantic_error)
 }
 
-fn pin_authorized(
+/// Destination materialization creates a future reference, so every selected
+/// pin must remain eligible for ordinary new selection. Source snapshots keep
+/// their immutable exact pins independently of this destination gate.
+fn pin_eligible_for_destination(
     state: &State,
     tenant: TenantId,
     reference: question_model::ProblemVersionRef,
@@ -116,7 +119,8 @@ fn pin_authorized(
         .published
         .get(&(reference.problem, reference.version))
         .is_some_and(|record| {
-            record.lifecycle.is_assignable() && catalog_record_visible(state, tenant, record)
+            record.lifecycle.is_eligible_for_ordinary_new_selection()
+                && catalog_record_visible(state, tenant, record)
         })
 }
 

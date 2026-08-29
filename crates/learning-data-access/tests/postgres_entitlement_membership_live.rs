@@ -175,7 +175,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     let context = TenantContext::from_authenticated_session(tenant);
     let course = CourseId::from_uuid(id());
     let instructor = UserId::from_uuid(id());
-    let student = UserId::from_uuid(id());
+    let student_user = UserId::from_uuid(id());
     let instructor_session = SessionTokenHash::compute(id().as_bytes());
     store
         .create_session(
@@ -218,25 +218,28 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .expect("read initial instructor membership")
         .expect("course creation persists instructor membership");
     assert_eq!(initial.user, instructor);
-    let learner = store
+    let student_membership_update = store
         .upsert_course_member(
             context,
             instructor,
             UpsertCourseMember {
                 course,
-                user: student,
-                display_name: "S5 learner".to_string(),
+                user: student_user,
+                display_name: "S5 Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
         .expect("activate canonical student membership");
     let membership = store
-        .get_current_course_membership(context, course, student)
+        .get_current_course_membership(context, course, student_user)
         .await
         .expect("read current student membership")
         .expect("student membership exists");
-    assert_eq!(membership.id.as_uuid(), learner.member.id.as_uuid());
+    assert_eq!(
+        membership.id.as_uuid(),
+        student_membership_update.member.id.as_uuid()
+    );
 
     let reference = publish_question(&store, context, tenant, instructor).await;
     let assignment_id = AssignmentId::from_uuid(id());
@@ -262,7 +265,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             .issue_assignment_entitlement(
                 context,
                 MaterializeAssignmentEntitlementCommand::for_instructor_action(
-                    student,
+                    student_user,
                     course,
                     assignment_id,
                     outsider,
@@ -276,7 +279,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     );
 
     let command = MaterializeAssignmentEntitlementCommand::for_instructor_action(
-        student,
+        student_user,
         course,
         assignment_id,
         instructor,
@@ -286,9 +289,9 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     let first = store
         .issue_assignment_entitlement(context, command)
         .await
-        .expect("current course-wide learner is entitled");
+        .expect("current course-wide Student is entitled");
     let AssignmentEntitlementMaterialization::Granted(first) = first else {
-        panic!("current course-wide learner must receive a receipt")
+        panic!("current course-wide Student must receive a receipt")
     };
     assert_eq!(first.provenance.membership, membership.id);
     assert_eq!(first.provenance.basis, MaterializationBasis::CourseWide);
@@ -345,7 +348,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     .await
     .expect("create concurrent materialization assignment");
     let concurrent_command = MaterializeAssignmentEntitlementCommand::for_instructor_action(
-        student,
+        student_user,
         course,
         concurrent_assignment,
         instructor,
@@ -361,7 +364,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .map(|result| match result.expect("concurrent issue completes") {
             AssignmentEntitlementMaterialization::Granted(value) => value.enrollment.id,
             AssignmentEntitlementMaterialization::Denied(reason) => {
-                panic!("current learner unexpectedly denied during concurrent issue: {reason:?}")
+                panic!("current Student unexpectedly denied during concurrent issue: {reason:?}")
             }
         })
         .collect::<Vec<_>>();
@@ -474,7 +477,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     .expect("create section audience assignment");
     assert!(matches!(
         store
-            .evaluate_assignment_entitlement(context, student, course, group_assignment)
+            .evaluate_assignment_entitlement(context, student_user, course, group_assignment)
             .await,
         Ok(domain::entitlement::EntitlementDecision::Granted(_))
     ));
@@ -486,12 +489,12 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             UpsertCourseMember {
                 course,
                 user: outside_student,
-                display_name: "Outside section learner".to_string(),
+                display_name: "Outside section Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("activate a learner outside the section");
+        .expect("activate a Student outside the section");
     assert!(matches!(
         store
             .evaluate_assignment_entitlement(context, outside_student, course, group_assignment)
@@ -535,13 +538,13 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             instructor,
             UpsertCourseMember {
                 course: pagination_course,
-                user: student,
-                display_name: "Visible pagination learner".to_string(),
+                user: student_user,
+                display_name: "Visible pagination Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("activate pagination learner");
+        .expect("activate pagination Student");
     store
         .upsert_course_member(
             context,
@@ -549,12 +552,12 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             UpsertCourseMember {
                 course: pagination_course,
                 user: outside_student,
-                display_name: "Hidden pagination learner".to_string(),
+                display_name: "Hidden pagination Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("activate hidden pagination learner");
+        .expect("activate hidden pagination Student");
     let pagination_outside_membership = store
         .get_current_course_membership(context, pagination_course, outside_student)
         .await
@@ -612,9 +615,9 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .expect("create entitlement pagination assignment");
     }
     let first_page = store
-        .list_learner_entitled_assignments(
+        .list_student_entitled_assignments(
             context,
-            student,
+            student_user,
             pagination_course,
             PageRequest::first(PageSize::new(1).expect("valid page size")),
         )
@@ -629,9 +632,9 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         vec![first_visible]
     );
     let second_page = store
-        .list_learner_entitled_assignments(
+        .list_student_entitled_assignments(
             context,
-            student,
+            student_user,
             pagination_course,
             PageRequest::after(
                 first_page
@@ -669,10 +672,10 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             },
         )
         .await
-        .expect("remove learner from the audience group");
+        .expect("remove Student from the audience group");
     assert!(matches!(
         store
-            .evaluate_assignment_entitlement(context, student, course, group_assignment)
+            .evaluate_assignment_entitlement(context, student_user, course, group_assignment)
             .await,
         Ok(domain::entitlement::EntitlementDecision::Denied(_))
     ));
@@ -718,7 +721,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     .await
     .expect("create race audience assignment");
     let race_issue = MaterializeAssignmentEntitlementCommand::for_instructor_action(
-        student,
+        student_user,
         course,
         race_assignment,
         instructor,
@@ -749,7 +752,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     ));
     assert!(matches!(
         store
-            .evaluate_assignment_entitlement(context, student, course, race_assignment)
+            .evaluate_assignment_entitlement(context, student_user, course, race_assignment)
             .await,
         Ok(domain::entitlement::EntitlementDecision::Denied(_))
     ));
@@ -821,7 +824,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .issue_assignment_entitlement(
             context,
             MaterializeAssignmentEntitlementCommand::for_instructor_action(
-                student,
+                student_user,
                 course,
                 scoped_assignment,
                 instructor,
@@ -832,7 +835,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .await
         .expect("materialize applicable policy scopes");
     let AssignmentEntitlementMaterialization::Granted(scoped) = scoped else {
-        panic!("course-wide learner remains entitled")
+        panic!("course-wide Student remains entitled")
     };
     let scope_purposes: Vec<String> = sqlx::query_scalar(
         "SELECT course_group_purpose FROM enrollment_applicable_policy_scope_receipt \
@@ -886,16 +889,16 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             instructor_session,
             RevokeCourseMember {
                 course,
-                member: learner.member.id,
+                member: student_membership_update.member.id,
                 expected_revision: outside.roster_revision,
             },
         )
         .await
-        .expect("revoke current learner membership");
+        .expect("revoke current Student membership");
     assert!(revoked_revision.value() > outside.roster_revision.value());
     assert_eq!(
         store
-            .get_current_course_membership(context, course, student)
+            .get_current_course_membership(context, course, student_user)
             .await
             .expect("read revoked membership"),
         None,
@@ -906,7 +909,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             .issue_assignment_entitlement(
                 context,
                 MaterializeAssignmentEntitlementCommand::for_instructor_action(
-                    student,
+                    student_user,
                     course,
                     assignment_id,
                     instructor,
@@ -935,26 +938,29 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             instructor,
             UpsertCourseMember {
                 course,
-                user: student,
-                display_name: "S5 learner reinvited".to_string(),
+                user: student_user,
+                display_name: "S5 Student reinvited".to_string(),
                 roster_contact: None,
             },
         )
         .await
         .expect("reinvite creates a fresh membership episode");
     let fresh_membership = store
-        .get_current_course_membership(context, course, student)
+        .get_current_course_membership(context, course, student_user)
         .await
         .expect("read reinvited membership")
         .expect("reinvite restores current authority");
     assert_ne!(fresh_membership.id, membership.id);
     assert_eq!(fresh_membership.student, membership.student);
-    assert_ne!(reinvited.member.id.as_uuid(), learner.member.id.as_uuid());
+    assert_ne!(
+        reinvited.member.id.as_uuid(),
+        student_membership_update.member.id.as_uuid()
+    );
     let reissued = store
         .issue_assignment_entitlement(
             context,
             MaterializeAssignmentEntitlementCommand::for_instructor_action(
-                student,
+                student_user,
                 course,
                 assignment_id,
                 instructor,
@@ -963,9 +969,9 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             .expect("typed reinvite issue"),
         )
         .await
-        .expect("reinvited learner regains derived authority");
+        .expect("reinvited Student regains derived authority");
     let AssignmentEntitlementMaterialization::Granted(reissued) = reissued else {
-        panic!("reinvited learner is current and entitled")
+        panic!("reinvited Student is current and entitled")
     };
     assert_eq!(reissued.enrollment.id, first.enrollment.id);
     assert_eq!(reissued.provenance.membership, membership.id);

@@ -10,6 +10,36 @@ acceptance, and handoff. It preserves the approved scope, including migrations 2
 through 2026081865. W5 through W7 and `WP-INST-G1` are accepted on 2026-08-28 after the exact final
 material-tree aggregate passed every required gate.
 
+The dated acceptance is historical evidence for the earlier delivery boundary. The active
+authority model is the SD1-A5 correction in the binding plan: requests use a server-derived
+`ActorContext { user_id, session_id }`, protected operations resolve the exact `CourseId`,
+`AssignmentId`, and Student/work item chain in one transaction, and workers use typed,
+generation-fenced leases and manifests. The historical aggregate does not accept this corrected
+authority model until its dedicated offline, PostgreSQL, and production-browser gates pass.
+
+## SD1-A5 delivery authority
+
+Every authenticated operation starts with the session-derived `ActorContext`. A browser supplies
+resource references and concurrency proofs; it never supplies authority, an installation scope,
+a Student identity, a worker identity, a question answer, or a score. The broker resolves the
+current Instructor membership for the exact `CourseId` and `AssignmentId`, or the current Student
+ownership for an exact run, attempt, and accepted submission, then rechecks that chain inside the
+same transaction. Foreign, revoked, stale, or mismatched references produce one concealed refusal
+without state mutation.
+
+Worker operations carry a typed `WorkerManifest` containing exact course, assignment, Student,
+run, attempt, submission, immutable question/evidence references, and their digests. A
+`WorkerLease` binds that manifest to its job, lease token, worker identity, and execution or
+scoring generation. Claim, load, completion, failure, retry, and recalculation verify the complete
+manifest/lease/generation tuple in one transaction; stale or competing workers cannot publish.
+Manifests contain references and digests only, never answers, keys, feedback internals, grades, or
+provider diagnostics.
+
+The delivery gates below distinguish historical G1 evidence from the current corrected contract.
+Permanent checks remain deterministic, offline, and behavior-focused. PostgreSQL/RLS, worker
+leases, canonical HTTPS journeys, screenshots, Graphify inventories, and catalog inspection remain
+one-time or connected acceptance evidence as identified by [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+
 ## G1-W7 reconciliation addendum
 
 The architect-approved closeout is one semantic transition with four atomic, dependency-ordered
@@ -70,9 +100,9 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
   `S: Store + CourseRecordsAccessStore + SessionStore + GradingOperationStore + 'static`;
   it does not extend global `Store` or `AutomatedGradingStore`. Memory and
   PostgreSQL expose equivalent safe Instructor projections. Bounded list rows are W5's complete
-  metadata detail; G2 owns protected learner-work detail. Retry and recalculation are
+  metadata detail; G2 owns protected Student-work detail. Retry and recalculation are
   body-free, `If-Match`/idempotency-key guarded actions. Each store operation
-  rechecks session-derived Instructor authority, tenant, course, and assignment
+  rechecks session-derived Instructor authority, exact course, and assignment
   inside its transaction. Retry uses W4. One canonical scoring-invalidation capability owns
   every recalculation origin, its immutable causal record, generation, worker job, operation
   thread, replay, and supersession; it delegates enqueue to 1830. Source-specific wrappers derive
@@ -80,7 +110,7 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
   worker completion rather than accepting caller assertions. Migration 1831 remains the sole
   current-score publisher while worker transitions close or reopen the matching operation thread.
 - **Permanent offline gate:** Memory/Postgres contract parity and route tests
-  cover Instructor success, Student/outsider/foreign-tenant/revoked concealment,
+  cover Instructor success, Student/outsider/foreign-course/revoked concealment,
   in-transaction session recheck, stable ordering, cursor/revision bounds,
   body-free header actions, exact replay/conflict, no-store, and strict
   answer-free serialization. Origin tests cover Instructor, definition/content, Student-support,
@@ -106,8 +136,8 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
   its focused stylesheet, `src/routes.ts`, `src/route_contract.ts`, workspace
   navigation, and focused Node tests.
 - **Required behavior:** use the W5 production route and strict decoder; show
-  question-first groups with a learner alternate, safe states, named retry and
-  recalculate controls, receipts, focus recovery, and no protected learner
+  question-first groups with a Student alternate, safe states, named retry and
+  recalculate controls, receipts, focus recovery, and no protected Student
   material. The page is production-shaped and usable at the Instructor-only
   1280x800 desktop profile.
 - **Permanent offline gate:** TypeScript typecheck/lint and pure decoder/model
@@ -169,13 +199,13 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
   `tests/e2e/e2e_database_baseline.sh`, and the migration catalog assertions
   for 1849/1850 and the ordered W4 migrations 1851 through 1860. W7b registers the oracle and owns its receipt.
 - **Required behavior:** on a fresh database migrated twice, prove worker-only
-  claim/load/commit/fail, role and forced-RLS closure, exact lease and tenant
+  claim/load/commit/fail, role and forced-RLS closure, exact lease and course
   fences, retention and issued-evidence checks, duplicate/stale/superseded
   rejection with no lost-claim mutation, append-only receipts, and API denial
   of private reads and execution-role assumption. For every W4 evidence source
   text/projection pair, verify SHA-256 over the stored UTF-8 source text and
-  structural equality with its JSONB projection; cover normal, manual, and
-  automated receipt writers. Compare ordinary synchronous completion and
+  structural equality with its JSONB projection; cover synchronous, worker, and
+  correction receipt writers. Compare ordinary synchronous completion and
   accepted-worker completion for equal run, enrollment, and scalar summary
   results. Drive the normal scoring worker to show 1830 enqueues and 1831 alone
   publishes assignment/course current scores.
@@ -211,7 +241,7 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
 - **One-time/connected evidence:** independent reviews plus the live browser/service portions of
   final `all_test.sh`.
 - **Success criteria:** Instructor-visible action routes safe recovery to a current total without
-  human scoring, every required final gate is green, and the ledger points to reproducible evidence.
+  automated score authority, every required final gate is green, and the ledger points to reproducible evidence.
 - **Handoff:** G2 consumes operation/receipt links; G3 consumes independent analysis publication;
   G5 consumes only actionability-qualified operations.
 
@@ -231,17 +261,17 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
 - **Immutable evidence remains verifiable.** Permanent: the versioned Rust
   encoder and reader tests prove source-text digest and typed/projection
   coherence. Connected: W7b verifies the stored source-text/hash and JSONB
-  projection on the freshly migrated real database for normal, manual, and
+  projection on the freshly migrated real database for synchronous, worker, and
   automated writers.
 - **Operations are typed and answer-free.** Permanent: domain and decoder rejection tests.
   One-time: independent architecture review.
 - **Actions are immutable and replay-safe.** Permanent: Memory receipt immutability, exact replay,
   and changed conflict. Connected: concurrent duplicate-action PostgreSQL oracle.
-- **Tenant/course/role isolation holds.** Permanent: Store and route foreign, learner, outsider, and
+- **Course/role isolation holds.** Permanent: Store and route foreign-course, Student, outsider, and
   revoked-member cases. Connected: canonical unauthorized probe.
 - **Exception routing is exact.** Permanent: submission classification matrix. Connected: the
   controlled deterministic failure.
-- **Acknowledged learner work is recoverable.** Permanent: W4 tagged-union decoder and client-state
+- **Acknowledged Student work is recoverable.** Permanent: W4 tagged-union decoder and client-state
   tests cover 202 buffer clearing, `acceptedPending`, and status-read recovery without answer POST
   replay. Connected: W7a visibly completes pending-to-completed recovery on the HTTPS stack.
 - **Commit outcomes are diagnosable.** Permanent: W4 proves known error
@@ -252,7 +282,7 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
   lease-loss disposition tests. Connected: PostgreSQL lease/replay and competing-generation oracle,
   including controlled expired/superseded claims whose committer cannot mutate execution,
   evaluation, or score state.
-- **Automated and human grading stay separate.** Permanent: route and Store capability tests.
+- **Automated grading remains the score authority.** Permanent: route and Store capability tests.
   One-time: independent security call-path review.
 - **The Instructor task is learnable.** Permanent: client/page model, action, and focus tests.
   Connected: `automated_grading_recovery` HTTPS journey and 1280 by 800 semantic review.
@@ -274,7 +304,7 @@ provenance are one-time evidence rather than permanent tests.
   1830/1831 derived-score path.
 - **Concurrent actions double-advance generation:** W2 serializes action/enqueue with idempotency and
   revision; W4 preserves both execution and scoring generation fences.
-- **Human scoring leaks into recovery:** W5 supplies only typed automated commands and proves
+- **A competing score authority leaks into recovery:** W5 supplies only typed automated commands and proves
   structural separation.
 - **Dense UI obscures action:** W6 uses question-first hierarchy, named action, status band, and
   focus recovery.
@@ -285,21 +315,21 @@ provenance are one-time evidence rather than permanent tests.
 
 G1 was accepted on the final material tree after satisfying these criteria:
 
-1. Shape-valid accepted learner input becomes an immutable server-private `submission` before
+1. Shape-valid accepted Student input becomes an immutable server-private `submission` before
    grading; invalid input remains pre-persistence and successful fast grading retains ordinary
-   learner behavior.
-2. A `202 Accepted` learner outcome clears the response buffer, enters `acceptedPending`, and gives
-   the learner visible **Check grading status** recovery without another answer POST; the bound
+   Student behavior.
+2. A `202 Accepted` Student outcome clears the response buffer, enters `acceptedPending`, and gives
+   the Student visible **Check grading status** recovery without another answer POST; the bound
    status GET reaches the same `completed` receipt projection after execution commits.
 3. A deterministic grader exception creates one answer-free operation visible to the current
-   Instructor by question and learner, while invalid input and outages retain their own behavior.
+   Instructor by question and Student, while invalid input and outages retain their own behavior.
 4. Exact action replay returns the original receipt; changed replay conflicts; duplicates create
    neither a second receipt nor an extra generation.
 5. Retry uses accepted immutable input, recalculation uses 1830, and visible totals publish only
    through the existing private-stage, lease-checked, generation-fenced 1831 path.
-6. Original learner receipts remain unchanged; stale generations cannot publish; foreign, learner,
+6. Original Student receipts remain unchanged; stale generations cannot publish; foreign, Student,
    and revoked callers receive no operation fact or mutation.
-7. The canonical HTTPS stack shows the learner pending recovery, Instructor recovery loop, and
+7. The canonical HTTPS stack shows the Student pending recovery, Instructor recovery loop, and
    current Gradebook total through
    visible UI actions at the required 1280 by 800 desktop acceptance viewport.
 8. Independent architecture/security and HCI review accept the implementation, and
@@ -321,7 +351,7 @@ live-demo step. G2/G3/G5 link to accepted contracts rather than duplicate them.
    closed exception/retry classification.
 4. Assign W5 after W2-W4 stabilize action outcomes and authorization data.
 5. Assign W6 after W5 publishes Instructor DTOs and paths; keep Instructor browser ownership
-   confined to its modules while W4 retains learner delivery recovery.
+   confined to its modules while W4 retains Student delivery recovery.
 6. Assign W7a after the visible action path exists and W7b after the worker/HTTP boundaries exist.
    Use the production-shaped stack and visible UI actions for product state, with the deterministic
    fault as the bounded harness setup.

@@ -469,7 +469,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     let materialized = super::super::entitlement::materialize_locked(
         &mut state,
         tenant,
-        crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
+        crate::MaterializeAssignmentEntitlementCommand::for_student_action(
             command.actor,
             assignment.course_id,
             assignment.id,

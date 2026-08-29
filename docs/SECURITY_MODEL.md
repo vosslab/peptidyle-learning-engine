@@ -1,5 +1,13 @@
 # Security model
 
+## Binding single-installation model
+
+PLE uses global accounts, exact course membership and Student ownership for FERPA authority,
+Instructor-owned private workspaces, and one shared published-question catalog. The active
+[single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md)
+allocates actor-scoped RLS and capability correction across the product stack; durable PostgreSQL
+authorization detail is owned solely by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
+
 Peptidyle keeps grading authority on the server. The browser may determine
 whether a response is structurally ready to submit, but it never receives an
 answer key or makes a correctness decision.
@@ -12,8 +20,9 @@ specialized durable contracts own their detailed data shapes and operations:
   and its permitted projections.
 - [USER_ROLES.md](USER_ROLES.md) owns the closed Student, Instructor, and
   Sysadmin human-role model.
-- [DATABASE_TENANCY.md](DATABASE_TENANCY.md) owns PostgreSQL roles, RLS, and
-  transaction-local tenant context.
+- [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) is the sole durable
+  PostgreSQL authorization authority: it owns roles, RLS, transaction-local
+  actor context, grants, and database-side capability predicates.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
   object/database reconciliation.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the learner
@@ -21,8 +30,18 @@ specialized durable contracts own their detailed data shapes and operations:
 - [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns caller-visible recovery and
   evidence-preserving failure handling.
 
-The active release plan distinguishes implemented behavior from an accepted
-target that has not yet crossed every HTTP, storage, and browser boundary.
+This document states the intended single-installation authority. The active
+release plan records the work required to carry it across every HTTP, storage,
+worker, adapter, and browser boundary.
+
+PostgreSQL forces RLS for every protected private-workspace and course-record
+table. A transaction sets only the authenticated `ActorContext`; policies and
+narrow broker functions derive exact current membership, Student ownership, or
+workspace collaboration from durable rows and deny when the actor or predicate
+is absent. A worker never receives browser or ambient human authority: it
+claims one durable, typed lease and derives its course, workspace, catalog, or
+system target from the locked job row. Leases, object keys, adapter handles,
+and provider state remain typed server-side values, not browser DTO fields.
 
 ## Grading boundary
 
@@ -62,10 +81,10 @@ checksum, and does not widen learner, public, non-author, or Wasm contracts.
 validation before consulting the key. Its generic all-or-nothing checker owns
 numeric exact, absolute, relative, and significant-figure comparisons;
 multiple-choice set comparison; declared short-text matching; and exact
-ordering. It returns only correctness and points. Partial-credit questions are
-referred to a capable backend or explicit private rubric, and file uploads are
-referred for manual review; the generic checker fails explicitly instead of
-inventing either policy.
+ordering. It returns only correctness and points. Partial-credit questions use
+a contracted deterministic backend or explicit private rubric. Each supported
+artifact family has an automated validation and server-grading contract; an
+unsupported artifact receives a clear fail-closed result.
 
 ## Format validation
 
@@ -77,19 +96,20 @@ structure:
 - selection count, uniqueness, and IDs are valid;
 - short text fits its character limit;
 - ordering is an exact permutation of the displayed items; and
-- the legacy upload placeholder is nonempty.
+- an artifact reference matches a server-issued capability for a supported
+  artifact family.
 
 This function has no answer-key parameter and cannot determine correctness.
 The browser calls it through `wasm_bridge::validate_response_format`; the
 server repeats it before grading because client validation is a convenience,
-not an authority. The browser-safe validator can only reject an empty legacy
-upload placeholder; it cannot establish that a string names an authorized
-object. The server therefore refuses every file-upload submission before
-backend or Store mutation. The server-issued upload capability and metadata
-binding workflow are not implemented. [secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md)
-owns that future path. It requires file size, profile, checksum, ownership,
-learner, and attempt binding to be checked from server-owned object metadata,
-never from browser claims.
+not an authority. The browser-safe validator can check only the disclosed
+artifact shape; it cannot establish that a reference names an authorized
+object. The server therefore requires a server-issued upload capability and
+metadata binding before any artifact backend or Store mutation. Unsupported
+artifact families fail closed. [secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md)
+owns the complete path, including file size, profile, checksum, ownership,
+Student, and attempt binding from server-owned object metadata rather than
+browser claims.
 
 ## Compile-time closure
 
@@ -167,7 +187,7 @@ node tests/e2e/e2e_wasm_export_allowlist.mjs
 The crate-closure check remains in the fast repository gate. The export allowlist
 is an explicit non-browser E2E because it builds the Rust target and runs bindgen.
 
-## Authentication and tenant derivation
+## Authentication and actor derivation
 
 Production authentication is PLE-owned and provider-free: a short-lived,
 single-use email ceremony creates or restores the opaque PLE account, and
@@ -175,9 +195,10 @@ WebAuthn passkeys are optional additional credentials for that same account.
 PLE stores no password verifier. Email remains the recovery authority: loss or
 revocation of a passkey returns the learner to email sign-in, while a signed-in
 email change requires control of the current account. The canonical browser
-entry uses seeded production authentication through the ordinary visible email
-and passkey flows; it has no local credential form, alternate credential transport, or
-alternate browser authentication path.
+entry uses the ordinary visible email-code and passkey flows. The Live Demo
+additionally provides a visible seeded-role entry that selects a seeded account
+through the same server-owned session contract; it is verification data for
+the demo, not a second credential transport.
 
 Authentication uses one `__Host-` opaque session cookie. The raw 256-bit
 credential is generated from the operating-system random source, marked
@@ -211,6 +232,14 @@ explicit CIDR allowlist; it accepts one bounded canonical chain and otherwise
 uses the transport peer or a fail-closed shared bucket. IPv4 /24 and IPv6 /56
 aggregation bounds abuse without turning a campus NAT into per-device
 tracking.
+
+Session resolution constructs one server-owned
+`ActorContext { user_id, session_id }` for the single installation. It selects
+no course, workspace, role, or capability. Request paths, headers, and JSON can
+name a resource to be considered, but cannot add authority to the authenticated
+global account. Each protected operation derives its exact course membership,
+Student ownership, workspace relationship, or narrowly audited service
+capability from durable records in the same transaction.
 
 ## Encryption and secret boundary
 
@@ -264,33 +293,38 @@ injected only into the QTI backend's `QtiGradingStore` boundary.
 The normal application store and object store resolve only immutable published
 source, artifact, and asset evidence. The QTI backend reparses the exact
 checksum-pinned archive before a private grading lookup, and the dedicated pool
-can return only committed published bindings visible to the current tenant.
-Disabled QTI has no registry capability or run dispatch; non-QTI and foreign
-dispatches do not reach the grader. Connection strings and grading payloads are
-not included in errors, Debug output, browser DTOs, TypeScript, or WASM.
+can return only the committed published binding for the exact server-resolved
+course assignment and attempt. Disabled QTI has no registry capability or run
+dispatch; non-QTI and unauthorized dispatches do not reach the grader.
+Connection strings and grading payloads are not included in errors, Debug
+output, browser DTOs, TypeScript, or WASM.
 
 ## Student-record retention boundary
 
-Student records are FERPA data and treated as radioactive: tenant-owned,
-course-scoped, minimized, and excluded from general logs and analytics;
+Student records are FERPA data and treated as radioactive: course-scoped,
+Student-owned where applicable, minimized, and excluded from general logs and analytics;
 reusable published content is not. Every
 learner-facing Store and PostgreSQL path checks the same course-retention access predicate, so
 archive cannot be bypassed through runs, summaries, feedback, exports, external tools, or protected
 StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
 lifecycle, fixed notification copy, and a strong revision-not learner, object,
 job, lease, or generation identity. This payload-free lifecycle authority is
-the only Sysadmin exception to direct Instructor membership for FERPA-bearing
-course state other than the separately audited, closed roster-support
-capability. Roster support never grants grade export, item analysis, responses,
-runs, or general course access.
+one registered `SysadminSupportCapability` in addition to the separately
+audited, closed exact-course support capability. The closed registry in
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry)
+binds every support capability to one course, purpose, operation set, expiry,
+and audit trail. A Sysadmin platform role alone never grants course access,
+Gradebook access, item analysis, responses, or runs.
 
-Only the scheduler creates a closed retention job binding. The broker-owned prepare and commit
-functions require the exact tenant, course, stage, generation, job, and active lease. They persist a
-typed StudentRecord object manifest before delivery revocation. The worker refuses foreign-tenant or
-non-StudentRecord keys and treats an already absent object as idempotent success. Permanent deletion
-then removes only relationally course-owned learner rows and changes the lifecycle to deleted after
-residual checks pass. Shared published content, drafts, and anonymous aggregates are outside that
-delete authority.
+Only the scheduler creates a closed retention job binding. The broker-owned
+prepare and commit functions require the exact course, stage, generation, job,
+and active typed lease. They persist a typed StudentRecord object manifest
+before delivery revocation. The worker refuses a key outside the lease's typed
+CourseRecord scope or a non-StudentRecord key and treats an already absent
+object as idempotent success. Permanent deletion then removes only
+relationally course-owned Student rows and changes the lifecycle to deleted
+after residual checks pass. Shared published content, drafts, and anonymous
+aggregates are outside that delete authority.
 
 The complete lifecycle, retained/deleted table classes, and honest backup limitation are documented
 in [RETENTION_POLICY.md](RETENTION_POLICY.md).
@@ -303,7 +337,7 @@ jurisdiction-specific compliance review before implementation.
 
 Before authentication, the PostgreSQL `ple_auth` role can see only the
 `auth_session` row matching the presented one-way hash. Resolving that row is
-the only production path that constructs `TenantContext`; tenant values from
+the only production path that constructs `ActorContext`; actor values from
 URLs, headers, or JSON never establish RLS context. Missing, malformed,
 unknown, expired, and revoked credentials all return the same unauthenticated
 response.
@@ -314,8 +348,8 @@ The ordinary browser/WASM draft preview remains key-free. A separate
 `GET /api/workspaces/{workspace}/author-preview` route exists only after an
 explicit instructor action. It resolves the stored draft through the same
 owner/collaborator binding as workspace editing, requires the exact saved
-strong `If-Match` revision, and returns the same absent result for students,
-foreign tenants, and unshared workspaces. Responses are `no-store`.
+strong `If-Match` revision, and returns the same absent result for Students,
+nonparticipants, and unshared workspaces. Responses are `no-store`.
 
 The author route never serializes `AnswerKey`, grading material, source
 locator, object key, provider credential, or published identity. A supported
@@ -329,80 +363,145 @@ repository or author-preview client is constructed.
 
 ## Catalog publication boundary
 
-Every catalog route resolves the session before deriving `TenantContext`.
-Request paths and bodies cannot select another tenant. Institution-visible
-metadata and payloads are protected by forced PostgreSQL RLS and an exact
-tenant/problem/version grant; the context-free store methods expose public
-content only.
+The published-question catalog has one installation-wide visibility rule:
+every published assignment question is visible to every approved Instructor.
+Private drafts remain inside their owner/collaborator workspace until the
+atomic publication transition commits. Catalog routes resolve `ActorContext`
+first; paths and bodies cannot select another account, workspace relationship,
+publication identity, or capability. Forced PostgreSQL RLS and actor-scoped
+Store predicates protect private workspace material. Public catalog queries
+return only the reviewed Instructor-safe projection.
 
-The browser supplies a workspace identifier and requested publication scope,
-but never a new `ProblemId` or a backend capability declaration. The server
-loads the tenant-owned draft, resolves capabilities from its trusted adapter
+The catalog's public audience is the authenticated approved-Instructor set.
+Student access remains assignment-entitlement delivery, and anonymous web
+requests receive no catalog authority.
+
+The browser supplies a workspace identifier, but never a new `ProblemId`, a
+publication scope, or a backend capability declaration. The server loads the
+actor-authorized draft, resolves capabilities from its trusted adapter
 registry, returns the complete capability-violation list, and generates fresh
-published identities for a new work, correction, or derivative. The store
+published identities for a new work, correction, or derivative. The Store
 compares and locks the same draft before committing metadata, immutable
-payload, visibility grant, and draft deletion in one transaction.
+payload, global Instructor catalog state, and draft deletion in one
+transaction.
 
-Public publication requires Instructor or Sysadmin authority plus the
-institution's optional review gate. Institution publication permits an
-Instructor or Sysadmin. Post-publication transitions require both an eligible
-role and author ownership. Database privileges permit only the lifecycle fields
-to change; published identity, scope, payload, capabilities, metadata,
-authorship, and lineage cannot be updated or deleted by the application role.
+Publication requires the canonical `approved_instructor(user_id, now)`
+predicate and any installation-wide review gate. `Sysadmin` status alone does
+not publish or provide catalog access. Post-publication transitions require
+both `approved_instructor` and the recorded author relationship. Database
+privileges permit only lifecycle fields to change; published identity, global
+visibility, payload, capabilities, metadata, authorship, and lineage cannot be
+updated or deleted by the application role.
 
-The no-drift contract requires every content change, including an
-original-owner correction, to publish a new Question ID with optional explicit
-provenance. Existing assignments retain their exact references until an
-Instructor makes a deliberate, revision-checked replacement; no lifecycle or
-background action may select a successor for them. The server resolves only the
-Question ID chosen by the Instructor for a revision-checked replacement; it
-does not select a successor or internal publication pair on the browser's
-behalf. The accepted WP-R2 boundary enforces this contract.
+The no-drift contract pins every assignment and grading record to an exact
+Question Version. Editorial or accessibility corrections may continue a
+Question ID under its immutable version history; a changed objective, family,
+or substantially different task becomes a fork with a new Question ID.
+Existing assignments retain their exact references until an Instructor makes a
+deliberate, revision-checked replacement. The server resolves only the version
+chosen by that controlled operation, and never silently changes issued or
+graded work.
 
 Catalog browse responses contain hot browser-safe metadata only. They expose a
 backend family but no native family name, WeBWorK path, QTI package identifier,
 H5P package identifier, prompt, response definition, or answer-bearing value.
-Deprecated and archived questions are hidden from browse, but exact authorized
-internal lookup remains available for historical records. A deprecated Question
-ID may be deliberately selected for a new assignment when its lifecycle policy
-permits it; archived content is blocked. This lifecycle behavior does not add a
-successor, "latest" resolution, or automatic
+Every published question remains discoverable to every approved Instructor while
+its lifecycle is `active`, `deprecated`, or `archived`; the safe projection
+shows that lifecycle state. Selection eligibility is separate: only `active`
+questions may be selected for an ordinary new assignment. Deprecated and
+archived questions remain resolvable for exact historical references and
+retained assignments, but are excluded from ordinary new selection. This
+lifecycle behavior does not add a successor, "latest" resolution, or automatic
 assignment replacement.
 
 ## Course authorization boundary
 
-Every course route resolves the shared session before constructing
-`TenantContext`; no request may choose a tenant. A coarse instructor role may
-create a course, but access to an existing course comes from a tenant-owned
-`course_member` row. `Sysadmin` is not a course membership variant and never
-substitutes for direct Instructor membership when accessing general FERPA
-records. Its closed roster-support exception records actor/course/action/time
-and exposes only roster operations needed to help an Instructor.
+Every course route resolves `ActorContext` before selecting a course. A global
+approved Instructor may create a course; Sysadmin status alone does not satisfy
+that predicate. A Sysadmin must complete the explicit Instructor approval path
+before course creation or teaching. Creation atomically establishes the first
+ordinary Instructor membership. Access to an existing course requires an
+exact current `course_member` row. Every current co-Instructor has the same
+teaching authority; course creation does not create an owner or elevated
+creator capability. `Sysadmin` is not a course membership variant. Its
+`SysadminSupportCapability` is resolved through the closed registry in
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry),
+which records actor, purpose, course, operation, expiry, and time and exposes
+only the approved minimum projection. Direct Instructor membership remains the
+normal authority for general teaching records.
 
-Course and membership tables use forced tenant RLS. Nonmembers receive the same
-not-found response as absent courses, limiting identity disclosure. Students
-may list and resolve assignments in their courses but receive a forbidden
-response for assignment creation. Assignment writes validate each selected
-Question ID against catalog visibility and lifecycle state; no question payload,
-answer key, or grading code is copied into the course row or returned by browse.
+Course and membership tables use forced actor-scoped RLS. Nonmembers receive
+the same not-found response as absent courses, limiting identity disclosure.
+Students may list and resolve assignments in their courses but receive a
+forbidden response for assignment creation. Assignment writes validate each
+selected Question ID against global catalog lifecycle state; no question
+payload, answer key, or grading code is copied into the course row or returned
+by browse.
+
+The current human-role model is closed to Student, Instructor, and Sysadmin.
+Future Grader, Course Observer, and Student Observer relationships are explicit
+typed, revocable grants rather than new ambient human roles.
+
+A Course Observer grant is bound to exactly one `CourseId`, one stated purpose,
+one issuer, an expiry and revocation state, an audit identity, and a closed
+disclosure policy. It is read-only. Its exact-course assignment projection may
+include assignment titles, instructions, release state, and the ordered
+answer-free content of the published questions assigned in that course. Its
+separate named assignment-completion projection contains only a safe Student
+display label, assignment identity, and `completed` or `not_completed` state. A
+named completion row never includes a score, grade, response, attempt detail,
+feedback, accommodation, enrollment detail, Student-record asset, or arbitrary
+course record. The projection exposes no private source, answer key, grading
+rule, rubric, provider payload, or hidden diagnostic.
+
+The Course Observer aggregate-grade projection is a different typed result. It
+contains only an anonymous, formula-labeled, privacy-safe course aggregate after the
+disclosure threshold is met. It has no Student subject, enrollment, row-level
+score, small cell, or linkable metadata. The disclosure decision considers the
+combination of named completion and aggregate output; the server suppresses an
+aggregate when that combination could identify a Student or infer an individual
+score. Completion rows and aggregate cells are never joined by a Student key in
+the browser, route, cursor, audit payload, or cache. Course Observer grants do
+not satisfy current Instructor, Gradebook, Student-work inspection, or Student
+Observer predicates.
+
+Every successful Course Observer read records an audit event containing the
+server-derived actor, exact course, grant, purpose, projection kind, disclosure
+policy revision, result, and authoritative time. It contains no Student name,
+response, score, answer material, or private content. Denials use the ordinary
+concealed authorization result and do not create a Student-record access fact.
+The Store rechecks the grant's exact course, purpose, expiry, revocation, and
+disclosure policy in the same transaction as each projection. Revocation is
+serialized with reads and takes effect immediately; cached observer data is
+discarded and cannot be replayed as current authority.
+
+A Student Observer requires its own exact one-Student binding, explicit Student
+consent, stated purpose and disclosure policy, expiry, immediate revocation,
+and audit events. Its read-only projection is separately typed and limited to
+that consented Student's records; it does not inherit a Course Observer or
+Instructor capability, and a Course Observer grant cannot satisfy its consent
+predicate. Observer responses are `Cache-Control: no-store`; completion and
+aggregate data never enters URLs, cursors, browser storage, or a generic cache.
 
 Assignment creation and focused replacement accept Question IDs, while ordinary
 update retains its assigned item identities and changes assignment-owned fields.
-Request JSON cannot supply a tenant, course, assignment ID, hidden publication
-pair, workspace draft, capability declaration, source, or question payload.
-The server resolves each Question ID through tenant-visible catalog state,
-accepts published and lifecycle-permitted deprecated questions but not archived
-content, and uses the persisted immutable capability declaration with
+Request JSON cannot supply an account, course, assignment ID, hidden
+publication pair, workspace draft, capability declaration, source, or question
+payload. The server resolves each Question ID through global catalog state,
+accepts only `active` questions for ordinary new selection. Deprecated and
+archived questions remain available for exact historical references and retained
+assignments, but ordinary new selection rejects both. It uses the persisted
+immutable capability declaration with
 `validate_assignment_config`. The browser may display the returned safe title,
 Question ID, and capability violations, but it is never the capability authority.
 
 Assignment edits use a positive strong revision ETag. Course authorization is
 resolved before the `If-Match` precondition, so malformed or missing revisions
-cannot become a membership or tenant oracle. Memory performs replacement under
-one write lock; PostgreSQL binds tenant, course, assignment, and revision in
-the update transaction and locks every selected version against a concurrent
-lifecycle transition. Stale writes conflict without changing the stored
-assignment. Direct course instructors may mutate;
+cannot become a membership or course-existence oracle. Memory performs
+replacement under one write lock; PostgreSQL binds actor, course, assignment,
+and revision in the update transaction and locks every selected version against
+a concurrent lifecycle transition. Stale writes conflict without changing the
+stored assignment. Direct course Instructors may mutate;
 students receive forbidden and unrelated or foreign courses remain absent.
 All success and error responses are `no-store`.
 
@@ -411,31 +510,33 @@ All success and error responses are `no-store`.
 Assignment exports are created from an authenticated course-management route
 with an exact empty body. Authorization is resolved before the body is read, so
 request fields cannot select versions, formats, filenames, object identities,
-or recipients and cannot become a course or tenant oracle. The Store freezes
+or recipients and cannot become a course or membership oracle. The Store freezes
 the assignment title and ordered immutable version references, the requester,
 one opaque manifest, and four server-generated private object identities before
 it enqueues one closed export job.
 
-The Store repeats session resolution and exact Instructor membership under the
-course-roster lock. The browser cannot name `requested_by` or turn a stale
-route decision into an export: revocation racing export creation causes the
-transaction to fail.
+The Store repeats `ActorContext` resolution and exact Instructor membership
+under the course-roster lock. The browser cannot name `requested_by` or turn a
+stale route decision into an export: revocation racing export creation causes
+the transaction to fail.
 
-The worker resolves only that frozen manifest under its tenant context and
-builds the standard and accessible DOCX/PDF bundle from browser-safe published
-question presentation and immutable capabilities. It never loads an answer
-key, private grader state, source locator, or provider credential. Published
-figures are rechecked against their exact asset binding and checksum. Output is
-written bytes-first to tenant `StudentRecord` keys; an exact immutable object
-may be reused after a pre-commit crash, while different existing bytes refuse.
+The worker resolves only that frozen manifest through its active typed export
+lease and builds the standard and accessible DOCX/PDF bundle from browser-safe
+published question presentation and immutable capabilities. It never loads an
+answer key, private grader state, source locator, or provider credential.
+Published figures are rechecked against their exact asset binding and checksum.
+Output is written bytes-first to typed course-record `StudentRecord` keys; an
+exact immutable object may be reused after a pre-commit crash, while different
+existing bytes refuse.
 
 PostgreSQL makes the four delivery rows, requester-only ACLs, ready status, and
 worker completion visible in one active-lease transaction. The request and
-artifact tables force tenant RLS, broker functions have narrow grants and no
-public execution, and permanent or exhausted jobs expose only a coarse failed
-state. Browser status contains delivery IDs, stable filenames, and media types,
-never object keys, manifests, leases, source refs, failure details, or signed
-URLs. Downloads continue through the protected asset route and its audit log.
+artifact tables force actor-scoped RLS, broker functions have narrow grants and
+no public execution, and permanent or exhausted jobs expose only a coarse
+failed state. Browser status contains delivery IDs, stable filenames, and media
+types, never object keys, manifests, leases, source refs, failure details, or
+signed URLs. Downloads continue through the protected asset route and its audit
+log.
 
 ## Run authorization and grading boundary
 
@@ -478,15 +579,15 @@ locks the run so only one unresolved question exists at a time. Server-owned
 database timestamps determine issue time, deadline, response arrival, and run
 completion.
 
-Next-question prefetch stores a tenant-owned, server-only reservation without an
-attempt ID, timer, response, grade, or public answer. Its browser projection is
-answer-free, while the reservation retains checksummed private grading authority
-for the exact issued question so first grade never reconstructs from current
-catalog or renderer state. The Store binds it to the owned active predecessor
-and first unattempted assignment position. Only submission promotion creates
-the successor attempt and records either its immutable `nextIssued` descriptor
-or durable `nextPending` state in the predecessor's receipt. Replay reads that
-state instead of deriving a new successor from
+Next-question prefetch stores a course-scoped, server-only reservation without
+an attempt ID, timer, response, grade, or public answer. Its browser projection
+is answer-free, while the reservation retains checksummed private grading
+authority for the exact issued question so first grade never reconstructs from
+current catalog or renderer state. The Store binds it to the owned active
+predecessor and first unattempted assignment position. Only submission
+promotion creates the successor attempt and records either its immutable
+`nextIssued` descriptor or durable `nextPending` state in the predecessor's
+receipt. Replay reads that state instead of deriving a new successor from
 current run state; initial owner-scoped recovery alone may heal the sole
 committed-but-unlinked predecessor after a process failure.
 
@@ -542,8 +643,9 @@ Browser markup carries an internal logical `AssetId`, never a bucket name,
 physical key, or signed URL. `/api/assets/{id}` resolves the identifier through
 the database-authoritative immutable registry. The registry accepts only a
 `ProblemAsset` whose problem, version, asset, object, bucket, and category all
-agree, or a tenant-matching `StudentRecord`; source packages, render caches,
-and `temp-processing` objects cannot be registered for this route.
+agree, or a course-scoped `StudentRecord` authorized for the current actor;
+source packages, render caches, and `temp-processing` objects cannot be
+registered for this route.
 
 `WorkspaceSource` and `ProblemSource` are never direct delivery targets and the
 typed object contract refuses to sign either key. This includes compact PLE
@@ -553,13 +655,15 @@ redacts or deliberately includes private material for that operation; it must
 not expose the source object URL.
 
 Globally public catalog assets redirect to the configured immutable CDN URL
-without authentication or an object-store signing call. Institution content
-and student records require the opaque HttpOnly session. Forced RLS limits the
-candidate row, the store checks the authenticated user where the record has an
-explicit user grant, and missing or unauthorized protected objects both return
-not found. Every successful protected authorization appends an audit event
-before requesting the signed URL. The event includes tenant, actor, delivery
-ID, object ID, bucket, and database timestamp, but never the cookie or URL.
+without authentication or an object-store signing call. Private workspace
+content and Student records require the opaque HttpOnly session and their exact
+workspace relationship, course membership, or Student ownership predicate.
+Forced actor-scoped RLS limits the candidate row, the Store checks the
+authenticated user where the record has an explicit user grant, and missing or
+unauthorized protected objects both return not found. Every successful
+protected authorization appends an audit event before requesting the signed
+URL. The event includes actor, course or workspace scope, delivery ID, object
+ID, bucket, and database timestamp, but never the cookie or URL.
 
 The object backend selects the lifetime from the typed bucket, and the route
 rejects a result that exceeds 60 minutes for `content` or 5 minutes for
@@ -574,8 +678,8 @@ markup.
 Diagnostics preserve enough evidence to investigate a boundary failure without
 becoming another delivery path. Browser responses carry only short,
 route-approved messages. They do not contain raw SQL, object keys, bucket
-names, signed URLs, tenant identities, leases, source archives, provider state,
-answer keys, or raw backend errors.
+names, signed URLs, protected account or course identities, leases, source
+archives, provider state, answer keys, or raw backend errors.
 
 Server and worker diagnostics use bounded error categories and safe record
 identities only where an operator needs correlation. Credentials, raw session

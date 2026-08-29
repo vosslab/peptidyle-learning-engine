@@ -165,10 +165,10 @@ ALTER TABLE public.scoring_invalidation_origin
     DROP CONSTRAINT scoring_invalidation_origin_actor_shape_check;
 ALTER TABLE public.scoring_invalidation_origin
     ADD CONSTRAINT scoring_invalidation_origin_kind_check CHECK (
-        origin_kind = ANY ('{instructor_recalculation,assignment_definition,learner_support,accepted_submission_completion}')
+        origin_kind = ANY ('{instructor_recalculation,assignment_definition,student_support,accepted_submission_completion}')
     ),
     ADD CONSTRAINT scoring_invalidation_origin_actor_shape_check CHECK (
-        (origin_kind = ANY ('{instructor_recalculation,assignment_definition,learner_support}') AND actor_id IS NOT NULL)
+        (origin_kind = ANY ('{instructor_recalculation,assignment_definition,student_support}') AND actor_id IS NOT NULL)
         OR (origin_kind = 'accepted_submission_completion' AND actor_id IS NULL)
     );
 

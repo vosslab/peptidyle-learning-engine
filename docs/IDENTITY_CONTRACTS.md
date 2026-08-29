@@ -1,250 +1,259 @@
 # Identity contracts
 
-PLE uses different identifiers for different jobs. A durable record ID is not
-automatically a public reference, a browser value, or a credential. Treating
-those roles as interchangeable makes authorization, retention, retries, and
-rendering harder to reason about.
+## Binding single-installation model
 
-This page is the cross-cutting identity map. It supplements, rather than
-replaces, [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md),
-[QUESTION_MODEL.md](QUESTION_MODEL.md), [CONTRACTS.md](CONTRACTS.md), and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The closed human
-role model is in [USER_ROLES.md](USER_ROLES.md). The Rust types
-and PostgreSQL schema linked below are authoritative when this page and code
-ever disagree.
+PLE is one installation with global accounts. An authenticated person has one
+global `UserId`; a session establishes that person, and an operation derives
+authorization from the exact course membership, Student ownership, workspace
+relationship, approved-Instructor state, or narrowly typed platform capability
+that applies to that operation.
+
+Every published assignment question is shared Instructor-visible catalog
+content. A private draft has no catalog identity and remains visible only
+through its workspace relationship until validated publication creates a new
+immutable published question identity. Shared catalog content is answer-free
+and contains no Student records.
+
+This document maps identities and their scopes. It supplements
+[USER_ROLES.md](USER_ROLES.md), [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
+[PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md), and
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The active
+[single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md)
+owns the migration from the former tenant model to these identities.
 
 ## Rules that apply everywhere
 
-- A durable ID names one stored thing. It is opaque and never proves that the
-  caller may read or change that thing.
-- The authenticated PLE session establishes `TenantId` and `UserId`; routes and
-  store methods derive authorization from those facts rather than trusting
-  tenant or user IDs supplied in a browser body.
-- Educational-record rows carry `TenantId` directly. PostgreSQL row-level
-  security and store methods use it as the tenancy boundary.
-- Published catalog content is immutable and shared. Tenant-owned courses,
-  enrollments, runs, attempts, jobs, and protected objects remain separate
-  records even when they refer to the same published content.
-- Identifiers are distinct Rust newtypes wherever mixing them would be a
-  correctness risk. They serialize as canonical UUID strings only at an
-  appropriate trusted or browser boundary.
-- A checksum or digest detects disagreement in otherwise valid data. It is
-  not authentication, authorization, transport security, or an answer key.
+- A durable ID names one stored thing. It does not prove that its holder may
+  read, change, or discover that thing.
+- The server resolves the session and constructs `ActorContext`; browser
+  requests never establish a user, approval state, course membership, Student
+  ownership, workspace relationship, job target, or role by supplying an ID.
+- `UserId`, `CourseId`, `WorkspaceId`, and published `QuestionId` are
+  globally unique. Parent relationships, lifecycle state, and operation-specific
+  predicates establish access.
+- Educational records are owned by their exact course and Student
+  membership/enrollment relationships. They do not inherit authority from an
+  account role or a visible course reference.
+- Published catalog content is immutable and shared. Courses, memberships,
+  enrollments, runs, attempts, jobs, and protected objects are independent
+  records that may refer to it.
+- Rust uses distinct newtypes where mixing values would be a correctness risk.
+  UUID strings appear only at a trusted server or defined browser boundary.
+- A checksum or digest detects disagreement in otherwise valid data. It is not
+  authentication, authorization, transport security, or an answer key.
 
-## Durable record identities
+## Account, session, and actor identities
 
-The following UUID-backed types are persisted identities. Fresh
-question-model identities use server-only UUIDv7 minting; decoding accepts an
-existing canonical UUID so local fixtures and stored values can round-trip.
-Several operational IDs use operating-system randomness instead of the
-question-model minting helper. Both are opaque database identities, not
-sequential counters and not browser secrets.
+| Identity or value                      | Scope                           | Intended use                                                                                                                                       |
+| -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UserId`                               | Global, durable                 | Names one PLE account/person across courses and workspaces. It is distinct from Student membership and enrollment identity.                        |
+| `SessionId`                            | Global, durable session record  | Names one server-tracked login session, including expiry and revocation state.                                                                     |
+| `SessionTokenHash`                     | Server-only session record      | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record locator, or log value.                                 |
+| `ActorContext { user_id, session_id }` | Server-derived request context  | Carries the authenticated actor into domain, Store, and authorization operations. It has no ambient course, workspace, or Student grant.           |
+| Approved-Instructor state              | Global, revocable account state | `approved_instructor(user_id, now)` establishes current Instructor product capabilities and is re-evaluated for protected operations.              |
+| `Sysadmin` platform role               | Global, explicit platform role  | Names limited platform operations. Course teaching and FERPA reads use direct course authority except for an explicitly audited narrow capability. |
 
-| Identity                                           | Owns or names                                          | Authority and relation                                                                                                 |
-| -------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `TenantId`                                         | Institution RLS boundary                               | Established by authentication; carried on every educational record.                                                    |
-| `UserId`                                           | Authenticated person                                   | Comes from the PLE account boundary; differs from pedagogical `StudentId`.                                             |
-| `WorkspaceId`                                      | Tenant-owned instructor draft workspace                | Drafts and staged imports remain private here.                                                                         |
-| `WorkspaceImportId`                                | One staged workspace import                            | Never becomes a catalog number; publication creates fresh published identities.                                        |
-| `ProblemId`                                        | Internal identity for one immutable published question | Exists only after publication; never identifies a draft.                                                               |
-| `VersionId`                                        | Internal immutable publication evidence                | Assignments and attempts retain the exact `(ProblemId, VersionId)` pair.                                               |
-| `AssetId`                                          | Logical published content asset                        | May resolve to an immutable physical object but is not its storage identity.                                           |
-| `ObjectId`                                         | Immutable object-store record                          | Names stored bytes and may back source, asset, export, or learner-record artifacts.                                    |
-| `CourseId`                                         | Tenant course or section                               | Owns assignment placement and course membership context.                                                               |
-| `CourseMembershipId`                               | One immutable course-membership episode                | Current authority requires active status; revocation preserves the episode for evidence and reinvitation creates a new one. |
-| `CourseGroupId`                                    | Current typed group within a course                    | Contains membership episodes and contributes only the capabilities allowed by its Section, Lab, Cohort, Accommodation, or Work purpose. |
-| `AssignmentId`                                     | Tenant assignment                                      | Owns current policy and ordered current items.                                                                         |
-| `AssignmentItemId`                                 | Stable current-state assignment item                   | Retains item identity while future points, ordering, or policy change.                                                 |
-| `AssignmentSelectionGroupId`                       | Random-selection group                                 | Distinct from its selected run items.                                                                                  |
-| `EnrollmentId`                                     | One materialized assignment receipt for a stable learner | Binds cross-run mastery state and sealed first-grant provenance; never grants current access.                          |
-| `RunId`                                            | One pass through an assignment                         | Belongs to one enrollment; later practice creates a new run rather than rewriting the completed one.                   |
-| `QuestionAttemptId`                                | One issued question instance                           | Is the primary learner-answer route identity; binds run, exact version, seed, timing, status, provenance, and backend. |
-| `AssignmentPolicyExceptionId`                      | One current policy exception                           | Auditable tenant record for a student or group exception.                                                              |
-| `CourseBannerId` and `CourseBannerCandidateId`     | Immutable active banner and pre-promotion candidate    | Keep uploaded candidate material separate from the visible course pointer.                                             |
-| `AssetDeliveryId`                                  | Protected asset route lookup                           | Reuses an `AssetId`, `ObjectId`, or `CourseBannerId`; it does not mint a second logical object.                        |
-| `ExportId`                                         | One tenant-authorized export request                   | Browser may inspect its coarse status; workers resolve its frozen private input server-side.                           |
-| `JobId`                                            | One durable queue unit                                 | Worker-facing record identity, not proof that a worker owns its lease.                                                 |
-| `AttemptSupportActionId`                           | One idempotent Instructor support action               | Audit identity for a sensitive attempt-support action.                                                                 |
+The server resolves the opaque first-party session credential to
+`ActorContext`. The browser receives only its own answer-free account/session
+projection. It never receives another person's `UserId`, a raw session
+token, or an authority-bearing approval claim.
 
-The published-content newtypes are defined in
-[crates/question_model/src/identity.rs](../crates/question_model/src/identity.rs).
-Tenant, course, assignment, enrollment, run, and attempt identities are in
-[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs).
-The operational identities are owned by
-[crates/learning-data-access/src/jobs.rs](../crates/learning-data-access/src/jobs.rs),
-[crates/learning-data-access/src/contracts/runs.rs](../crates/learning-data-access/src/contracts/runs.rs),
-and [crates/learning-data-access/src/asset_delivery.rs](../crates/learning-data-access/src/asset_delivery.rs).
+### Session authority ownership
 
-## Human-facing and semantic references
+[`learning_data_access::session`](../crates/learning-data-access/src/session.rs)
+is the sole owner of server-only session and actor identities: `SessionId`,
+`SessionTokenHash`, `SessionLifetime`, `SessionRecord`, `ActorContext`, and
+`SessionStore`. `SessionId` is a separate durable record identity, not a token
+hash, token-derived value, or browser locator. `ActorContext` with `user_id` and
+`session_id` is constructed only after the session store resolves the opaque
+credential. It has no course, workspace, Student, or other operation grant and
+has no browser serialization shape.
+Neither type belongs in `question_model` or generated browser contracts.
 
-These values make a record usable in teaching or reproducible in grading; they
-are not substitutes for durable ownership and authorization.
+[`learning_data_access::rls`](../crates/learning-data-access/src/rls.rs) owns
+only the transaction adapter that installs an already-resolved `ActorContext`
+in a protected database transaction. It does not mint, define, re-export, or
+authorize `SessionId`, `ActorContext`, `UserId`, course membership, workspace
+relationships, or Student ownership. The adapter applies transaction-local
+actor context and forced-RLS denial; domain and Store owners evaluate the exact
+relationship or typed capability.
+The current tenant-shaped `TenantContext` in this module is migration input
+for SD1, not a second session or actor contract and not a global replacement
+identity.
 
-| Value                                | Purpose                                                                                                   | Do not use it as                                                                  |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `QuestionId`                         | Single non-sequential Crockford Base32 locator such as `7K3-M9QP`; names one immutable published question | Authorization, a hidden snapshot ID, or a version selector.                       |
-| `CourseReference`, `AssignmentReference`, `RunReference`, `WorkspaceReference`, and `CourseGroupReference` | Exact positive public locators `C-`, `A-`, `R-`, `W-`, and `G-` for the corresponding root aggregate | Authorization, a tenant or course selector, or an internal durable ID. |
-| `PublicByline`                       | Ordered reviewed public author display names frozen with one published version | Account identity, publication authority, or a private author relationship. |
-| `ProblemVersionRef`                  | Exact internal immutable `(ProblemId, VersionId)` evidence                                                | A browser version selector, learner attempt, or mutable assignment-item identity. |
-| `ChoiceId`                           | Stable internal semantic ID for an authored choice, slot, match endpoint, order item, or hotspot region   | A display label, screen position, or presentation-scoped response token.          |
-| `Seed` plus generator version        | Reproduces a generated variant under immutable content                                                    | Learner authority to select a new variant.                                        |
-| Source object and SHA-256 provenance | Reproduces the source interpreted for an attempt                                                          | A public download URL or browser-supplied renderer input.                         |
-| `ScoringGeneration`                  | Positive monotonic stale-work fence for current assignment scores                                         | A record identity or browser-controlled score revision.                           |
-| Timing and retention generations     | Fence stale auto-submit and retention workers                                                             | A learner-editable deadline or retention policy.                                  |
+## Course, Student, and relationship identities
 
-The catalog display reference is owned by
-[crates/question_model/src/catalog.rs](../crates/question_model/src/catalog.rs).
-Semantic response IDs are in
-[crates/question_model/src/response.rs](../crates/question_model/src/response.rs).
-`ScoringGeneration` is defined in
-[crates/question_model/src/assignment.rs](../crates/question_model/src/assignment.rs),
-and queued generation fences are a closed server-side contract in
-[crates/learning-data-access/src/jobs.rs](../crates/learning-data-access/src/jobs.rs).
+| Identity              | Owns or names                                        | Authority and relation                                                                                                                      |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CourseId`            | One teaching course or section                       | Global durable course identity. Course-scoped records carry this exact parent.                                                              |
+| `CourseMembershipId`  | One immutable course-membership episode              | Binds one `UserId`, one `CourseId`, a role, lifecycle, and roster revision. Revocation preserves evidence; rejoining creates a new episode. |
+| Student membership    | Current `CourseMembershipId` with Student role       | Participates in exact Student ownership checks for course work and educational records.                                                     |
+| Instructor membership | Current `CourseMembershipId` with Instructor role    | Together with current approval, establishes `current_course_instructor(user_id, course_id, now)`.                                           |
+| `EnrollmentId`        | One assignment enrollment for one Student membership | Binds a Student's course relationship to an assignment. It supports ownership and history; it is not a session or role substitute.          |
+| `CourseGroupId`       | One typed group inside a course                      | Groups membership episodes for an explicit course purpose such as section, lab, cohort, accommodation, or work.                             |
+| `AssignmentId`        | One course assignment                                | Has one exact `CourseId` parent and owns its current policy and ordered items.                                                              |
+| `AssignmentItemId`    | One current assignment item                          | Retains item identity while a future assignment definition changes.                                                                         |
+| `RunId`               | One pass through an assignment                       | Belongs to one enrollment; later practice uses a new run.                                                                                   |
+| `QuestionAttemptId`   | One issued question instance                         | Binds a run to exact immutable content, seed, timing, status, provenance, and grading backend.                                              |
 
-Route references are full-string, prefix-specific values with no leading zero and a positive 31-bit
-number. They locate a record only after the server resolves the reference inside the authenticated
-tenant, membership, or workspace boundary. `AC-` is reserved for the later Alpha aggregate and has
-no teaching-course interpretation. A `PublicByline` has one through sixteen distinct trimmed display
-names; it is immutable publication metadata and never conveys account authority.
+Course creation creates the creator's first ordinary Instructor membership in
+the same transaction. Every current co-Instructor has the same teaching and
+FERPA-read predicates; the creator has no enduring privileged identity. A
+current course Instructor may invite an approved Instructor, and acceptance
+rechecks approval, invitation state, and roster revision atomically.
 
-One Question ID has one immutable published content identity. A correction,
-fork, or other authored content change receives a new Question ID and may
-retain explicit source provenance. The hidden `(ProblemId, VersionId)` pair
-remains available only for exact immutable retrieval, past-attempt replay,
-grading, audit, and provenance. It never authorizes a browser to select a
-version or resolve a "latest" question. Existing assignments remain exact
-until an Instructor deliberately replaces an item with strong revision
-checking. A replacement changes the future assignment definition; issued
-snapshots retain their original exact evidence.
+Student work is authorized by the authenticated `UserId` owning the active
+Student membership and enrollment for the exact course. Direct current
+co-Instructors use the same course predicate for permitted teaching-record
+reads; neither another course nor a visible record ID extends that authority.
 
-## Browser and retry identities
+## Workspace and publication identities
 
-The presentation model and descriptor codec below are implemented Rust types.
-Their use as compact browser submission values remains the secure-payload
-**target**: the current browser still submits the tagged durable-ID
-`StudentResponse` shape. At the target boundary, the browser receives an
-intentional minimum and submits against the attempt path once, with a bounded
-idempotency header and a compact answer. The server re-derives tenant, learner,
-course, assignment, question family, version, seed, timing, and grading backend
-from the authenticated attempt.
+| Identity                    | Scope                                        | Intended use                                                                                                                                                     |
+| --------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.   |
+| Workspace relationship      | Durable `UserId` to `WorkspaceId` binding    | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                      |
+| `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                |
+| `QuestionId`                | Global immutable published question identity | Human-facing catalog locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared catalog. |
+| `ProblemId` and `VersionId` | Server-only immutable content evidence       | Exact hidden identity for replay, grading, audit, provenance, and transport. It never lets a browser choose a version or resolve a latest question.              |
+| `AssetId`                   | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                              |
+| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or learner-record bytes under an exact typed scope.                                                                          |
 
-| Value                             | Scope and lifetime      | Meaning                                                                                                                                                  |
-| --------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QuestionAttemptId` in the route  | Durable attempt         | Names the already-issued instance. It is not enough by itself: session and ownership checks remain required.                                             |
-| `SubmissionIdempotencyKey` header | One exact browser retry | Bounded visible ASCII key. The server records request and receipt hashes so same-request replay is harmless and a changed replay conflicts.              |
-| `RenderedItemIdV1`                | One presentation        | Target four-lowercase-hex browser value for a selectable rendered object, submitted instead of a letter, position, or durable `ChoiceId`.                |
-| `PresentationNonceV1`             | One presentation        | Server-minted 16-byte nonce used when deriving attempt-specific rendered-item IDs and the presentation descriptor.                                       |
-| `PresentationDigestTokenV1`       | One presentation        | Target public 128-bit `pd1_` prefix of the full server-stored SHA-256 descriptor digest. It detects an attempt paired with the wrong valid presentation. |
-| Normalized hotspot coordinates    | One response            | Target integers from 0 through 10,000 bound to the rendered surface, not pixels or a device-specific image size.                                         |
+Validated publication either starts a new immutable catalog identity for a new
+question or records a new immutable `QuestionVersion` under an existing stable
+`QuestionId` lineage. A correction or compatible material improvement does not
+mint a new `QuestionId`; it preserves the lineage and creates exact new
+`ProblemId`/`VersionId` evidence. A full fork for an incompatible objective,
+task, response family, or educational purpose creates a private draft and,
+after validation, a new `QuestionId` with source attribution and visible
+ancestry.
 
-At that target boundary, `RenderedItemIdV1` is deliberately small and
-presentation-specific. The server generates every ID from a domain-separated
-CRC16 input containing the nonce, immutable version, seed, item role, ordinal,
-durable item identity, and canonical public content. It rejects a presentation
-with any duplicate ID and retries with a new nonce. The server retains or
-regenerates the authoritative mapping back to the semantic item ID for the
-lifetime of the attempt.
+Published-question stewardship has four distinct paths:
 
-That design means a stale selection, swapped ordering map, or matching-side
-mix-up cannot silently become a valid answer merely because it still has a
-valid label such as `B`. It does **not** make the CRC16 a security primitive;
-the authenticated attempt and server-side grading boundary provide security.
-The full SHA-256 descriptor stored with the attempt supplies the stronger
-whole-presentation consistency check.
+- An owner moderate edit passes publication validation and creates a new
+  immutable version in the same `QuestionId` lineage.
+- Any Instructor may submit a `QuestionChangeProposal` against one exact
+  immutable base version. Validation runs before submission, semantic and
+  grading impact is shown, and the owner accepts or rejects it. Acceptance
+  creates a same-lineage version with contributor credit. An advanced base
+  requires rebase or resubmission.
+- Any Instructor may create a full fork as a private Draft Question. Validated
+  publication creates a separate lineage with a new `QuestionId`, source
+  attribution, and preserved ancestry.
+- A `ForcedQuestionCorrection` is a separately audited Sysadmin operation for
+  a critical security or correctness flaw. It maps one flawed immutable
+  version to a validated replacement `QuestionVersion` in the stable lineage
+  and records deterministic remediation; it is not ordinary editing or a
+  change proposal.
 
-The exact wire and recovery rules are in
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The codec and
-presentation model are implemented in
-[crates/question_model/src/presentation/model.rs](../crates/question_model/src/presentation/model.rs),
-[crates/question_model/src/presentation/builder.rs](../crates/question_model/src/presentation/builder.rs),
-and [crates/question_model/src/presentation/codec.rs](../crates/question_model/src/presentation/codec.rs).
-The route's authenticated attempt and idempotent replay path is
-[crates/server/src/run/submission.rs](../crates/server/src/run/submission.rs).
+The user-facing action for a `QuestionChangeProposal` is **Suggest an
+improvement**. GitHub is a documentation analogy only; it adds no branch,
+merge, reviewer, or repository semantics. Original authorship, contributor
+credit, history, and compatible Creative Commons licensing remain preserved
+across all four paths. Assignments and graded work retain exact immutable
+version pins and are never changed automatically by a later revision. A
+correction mapping may affect only future unissued resolution and its audited
+remediation; issued and graded evidence remains pinned to the original.
 
-## Capabilities are not IDs
+Published catalog discovery and reuse use current approved-Instructor state.
+The catalog projection releases only its answer-free, content-focused fields.
+It excludes Student-linked data, accepted responses, grades, source packages,
+private grader payloads, provider identifiers and credentials, object keys,
+signed URLs, and workspace identifiers.
 
-Some opaque values must remain private because possession conveys authority.
-They must never be confused with UUID record IDs or checksums.
+## Current and future course relationships
 
-| Capability or secret                                     | Holder and use                                    | Persistence and logging rule                                                                                            |
-| -------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Raw session cookie                                       | Browser and authentication endpoint only          | Storage holds only `SessionTokenHash`; raw token is never persisted.                                                    |
-| Email authentication secret                              | Initiating browser and email recipient only       | Short-lived, single-use, browser-bound; database holds only a hash and it never enters logs or analytics.               |
-| Passkey public credential                                | PLE account boundary                              | The credential/public state is protected account data, not a password verifier or course-Instructor projection.         |
-| `JobLeaseToken`                                          | The worker replica that claimed one job           | Replaced on reclaim; not an HTTP or browser type; debug output redacts it.                                              |
-| `ExternalToolLaunchToken`, launch proof, and lease token | Server-mediated external-tool exchange            | Opaque fixed-size random bytes; never serialized to generic question or submission records.                             |
-| Provider correlation                                     | Private external-tool recovery state              | Persisted only inside the broker boundary; redacted from diagnostics.                                                   |
-| Signed object URL                                        | Short-lived object-storage delivery result        | Created only after authorization and audit; not a durable object identity.                                              |
-| Future file-upload capability                            | Tenant/learner/attempt-bound upload authorization | Not yet issued. File-upload responses fail closed until this server-issued capability and object-commit boundary exist. |
+Current `course_member` relationships provide the closed Student and
+Instructor membership model. Future least-authority relationships are separate
+records; each carries subject `UserId`, exact `CourseId`, relationship kind,
+explicit capability set, issuer and issue time, lifecycle/revision, audit ID,
+and its required disclosure policy.
 
-Session storage is defined in
-[crates/learning-data-access/src/session.rs](../crates/learning-data-access/src/session.rs).
-Job and external-tool capability types are intentionally non-serializable in
-[crates/learning-data-access/src/jobs.rs](../crates/learning-data-access/src/jobs.rs)
-and [crates/learning-data-access/src/external_tool.rs](../crates/learning-data-access/src/external_tool.rs).
-Protected object authorization is owned by
-[crates/learning-data-access/src/asset_delivery.rs](../crates/learning-data-access/src/asset_delivery.rs).
-The current fail-closed file-upload route behavior is in
-[crates/server/src/run/submission.rs](../crates/server/src/run/submission.rs).
+| Relationship                         | Intended projection                  | Identity boundary                                                                                                                                              |
+| ------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Grader                               | Bounded grading work                 | Uses an explicit grant and exact grading target; it does not become a course manager.                                                                          |
+| Course Observer (for example, ADAPT) | Anonymous aggregate grades           | Uses a typed aggregate projection with disclosure thresholds and no Student subject, enrollment, row, small-cell, linkable metadata, answers, or FERPA record. |
+| Student Observer                     | A consent-backed view of one Student | Binds observer, one Student, and one explicit revocable consent/disclosure record.                                                                             |
 
-## UUID size is not a payload problem
+These relationships complement rather than replace course membership. They
+remain separate from Student ownership, Instructor teaching, roster,
+Gradebook, response, export, artifact, assignment-write, and worker predicates
+until each workflow has its complete privacy and disclosure contract.
 
-A canonical UUID is 36 characters in JSON, but PLE sends the attempt UUID once
-in a route, not once per response item. It is insignificant beside request
-headers, a normal question render, or an image asset. A UUID is worth its size
-when it is a durable, independently addressable record: it stays unambiguous
-in logs, database joins, exports, and cross-replica work.
+## Typed operational identities and scopes
 
-Compact identifiers are appropriate only when their scope is intentionally
-small:
+| Identity                 | Scope                                    | Intended use                                                                                                                                                                                        |
+| ------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JobId`                  | Durable queue record                     | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                          |
+| `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                               |
+| Job target scope         | Locked job manifest                      | A tagged `course`, `workspace`, `catalog`, `object`, or `provider` target resolved from immutable job metadata. Handler family, target type, generation, and broker grant agree before work starts. |
+| `ExportId`               | One authorized export request            | Browser may inspect coarse status; a worker resolves frozen private input from the exact authorized scope.                                                                                          |
+| `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `AssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                               |
+| `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                               |
+| `ScoringGeneration`      | Current-score fence                      | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                           |
 
-- use `RenderedItemIdV1` for attempt-presentation selection and ordering;
-- use a validated `AAA-BBBB` Question ID for a human catalog locator;
-- use a generation number for stale-work fencing; and
-- use a nonce, digest token, or capability only for its explicit protocol
-  purpose.
+A worker derives every target from its locked current lease and immutable job
+manifest. Queue payload, retry input, provider response, object reference, and
+caller input are evidence; they do not establish course, workspace, catalog,
+object, or provider authority.
 
-Do not shorten a durable ID solely to save a few JSON characters, and do not
-promote a checksum, generated display number, or short renderer token into a
-global database key.
+## Human-facing references and browser identifiers
 
-## Identity and checksum decision table
+Human-facing locators help people find a permitted record. They are not durable
+authorization facts. The server resolves each locator within `ActorContext` and
+the appropriate parent relationship before returning a record.
 
-| Need                                          | Correct mechanism                                                            | Why                                                                      |
-| --------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Locate one stored attempt                     | `QuestionAttemptId` plus authenticated tenant context                        | Durable identity and RLS authorization are separate checks.              |
-| Select an object as it appeared on screen     | `RenderedItemIdV1`                                                           | Small attempt-specific mapping catches presentation disagreement.        |
-| Preserve authored semantics through shuffling | `ChoiceId`                                                                   | Stable server-side item identity is independent of display order.        |
-| Detect stale or mixed presentation state      | Presentation nonce plus digest token, checked against the full stored digest | Detects state disagreement without pretending to authenticate a request. |
-| Retry a lost submit response safely           | `SubmissionIdempotencyKey` plus request/receipt hashes                       | Distinguishes an exact retry from altered content.                       |
-| Keep only current worker output               | A positive generation fence                                                  | Makes older job output harmless without deleting history.                |
-| Authorize a protected operation               | Session, route authorization, RLS, and where needed an opaque capability     | IDs and checksums alone are never authorization.                         |
+| Value                                                                                                  | Browser use                                        | Server meaning                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QuestionId` (`AAA-BBBB`)                                                                              | Instructor catalog search, display, and selection  | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                 |
+| `CourseReference`, `AssignmentReference`, `RunReference`, `WorkspaceReference`, `CourseGroupReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, `W-`, and `G-` locators resolved only inside the authenticated actor's authorized course or workspace relationship. |
+| `QuestionAttemptId` in a route                                                                         | Names an already issued attempt                    | Server additionally verifies exact active Student ownership/enrollment or permitted current Instructor scope.                                  |
+| `SubmissionIdempotencyKey` header                                                                      | Bounded ASCII key for one retry                    | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                  |
+| `RenderedItemIdV1`                                                                                     | Compact presentation-specific selection value      | Maps only through server-held attempt presentation state to a semantic item identity.                                                          |
+| `PresentationNonceV1` and `PresentationDigestTokenV1`                                                  | Presentation binding values                        | Bind a response to the intended server-generated presentation; neither authorizes a request.                                                   |
+| Normalized hotspot coordinates                                                                         | Integer response coordinates from 0 through 10,000 | Describe a response surface, not pixels, device geometry, or record authority.                                                                 |
+
+`ChoiceId` remains a server-side semantic identity for a choice, slot, match
+endpoint, order item, or hotspot region. `Seed` plus generator version and the
+full stored presentation digest reproduce an issued variant. They are not
+learner authority to select another variant or browser input to define grading.
+
+## Credentials, capabilities, and answer boundaries
+
+| Value                                                        | Holder and use                         | Storage and disclosure boundary                                                                                          |
+| ------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Raw session cookie                                           | Browser and authentication endpoint    | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
+| Email authentication secret                                  | Initiating browser and email recipient | Short-lived, single-use, browser-bound; database stores only a hash.                                                     |
+| Passkey credential state                                     | Account boundary                       | Protected account data, not a course membership or Instructor projection.                                                |
+| `JobLeaseToken` and external-tool tokens                     | Exact worker/broker exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
+| Signed object URL                                            | Authorized delivery result             | Short-lived storage result, not an object identity or reusable browser capability.                                       |
+| Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in catalog, ordinary browser, Wasm, observer, or student-response DTOs.                                     |
 
 ## Maintainer checklist
 
-When adding a new identifier or protocol value, decide and document:
+When adding an identifier or protocol value, document:
 
-1. What exact thing does it name, and who owns it?
-2. Is it durable, human-facing, semantic, presentation-scoped, a stale-work
-   fence, a checksum, or a capability?
-3. Which layer mints it, where is it persisted, and how is it serialized?
-4. Does a tenant-owned record carry `TenantId` directly and receive RLS
-   coverage?
-5. Can a browser or worker derive it from an authenticated attempt or lease
-   instead of resending it?
-6. Does possession authorize anything? If yes, use a bounded opaque capability
-   with expiry, redaction, and an explicit storage boundary rather than a
-   general-purpose record ID.
+1. What exact thing it names and its globally unique or parent-bound scope.
+2. Whether it is durable, human-facing, semantic, presentation-scoped, a
+   stale-work fence, checksum, relationship, or capability.
+3. Which layer mints it, where it is persisted, and which server boundary may
+   serialize it to a browser.
+4. Which exact `ActorContext` predicate, course/Student ownership, workspace
+   relationship, or typed operational scope authorizes its use.
+5. Whether a browser or worker can derive it from an authenticated attempt or
+   current lease instead of resending it.
+6. Whether possession conveys authority. If so, use a bounded opaque
+   capability with expiry, redaction, and an explicit storage boundary.
 
 ## Related documents
 
-- [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) defines publication identity and
-  lifecycle.
-- [QUESTION_MODEL.md](QUESTION_MODEL.md) defines safe public question data and
+- [USER_ROLES.md](USER_ROLES.md) defines the closed current human personas.
+- [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines operation
+  authorization and its migration target.
+- [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) defines publication lifecycle.
+- [QUESTION_MODEL.md](QUESTION_MODEL.md) defines public question data and
   server-only answer material.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines the
-  learner render, response, presentation-consistency, and WeBWorK boundary.
-- [SECURITY_MODEL.md](SECURITY_MODEL.md) defines the authentication, tenancy,
-  grading, storage, and provider security boundaries.
-- [CONTRACTS.md](CONTRACTS.md) registers the frozen inter-module contracts and
-  their change rules.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines learner
+  render, response, and presentation consistency.
+- [SECURITY_MODEL.md](SECURITY_MODEL.md) defines authentication, grading,
+  storage, and provider boundaries.

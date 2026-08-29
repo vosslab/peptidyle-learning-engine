@@ -42,8 +42,7 @@ pub use problem_curation::{
     ProblemCurationStore, ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
 };
 pub use reusable_curriculum::{
-    ReplaceAlphaCourseCommand, ReplaceBlueprintCommand, ReusableCurriculumCapability,
-    ReusableCurriculumStore,
+    ReplaceBlueprintCourseCommand, ReusableCurriculumCapability, ReusableCurriculumStore,
 };
 pub use runs::*;
 pub use scoring_invalidation::*;

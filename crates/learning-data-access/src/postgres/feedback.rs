@@ -102,7 +102,7 @@ impl crate::FeedbackStore for PostgresStore {
         let run = load_postgres_run(&mut transaction, tenant, attempt.run).await?;
         let enrollment = load_postgres_enrollment(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        let learner_self = matches!(
+        let student_self = matches!(
             super::entitlement::evaluate_current_read_only(
                 &mut transaction, tenant, actor, assignment.course_id, assignment.id,
             )
@@ -110,7 +110,7 @@ impl crate::FeedbackStore for PostgresStore {
             domain::entitlement::EntitlementDecision::Granted(ref grant)
                 if grant.student() == enrollment.student
         );
-        if !learner_self
+        if !student_self
             && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
                 .await?
         {
@@ -170,7 +170,7 @@ impl crate::FeedbackStore for PostgresStore {
         let run: AssignmentRun = decode_payload_row(&run_row)?;
         let enrollment = load_postgres_enrollment(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        let learner_self = matches!(
+        let student_self = matches!(
             super::entitlement::evaluate_current_read_only(
                 &mut transaction, tenant, actor, assignment.course_id, assignment.id,
             )
@@ -178,7 +178,7 @@ impl crate::FeedbackStore for PostgresStore {
             domain::entitlement::EntitlementDecision::Granted(ref grant)
                 if grant.student() == enrollment.student
         );
-        if !learner_self
+        if !student_self
             && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
                 .await?
         {
@@ -204,7 +204,7 @@ impl crate::FeedbackStore for PostgresStore {
         // current effective-policy receipt and private feedback required for
         // the projection. The projection separately applies the current
         // assignment disclosure policy and authoritative time; feedback-release
-        // audit records never unlock learner content and are not read here.
+        // audit records never unlock Student content and are not read here.
         let rows = sqlx::query(
             "SELECT CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS attempt_payload, \
                     CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS attempt_sha256, \
@@ -248,7 +248,7 @@ impl crate::FeedbackStore for PostgresStore {
         .bind(after.map(|cursor| cursor.attempt))
         .bind(limit)
         .bind(assignment.id.as_uuid())
-        .bind(learner_self)
+        .bind(student_self)
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

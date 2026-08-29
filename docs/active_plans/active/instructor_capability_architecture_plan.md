@@ -50,6 +50,39 @@ The plan answers two questions, in this order:
 
 The second question is the more valuable one, and it drives the evidence commons in section 6.
 
+### WP-SD1-A5 authority correction
+
+This plan follows the single-installation authority established by WP-SD1. The published-question
+catalog is one global, subject-agnostic corpus for every currently approved Instructor. A vetted
+Instructor may search, inspect, and reuse the same safe published projection regardless of who
+published the question or which courses reference it. Drafts have no catalog visibility: validation
+must succeed before publication, and the draft remains private to its `WorkspaceId` owner and any
+explicitly authorized collaborators.
+
+Approved accounts use the existing passwordless email-code or passkey login path. Sysadmin
+real-identity vetting is the gate to Instructor approval; after approval, every Instructor and
+co-Instructor has the same product capabilities.
+
+Stars are the canonical favorite action and visible vetted-Instructor endorsement; approved Instructors
+can see the star count and which approved Instructors starred. Collections and saved searches are
+separate personal curation owned by `UserId` with private owner visibility. Reusable curriculum drafts use the same owner/collaborator
+workspace rule. Teaching destinations are exact `CourseId` records, and every read or write derives
+the authenticated `UserId` and current relationship on the server. A cross-user or cross-course
+request, former membership, or missing workspace authorization receives the same fail-closed refusal.
+Course creation establishes an ordinary Instructor membership, and every current co-Instructor has the
+same course authority as the first member.
+
+Published `BlueprintCourse` projections are visible and reusable by every vetted Instructor. Their
+unpublished drafts remain private to the owning workspace and its explicit collaborators. `CourseInstance`
+records are private to their current equal co-Instructors and enrolled Students; published questions used
+there remain discoverable through the global corpus, while global evidence never names a private instance.
+Reuse and promotion use an explicit publish-as-Blueprint action or a controlled parent update.
+
+The WP-INST-B1 and WP-INST-B2 identifiers and dated receipts remain registered planning evidence;
+their former parallel Alpha terminology is superseded by the Blueprint-course consolidation. The
+fresh SD1 migration allocation and current source are the implementation authority, so these
+historical receipts do not create a runtime compatibility path.
+
 ## Thesis 1: the work divides into three classes, and only one of them is projection
 
 An inventory across the schema, the domain crates, the store, the server routes, and the canonical
@@ -79,7 +112,7 @@ very different cost, and conflating them would make teams underestimate the foun
 | Search keywords, taxonomy, capabilities             | yes     | partial         | partial | no      | O     |
 | Catalog `quality_signal` column                     | yes     | none            | none    | none    | O     |
 | Entitlement: who has this assignment, and why       | partial | partial         | partial | no      | O     |
-| Question assignability and lineage semantics        | yes     | partial         | partial | no      | O     |
+| Question version stewardship, assignability, and lineage | yes  | partial         | partial | no      | O     |
 | Course term, dates, time zone                       | none    | none            | none    | none    | N     |
 | Effective policy resolver with provenance           | none    | none            | none    | none    | N     |
 | Learner disclosure policy                           | partial | partial         | partial | no      | N     |
@@ -132,7 +165,7 @@ cannot name one does not belong here.
 - Courses are the instructor home workspace; no generic dashboard without a demonstrated
   cross-course task.
 - No learning trees, discussions, clickers, H5P, LMS roster synchronization, or LTI in this scope.
-- No live Alpha/Beta tether that can silently alter an active teaching course.
+- No live reusable-course tether that can silently alter an active teaching course.
 - Privacy-first retention; a sysadmin gets no general course access.
 
 ### Gaps ADAPT exposed that this plan adopts, in Peptidyle form
@@ -149,7 +182,7 @@ cannot name one does not belong here.
 - Question usage and replacement impact -> usage index and explicit replacement impact.
 - Course-wide ungraded work -> instructor attention queue.
 - Term-level date shifting with preview -> term shift through the preview plane.
-- Assignment templates and course import -> blueprints, Alpha curricula, rollover.
+- Assignment templates and course import -> BlueprintCourse content, CourseInstance creation, and rollover.
 
 ### Where Peptidyle is structurally stronger, and this plan presses the advantage
 
@@ -167,7 +200,7 @@ schemas change directly and carry no compatibility readers.
 Ownership tree; each level adds context without changing the layer beneath it:
 
 ```text
-Question ID -> personal collection -> assignment blueprint -> Alpha curriculum assignment
+Question ID -> personal collection -> BlueprintCourse content -> CourseInstance assignment
             -> teaching-course assignment -> issued student run
 ```
 
@@ -187,7 +220,7 @@ accumulated evidence, cross-instructor reuse).
 |     catalog statistics | usage index | improvement threads | attention queue      |
 +---------------------------------------------------------------------------------+
 | L3  Reuse                                                                        |
-|     blueprints | Alpha curricula | clone | rollover | term shift | fast-forward    |
+|     BlueprintCourse | CourseInstance | rollover | term shift | fast-forward          |
 +---------------------------------------------------------------------------------+
 | L2  Teaching operations                                                          |
 |     lifecycle | entitlement | accommodations | pools | live grading       |
@@ -256,7 +289,12 @@ re-invited at a new address; and a materialized record whose derived authority i
 `derived_from_problem_id`, and `derived_from_version_id`. The roadmap says assignments reference
 "currently assignable" questions without owning what assignability means, who may change it, and
 what happens to assignments already using a question that becomes deprecated. This plan makes
-assignability an explicit contract and ties deprecation to the usage index and the attention queue.
+assignability an explicit contract and ties deprecation to the usage index, version stewardship,
+controlled adoption, and the attention queue. Published versions remain immutable; exact assignment
+pins never follow a successor automatically.
+The legacy `previous_version_id` field is not a public identity or latest pointer; the SD1 stewardship
+schema replaces that assumption with an immutable same-QuestionId version-history relation and explicit
+public fork lineage.
 
 ### 2.7 Scoring generation and regrade
 
@@ -274,11 +312,12 @@ share, shown while editing. The grade scheme in section 4 consumes this and must
 
 ### 2.9 Orphan schema decisions
 
-- `problem_collection` and `problem_collection_member`: **adopt**. They match the collections design
-  and already carry `visibility` of `private`, `institution`, or `public`. Version 1 exposes private
-  and institution; public collections wait until an owner needs them.
+- `problem_collection` and `problem_collection_member`: **adopt** for UserId-owned personal curation.
+  Collections are private to their owner unless a separately authorized workspace collaborator is
+  present; collection sharing is not a product capability in this plan. Public
+  catalog discovery remains the shared path for published questions.
 - `catalog_search_document.keywords` and `taxonomy`: **adopt** as the discovery vocabulary, with the
-  assisted-tagging pathway in section 6.5.
+  assisted-tagging pathway in section 6.6.
 - `catalog_search_document.quality_signal`: **adopt** as the evidence-derived ranking input in
   section 6.1, with its computation defined; otherwise remove it rather than leaving an unexplained
   ranking column in the schema.
@@ -297,7 +336,7 @@ learner at all; modifiers shape the window and limits.
    GATES (hard, evaluated first, cannot be widened by a modifier)
    G1 lifecycle        draft | published | closed | archived
    G2 entitlement      roster state + audience + group membership   (owned by WP-INST-S5)
-   G3 authorization    tenant, membership, revocation
+   G3 authorization    authenticated UserId, exact workspace or CourseId relationship, revocation
 
    MODIFIERS (most specific non-null wins; each carries its source)
    M1 base assignment policy      available / due / closes / limits / late rule
@@ -481,12 +520,12 @@ This plan extends that contract rather than inventing a parallel one.
 
 - **Comparable observations only.** An aggregate combines observations of the same exact internal
   `(ProblemId, VersionId)` under comparable delivery: same response family, and item scoring not
-  excluded. A comparison is only between explicitly linked replacement questions and their source;
-  their observations are stated separately and never blended.
-- **Independence.** Each tenant contributes at most one observation per learner for an exact
-  `(ProblemId, VersionId)`, selected from that learner's first eligible assigned run and its first
-  scored attempt. A domain-separated anonymous learner fingerprint enforces this boundary across
-  assignments and courses and remains after ordinary learner-record retention. Tenant boundaries
+  excluded. A comparison is only between explicitly linked versions or replacement questions and
+  their source; their observations are stated separately and never blended.
+- **Independence.** Each course contributes at most one observation per Student for an exact
+  `(ProblemId, VersionId)`, selected from that Student's first eligible assigned run and its first
+  scored attempt. A domain-separated anonymous Student fingerprint enforces this boundary across
+  assignments and courses and remains after ordinary Student-record retention. Course boundaries
   remain independent. Attempt counts and time describe the selected first exposure as behavior.
 - **Context is disclosed, not hidden.** Every figure carries cohort size and course count. A
   cross-course figure never claims causal comparability between courses; it describes the pooled
@@ -507,34 +546,91 @@ worked elsewhere". `catalog_search_document.quality_signal` is the existing home
 computed only from disclosed aggregates that pass section 6.0 and is shown as decomposed inputs
 with its sample size: "used in 14 courses, 612 independent learner observations, difficulty 0.62,
 discrimination 0.42". Questions with insufficient evidence rank on relevance alone and say so.
+The catalog and version-history views identify the selected public QuestionId and version status;
+they never imply that a newer version replaces an exact pin.
 
 ### 6.2 Understand where a question is used, before changing anything
 
-The **usage index** maps a published question to the assignments, courses, collections, and Alpha
-curricula that reference it, with tenant-safe aggregation: an author sees counts and their own
-courses by name, never another instructor's course. It powers the "used in my courses" facet, an
-explicit replacement-impact review, safe deprecation, and analysis navigation.
+The **usage index** maps a published question to the assignments, courses, collections, and reusable
+curricula that reference it. An Instructor sees the global published question and disclosed
+installation-wide counts, plus the exact names of CourseInstances they currently teach; global
+evidence never names a private CourseInstance. Another user's CourseInstance, assignment, roster,
+or private curriculum is never a readable target. The index powers the "used in my courses" facet,
+an explicit replacement-impact review, safe deprecation, and analysis navigation without widening
+cross-user or cross-course authority.
 
 ### 6.3 Measure whether a replacement actually helped
 
-Attempts carry the exact internal version evidence for the question that was issued. A correction
-publishes a distinct replacement question with a new Question ID, while the source keeps its
-evidence. Peptidyle can therefore compare explicitly linked source and replacement questions under
-the section 6.0 rules: each question must independently clear the disclosure threshold, the
-comparison names both Question IDs and cohort sizes, and it is presented as a description of two
-cohorts rather than a causal claim. Where the cohorts differ materially in course composition, the
-comparison says so instead of reporting a difference. No publication or background action moves an
-assignment; an Instructor explicitly chooses a replacement. ADAPT cannot compute this at all,
+Attempts carry the exact internal version evidence for the question that was issued. A semantic
+correction may publish a new immutable version under the steward's existing Question ID; a major
+semantic change receives a new Question ID with explicit public fork or replacement lineage. Existing
+assignments and issued runs remain pinned to their exact version. Peptidyle can therefore compare
+explicitly linked source and replacement questions under the section 6.0 rules: each question version
+must independently clear the disclosure threshold, the comparison names both Question IDs and exact
+versions plus cohort sizes, and it is presented as a description of two cohorts rather than a causal
+claim. Where the cohorts differ materially in course composition, the comparison says so instead of
+reporting a difference. No publication or background action moves an assignment; an Instructor
+explicitly adopts a version through the controlled update path. ADAPT cannot compute this at all,
 because each course holds a private copy. This makes a replacement a measurable act rather than a
 hopeful one.
 
 ### 6.4 Compare a linked replacement with its source
 
 Explicit immutable provenance records lineage. A replacement question and its source can be compared
-on disclosed aggregates under the same rules, so an instructor choosing between them sees evidence
-rather than titles, and an author learns whether the replacement improved on its source.
+on disclosed aggregates under the same rules, so an Instructor choosing between them sees evidence
+rather than titles, and a steward learns whether the replacement improved on its source.
 
-### 6.5 Make the corpus discoverable with assisted tagging (separable package)
+### 6.5 WP-SD1-A5 question stewardship and version workflow
+
+The published corpus keeps an immutable version history for every public `QuestionId`. Each version
+stores an exact server-side `QuestionVersionRef` (`ProblemId`, `VersionId`), immutable content and
+grading inputs, publication state, provenance, and version-specific evidence pointers. Assignments,
+BlueprintCourses, CourseInstances, and issued runs pin the exact version they use; no consumer resolves
+"latest" and no version is edited in place. The public QuestionId remains the stable lineage identity,
+while the internal version reference remains hidden from Instructor and Student selectors.
+
+- The original author or author set remains steward of same-QuestionId version history. A steward
+  publishes a new version only after the draft passes validation and the semantic-change review. The
+  history records the classification, reason, actor, and immutable predecessor reference.
+- Any vetted Instructor may inspect a published version and fork it into a private `WorkspaceId`
+  draft. The draft is not catalog-visible until validation and publication succeed. Publishing a fork
+  creates a new QuestionId with public `derived_from` lineage; it never changes the source QuestionId
+  or its versions. Forks carry the source version and public provenance, not private source or answer
+  material.
+- Stars are the canonical visible favorite endorsement. A separate private personal watch on a published
+  QuestionId or version lets a vetted Instructor receive in-app update, fork, improvement, and impact
+  work. Watches expose no private workspace, CourseInstance, roster, or learner evidence.
+- Every proposed version receives one semantic classification before publication: a non-grading
+  correction or ordinary revision stays under the same QuestionId; a grading correction routes
+  affected exact pins through impact analysis and generation-fenced recalculation before an authorized
+  CourseInstance update; a major semantic change receives a new QuestionId and explicit lineage. The
+  classification is immutable evidence, not a browser-supplied authority claim.
+- A Sysadmin-approved `ForcedQuestionCorrection` handles a validated replacement when active teaching
+  requires immediate remediation. It is a correction workflow, never quarantine: one local atomic
+  commit activates the authoritative correction mapping and generation, so new resolution follows it
+  immediately. Bounded idempotent, generation-fenced workers then consume the immutable
+  impact/remediation manifest and materialize each CourseInstance binding and recalculation in its own
+  bounded transaction. In-progress work is deterministically reissued or excused, completed work
+  receives superseding correction and recalculation receipts, and every original version and historical
+  pin remains immutable. The replacement follows its semantic classification; no per-course approval
+  follows global Sysadmin approval. Instructors receive audited impact and result projections, while the
+  Sysadmin projection remains FERPA-safe.
+- Course and Blueprint adoption is controlled. A CourseInstance or BlueprintCourse owner or authorized
+  equal co-Instructor reviews the published version, disclosed impact, and provenance, then explicitly
+  adopts it. The action records the exact destination CourseId and version. It never silently rewrites
+  an assignment, issued run, BlueprintCourse, or CourseInstance. A Blueprint parent update is explicit;
+  resulting daughter-instance definitions remain unreleased until an Instructor releases them.
+- Version-specific attempts, correct/incorrect outcomes, and choice distributions contribute only to
+  that exact version. Each contribution obeys the section 6.0 privacy threshold and anonymous
+  independence rules. Global evidence remains answer-free and privacy-safe and never identifies a
+  private CourseInstance.
+
+The workflow is discover -> inspect version history -> star/watch -> fork or steward-edit -> validate ->
+classify -> publish -> review impact -> explicitly adopt or create a linked replacement -> record the
+improvement thread. In-app work surfaces expose update, fork, improvement, and impact actions while
+preserving the actionable Instructor queue in section 7.
+
+### 6.6 Make the corpus discoverable with assisted tagging (separable package)
 
 Discovery fails when questions are untagged, and hand-tagging a large corpus does not happen in
 practice. Assisted tagging closes that gap, and it is deliberately **not on the critical path**: the
@@ -562,7 +658,7 @@ Boundaries, if it is built:
 This is metadata assistance, not generated educational content; the standing non-goal on generated
 content is unchanged.
 
-### 6.6 Give authors the feedback loop that improves the corpus
+### 6.7 Give authors the feedback loop that improves the corpus
 
 An author sees disclosed aggregate evidence for their own published questions: where behavior looks
 wrong, which items are widely adopted, and whether their explicitly linked replacements helped. That closes the loop
@@ -577,7 +673,7 @@ Item analysis must not terminate at a chart. The loop is the product.
    notice ----> inspect ----> understand reach ----> act ----> decide ----> carry forward
    flagged      learner       usage index and        fork,     recorded    next term's
    item in      work and      catalog evidence       publish   decision    assignment or
-   my course    distribution                         replace,  with        Alpha shows the
+   my course    distribution                         replace,  with        Blueprint shows the
                                                      retire,   reason      decision
                                                      keep
 ```
@@ -589,9 +685,11 @@ Item analysis must not terminate at a chart. The loop is the product.
   `audit_event` tables. This is the missing gradebook drill-down.
 - **Understand reach**: the usage index and catalog statistics say whether the problem is local to
   this class or visible everywhere, which is the difference between "my teaching" and "this item".
-- **Act**: open the author workspace when owned, publish a distinct linked replacement when a content
-  change is needed, deliberately replace the item in a future assignment, or retire it from a
-  collection or blueprint. Issued evidence is never altered.
+- **Act**: open the private author workspace when owned, fork a published version when it is not owned,
+  classify and publish a stewarded same-QuestionId version or a distinct linked replacement, route a
+  grading correction through impact and generation-fenced recalculation, deliberately adopt a version
+  in a future assignment or BlueprintCourse, or retire it from a collection. Issued evidence is never
+  altered.
 - **Decide and carry forward**: an **improvement thread** records the decision and attaches to the
   question and to the assignment or blueprint, so the reason a question was replaced survives the
   Instructor's memory.
@@ -601,13 +699,14 @@ into a second task-management system:
 
 - **Fields**: subject (question plus optional assignment item), observation, state, action taken,
   reason, actor, created and resolved timestamps. Nothing else.
-- **States**: `open` -> `resolved` (with one action: replacement published, forked, replaced,
-  retired, kept) or
+- **States**: `open` -> `resolved` (with one action: version published, replacement published,
+  grading correction recalculated, forked, replaced, retired, kept) or
   `dismissed`. No reopening; a later concern is a new thread.
 - **Ownership**: the instructor who created it. Co-instructors of the same course may resolve it.
-- **Visibility**: course instructors always; the question's author sees an anonymized existence
-  signal only when the thread resolves to replacement published or forked, because that is feedback about their
-  published question.
+- **Visibility**: course instructors always; the question's steward sees an anonymized existence
+  signal only when the thread resolves to replacement published or forked, because that is feedback
+  about their published question. A watched Instructor sees only the in-app update, fork, improvement,
+  or impact action for the published question and its disclosed evidence.
 - **Propagation**: a clone or rollover copies resolved threads as **read-only annotations** on the
   affected item. Copies never re-open, never accumulate a chain, and never travel to a third
   generation; the annotation records the origin course reference and date.
@@ -696,7 +795,7 @@ least-privilege execute-only PostgreSQL brokers: safe normal Sysadmin approval-c
 and a read-only completed live-demo installation-generation lookup. The accepted generation-read
 broker is a narrow auth-owned installation-state read; it grants no role and writes no lifecycle,
 identity, passkey, or session state. The separate `2026081810` allocation is only for the
-discovered Student pre-tenant account-course context repair: it must retain active Student contexts
+discovered Student account-course context repair: it must retain active Student contexts
 without disclosing archived, deleted, or started-retention course records, leave Instructor behavior
 unchanged, and prove connected Student login. Sysadmin remains a normal account and passkey flow with
 full ordinary Sysadmin capabilities.
@@ -803,12 +902,18 @@ T3 does not rebrand, remove, or use it as its identity-free subject contract.
   detail page. Both gaps are promises the active release plan already made.
 - Extend filters: author byline, response family, backend, tag, taxonomy, license, capability,
   disclosed evidence, and course usage.
-- Adopt `problem_collection`: private and institution visibility, one built-in Favorites collection
-  per Instructor, flat named collections, revision-checked.
+- Adopt `problem_collection`: UserId-owned private visibility, flat named collections, and
+  revision-checked membership. A collection never grants
+  access to another user's curation or to a foreign course; the global published catalog remains
+  the shared discovery surface.
 - `SavedProblemSearch` stores a normalized query, never a frozen result list.
-- One `ProblemPicker` serves every source: catalog, my published questions, a collection, retained
-  course definitions, and Alpha curricula. Library, assignment editor, blueprint editor, and Alpha
-  authoring all use it, so selection behavior and metadata vocabulary cannot diverge.
+- One `ProblemPicker` serves every source: the global published catalog, my published questions, a
+  collection, retained CourseInstance definitions, and globally published BlueprintCourses plus
+  workspace-authorized drafts. Library, assignment editor, and BlueprintCourse authoring all use it,
+  so selection behavior and metadata vocabulary cannot diverge.
+- A personal `UserId` watch follows a published QuestionId or exact version and exposes only in-app
+  update, fork, improvement, and impact actions. It never grants access to private source, course
+  records, roster data, or learner evidence.
 - **Item pools**: project the existing selection-group schema through the assignment editor. Draw N
   of M, per-item points, ordering policy, stored algorithm version, filled directly from a
   collection. Pools obey the first-issued-run rules and appear in the preview plane.
@@ -818,26 +923,37 @@ T3 does not rebrand, remove, or use it as its identity-free subject contract.
 
 ## 10. Reusable curriculum
 
-- Blueprints are personal reusable-assignment aggregates. They are non-enrollable and remain separate
-  from teaching assignments, teaching courses, memberships, and learner work.
-- Alpha curricula are a separate shared-curriculum aggregate alongside FERPA-bearing teaching
-  courses. They are non-enrollable, public to approved Instructors, and use a human route such as
-  `AC-123` with creator-only editing. B1 provides inspection and question reuse; B2 adds fork and
-  instantiate. The names `Blueprint` and `Alpha` identify those respective reusable aggregates.
-- Students cannot join, receive assignments, run, or generate grades, because Alpha records have no
-  relationship to teaching membership or activity tables.
-- An Alpha stores an ordered curriculum with module or week labels and calendar-relative
-  availability, due, and close defaults, using calendar days and local wall-clock values.
-- Alpha assignments may carry **evidence context**: the disclosed catalog statistics for their items,
-  so an instructor adopting a curriculum sees expected difficulty before teaching it.
-- Cloning copies definitions, policies, theme defaults, and reviewed offsets. It never copies
-  students, invitations, groups containing students, accommodations, runs, responses, grades,
-  retention state, or co-instructors. It requires the target course term and previews every resolved
-  date.
+- `BlueprintCourse` is the one canonical reusable-course aggregate. It owns reusable content and
+  structure, is UserId-owned, has no Students or live deadlines. Its unpublished draft is private to
+  its owning `WorkspaceId` plus explicitly authorized collaborators; its published projection is
+  visible and reusable by every vetted Instructor.
+- ADAPT's former Alpha-course vocabulary is comparison history only. Peptidyle has no Alpha product
+  type, route, Store, schema branch, or compatibility alias. The B1 package keeps its registered
+  work-package identity while consolidating the old personal-blueprint and Alpha branches into one
+  `BlueprintCourse` model.
+- `CourseInstance` is the exact teaching `CourseId` created from a BlueprintCourse. It owns enrollment,
+  deadlines, releases, accommodations, grades, delivery settings, and Student activity. A BlueprintCourse
+  remains separate from CourseInstance records and never receives learner work directly.
+- Every CourseInstance has exactly one non-null, immutable BlueprintCourse parent and records the applied
+  Blueprint revision. A blank-course flow creates a minimal BlueprintCourse before it creates the
+  CourseInstance. A referenced BlueprintCourse archives instead of being hard-deleted. Delivery settings
+  remain CourseInstance-owned and never flow upstream automatically.
+- A BlueprintCourse stores an ordered curriculum with module or week labels and reusable content
+  definitions. It does not store live availability, due, or close deadlines; those resolve when a
+  CourseInstance is created.
+- BlueprintCourse assignments may carry **evidence context**: disclosed catalog statistics for their
+  items, so an Instructor creating a CourseInstance sees expected difficulty before teaching it.
+- Creating a CourseInstance copies definitions, policies, theme defaults, and reviewed offsets only
+  after the source owner or authorized collaborator is allowed to read it. It never copies Students,
+  invitations, groups containing Students, accommodations, runs, responses, grades, retention state,
+  or co-Instructors. It requires an exact target `CourseId` and course term and previews every resolved
+  date. New assignments added to the BlueprintCourse propagate to daughter CourseInstances as
+  unreleased definitions; an Instructor explicitly releases them through the CourseInstance boundary.
 - Each imported assignment records its source and a normalized baseline manifest. Untouched
   definitions before the first issued run may fast-forward; diverged ones offer side-by-side selected
-  copying and never an automatic merge. Delivery dates and accommodations are teaching-owned.
-- Improvement threads travel with the curriculum, so an instructor adopting an Alpha sees why an item
+  copying and never an automatic merge. Published question-version adoption is separately reviewed and
+  explicitly committed; delivery dates and accommodations are teaching-owned.
+- Improvement threads travel with the curriculum, so an Instructor adopting a BlueprintCourse sees why an item
   was replaced last term.
 - Term shift applies one offset across a course with full preview and the same DST validation.
 
@@ -901,7 +1017,7 @@ Section 3.3 fixes the state model; this section fixes who acts.
 
 ## Non-goals
 
-- No live Alpha/Beta tethering, no three-way merge engine, no in-product contribution proposals.
+- No live reusable-course tethering, no three-way merge engine, no in-product contribution proposals.
 - No learning trees, discussions, clickers, LMS roster sync, research exports, generated educational
   content, or a generic dashboard.
 - No Manager, Publisher, Grader, Tester, or teaching-assistant roles.
@@ -920,7 +1036,7 @@ M1  Course spine         Term, policy resolver, disclosure, entitlement, groups,
 M2  Teaching projection  Lifecycle, schedule, accommodations, pools, preview, live delivery.
 M3  Discovery commons    Search metadata, collections, picker, usage index, evidence validity.
                          Assisted tagging is an optional package, not on the critical path.
-M4  Reusable curriculum  Blueprints, Alpha curricula, clone, rollover, term shift, fast-forward.
+M4  Reusable curriculum  Blueprint courses, clone, rollover, term shift, fast-forward.
 M5  Evidence to action   Grader-exception routing, recalculation, audited work inspection,
                          analysis, improvement threads, attention queue.
 M6  Connected term       Prove the whole Instructor cycle at term scale on the final tree.
@@ -933,11 +1049,11 @@ open release-track activation gates. It delivers trigram and relevance search,
 relevance-bound cursors, available-statistics rendering, a live discovery journey, and the
 immutable-question release truth. WP-R1 closeout also replaces the Chapter One pilot/browser and
 aggregate-acceptance shell orchestration with Python over the existing typed `local_stack_control`
-boundary. Exit: exact Question ID behavior intact; content changes publish
-a new Question ID with fresh opaque hidden `ProblemId` and `VersionId`; no publication or background
-action advances an assignment; no sequential or version-chain question identity survives; broad and
-misspelled searches return intended fixtures; facets and pages are snapshot-consistent;
-representative plans use indexes. Two lanes maximum.
+boundary. Exit: exact QuestionId behavior and immutable version history are intact; stewarded corrections
+and ordinary revisions publish exact new versions under the same QuestionId, while major semantic changes
+publish a new QuestionId with public lineage; no publication or background action advances an assignment;
+no consumer resolves "latest"; broad and misspelled searches return intended fixtures; facets and pages
+are snapshot-consistent; representative plans use indexes. Two lanes maximum.
 
 Status on 2026-08-14: WP-R0 is accepted with its named Memory, server, source-line, clean
 PostgreSQL baseline, and independent-review evidence. WP-R1 is accepted with disclosed statistics,
@@ -994,7 +1110,7 @@ may prepare and review a candidate baseline earlier, but it must not replace the
 Exit: the entitlement component is the single source of the entitlement verdict and its reason; the
 resolver is the single source of window, limit, and lateness, consuming that verdict as gate G2 and
 returning both with per-field provenance; disclosure is evaluated server-side for every learner
-projection; grade totals compute in the two shipped modes with documented rounding; Alpha records
+projection; grade totals compute in the two shipped modes with documented rounding; BlueprintCourse records
 cannot participate in any enrollment relationship. Completion-mode examples remain deferred design
 work and do not enter the S6 evaluator or consumer contracts; M1 exits with the two shipped modes.
 Three lanes after the serial core.
@@ -1021,27 +1137,32 @@ current answer-free learner landing while retaining Instructor identity. Three l
 
 ### M3 Discovery commons
 
-Depends on M1 and accepted WP-R2; runs beside M2. Delivers expanded search metadata, the usage index, collections and
-Favorites, saved searches, bulk selection, the shared `ProblemPicker` adopted by Library and
+Depends on M1 and accepted WP-R2; runs beside M2. Delivers expanded search metadata, the usage index, Stars,
+collections, saved searches, bulk selection, the shared `ProblemPicker` adopted by Library and
 assignment editor, the validity contract, and quality-signal computation with disclosed inputs.
 Assisted tagging (`WP-INST-D3`) is an optional package inside this milestone: nothing else depends on it,
 and M3 exits without it.
 
 Exit: one selection component and one metadata vocabulary across sources; usage and quality
-aggregates leak no cross-tenant record and suppress below threshold; human taxonomy editing is
-sufficient to make the corpus discoverable. If `WP-INST-D3` ships, no tag reaches the catalog without a
-confirming user and recorded model provenance. Two lanes plus the optional package.
+aggregates expose only the global published-catalog projection, disclosed counts, and the actor's
+own authorized courses, while suppressing below threshold; human taxonomy editing is sufficient to
+make the corpus discoverable. If `WP-INST-D3` ships, no tag reaches the catalog without a confirming
+user and recorded model provenance. Two lanes plus the optional package.
 
 ### M4 Reusable curriculum
 
-Depends on M2 and M3. B1 establishes personal blueprints and public Alpha authoring, typed references,
-creator-owned revision authority, approved-Instructor reads, answer-free evidence context, and shared
-picker reuse. Its exit is a live creator workflow plus Memory and PostgreSQL proof of cross-tenant
-approved-Instructor reading and structural separation from learner activity. B2 then adds fork,
-instantiate, rollover, term shift, date resolution, normalized manifests, fast-forward, and selected
-copy. M4 exits after seeded approved-Instructor roles in separate tenants discover and instantiate an
-Alpha. The derived teaching course carries curriculum definitions while retaining its declared empty
-learner-record state, and preview identifies an ambiguous local time for correction.
+Depends on M2 and M3. B1 establishes UserId-owned BlueprintCourse content and private curriculum workspaces,
+typed references, owner/collaborator revision authority, global published-Blueprint visibility and reuse
+for vetted Instructors, approved-Instructor discovery of the global published-question corpus, evidence
+context, and shared picker reuse. Its exit is a live owner workflow plus Memory and PostgreSQL proof of
+private-draft authorization, global published-catalog discovery, exact cross-user refusal, and structural
+separation from learner activity. B2 then adds global published-BlueprintCourse fork, owner-authorized
+private-draft fork, exact-CourseId CourseInstance creation, rollover, term shift, date resolution,
+normalized manifests, fast-forward, and selected copy. M4 exits after an approved Instructor reads an
+authorized source and instantiates it into an exact destination CourseId; an unrelated user or course is
+refused. The derived CourseInstance carries curriculum definitions
+while retaining its declared empty Student-record state, and preview identifies an ambiguous local time for
+correction.
 
 ### M5 Evidence to action
 
@@ -1050,8 +1171,9 @@ and recalculation; learner-work inspection with audit and a grade-scheme-aware g
 analysis, catalog evidence, linked replacement comparison, improvement threads, and the attention
 queue. Exit: a deterministic grader exception is routed by question, audited, retried or repaired,
 and recalculated into a current course total without human scoring; a flagged item leads through
-inspection and usage to a distinct linked replacement; the decision is recorded and visible next
-term; the replacement's effect is measurable against its source. Three lanes.
+inspection and usage to a classified same-QuestionId revision or distinct linked replacement; grading
+corrections route through impact and recalculation; the decision is recorded and visible next term; the
+replacement's effect is measurable against its source. Three lanes.
 
 ### M6 Connected term
 
@@ -1078,21 +1200,21 @@ P1 finding.
 | WP-INST-T1  | Expert coder         | Lifecycle, schedule, late policy, instructions, scoring status                                                                                                                                                                                                                                                                                | WP-INST-S3                                                                               |
 | WP-INST-T2  | Expert coder         | Groups, entitlement, accommodations, co-instructors, retention                                                                                                                                                                                                                                                                                | WP-INST-S5, WP-INST-T1                                                                   |
 | WP-INST-LD1 | Integrator           | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof                                                                                                                                                                                       | WP-INST-T2 accepted                                                                      |
-| WP-INST-LD2 | Expert coder         | Direct entry for five seeded personas through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup; `2026081810` only repairs Student pre-tenant account-course retention                  | WP-INST-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
+| WP-INST-LD2 | Expert coder         | Direct entry for five seeded personas through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup; `2026081810` only repairs Student account-course retention                  | WP-INST-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
 | WP-INST-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state against the production browser graph                                                                                                                                                                              | WP-INST-LD2 accepted                                                                     |
 | WP-INST-T3  | Expert coder         | Accepted 2026-08-22: frozen-scope identity-free preview plane with real-stack browser and canonical screenshot evidence                                                                                                                                                                                                                       | WP-INST-S4, WP-INST-T1, WP-INST-LD1 accepted, WP-INST-LD2 accepted, WP-INST-BS1 accepted |
 | WP-INST-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                             | WP-INST-T3 accepted                                                                      |
 | WP-INST-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                                             | WP-INST-T1 accepted                                                                      |
 | WP-INST-D1  | Expert coder         | Accepted 2026-08-25: ranked metadata search, actor-scoped usage, first-attempt validity, disclosed evidence, and deterministic answer-free generated examples; canonical PostgreSQL, production HTTPS, screenshot, review, and final Validation evidence passed                                                                               | WP-INST-S7, WP-R2                                                                        |
-| WP-INST-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                                        | WP-INST-D1 accepted                                                                      |
+| WP-INST-D2  | Coder                | Accepted 2026-08-25: live vetted-Instructor Stars and private collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                                        | WP-INST-D1 accepted                                                                      |
 | WP-INST-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                            | WP-INST-D1                                                                               |
-| WP-INST-B1  | Expert coder         | Accepted 2026-08-25: revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-INST-D2 accepted, WP-INST-S7 accepted                                                 |
+| WP-INST-B1  | Expert coder         | Accepted 2026-08-25: revisioned UserId-owned Blueprint courses and owner-authorized curriculum workspaces with typed references, explicit publication state, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-INST-D2 accepted, WP-INST-S7 accepted                                                 |
 | WP-INST-B2  | Expert coder         | Accepted 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, divergence recovery, canonical PostgreSQL/browser/screenshot evidence, and final Validation passed                                                                                                                            | WP-INST-B1 accepted, WP-INST-T1 accepted                                                 |
 | WP-INST-T6  | Expert coder         | Accepted 2026-08-27: linked assignment home, separate Questions and Policies pages, focused revision-checked mutations, persisted incomplete drafts, and Instructor-authorized answer-free Student view; binding plan at `docs/active_plans/active/instructor_assignment_workspace_plan.md`                                                   | WP-INST-T3, WP-INST-LD3, WP-INST-T5 accepted                                             |
 | WP-INST-G1  | Expert coder         | Accepted 2026-08-28: automated-grading operation queue grouped by question/learner, deterministic-grader exception routing, bounded retry, generation-fenced recalculation, immutable operation receipts, canonical live recovery, independent review, and final Validation passed                                                            | WP-INST-T2, WP-INST-T6                                                                   |
 | WP-INST-WN1 | Expert coder         | Current: [repository-wide wire naming contract migration](wire_naming_contract_migration_plan.md): current pre-WN1 lower-camel transport, then revised WN1-A/B/C1-C6/QM/WA/D/F for Rust-owned direct snake PLE data-object fields/discriminants, pure route-contract ownership, external boundary preservation, and evidence-gated durable transitions | accepted prerequisites; WN1-A independent ledger acceptance |
 | WP-INST-G2  | Expert coder         | Implemented, acceptance-open: [roster-first calculated Gradebook and audited Student-work inspection](audited_student_work_gradebook_plan.md); WN1 is its corrective prerequisite before remaining visual/documentation close-out | WP-INST-S6, WP-INST-G1, WP-INST-WN1 accepted |
-| WP-INST-G3  | Coder                | Item and course analysis connected to catalog evidence, audited Student-work context, and explicitly linked replacement/source impact                                                                                                                                                                                                         | WP-INST-G1, WP-INST-G2, WP-INST-D1                                                       |
+| WP-INST-G3  | Coder                | Item and course analysis connected to version-specific catalog evidence, audited Student-work context, semantic-change classification, explicitly linked replacement/source impact, grading-correction recalculation, and Sysadmin-approved ForcedQuestionCorrection                                                                                                                                                                                                         | WP-INST-G1, WP-INST-G2, WP-INST-D1                                                       |
 | WP-INST-G4  | Coder                | Durable question-improvement threads that preserve evidence, decisions, replacement links, and next-term context                                                                                                                                                                                                                              | WP-INST-G3, WP-INST-B2                                                                   |
 | WP-INST-G5  | Coder                | Actionable Instructor work queue for grader exceptions, recalculation failures, active replacement impact, and unresolved improvement threads under the actionability predicate                                                                                                                                                               | WP-INST-G4, WP-INST-T2                                                                   |
 | WP-INST-E1  | Playwright           | Behavior-named Instructor journeys and live-stack evidence                                                                                                                                                                                                                                                                                    | all behavior WPs                                                                         |
@@ -1206,16 +1328,18 @@ exact-version observations, first eligible scored attempts, and the existing dis
 The interface shows cohort and course context, renders "More evidence is needed" when disclosure
 conditions are not met, and ranks insufficient-evidence questions on relevance alone. Every
 disclosed signal exposes its inputs and sample context. Usage identifies the actor's authorized
-courses by name and presents other institutional use only through tenant-safe aggregates.
+courses by name and presents other-course use only through disclosed aggregate evidence; it never
+exposes another user's course, assignment, roster, or private workspace.
 
 D1 establishes the shared discovery contracts consumed by later packages:
 
-- WP-INST-D2 adds collections, Favorites, saved searches, bulk actions, and the reusable
+- WP-INST-D2 adds Stars, collections, saved searches, bulk actions, and the reusable
   `ProblemPicker`; it consumes D1 query, facet, evidence, and usage projections.
 - WP-INST-D3 adds optional assisted-tag proposals, confirmation, and provenance; D1 remains fully
   usable with human-managed taxonomy.
-- WP-INST-G3 adds item/course analysis workflows and linked replacement-impact interpretation; it
-  consumes D1's validity-governed evidence and usage boundary.
+- WP-INST-G3 adds item/course analysis workflows, version-specific evidence, semantic-change
+  classification, and linked replacement-impact interpretation; it consumes D1's validity-governed
+  evidence and usage boundary.
 
 **Dependency order.** Accepted WP-INST-S7 public references and WP-R2 immutable publication supply
 the stable catalog identity. D1 then establishes closed query and result projections,
@@ -1229,7 +1353,7 @@ those focused contracts are green.
 | Layer                             | Required evidence                                                                                                                                                                                                                                                                                                                                                                                        |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Domain, Store, and server         | Closed query/filter and result contracts preserve the opaque relevance cursor and snapshot boundary; strict decoders reject unknown response families and malformed filters; authorization resolves before protected actor-usage input; browser responses remain answer-free. Memory and PostgreSQL Stores agree on filtering, ranking, evidence suppression, and actor-scoped usage.                    |
-| PostgreSQL and RLS oracle         | The disposable database baseline runs the ranked-catalog cursor and continuation tests plus `postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bound`. It proves immutable append-only evidence revisions, first-attempt independence, cross-course disclosure, snapshot-consistent reads, tenant isolation, and own-course detail under forced RLS.                                  |
+| PostgreSQL and RLS oracle         | The disposable database baseline runs the ranked-catalog cursor and continuation tests plus `postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bound`. It proves immutable append-only evidence revisions, first-attempt independence, cross-course disclosure, snapshot-consistent reads, global catalog visibility, exact own-course detail, and refusal of foreign-course detail under forced RLS.                                  |
 | Real-stack browser journey        | The production HTTPS `catalog_discovery_evidence` scenario uses visible PLE workflows. Seed the Instructor, Student, course, question, and taxonomy state required to demonstrate an initial insufficient-evidence state and a disclosed update. Library filters exercise byline, backend, taxonomy, response family, and own-course use, while each seeded role sees only its authorized course detail. |
 | Visual and accessibility evidence | Capture Instructor discovery in the canonical 1280 by 800 desktop profile. Review Library search, filter controls, result cards, evidence, and usage detail for readable hierarchy, keyboard-complete controls, recovery, and compact instructor use. Publish through the canonical screenshot corpus and provenance gate.                                                                               |
 | Independent review                | Architecture, security/privacy, HCI/accessibility, and documentation/evidence review the final D1 artifact against this contract. Resolve every P0 through P3 finding before acceptance.                                                                                                                                                                                                                 |
@@ -1239,24 +1363,26 @@ D1 is accepted when every required focused gate, real-stack journey, semantic de
 independent review, screenshot publication gate, and full Validation gate is green on the final
 material tree.
 
-**WP-INST-D2 binding contract.** One `ProblemCurationStore` aggregate owns personal Favorites,
-flat named collections, and saved problem searches. It consumes D1's normalized query, safe catalog
+**WP-INST-D2 binding contract.** One `ProblemCurationStore` aggregate owns visible vetted-Instructor
+Stars, flat named collections, and saved problem searches. It consumes D1's normalized query, safe catalog
 summary, evidence, usage, and immutable Question ID contracts while keeping curation authority
 separate from catalog publication and discovery. `ProblemCollectionReference` and
 `SavedProblemSearchReference` are compact typed browser locators; PostgreSQL retains internal UUIDs
 and exact `ProblemVersionRef` membership behind the Store boundary.
 
-- `Favorites` is a fixed private collection created idempotently for each catalog-authorized
-  Instructor. Its owner and kind remain stable throughout its lifetime.
-- Named collections choose `private` or tenant-`institution` visibility. The owner controls title,
-  visibility, ordered membership, and deletion. Private reads are owner-scoped. Institution reads
-  are available to active same-tenant catalog-authorized Instructors and Sysadmins through the
-  curation broker, with generic institution attribution or an approved public byline.
-- The curation broker derives a closed role matrix from the active session. An active Instructor
-  capability owns personal curation and may mutate only that actor's aggregate. A Sysadmin-only
-  session receives catalog and tenant-institution collection read authority. Copying a safe member
-  into a collection or assignment uses the destination's Instructor authority, and request bodies
-  carry curation intent rather than actor or role authority.
+- A Star is the canonical favorite action on a published QuestionId or exact published version. It is
+  owned by the starring `UserId`; approved Instructors may see the aggregate star count and which
+  approved Instructors starred. Students and anonymous readers see neither star identities nor watch
+  state. A Star is not a collection member and has no private-workspace sharing semantics.
+- Named collections are `UserId`-owned private curation. The owner controls title, ordered membership,
+  and deletion. A workspace collaborator receives only the explicitly granted private-workspace
+  capability; collections remain private to the owner or explicit workspace collaborator, and a
+  Sysadmin-only session receives no collection read authority through role status alone.
+- The curation broker derives a closed capability matrix from the active session. An approved
+  Instructor may mutate only that actor's personal aggregate, and a private-workspace collaborator
+  may read or mutate only the authorized workspace scope. Copying a safe member into a collection or
+  assignment uses the destination's exact `CourseId` Instructor authority, and request bodies carry
+  curation intent rather than actor or role authority.
 - Browser collection projections contain the typed collection reference, kind, title, visibility,
   revision evidence, safe catalog summaries, and public Question IDs. Owner account identity,
   internal problem/version identities, source, response, grading, and answer material remain inside
@@ -1264,7 +1390,7 @@ and exact `ProblemVersionRef` membership behind the Store boundary.
 - One revision-checked whole-collection command creates or replaces the complete desired metadata
   and ordered Question ID membership. The Store resolves every submitted Question ID against the
   actor's current catalog visibility, pins the exact immutable publication, locks the aggregate,
-  and commits one atomic revision. The same command supports favorite/unfavorite, bulk add/remove,
+  and commits one atomic revision. The same command supports star/unstar, bulk add/remove,
   reorder, and collection-filled assignment selection.
 - Existing pinned members remain inspectable when later lifecycle changes make them unavailable for
   new assignment. The safe member projection names that current selection state. Every copy into a
@@ -1273,18 +1399,18 @@ and exact `ProblemVersionRef` membership behind the Store boundary.
   D1 filter meaning with continuation state removed. Running it executes a fresh D1 search against
   current catalog data.
 
-The D2 PostgreSQL capability derives the actor from the presented active session and tenant. It
-provides owner mutation, private-owner read, and tenant-institution read through narrow
+The D2 PostgreSQL capability derives the actor `UserId` from the presented active session. It
+provides owner mutation, private-owner read, and explicit workspace-collaborator read through narrow
 `SECURITY DEFINER` brokers. `ple_app` receives execute authority for those brokers while collection,
 member, and saved-search tables remain broker-owned under forced RLS. The forward
 `2026081836_problem_curation_capabilities.sql` migration adopts the existing 0802 collection
-foundation, adds the closed collection kind and visibility constraints, one-Favorites and normalized
+foundation, adds the closed collection kind and visibility constraints, Stars and normalized
 named-title uniqueness, compact typed browser references, the saved-search aggregate, immutable owner
 and kind enforcement, indexes, broker roles, and exact privilege verification.
 
 `ProblemPicker` is the one visible question-selection feature. Its closed source descriptors cover
-Library search, the actor's publications, Favorites or a named collection, and retained course
-definitions; Alpha curriculum is an explicit later source capability. It reuses D1 rows and filter
+Library search, the actor's publications, Stars or a named collection, and retained course
+definitions; Blueprint course is an explicit reusable source capability. It reuses D1 rows and filter
 vocabulary and returns an ordered selection of public Question IDs. Library composes it with bulk
 curation and saved-search actions. Assignment authoring composes it for fixed questions,
 single-question replacement, and T5 pool candidates while preserving direct Question ID paste as a
@@ -1300,10 +1426,10 @@ full Validation evidence.
 
 | Layer                             | Required evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Domain and Store parity           | Closed references, kinds, visibility, revisions, saved-query meaning, selection state, and bounded ordered Question IDs validate identically. Concurrent Favorites creation converges to one row. Memory and PostgreSQL agree on owner/institution reads, immutable membership, atomic whole-list replacement, no-op behavior, stale conflicts, and current catalog re-resolution.                                                                                                                                                                               |
-| PostgreSQL and RLS oracle         | A fresh database applies migration 1836 and proves forced RLS, broker-only table authority, active session derivation, private concealment, tenant-institution reads, owner-only mutation, cross-tenant concealment, exact immutable member references, revision races, and complete rollback for malformed, invisible, or stale bulk input.                                                                                                                                                                                                                     |
+| Domain and Store parity           | Closed references, personal ownership, revisions, saved-query meaning, selection state, and bounded ordered Question IDs validate identically. Concurrent Star creation converges to one row. Memory and PostgreSQL agree on visible star counts/identities for approved Instructors, owner-only collection reads, authorized workspace-collaborator reads, immutable membership, atomic whole-list replacement, no-op behavior, stale conflicts, and current catalog re-resolution.                                                                                                                                                                               |
+| PostgreSQL and RLS oracle         | A fresh database applies migration 1836 and proves forced RLS, broker-only table authority, active session derivation, private concealment, owner-only mutation, explicit collaborator scope, cross-user concealment, exact immutable member references, exact destination-course binding, revision races, and complete rollback for malformed, invisible, or stale bulk input.                                                                                                                                                                                                                     |
 | Server and browser contracts      | Authentication and role resolution precede protected path, query, and body interpretation. Collection and saved-search representations are `no-store`, mutations use strong `If-Match`, strict decoders reject extensions, and every browser payload uses safe catalog metadata plus public references.                                                                                                                                                                                                                                                          |
-| Shared visible workflow           | Elena enters through the ordinary Instructor and passkey path, searches the Library, selects current results, updates Favorites, creates and revises a named collection, saves and reruns a current search, and uses the same picker to add fixed and pooled questions to a live assignment without typing IDs. Every interaction announces its result and next action; stale state preserves the selection and offers reload. Morgan's independent Sysadmin passkey journey remains green and institution collection reads expose the intended safe projection. |
+| Shared visible workflow           | Elena enters through the ordinary approved-Instructor and passkey path, searches the global Library, selects published results, stars a question, sees approved-Instructor star attribution, creates and revises a personal named collection, saves and reruns a current search, and uses the same picker to add fixed and pooled questions to an exact destination CourseId without typing IDs. Every interaction announces its result and next action; stale state preserves the selection and offers reload. A foreign-user or foreign-course collection read is refused, and Morgan's independent Sysadmin passkey journey remains a separate role check. |
 | Accessibility and visual evidence | Native labeled controls provide source, filters, result selection, selected-question tray, destination, and confirmation in task order. Focus opens and returns predictably, Escape cancels, bulk status is announced, and empty/error/conflict states retain recoverable work. Canonical Instructor and Sysadmin screenshots use the 1280 by 800 desktop profile and receive semantic review for clipping, readable hierarchy, focus, and recovery.                                                                                                             |
 | Independent review and Validation | Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviewers resolve every P0--P3 finding. The final material tree passes `./all_test.sh`; the D2 screenshot corpus passes publication, privacy, provenance, and visual review.                                                                                                                                                                                                                                                                                                       |
 
@@ -1313,51 +1439,57 @@ green on the same material tree.
 
 **Accepted evidence (2026-08-25).** Memory and PostgreSQL curation semantics, strict server and
 browser contracts, and the production HTTPS `problem_curation` journey are green. Elena uses her
-ordinary Instructor entry and passkey to search, curate, recover a revision conflict, and reuse the
-same safe public questions in a live assignment; Morgan's independent Sysadmin passkey path exposes
-the intended institution collection projection. The 66-migration database baseline proves forced
-RLS, broker authority, canonical saved filters, immutable membership, revision safety, and exact
-cleanup. The privacy-validated corpus includes the four canonical D2 desktop views: Elena's
-curation workspace, revision recovery, and assignment picker plus Morgan's institution projection.
+ordinary approved-Instructor entry and passkey to search the global published catalog, curate her
+UserId-owned collections, recover a revision conflict, and reuse the same safe published questions
+in an exact destination course assignment. Foreign-user and foreign-course reads are refused;
+Morgan's independent Sysadmin passkey path remains a separate role check. The 66-migration database
+baseline proves forced RLS, broker authority, canonical saved filters, immutable membership, revision
+safety, exact CourseId binding, and exact cleanup. The privacy-validated corpus includes Elena's
+personal curation workspace, revision recovery, and assignment picker.
 Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviews
 closed with zero P0 through P3 findings. Final `source source_me.sh && ./all_test.sh` passed the Rust
 workspace, all five codebase gates including 297 Node tests, 6,982 pytest checks, the complete
 production-browser suite, the database baseline, and the browser-free service oracles.
 
-**WP-INST-B1 binding contract.** A focused `ReusableCurriculumStore` owns two separate current-state
-aggregates over accepted D2 selection and S7 public references. A personal assignment blueprint is
-private to its approved Instructor owner and tenant. A public Alpha curriculum is readable by an
-approved Instructor across tenants and editable only by its creator. Both use strong revisions and
-whole-definition commands. Their stored question members pin exact immutable
-`ProblemVersionRef` values after the Store resolves submitted public Question IDs under the
-destination authority.
+**WP-INST-B1 binding contract.** A focused `ReusableCurriculumStore` owns one canonical `BlueprintCourse`
+aggregate over accepted D2 selection and S7 public references. Its unpublished draft is private to the
+approved Instructor owner, identified by `UserId`, and any explicitly authorized workspace collaborators.
+The former Alpha curriculum is a duplicate of this concept and is removed in the pre-production refactor;
+no second Store, route, schema branch, or compatibility alias remains. An explicitly published
+`BlueprintCourse` projection is answer-free and visible/reusable to every vetted Instructor, while source
+editing remains owner-authorized. No curriculum read grants another user's private workspace or a foreign
+CourseInstance authority. The aggregate uses strong revisions and whole-definition commands. Its stored
+question members pin exact immutable `ProblemVersionRef` values after the Store resolves submitted public
+Question IDs under the destination authority.
 
-- `BlueprintReference` uses the compact `BP-123` wire form. `AlphaCourseReference` activates the
-  reserved `AC-123` form. These references locate records; the active session supplies every read
-  and mutation capability.
-- A Blueprint is exactly one reusable-assignment definition. An Alpha owns an ordered list of
-  labelled curriculum modules; each module owns an ordered list of reusable-assignment definitions.
-  Definition positions are normalized within their parent, and the Alpha's strong revision covers
-  its complete module and assignment tree. B1 has one aggregate revision and one atomic replacement
-  boundary rather than independently mutable children.
+- `BlueprintReference` uses the compact `BP-123` wire form. These references locate a Blueprint
+  course; the active session supplies every read and mutation capability. The former `AC-123`
+  AlphaCourseReference is retired with the duplicate Alpha branch.
+- A Blueprint course owns an ordered list of labelled curriculum modules; each module owns an ordered
+  list of reusable-assignment definitions. Definition positions are normalized within their parent,
+  and the Blueprint revision covers its complete module and assignment tree. B1 has one aggregate
+  revision and one atomic replacement boundary rather than independently mutable children.
 - The shared reusable-assignment definition carries title, instructions, ordered fixed questions,
   ordered pool definitions, reusable policy defaults, and optional calendar-relative availability,
   due, and close defaults. Relative values retain calendar-day and local-wall-clock meaning. B2 owns
   target-term resolution, daylight-saving validation, and teaching-date preview.
-- Blueprint and Alpha child relations retain normalized ordered positions and exact publication
-  foreign keys. Alpha members resolve from public publications. Personal blueprints may retain
-  publications visible to their owner. Every new copy into another destination re-resolves the
-  public Question ID through that destination's current authority.
+- Blueprint child relations retain normalized ordered positions and exact publication foreign keys.
+  Members resolve from global published questions. A published BlueprintCourse may retain publications
+  visible to every vetted Instructor; an unpublished draft remains visible only to its owner or
+  authorized collaborators. Every new copy into another destination re-resolves the public Question ID
+  through that destination's current authority.
 - Browser projections carry typed references, strong revision evidence, an immutable reviewed creator
   display-name snapshot using the existing `PublicByline` value contract, public Question IDs,
   D1-safe catalog summaries, and disclosed evidence context. The creator snapshot carries display
-  names only; account, UUID, email, roster, tenant, and authority facts remain server-owned. The
+  names only; account, UUID, email, roster, workspace, and authority facts remain server-owned. The
   projection vocabulary contains the complete reusable definition while learner records, question
   source, response, grading, and answer material also remain server-owned.
-- Alpha and teaching courses remain distinct aggregates. Alpha has its own tables and broker,
-  carries no membership or learner-activity relationship, and provides curriculum inspection and
-  question reuse through B1. B2 adds fork, instantiate, rollover, term shift, normalized manifests,
-  fast-forward, and selected-copy behavior over the accepted B1 aggregate.
+- BlueprintCourse and CourseInstance remain distinct aggregates. A BlueprintCourse has no membership or
+  Student-activity relationship and provides curriculum inspection and question reuse through B1. A
+  CourseInstance owns enrollment, deadlines, releases, accommodations, grades, delivery settings, and
+  Student activity; only its current equal co-Instructors and enrolled Students can read its private
+  record. B2 adds fork, instantiate, rollover, term shift, normalized manifests, fast-forward, and
+  selected-copy behavior over the accepted B1 aggregate.
 - Complete replacement locks one aggregate, compares the observed revision, validates and resolves
   every submitted Question ID, commits all ordered child state atomically, and advances the revision
   once for a changed meaning. A semantic no-op preserves the revision. A stale command preserves
@@ -1366,27 +1498,34 @@ destination authority.
   publication lifecycle change. Every replacement or copy re-resolves its public Question ID under
   the destination authority. D1 evidence context is a current disclosed read projection labelled as
   current; B1 stores curriculum meaning rather than a frozen statistic.
-- The `2026081837_blueprint_alpha_curriculum.sql` migration creates a dedicated non-login,
-  `NOBYPASSRLS` reusable-curriculum broker. Narrow security-definer capabilities derive the actor
-  from the presented active session; blueprint reads and writes are owner-scoped, Alpha reads require
-  current Instructor approval, and Alpha writes require the creator's current approved-Instructor
-  session. Each operation derives approval from the caller's active session and caller tenant;
-  cross-tenant Alpha reading grants no creator-tenant authority. Authentication and role preflight
-  precede reference, revision, query, and body decoding. Direct application-table authority remains
-  closed.
+- Reuse of a published BlueprintCourse is an explicit action. Publishing a private draft uses
+  `publish-as-Blueprint`; changing BlueprintCourse content after reuse uses a controlled parent update
+  and never an implicit live tether.
+- The B1 migration creates a dedicated non-login, `NOBYPASSRLS` Blueprint-course broker. Narrow
+  security-definer capabilities derive the actor from the presented active session; published
+  BlueprintCourse reads require current Instructor approval, and draft reads/writes require the owner
+  or an explicit workspace collaborator authorized by that owner. Publishing and controlled parent
+  updates require the owning approved Instructor's current session.
+  Each operation derives the caller's `UserId` and explicit workspace relationship from
+  the active session; an approved-Instructor catalog read never grants private-workspace, foreign-
+  user, or course authority. Authentication and role preflight precede reference, revision, query,
+  and body decoding. Direct application-table authority remains closed.
 
-`ProblemPicker` remains the one visible question-selection feature. B1 adds typed blueprint sources
-and an Alpha descriptor shaped as `{ kind: "alphaCurriculum", alpha: AlphaCourseReference,
-modulePosition: positive integer, assignmentPosition: positive integer, label }`. The Alpha adapter
-resolves that exact reusable definition under current Instructor approval and returns the existing
-answer-free D1 rows and public Question IDs in definition order. The focused Curriculum surface lists
-personal blueprints beside public Alpha curricula and composes the same picker for creation and
-revision. Assignment authoring may reuse a selected ordered question set through its ordinary
-create/update path; B2 later instantiates the complete reusable definition, schedule, and provenance
-into a teaching course.
+`ProblemPicker` remains the one visible question-selection feature. B1 adds the typed Blueprint-course
+source descriptor shaped as `{ kind: "blueprintCourse", blueprint: BlueprintReference,
+modulePosition: positive integer, assignmentPosition: positive integer, label }`. The Blueprint
+adapter resolves that exact reusable definition under current Instructor approval when it is a
+published projection, or under the owning workspace relationship when it is a draft, and returns the
+existing answer-free D1 rows and public Question IDs in definition order. The focused Curriculum
+surface lists globally published BlueprintCourses plus the current user's UserId-owned drafts and
+composes the same picker for creation and revision.
+Assignment authoring may reuse a selected ordered question set through its ordinary create/update
+path; every selected member is an already published Question ID. B2 later instantiates the complete
+reusable definition, schedule, and provenance into an exact teaching CourseId.
 
 **B1 dependency order.** Freeze the reusable definition, typed references, revision, authority, and
-safe projection contracts; implement Memory parity; add migration 1837 and the PostgreSQL Store;
+safe projection contracts; consolidate the former Alpha schema and source into the canonical Blueprint
+course model; implement Memory parity; allocate the fresh SD1 migration range and add the PostgreSQL Store;
 register strict server and generated browser contracts; connect the Curriculum surface and shared
 picker; then run focused real-stack, visual, independent-review, and final Validation evidence.
 
@@ -1394,8 +1533,8 @@ picker; then run focused real-stack, visual, independent-review, and final Valid
 
 | Evidence class                    | Required evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Permanent fast behavior tests     | Rust domain and Memory tests cover reference round trips, reusable-definition normalization, exact publication pinning, ordered fixed/pool meaning, owner and creator authority, cross-tenant approved-Instructor Alpha reads, semantic no-op and stale-revision behavior, atomic replacement, and safe projections. Server and Node tests cover preflight ordering, strict decoding, typed Alpha source switching, definition order, and local-draft preservation; accepted D2 picker retry and stale-response coverage remains green. |
-| Opt-in PostgreSQL and browser E2E | The disposable PostgreSQL oracle exercises the Store through migration 1837, forced RLS, broker least privilege, creator and reader roles, cross-tenant Alpha visibility, Student refusal, revision races, and rollback. One registered production HTTPS journey uses visible actions for Elena to create and revise a blueprint and Alpha, reload persisted state, and reuse Alpha questions through the shared picker. Elena and Morgan's independent passkey scenarios remain green.                                                 |
+| Permanent fast behavior tests     | Rust domain and Memory tests cover reference round trips, reusable-definition normalization, exact publication pinning, ordered fixed/pool meaning, UserId owner and explicit collaborator authority, global approved-Instructor catalog reads, foreign-user and foreign-course refusal, semantic no-op and stale-revision behavior, atomic replacement, and safe projections. Server and Node tests cover preflight ordering, strict decoding, typed Blueprint-course source switching, definition order, and local-draft preservation; accepted D2 picker retry and stale-response coverage remains green. |
+| Opt-in PostgreSQL and browser E2E | The disposable PostgreSQL oracle exercises the canonical Blueprint-course Store through its fresh SD1 migration allocation, forced RLS, broker least privilege, owner/collaborator and globally published-reader roles, private-draft concealment, exact CourseId destination binding, foreign-user and foreign-course refusal, Student refusal, revision races, and rollback. One registered production HTTPS journey uses visible actions for Elena to create and revise a private BlueprintCourse draft, publish its safe projection, and reuse it as any vetted Instructor can through the shared picker. Elena and Morgan's independent email-code or passkey scenarios remain green. |
 | One-time implementation evidence  | Graphify impact review, migration and generated-contract registration, answer-free wire inspection, fresh screenshot capture, privacy/provenance publication, exact disposable cleanup, and source/route inventories remain package receipts. They are implementation checks rather than permanent fast tests.                                                                                                                                                                                                                          |
 | Human and independent review      | Responsive captures are reviewed semantically for hierarchy, readable ordered curriculum, focus visibility, creator versus reader presentation, compact instructor use, recovery clarity, privacy, and contrast. Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviews resolve every P0 through P3 finding. Screenshot review uses rendered behavior rather than byte or pixel equivalence.                                                                                                             |
 | Full Validation                   | The final B1 material tree passes `./all_test.sh`; the B1 screenshot corpus passes publication, privacy, provenance, and visual review.                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1408,13 +1547,14 @@ acceptance authority.
 
 **Accepted evidence (2026-08-25).** The Memory and PostgreSQL Stores, strict server and browser
 contracts, and production HTTPS `reusable_curriculum` journey are green. Elena uses her ordinary
-Instructor entry and passkey to create and revise a Blueprint and public Alpha curriculum, recover a
-stale draft, reload persisted meaning, and reuse an Alpha question through the shared picker. Morgan's
-independent Sysadmin passkey supports Avery's visible approval path; Avery accepts Elena's invitation
-and reads the answer-free Alpha curriculum without mutation controls. The 67-migration database
-baseline proves forced RLS, dedicated broker authority, cross-tenant approved-Instructor reading,
-creator-only writing, Student refusal, revision safety, rollback, and exact cleanup. The
-privacy-validated corpus includes canonical desktop creator, picker, and approved-reader views.
+approved-Instructor email-code or passkey entry to create and revise a UserId-owned BlueprintCourse
+draft, recover a stale draft, publish its safe projection, reload persisted meaning, and reuse globally published questions through
+the shared picker. Morgan's independent Sysadmin passkey supports Avery's separate visible approval
+path; an unauthorized user cannot read Elena's private curriculum draft or use it for another course.
+The 67-migration database baseline proves forced RLS, dedicated broker authority, owner/collaborator
+scope, published-catalog discovery, exact CourseId binding, foreign-user and foreign-course refusal,
+Student refusal, revision safety, rollback, and exact cleanup. The privacy-validated corpus includes
+canonical desktop creator and picker views.
 Final `source source_me.sh && ./all_test.sh`
 passed the Rust workspace, all five codebase gates, the complete production-browser suite, the
 database baseline, and the browser-free service oracles on this material tree.
@@ -1423,9 +1563,9 @@ The repository-owned independent-review receipt is:
 
 | Review                 | Verdict and grounded evidence                                                                                                                                                                                                                                                                                                   |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture           | APPROVE with no P0--P3 finding. Separate revisioned Blueprint and Alpha aggregates, one focused Store boundary, atomic replacement, route preflight ordering, shared answer-free picker reuse, and the B1/B2 aggregate boundary were confirmed.                                                                                 |
-| Security/privacy       | APPROVE with no P0--P3 finding. Active-session authority, creator-only mutation, cross-tenant approved-Instructor reading, forced RLS, dedicated broker authority, answer-free closed browser contracts, privacy validation, and provenance were confirmed.                                                                     |
-| HCI/accessibility      | APPROVE with no P0--P3 finding. Fresh production captures confirmed the 1280 by 800 creator workspace and save surface, creator-versus-reader distinction, actionable reader guidance, named Alpha picker source, ordered selection, keyboard-native controls, focus, contrast, and recovery.                                   |
+| Architecture           | APPROVE with no P0--P3 finding. One revisioned Blueprint-course aggregate, one focused Store boundary, atomic replacement, route preflight ordering, shared answer-free picker reuse, and the B1/B2 aggregate boundary were confirmed; the duplicate Alpha branch is retired.                                                                                 |
+| Security/privacy       | APPROVE with no P0--P3 finding. Active-session authority, owner/collaborator mutation, global approved-Instructor published-catalog discovery, exact CourseId binding, foreign-user and foreign-course refusal, forced RLS, dedicated broker authority, answer-free closed browser contracts, privacy validation, and provenance were confirmed.                                                                     |
+| HCI/accessibility      | APPROVE with no P0--P3 finding. Fresh production captures confirmed the 1280 by 800 creator workspace and save surface, creator-versus-reader distinction, actionable reader guidance, named Blueprint-course picker source, ordered selection, keyboard-native controls, focus, contrast, and recovery.                                   |
 | Documentation/evidence | APPROVE with no P0--P3 finding. Permanent, connected, one-time, and human-review evidence remains classified by repository policy; 138 focused scenario/publication pytest checks, focused B1 Node checks, production corpus verification, and exact cleanup passed without artifact-count, timing, or pixel-equivalence gates. |
 
 The HCI review's initial P2 reader-guidance finding was resolved before approval. The first
@@ -1433,26 +1573,39 @@ documentation/evidence review requested this durable repository receipt; this ta
 evidence gap and preserves the four specialist verdicts with the binding B1 contract.
 
 **WP-INST-B2 binding contract.** B2 is the dedicated curriculum-adoption boundary. It consumes
-accepted B1 Blueprint and Alpha meaning and creates or updates ordinary teaching-course state. It
-does not turn a Blueprint or Alpha into a course: B1 source aggregates, ordinary teaching courses,
-learner activity, and immutable issued evidence remain separate aggregates. This is the approved
-architecture decision recorded by the Graphify-guided B2 audit. B2 starts only after B1 acceptance;
+accepted B1 `BlueprintCourse` meaning and creates or updates `CourseInstance` state. It does not
+convert a BlueprintCourse into a CourseInstance: the BlueprintCourse source aggregate, CourseInstance,
+Student activity, and immutable issued evidence remain separate aggregates. The former Alpha branch
+is retired rather than carried into B2. A `CourseInstance` is private to its current equal co-Instructors
+and enrolled Students; its published-question references remain discoverable through the global corpus,
+but global evidence never names that private instance. This is the approved architecture decision
+recorded by the Graphify-guided B2 audit. B2 starts only after B1 acceptance;
 its current handoff, migration allocation, and later receipt remain owned by
 [implementation_status.md](../implementation_status.md).
 
 **Source, destination, and operations.** Introduce a focused `CurriculumAdoptionStore`, separate
 from `ReusableCurriculumStore`, learner-work stores, and the generic browser Store. It owns one
-server-side command boundary for the following revision-bound operations:
+server-side command boundary for exactly seven revision-bound operations: fork, assignment adoption,
+Blueprint instantiation, rollover, term shift, controlled update, and selected copy. Canonical blank
+CourseInstance creation belongs to `CourseStore::create_course_impl`, composed as
+`Store::create_course`: it obtains or creates the normal minimal Blueprint revision, creates the
+bound CourseInstance, and adds the first Instructor membership atomically.
 
-- **Fork Alpha:** an approved Instructor reads an answer-free public `AC-...` source and its
-  observed revision, creates an independently editable owner-scoped Alpha, and receives immutable
-  source-lineage evidence. The fork never has an implicit live tether to its source.
-- **Instantiate Blueprint or Alpha:** a Blueprint creates one normal draft assignment in an existing
-  teaching course; an Alpha creates a normal tenant-owned teaching course, initial direct Instructor
-  membership, ordinary assignment definitions/base policies, and import manifests atomically. The
-  target term, zone, title, source revision, and client idempotency key are explicit inputs.
-- **Rollover course:** an authorized source-course Instructor previews then creates a new ordinary
-  teaching course for the selected target `CourseTerm`. Copyable definition meaning travels through
+Every current approved Instructor member, including the first member and each accepted co-Instructor,
+receives the same allow or refuse result for equivalent source and destination state. The actor's
+`UserId` appears only in audit evidence; creator status never adds a course capability.
+
+- **Fork BlueprintCourse:** any vetted Instructor reads an answer-free published BlueprintCourse
+  projection and its observed revision, creates an independently editable UserId-owned BlueprintCourse,
+  and receives immutable source-lineage evidence. A private draft can be forked only by its owner or an
+  explicitly authorized workspace collaborator. The fork never has an implicit live tether to its source.
+- **Blueprint instantiation:** the source creates a `CourseInstance` with an exact teaching
+  `CourseId`, either in an existing authorized destination or as a new destination with initial
+  Instructor membership. It copies reusable assignment definitions, policies, theme defaults, and
+  import manifests atomically; it never copies Students or learner activity. The target `CourseId`
+  when supplied, term, zone, title, source revision, and client idempotency key are explicit inputs.
+- **Rollover CourseInstance:** an authorized source-course Instructor previews then creates a new
+  `CourseInstance` for the selected target `CourseTerm`. Copyable definition meaning travels through
   a rollover manifest; roster memberships, learner records, attempts, grades, retention, and issued
   evidence do not. The destination begins with no learner-linked state.
 - **Whole-course term shift:** an authorized Instructor previews then applies one target
@@ -1460,15 +1613,20 @@ server-side command boundary for the following revision-bound operations:
   as one atomic course operation. The destination course is eligible only when no assignment in it
   has ever issued learner work. Any issued run refuses the operation without mutation; rollover is
   the taught-course path, and issued evidence keeps its original term context.
-- **Inspect and update imports:** an Instructor lists durable curriculum imports, previews an
+- **Controlled update:** an Instructor lists durable curriculum imports, previews an
   eligible fast-forward, then applies it against observed source, import, assignment, and schedule
   revisions. A divergent import offers **Create new assignment from this source definition**. That
   explicit command creates a separate draft from the selected source definition and preserves the
   divergent assignment. B2 supplies no field-level or three-way merge engine.
 
+- **Assignment adoption and selected copy:** an authorized Instructor adopts one selected assignment
+  into an existing CourseInstance or copies one selected reusable definition through the same
+  revision-bound, idempotent broker. Neither operation creates a blank CourseInstance.
+
 Every write is atomic, revision-checked, and idempotent where a completed retry is possible.
-References locate records only. The server derives actor, role, tenant, and session from the
-authenticated request; no browser payload supplies authority, tenant identity, or an internal ID.
+References locate records only. The server derives actor `UserId`, role, and session from the
+authenticated request, then authorizes the exact workspace and destination `CourseId`; no browser
+payload supplies authority, user identity, course authority, or an internal ID.
 
 **Reusable semantic baseline and provenance.** Each adoption stores one normalized reusable-content
 payload and a separate immutable source-binding/provenance envelope. Only content meaning is
@@ -1550,9 +1708,9 @@ non-enumerating outcomes. Application roles receive no direct table or sequence 
 inputs, comparison outcomes, schedule-preview values, revisions, and answer-free projections.
 `crates/learning-data-access/src/contracts/curriculum_adoption.rs` owns the Store contract, source
 resolver, Memory parity, and PostgreSQL adapter. `crates/server/src/curriculum_adoption.rs` owns
-adoption/rollover/term-shift/import routes; `reusable_curriculum.rs` owns only narrow Alpha-source
-and fork route additions. `src/features/curriculum_adoption/` owns the visible staged Instructor
-workflow. Route registration composes beside the existing course and reusable-curriculum routers.
+adoption/rollover/term-shift/import routes; the former Alpha-source and fork route additions are
+removed. `src/features/curriculum_adoption/` owns the visible staged Instructor workflow. Route
+registration composes beside the existing course and Blueprint-course routers.
 All request decoders are closed and bounded; responses are `no-store`, typed, answer-free, and exclude
 grader inputs, private source, internal UUIDs, email, and FERPA records.
 
@@ -1568,9 +1726,9 @@ changelog receipt, then final `source source_me.sh && ./all_test.sh` on the mate
 
 | Evidence class                   | Required evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Permanent deterministic behavior | Focused Rust domain/Memory tests prove normalized semantic comparison, source-pin reauthorization, Alpha fork lineage, instantiation/rollover exclusions, relative schedule resolution and typed DST corrections, whole-course no-issued-work fencing, fast-forward eligibility, divergence preservation with new source-derived draft, revision conflicts, idempotency replay, and answer-free projections. Semantic digest behavior tests may prove equivalent meaning produces the same digest and a meaningful change produces a different digest; they exclude frozen literal-byte digests. Focused server and Node tests prove closed decoding, session preflight before body interpretation, route/reference binding, recoverable draft preservation, and safe DTOs. Tests use small inline cases and grounded behavior, never fixture-corpus size, route inventories, timing limits, or count gates. |
-| Opt-in PostgreSQL/RLS oracle     | One ignored disposable PostgreSQL test exercises the B2 Store through the allocated migration: forced RLS, broker-only authority, approved-Instructor source reads, direct destination Instructor writes, Student and unrelated Sysadmin refusal, cross-tenant Alpha fork/instantiation, atomic rollback for invalid pins/schedules/stale revisions, durable provenance/receipt reload, empty learner destination state, fast-forward/divergence/issued-run outcomes, and reconciliation of missing rows. It asserts relationships and outcomes, not SQL shape or migration counts.                                                                                                                                                                                                                                                                                                                          |
-| Canonical production browser     | A behavior-named production HTTPS scenario uses real PostgreSQL/RLS and visible UI-created state. Elena enters through the ordinary approved-Instructor path, creates and revises the B1 Blueprint/Alpha source through visible UI actions, previews and commits instantiation, rollover, and term shift, sees and corrects one DST outcome, fast-forwards an untouched import, and preserves a divergent assignment by creating a new source-derived draft. Catalog baseline publication is infrastructure-only setup. The journey uses accessible controls and semantic readiness waits. Elena and Morgan passkey enrollment, sign-out, and sign-in remain required independent scenarios; this B2 journey consumes Elena's ordinary authenticated Instructor path and does not duplicate their passkey ceremonies.                                                                                        |
+| Permanent deterministic behavior | Focused Rust domain/Memory tests prove normalized semantic comparison, source-pin reauthorization, Blueprint-course fork lineage, instantiation/rollover exclusions, relative schedule resolution and typed DST corrections, whole-course no-issued-work fencing, fast-forward eligibility, divergence preservation with new source-derived draft, revision conflicts, idempotency replay, rejection of retired duplicate-course input, and answer-free projections. Semantic digest behavior tests may prove equivalent meaning produces the same digest and a meaningful change produces a different digest; they exclude frozen literal-byte digests. Focused server and Node tests prove closed decoding, session preflight before body interpretation, route/reference binding, recoverable draft preservation, and safe DTOs. Tests use small inline cases and grounded behavior, never fixture-corpus size, route inventories, timing limits, or count gates. |
+| Opt-in PostgreSQL/RLS oracle     | One ignored disposable PostgreSQL test exercises the B2 Store through the allocated migration: forced RLS, broker-only authority, approved-Instructor published-Blueprint reads, owner/collaborator workspace checks, direct destination Instructor writes, Student and unrelated Sysadmin refusal, foreign-user and foreign-course Blueprint fork/instantiation refusal, exact CourseId binding, atomic rollback for invalid pins/schedules/stale revisions, durable provenance/receipt reload, empty Student destination state, fast-forward/divergence/issued-run outcomes, and reconciliation of missing rows. It asserts relationships and outcomes, not SQL shape or migration counts.                                                                                                                                                                                                                                                                                                                          |
+| Canonical production browser     | A behavior-named production HTTPS scenario uses real PostgreSQL/RLS and visible UI-created state. Elena enters through the ordinary approved-Instructor path, creates and revises the B1 Blueprint course through visible UI actions, previews and commits instantiation, rollover, and term shift, sees and corrects one DST outcome, fast-forwards an untouched import, and preserves a divergent assignment by creating a new source-derived draft. Catalog baseline publication is infrastructure-only setup. The journey uses accessible controls and semantic readiness waits. Elena and Morgan passkey enrollment, sign-out, and sign-in remain required independent scenarios; this B2 journey consumes Elena's ordinary authenticated Instructor path and does not duplicate their passkey ceremonies.                                                                                        |
 | One-time and human evidence      | Retain Graphify/source-impact, migration allocation and broker/RLS inspection, generated-contract registration, answer-free wire inspection, browser origin/cleanup, and screenshot publication as dated package receipts. Semantically review B2's canonical 1280 by 800 Instructor profile for readable source/destination distinction, preview/correction/recovery, keyboard/focus/dialog behavior, privacy, and contrast. Screenshots and Graphify inventories are one-time evidence, not byte, pixel, artifact-count, or route-inventory gates. Architecture/security, HCI/accessibility, and documentation/evidence review resolve all P0/P1 findings; P2/P3 have a resolution or recorded owner decision.                                                                                                                                                                                             |
 | Full Validation                  | The final material tree passes `source source_me.sh && ./all_test.sh` with every required B2 gate green and no required skip. Connected PostgreSQL/RLS, production HTTPS browser, screenshots, Graphify/source inventories, and visual judgment retain the separate evidence lanes above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -1610,7 +1768,7 @@ Each package owns its capability modules. The six named M1 schema packages and t
 post-M1 WP-INST-LD1 allocation are recorded in the shared registry; WP-INST-LD2 has the
 `2026081809` two-broker allocation (Sysadmin approval-candidate discovery and completed-installation-
 generation lookup) and the separate `2026081810` Student
-pre-tenant account-course retention-boundary repair allocation. Every later schema package
+account-course retention-boundary repair allocation. Every later schema package
 receives a release-integrator allocation before implementation, and non-schema packages receive no
 migration implicitly. Shared route registration and migration ordering belong to the integrator.
 
@@ -1624,8 +1782,8 @@ the aggregate plus active-attempt re-resolution atomically. Content edits remain
 under the same assignment revision. Instructor reads return stored intent plus a closed current-state
 union derived from authoritative time, including the course-local boundary for a scheduled or
 clock-closed Published assignment; the browser performs no time comparison. Learners receive only the dedicated S5/S3-authorized detail with
-plain-text instructions and resolved delivery facts, never policy intent, provenance, tenant/course
-keys, or clocks. Recalculating/Failed scoring status suppresses every learner aggregate, run,
+plain-text instructions and resolved delivery facts, never policy intent, provenance, unrelated
+course keys, or clocks. Recalculating/Failed scoring status suppresses every learner aggregate, run,
 attempt-result, and disclosed-point numeric without
 changing the semantic disclosure/activity state. The package allocates no migration and directly
 removes the historical `AssignmentTimingPolicy`/`assignmentTiming` API.
@@ -1655,18 +1813,16 @@ entitlement, modifier precedence, or provenance in the browser.
 
 **WP-R2 acceptance.** Remove the Memory and PostgreSQL successor/propagation mechanisms, including
 the pre-production trigger and exceptional correction authority, instead of adding a compatibility
-shim. Remove sequential `ProblemPublicId`/`P-...`, `ProblemVersionNumber`, `previous_version`, and
-predecessor/version-chain production identity, schema, parser, generated-type, and migration paths.
-Assignment creation and editing select one immutable Question ID; retained assignments and issued runs
-stay exact until an Instructor performs a visible, revision-checked replacement. Prove that every
-content change receives a distinct Question ID plus fresh opaque `ProblemId` and `VersionId`, and
-provenance may link source to replacement. Convert real persisted native and WeBWorK host seed
-publishers to mint fresh opaque publication IDs; reruns use a protected explicit manifest or verified
-existing record, never tenant-derived question UUIDs. Deterministic fixed IDs remain only in isolated
-unit fixtures, derived render/cache identities, and non-question seed records. Historical attempts
-replay their original evidence, and no instructor-facing route, selector, or latest-resolution path
-accepts or exposes an internal version identity. Hidden exact transport and audit references remain
-available where the authorization boundary requires them.
+shim. Remove sequential `ProblemPublicId`/`P-...`, `ProblemVersionNumber`, and legacy predecessor
+identity paths. The SD1 stewardship target retains immutable server-side version history under a
+stable QuestionId, with exact `ProblemId`/`VersionId` pins for assignments and issued runs. Steward
+corrections and ordinary revisions publish exact new versions under the same QuestionId; major semantic
+changes publish a new QuestionId with explicit public lineage. Reruns use a protected explicit manifest
+or verified existing record, never pre-SD1 host-seed question UUIDs. Deterministic fixed IDs remain only
+in isolated unit fixtures, derived render/cache identities, and non-question seed records. Historical
+attempts replay their original exact evidence, and no instructor-facing route, selector, or
+latest-resolution path accepts or exposes an internal version identity. Hidden exact transport and
+audit references remain available where the authorization boundary requires them.
 
 **WP-R2 result.** Accepted on the final material tree: `./check_codebase.sh` passed all five steps
 with 260 Node tests; `source source_me.sh && python3 -m pytest tests/` passed 4,856 tests;
@@ -1695,8 +1851,8 @@ the configuration used. The Instructor roadmap's M0 evidence is accepted; WP-PY-
 Memory Store conformance, Question-ID-only commands, replacement preservation/refusal, and replay;
 `crates/server/src/catalog/tests/publication.rs` and
 `crates/server/src/course/tests/assignment_revision.rs` own server request behavior. The disposable
-PostgreSQL/RLS driver `tests/e2e/e2e_wp_r2_postgres_rls.py` owns migration, forced RLS, cross-tenant
-refusal, rollback, and persisted replay. `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
+PostgreSQL/RLS driver `tests/e2e/e2e_wp_r2_postgres_rls.py` owns migration, forced RLS, cross-user and
+cross-course refusal, rollback, and persisted replay. `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
 manifest convergence. The canonical `webwork_delivery` and
 `assignment_question_replacement` scenarios own the browser-visible WebWork and issued-question
 replacement claims, while `tests/e2e/e2e_webwork_render_rpc.sh` and
@@ -1721,8 +1877,15 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
 
 ## Acceptance criteria
 
-- A Instructor searches broadly, tolerates a typo, filters by evidence and tag, inspects safe details,
-  favorites a problem, places it in a collection, and adds it to an assignment without typing an ID.
+- A Instructor searches broadly, tolerates a typo, filters by evidence and tag, stars a problem,
+  places it in a collection, and adds it to an assignment without typing an ID.
+- The search corpus is global and contains only successfully validated published questions. Every
+  assignment item resolves to an already published Question ID; a draft is private until validation
+  and publication complete.
+- Curation reads and writes are UserId-owned. A foreign user's collection or curriculum draft, and a
+  foreign CourseId's teaching records, refuse before protected data is returned or changed.
+- Current co-Instructors receive the same course reads and mutations as the first Instructor member;
+  creator status never grants an additional course capability.
 - One resolver answers every entitlement, window, limit, and lateness question, and every Instructor
   and learner surface shows the same answer with its source named in plain language.
 - Disclosure is set once per assignment and holds across run summary, gradebook, and analysis.
@@ -1734,8 +1897,9 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   ordinary enrolled Student, and inspects the resulting submission, deterministic grade, immutable
   receipt, and audited learner work.
 - A pool assignment delivers its draw per learner and honors the issued-run lock.
-- `WP-INST-B1`: an Alpha curriculum is non-enrollable, public to approved Instructors,
-  creator-editable, and exposes answer-free modules and ordered questions for shared picker reuse.
+- `WP-INST-B1`: a BlueprintCourse is non-enrollable, owner/collaborator-authorized while in draft,
+  and exposes only its deliberately published answer-free projection for every vetted Instructor's
+  picker reuse; source editing remains private to its workspace. The duplicate Alpha concept is retired.
 - `WP-INST-B2`: fork and teaching-course instantiation carry the declared reusable meaning and
   provenance. Fast-forward updates apply only to untouched reusable fields before the first issued
   run; divergence produces an explicitly selected copy or new assignment.
@@ -1752,7 +1916,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   issued evidence survives with the row marked revoked.
 - The attention queue contains only rows satisfying the actionability predicate, each resolvable from
   its own row.
-- No public, learner, non-author, collection, blueprint, or Alpha response contains answer keys,
+- No public, learner, non-author, collection, Blueprint-course, or private-workspace response contains answer keys,
   grading implementations, private source, email, UUID, or FERPA data.
 - Instructor pages stay compact and keyboard-complete in the maintained desktop profile; student pages
   retain maintained tablet and narrow-phone profiles.
@@ -1781,9 +1945,10 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   quality-signal computation with insufficient-sample behavior, and issued-run structural locks.
 - Memory conformance: ordinary crate tests cover entitlement, group purposes and exclusivity policy,
   collection ownership, usage-index aggregation boundaries, B1 blueprint ownership, approved-
-  Instructor Alpha reads, creator-only writes, ordered definition replacement, grader-operation
+  Instructor published-Blueprint reads, owner/collaborator writes, ordered definition replacement, grader-operation
   receipts and recalculation, audited work inspection, ordinary learner-work evidence, tagging
-  provenance, and retention. B2 separately covers cross-tenant instantiation, rollover exclusions,
+  provenance, and retention. B2 separately covers foreign-user and foreign-course instantiation
+  refusal, rollover exclusions,
   manifests, fast-forward eligibility, and selected copy.
 - PostgreSQL/RLS proof: a named disposable PostgreSQL E2E exercises the same selected Store semantics
   where transactions, persistence, roles, and forced RLS are the contract. It is opt-in and separate
@@ -1794,8 +1959,8 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   state preservation.
 - Playwright, named for behavior rather than milestones: discovery to collection to assignment;
   schedule and accommodation with resolved-outcome and provenance checks; entitlement preview;
-  live Student delivery and Instructor evidence inspection; pool delivery; B1 blueprint and Alpha
-  authoring with shared-picker reuse; B2 Alpha instantiation across instructors, fast-forward,
+  live Student delivery and Instructor evidence inspection; pool delivery; B1 Blueprint-course
+  authoring with shared-picker reuse; B2 Blueprint-course instantiation by authorized Instructors, fast-forward,
   divergent selected copy, rollover, and term-shift preview; grader-exception routing by item and
   recalculation; gradebook total and audited learner-work inspection; analysis to fork to recorded
   decision; attention-queue routing; keyboard, recovery, and role-appropriate viewport behavior.
@@ -1827,8 +1992,20 @@ invariant below is green in a small permanent behavior test owned by its package
 - grade totals in every shipped mode, including the rounding and drop rules;
 - ordinary learner delivery producing an immutable receipt, deterministic grade, and auditable work;
 - pool draw determinism for a given algorithm version;
-- blueprint ownership, approved-Instructor Alpha reads, creator-only writes, ordered exact-version
-  pinning, answer-free projections, and Alpha separation from learner activity;
+- BlueprintCourse ownership, globally reusable published-BlueprintCourse reads for vetted Instructors,
+  owner/collaborator private-draft writes, ordered exact-version pinning, answer-free projections, and
+  BlueprintCourse separation from Student activity;
+- Question stewardship: immutable same-QuestionId version history, exact pins, steward authority,
+  vetted-Instructor private forks with public lineage, personal Stars and watches, semantic
+  change classification, impact/recalculation routing for grading corrections, new identity for major
+  changes, and version-specific privacy-thresholded attempts, correct outcomes, and choice evidence;
+- A Sysadmin-approved `ForcedQuestionCorrection` activates one authoritative correction mapping and
+  generation in a local atomic commit after validation and a closed impact/remediation manifest; new
+  resolution follows that mapping immediately. Bounded idempotent generation-fenced workers materialize
+  each CourseInstance binding and recalculation from the immutable manifest in bounded transactions.
+  In-progress work is deterministically reissued or excused, completed work receives superseding
+  correction/recalculation receipts, originals remain immutable, and Instructor/Sysadmin projections
+  expose only their audited privacy-safe results;
 - clone and term-shift date resolution, including daylight-saving refusal;
 - statistics suppression below the k-anonymity threshold and the insufficient-evidence answer;
 - audited learner-work reads;
@@ -1844,15 +2021,18 @@ pages:
 
 1. Elena searches the published Library by concept, filters to safe evidence, and opens a public
    question detail.
-2. Elena favorites selected questions and places them in a named collection; the same live selection
-   is available to the assignment picker. When `WP-INST-D3` has shipped, she may review and confirm an
-   assisted tag with recorded provenance. Human taxonomy and collection actions complete the core
-   journey.
-3. Elena creates or revises reusable curriculum with a fixed-question definition and a pool
-   definition. The fixed member remains selected; the pool records its draw rule and delivery order
-   without becoming a learner assignment or grade.
-4. Elena instantiates the reusable definition into an ordinary Fall teaching term with its start date
-   and IANA time zone. The destination receives teaching-owned definitions and no learner records.
+2. Elena stars selected questions and places them in a named collection; the same live selection
+   is available to the assignment picker. She watches one published question and receives its in-app
+   update, fork, improvement, and impact actions without private course data. When `WP-INST-D3` has
+   shipped, she may review and confirm an assisted tag with recorded provenance. Human taxonomy and
+   collection actions complete the core journey.
+3. Elena creates or revises a private `BlueprintCourse` draft with a fixed-question definition and a
+   pool definition, then explicitly publishes its answer-free projection. The fixed member remains
+   selected; the pool records its draw rule and delivery order without becoming a learner assignment
+   or grade.
+4. Elena instantiates the published reusable definition into an exact `CourseInstance` `CourseId`
+   for an ordinary Fall teaching term with its start date and IANA time zone. The destination receives
+   teaching-owned definitions and no learner records.
 5. Elena previews resolved schedule dates, then grants Mary an accommodation. The preview shows the
    effective window and its source before she saves the assignment.
 6. Mary enters the published assignment through the ordinary learner workflow, receives fixed and
@@ -1862,9 +2042,11 @@ pages:
 7. A deterministic grader exception for an issued item routes to Elena's operation view. After the
    bounded correction, she requests the generation-fenced recalculation and observes the refreshed
    course total without changing the original receipt.
-8. Elena opens course-local item analysis, inspects learner evidence and usage context, publishes a
-   distinct linked replacement Question ID, and records the decision. The replacement is selected for
-   future teaching while the issued run remains pinned to its original evidence.
+8. Elena opens course-local item analysis, inspects learner evidence and usage context, classifies a
+   correction or major change, routes any grading correction through impact and recalculation, and
+   publishes either a same-QuestionId version or a distinct linked replacement QuestionId. She records
+   the decision and explicitly adopts it for future teaching while the issued run remains pinned to its
+   original evidence.
 9. Elena previews and creates the next-term rollover. The manifest carries reusable teaching
    definitions and improvement notes while excluding roster membership, accommodations, learner
    work, attempts, grades, and retention state.
@@ -1894,7 +2076,7 @@ contributions where required.
   repository-owned release schema packages/RC12, immediately before first production data. If
   durable pilot data exists first, stop consolidation and use forward-only migrations; WP-INST-E2 must not
   replace the active migration ledger early.
-- Keep Alpha and shared-curriculum tables outside FERPA course-record ownership.
+- Keep Blueprint-course and shared-curriculum tables outside FERPA course-record ownership.
 - Keep PostgreSQL search behind the existing repository boundary.
 
 ## Risk register
@@ -1922,10 +2104,11 @@ contributions where required.
   input, and a recorded operator decision before any external model is used.
 - **Attention-queue drift**: rows that inform rather than act; mitigated by the five-part predicate
   and a review of every new row type against it.
-- **Alpha synchronization complexity**: background updates or merges; mitigated by current-source
+- **Blueprint-course synchronization complexity**: background updates or merges; mitigated by current-source
   comparison, untouched fast-forward, and selected copy only.
-- **Cross-tenant leakage**: usage, quality, or collection queries joining tenant records; mitigated
-  by aggregate-only exposure, separate shared-curriculum stores, forced RLS, and clone-time
+- **Cross-user or cross-course leakage**: usage, quality, collection, or curriculum queries exposing
+  another user's private state or a foreign course; mitigated by global safe catalog projections,
+  UserId/workspace ownership, exact CourseId authorization, forced RLS, and clone-time
   reauthorization.
 - **Answer leakage**: richer previews, tagging, or grading aids; mitigated by author-only
   protected preview, server-only grading, and answer-free non-author paths.
@@ -1965,10 +2148,16 @@ contributions where required.
   7, and no assignees, comments, or notifications.
 - Every disclosed statistic obeys the section 6.0 validity contract, extending the existing
   k-anonymity disclosure policy rather than adding a parallel one.
-- A Question ID names one immutable published question. Every content change receives a new Question
-  ID with optional immutable provenance; retained assignments and issued runs remain exact until an
-  Instructor deliberately replaces an assignment item. Internal `(ProblemId, VersionId)` evidence
-  is never an instructor-facing selector.
+- A QuestionId names one public lineage with an immutable published version history. Each version has
+  an exact hidden `(ProblemId, VersionId)` reference; retained assignments and issued runs pin that
+  exact version and never resolve a successor. Stewarded corrections and ordinary revisions stay under
+  the same QuestionId, while major semantic changes receive a new QuestionId with optional immutable
+  public lineage. Internal version evidence is never an Instructor-facing selector.
+- The original author or author set stewards same-QuestionId versions. Any vetted Instructor may fork
+  a published version into a private draft, and publication creates public fork lineage. Stars,
+  watches, improvement threads, and impact actions remain UserId- or course-authorized;
+  grading corrections use impact analysis and generation-fenced recalculation before controlled
+  CourseInstance adoption.
 - Group membership is many-to-many; section exclusivity is a course policy that warns, not a schema
   constraint.
 - Instructor delivery validation uses ordinary Student runs and the normal retention, grading,
@@ -1979,9 +2168,10 @@ contributions where required.
 - `quality_signal` is adopted with a defined, explainable computation or removed from the schema.
 - Catalog-wide statistics stay anonymous under the existing disclosure boundary and always show
   sample size.
-- "Public Alpha curriculum" means visible to approved Instructors through B1 and available for explicit
-  B2 instantiation; learner activity belongs to the resulting teaching course.
-- Alpha curricula and teaching courses are separate aggregates, not convertible kinds.
+- A published Blueprint projection is answer-free and available for explicit B2 instantiation by an
+  approved Instructor; its draft and source remain private to the owner/collaborator workspace, and
+  Student activity belongs only to the resulting exact CourseId teaching course.
+- `BlueprintCourse` and `CourseInstance` are separate aggregates, not convertible kinds.
 - Fork lineage is retained; contribution proposals stay outside this plan.
 - Existing answer-secrecy, role, first-issued-run, retention, human-reference, and
   no-generic-dashboard decisions remain authoritative.

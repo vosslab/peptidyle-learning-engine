@@ -148,7 +148,6 @@ function emptyQuery() {
     taxonomy: null,
     capability: null,
     license: null,
-    publicationScopes: [],
     evidence: null,
     usedInMyCourses: null,
   };

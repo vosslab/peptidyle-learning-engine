@@ -85,9 +85,9 @@ test("approved-reader access changes the next visible action", () => {
   assert.notEqual(reader.primaryAction, creator.primaryAction);
 });
 
-test("Alpha authoring selects from the cross-tenant public library", () => {
+test("Alpha authoring selects from the global shared catalog", () => {
   assert.deepEqual(alphaProblemPickerSources(), [
-    { kind: "publicCatalog", label: "Public library" },
+    { kind: "sharedCatalog", label: "Shared catalog" },
   ]);
 });
 

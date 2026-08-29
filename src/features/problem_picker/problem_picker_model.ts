@@ -31,7 +31,7 @@ export interface RetainedAssignmentReference {
  */
 export type ProblemPickerSource =
   | { readonly kind: "catalog"; readonly label: string }
-  | { readonly kind: "publicCatalog"; readonly label: string }
+  | { readonly kind: "sharedCatalog"; readonly label: string }
   | { readonly kind: "mine"; readonly label: string }
   | { readonly kind: "favorites"; readonly label: string }
   | {

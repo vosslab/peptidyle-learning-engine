@@ -25,9 +25,10 @@ pub(crate) use planner::{
 pub(crate) use planner::{AssignmentMaterializationPlan, plan_assignment_materialization};
 pub(crate) use planner::{FastForwardProjectionInput, project_fast_forward_decision};
 pub(crate) use preview::{preview_assignment, preview_course};
-#[cfg(any(test, feature = "test-support"))]
-pub(crate) use request_digest::CurriculumAdoptionRequestDigest;
-pub(crate) use request_digest::{CurriculumAdoptionOperation, request_digest};
+pub(crate) use request_digest::{
+    CanonicalCurriculumAdoptionIntentV1, CurriculumAdoptionOperation,
+    CurriculumAdoptionRequestDigest, reconciliation_target_digest,
+};
 #[cfg(any(test, feature = "test-support"))]
 pub(crate) use rollover::RolloverInput;
 #[cfg(any(test, feature = "test-support"))]

@@ -175,7 +175,7 @@ async fn invitation_snapshot(pool: &PgPool, fixture: RosterFixture) -> (String, 
 
 async fn effect_counts(pool: &PgPool, fixture: RosterFixture, user: UserId) -> (i64, i64, i64) {
     sqlx::query_as(
-        "SELECT (SELECT count(*) FROM tenant_learner_identity \
+        "SELECT (SELECT count(*) FROM tenant_student_identity \
                   WHERE tenant_id=$1 AND user_id=$3),\
                 (SELECT count(*) FROM course_member \
                   WHERE tenant_id=$1 AND course_id=$2 AND user_id=$3),\

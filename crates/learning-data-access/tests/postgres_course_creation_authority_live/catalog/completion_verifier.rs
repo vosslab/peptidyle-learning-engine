@@ -6,7 +6,7 @@ const ROLE: &str = "ple_base_course_completion_verification_broker";
 const RELATIONS: &[&str] = &[
     "ple_account",
     "instructor_approval",
-    "tenant_learner_identity",
+    "tenant_student_identity",
     "course",
     "course_roster_state",
     "course_appearance",

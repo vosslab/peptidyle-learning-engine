@@ -395,7 +395,7 @@ impl CatalogStore for MemoryStore {
             .values()
             .find(|record| {
                 record.question_id == reference.question_id
-                    && record.lifecycle.is_assignable()
+                    && record.lifecycle.is_resolvable_by_stable_question_id()
                     && catalog_record_visible(&state, context.tenant_id(), record)
             })
             .cloned())
@@ -837,11 +837,6 @@ pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery, actor: User
     canonical.push('|');
     for license in &query.licenses {
         canonical.push_str(&format!("{license:?}"));
-        canonical.push('\u{1f}');
-    }
-    canonical.push('|');
-    for publication_scope in &query.publication_scopes {
-        canonical.push_str(&format!("{publication_scope:?}"));
         canonical.push('\u{1f}');
     }
     canonical.push('|');

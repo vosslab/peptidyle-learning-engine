@@ -315,11 +315,6 @@ pub(super) fn postgres_catalog_search_fingerprint(
         canonical.push('\u{1f}');
     }
     canonical.push('|');
-    for publication_scope in &query.publication_scopes {
-        canonical.push_str(&format!("{publication_scope:?}"));
-        canonical.push('\u{1f}');
-    }
-    canonical.push('|');
     canonical.push_str(&format!("{:?}", query.evidence));
     canonical.push('|');
     canonical.push_str(&format!("{:?}", query.used_in_my_courses));
@@ -876,16 +871,16 @@ mod tests {
     }
 
     #[test]
-    fn catalog_cursor_fingerprint_includes_publication_scope_filter() {
-        let all_scopes = CatalogSearchQuery::default();
-        let public_only = CatalogSearchQuery {
-            publication_scopes: vec![PublicationScope::Public],
-            ..CatalogSearchQuery::default()
-        };
+    fn catalog_cursor_fingerprint_is_deterministic_without_publication_scope_filter() {
+        let query = CatalogSearchQuery::default();
         let actor = Uuid::nil();
         assert_ne!(
-            postgres_catalog_search_fingerprint(&all_scopes, actor),
-            postgres_catalog_search_fingerprint(&public_only, actor)
+            postgres_catalog_search_fingerprint(&query, actor),
+            postgres_catalog_search_fingerprint(&query, Uuid::from_u128(1))
+        );
+        assert_eq!(
+            postgres_catalog_search_fingerprint(&query, actor),
+            postgres_catalog_search_fingerprint(&query, actor)
         );
     }
 }

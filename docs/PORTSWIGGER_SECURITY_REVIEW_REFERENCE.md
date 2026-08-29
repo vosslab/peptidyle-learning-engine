@@ -7,7 +7,7 @@ oracles for Peptidyle-like systems. It is not a penetration-test recipe and does
 threat model, code review, or deployment validation.
 
 The durable security contracts remain [SECURITY_MODEL.md](SECURITY_MODEL.md),
-[DATABASE_TENANCY.md](DATABASE_TENANCY.md), and [OBJECT_STORAGE.md](OBJECT_STORAGE.md). They are
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), and [OBJECT_STORAGE.md](OBJECT_STORAGE.md). They are
 aligned with the active audit; this reference never supersedes a contract.
 A statement marked **Current** is a review hypothesis until its linked code test and, where
 relevant, deployment evidence are recorded in the active audit.
@@ -15,7 +15,7 @@ relevant, deployment evidence are recorded in the active audit.
 ## How to use it
 
 For every boundary, start with the protected asset and the authority allowed to act on it. Then
-choose a different tenant, role, browser origin, request parser, credential, or timing window and
+choose a different actor, course, Student relationship, browser origin, request parser, credential, or timing window and
 make the system prove denial. A green happy-path test is not evidence of an authorization boundary.
 
 Each topic supplies five reusable prompts:
@@ -40,17 +40,17 @@ unguessable identifier does not authorize its holder. See
 [access control and IDOR](https://portswigger.net/web-security/access-control).
 
 - **Preconditions:** A request names a course, learner, attempt, publication, object, or action;
-  two tenants or roles can exercise the same route.
-- **Review questions:** Does every read and mutation derive actor, tenant, and capability from a
+  two courses or roles can exercise the same route.
+- **Review questions:** Does every read and mutation derive actor, exact course/Student or workspace relationship, and capability from a
   server credential? Is authorization repeated after an ID is resolved? Can an alternate HTTP
   method, trailing path, step, or signed URL bypass the normal route?
-- **Evidence:** **Code and integration evidence required.** Trace `TenantContext` from the opaque
+- **Evidence:** **Code and integration evidence required.** Trace `ActorContext` from the opaque
   session, PostgreSQL RLS and broker enforcement, typed object-key grants, and re-resolution of
   submissions and immutable presentations. Record the exact tests in the active audit before
   calling this a current guarantee.
-- **Negative oracle:** A learner from tenant B, an instructor without the course role, and a stale
+- **Negative oracle:** A Student from another course, an Instructor without the exact course role, and a stale
   session each receive no protected record, signed URL, state transition, or distinguishable leak.
-- **False confidence:** UUIDs, hidden UI controls, client role fields, a tenant ID in JSON, or a
+- **False confidence:** UUIDs, hidden UI controls, client role fields, an actor or course ID in JSON, or a
   first-step-only authorization check are not authorization.
 - **Applicability:** Always applicable. Test route, store, broker-function, object-signing, and
   background-worker paths as one matrix; do not treat RLS as a substitute for route authorization.
@@ -71,7 +71,7 @@ review lens is
   session-revocation tests, and uniform email-start responses. **Deployment evidence:** configured
   secret-store use rather than source configuration.
 - **Negative oracle:** Replaying a consumed or expired link, mixing two browser bindings, injecting
-  a duplicate cookie, or using a revoked account/session cannot mint a new tenant session.
+  a duplicate cookie, or using a revoked account/session cannot mint a new actor session.
 - **False confidence:** `HttpOnly` alone, a random-looking token stored raw, passkey presence
   without user verification, or returning a different email-enumeration response is insufficient.
 - **Applicability:** **Current code-evidence target** for the passwordless surface. OAuth and JWT
@@ -173,7 +173,7 @@ has crossed its intended trust boundary. See
   and restrict raster decoding. The learner file-upload route must fail closed until capability
   binding exists. Retain corpus tests for malformed, duplicate-key, oversized, and polyglot inputs.
 - **Negative oracle:** A crafted archive/image/JSON payload cannot write outside staging, exhaust
-  decompression resources, execute content, select another tenant's object, or create an untyped
+  decompression resources, execute content, select another course's object, or create an untyped
   privileged value.
 - **False confidence:** Filename/MIME checks, a SHA-256 alone, a random storage name, or Serde
   parsing without an explicit schema and resource bounds.
@@ -215,7 +215,7 @@ library or convenience endpoint silently enables them. See
   WebSocket upgrade is enabled.
 - **Review questions:** Are redirect URI, issuer, audience, nonce, state, PKCE, key rotation, and
   algorithm verification exact? Is a JWT verified before claims are read and forbidden from choosing
-  tenant/role? Does every WebSocket handshake check Origin and authenticate before subscription?
+  course/role? Does every WebSocket handshake check Origin and authenticate before subscription?
   Are messages schema-bounded and authorized per resource, not just on connect?
 - **Evidence:** Provider fixture tests for wrong issuer/audience/key/algorithm/redirect/state;
   WebSocket tests for cross-origin upgrade and post-connect IDOR; a configuration gate that keeps
@@ -236,7 +236,7 @@ testing; undocumented endpoints and different content types are part of the surf
 
 - **Preconditions:** Browser API, worker API, PostgreSQL role, S3 bucket, KMS key, or cloud workload
   identity can read, write, sign, decrypt, or call another service.
-- **Review questions:** Is a request's tenant context transaction-local and impossible for a browser
+- **Review questions:** Is a request's actor context transaction-local and impossible for a browser
   to set? Does each PostgreSQL login have only the necessary non-inheriting memberships and verified
   TLS? Does each workload receive an independent IAM role, exact bucket prefix/actions, and KMS key?
   Is object authorization checked before a short-lived URL is issued and after object metadata is
@@ -245,7 +245,7 @@ testing; undocumented endpoints and different content types are part of the surf
   identity/privilege checks, and decision logs without secrets or student answers.
   **Integration evidence:** TLS, S3 encryption/key/HTTPS, and cross-role service tests.
   **Deployment evidence:** IAM policy review and the deployed workload-to-bucket/KMS/network path.
-- **Negative oracle:** Changing tenant settings, borrowing another role's URL, requesting another
+- **Negative oracle:** Changing course settings, borrowing another role's URL, requesting another
   bucket/key prefix, or calling a privileged broker without its contract yields no data or action.
 - **False confidence:** An ORM filter, one broad cloud role, client-side object keys, a bucket-wide
   signed URL, encryption at rest without authorization, or a database superuser used by the API.
@@ -260,7 +260,7 @@ for a single job.
 
 - **Preconditions:** A worker invokes an external engine, pulls an image, accepts a provider result,
   installs a dependency, or passes user/learner material to a service.
-- **Review questions:** What identity calls the service? What tenant and job bind the response? What
+- **Review questions:** What actor and typed job target call the service? What exact course, Student, or workspace scope binds the response? What
   secrets, network routes, database roles, object prefixes, and egress does it receive? Is image
   provenance pinned and verified? Is every reply size-bounded, schema-validated, correlated, timed
   out, and safe to retry?
@@ -270,7 +270,7 @@ for a single job.
   credentials.
 - **Negative oracle:** **Required release oracle:** a production deployment must demonstrate that a
   compromised renderer/provider cannot query PostgreSQL, list object storage, invoke another
-  tenant's job, forge a result for a different correlation, or use an API credential.
+  course's job, forge a result for a different correlation, or use an API credential.
 - **False confidence:** A private Docker network, an HTTPS URL, a successful image build, or a
   callback shared secret without sender identity and per-job correlation.
 - **Applicability:** **Code and deployment evidence target** for renderer and iMathAS boundaries.
@@ -278,7 +278,7 @@ for a single job.
 
 ## Future skill seed
 
-Suggested trigger phrases are: `security architecture audit`, `PortSwigger review`, `tenant
+Suggested trigger phrases are: `security architecture audit`, `PortSwigger review`, `actor
 isolation review`, `CSRF/session review`, `external-service threat model`, and `pre-release security
 gate`.
 

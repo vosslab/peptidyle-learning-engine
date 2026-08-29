@@ -4,8 +4,8 @@
 
 Caching in PLE reduces repeated work; it does not create an alternate source of
 assessment truth. Published content, the authoritative attempt, timing,
-grading, feedback, tenant access, and promotion remain server-owned. This
-document records the durable cache and prefetch boundary implemented across
+grading, feedback, exact CourseId/Student ownership, and promotion remain
+server-owned. This document records the durable cache and prefetch boundary implemented across
 the object store, adapters, run routes, and browser. It distinguishes current
 behavior from planned optimization so a cache hit is never mistaken for a
 permission or grading decision.
@@ -25,8 +25,8 @@ PLE uses distinct caches with deliberately different contents and lifetimes.
 | Browser run state | Current authoritative screen and one speculative envelope | Current route and active attempt | Answers, grade keys, durable prefetch reservation |
 | Browser asset cache | Delivered image and other asset bytes | Delivery URL and content checksum | Private source or a signed protected URL retained by PLE |
 | CDN public assets | Public immutable `ProblemAsset` renditions in `PublicAssets` | Typed immutable public object key and checksum | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
-| Adapter render cache | Answer-free envelope, safe markup, source binding, renderer identity | Published problem, immutable version, and seed | Answer keys, private rubrics, credentials, raw provider output |
-| Attempt and prefetch rows | Issuance provenance, binding, and private replay state where needed | Tenant, learner, run, predecessor, position | A browser-writable substitute for the attempt record |
+| Adapter render cache | Answer-free envelope, safe markup, source binding, renderer identity | Immutable ProblemVersionRef and seed | Answer keys, private rubrics, credentials, raw provider output |
+| Attempt and prefetch rows | Issuance provenance, binding, and private replay state where needed | Exact CourseId, StudentId, RunId, predecessor/attempt, position, and ProblemVersionRef plus seed | A browser-writable substitute for the attempt record |
 
 The browser treats every API JSON response as `Cache-Control: no-store`.
 This includes run screens, submissions, prefetch responses, feedback, and
@@ -55,8 +55,9 @@ immutable published version and its stored seed. Its object key is
 `PrivateContent`, and the object identity is
 deterministically derived with an adapter-specific SHA-256 domain separator.
 The typed key therefore includes the problem even where the compact object ID
-is derived from version and seed. Cache identity never includes a learner,
-tenant, session, response, deadline, or browser input.
+is derived from version and seed. Cache identity never includes a Student, course membership, session,
+response, deadline, or browser input. The shared safe render cache is not a record cache and cannot
+authorize a learner.
 
 The deterministic cache rule relies on the exact seeded-generation contract:
 the same `(version_id, seed)` must reproduce the same canonical output. A new
@@ -79,6 +80,16 @@ This gives cache invalidation a simple rule:
 Object storage is a cache backing store, not a browser authorization path.
 `ProblemRender` objects are render-category objects and cannot be converted to
 a public asset URL by the asset route.
+
+### Authorization and RLS
+
+The safe render cache is global immutable content. A cache hit grants no access to a Student record
+and cannot satisfy a run, attempt, or assignment check. Protected attempt, replay, and prefetch rows
+use forced RLS and an operation-specific predicate over the server-derived actor plus exact
+`CourseId`, `StudentId`, `RunId`, `QuestionAttemptId`, `ProblemVersionRef`, and seed. Missing actor
+context, an absent Student relationship, a revoked membership, or a mismatch in any binding returns
+no protected row. A worker obtains the same target from a locked typed lease; it never accepts a
+course, Student, attempt, or reference from queue input.
 
 ## Adapter behavior
 
@@ -111,8 +122,9 @@ There are two different issue-time or envelope-less WeBWorK reuse cases:
 
 The second call remains necessary for each newly issued attempt because the
 shared cache deliberately excludes private replay material. PLE persists the
-bounded, validated mapping under the tenant attempt, along with the exact
-public snapshot and server-only grading envelope. Every normal active or
+bounded, validated mapping under the exact CourseId/StudentId/RunId/AttemptId and immutable
+ProblemVersionRef plus seed, along with the exact public snapshot and server-only grading envelope.
+Every normal active or
 submitted attempt `GET` replays that persisted snapshot directly: it does not
 call adapter `reproduce`, consult the adapter safe-render cache, call the
 renderer, or emit `ple.webwork.cache` `renderer_call` or `cache_hit`. Normal
@@ -128,9 +140,14 @@ answer-free external-tool envelope. It validates the pinned source artifact,
 provider, integration profile, version, seed, and response shape on every
 read. A cache miss asks the configured verified provider for a safe render;
 an `AlreadyExists` write race rereads and validates the winning immutable
-object. Grade verification remains a server-to-provider operation bound to
-tenant, attempt, problem, version, seed, and server correlation. It has no
-process-local grade cache.
+object. Grade verification remains a server-to-provider operation bound to exact
+CourseId/StudentId/RunId/AttemptId, immutable ProblemVersionRef, seed, and server correlation. It has
+no process-local grade cache.
+
+Provider metadata is retained only as external protocol data. Provider names, integration profiles,
+renderer identities, upstream handles, and field/value mappings may be sent on the private
+PLE-to-provider exchange, but cannot establish CourseId, StudentId, run, attempt, authorization, or
+cache identity. Raw provider responses, credentials, and answer-bearing material remain server-only.
 
 ## Reservation and promotion
 
@@ -140,16 +157,22 @@ attempt. The browser sends an empty same-origin `POST` to
 the path supplies routing context only, and the browser cannot choose a seed, question position,
 version, backend, provenance, or timer.
 
-The server authenticates the learner, verifies ownership of the unresolved
-predecessor and run, rejects a second active question, selects the first
-unattempted assignment position, chooses a fresh seed, issues the backend
-projection, creates a presentation binding, and persists a key-free
-reservation. The reservation binds tenant, learner, run, predecessor,
-position, published reference, seed, parameter hash, complete backend
-provenance, explicit presentation capability, presentation binding, exact
-answer-free public snapshot, and matching server-only grading envelope. An
-identical request is idempotent; a conflicting request cannot rewrite its
-immutable variation.
+The server authenticates the learner, resolves the exact Student through the
+CourseId membership, verifies ownership of the unresolved predecessor and run,
+rejects a second active question, selects the first unattempted assignment
+position, chooses a fresh seed, issues the backend projection, creates a
+presentation binding, and persists a key-free reservation. The reservation
+binds CourseId, StudentId, RunId, predecessor QuestionAttemptId, position,
+immutable ProblemVersionRef, seed, parameter hash, complete backend provenance,
+explicit presentation capability, presentation binding, exact answer-free public
+snapshot, and matching server-only grading envelope. An identical request is
+idempotent; a conflicting request cannot rewrite its immutable variation.
+
+The reservation's private execution material is not a browser capability. The Store keeps family-
+specific grading contracts and replay mappings behind the server-owned typed capability, or derives
+them from a locked worker lease whose target is the same exact `CourseId`, `StudentId`, `RunId`,
+predecessor `QuestionAttemptId`, `ProblemVersionRef`, and seed. No caller-supplied scope or provider
+metadata can widen that lease.
 
 Native-flat and WeBWorK reservations additionally retain their typed,
 checksummed first-grade contracts. Flat carries its private definition;
@@ -200,7 +223,8 @@ The following outcomes are intentional safety behavior:
 
 | Condition | Required behavior |
 | --- | --- |
-| Wrong tenant, learner, run, or predecessor | Return not found or conflict; do not disclose state |
+| Another UserId, another course, or a foreign attempt/predecessor | Return not found or conflict; do not disclose state |
+| Missing or mismatched CourseId/StudentId/run/attempt/reference/seed binding | Refuse before cache, grading, or mutation |
 | Active predecessor already answered or run completed | Reject prefetch; do not start a successor |
 | Conflicting duplicate reservation | Preserve the first reservation and reject rewrite |
 | Cache schema, checksum, source, version, seed, title, or renderer mismatch | Refuse the entry; re-render only where the adapter contract permits |
@@ -239,5 +263,6 @@ The next cache work should follow the payload plan in this order:
 Permanent tests should prove deterministic cache identity, validation refusal,
 no-answer disclosure, cache-hit renderer behavior, reservation idempotency,
 atomic promotion, strict receipt matching, timed-content withholding, and
-tenant isolation. One-time load tests and representative timing measurements
+cross-user, cross-course, and foreign-attempt refusal. One-time load tests and representative timing
+measurements
 are implementation evidence, not permanent exact-performance assertions.

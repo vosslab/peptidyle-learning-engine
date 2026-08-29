@@ -2,6 +2,13 @@
 
 PostgreSQL and object storage are separate durable systems. PLE never claims a distributed transaction between them. Instead it uses typed immutable objects, database-authoritative visibility, and operation-specific repair rules.
 
+The binding target is the single-installation model in the [single-installation authorization
+plan](active_plans/active/single_installation_authorization_plan.md). The currently checked-in
+pre-SD1 source still contains historical `TenantId`, `TenantContext`, and tenant-shaped object and
+retention fields. SD1-C owns replacing those source and schema shapes with exact domain scopes. This
+document does not authorize a compatibility alias, a dual key, or a parallel tenant model while that
+dependency is open.
+
 ## Authority and vocabulary
 
 An **object** is immutable bytes and its server-created `ObjectRecord`. A **reference** is durable database state that makes that object relevant to a catalog, course, or student record. A **delivery** is a separately authorized route mapping from an opaque ID to one exact record.
@@ -13,7 +20,13 @@ An **object** is immutable bytes and its server-created `ObjectRecord`. A **refe
 | Reference without bytes | Broken reference | Fail closed, alert, and preserve database evidence. |
 | Reference with wrong bytes/checksum | Corruption or substitution | Fail closed; do not replace it with a near match. |
 
-The database is authoritative for intended existence and visibility. The object store is authoritative for whether the exact bytes exist. Neither a bucket listing nor a successfully fetched object creates an authorization right. Physical domain selection comes from `ObjectKey`, not a caller's path string.
+The database is authoritative for intended existence and visibility. The object store is authoritative
+for whether the exact bytes exist. Neither a bucket listing nor a successfully fetched object creates
+an authorization right. Physical domain selection comes from `ObjectKey`, not a caller's path string.
+Authorization is evaluated separately at the trusted Store/PostgreSQL boundary: a delivery needs the
+exact course/Student relationship, a current workspace owner/collaborator relationship, the approved
+Instructor catalog capability, or another registered typed capability/lease. An object ID, bucket,
+path, or checksum never grants permission.
 
 ## Standard bytes-first protocol
 
@@ -43,9 +56,19 @@ After all materialization succeeds, a lease-conditional database function perfor
 
 The publisher's database capability can claim/read/fail only public-asset publication jobs and activate only the matching leased public version. Its production IAM role is separately constrained to the required private source read and public immutable write operations. Code-level capability tests do not substitute for a deployed IAM policy review.
 
-## Integrity is not authorization
+## Integrity and authorization
 
-SHA-256 binds canonical source, object bytes, and selected publication records. It catches accidental corruption, inconsistent copies, and a storage response that does not match the durable record. It is not a signature, MAC, tenant authorization check, or encryption mechanism. The corresponding controls are:
+Integrity and authorization answer different questions and require different evidence. SHA-256 binds
+canonical source, object bytes, and selected publication records. It catches accidental corruption,
+inconsistent copies, and a storage response that does not match the durable record. It is not a
+signature, MAC, authorization check, or encryption mechanism.
+
+| Concern | Question | Enforced by |
+| --- | --- | --- |
+| Integrity | Are these the exact immutable bytes and record? | SHA-256, typed immutable keys, `ObjectRecord`, and immutable-write checks |
+| Authorization | May this actor or worker use this exact object now? | Exact course/Student or workspace relationship, approved-Instructor predicate, or registered typed capability/lease |
+
+The corresponding confidentiality and history controls are:
 
 | Property | Enforced by |
 | --- | --- |
@@ -62,7 +85,15 @@ Optional one-way provenance may identify the source publication without changing
 
 ## Retention and repair
 
-Student-record retention freezes a typed manifest under a tenant/course/stage generation, then processes only that manifest under a leased job. Object deletion and relational deletion do not claim completion until the required manifest checks succeed. Shared published content, private authoring, and anonymous aggregates are outside a learner-record purge.
+Student-record retention freezes a typed manifest scoped to one exact course, stage, and positive
+generation, then processes only that manifest under a leased job. Manifest entries identify exact
+typed object records; they are never a bucket prefix or a caller-selected path. Object deletion and
+relational deletion do not claim completion until the required manifest checks succeed. Shared
+published content, private authoring, and anonymous aggregates are outside a learner-record purge.
+
+The current pre-SD1 retention source still carries tenant fields in its worker command and manifest
+storage. SD1-C owns the source/schema replacement with the exact course/stage/generation scope above;
+no compatibility tenant field is added here.
 
 General bucket-to-database reconciliation is not yet implemented. Until it is, operators must preserve missing/mismatched reference evidence and investigate the backing store; application code must not silently delete references or serve unregistered bytes. Production backup restore, KMS rotation, Object Lock retention, lifecycle policy, and cross-region/failover claims need live deployment evidence.
 

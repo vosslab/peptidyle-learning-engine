@@ -5,7 +5,7 @@ S3-compatible object storage. This document defines the durable atomicity and
 race rules that keep those replicas correct when requests overlap, a process
 dies, or a client retries. It complements
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md),
-[DATABASE_TENANCY.md](DATABASE_TENANCY.md),
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#intended-database-model),
 [OBJECT_STORAGE.md](OBJECT_STORAGE.md), and the frozen public/API register in
 [CONTRACTS.md](CONTRACTS.md).
 
@@ -23,7 +23,7 @@ this document means:
 
 ## Authority status
 
-**Current authority.** PostgreSQL transactions, server-derived tenant context,
+**Current authority.** PostgreSQL transactions, server-derived `ActorContext`,
 revision checks, attempt receipts, job leases, and generation checks decide
 whether concurrent work becomes durable. The specific implemented owners are
 listed below.
@@ -40,15 +40,15 @@ document does not claim either is implemented.
 ## Authority model
 
 No API replica, browser tab, worker process, or object-store listing is a
-correctness authority. PostgreSQL records are authoritative for tenant-owned
-state; typed object records and checksums bind PostgreSQL metadata to bytes.
-The browser can retry an authenticated request, but cannot select its tenant,
+correctness authority. PostgreSQL records are authoritative for exact course,
+Student, workspace, and operation state; typed object records and checksums bind
+PostgreSQL metadata to bytes. The browser can retry an authenticated request, but cannot select its actor,
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
 | State or decision                      | Authoritative owner                                         | Status          | Main implementation owner                                                                                                                              |
 | -------------------------------------- | ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tenant identity and row access         | `TenantContext`, transaction-local PostgreSQL RLS           | Implemented     | [DATABASE_TENANCY.md](DATABASE_TENANCY.md), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs)                                 |
+| Actor identity and row access         | `ActorContext`, transaction-local forced PostgreSQL RLS    | Implemented     | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
 | Mutable authoring and assignment state | Revisioned PostgreSQL rows                                  | Implemented     | [catalog.rs](../crates/learning-data-access/src/postgres/catalog.rs), [course_policy.rs](../crates/learning-data-access/src/postgres/course_policy.rs) |
 | Learner submission outcome             | Attempt-scoped idempotency and append-only evidence         | Implemented     | [runs.rs](../crates/learning-data-access/src/postgres/runs.rs)                                                                                         |
 | Background work ownership              | PostgreSQL job row plus opaque lease token                  | Implemented     | [jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs)                                                                                         |
@@ -56,22 +56,22 @@ operation final.
 | Published catalog version              | Immutable version rows created from an exact draft revision | Implemented     | [catalog.rs](../crates/learning-data-access/src/postgres/catalog.rs)                                                                                   |
 | Cross-system object inventory repair   | Database/object-store reconciliation job                    | Planned, WP-RC7 | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                           |
 
-## Tenant transactions and retries
+## Actor-scoped transactions and retries
 
 ### Transaction boundary
 
-Every PostgreSQL operation on tenant-owned data begins a new transaction from a
-server-derived `TenantContext`. The store sets `LOCAL ROLE` and the tenant
-setting before querying, and commits or rolls back before returning the
-connection to the pool. A pooled connection therefore carries neither a prior
-tenant nor a prior request's authority. The browser never supplies this
-context. The complete RLS and role rule is in
-[DATABASE_TENANCY.md](DATABASE_TENANCY.md).
+Every PostgreSQL operation on protected data begins a new transaction from a
+server-derived `ActorContext`. The store sets `LOCAL ROLE` and the actor setting
+before querying, and commits or rolls back before returning the connection to the
+pool. A pooled connection therefore carries neither a prior actor nor a prior
+request's authority. The browser never supplies this context. The complete
+forced-RLS and role rule is in
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security).
 
 Required rules for a new Store mutation:
 
-- Bind every tenant-owned read and write to the trusted context and preserve
-  tenant-first keys and foreign keys.
+- Bind every protected read and write to the trusted actor context and preserve
+  exact course, Student, workspace, and typed operation relationships.
 - Authorize the actor within the same transaction as the protected mutation.
 - Commit all relational effects that define one outcome together, or leave no
   final relational effect. Do not split one receipt, revision update, and
@@ -144,16 +144,16 @@ immutable publication, never as changed historical question content.
 
 ### Attempt identity
 
-An issued `QuestionAttemptId` binds the authenticated learner, tenant, course,
+An issued `QuestionAttemptId` binds the authenticated Student actor, exact course,
 assignment/run item, immutable question version, seed, timing state, and
 grading backend. It is the primary response authority. The browser sends the
-minimal learner response plus an `Idempotency-Key`; it does not choose a
-tenant, key, seed, grading backend, or question kind. The exact browser
+minimal Student response plus an `Idempotency-Key`; it does not choose an
+actor, course, key, seed, grading backend, or question kind. The exact browser
 boundary is [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
 ### Submission idempotency
 
-`submission_idempotency` is keyed by `(tenant_id, attempt_id)`, and stores the
+`submission_idempotency` is keyed by the exact `QuestionAttemptId`, and stores the
 bound idempotency key plus the replayable result. The submit path accepts an
 existing receipt only when the request identity/fingerprint agrees; a different
 logical request for the same attempt conflicts. A transport retry therefore
@@ -171,12 +171,12 @@ submission or grading attempt.
 
 Continued practice and retry behavior must converge even when the browser
 retries or two replicas handle adjacent requests. A submitted predecessor has
-one immutable `submission_next_attempt` receipt, keyed by tenant and
+one immutable `submission_next_attempt` receipt, keyed by the predecessor's exact
 predecessor attempt. The receipt contains either the exact successor attempt or
 an explicit `None` result. `ON CONFLICT DO NOTHING` lets concurrent finalizers
 race safely; a losing finalizer must accept only the exact same stored result.
 
-`question_prefetch` is similarly bound to tenant, run, predecessor, and
+`question_prefetch` is similarly bound to the exact course/Student run, predecessor, and
 assignment position. It is valid only before the predecessor is submitted and
 only when its full issued tuple-capability, binding, public snapshot, and
 server-only grading envelope-agrees with its protected columns. A later
@@ -220,8 +220,8 @@ attempt support, or a timer adjustment. The concrete scoring and auto-submit che
 
 ### External-tool sessions and exchanges
 
-An external-tool launch session is server-created, tenant/learner/attempt
-bound, expiry-bound, and revocable. Its random bearer token is stored only as a
+An external-tool launch session is server-created and bound to the exact
+course/Student/attempt scope, expiry-bound, and revocable. Its random bearer token is stored only as a
 hash; provider state is encrypted before persistence. The browser-visible
 embed is presentation-only and cannot grade itself.
 
@@ -256,7 +256,7 @@ temporary non-signable identity first. Promotion records a server-owned future
 object identity and uses a revision-checked mutation only after the source is
 available. The durable row remembers whether it was consumed and whether its
 temporary object was deleted. Bounded cleanup claims the candidate before
-deleting bytes, so competing cleaners do not delete another tenant's object or
+deleting bytes, so competing cleaners do not delete another course's object or
 undo a current pointer. See
 [course_appearance.rs](../crates/learning-data-access/src/postgres/course_appearance.rs)
 and [OBJECT_STORAGE.md](OBJECT_STORAGE.md).
@@ -278,13 +278,14 @@ above, but retry is a safety net, not an excuse for arbitrary lock order.
 
 Required ordering for a new multi-row mutation:
 
-1. Establish tenant context and authorize the actor.
+1. Establish `ActorContext` and authorize the exact course, Student, workspace,
+   or leased operation target.
 2. Lock the highest shared owner first: course/assignment or run, as applicable.
 3. Lock its direct child next: enrollment or assignment item.
 4. Lock attempt, receipt, candidate, or projection rows last, in stable ID or
    assignment-position order when there is more than one.
 5. Acquire an external lease before preparation; re-check it inside the final
-   tenant transaction before publishing an effect.
+   actor-scoped transaction before publishing an effect.
 
 Existing run/prefetch paths follow run, enrollment, predecessor attempt, then
 prefetch/receipt order. Existing scoring paths lock the assignment owner before
@@ -298,7 +299,7 @@ network call.
 Before accepting a new mutating API, Store method, worker, or object workflow,
 verify all applicable points:
 
-- [ ] Tenant/actor authority is reconstructed server-side inside its database
+- [ ] Actor and exact relationship authority is reconstructed server-side inside its database
       transaction.
 - [ ] The mutation has one durable authority and a clear conflict result.
 - [ ] Retries cover only a complete replayable transaction; external effects

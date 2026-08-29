@@ -21,13 +21,12 @@ const FILTER = {
   bylines: [],
   backends: ["native"],
   tags: ["biochemistry"],
-  responseFamilies: ["multipleChoice"],
+  response_families: ["multipleChoice"],
   taxonomy: [{ scheme: "Peptidyle", code: "BIOCHEM.PEPTIDE_BOND" }],
   capabilities: ["serverGrading"],
   licenses: ["ccBy"],
-  publicationScopes: [],
   evidence: "any",
-  usedInMyCourses: "any",
+  used_in_my_courses: "any",
   authorship: "any",
 };
 
@@ -69,9 +68,12 @@ test("D2 curation decoders accept only closed safe projections and current D1 fi
   const unknownAuthorship = structuredClone(savedSearch());
   unknownAuthorship.filter.authorship = "otherActor";
   assert.throws(() => decodeSavedProblemSearchView(unknownAuthorship), DecodeError);
-  const unknownPublicationScope = structuredClone(savedSearch());
-  unknownPublicationScope.filter.publicationScopes = ["private"];
-  assert.throws(() => decodeSavedProblemSearchView(unknownPublicationScope), DecodeError);
+  const retiredPublicationScope = structuredClone(savedSearch());
+  retiredPublicationScope.filter.publication_scopes = ["private"];
+  assert.throws(() => decodeSavedProblemSearchView(retiredPublicationScope), DecodeError);
+  const camelCaseFilter = structuredClone(savedSearch());
+  camelCaseFilter.filter.responseFamilies = ["multipleChoice"];
+  assert.throws(() => decodeSavedProblemSearchView(camelCaseFilter), DecodeError);
   assert.throws(
     () => decodeProblemCollectionSummaryView({ ...collection(), owner: "private user" }),
     DecodeError,
@@ -162,7 +164,9 @@ test("D2 HTTP client sends exact ETags, keeps saved searches fresh, and preserve
   );
   const body = JSON.parse(await searchCreate.text());
   assert.equal(Object.hasOwn(body.filter, "cursor"), false);
-  assert.equal(Object.hasOwn(body.filter, "pageSize"), false);
+  assert.equal(Object.hasOwn(body.filter, "page_size"), false);
+  assert.equal(Object.hasOwn(body.filter, "publication_scopes"), false);
+  assert.equal(Object.hasOwn(body.filter, "publicationScopes"), false);
   const favoriteEnsure = requests.find(
     (request) => request.method === "POST" && request.url.endsWith("/favorites"),
   );

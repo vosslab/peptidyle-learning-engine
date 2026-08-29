@@ -454,7 +454,7 @@ fn claim_locked(
     {
         return Err(StoreError::Conflict);
     }
-    let student = learner_identity(state, tenant, command.user)?;
+    let student = student_identity(state, tenant, command.user)?;
     let membership = super::entitlement::ensure_course_membership_id(
         state,
         tenant,
@@ -511,7 +511,7 @@ fn upsert_member_locked(
     tenant: question_model::TenantId,
     command: UpsertCourseMember,
 ) -> Result<ClaimedCourseMembership, StoreError> {
-    let student = learner_identity(state, tenant, command.user)?;
+    let student = student_identity(state, tenant, command.user)?;
     if let Some(existing_membership) = state
         .active_course_membership_by_user
         .get(&(tenant, command.course, command.user))
@@ -577,19 +577,22 @@ fn upsert_member_locked(
     })
 }
 
-fn learner_identity(
+fn student_identity(
     state: &mut State,
     tenant: question_model::TenantId,
     user: question_model::UserId,
 ) -> Result<StudentId, StoreError> {
-    if let Some(student) = state.learner_by_user.get(&(tenant, user)).copied() {
+    if let Some(student) = state.student_by_user.get(&(tenant, user)).copied() {
         return Ok(student);
     }
     let student = random_student_id()?;
-    if !state.learner_by_student.insert((tenant, student, user)) {
+    if !state
+        .student_user_by_student
+        .insert((tenant, student, user))
+    {
         return Err(StoreError::Conflict);
     }
-    state.learner_by_user.insert((tenant, user), student);
+    state.student_by_user.insert((tenant, user), student);
     Ok(student)
 }
 

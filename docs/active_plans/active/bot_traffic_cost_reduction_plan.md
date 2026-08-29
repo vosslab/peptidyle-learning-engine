@@ -42,8 +42,9 @@ to measure at the edge and origin, block or challenge before expensive work, dis
 crawlers from self-declared user agents, rate-limit page requests rather than static assets, and
 measure the human cost of every challenge.
 
-PLE has a favorable content boundary. Course, learner, draft, grading, and authored-source data are
-already authenticated and tenant-owned. Published problems are shared and immutable, but PLE does
+PLE has a favorable content boundary. Course records, Student work, drafts, grading, and authored
+source are already authenticated and bound to exact course, Student, workspace, or account
+relationships. Published problems are shared and immutable, but PLE does
 not need a public, enumerable problem page for every version. A small public landing page can explain
 the product while every course, catalog, authoring, run, grade, and administrative surface stays
 behind authentication. Immutable public assets may remain CDN-cacheable because they contain no
@@ -77,8 +78,9 @@ landing artifact portable. GitHub Pages is not a production fallback in this pla
 
 - Make the cost of an anonymous landing-page crawl independent of API, database, object-store,
   renderer, provider, and worker capacity.
-- Require a valid server session and tenant authority before any educational content, records, or
-  expensive application behavior becomes available.
+- Require a valid server session and server-derived `ActorContext { user_id, session_id }`, followed
+  by exact course, Student, workspace, or approved-Instructor authority before educational content,
+  records, or expensive application behavior becomes available.
 - Keep the public experience fast, accessible, useful, and honest without exposing a crawlable
   content catalog.
 - Bound abuse costs at the edge and application layers without imposing routine CAPTCHA friction on
@@ -100,7 +102,19 @@ database reads, signed URLs, renderer calls, job creation, grading, or provider 
 
 The login wall is therefore an authority and discovery boundary, not proof that a caller is human.
 A valid session still receives least-privilege route checks, bounded request envelopes, per-session
-and per-tenant mutation/concurrency limits, idempotency for job-producing operations, and revocation.
+mutation/concurrency controls, exact course/Student/workspace authorization for the operation target,
+idempotency for job-producing operations, and revocation. Installation-wide queue and deployment
+capacity remain bounded independently of any one account or session.
+
+For a job-producing or externally billed operation, the server derives the target from its exact
+course, Student, workspace, assignment, attempt, catalog, or system relationship before enqueueing.
+The durable job carries only a typed target; the worker derives that same scope from the immutable
+job manifest and its active typed lease. External-provider protocol metadata, including
+provider-assigned identifiers, launch/correlation values, and callback state, remains metadata for
+that adapter protocol. It never constructs `ActorContext`, proves a PLE relationship, or widens a
+worker lease. Preserve those external protocol fields at the adapter boundary; carry PLE authority
+separately instead of renaming or deleting provider metadata.
+
 No edge verified-bot or challenge result grants application authority.
 
 - Evidence strategy for uncertain methods: record a traffic and cost baseline, then replay the same
@@ -109,7 +123,7 @@ No edge verified-bot or challenge result grants application authority.
   experiment so repeated runs produce a stable cost estimate; the normalized reporting unit does
   not dictate the number of requests sent. A signal becomes an enforcement rule only when its
   report-only results separate abusive traffic from every legitimate scenario. If they overlap, keep
-  the signal for observability and use provider, session, and tenant authority instead. Later pilot
+  the signal for observability and use provider, session, and exact domain authority instead. Later pilot
   evidence may revise the scenario and thresholds; the plan does not claim those observations exist
   today.
 
@@ -145,8 +159,20 @@ No edge verified-bot or challenge result grants application authority.
 - The Solid client is one static bundle and requests the current session during startup.
 - The local Caddy gateway proxies all requests to the API replicas; it is deliberately not an
   authentication, storage, or asset boundary.
-- The server owns replica-safe sessions in PostgreSQL and uses an `HttpOnly` cookie. Authenticated
-  route handlers establish tenant authority before returning records.
+- The server owns replica-safe sessions in PostgreSQL and uses an `HttpOnly` cookie. The SD1 target
+  is for route handlers to derive `ActorContext` and establish exact operation authority before
+  returning records.
+- The implementation points for these controls are `crates/server/src/auth/passwordless.rs` and
+  `crates/server/src/worker.rs`: keyed authentication limits, `JobLeaseToken`, bounded
+  `WorkerSettings`, and fair worker-family dispatch. Local worker bounds use the `PLE_WORKER_*`
+  variables in `containers/env.example`.
+- The current passwordless surface uses privacy-bounded network, principal, email, and service rate
+  limit keys. The worker uses bounded lease, preparation-timeout, polling, and batch settings, and
+  fair dispatch across worker families. These controls protect operations; they are not account or
+  course quotas.
+- The OpenTofu deployment exposes `api_max_count`, `worker_max_count`, and `waf_rate_limit` as
+  installation-wide deployment controls. Their values are measured rollout tuning, not per-account
+  or per-course authority.
 - `/health` performs semantic dependency verification. It is valuable to an orchestrator but would
   be needlessly expensive as an unrestricted public bot target.
 - The active plan already selects CloudFront for immutable public assets and S3 for binary/static
@@ -177,7 +203,7 @@ Durable ownership rules:
 - The authenticated Solid application remains the only browser product surface. It calls the API on
   its own origin so production does not need broad CORS or cross-site session cookies.
 - The Rust server remains the authority boundary. Edge rules reduce load but never grant a session,
-  tenant, role, asset, or grade.
+  role, exact course/workspace relationship, asset, or grade.
 - The CDN owns anonymous byte delivery. PostgreSQL, object records, job queues, renderers, and
   external providers must see no request caused solely by loading the public landing page.
 - Orchestrator health checks use a non-public origin path or trusted network. A public status page is
@@ -221,8 +247,8 @@ checkout. Billing remains outside scope and cannot weaken the same server author
 - The landing host does not call the app API, accept credentials, embed authenticated frames, or
   receive authentication callbacks.
 - The Solid/WASM application code is public cacheable software, not protected educational content.
-  It must remain answer-free and secret-free. All catalog data, course data, source, grading,
-  tenant records, signed asset delivery, and mutations remain server-authorized.
+  It must remain answer-free and secret-free. All catalog data, course records, source, grading,
+  Student/workspace records, signed asset delivery, and mutations remain server-authorized.
 - DNS cutover temporarily uses a TTL selected from the provider's observed propagation and the
   rollback exercise window. After the deployment remains stable for that window, restore the normal
   deployment TTL. These are recorded rollout values, not permanent unit-test constants. Rollback
@@ -289,7 +315,7 @@ An absent or syntactically malformed session cookie rejects before Store access.
 valid but unknown opaque token requires exactly one indexed session-hash lookup, then returns the same
 generic `401` as every other invalid session. It receives no shared negative cache because that would
 create cross-request identity state; the edge rate limit bounds repeated random-token probes. A valid
-session establishes tenant context before route authority.
+session resolves `ActorContext` before exact route authority.
 
 Route authority is checked before request body parsing beyond the route's small fixed envelope,
 object fetch, signed-URL issuance, queue insertion, renderer/provider calls, or other work whose cost
@@ -306,18 +332,21 @@ may use privacy-bounded keyed state with expiry, but logs and metrics do not ret
 The edge login/callback allowance is calibrated from WP-BOT-1's versioned class-start/shared-egress
 scenario. Its initial retry and refresh assumptions are explicit rather than described as observed;
 later pilot evidence may replace them. A compromised valid session remains subject to per-session
-mutation limits, provider revocation, and normal tenant/role authorization.
+mutation limits, provider revocation, and exact course/Student/workspace/role authorization.
 
 Each job-producing or externally billed route declares its maximum accepted body bytes, required
-role, idempotency key scope, per-session concurrency, per-tenant concurrency, queue ceiling, and
-fixed refusal class in the route-cost inventory. Retries with the same idempotency key cannot create
-a second job. Reaching one tenant's limit cannot consume another tenant's reserved class-start
-capacity. This plan adds no generic "authenticated means unlimited" fallback.
+role, idempotency key scope, per-session concurrency, exact course/Student/workspace authority,
+installation-wide queue admission and capacity ceiling, and fixed refusal class in the route-cost
+inventory. Retries with the same idempotency key cannot create a second job. A noisy session cannot
+exceed its admission bound or monopolize shared installation capacity. The existing worker-family
+dispatcher remains fair across its registered families; this plan adds no fixed latency gate and no
+generic "authenticated means unlimited" fallback.
 
 An application-owned rate refusal is one fixed `429` response with `Retry-After`, `Cache-Control:
-private, no-store`, and no account, tenant, provider, or rule detail. Edge challenge responses are
-also non-cacheable. Rate values are deployment configuration established from report-only traffic
-and repeated runs of the versioned class-start scenario; permanent tests exercise the limiter with
+private, no-store`, and no account, course, workspace, actor, provider, or rule detail. Edge challenge
+responses are also non-cacheable. Rate values are deployment configuration established from
+report-only traffic and repeated runs of the versioned class-start scenario; permanent tests
+exercise the limiter with
 injected values and do not freeze a tunable production number.
 
 ### Origin and health boundary
@@ -359,8 +388,9 @@ Use the local bot article as evidence, not a rule set to copy blindly. PLE's ini
    counted in page or credential buckets.
 5. Challenge high-risk datacenter/automation traffic when it reaches the app host. Maintain an
    accessible recovery/support path.
-6. Permit authenticated traffic subject to identity-provider, per-session, and tenant-aware
-   application limits; IP address is only one signal.
+6. Permit authenticated traffic subject to identity-provider controls, per-session admission,
+   exact course/Student/workspace authorization, and fair installation-wide capacity admission; IP
+   address is only one signal.
 7. Keep an emergency challenge rule disabled by default. Enable it only when an anonymous surge and
    either API 5xx, API latency, task saturation, or database-connection alarms remain active for the
    configured confirmation window. Choose that window from measured alarm delay and normal
@@ -646,7 +676,8 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     session-required, protected asset, internal health, or internal worker/provider.
   - Every class declares allowed methods, cache behavior, first authority check, first permitted
     dependency, public host, and cost class. Every job-producing or externally billed route also
-    declares body, role, idempotency, session/tenant concurrency, queue, and refusal limits.
+    declares body, role, idempotency scope, session concurrency, exact course/Student/workspace
+    authority, installation-wide queue/capacity admission, and refusal limits.
   - Internal health, worker, renderer, provider, and object origins are not public routes.
 - Evidence or review: permanent source/route-contract assertion that fails when a new route is
   unclassified or two classes claim it.
@@ -689,8 +720,10 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     assumptions, completes behind one shared egress identity with the proposed limits injected.
   - Authority precedes body parsing and every expensive dependency on protected routes.
   - A valid low-privilege session cannot invoke an instructor/admin/job-producing route. An
-    authorized retry creates one job, and an authorized burst stops at the declared session/tenant
-    concurrency and queue ceilings without affecting another tenant's class-start reserve.
+    authorized retry creates one job, and every job-producing operation rechecks exact
+    course/Student/workspace authority before enqueueing. An authorized burst stops at the declared
+    per-session and installation-wide queue/capacity ceilings. Worker-family dispatch remains fair;
+    no fixed latency gate is claimed.
 - Evidence or review: permanent offline mounted tests with inline inputs and counting Store/provider
   fakes for refusal, provider rejection parity, and production-provider fail-closed composition;
   include OIDC state/nonce/PKCE/replay/CSRF cases from WP-RC8. Reuse the established replica E2E
@@ -784,7 +817,9 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     evaluation window, immediate action, investigation path, and recovery condition. Diagnostic and
     binary contract metrics may remain report-only when an alert would add no operator decision.
   - API maximum task count follows the measured class-start capacity and the main plan's replica-
-    failure expectation; worker and renderer maxima cannot increase from anonymous HTTP traffic.
+    failure expectation. API, worker, renderer, and queue maxima are installation-wide deployment
+    ceilings; they cannot increase from anonymous HTTP traffic or from one authenticated session.
+    Worker handlers derive exact targets from active typed leases rather than caller-supplied scope.
   - Budget alerts give the owner enough measured lead time to act before the configured monthly
     budget is exhausted and include a forecast alert. Percentages remain deployment tuning, not
     source or permanent-test constants.
@@ -835,6 +870,8 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     recovery.
   - Before/after evidence reports `bot_cost_per_10k`, PLE origin/dependency calls, bytes, cache hits,
     scale, alerts, and legitimate failures using the same corpus.
+  - The authenticated burst and bounded capacity exercise report per-session admission/refusal and
+    worker-family fairness observations, without turning incidental latency into a gate.
   - An independent security reviewer and operations reviewer report no P0/P1; every accepted P2 has
     an owner and dated follow-on.
 - Evidence or review: one fresh live production-stack journey, controlled fault injection, restore and
@@ -847,7 +884,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 ## Acceptance criteria and gates
 
 - Per-patch gate: the package's own acceptance cases, strict lint/format/type checks, secret-free
-  logs, scoped diff checks, and the existing security/tenant gates pass before a dependent package
+  logs, scoped diff checks, and the existing security/authorization gates pass before a dependent package
   starts.
 - Landing gate: cold and warm crawls of `www` cause exactly zero PLE API, database, object, queue,
   renderer, provider, grading, or semantic-health calls. Warm requests use CloudFront cache; cold
@@ -900,7 +937,7 @@ a useful implementation probe does not become a permanent test merely because it
   plan without AWS credentials. They assert security behavior -- private origins, disjoint cache/API
   behavior, finite limits and expiry, and rollback state -- while accepting injected TTLs, rate
   thresholds, budgets, and durations.
-- Reuse the existing cross-tenant, answer-secrecy, session-replica, public/private asset, and
+- Reuse the existing wrong-actor/cross-course, answer-secrecy, session-replica, public/private asset, and
   readiness gates. Do not duplicate them in bot-specific fixture files.
 - Add a fast `tests/test_*.py` only for a cross-language architectural rule that cannot live with its
   owning Rust/TypeScript code and meets every pytest checklist item. It remains offline, uses inline

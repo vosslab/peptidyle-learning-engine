@@ -8,7 +8,7 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
     let tenant = TenantId::from_uuid(uuid(98_000));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(uuid(98_001));
-    let learner = UserId::from_uuid(uuid(98_002));
+    let student_user = UserId::from_uuid(uuid(98_002));
     let course = CourseId::from_uuid(uuid(98_003));
     let course_creation_authority =
         sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
@@ -38,13 +38,13 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
             instructor,
             UpsertCourseMember {
                 course,
-                user: learner,
-                display_name: "Visible learner".to_string(),
+                user: student_user,
+                display_name: "Visible Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("learner membership");
+        .expect("Student membership");
     let hidden_group = CourseGroupId::from_uuid(uuid(98_004));
     store
         .put_course_group(
@@ -148,9 +148,9 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
         .expect("create S3-denied candidate between visible assignments");
 
     let first = store
-        .list_learner_entitled_assignments(
+        .list_student_entitled_assignments(
             context,
-            learner,
+            student_user,
             course,
             PageRequest::first(PageSize::new(1).expect("valid page size")),
         )
@@ -161,9 +161,9 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
         vec![first_visible]
     );
     let second = store
-        .list_learner_entitled_assignments(
+        .list_student_entitled_assignments(
             context,
-            learner,
+            student_user,
             course,
             PageRequest::after(
                 first
@@ -187,7 +187,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
     let tenant = TenantId::from_uuid(uuid(98_200));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(uuid(98_201));
-    let learner = UserId::from_uuid(uuid(98_202));
+    let student_user = UserId::from_uuid(uuid(98_202));
     let course = CourseId::from_uuid(uuid(98_203));
     let course_creation_authority =
         sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
@@ -217,13 +217,13 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
             instructor,
             UpsertCourseMember {
                 course,
-                user: learner,
-                display_name: "Authority learner".to_string(),
+                user: student_user,
+                display_name: "Authority Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("learner membership");
+        .expect("Student membership");
     let reference = publish_assignment_version(
         &store,
         context,
@@ -261,7 +261,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
             .issue_assignment_entitlement(
                 context,
                 MaterializeAssignmentEntitlementCommand::for_instructor_action(
-                    learner,
+                    student_user,
                     course,
                     assignment,
                     outsider,
@@ -276,7 +276,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
         .issue_assignment_entitlement(
             context,
             MaterializeAssignmentEntitlementCommand::for_rule_grade(
-                learner,
+                student_user,
                 course,
                 assignment,
                 question_model::MaterializationRule::AutomatedGrader,
@@ -285,7 +285,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
         .await
         .expect("valid rule-backed grade materialization");
     let learning_data_access::AssignmentEntitlementMaterialization::Granted(issued) = issued else {
-        panic!("current course-wide learner must be entitled")
+        panic!("current course-wide Student must be entitled")
     };
     assert_eq!(
         issued.provenance.authority,

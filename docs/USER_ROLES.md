@@ -1,8 +1,9 @@
 # User roles
 
-PLE has exactly three human user roles: **Student**, **Instructor**, and
-**Sysadmin**. There is no Manager, Administrator, Publisher, or other human
-role. A person may hold more than one of the three roles.
+PLE's current live product has three human personas: **Student**, **Instructor**, and
+**Sysadmin**. A person may hold more than one current persona. Course authorization is represented
+separately so future bounded Grader, Course Observer, or Student Observer relationships can be
+added without weakening the current personas.
 
 This document owns the role vocabulary. The operation-specific rules remain
 in [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and the data
@@ -10,11 +11,32 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 ## Human roles
 
-| Role       | How it is established                                                                         | Authority                                                                                                                                                                                                                                   | Explicit limits                                                                                                                                                                                                                                                                                          |
-| ---------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Student    | A verified PLE account claims an instructor-issued course invitation.                         | Work assigned activities and view only that student's currently accessible educational records.                                                                                                                                             | Cannot enumerate classmates, author content, manage a course, inspect grading material, or use another student's identifiers.                                                                                                                                                                            |
-| Instructor | A real person is manually approved and receives a direct `Instructor` membership in a course. | Create courses and content; manage only courses where the person has a current direct Instructor membership; view the FERPA records needed to teach those courses.                                                                          | A coarse Instructor session role does not grant access to every course. Instructor access ends when the direct course membership is revoked.                                                                                                                                                             |
-| Sysadmin   | An operator manually adds the `sysadmin` platform role to the verified PLE account.           | Operate the platform and perform the narrow sysadmin-only lifecycle actions documented by each contract. A sysadmin with an established tenant context may create a course, which also creates direct Instructor membership in that course. | Sysadmin status never makes the person a course member or grants general access to teaching records. Audited roster support and coarse retention lifecycle actions are explicit exceptions; grades, responses, runs, exports, and item analysis remain unavailable without direct Instructor membership. |
+### Student
+
+- A verified PLE account claims an Instructor-issued course invitation.
+- A Student works assigned activities and views only that Student's currently accessible educational
+  records.
+- A Student cannot enumerate classmates, author content, manage a course, inspect grading material,
+  or use another Student's identifiers.
+
+### Instructor
+
+- A real person is manually approved and receives direct Instructor membership in a course.
+- Current approval grants the same global Instructor capabilities as every other approved Instructor.
+- Current approval plus direct course membership grants teaching authority for that course.
+- A course may have multiple equal co-Instructors. Approval withdrawal closes global and
+  course-Instructor capabilities; membership revocation closes that course's authority.
+
+### Sysadmin
+
+- An operator manually adds the `sysadmin` platform role to the verified PLE account.
+- A Sysadmin operates the platform and completes registered support work through an exact-course
+  capability.
+- A Sysadmin may create or teach a course after completing the explicit Instructor approval path;
+  course creation then creates direct Instructor membership in that course.
+- A support capability is purpose-bound, time-bounded, revocable, audited, and limited to its
+  registered operation family and minimum projection. Sysadmin status supplies platform operations,
+  not ambient course-record authority.
 
 The repository owner is both a Sysadmin and an Instructor. Other instructors
 are approved only after real-person validation. There is no self-service
@@ -28,16 +50,34 @@ same human roles relates a person to one exact course:
 - `Student` means the person may use only their own active Student paths.
 - `Instructor` means the person may teach and administer that exact course.
 
-`Sysadmin` is deliberately not a course-membership value. A sysadmin who needs
-teaching records must also have a current direct Instructor membership. The
-one support exception is the closed roster capability below. This keeps a
-platform credential from becoming ambient access to grades, responses,
-attempts, or other student data.
+A course may have multiple current Instructor members. They are equal co-Instructors for that
+course; course creation only establishes the first membership and does not create a privileged
+course-owner role.
 
-The platform role also does not select a tenant. Initial production tenant and
-course bootstrap remains an operator-owned provisioning step; after a direct
-course relationship exists, the ordinary account flow can derive that tenant
-without accepting a browser-supplied tenant ID.
+## Future course relationships
+
+The authorization model remains capable of expressing additional course relationships through
+explicit, least-authority capabilities:
+
+- a Grader may receive bounded grading work without course-management authority;
+- a Course Observer may receive exact-course, named assignment-completion visibility and
+  privacy-safe aggregate grades, without individual Student scores; and
+- a Student Observer may receive a read-only view of one exact Student's consented records through
+  explicit revocation, audit, and FERPA disclosure terms.
+
+These are roadmap relationships rather than current live-demo personas. Their schemas and APIs land
+with their complete visible workflow, revocation behavior, audit evidence, and privacy validation.
+
+`Sysadmin` is not a course-membership value. A sysadmin who needs
+teaching records must also have a current direct Instructor membership.
+Support uses the closed `SysadminSupportCapability` registry in
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md). This keeps a platform credential from
+becoming ambient access to grades, responses, attempts, or other Student data.
+
+PLE uses one installation. Initial course bootstrap is an operator-owned
+provisioning step; after a direct course relationship exists, ordinary account
+flows derive authority from the authenticated account and current course
+membership.
 
 The production passwordless flow derives Student or Instructor from the
 persisted course membership selected by the account. The separately stored
@@ -47,13 +87,13 @@ credentials may read it to mint a session but cannot grant it.
 ## FERPA and student data
 
 Treat course-linked student educational records as **radioactive**. Collect
-the minimum, keep it course- and tenant-scoped, expose it only for the exact
+the minimum, keep it course-scoped, expose it only for the exact
 teaching operation, exclude it from logs and general analytics, and delete it
 under the course retention lifecycle.
 
 This includes, at minimum:
 
-- roster membership, roster email, institutional student ID, and group data;
+- roster membership, roster email, optional external roster ID, and group data;
 - assignment enrollments, accommodations, runs, attempts, responses, and
   feedback;
 - grades, item analysis, grading-operation evidence, and grade exports;
@@ -67,7 +107,7 @@ educational record merely because the account may later join a course. Once a
 value is copied into or linked with a course record, the course-linked copy is
 FERPA data and follows the radioactive handling rule.
 
-The [database radioactive table map](DATABASE_TENANCY.md#radioactive-table-map)
+The [database authorization reference](DATABASE_AUTHORIZATION.md#radioactive-records-and-retention)
 names the current direct and linkage-bearing PostgreSQL relations and explains
 how the label follows query results, backups, replicas, and restores.
 
@@ -82,24 +122,28 @@ asset bytes after the committed outbox decision.
 
 ## Authorization rules
 
-- Authenticate the PLE account first; derive tenant and actor only on the
-  server.
+- Authenticate the PLE account first; derive the actor only on the server.
 - Check direct course membership at the Store/database boundary for every
   FERPA-bearing operation unless its contract defines a narrower audited
   Sysadmin support or lifecycle capability.
-- Permit Sysadmin roster support only through the closed list/invite/policy/
-  revoke/import operations. Record actor, course, action, and time whenever
-  Sysadmin authority opens that boundary; never put roster PII or invitation
-  secrets in the audit payload.
-- Keep the Sysadmin retention exception coarse and payload-free; it may change
-  lifecycle state but never return roster, response, grade, or artifact data.
+- Issue a Sysadmin support capability only through the closed registry, bound
+  to one exact course, a stated purpose, an issuer, an operation family, an
+  expiry, and a minimum projection. Record issuance, use, revocation, actor,
+  course, action, and time; keep roster PII and invitation secrets out of audit
+  payloads.
+- Route roster, schedule/accommodation, assignment-content, deterministic
+  reissue/recalculation, and payload-free retention lifecycle support through
+  that capability.
+- Provide support results at the minimum useful detail and keep grades,
+  responses, runs, exports, and item analysis behind direct Instructor
+  membership or a separately approved narrow operation.
 - Keep Student-owner and Instructor-history capabilities separate.
 - Conceal missing and unauthorized FERPA records with the same result where
   existence itself is sensitive.
 - Serialize Instructor membership revocation with response disclosure,
   roster mutation, grading, exports, and other protected operations.
-- Do not accept a role, tenant, user ID, or approval assertion from browser
-  input.
+- Accept browser requests through server-issued references and derive role,
+  actor, membership, and approval from server-owned records.
 
 ## Canonical terms
 
@@ -128,7 +172,7 @@ Current titles, prose, code, APIs, and schemas use **Instructor** directly.
   closed `CourseMembershipRole` relationship enum; it does not define more
   human roles.
 - [learning-data-access](../crates/learning-data-access/) owns direct
-  membership, revocation serialization, RLS context, and actor-scoped Store
+  membership, revocation serialization, actor-scoped RLS, and Store
   capabilities.
 - [the canonical role migration](../schemas/migrations/2026080928_user_roles.sql)
   owns PostgreSQL wire values, operator-only sysadmin approval, and the rule

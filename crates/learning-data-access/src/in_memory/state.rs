@@ -327,12 +327,12 @@ impl MemoryStore {
             };
         }
         let aggregate_key = (reference.problem, reference.version);
-        let learner_key = (
+        let student_key = (
             aggregate_key.0,
             aggregate_key.1,
-            super::statistics::discovery_learner_fingerprint(tenant, learner),
+            super::statistics::discovery_student_fingerprint(tenant, learner),
         );
-        let independent = state.catalog_evidence_learners.insert(learner_key);
+        let independent = state.catalog_evidence_learners.insert(student_key);
         if independent {
             let mut aggregate = state
                 .question_statistics

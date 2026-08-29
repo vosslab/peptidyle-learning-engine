@@ -642,16 +642,21 @@ pub(super) fn validate_memory_assignment_references(
         ));
     }
     for reference in assignment.references() {
-        let assignable = state
-            .published
-            .get(&(reference.problem, reference.version))
-            .is_some_and(|record| {
-                record.lifecycle.is_assignable()
-                    && catalog_record_visible(state, context.tenant_id(), record)
-            });
-        if !assignable {
+        let Some(record) = state.published.get(&(reference.problem, reference.version)) else {
             return Err(StoreError::InvalidRecord(format!(
-                "assignment references a missing, hidden, or inactive published version {}/{}",
+                "assignment references a missing published version {}/{}",
+                reference.problem, reference.version
+            )));
+        };
+        let visible = catalog_record_visible(state, context.tenant_id(), record);
+        let eligible_for_new_reference = record.lifecycle.is_eligible_for_ordinary_new_selection();
+        let retained_exact_pin = state
+            .assignments
+            .get(&(assignment.tenant, assignment.id))
+            .is_some_and(|existing| existing.references().any(|existing| existing == reference));
+        if !visible || (!eligible_for_new_reference && !retained_exact_pin) {
+            return Err(StoreError::InvalidRecord(format!(
+                "assignment references a missing, hidden, or ineligible published version {}/{}",
                 reference.problem, reference.version
             )));
         }

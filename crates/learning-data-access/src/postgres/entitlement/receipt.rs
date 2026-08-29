@@ -215,7 +215,7 @@ pub(crate) async fn insert_receipt(
     .bind(grant.assignment().as_uuid())
     .bind(grant.course().as_uuid())
     .bind(grant.membership().as_uuid())
-    .bind(grant.learner().as_uuid())
+    .bind(grant.student_user().as_uuid())
     .bind(grant.student().as_uuid())
     .bind(now.as_unix_millis())
     .bind(purpose)
@@ -296,7 +296,7 @@ pub(crate) async fn insert_receipt(
         EntitlementMaterialization {
             enrollment: materialized_id,
             membership: grant.membership(),
-            user: grant.learner(),
+            user: grant.student_user(),
             occurred_at: now,
             purpose: command.purpose(),
             authority: command.authority(),

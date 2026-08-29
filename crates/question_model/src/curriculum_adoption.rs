@@ -20,37 +20,7 @@ use crate::{
 
 mod contracts;
 
-pub use contracts::{
-    AlphaInstantiationCommand, AlphaInstantiationCompleted, AlphaInstantiationPreviewRequest,
-    AlphaInstantiationPreviewView, AssignmentDefinitionSourceView, AssignmentFastForwardCommand,
-    AssignmentFastForwardCompleted, AssignmentFastForwardDecision,
-    AssignmentFastForwardPreviewRequest, AssignmentFastForwardPreviewView,
-    BlueprintInstantiationCommand, BlueprintInstantiationCompleted,
-    BlueprintInstantiationPreviewRequest, BlueprintInstantiationPreviewView, CourseRolloverCommand,
-    CourseRolloverCompleted, CourseRolloverPreviewRequest, CourseRolloverPreviewView,
-    CourseScheduleWitness, CourseScheduleWitnessError, CourseTermShiftCommand,
-    CourseTermShiftCompleted, CourseTermShiftIneligibility, CourseTermShiftPreviewOutcome,
-    CourseTermShiftPreviewRequest, CourseTermShiftPreviewView, CourseTermShiftRecoveryAction,
-    CreateSourceDerivedAssignmentCommand, CurriculumAdoptionCommandError,
-    CurriculumAdoptionIdempotencyKey, CurriculumAdoptionIdempotencyKeyError,
-    CurriculumAdoptionReceiptBinding, CurriculumAdoptionReconciliationResult,
-    CurriculumAdoptionRepairedProjection, CurriculumAdoptionRepairedProjections,
-    CurriculumAdoptionRepairedProjectionsError, CurriculumAdoptionTitle,
-    CurriculumAdoptionTitleError, CurriculumAssignmentImportSourceView, CurriculumAssignmentView,
-    CurriculumCourseImportOriginView, CurriculumCourseImportView, CurriculumCourseImportViewError,
-    CurriculumImportRevision, CurriculumImportRevisionError, CurriculumImportView,
-    CurriculumPinPosition, CurriculumPinPositionError, CurriculumPinReplacement,
-    CurriculumPinReplacements, CurriculumPinReplacementsError, CurriculumReplayStatus,
-    CurriculumScheduleCorrection, CurriculumSourceView, ForkAlphaCommand, ForkAlphaCompleted,
-    ForkAlphaPreviewRequest, ForkAlphaPreviewView, ObservedAlphaAssignmentSource,
-    ObservedAlphaAssignmentSourceError, ObservedAlphaSource, ObservedAssignmentRevision,
-    ObservedBlueprintSource, PreparedCurriculumAssignmentView, PreparedCurriculumCourseView,
-    PreservedAssignmentRecoveryAction, ReconcileCurriculumAdoptionCommand,
-    ReplacementQuestionChoices, ReplacementQuestionChoicesError, RolloverAssignmentSourceView,
-    RolloverAssignmentSourceViewError, RolloverCourseImportOriginView,
-    SourceDerivedAssignmentCompleted, SourceDerivedAssignmentPreviewRequest,
-    SourceDerivedAssignmentPreviewView, UnavailablePinRecoveryAction,
-};
+pub use contracts::*;
 
 const DOMAIN: &[u8] = b"ple:curriculum-semantic\0";
 /// Current normalized semantic-payload encoding version stored with B2 baselines.
@@ -61,7 +31,7 @@ pub const CURRICULUM_SEMANTIC_CANONICAL_VERSION: u8 = 1;
 pub enum CurriculumSemanticPayload {
     /// One Blueprint-sized reusable assignment definition.
     Assignment(CurriculumSemanticAssignment),
-    /// One Alpha- or rollover-sized reusable course tree.
+    /// One BlueprintCourse-sized reusable course tree.
     Course(CurriculumSemanticCourse),
 }
 
@@ -218,7 +188,7 @@ impl CurriculumSemanticCourse {
         modules: Vec<CurriculumSemanticModule>,
     ) -> Result<Self, ReusableCurriculumValidationError> {
         validate_reusable_curriculum_title(&title)
-            .map_err(|_| ReusableCurriculumValidationError::InvalidAlphaTitle)?;
+            .map_err(|_| ReusableCurriculumValidationError::InvalidBlueprintTitle)?;
         if modules.is_empty() || modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(ReusableCurriculumValidationError::InvalidModuleCount);
         }
@@ -361,14 +331,14 @@ pub enum CurriculumSemanticComparison {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 struct CanonicalPayload<'a> {
     version: u8,
     meaning: CanonicalMeaning<'a>,
 }
 
 #[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 enum CanonicalMeaning<'a> {
     Assignment {
         definition: CanonicalAssignment<'a>,
@@ -380,14 +350,14 @@ enum CanonicalMeaning<'a> {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 struct CanonicalModule<'a> {
     label: &'a str,
     assignments: Vec<CanonicalAssignment<'a>>,
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 struct CanonicalAssignment<'a> {
     title: &'a str,
     instructions: &'a AssignmentInstructions,
@@ -397,7 +367,7 @@ struct CanonicalAssignment<'a> {
 }
 
 #[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 enum CanonicalEntry<'a> {
     Fixed {
         reference: &'a ProblemVersionRef,
@@ -542,7 +512,7 @@ impl std::error::Error for CourseScheduleRevisionError {}
 
 /// One relative moment resolved into target-course local and absolute time.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ResolvedRelativeScheduleMoment {
     /// Exact wall-clock value in the target course's authoritative zone.
     pub local: CourseLocalDateTime,
@@ -551,7 +521,7 @@ pub struct ResolvedRelativeScheduleMoment {
 }
 /// Complete answer-free target-term schedule preview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ResolvedRelativeAssignmentSchedule {
     /// Authoritative target-course IANA zone for every local value.
     pub time_zone: IanaTimeZone,
@@ -680,4 +650,30 @@ fn resolve(
 }
 
 #[cfg(test)]
-mod tests;
+mod wire_tests {
+    use super::*;
+
+    #[test]
+    fn resolved_schedule_uses_snake_case_and_refuses_unknown_fields() {
+        let schedule = RelativeAssignmentSchedule {
+            available_at: Some(RelativeScheduleMoment {
+                day_offset: 0,
+                local_time: LocalTimeOfDay::parse("08:00:00.000").expect("time"),
+            }),
+            due_at: None,
+            closes_at: None,
+        };
+        let term =
+            CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+        let resolved = schedule
+            .resolve_for_target_term(&term)
+            .expect("resolved schedule");
+        let wire = serde_json::to_value(&resolved).expect("schedule serializes");
+        assert!(wire.get("time_zone").is_some());
+        assert!(wire.get("available_at").is_some());
+        assert!(wire.get("timeZone").is_none());
+        let mut forged = wire;
+        forged["authority"] = serde_json::json!("instructor");
+        assert!(serde_json::from_value::<ResolvedRelativeAssignmentSchedule>(forged).is_err());
+    }
+}

@@ -100,7 +100,7 @@ async fn source(pool: &PgPool) -> Source {
     sqlx::query("INSERT INTO course (tenant_id,course_id,title,term_start_date,term_end_date,time_zone) VALUES ($1,$2,'Assignment authority oracle',DATE '2026-08-24',DATE '2026-12-18','America/Chicago')")
         .bind(source.tenant).bind(source.course).execute(&mut *tx).await.expect("course");
     sqlx::query(
-        "INSERT INTO tenant_learner_identity (tenant_id,user_id,student_id) VALUES ($1,$2,$3)",
+        "INSERT INTO tenant_student_identity (tenant_id,user_id,student_id) VALUES ($1,$2,$3)",
     )
     .bind(source.tenant)
     .bind(source.student)

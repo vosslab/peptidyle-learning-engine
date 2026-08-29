@@ -124,11 +124,11 @@ pub(super) fn stage_statistics_contributions(
         .get(&(tenant, enrollment_record.assignment))
         .map(|assignment| assignment.course_id)
         .ok_or(StoreError::NotFound)?;
-    let learner_fingerprint = discovery_learner_fingerprint(tenant, enrollment_record.student);
+    let student_fingerprint = discovery_student_fingerprint(tenant, enrollment_record.student);
     let mut aggregate_updates = BTreeMap::new();
     let mut receipt_updates = BTreeMap::new();
     let mut observed_course_updates = BTreeSet::new();
-    let mut learner_updates = BTreeSet::new();
+    let mut student_updates = BTreeSet::new();
     for contribution in contributions {
         let receipt_key = (
             tenant,
@@ -152,9 +152,9 @@ pub(super) fn stage_statistics_contributions(
             contribution.reference.problem,
             contribution.reference.version,
         );
-        let learner_key = (aggregate_key.0, aggregate_key.1, learner_fingerprint);
-        let independent = !state.catalog_evidence_learners.contains(&learner_key)
-            && !learner_updates.contains(&learner_key);
+        let student_key = (aggregate_key.0, aggregate_key.1, student_fingerprint);
+        let independent = !state.catalog_evidence_learners.contains(&student_key)
+            && !student_updates.contains(&student_key);
         if independent {
             let aggregate = aggregate_updates.entry(aggregate_key).or_insert_with(|| {
                 state
@@ -178,7 +178,7 @@ pub(super) fn stage_statistics_contributions(
                 checksum: contribution.checksum,
             },
         );
-        learner_updates.insert(learner_key);
+        student_updates.insert(student_key);
     }
     // `append_catalog_discovery_evidence_revision` is the only later fallible
     // operation. Reserve enough sequence space before any map becomes
@@ -191,7 +191,7 @@ pub(super) fn stage_statistics_contributions(
         .ok_or_else(|| StoreError::Unavailable("catalog event sequence exhausted".to_string()))?;
     state.question_statistics.extend(aggregate_updates);
     state.question_statistics_receipts.extend(receipt_updates);
-    state.catalog_evidence_learners.extend(learner_updates);
+    state.catalog_evidence_learners.extend(student_updates);
     for reference in observed_course_updates {
         state
             .catalog_evidence_courses
@@ -203,9 +203,9 @@ pub(super) fn stage_statistics_contributions(
     Ok(())
 }
 
-pub(super) fn discovery_learner_fingerprint(tenant: TenantId, student: StudentId) -> [u8; 32] {
+pub(super) fn discovery_student_fingerprint(tenant: TenantId, student: StudentId) -> [u8; 32] {
     let mut bytes = Vec::with_capacity(80);
-    bytes.extend_from_slice(b"ple-discovery-learner-v1");
+    bytes.extend_from_slice(b"ple-discovery-student-v1");
     bytes.extend_from_slice(tenant.as_uuid().as_bytes());
     bytes.extend_from_slice(student.as_uuid().as_bytes());
     *objects::Sha256Digest::compute(&bytes).as_bytes()

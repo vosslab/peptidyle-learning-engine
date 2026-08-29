@@ -380,16 +380,16 @@ async fn postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bo
         .expect("count accepted duplicate-learner audit receipts"),
         1
     );
-    let learner_fingerprints: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM catalog_discovery_learner_fingerprint_receipt \
+    let student_fingerprints: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM catalog_discovery_student_fingerprint_receipt \
          WHERE problem_id=$1 AND version_id=$2",
     )
     .bind(fixture.problem)
     .bind(fixture.version)
     .fetch_one(&pool)
     .await
-    .expect("count independent anonymous learners");
-    assert_eq!(learner_fingerprints, 8);
+    .expect("count independent anonymous Students");
+    assert_eq!(student_fingerprints, 8);
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
             "SELECT count(*) FROM catalog_discovery_course_fingerprint_receipt \
@@ -415,15 +415,15 @@ async fn postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bo
     .expect("simulate retention of identity-bearing audit receipt");
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
-            "SELECT count(*) FROM catalog_discovery_learner_fingerprint_receipt \
+            "SELECT count(*) FROM catalog_discovery_student_fingerprint_receipt \
              WHERE problem_id=$1 AND version_id=$2",
         )
         .bind(fixture.problem)
         .bind(fixture.version)
         .fetch_one(&pool)
         .await
-        .expect("anonymous learner evidence survives identity retention"),
-        learner_fingerprints
+        .expect("anonymous Student evidence survives identity retention"),
+        student_fingerprints
     );
     let aggregate_before_replay: i64 = sqlx::query_scalar(
         "SELECT cohort_size FROM question_statistics_aggregate \
@@ -507,12 +507,12 @@ async fn postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bo
         sqlx::query_scalar::<_, i64>(
             "SELECT count(*) FROM information_schema.columns \
              WHERE table_schema='public' \
-               AND table_name='catalog_discovery_learner_fingerprint_receipt' \
+               AND table_name='catalog_discovery_student_fingerprint_receipt' \
                AND column_name IN ('tenant_id','student_id','user_id','enrollment_id')",
         )
         .fetch_one(&pool)
         .await
-        .expect("inspect anonymous learner receipt shape"),
+        .expect("inspect anonymous Student receipt shape"),
         0
     );
 

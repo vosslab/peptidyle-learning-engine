@@ -1,495 +1,251 @@
 # File structure
 
-This map gives contributors the shortest route to the owner of a behavior.
-[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) explains how the pieces cooperate;
-[CONTRACTS.md](CONTRACTS.md) indexes durable rules, and
-[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) owns cross-language naming. Release plans and dated
-status reports live under [active_plans/](active_plans/) and remain separate from this file map.
+This map points contributors to the owner of a behavior. [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md)
+describes the boundaries; [CONTRACTS.md](CONTRACTS.md) indexes durable contracts; and
+[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) owns cross-language spelling.
 
 ## Top-level layout
 
-```text
+~~~text
 .
-+- crates/               Rust product crates and repository tools
-+- src/                  SolidJS and TypeScript browser application
-+- schemas/              Forward PostgreSQL migrations
-+- containers/           Local Podman Compose configuration and container files
-+- deploy/opentofu/      AWS infrastructure-as-code and policy tests
-+- content/              Checked-in teaching content and bounded pilot material
-+- pipeline/             Browser and WebAssembly build steps
-+- tests/                Hygiene, Node, Playwright, and E2E checks
-+- docs/                 Durable documentation and active planning artifacts
-+- devel/                Focused developer-maintenance commands
-+- tools/                Focused repository utilities
-+- generated/            Ignored generated contract and fixture projections
-+- Cargo.toml            Rust workspace manifest
-+- package.json          Browser tooling manifest
-+- pip_requirements.txt  Pinned Python runtime dependencies
-+- pip_requirements-dev.txt Python developer dependencies
-+- build.sh              Full local build entry point
-+- check_codebase.sh     Vendored TypeScript and browser gate
-+- check_rust.sh         Repository-owned Cargo and Rust gate
-+- run_live_demo.sh      Fresh-clone setup plus canonical live-demo lifecycle
-+- local_stack.py        Public local Podman controller entry point
-+- local_stack_control/  Local Podman controller package and focused private lifecycle modules
-   +- acceptance_lanes.py Ordered aggregate acceptance-lane owner
-   +- chapter_one.py     Private atomic Chapter 1 publication boundary
-   +- lifecycle.py       Typed lifecycle sequencing facade for start, validate, and restart
-   +- lifecycle_commands.py Redaction-aware command, environment, and Compose validation owner
-   +- worker_readiness.py Worker capability-receipt parser and bounded readiness wait
-   +- local_environment.py Default-only private environment bootstrap
-   +- browser_suite_developer.py Fixed production-browser developer owner
-   +- browser_suite_lease.py      Shared developer/browser lease boundary
-   +- browser_suite_reset.py      Fixed-owner resource reset and cleanup proof
-   +- private_files.py   Atomic private-file creation and replacement boundary
-   +- private_state.py   Descriptor-anchored repository-target E2E state owner
-   +- process_logins.py  Capability-specific disposable PostgreSQL login provisioning
-   +- runtime_manifest.py Private baseline runtime manifest and service-URL handoff
-   +- renderer.py        Selected renderer OCI provenance and probe boundary
-   +- _consumer_cli.py   Private disposable-consumer adapter
-`- run_playwright_tests.sh Browser test entry point
-```
++- crates/                 Rust product crates and repository tools
++- src/                    SolidJS browser application
++- schemas/migrations/     Forward PostgreSQL schema
++- generated/              Ignored generated TypeScript and fixture projections
++- content/                Checked-in teaching content and pilot material
++- containers/             Podman Compose and service images
++- deploy/opentofu/        AWS infrastructure and policy tests
++- tests/                  Offline, Node, Playwright, and disposable E2E checks
++- docs/                   Durable references and active plans
++- local_stack_control/    Typed local-stack and acceptance lifecycle
++- devel/                  Developer-maintenance commands
++- tools/                  Focused repository utilities
++- Cargo.toml              Rust workspace manifest
++- package.json            Browser tooling manifest
++- build.sh                Full local build entry point
++- check_rust.sh           Rust gate
++- check_codebase.sh       TypeScript and browser gate
++- run_live_demo.sh        Live-demo lifecycle front door
+- run_playwright_tests.sh  Production-browser entry point
+~~~
 
-`devel/setup_python.sh` creates and refreshes the fixed repo-local `.venv` from Python 3.12. The
-root live-demo wrapper owns that setup step before it invokes `local_stack.py`; direct controller
-commands use `.venv/bin/python` without activating an environment.
-
-`OTHER_REPOS/` contains reference snapshots. It is not a source import path,
-container build context, or runtime dependency.
+OTHER_REPOS/ contains reference snapshots only. It is not a runtime,
+container, or source-import path.
 
 ## Rust workspace
 
-| Path                                                            | Owns                                                                                                                  |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Question types, assignment teaching/local-time values, mandatory course-term values, capabilities, identifiers, learner-progress projections, and public presentation schemas. |
-| [crates/domain/](../crates/domain/)                             | Attempt state, policies, pure learner-disclosure evaluation, seeded generation, timing inputs, and answer-free validation.                                |
-| [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                                     |
-| [crates/objects/](../crates/objects/)                           | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends.                |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, concrete PostgreSQL production persistence, compiler-gated deterministic test adapters, RLS, capability roles, migrations, and conformance tests.  |
-| `crates/base-course-installation/`                               | Focused product crate, imported as `base_course_installation`, for typed Base Course request/receipt, recipe, and deterministic orchestration. |
-| [crates/adapters/native/](../crates/adapters/native/)           | First-party generated questions and flat-question source compilation.                                                 |
-| [crates/adapters/webwork/](../crates/adapters/webwork/)         | Private renderer protocol, safe projection, cache, and grading delegation.                                            |
-| [crates/adapters/qti/](../crates/adapters/qti/)                 | Bounded QTI parsing, profile mapping, and private grading handoff.                                                    |
-| [crates/adapters/h5p/](../crates/adapters/h5p/)                 | H5P practice import and capability declaration.                                                                       |
-| [crates/adapters/imathas/](../crates/adapters/imathas/)         | iMathAS provider and broker boundary.                                                                                 |
-| [crates/export/](../crates/export/)                             | Print model plus PDF and DOCX writers.                                                                                |
-| [crates/wasm/](../crates/wasm/)                                 | `wasm-bindgen` facade over answer-free domain behavior.                                                               |
-| `crates/acceptance-runtime/`                                    | Private manifest loader and capability-specific PostgreSQL URL handoff for disposable acceptance lanes.               |
-| [crates/server/](../crates/server/)                             | Axum API, auth, authorization, broker, ordinary worker, dedicated public-asset publisher, and dependency composition. |
-| [crates/project-tools/](../crates/project-tools/)               | Direct `base-course` CLI adapter plus repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands. |
+| Path | Owns |
+| --- | --- |
+| [crates/question_model/](../crates/question_model/) | Question, identity, assignment, course-term, BlueprintCourse, adoption, and browser-safe contract types. |
+| [crates/domain/](../crates/domain/) | Pure timing, policy, disclosure, run, scoring, generation, and validation. |
+| [crates/grading/](../crates/grading/) | Answer-bearing checkers and correctness decisions; server-only. |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, Memory conformance, PostgreSQL persistence, migrations, RLS, locks, and live oracles. |
+| [crates/server/](../crates/server/) | Axum routes, authentication, authorization, worker composition, and API assembly. |
+| [crates/objects/](../crates/objects/) | Typed object keys, checksums, image validation, and object-store backends. |
+| [crates/adapters/](../crates/adapters/) | Native, QTI, H5P, iMathAS, and WeBWorK adapters. |
+| [crates/wasm/](../crates/wasm/) | The answer-free Rust-to-browser WebAssembly facade. |
+| [crates/export/](../crates/export/) | PDF/DOCX export models and writers. |
+| [crates/project-tools/](../crates/project-tools/) | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling. |
+| crates/base-course-installation/ | Base Course request, receipt, recipe, and deterministic installation orchestration. |
+| crates/acceptance-runtime/ | Disposable acceptance manifests and capability-specific database URL handoff. |
 
-Cargo package directories use hyphens; Rust imports use underscores. For
-example, `learning-data-access` is imported as `learning_data_access`.
+Package directories use hyphens; Rust module imports use underscores.
 
-`learning-data-access` remains the sole SQL, PostgreSQL-lock,
-durable install-state, migration, and Store owner. The installer has no HTTP route or server-start
-hook; `project-tools` adapts it directly for `cargo tools base-course`. Its evidence is deliberately
-small: pure product-crate tests for typed request/receipt/recipe convergence, the existing LDA
-PostgreSQL live oracle for schema and locking, and the existing
-`tests/e2e/e2e_live_demo_baseline.py` for the connected lifecycle. No second product-specific
-PostgreSQL harness or exhaustive live matrix is planned.
+## Canonical course paths
+
+The reusable and delivery aggregates have separate paths:
+
+~~~text
+crates/question_model/src/
++- reusable_curriculum.rs       BlueprintCourse tree and projections
++- curriculum_adoption.rs       Source, target, preview, apply, and receipt contracts
+`- curriculum_adoption/          Focused adoption contract modules
+
+crates/learning-data-access/src/
++- contracts/reusable_curriculum.rs       ReusableCurriculumStore
++- contracts/curriculum_adoption.rs       CurriculumAdoptionStore
++- in_memory/reusable_curriculum.rs       Deterministic BlueprintCourse adapter
++- in_memory/curriculum_adoption/         Adoption conformance adapter
++- postgres/reusable_curriculum.rs        PostgreSQL BlueprintCourse adapter
+`- postgres/curriculum_adoption/         PostgreSQL adoption and bridge modules
+~~~
+
+BlueprintCourse is one ordered module/assignment tree with one aggregate
+revision. Its exact public question members resolve to immutable
+ProblemVersionRef pins. CourseInstance is not another source tree: the
+adoption boundary materializes it under an exact CourseId, records the
+immutable Blueprint parent and applied revision, and owns private delivery
+state. New upstream assignments appear in daughter instances as unreleased.
+
+The current paired legacy files and SQL table families are SD1 migration inputs
+only. The immutable
+schemas/migrations/2026081837_blueprint_alpha_curriculum.sql and accepted
+successors remain historical evidence and are not renamed or edited to hide
+their origin. The fresh SD1 migration epoch is tracked in
+[active_plans/implementation_status.md](active_plans/implementation_status.md);
+its course/curriculum range is planned at 2026082913-2026082916, with
+broker/RLS/grant helpers at 2026082929-2026082932.
 
 ## Learning data access
 
-```text
+~~~text
 crates/learning-data-access/
 +- src/
 |  +- contracts/       Store and capability contracts
-|  |  `- catalog.rs    Catalog query contract and HMAC continuation codec
-|  |  `- assignment_editing.rs Focused assignment draft, content, and policy commands
-|  |  `- grading_operations.rs Accepted-submission execution and Instructor recovery contracts
-|  |  `- curriculum_adoption.rs Revision-bound `CurriculumAdoptionStore` contract
-|  +- in_memory/       `test-support`-gated deterministic contract adapters
-|  |  +- catalog.rs    Catalog state projection, pagination, and snapshot assembly
-|  |  `- catalog_search.rs Portable ranked-search admission and fixed-point scoring helpers
-|  |  +- curriculum_adoption/ Dedicated B2 adoption state, destination materialization, atomic operations, and focused behavior tests
-|  |  |  +- state.rs   One immutable receipt/evidence history plus the explicitly repairable current import projection
-|  |  |  +- course_structure.rs Ordered module-tree rollover and exact source-assignment correspondence
-|  |  |  +- destination.rs Assignment/course materialization and reusable-meaning replacement
-|  |  |  +- receipt_evidence.rs Completed-outcome, locator, provenance, and immutable-evidence binding
-|  |  |  +- operations/ Preview/apply, inspection, and receipt-led reconciliation flows
-|  |  |  `- tests/      Focused operations, rollover, inspection, integrity, recovery, and reconciliation contracts
-|  |  `- reusable_curriculum/source_snapshot.rs Trusted exact-pin and assignment-source snapshot resolution
-|  +- postgres/        PostgreSQL implementations and connection attestation
-|  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search
-|  |  `- course_gradebook.rs Course-grade scheme, totals, and export implementation
-|  |  `- effective_policy_receipts.rs Sealed effective-policy receipt persistence and reconstruction
-|  |  `- assignment_records/learner_disclosure.rs Closed five-field disclosure-column decoder
-|  |  `- item_analysis/learner_class_statistics.rs Learner-safe current course analysis projection
-|  |  `- grading_operations.rs Instructor operation projections and guarded actions
-|  |  `- grading_operations_completion.rs Accepted execution completion and score enqueue
-|  |  `- grading_operations_instructor.rs Instructor retry and recalculation persistence
-|  +- in_memory/assignment_workspace.rs Focused draft/content/policy mutations and revision checks
-|  +- in_memory/grading_operations.rs Deterministic operation and recovery projections
-|  +- in_memory/grading_operation_store.rs Instructor operation state and action receipts
-|  +- in_memory/grading_execution_worker.rs Sealed accepted-submission worker behavior
-|  +- in_memory/scoring_invalidation.rs Generation-fenced recalculation origins
-|  +- in_memory/course_policy.rs Atomic teaching-settings mutation and current policy resolution
-|  +- postgres/course_assignments.rs PostgreSQL assignment draft/content/policy mutations
-|  +- postgres/course_policy.rs PostgreSQL teaching-settings CAS, lifecycle gate, and receipt update
-|  +- postgres/grading_operations.rs Accepted execution and Instructor operation persistence
-|  +- postgres/scoring_invalidation.rs Canonical scoring-invalidation capability
-|  +- activity.rs      Actor-scoped learner reads and activity ownership
-|  +- assignment_revision.rs Checked conversion between the canonical domain revision and stored BIGINT
-|  +- external_tool.rs External broker leases, dispatch, and finalization contracts
-|  +- feedback.rs      Private current disclosure receipt and learner-projection inputs
-|  +- jobs.rs          Durable job and publication-outbox contracts
-|  +- publication_validation/ Published content and asset registry validation
-|  +- lib.rs           Public facade and stable re-exports
-|  +- in_memory.rs     In-memory composition facade
-|  `- postgres.rs      PostgreSQL composition facade
-`- tests/
-   +- conformance/     Backend-neutral behavior cases
-   +- fixtures/        Small safe fixture evidence
-   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored course-term, catalog Store, course-grade, disclosure, and plan suites
-```
+|  |  +- reusable_curriculum.rs  One BlueprintCourse Store contract
+|  |  `- curriculum_adoption.rs  Separate source-to-instance operations
+|  +- in_memory/       Test-support-gated deterministic adapters
+|  |  +- reusable_curriculum.rs
+|  |  `- curriculum_adoption/
+|  |     +- state.rs, course_structure.rs, destination.rs
+|  |     `- receipt_evidence.rs
+|  +- postgres/        Production PostgreSQL adapters
+|  |  +- reusable_curriculum.rs
+|  |  `- curriculum_adoption/
+|  |     `- bridge/
+|  - lib.rs, in_memory.rs, postgres.rs
+- tests/              Conformance and disposable PostgreSQL suites
+~~~
 
-Within `crates/question_model/src/`, `assignment/revision.rs` owns the sole assignment-revision
-value and canonical decimal wire shape. `curriculum_adoption.rs` owns normalized B2 reusable meaning,
-target-term relative-schedule resolution, typed DST corrections, and course schedule revisions;
-`curriculum_adoption/contracts.rs` and its `contracts/` children own bounded answer-free previews,
-preview-derived commands, exact assignment-definition source views, recovery decisions, and completed
-receipt projections. `curriculum_adoption/contracts/assignment_source.rs` is the exact source locator
-for one Blueprint or one positioned Alpha assignment.
-
-`crates/question_model/src/assignment_workspace.rs` owns the focused assignment
-draft, Questions, Policies, publication-readiness, and issued-work-conflict
-wire contracts. The assignment workspace reuses the canonical assignment
-summary and local teaching-settings values; it does not create a second
-assignment or policy model.
-
-When a persistence capability changes, update its contract, both
-implementations, and matching conformance evidence. Actor-scoped learner
-methods belong here rather than only in HTTP route checks. PostgreSQL connection
-construction and migrations own production login-profile, capability-role, and
-forced-RLS verification.
-
-The catalog continuation codec is injected into both Store compositions from
-the server secret. The in-memory search helpers intentionally provide portable
-admission, ranking, and snapshot behavior; PostgreSQL owns its canonical
-full-text and word-similarity predicates, ranked CTE, and database snapshot.
-Forward migration
-`schemas/migrations/2026081401_ranked_catalog_discovery.sql`
-adds the monotonic publication/disclosure boundary, normalized search
-projection, discovery indexes, and forced-RLS disclosure broker.
-
-G1 adds the typed accepted-submission and Instructor-operation files named in
-the tree above. The PostgreSQL connection execution-pool seam is
-`crates/learning-data-access/src/postgres/connection_execution_pools.rs`; the
-scoring-invalidation persistence files own causal origin and source bindings.
-`crates/server/src/composition/accepted_submission_execution.rs` supplies the
-shared validated lease/deadline settings. These files keep the API, ordinary
-worker, sealed execution worker, and Instructor operation capability as
-separate composition boundaries.
+The reusable Store owns BlueprintCourse list, get, replacement, publication
+projection, and permitted deletion. The adoption Store owns fork, assignment
+instantiation, whole-course instantiation, rollover, term shift, controlled
+update, idempotency, receipts, and reconciliation. It never grants a public
+Blueprint reader access to a private CourseInstance.
 
 ## Server application
 
-```text
+~~~text
 crates/server/src/
-+- auth/                             Passwordless email, passkey, session, and request-boundary behavior
-+- catalog/                           Catalog query and immutable publication behavior
-+- course/                            Course, roster, invitation, assignment, and grade routes
-|  +- grading_operations.rs            Assignment-local answer-free retry and recalculation routes
-|  +- assignments.rs                   Assignment route facade and shared response assembly
-|  +- assignments/
-|  |  +- definition_request.rs          Strict assignment content resolution and validation
-|  |  +- learner.rs                     Learner detail and shared answer-free landing projection
-|  |  `- workspace.rs                   Draft, Questions, Policies, Grading operations, and Student-view routes
-|  `- gradebook.rs                     Course-grade scheme, compact totals, and CSV export routes
-+- run/                               Attempt issue, prefetch, submission/status, current disclosure redaction, and external-tool routes
-|  `- submission_status.rs             Route-bound answer-free accepted-submission status projection
-+- workspace/                         Authoring workspace behavior
-+- curriculum_adoption/               Instructor-authorized preview/apply, inspection, and reconciliation routes for reusable-curriculum adoption
-+- flat_question_publication/         Native publication routes and tests
-+- public_asset_publication_worker/   Outbox handler and conditional registry activation
-+- accepted_submission_worker.rs      Sealed claim/load/grade/commit worker for accepted input
-+- qti_*/                             QTI import, conversion, publication, and runtime paths
-+- composition/                       Concrete API, worker, and publisher dependency assembly
-+- asset.rs                           Authorized object delivery
-+- request_lifecycle.rs               Request draining and shutdown coordination
-+- http_security.rs                   HTTP response security boundary
-+- webwork_backend/                   PLE-owned PG source and replay integration
-+- worker/                            Generic durable-job runtime
-+- lib.rs                             Server library facade
-`- main.rs                            API, worker, or publisher process entry point
-```
++- auth/                     Account, session, passkey, and preflight behavior
++- course/                   Course, membership, Student, assignment, and Gradebook routes
++- catalog/                  Shared published-question discovery and publication
++- reusable_curriculum.rs    BlueprintCourse HTTP route family
+`- curriculum_adoption/     CourseInstance adoption, rollover, and update routes
++- route_policy.rs           Method and route security policy
++- composition/              Concrete Store, database, worker, object, and adapter assembly
++- run/                      Attempt, submission, disclosure, and external-tool routes
++- worker/                   Generic durable-job runtime
++- accepted_submission_worker.rs  Sealed private grading execution
++- public_asset_publication_worker/  Dedicated public-asset publisher
+`- main.rs                   API, worker, or publisher process entry point
+~~~
 
-Route modules own HTTP behavior. `composition/` selects concrete stores,
-identity providers, object storage, and question adapters. The ordinary worker
-and `--public-asset-publisher` use separate composition paths and database
-authority.
+Authentication and approved-Instructor or course-membership preflight precede
+reference, revision, query, and body decoding. CourseInstance routes require
+the exact destination course and current equal co-Instructor authority.
 
 ## Browser application
 
-```text
+~~~text
 src/
-+- api/             Strict decoders, HTTP client, and generated contracts
-|  +- decoders/assignment_policy.ts            Exact five-field assignment-policy decoder
-|  +- decoders/assignment_policy_validation.ts Focused Policies correction decoder
-|  `- decoders/assignment_workspace.ts         Assignment workspace and issued-work decoder
-|  `- decoders/grading_operations.ts           Answer-free Instructor operation decoder
-+- auth/            Account and course-session browser state
-+- components/      Reusable prompt, response, feedback, and accessibility UI
-|  +- learner_assignment_presentation.tsx Shared answer-free learner/Student-view landing
-|  `- learner_assignment_presentation.css Component-owned learner/Student-view presentation styles
-+- features/        Capability-owned browser logic
-|  `- curriculum_adoption/ Reusable-curriculum adoption preview, apply, receipt, and recovery UI
-+- pages/           Route-level views and page-specific state
-|  +- assignment_workspace/
-|  |  +- assignment_workspace_live_page.tsx      Shared exact-authority loader and child-page shell
-|  |  +- assignment_workspace_overview_page.tsx  Assignment home and readiness actions
-|  |  +- assignment_workspace_questions_page.tsx Questions and pool authoring
-|  |  +- assignment_workspace_policies_page.tsx  Delivery, lifecycle, and disclosure policy
-|  |  +- assignment_workspace_operations_page.tsx Instructor grading recovery actions
-|  |  +- assignment_workspace_operations_model.ts Pure operation state and safe action wording
-|  |  +- assignment_workspace_authoring.css      Shared Create, Questions, pool, and Policies controls
-|  |  `- assignment_workspace_student_view_page.tsx Shared learner landing in Instructor context
-|  +- assignment_editor_*   Picker, reuse, content-list, model, and repository helpers
-|  +- assignment_overview_page.tsx Ordinary learner assignment landing and run entry
-|  `- curriculum_adoption_live_page.tsx Instructor course-route composition for curriculum adoption
-+- learner_progress.ts Server-derived score-state display copy; never derives policy or timing
-+- wasm/            Shared domain WebAssembly facade and Solid context
-+- app.tsx          Application shell
-+- routes.ts        Route definitions
-`- main.tsx         Browser entry point
-```
++- api/
+|  +- reusable_curriculum.ts                 BlueprintCourse client contract
+|  +- curriculum_adoption.ts                 Adoption client contract
+|  +- http_client/reusable_curriculum.ts     Same-origin BlueprintCourse requests
+|  +- http_client/curriculum_adoption.ts     Preview/apply/receipt requests
+|  +- decoders/reusable_curriculum.ts        Strict BlueprintCourse DTO decoder
+|  `- decoders/curriculum_adoption/         Strict adoption DTO decoders
++- features/
+|  +- reusable_curriculum/                    One BlueprintCourse workspace/editor
+|  `- curriculum_adoption/                  Destination-specific staged workflow
++- pages/
+|  +- curriculum_route_page.tsx               Workspace route composition
+|  +- curriculum_detail_route_page.tsx        Detail route composition
+|  `- curriculum_adoption_live_page.tsx     CourseInstance adoption route
++- components/                                Shared answer-free and accessibility UI
++`- routes.ts                                Executable route map
+~~~
 
-`src/components/responses/` contains response-family controls and
-`src/components/response_widget/` contains shared keyboard and external-tool
-extensions. The browser has no object-store credentials, answer keys, or
-authority to issue a grading verdict.
+The intended browser workspace has one BlueprintCourse list, detail, editor,
+and nested module/assignment picker. It presents draft owner/collaborator
+states and the vetted-Instructor published projection without a second product
+branch. Adoption selects an operation and destination: one assignment into an
+existing CourseInstance, a whole BlueprintCourse into a new CourseInstance, or
+an explicit fork into a new BlueprintCourse.
 
-## Question sources and engines
+## Generated contracts
 
-`content/` holds checked-in content. `content/pilot/chapter_1_assignments.yaml`
-owns the reviewed Genetics and Biochemistry Chapter 1 inventory;
-`content/pilot/sources/` retains licensed source evidence and
-`content/pilot/flat/` contains curated PLE flat payloads. The bounded PGML
-fixture is under `content/pilot/webwork/`.
+crates/project-tools/src/tsgen.rs generates TypeScript from Rust contract
+roots into ignored generated/api/. cargo tools tsgen and build.sh are the
+generation entry points. Generated modules are derivative and must not be
+hand-edited. Rust Serde owns field spelling and closed DTO shape; authored
+decoders under src/api/decoders/ enforce runtime strictness.
 
-`crates/project-tools/src/pilot_content.rs` validates the source corpus, while
-`crates/project-tools/src/e2e_seed/chapter_one.rs` publishes the exact matrix
-through production PostgreSQL and object-store contracts. The browser and API
-never execute source from `OTHER_REPOS/`.
+Legacy paired generated names are retained only in the SD1 migration inventory
+until regeneration after the Rust contract cutover. No client may accept an old
+reference or route as a compatibility alias.
 
-The service image and probe configuration are in
-[containers/webwork/](../containers/webwork/). The PLE adapter is in
-[crates/adapters/webwork/](../crates/adapters/webwork/), and PLE-specific
-source and replay selection is in
-[crates/server/src/webwork_backend/](../crates/server/src/webwork_backend/).
+## Content, storage, and deployment
 
-## Database, storage, containers, and deployment
+content/ holds reviewed teaching content. crates/project-tools/src/pilot_content.rs
+validates it and crates/project-tools/src/e2e_seed/ publishes bounded fixtures
+through production contracts. Adapters under crates/adapters/ keep source
+format and provider behavior behind typed capabilities.
 
-```text
-schemas/
-`- migrations/        99 ordered forward SQL migrations through 2026081869; the earlier 95-migration chain through 2026081865 is historical acceptance evidence
+~~~text
+schemas/migrations/          Ordered forward SQL; accepted files are immutable
+containers/                  Compose, API/gateway images, private renderer
+deploy/opentofu/             AWS network, compute, database, storage, IAM, and policy
+crates/objects/              Typed public-assets/private-content/student-records/temp-processing
+~~~
 
-containers/
-+- compose.yaml       Common local and disposable topology, private networks, hardening, and one-shot setup
-+- compose.smtp.yaml  Optional external SMTP-provider overlay
-+- Containerfile.api  Shared API, worker, and publisher image
-+- Containerfile.gateway Gateway image
-+- Caddyfile          Same-origin browser and API gateway rules
-+- env.example        Safe environment template
-`- webwork/           Renderer semantic probe
-
-deploy/opentofu/
-+- network.tf         VPC, subnet, endpoint, and security-group topology
-+- edge.tf            CloudFront, WAF, TLS edge behavior, and ALB origin controls
-+- compute.tf         ECS API, worker, and publisher tasks and IAM roles
-+- database.tf        RDS and database network configuration
-+- storage.tf         Four S3 domains, KMS keys, and object policies
-+- *.tf               Variables, locals, outputs, backend, and observability
-+- tests/             OpenTofu policy assertions
-`- DATABASE_PROVISIONING.md Production login and capability-role provisioning procedure
-```
-
-The G1 forward migrations are append-only and ordered. `2026081849` creates
-automated-grading operation prerequisites and `2026081850` adds the accepted
-response loader boundary. Migrations `2026081851` through `2026081860` own the
-accepted-submission schema, integrity, authority, claim, read, load,
-completion-lock, commit, and failure layers. Migrations `2026081861` through
-`2026081865` own Instructor operation capabilities, lifecycle projection,
-scoring-invalidation origin, capability, and source bindings. The implemented
-closeout then uses four atomic migrations: `2026081866` owns the clean-volume
-receipt-schema preflight and constraints; `2026081867` owns execution receipt
-writers; `2026081868` owns the 36-input commit-v2 writer; and `2026081869` owns
-Instructor receipt writers, retry V2, public retry routing, and V1 retirement.
-The connected G1 database, RLS, worker, browser, WebWork, and replica evidence
-is green on this 99-migration tree. Package acceptance remains open until the
-new owned files are tracked and the exact final tracked-tree
-`source source_me.sh && ./all_test.sh` gate passes.
-
-The default local services are PostgreSQL, MinIO, API, ordinary worker,
-gateway, and a private standalone renderer. PostgreSQL and MinIO use named
-volumes; the other service containers can be rebuilt from configuration.
-
-`.venv/bin/python local_stack.py` is the operator-facing controller after
-`devel/setup_python.sh` has prepared the fixed repo-local environment. Its focused
-`local_stack_control/` modules own the local stack's build, bootstrap, migration,
-seed, renderer, restart, validation, and semantic-readiness sequence directly.
-The package is organized by
-concern: `models.py` declares typed targets and inspected resources;
-`process.py` provides the command boundary; `compose.py` resolves providers and
-target environments; `env_file.py` validates safe environment-file metadata;
-`discovery.py` reads label-derived Podman topology; `status.py` derives
-readiness; `cleanup.py` constructs scoped stop/reset plans; `commands.py` owns
-operator operations; `lifecycle_commands.py` owns child command execution,
-selected child environments, Compose validation, and redacted failures behind
-the `lifecycle.py` facade; `worker_readiness.py` parses the worker's coherent
-seven-family capability receipt; and `consumer.py` limits disposable E2E ownership.
-
-`local_stack_control/_consumer_cli.py` is intentionally narrower than the public controller.
-It accepts a private, owner-specific manifest and only runs scoped Compose
-
-The private `database_baseline` and `course_appearance_cross_store` runtimes are materialized by
-`runtime_manifest.py` and validated by the acceptance-runtime crate. Their mode-0600 handoffs contain
-separate PostgreSQL URLs for the grader, accepted-submission fast path, and
-accepted-submission recovery; `process_logins.py` provisions the matching
-capability-specific local logins. The cross-store profile additionally carries exact private MinIO
-connection files for its service oracle. The API consumes only the fast-path URL, and the worker
-consumes only the recovery URL.
-actions or the matching scoped cleanup plan. The controller's default mutation
-target is `containers`; its disposable adapter does not provide arbitrary
-Podman or Compose-project access.
-
-`crates/objects/` maps typed keys to `public-assets`, `private-content`,
-`student-records`, and `temp-processing`. In the OpenTofu target, each has an
-individual S3 bucket and KMS key. The public-asset publisher is the only
-dedicated process that turns pending private source into an active public
-asset; it has its own task role, execution role, and database login contract.
+PostgreSQL stores policy-bearing relationships, BlueprintCourse and
+CourseInstance records, attempts, submissions, summaries, jobs, and audit
+events. Object storage holds bounded source and binary bytes. The production
+API, workers, and publisher use separate capability profiles.
 
 ## Tests and generated output
 
-```text
+~~~text
 tests/
-+- test_*.py          Fast repository-policy and documentation checks
-+- test_local_stack_control.py Offline typed local-stack controller contracts
-+- test_*.mjs         Deterministic browser-contract checks without a browser
-+- playwright/        Production-browser scenarios and private live-validation helpers
-|  `- e2e/*.spec.ts    Catalog-owned scenarios selected by run_playwright_tests.sh
-|     `- automated_grading_recovery.spec.ts Student exception and Instructor recovery journey
-+- e2e/               Generic disposable whole-system runners
-|  +- `compose.live-demo-browser.yaml` Owner-locked disposable production-auth/TLS E2E overlay; not an operator production deployment
-|  +- `compose.automated-grading-fault.yaml` Acceptance-only deterministic exception overlay
-|  `- `Caddyfile.live-demo-browser` Owner-locked disposable production-auth/TLS E2E gateway; not an operator production deployment
-`- fixtures/          Small checked-in fixture evidence
++- test_*.py                  Fast deterministic repository-policy checks
++- test_*.mjs                 Browser-contract and model checks without a browser
++- playwright/e2e/*.spec.ts   Production HTTPS browser journeys
++- e2e/                       Disposable PostgreSQL, service, lifecycle, and publication checks
+`- fixtures/                  Small durable fixture evidence
 
 generated/
-+- api/               Generated TypeScript contracts
-`- fixtures/          Generated fixture projections
-```
++- api/                       Ignored Rust-derived TypeScript
+`- fixtures/                 Ignored generated fixture projections
+~~~
 
-The generated API tree is ignored output, recreated by `cargo tools tsgen` or
-`./build.sh` from the Rust question model. T6 adds the answer-free
-`generated/api/AssignmentLandingPresentation.ts`,
-`generated/api/InstructorStudentView.ts`, and closed
-`generated/api/AssignmentContentIssuedWorkConflict.ts` contracts. The checked-in
-TypeScript decoders under `src/api/decoders/` are the
-strict browser boundary for those projections.
+Permanent tests protect behavior that can regress: tree ordering, exact pins,
+authorization, strict decoding, adoption exclusions, unreleased propagation,
+and answer-free projections. Graphify and source/migration inventories are
+one-time evidence. PostgreSQL, browser, process, migration, and rendered visual
+checks stay in their named E2E or human-review lanes. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
-G1 also derives `AutomatedGradingStatus`, `SubmissionEvaluationStatus`,
-`GradingOperationAction`, `GradingOperationReason`, `GradingOperationState`,
-`GradingOperationReference`, and `GradingOperationVisibleState` from the Rust
-question model. The operation decoder rejects unknown or answer-bearing fields
-before the page can render them.
-
-`dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report directories are reproducible
-ignored output. `local_runtime/live_demo_browser/` is separate ignored mode-0700 lifecycle state; a
-build cleanup may remove `target/` while the authenticated demo owner retains its lease and control
-receipts. `dist/` is the production browser artifact used by the fixed developer session, Playwright,
-screenshot capture, service oracles, and connected acceptance. Those consumers share the
-`ple-live-demo-browser` lifecycle and seeded production authentication. Checked-in fixtures under
-`tests/fixtures/` are source evidence and should change deliberately.
-
-Committed visual evidence lives under `docs/screenshots/`, organized by role and access boundary:
-
-```text
-docs/screenshots/
-+- instructor/       Instructor evidence at the fixed `laptop` 1280 by 800 desktop profile
-+- sysadmin/         Sysadmin evidence at the fixed `laptop` 1280 by 800 desktop profile
-+- student/           Allowed learner surfaces across the maintained viewport matrix
-|  `- access/         Student denial and no-transport access evidence
-`- shared/            Evidence shared by instructor and student surfaces
-```
-
-`tests/e2e/browser_screenshot_corpus.json` is the sole screenshot ownership authority.
-`tests/playwright/ui_corpus_manifest.ts` and
-`tests/e2e/e2e_browser_screenshot_contract.py` strictly consume its artifact
-names, routes, roles, pipelines, viewports, and evidence purposes. The
-directories describe evidence boundaries. A retained image is not canonical
-acceptance evidence until V1 captures it from the real origin and its
-provenance verifier and visual review pass.
-
-The manifest is the durable ownership authority for artifact names, roles,
-routes, pipelines, viewports, and evidence purposes. The committed files under
-`docs/screenshots/` are its published outputs. Capture runs use the fixed
-`ple-live-demo-browser` owner and production-auth stack, while the
-acceptance-only grader-fault overlay is never part of production composition.
-
-The `automated_grading_recovery` scenario owns the G1 operation and Gradebook
-captures. Its `laptop` value uses the established 1280 by 800 desktop 16:10
-profile name. The deterministic-grader fault overlay is an acceptance-only
-profile; it injects one closed exception and restores the ordinary worker
-before cleanup. It is not included in production composition.
-
-`source source_me.sh && .venv/bin/python local_stack.py acceptance` is the explicit live aggregate entry
-point. `local_stack_control/commands.py` owns conflict preflight and environment sanitization;
-`local_stack_control/acceptance_lanes.py` then runs the maintained browser and real-stack lanes in
-a fixed fail-fast order. These opt-in commands are live acceptance evidence, not part of the fast
-offline `pytest tests/` suite.
-
-`tests/e2e/e2e_database_baseline.sh` selects the ignored PostgreSQL catalog
-Store, disclosure, and qualitative plan suites by exact test name. It creates
-the `DATABASE_BASELINE` profile of the fixed `ple-live-demo-browser` shared
-lease and project. It is live acceptance evidence, not a fast offline test.
-`tests/e2e/e2e_course_appearance.sh` uses the same lease with the distinct
-`course_appearance_cross_store` profile to prove the real PostgreSQL-to-MinIO cleanup invariant.
-
-`./capture_screenshots.sh` is the explicit publication gate when UI, corpus,
-or viewport changes require fresh visual evidence. `./all_test.sh` validates
-the aggregate behavior and contracts without rewriting checked-in screenshots;
-both commands use the same fixed stack.
+Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible
+ignored state. Committed screenshots under docs/screenshots/ are published
+evidence, not source contracts; their manifest is tests/e2e/browser_screenshot_corpus.json.
 
 ## Documentation map
 
-- [README.md](../README.md) is the newcomer entry point and first verified
-  workflow.
-- [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md),
-  [DEVELOPMENT.md](DEVELOPMENT.md), and [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-  document operation and contributor workflows.
-- [USER_ROLES.md](USER_ROLES.md), [SECURITY_MODEL.md](SECURITY_MODEL.md),
-  [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-  [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and
-  [DATABASE_TENANCY.md](DATABASE_TENANCY.md) document security boundaries.
-- [OBJECT_STORAGE.md](OBJECT_STORAGE.md),
-  [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md), and
-  [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md) document durable
-  storage and state transitions.
-- [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md),
-  [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md), and
-  [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) document runtime topology.
-- [active_plans/](active_plans/) contains in-flight scope, audits, decisions,
-  workstreams, and dated reports.
+- [README.md](../README.md): newcomer entry point and first workflow.
+- [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md), [DEVELOPMENT.md](DEVELOPMENT.md),
+  [TROUBLESHOOTING.md](TROUBLESHOOTING.md): operation and contribution.
+- [CONTRACTS.md](CONTRACTS.md), [API_CONTRACTS.md](API_CONTRACTS.md),
+  [SECURITY_MODEL.md](SECURITY_MODEL.md), [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md):
+  durable API, security, and database rules.
+- [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
+  [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md): local production-shaped stack.
+- [active_plans/](active_plans/): active scope, dependency order, audits, and status.
+- [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md): evidence classes and required gates.
 
 ## Where to add work
 
-- Put a domain rule in its focused module under `crates/domain/src/`.
-- Put persistence behavior in a data-access contract, its implementations, and
-  conformance tests when both stores support it.
-- Put a learner-visible endpoint in the owning server capability module and
-  use an actor-scoped store operation for learner data.
-- Put a new durable job handler in the server worker subsystem; use a separate
-  process, database capability, and IAM role when its authority differs from
-  the ordinary worker.
-- Put a forward database change in [schemas/migrations/](../schemas/migrations/);
-  preserve applied migrations as history.
-- Put normal local-stack lifecycle policy in `local_stack_control/`; use
-  `.venv/bin/python local_stack.py` for its public command after the fixed environment setup.
-  Keep initialization, migration,
-  seeding, and semantic startup behavior in focused typed Python modules.
-- Put a disposable E2E lifecycle owner in `local_stack_control/consumer.py`
-  only when it has a closed project namespace, a private manifest, and a
-  project-scoped cleanup contract.
-- Put a durable design or contract document in `docs/` and an in-flight plan or
-  status artifact in the appropriate [active_plans/](active_plans/) subtree.
+- Add a reusable content rule to crates/question_model/src/reusable_curriculum.rs;
+  update both reusable Store implementations and conformance cases.
+- Add source-to-instance behavior to curriculum_adoption with a typed preview,
+  command, authorization, and immutable receipt.
+- Add schema only through the status-owned allocation in
+  active_plans/implementation_status.md; preserve applied migrations.
+- Add routes in the owning server module and register method policy in
+  route_policy.rs.
+- Regenerate generated/api/, then update strict decoders and typed clients.
+- Add visible behavior to the owning feature/page/component; keep delivery and
+  FERPA decisions server-authoritative.
+- Add operational lifecycle behavior to local_stack_control/ and disposable
+  evidence to its closed owner policy.

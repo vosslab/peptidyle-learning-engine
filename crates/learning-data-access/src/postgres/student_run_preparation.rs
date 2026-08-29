@@ -47,7 +47,7 @@ impl PreparedStudentRunWork {
     }
 }
 
-/// Executes the run-specific learner-work preparation and hydrates every
+/// Executes the run-specific Student-work preparation and hydrates every
 /// source fact needed by issuance under the broker-retained locks.
 pub(super) async fn prepare_student_run_work(
     transaction: &mut Transaction<'_, Postgres>,
@@ -64,7 +64,7 @@ pub(super) async fn prepare_student_run_work(
         tenant,
         course: binding.course,
         assignment: binding.assignment,
-        learner: actor,
+        student_user: actor,
         membership,
         audience,
         current_groups: groups,
@@ -73,12 +73,12 @@ pub(super) async fn prepare_student_run_work(
         return Err(StoreError::NotFound);
     };
     if grant.membership() != witness.source.student_membership
-        || grant.learner() != actor
+        || grant.student_user() != actor
         || grant.course() != binding.course
         || grant.assignment() != binding.assignment
     {
         return Err(StoreError::InvalidRecord(
-            "prepared entitlement grant disagrees with learner-work witness".to_string(),
+            "prepared entitlement grant disagrees with Student-work witness".to_string(),
         ));
     }
     let assignment = hydrate_assignment_from_witness(transaction, &witness.source).await?;
@@ -111,7 +111,7 @@ pub(super) async fn prepare_student_run_work(
         || enrollment_membership != witness.source.student_membership.as_uuid()
     {
         return Err(StoreError::InvalidRecord(
-            "prepared enrollment disagrees with learner-work witness".to_string(),
+            "prepared enrollment disagrees with Student-work witness".to_string(),
         ));
     }
     let run_row = sqlx::query(
@@ -131,7 +131,7 @@ pub(super) async fn prepare_student_run_work(
         || witness.locked_summary_enrollments.as_slice() != [enrollment.id]
     {
         return Err(StoreError::InvalidRecord(
-            "prepared run disagrees with learner-work witness".to_string(),
+            "prepared run disagrees with Student-work witness".to_string(),
         ));
     }
     Ok(PreparedStudentRunWork {

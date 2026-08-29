@@ -4,7 +4,6 @@ import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery"
 import type { CatalogAuthorship } from "../../generated/api/CatalogAuthorship";
 import type { Capability } from "../../generated/api/Capability";
 import type { CatalogLicenseValue } from "../../generated/api/CatalogLicenseValue";
-import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { ApiClient } from "./client";
 import type {
   CatalogBrowsePage,
@@ -74,7 +73,7 @@ function selectedBackend(value: string | null): CatalogSearchQuery["backends"] {
   return [selected];
 }
 
-function selectedResponseFamily(value: string | null): CatalogSearchQuery["responseFamilies"] {
+function selectedResponseFamily(value: string | null): CatalogSearchQuery["response_families"] {
   if (value === null) return [];
   const selected = RESPONSE_FAMILIES.find((candidate) => candidate === value);
   if (selected === undefined) throw new Error("Catalog response family selection is invalid");
@@ -154,23 +153,21 @@ export function catalogSearchRequest(
   query: CatalogBrowseQuery,
   cursor: string | null,
   authorship: CatalogAuthorship = "any",
-  publicationScopes: ReadonlyArray<PublicationScope> = query.publicationScopes,
 ): CatalogSearchQuery {
   return {
     text: query.search === "" ? null : query.search,
     bylines: selectedPublicText(query.byline),
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),
-    responseFamilies: selectedResponseFamily(query.responseFamily),
+    response_families: selectedResponseFamily(query.responseFamily),
     taxonomy: taxonomyFilter(query.taxonomy),
     capabilities: selectedCapability(query.capability),
     licenses: selectedLicense(query.license),
     evidence: evidenceFilter(query.evidence),
-    usedInMyCourses: query.usedInMyCourses === "used" ? "used" : "any",
+    used_in_my_courses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
-    publicationScopes: [...publicationScopes],
     cursor,
-    pageSize: CATALOG_PAGE_SIZE,
+    page_size: CATALOG_PAGE_SIZE,
   };
 }
 
@@ -178,16 +175,10 @@ export function catalogSearchRequest(
 export function createCatalogRepository(
   client: ApiClient,
   authorship: CatalogAuthorship = "any",
-  publicationScopes?: ReadonlyArray<PublicationScope>,
 ): CatalogBrowseRepository {
   return {
     async search(query: CatalogBrowseQuery, cursor: string | null): Promise<unknown> {
-      const search = catalogSearchRequest(
-        query,
-        cursor,
-        authorship,
-        publicationScopes ?? query.publicationScopes,
-      );
+      const search = catalogSearchRequest(query, cursor, authorship);
       const page = await client.searchCatalog(search);
       return {
         items: page.items.map((item) => ({

@@ -4,16 +4,15 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Deserializer, de};
 
-use super::{
-    CurriculumAdoptionRepairedProjection, CurriculumImportView, CurriculumPinReplacement,
-    ObservedAssignmentRevision,
-};
+use super::CurriculumPinReplacement;
 use crate::{
     MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
     MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, QuestionId,
 };
 
-fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(deserializer: D) -> Result<Vec<T>, D::Error>
+pub(super) fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(
+    deserializer: D,
+) -> Result<Vec<T>, D::Error>
 where
     D: Deserializer<'de>,
     T: Deserialize<'de>,
@@ -51,24 +50,6 @@ where
     deserializer.deserialize_seq(BoundedVecVisitor::<T, MAX>(PhantomData))
 }
 
-pub(super) fn deserialize_assignment_witnesses<'de, D>(
-    deserializer: D,
-) -> Result<Vec<ObservedAssignmentRevision>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
-}
-
-pub(super) fn deserialize_course_imports<'de, D>(
-    deserializer: D,
-) -> Result<Vec<CurriculumImportView>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
-}
-
 pub(super) fn deserialize_replacement_questions<'de, D>(
     deserializer: D,
 ) -> Result<Vec<QuestionId>, D::Error>
@@ -87,9 +68,18 @@ where
     deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES>(deserializer)
 }
 
-pub(super) fn deserialize_repaired_projections<'de, D>(
+pub(super) fn deserialize_course_instance_corrections<'de, D>(
     deserializer: D,
-) -> Result<Vec<CurriculumAdoptionRepairedProjection>, D::Error>
+) -> Result<Vec<super::course_instance::CourseInstanceScheduleCorrection>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
+}
+
+pub(super) fn deserialize_course_instance_provenance<'de, D>(
+    deserializer: D,
+) -> Result<Vec<super::course_instance::BlueprintAssignmentProvenance>, D::Error>
 where
     D: Deserializer<'de>,
 {

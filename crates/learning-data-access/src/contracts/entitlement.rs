@@ -1,9 +1,9 @@
-//! Current learner authority and durable educational-receipt materialization.
+//! Current Student authority and durable educational-receipt materialization.
 //!
 //! An enrollment is historical evidence, never a continuing access grant.  A
 //! backend evaluates the normalized current membership and assignment audience
 //! in the same transaction that creates the first receipt for a legitimate
-//! learner action.  Callers must use this capability rather than creating an
+//! Student action. Callers must use this capability rather than creating an
 //! enrollment or inferring authority from a prior receipt.
 
 use async_trait::async_trait;
@@ -15,11 +15,11 @@ use question_model::{
 
 use crate::{AssignmentRecord, Page, PageRequest, StoreError, TenantContext};
 
-/// One learner action that may require an educational receipt.
+/// One Student action that may require an educational receipt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MaterializeAssignmentEntitlementCommand {
-    /// Learner whose present authority is evaluated.
-    learner: UserId,
+    /// Student-role user whose present authority is evaluated.
+    student_user: UserId,
     /// Course selected by the route or issued work.
     course: CourseId,
     /// Assignment selected by the route or issued work.
@@ -31,10 +31,10 @@ pub struct MaterializeAssignmentEntitlementCommand {
 }
 
 impl MaterializeAssignmentEntitlementCommand {
-    /// Builds a learner-owned command.  Learner events cannot forge another
+    /// Builds a Student-owned command. Student events cannot forge another
     /// actor into immutable provenance.
-    pub(crate) fn for_learner_action(
-        learner: UserId,
+    pub(crate) fn for_student_action(
+        student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
         purpose: EntitlementPurpose,
@@ -44,11 +44,11 @@ impl MaterializeAssignmentEntitlementCommand {
             EntitlementPurpose::StartRun | EntitlementPurpose::GradeBearingAction
         )
         .then_some(Self {
-            learner,
+            student_user,
             course,
             assignment,
             purpose,
-            authority: question_model::MaterializationAuthority::Actor(learner),
+            authority: question_model::MaterializationAuthority::Actor(student_user),
         })
         .ok_or_else(|| {
             StoreError::InvalidRecord("instructor issue requires an instructor command".to_string())
@@ -61,7 +61,7 @@ impl MaterializeAssignmentEntitlementCommand {
     /// transaction, because constructor validation has no access to that
     /// state.
     pub fn for_instructor_action(
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
         instructor: UserId,
@@ -72,27 +72,27 @@ impl MaterializeAssignmentEntitlementCommand {
             EntitlementPurpose::InstructorIssue | EntitlementPurpose::GradeBearingAction
         )
         .then_some(Self {
-            learner,
+            student_user,
             course,
             assignment,
             purpose,
             authority: question_model::MaterializationAuthority::Actor(instructor),
         })
         .ok_or_else(|| {
-            StoreError::InvalidRecord("start-run requires a learner command".to_string())
+            StoreError::InvalidRecord("start-run requires a Student command".to_string())
         })
     }
 
     /// Builds a system rule-backed grade operation.  Rules can never start a
     /// run or issue instructor work.
     pub fn for_rule_grade(
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
         rule: question_model::MaterializationRule,
     ) -> Self {
         Self {
-            learner,
+            student_user,
             course,
             assignment,
             purpose: EntitlementPurpose::GradeBearingAction,
@@ -100,8 +100,8 @@ impl MaterializeAssignmentEntitlementCommand {
         }
     }
 
-    pub fn learner(&self) -> UserId {
-        self.learner
+    pub fn student_user(&self) -> UserId {
+        self.student_user
     }
     pub fn course(&self) -> CourseId {
         self.course
@@ -133,11 +133,11 @@ pub struct MaterializedAssignmentEntitlement {
     pub applicable_policy_scopes: ApplicablePolicyScopes,
 }
 
-/// Result of evaluating present learner authority.
+/// Result of evaluating present Student authority.
 ///
 /// Denial deliberately contains no receipt, summary, or provenance; a denied
 /// action must leave educational records untouched.  The typed reason is for
-/// internal policy composition and must not be serialized as a learner DTO.
+/// internal policy composition and must not be serialized as a Student DTO.
 #[allow(clippy::large_enum_variant)] // Callers inspect denials often; boxing grants obscures the seam.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssignmentEntitlementMaterialization {
@@ -145,34 +145,34 @@ pub enum AssignmentEntitlementMaterialization {
     Denied(EntitlementDenial),
 }
 
-/// Atomic evaluator and receipt seam consumed by every learner start,
-/// grade-bearing action, and instructor-issued learner operation.
+/// Atomic evaluator and receipt seam consumed by every Student start,
+/// grade-bearing action, and instructor-issued Student operation.
 #[async_trait]
 pub trait EntitlementStore: Send + Sync {
-    /// Lists only assignments the learner may presently access.  Filtering and
+    /// Lists only assignments the Student may presently access. Filtering and
     /// pagination happen after the one evaluator-owned authority decision, so
     /// callers cannot turn a historical enrollment into list visibility.
-    async fn list_learner_entitled_assignments_impl(
+    async fn list_student_entitled_assignments_impl(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRecord>, StoreError>;
 
     /// Evaluates present authority without creating an educational record.
-    /// Learner lists use this query; they never infer visibility from an old
+    /// Student lists use this query; they never infer visibility from an old
     /// receipt or reconstruct roster/group policy themselves.
     async fn evaluate_assignment_entitlement_impl(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<EntitlementDecision, StoreError>;
 
     /// Explicit instructor issuance or a closed system-grade rule only.
-    /// Learner actions materialize internally in their owning Store transaction.
+    /// Student actions materialize internally in their owning Store transaction.
     async fn issue_assignment_entitlement_impl(
         &self,
         context: TenantContext,

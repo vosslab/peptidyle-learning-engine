@@ -224,7 +224,7 @@ fn decode_group(
         "learner" if group_by == GradingOperationGroupBy::Learner => {
             let membership = positive_membership_reference(row, "course_membership_reference")?;
             let label: String = row
-                .try_get("learner_display_name")
+                .try_get("student_display_name")
                 .map_err(map_sqlx_error)?;
             let display_name = TeachingDisplayLabel::try_from(label).map_err(|_| {
                 unavailable("grading-operation broker returned an invalid learner label")

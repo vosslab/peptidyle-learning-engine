@@ -6,8 +6,9 @@ The plan and its active release plan remain authoritative for dependency order a
 
 PLE is question agnostic at the learning-engine boundary. An assignment run uses one persisted
 published problem version, one server-issued attempt, and the common `RunBackend` contract. A
-backend safely issues, reproduces, and grades its own material; PLE owns tenant authorization,
-assignment policy, attempt identity, timing, idempotency, gradebook persistence, retention, and the
+backend safely issues, reproduces, and grades its own material; PLE owns actor and exact
+course/Student authorization, assignment policy, attempt identity, timing, idempotency,
+gradebook persistence, retention, and the
 browser API.
 
 Read this with [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md) for contributor workflow,
@@ -29,7 +30,7 @@ All installed backends enter the server through `crates/server/src/run/contracts
 | Concern          | Common PLE rule                                                                                                                                                                                                  |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source authority | A published `QuestionDefinition` and immutable `ProblemVersionRef` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                              |
-| Issuance         | `RunBackend::issue` receives trusted tenant context, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance.                                     |
+| Issuance         | `RunBackend::issue` receives trusted `ActorContext`, exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance. |
 | Reproduction     | `RunBackend::reproduce` is limited to issue-time work and explicit envelope-less active families. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead. |
 | Response         | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                |
 | Grade            | `RunBackend::grade` returns a server-side outcome. The common route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                      |
@@ -50,7 +51,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 | QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                              |
 | WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                    |
 | iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                              |
-| External-tool broker | Tenant attempt, launch session, and protected exchange row          | `ExternalTool {}` marker plus HttpOnly launch proof        | Backend-owned atomic verified-result commit         | Shared mechanism used by the contracted iMathAS path                                                                                     |
+| External-tool broker | Exact course/Student attempt, launch session, and protected exchange row | `ExternalTool {}` marker plus HttpOnly launch proof | Backend-owned atomic verified-result commit | Shared mechanism used by the contracted iMathAS path |
 
 ## Native flat questions
 
@@ -80,7 +81,7 @@ replace it with a current grader view. Provenance names the native adapter and g
 generator, bound objects, and rendered output hash.
 
 Native generation is deterministic for published version and seed. A shared cache may contain only
-answer-free generated output keyed by that identity. Tenant state, keys, submissions, and feedback
+answer-free generated output keyed by that identity. Course/Student state, keys, submissions, and feedback
 never enter it. Static questions still use the uniform seed and parameter-hash record so swapped
 provenance is detectable.
 
@@ -184,7 +185,7 @@ The external activity loads only from PLE's protected same-origin launch route.
 
 ### Verified result and persistence
 
-PLE creates a short-lived tenant/learner/attempt-bound launch session only after reproducing the
+PLE creates a short-lived exact course/Student/attempt-bound launch session only after reproducing the
 issued attempt, through nested
 `POST /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch`.
 The exact typed route binding is broker-verified before provider work and enters neither JSON nor
@@ -193,7 +194,7 @@ The corresponding GET is an inert same-origin shell: it cannot create or renew a
 a provider URL. The shell uses a sandboxed iframe and constrained message bridge. Provider state is
 AEAD-wrapped before protected store persistence and is never a JSON field.
 
-The server creates a broker binding over tenant, attempt, problem, version, seed, immutable source,
+The server creates a broker binding over actor, exact course/Student attempt, problem, version, seed, immutable source,
 profile, and canonical marker response. Before an effectful provider POST it durably records an
 indeterminate-dispatch marker under the active, unexpired lease and exact launch-token hash. A
 crash or ambiguous transport result leaves the attempt fenced rather than retrying an action that
@@ -229,7 +230,7 @@ iMathAS. It allows an external activity UI without handing it PLE grading author
 | Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit. |
 | Proxy     | Browser calls same-origin PLE activity route. Only the sandboxed activity POST may carry `Origin: null`, and it must also present the launch cookie and AEAD-bound context. PLE alone contacts the provider using encrypted server-held state. |
 | Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading. |
-| Verify    | Backend accepts only a server-verified result matching tenant, attempt, problem, version, seed, and correlation.                                 |
+| Verify    | Backend accepts only a server-verified result matching actor, exact course/Student attempt, problem, version, seed, and correlation. |
 | Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                         |
 
 The marker does not mean "trust the external tool." It means the current attempt requires the
@@ -246,7 +247,7 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
    answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
    grade validate those artifacts rather than rerendering.
 5. Choose one grading authority: private PLE material, private renderer, or verified external result.
-6. Cache only immutable answer-free render output. Bind private replay state to tenant attempt, never shared cache.
+6. Cache only immutable answer-free render output. Bind private replay state to the exact course/Student attempt, never shared cache.
 7. Declare only implemented capabilities, and make assignment validation refuse unsupported policy before issue.
 8. Add deterministic conformance tests. Label recorded provider fixtures separately from live service acceptance.
 
@@ -261,4 +262,4 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 | WeBWorK renderer            | `crates/adapters/webwork`, `crates/server/src/webwork_backend.rs`, and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) |
 | iMathAS broker              | `crates/adapters/imathas`, `crates/server/src/imathas_backend.rs`, and `crates/server/src/run/external_tool.rs`                             |
 | Learner payload design      | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)                                                                                |
-| Security and storage        | [SECURITY_MODEL.md](SECURITY_MODEL.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md), and [DATABASE_TENANCY.md](DATABASE_TENANCY.md)              |
+| Security and storage        | [SECURITY_MODEL.md](SECURITY_MODEL.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md), and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#typed-operations-and-objects) |

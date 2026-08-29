@@ -11,10 +11,10 @@ use crate::{
 pub use crate::catalog_facets::{
     CatalogAuthorship, CatalogBackendFacet, CatalogBylineFacet, CatalogCapabilityFacet,
     CatalogEvidenceAvailability, CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue,
-    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchQuery,
-    CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
-    CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS,
-    MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_PUBLICATION_SCOPE_FILTERS,
+    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchFilter,
+    CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet,
+    CatalogTaxonomyFilter, CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet,
+    MAX_CATALOG_BACKEND_FACETS, MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS,
     MAX_CATALOG_RESPONSE_FAMILY_FACETS, MAX_CATALOG_RESPONSE_FAMILY_FILTERS,
     MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
 };
@@ -146,10 +146,10 @@ impl From<QuestionId> for String {
     }
 }
 
-/// Copyable Question ID accepted by instructor import and direct lookup.
+/// Copyable Question ID accepted by Instructor import and direct lookup.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProblemDisplayRef {
-    /// Stable human-facing question identity. Hidden versions never enter it.
+    /// Stable human-facing question identity for authorized direct resolution.
     pub question_id: QuestionId,
 }
 
@@ -210,14 +210,16 @@ impl PublicationScope {
     rename_all_fields = "camelCase"
 )]
 pub enum CatalogLifecycle {
-    /// Discoverable and eligible for new assignments.
+    /// Discoverable and eligible for ordinary new selection.
     Published,
-    /// Hidden from discovery but still eligible by exact reference.
+    /// Discoverable with its lifecycle label, but ineligible for ordinary new
+    /// selection; retained for authorized stable-ID and exact-pin resolution.
     Deprecated {
         /// Why instructors should stop newly assigning this version.
         reason: String,
     },
-    /// Historical content retained for exact resolution only.
+    /// Discoverable historical content, ineligible for ordinary new selection,
+    /// and retained for authorized stable-ID and exact-pin resolution.
     Archived {
         /// Original deprecation explanation retained for the record.
         reason: String,
@@ -227,12 +229,30 @@ pub enum CatalogLifecycle {
 impl CatalogLifecycle {
     /// Whether catalog browsing should include the immutable publication.
     pub fn is_discoverable(&self) -> bool {
+        matches!(
+            self,
+            Self::Published | Self::Deprecated { .. } | Self::Archived { .. }
+        )
+    }
+
+    /// Whether this publication can create a new reference through ordinary selection.
+    ///
+    /// This does not govern resolution of an existing exact immutable pin.
+    pub fn is_eligible_for_ordinary_new_selection(&self) -> bool {
         matches!(self, Self::Published)
     }
 
-    /// Whether a new assignment may reference the immutable publication.
-    pub fn is_assignable(&self) -> bool {
-        matches!(self, Self::Published | Self::Deprecated { .. })
+    /// Whether a stable Question ID can resolve this publication for an
+    /// authorized read.
+    ///
+    /// Published, deprecated, and archived publications remain resolvable by
+    /// their stable identity. Resolution does not make non-Published content
+    /// eligible for ordinary new selection.
+    pub fn is_resolvable_by_stable_question_id(&self) -> bool {
+        matches!(
+            self,
+            Self::Published | Self::Deprecated { .. } | Self::Archived { .. }
+        )
     }
 }
 
@@ -570,20 +590,22 @@ mod tests {
     }
 
     #[test]
-    fn deprecation_hides_discovery_while_archival_blocks_assignment() {
+    fn only_published_content_is_eligible_for_ordinary_new_selection() {
         assert!(CatalogLifecycle::Published.is_discoverable());
-        assert!(CatalogLifecycle::Published.is_assignable());
+        assert!(CatalogLifecycle::Published.is_eligible_for_ordinary_new_selection());
         let deprecated = CatalogLifecycle::Deprecated {
             reason: "A separately published immutable question is available.".to_string(),
         };
-        assert!(!deprecated.is_discoverable());
-        assert!(deprecated.is_assignable());
-        assert!(
-            !CatalogLifecycle::Archived {
-                reason: "Historical".to_string(),
-            }
-            .is_assignable()
-        );
+        assert!(deprecated.is_discoverable());
+        assert!(!deprecated.is_eligible_for_ordinary_new_selection());
+        assert!(deprecated.is_resolvable_by_stable_question_id());
+        assert!(CatalogLifecycle::Published.is_resolvable_by_stable_question_id());
+        let archived = CatalogLifecycle::Archived {
+            reason: "Historical".to_string(),
+        };
+        assert!(archived.is_discoverable());
+        assert!(!archived.is_eligible_for_ordinary_new_selection());
+        assert!(archived.is_resolvable_by_stable_question_id());
     }
 
     #[test]

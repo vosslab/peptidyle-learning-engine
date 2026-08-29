@@ -31,14 +31,14 @@ impl ApplicablePolicyScopes {
     }
 }
 
-/// Why current authority is absent. Reasons are internal and never a learner DTO.
+/// Why current authority is absent. Reasons are internal and never a Student DTO.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntitlementDenial {
     CourseNotFound,
     AssignmentNotFound,
     AssignmentOutsideCourse,
     StudentNotActiveCourse,
-    AudienceExcludesLearner,
+    AudienceExcludesStudent,
 }
 
 /// A successful authority decision. Its fields remain private so only this
@@ -48,7 +48,7 @@ pub struct EntitlementGrant {
     tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
-    learner: UserId,
+    student_user: UserId,
     student: StudentId,
     membership: CourseMembershipId,
     basis: MaterializationBasis,
@@ -65,8 +65,8 @@ impl EntitlementGrant {
     pub fn assignment(&self) -> AssignmentId {
         self.assignment
     }
-    pub fn learner(&self) -> UserId {
-        self.learner
+    pub fn student_user(&self) -> UserId {
+        self.student_user
     }
     pub fn student(&self) -> StudentId {
         self.student
@@ -91,7 +91,7 @@ pub enum EntitlementDecision {
 /// Identity-free normalized facts for a synthetic T3 preview subject.
 ///
 /// The Store resolves request-bound group locators before constructing this
-/// value. Neither this type nor its resulting grant can represent a learner,
+/// value. Neither this type nor its resulting grant can represent a Student,
 /// membership, or persisted student record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntheticPreviewEntitlementFacts {
@@ -161,7 +161,7 @@ pub struct EntitlementFacts {
     pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
-    pub learner: UserId,
+    pub student_user: UserId,
     pub membership: Option<ActiveStudentMembership>,
     pub audience: AssignmentAudience,
     pub current_groups: Vec<(CourseGroupId, CourseGroupPurpose)>,
@@ -186,20 +186,20 @@ pub fn evaluate_assignment_entitlement(facts: EntitlementFacts) -> EntitlementDe
             tenant: facts.tenant,
             course: facts.course,
             assignment: facts.assignment,
-            learner: facts.learner,
+            student_user: facts.student_user,
             student: membership.student,
             membership: membership.id,
             basis,
             applicable_policy_scopes: scopes,
         }),
-        None => EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner),
+        None => EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent),
     }
 }
 
 /// Decides synthetic preview authority from identity-free group facts.
 ///
-/// This shares the learner evaluator's audience and scope rules, but does not
-/// accept a membership or mint a learner authority token.
+/// This shares the Student evaluator's audience and scope rules, but does not
+/// accept a membership or mint a Student authority token.
 pub fn evaluate_synthetic_preview_entitlement(
     facts: SyntheticPreviewEntitlementFacts,
 ) -> SyntheticPreviewEntitlementDecision {
@@ -216,7 +216,7 @@ pub fn evaluate_synthetic_preview_entitlement(
             })
         }
         None => {
-            SyntheticPreviewEntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner)
+            SyntheticPreviewEntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent)
         }
     }
 }
@@ -256,7 +256,7 @@ mod tests {
             tenant: TenantId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
-            learner: UserId::from_uuid(id(4)),
+            student_user: UserId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student: StudentId::from_uuid(id(6)),
@@ -267,7 +267,7 @@ mod tests {
         });
         assert_eq!(
             decision,
-            EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner)
+            EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent)
         );
     }
 
@@ -278,7 +278,7 @@ mod tests {
             tenant: TenantId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
-            learner: UserId::from_uuid(id(4)),
+            student_user: UserId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student: StudentId::from_uuid(id(6)),
@@ -345,7 +345,7 @@ mod tests {
             ));
         assert_eq!(
             decision,
-            SyntheticPreviewEntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner)
+            SyntheticPreviewEntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent)
         );
     }
 }

@@ -11,102 +11,112 @@ use question_model::{
 
 #[tokio::test]
 async fn replacement_retains_exact_immutable_member_after_lifecycle_changes() {
-    let fixture = Fixture::new(2).await;
-    let collection = fixture
-        .named(
-            fixture.elena,
-            "Replacement candidates",
-            ProblemCollectionVisibility::Private,
-            vec![fixture.question_ids[0].clone()],
-        )
-        .await
-        .expect("collection");
-    {
-        let mut state = fixture.store.write_state().expect("fixture state");
-        let record = state
-            .published
-            .values_mut()
-            .find(|record| record.question_id == fixture.question_ids[0])
-            .expect("publication");
-        record.lifecycle = CatalogLifecycle::Archived {
+    for lifecycle in [
+        CatalogLifecycle::Deprecated {
             reason: "A successor replaces this item.".to_string(),
-        };
-    }
+        },
+        CatalogLifecycle::Archived {
+            reason: "Historical teaching evidence.".to_string(),
+        },
+    ] {
+        let fixture = Fixture::new(1).await;
+        let collection = fixture
+            .named(
+                fixture.elena,
+                "Replacement candidates",
+                ProblemCollectionVisibility::Private,
+                fixture.question_ids.clone(),
+            )
+            .await
+            .expect("collection");
+        {
+            let mut state = fixture.store.write_state().expect("fixture state");
+            let record = state.published.values_mut().next().expect("publication");
+            record.lifecycle = lifecycle;
+        }
 
-    let members = fixture
-        .store
-        .list_problem_collection_members(
-            fixture.context,
-            fixture.elena,
-            collection.reference,
-            PageRequest::first(PageSize::new(10).expect("page size")),
-        )
-        .await
-        .expect("member lookup")
-        .expect("owner collection");
-    assert_eq!(members.members.items.len(), 1);
-    assert_eq!(
-        members.members.items[0].question_id,
-        fixture.question_ids[0]
-    );
-    assert_eq!(
-        members.members.items[0].selection_availability,
-        ProblemCollectionSelectionAvailability::Retained
-    );
+        let members = fixture
+            .store
+            .list_problem_collection_members(
+                fixture.context,
+                fixture.elena,
+                collection.reference,
+                PageRequest::first(PageSize::new(10).expect("page size")),
+            )
+            .await
+            .expect("member lookup")
+            .expect("owner collection");
+        assert_eq!(members.members.items.len(), 1);
+        assert_eq!(
+            members.members.items[0].question_id,
+            fixture.question_ids[0]
+        );
+        assert_eq!(
+            members.members.items[0].selection_availability,
+            ProblemCollectionSelectionAvailability::Retained
+        );
+    }
 }
 
 #[tokio::test]
 async fn destination_rechecks_current_visibility_before_atomic_replacement() {
-    let fixture = Fixture::new(2).await;
-    let collection = fixture
-        .named(
-            fixture.elena,
-            "Current selection",
-            ProblemCollectionVisibility::Private,
-            vec![fixture.question_ids[0].clone()],
-        )
-        .await
-        .expect("collection");
-    {
-        let mut state = fixture.store.write_state().expect("fixture state");
-        let record = state
-            .published
-            .values_mut()
-            .find(|record| record.question_id == fixture.question_ids[1])
-            .expect("publication");
-        record.lifecycle = CatalogLifecycle::Archived {
-            reason: "No longer assignable.".to_string(),
-        };
-    }
-    assert!(matches!(
-        fixture
-            .replace_named(
+    for lifecycle in [
+        CatalogLifecycle::Deprecated {
+            reason: "No longer assigned.".to_string(),
+        },
+        CatalogLifecycle::Archived {
+            reason: "Historical teaching evidence.".to_string(),
+        },
+    ] {
+        let fixture = Fixture::new(2).await;
+        let collection = fixture
+            .named(
                 fixture.elena,
-                collection.reference,
-                collection.revision,
                 "Current selection",
                 ProblemCollectionVisibility::Private,
-                vec![fixture.question_ids[1].clone()],
+                vec![fixture.question_ids[0].clone()],
             )
-            .await,
-        Err(StoreError::NotFound)
-    ));
-    let unchanged = fixture
-        .store
-        .list_problem_collection_members(
-            fixture.context,
-            fixture.elena,
-            collection.reference,
-            PageRequest::first(PageSize::new(10).expect("page size")),
-        )
-        .await
-        .expect("member lookup")
-        .expect("collection remains");
-    assert_eq!(unchanged.collection.revision, collection.revision);
-    assert_eq!(
-        unchanged.members.items[0].question_id,
-        fixture.question_ids[0]
-    );
+            .await
+            .expect("collection");
+        {
+            let mut state = fixture.store.write_state().expect("fixture state");
+            let record = state
+                .published
+                .values_mut()
+                .find(|record| record.question_id == fixture.question_ids[1])
+                .expect("publication");
+            record.lifecycle = lifecycle;
+        }
+        assert!(matches!(
+            fixture
+                .replace_named(
+                    fixture.elena,
+                    collection.reference,
+                    collection.revision,
+                    "Current selection",
+                    ProblemCollectionVisibility::Private,
+                    vec![fixture.question_ids[1].clone()],
+                )
+                .await,
+            Err(StoreError::NotFound)
+        ));
+        let unchanged = fixture
+            .store
+            .list_problem_collection_members(
+                fixture.context,
+                fixture.elena,
+                collection.reference,
+                PageRequest::first(PageSize::new(10).expect("page size")),
+            )
+            .await
+            .expect("member lookup")
+            .expect("collection remains");
+        assert_eq!(unchanged.collection.revision, collection.revision);
+        assert_eq!(
+            unchanged.members.items[0].question_id,
+            fixture.question_ids[0]
+        );
+    }
 }
 
 #[tokio::test]

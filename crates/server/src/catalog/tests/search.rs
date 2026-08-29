@@ -5,7 +5,7 @@ use objects::Sha256Digest;
 use question_model::ProblemVersionRef;
 
 #[tokio::test]
-async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
+async fn catalog_and_taxonomy_lists_use_cursors_and_retain_lifecycle_labels() {
     let store = Arc::new(MemoryStore::default());
     let tenant = TenantId::from_uuid(id(1));
     let context = TenantContext::from_authenticated_session(tenant);
@@ -58,7 +58,7 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/problems?pageSize=1")
+                .uri("/api/problems?page_size=1")
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("list request"),
@@ -77,7 +77,7 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         .oneshot(
             Request::builder()
                 .uri(format!(
-                    "/api/problems?pageSize=1&cursor={}",
+                    "/api/problems?page_size=1&cursor={}",
                     cursor.replace('/', "%2F")
                 ))
                 .header("cookie", &cookie)
@@ -95,7 +95,7 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/taxonomy?pageSize=1")
+                .uri("/api/taxonomy?page_size=1")
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("taxonomy request"),
@@ -114,7 +114,9 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/taxonomy?pageSize=1&cursor={taxonomy_cursor}"))
+                .uri(format!(
+                    "/api/taxonomy?page_size=1&cursor={taxonomy_cursor}"
+                ))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("taxonomy continuation request"),
@@ -128,7 +130,13 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
     assert_eq!(taxonomy_second["nextCursor"], serde_json::Value::Null);
 
     for path in ["/api/problems", "/api/taxonomy"] {
-        for query in ["pageSize=0", "pageSize=101", "cursor=", "offset=1"] {
+        for query in [
+            "page_size=0",
+            "page_size=101",
+            "pageSize=1",
+            "cursor=",
+            "offset=1",
+        ] {
             let response = app
                 .clone()
                 .oneshot(
@@ -148,11 +156,29 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         }
     }
 
-    let question_id = published_references[0]
+    let archived_question_id = published_references[0]
         .parse()
         .expect("published Question ID parses");
-    let record = store
-        .resolve_catalog_problem(context, question_model::ProblemDisplayRef { question_id })
+    let archived_record = store
+        .resolve_catalog_problem(
+            context,
+            question_model::ProblemDisplayRef {
+                question_id: archived_question_id,
+            },
+        )
+        .await
+        .expect("catalog lookup")
+        .expect("published question exists");
+    let deprecated_question_id = published_references[1]
+        .parse()
+        .expect("published Question ID parses");
+    let deprecated_record = store
+        .resolve_catalog_problem(
+            context,
+            question_model::ProblemDisplayRef {
+                question_id: deprecated_question_id,
+            },
+        )
         .await
         .expect("catalog lookup")
         .expect("published question exists");
@@ -161,8 +187,36 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
             context,
             publisher,
             ProblemVersionRef {
-                problem: record.problem,
-                version: record.version,
+                problem: archived_record.problem,
+                version: archived_record.version,
+            },
+            learning_data_access::CatalogTransition::Deprecate {
+                reason: "A newer question addresses this topic.".to_string(),
+            },
+        )
+        .await
+        .expect("deprecate published question");
+
+    store
+        .transition_catalog_problem(
+            context,
+            publisher,
+            ProblemVersionRef {
+                problem: archived_record.problem,
+                version: archived_record.version,
+            },
+            learning_data_access::CatalogTransition::Archive,
+        )
+        .await
+        .expect("archive deprecated question");
+
+    store
+        .transition_catalog_problem(
+            context,
+            publisher,
+            ProblemVersionRef {
+                problem: deprecated_record.problem,
+                version: deprecated_record.version,
             },
             learning_data_access::CatalogTransition::Deprecate {
                 reason: "A newer question addresses this topic.".to_string(),
@@ -175,7 +229,7 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/problems?pageSize=10")
+                .uri("/api/problems?page_size=10")
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("catalog request"),
@@ -183,19 +237,32 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         .await
         .expect("catalog response");
     let browse = response_json(browse).await;
-    assert_eq!(browse["items"].as_array().map(Vec::len), Some(1));
+    for (question_id, lifecycle) in [
+        (&published_references[0], "archived"),
+        (&published_references[1], "deprecated"),
+    ] {
+        assert!(browse["items"].as_array().is_some_and(|items| {
+            items.iter().any(|item| {
+                item["questionId"].as_str() == Some(question_id.as_str())
+                    && item["lifecycle"]["state"] == lifecycle
+            })
+        }));
 
-    let retired = app
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/problems/by-id/{}", published_references[0]))
-                .header("cookie", cookie)
-                .body(Body::empty())
-                .expect("retired route request"),
-        )
-        .await
-        .expect("retired route response");
-    assert_eq!(retired.status(), StatusCode::OK);
+        let detail = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/problems/by-id/{question_id}/detail"))
+                    .header("cookie", &cookie)
+                    .body(Body::empty())
+                    .expect("retired detail request"),
+            )
+            .await
+            .expect("retired detail response");
+        assert_eq!(detail.status(), StatusCode::OK);
+        let detail = response_json(detail).await;
+        assert_eq!(detail["summary"]["lifecycle"]["state"], lifecycle);
+    }
 }
 
 #[tokio::test]
@@ -241,7 +308,7 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
         .oneshot(
             Request::builder()
                 .uri(
-                    "/api/problems/search?text=catalog&bylines=PLE%20fixture&backends=native&backends=qti&responseFamilies=numeric&responseFamilies=shortText&licenses=ccBySa&licenses=cc0&usedInMyCourses=any&pageSize=1",
+                    "/api/problems/search?text=catalog&bylines=PLE%20fixture&backends=native&backends=qti&response_families=numeric&response_families=shortText&licenses=ccBySa&licenses=cc0&used_in_my_courses=any&page_size=1",
                 )
                 .header("cookie", &cookie)
                 .body(Body::empty())
@@ -352,6 +419,48 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     assert_eq!(duplicate_text.status(), StatusCode::BAD_REQUEST);
     assert_eq!(duplicate_text.headers()["cache-control"], "no-store");
 
+    let unauthenticated_malformed = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/problems/search?publication_scopes=public")
+                .body(Body::empty())
+                .expect("unauthenticated malformed search request"),
+        )
+        .await
+        .expect("unauthenticated malformed search response");
+    assert_eq!(unauthenticated_malformed.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        unauthenticated_malformed.headers()["cache-control"],
+        "no-store"
+    );
+
+    for retired_or_camel_case_key in [
+        "publicationScopes=public",
+        "publication_scopes=public",
+        "responseFamilies=numeric",
+        "usedInMyCourses=any",
+        "pageSize=1",
+    ] {
+        let rejected = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/problems/search?{retired_or_camel_case_key}"))
+                    .header("cookie", &cookie)
+                    .body(Body::empty())
+                    .expect("retired catalog search request"),
+            )
+            .await
+            .expect("retired catalog search response");
+        assert_eq!(
+            rejected.status(),
+            StatusCode::BAD_REQUEST,
+            "{retired_or_camel_case_key} must be rejected"
+        );
+        assert_eq!(rejected.headers()["cache-control"], "no-store");
+    }
+
     let hostile = app
         .oneshot(
             Request::builder()
@@ -426,9 +535,9 @@ async fn catalog_read_routes_reject_student_access() {
     let question_id = published["questionId"].as_str().expect("Question ID");
 
     let student_blocked_endpoints = vec![
-        "/api/problems?pageSize=1".to_string(),
-        "/api/taxonomy?pageSize=1".to_string(),
-        "/api/problems/search?text=catalog&pageSize=1".to_string(),
+        "/api/problems?page_size=1".to_string(),
+        "/api/taxonomy?page_size=1".to_string(),
+        "/api/problems/search?text=catalog&page_size=1".to_string(),
         "/api/problems/by-id/not-a-question".to_string(),
         format!("/api/problems/by-id/{question_id}"),
         format!("/api/problems/by-id/{question_id}/detail"),
@@ -501,7 +610,7 @@ async fn catalog_search_rejects_a_cursor_forged_with_an_ordinary_sha256() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/problems/search?text=catalog&pageSize=1")
+                .uri("/api/problems/search?text=catalog&page_size=1")
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("first search request"),
@@ -522,7 +631,7 @@ async fn catalog_search_rejects_a_cursor_forged_with_an_ordinary_sha256() {
         .oneshot(
             Request::builder()
                 .uri(format!(
-                    "/api/problems/search?text=catalog&pageSize=1&cursor={forged}"
+                    "/api/problems/search?text=catalog&page_size=1&cursor={forged}"
                 ))
                 .header("cookie", cookie)
                 .body(Body::empty())

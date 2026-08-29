@@ -49,6 +49,60 @@ pub enum CourseCreationAuthority {
     },
 }
 
+/// Intended initial direct-Instructor membership for a future course creation.
+///
+/// This is the SD1 target contract, not accepted runtime authority. The
+/// request boundary supplies the authenticated `ActorContext` separately; the
+/// later Store transaction verifies that actor for the selected mode and
+/// verifies the target's current Instructor approval before creating exactly
+/// this ordinary direct membership.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CourseCreationIntent {
+    /// An approved Instructor creates a course for their own direct membership.
+    DirectApprovedInstructor { initial_instructor: UserId },
+    /// A Sysadmin provisions a course for an explicitly approved Instructor.
+    ///
+    /// The Sysadmin is an audit and authorization actor only; this intent
+    /// grants the initial membership exclusively to `initial_instructor`.
+    SysadminOnBehalfOfApprovedInstructor { initial_instructor: UserId },
+}
+
+impl CourseCreationIntent {
+    /// Returns the sole account that receives the first direct membership.
+    pub const fn initial_instructor(self) -> UserId {
+        match self {
+            Self::DirectApprovedInstructor { initial_instructor }
+            | Self::SysadminOnBehalfOfApprovedInstructor { initial_instructor } => {
+                initial_instructor
+            }
+        }
+    }
+}
+
+/// Exact course-and-actor input for a future Store authorization lookup.
+///
+/// This names a lookup target rather than an authorization result. A Store
+/// transaction resolves current approval and direct membership before it
+/// permits the requested operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CourseInstructorAuthorizationScope {
+    pub course: CourseId,
+    pub actor: UserId,
+}
+
+/// Exact course, actor, and Student-record input for a future Store ownership
+/// lookup.
+///
+/// The `student` identity stays distinct from the account identity. The Store
+/// resolves this active Student membership episode before it permits access.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StudentCourseRecordAuthorizationScope {
+    pub course: CourseId,
+    pub actor: UserId,
+    pub membership: question_model::CourseMembershipId,
+    pub student: StudentId,
+}
+
 /// Canonical course access relationship.  Each reinvitation creates a new
 /// episode; a revoked row remains immutable evidence for receipts created
 /// during that episode.

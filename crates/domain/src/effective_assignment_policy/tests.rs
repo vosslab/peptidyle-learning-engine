@@ -38,7 +38,7 @@ fn grant(groups: Vec<(CourseGroupId, CourseGroupPurpose)>) -> EntitlementDecisio
         tenant: TenantId::from_uuid(Uuid::from_u128(1)),
         course: CourseId::from_uuid(Uuid::from_u128(2)),
         assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-        learner: UserId::from_uuid(Uuid::from_u128(4)),
+        student_user: UserId::from_uuid(Uuid::from_u128(4)),
         membership: Some(ActiveStudentMembership {
             id: CourseMembershipId::from_uuid(Uuid::from_u128(5)),
             student: student(6),
@@ -369,7 +369,7 @@ fn individual_exception_for_the_granted_student_applies_without_receipt_authorit
 }
 
 #[test]
-fn synthetic_policy_shares_learner_base_m2_and_m3_precedence() {
+fn synthetic_policy_shares_student_base_m2_and_m3_precedence() {
     let schedule = group(10);
     let accommodation = group(11);
     let groups = vec![
@@ -388,14 +388,14 @@ fn synthetic_policy_shares_learner_base_m2_and_m3_precedence() {
             ..PolicyPatchSet::INHERIT
         },
     }];
-    let mut learner = input(groups.clone());
-    learner.group_schedule_offsets = offsets.clone();
-    learner.group_accommodations = accommodations.clone();
+    let mut student_input = input(groups.clone());
+    student_input.group_schedule_offsets = offsets.clone();
+    student_input.group_accommodations = accommodations.clone();
     let mut synthetic = synthetic_input(groups);
     synthetic.group_schedule_offsets = offsets;
     synthetic.group_accommodations = accommodations;
     assert_eq!(
-        resolve_effective_policy(learner),
+        resolve_effective_policy(student_input),
         resolve_synthetic_preview_policy(synthetic)
     );
 }
@@ -453,7 +453,7 @@ fn hypothetical_individual_modifier_uses_the_existing_policy_rules() {
 }
 
 #[test]
-fn synthetic_policy_rejects_unapproved_scopes_without_learner_authority() {
+fn synthetic_policy_rejects_unapproved_scopes_without_student_authority() {
     let outsider = group(99);
     let mut value = synthetic_input(Vec::new());
     value.group_schedule_offsets.push(GroupScheduleOffset {

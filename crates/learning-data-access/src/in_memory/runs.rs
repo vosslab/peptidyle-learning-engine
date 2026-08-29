@@ -165,7 +165,7 @@ impl crate::RunStore for MemoryStore {
         let entitlement = super::entitlement::materialize_locked(
             &mut state,
             tenant,
-            crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
+            crate::MaterializeAssignmentEntitlementCommand::for_student_action(
                 actor,
                 binding.course,
                 assignment_id,

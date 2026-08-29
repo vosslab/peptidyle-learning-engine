@@ -229,17 +229,6 @@ where
         PublicationScope::Public,
     )
     .await;
-    store
-        .transition_catalog_problem(
-            context,
-            instructor,
-            deprecated,
-            CatalogTransition::Deprecate {
-                reason: "Revised but usable".to_string(),
-            },
-        )
-        .await
-        .expect("deprecated fixture");
     let archived = publish_assignment_version(
         store,
         context,
@@ -324,9 +313,20 @@ where
     let created = store
         .create_assignment_with_default_policy(context, instructor, initial.clone())
         .await
-        .expect("published and deprecated versions are assignable");
+        .expect("published versions are assignable at creation");
     assert_eq!(created.revision.value(), 2);
     assert_eq!(created.record, initial);
+    store
+        .transition_catalog_problem(
+            context,
+            instructor,
+            deprecated,
+            CatalogTransition::Deprecate {
+                reason: "Revised but usable".to_string(),
+            },
+        )
+        .await
+        .expect("deprecated retained-pin fixture");
 
     let updated_policies = RunPolicies {
         completion: CompletionRequirement::AnswerAll,

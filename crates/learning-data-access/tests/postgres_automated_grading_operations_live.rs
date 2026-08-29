@@ -530,7 +530,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
     );
     assert!(
         question_row
-            .try_get::<Option<String>, _>("learner_display_name")
+            .try_get::<Option<String>, _>("student_display_name")
             .unwrap()
             .is_some()
     );
@@ -815,8 +815,8 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
             accepted_completion_origin.enrollment,
         )
         .await
-        .expect("read learner-visible summary after scoring publication")
-        .expect("accepted-completion learner remains enrolled");
+        .expect("read student-visible summary after scoring publication")
+        .expect("accepted-completion Student remains enrolled");
     assert_eq!(learner_summary.scoring_status, ScoringStatus::Current);
     assert_eq!(learner_summary.summary.current_score, Some(1.0));
     assert_eq!(learner_summary.summary.completed_run_count, 1);
@@ -832,7 +832,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         },
     )
     .await;
-    attempt_support::prove_learner_support_origin(attempt_support::AttemptSupportScenario {
+    attempt_support::prove_student_support_origin(attempt_support::AttemptSupportScenario {
         store: &store,
         pool: &pool,
         context,

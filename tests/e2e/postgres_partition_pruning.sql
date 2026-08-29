@@ -63,7 +63,7 @@ INSERT INTO public.course (
     'America/Chicago'
 );
 
-INSERT INTO public.tenant_learner_identity (tenant_id, user_id, student_id) VALUES (
+INSERT INTO public.tenant_student_identity (tenant_id, user_id, student_id) VALUES (
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-000000000009',
     'f1000000-0000-4000-8000-000000000009'
@@ -386,7 +386,7 @@ INSERT INTO public.course (
     'America/Chicago'
 );
 
-INSERT INTO public.tenant_learner_identity (tenant_id, user_id, student_id)
+INSERT INTO public.tenant_student_identity (tenant_id, user_id, student_id)
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
     md5('gradebook-student-' || student_number)::uuid,

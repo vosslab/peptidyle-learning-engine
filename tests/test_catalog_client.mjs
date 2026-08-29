@@ -15,16 +15,15 @@ const EMPTY_SEARCH = {
   bylines: [],
   backends: [],
   tags: [],
-  responseFamilies: [],
+  response_families: [],
   taxonomy: [],
   capabilities: [],
   licenses: [],
-  publicationScopes: [],
   evidence: "any",
-  usedInMyCourses: "any",
+  used_in_my_courses: "any",
   authorship: "any",
   cursor: null,
-  pageSize: null,
+  page_size: null,
 };
 
 function catalogProblemSummary() {
@@ -299,29 +298,29 @@ test("catalog search serializes repeated filters on a same-origin URL", async ()
     bylines: ["  DR.  ADA Lovelace "],
     backends: ["native"],
     tags: [" Protein   Structure "],
-    responseFamilies: ["multipleChoice"],
+    response_families: ["multipleChoice"],
     taxonomy: [{ scheme: term.scheme, code: term.code }],
     capabilities: ["serverGrading"],
     licenses: ["ccBy"],
-    publicationScopes: ["public"],
     evidence: "available",
-    usedInMyCourses: "used",
+    used_in_my_courses: "used",
     authorship: "authoredByCurrentActor",
     cursor: "opaque+cursor",
-    pageSize: 25,
+    page_size: 25,
   });
   const requested = new URL(requests[0].url);
   assert.equal(requested.origin, "https://client.example.test");
   assert.equal(requested.searchParams.get("cursor"), "opaque+cursor");
-  assert.equal(requested.searchParams.get("pageSize"), "25");
+  assert.equal(requested.searchParams.get("page_size"), "25");
   assert.equal(requested.searchParams.get("evidence"), "available");
   assert.deepEqual(requested.searchParams.getAll("bylines"), ["dr. ada lovelace"]);
   assert.deepEqual(requested.searchParams.getAll("backends"), ["native"]);
   assert.deepEqual(requested.searchParams.getAll("tags"), ["protein structure"]);
-  assert.deepEqual(requested.searchParams.getAll("responseFamilies"), ["multipleChoice"]);
-  assert.equal(requested.searchParams.get("usedInMyCourses"), "used");
+  assert.deepEqual(requested.searchParams.getAll("response_families"), ["multipleChoice"]);
+  assert.equal(requested.searchParams.get("used_in_my_courses"), "used");
   assert.equal(requested.searchParams.get("authorship"), "authoredByCurrentActor");
-  assert.deepEqual(requested.searchParams.getAll("publicationScopes"), ["public"]);
+  assert.equal(requested.searchParams.has("publication_scopes"), false);
+  assert.equal(requested.searchParams.has("publicationScopes"), false);
   assert.equal(requested.searchParams.get("statistics"), null);
   assert.equal(
     catalogSearchPath({
@@ -345,7 +344,7 @@ test("catalog client rejects invalid query bounds and mismatched detail identity
     ),
     "any",
   );
-  assert.throws(() => client.searchCatalog({ ...EMPTY_SEARCH, pageSize: 101 }));
+  assert.throws(() => client.searchCatalog({ ...EMPTY_SEARCH, page_size: 101 }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, statistics: "any" }), /unknown field/);
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, course: "C-1" }), /unknown field/);
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, bylines: Array(17).fill("Ada") }));
@@ -355,12 +354,14 @@ test("catalog client rejects invalid query bounds and mismatched detail identity
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, tags: ["x".repeat(257)] }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, backends: ["legacy"] }));
   assert.throws(() =>
-    catalogSearchPath({ ...EMPTY_SEARCH, responseFamilies: Array(10).fill("numeric") }),
+    catalogSearchPath({ ...EMPTY_SEARCH, response_families: Array(10).fill("numeric") }),
   );
-  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, responseFamilies: ["essay"] }));
-  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, usedInMyCourses: "unused" }));
+  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, response_families: ["essay"] }));
+  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, used_in_my_courses: "unused" }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, authorship: "anotherActor" }));
-  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, publicationScopes: ["private"] }));
+  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, publication_scopes: ["public"] }));
+  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, publicationScopes: ["public"] }));
+  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, pageSize: 25 }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, actorId: "hidden" }), /unknown field/);
   const wrongIdentity = createHttpApiClient({
     fetch: async () =>

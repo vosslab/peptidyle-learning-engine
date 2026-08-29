@@ -2,47 +2,37 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{ObservedAlphaSource, ObservedBlueprintSource};
-use crate::{AlphaCourseReference, AlphaCourseRevision, MAX_ASSIGNMENT_ORDERED_ENTRIES};
+use super::ObservedBlueprintSource;
+use crate::{BlueprintReference, BlueprintRevision, MAX_ASSIGNMENT_ORDERED_ENTRIES};
 
-/// One observed assignment definition selected from a Blueprint or exact Alpha position.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum AssignmentDefinitionSourceView {
-    /// The complete definition stored by one observed Blueprint revision.
-    Blueprint(ObservedBlueprintSource),
-    /// One exact module assignment stored by one observed Alpha revision.
-    Alpha(ObservedAlphaAssignmentSource),
-}
-
-/// One revision-bound Alpha assignment located by its exact authored positions.
+/// One exact assignment selected from a revision-bound BlueprintCourse location.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
-    rename_all = "camelCase",
-    try_from = "ObservedAlphaAssignmentSourceParts"
+    rename_all = "snake_case",
+    try_from = "ObservedBlueprintAssignmentSourceParts"
 )]
-pub struct ObservedAlphaAssignmentSource {
-    reference: AlphaCourseReference,
-    revision: AlphaCourseRevision,
+pub struct AssignmentDefinitionSourceView {
+    reference: BlueprintReference,
+    revision: BlueprintRevision,
     module_index: u16,
     assignment_index: u16,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ObservedAlphaAssignmentSourceParts {
-    reference: AlphaCourseReference,
-    revision: AlphaCourseRevision,
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+struct ObservedBlueprintAssignmentSourceParts {
+    reference: BlueprintReference,
+    revision: BlueprintRevision,
     module_index: u16,
     assignment_index: u16,
 }
 
-impl TryFrom<ObservedAlphaAssignmentSourceParts> for ObservedAlphaAssignmentSource {
-    type Error = ObservedAlphaAssignmentSourceError;
+impl TryFrom<ObservedBlueprintAssignmentSourceParts> for AssignmentDefinitionSourceView {
+    type Error = AssignmentDefinitionSourceViewError;
 
-    fn try_from(value: ObservedAlphaAssignmentSourceParts) -> Result<Self, Self::Error> {
+    fn try_from(value: ObservedBlueprintAssignmentSourceParts) -> Result<Self, Self::Error> {
         Self::new(
-            ObservedAlphaSource {
+            ObservedBlueprintSource {
                 reference: value.reference,
                 revision: value.revision,
             },
@@ -52,18 +42,18 @@ impl TryFrom<ObservedAlphaAssignmentSourceParts> for ObservedAlphaAssignmentSour
     }
 }
 
-impl ObservedAlphaAssignmentSource {
-    /// Binds an observed Alpha revision to one bounded zero-based assignment location.
+impl AssignmentDefinitionSourceView {
+    /// Binds an observed BlueprintCourse revision to one bounded assignment location.
     pub fn new(
-        source: ObservedAlphaSource,
+        source: ObservedBlueprintSource,
         module_index: u16,
         assignment_index: u16,
-    ) -> Result<Self, ObservedAlphaAssignmentSourceError> {
+    ) -> Result<Self, AssignmentDefinitionSourceViewError> {
         // ASVS 1.5.2, 2.2.1: deserialize through this allowlisted bounded constructor.
         let bound = u16::try_from(MAX_ASSIGNMENT_ORDERED_ENTRIES)
             .expect("assignment source position bound fits u16");
         if module_index >= bound || assignment_index >= bound {
-            return Err(ObservedAlphaAssignmentSourceError);
+            return Err(AssignmentDefinitionSourceViewError);
         }
         Ok(Self {
             reference: source.reference,
@@ -73,15 +63,15 @@ impl ObservedAlphaAssignmentSource {
         })
     }
 
-    /// Returns the revision-bound whole Alpha that contains this assignment.
-    pub fn source(self) -> ObservedAlphaSource {
-        ObservedAlphaSource {
+    /// Returns the revision-bound BlueprintCourse that contains this assignment.
+    pub fn source(self) -> ObservedBlueprintSource {
+        ObservedBlueprintSource {
             reference: self.reference,
             revision: self.revision,
         }
     }
 
-    /// Returns the zero-based authored module position in the observed Alpha.
+    /// Returns the zero-based authored module position in the observed BlueprintCourse.
     pub fn module_index(self) -> u16 {
         self.module_index
     }
@@ -92,15 +82,16 @@ impl ObservedAlphaAssignmentSource {
     }
 }
 
-/// An Alpha assignment source position exceeded the reusable ordering bound.
+/// A BlueprintCourse assignment source position exceeded the reusable ordering bound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ObservedAlphaAssignmentSourceError;
+pub struct AssignmentDefinitionSourceViewError;
 
-impl std::fmt::Display for ObservedAlphaAssignmentSourceError {
+impl std::fmt::Display for AssignmentDefinitionSourceViewError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .write_str("Alpha assignment source position is outside the reusable ordering bound")
+        formatter.write_str(
+            "BlueprintCourse assignment source position is outside the reusable ordering bound",
+        )
     }
 }
 
-impl std::error::Error for ObservedAlphaAssignmentSourceError {}
+impl std::error::Error for AssignmentDefinitionSourceViewError {}

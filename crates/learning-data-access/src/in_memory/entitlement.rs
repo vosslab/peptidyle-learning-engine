@@ -11,10 +11,10 @@ use super::*;
 
 #[async_trait]
 impl crate::EntitlementStore for MemoryStore {
-    async fn list_learner_entitled_assignments_impl(
+    async fn list_student_entitled_assignments_impl(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRecord>, StoreError> {
@@ -27,7 +27,7 @@ impl crate::EntitlementStore for MemoryStore {
             .filter(|record| record.tenant == tenant && record.course_id == course)
         {
             let EntitlementDecision::Granted(grant) =
-                evaluate_locked(&state, tenant, learner, course, record.id)?
+                evaluate_locked(&state, tenant, student_user, course, record.id)?
             else {
                 continue;
             };
@@ -71,12 +71,18 @@ impl crate::EntitlementStore for MemoryStore {
     async fn evaluate_assignment_entitlement_impl(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<EntitlementDecision, StoreError> {
         let state = self.read_state()?;
-        evaluate_locked(&state, context.tenant_id(), learner, course, assignment)
+        evaluate_locked(
+            &state,
+            context.tenant_id(),
+            student_user,
+            course,
+            assignment,
+        )
     }
 
     async fn issue_assignment_entitlement_impl(
@@ -99,11 +105,11 @@ pub(super) fn materialize_locked(
         (
             question_model::EntitlementPurpose::StartRun,
             question_model::MaterializationAuthority::Actor(actor),
-        ) if actor == command.learner() => {}
+        ) if actor == command.student_user() => {}
         (
             question_model::EntitlementPurpose::GradeBearingAction,
             question_model::MaterializationAuthority::Actor(actor),
-        ) if actor == command.learner()
+        ) if actor == command.student_user()
             || current_course_instructor(state, tenant, command.course(), actor) => {}
         (
             question_model::EntitlementPurpose::InstructorIssue,
@@ -118,7 +124,7 @@ pub(super) fn materialize_locked(
     let decision = evaluate_locked(
         state,
         tenant,
-        command.learner(),
+        command.student_user(),
         command.course(),
         command.assignment(),
     )?;
@@ -170,7 +176,7 @@ pub(super) fn materialize_locked(
         id: random_enrollment_id()?,
         tenant,
         assignment: command.assignment(),
-        user: command.learner(),
+        user: command.student_user(),
         student: grant.student(),
         first_completed_at: None,
         current_grade_run: None,
@@ -180,7 +186,7 @@ pub(super) fn materialize_locked(
     let provenance = EntitlementMaterialization {
         enrollment: enrollment.id,
         membership: grant.membership(),
-        user: command.learner(),
+        user: command.student_user(),
         occurred_at: state.authoritative_time,
         purpose: command.purpose(),
         authority: command.authority(),
@@ -221,7 +227,7 @@ fn current_course_instructor(
 pub(super) fn evaluate_locked(
     state: &State,
     tenant: TenantId,
-    learner: UserId,
+    student_user: UserId,
     course: CourseId,
     assignment: AssignmentId,
 ) -> Result<EntitlementDecision, StoreError> {
@@ -242,7 +248,7 @@ pub(super) fn evaluate_locked(
     }
     let membership = state
         .active_course_membership_by_user
-        .get(&(tenant, course, learner))
+        .get(&(tenant, course, student_user))
         .and_then(|id| state.course_memberships.get(&(tenant, *id)))
         .filter(|member| {
             member.status == crate::CourseMemberStatus::Active
@@ -265,7 +271,7 @@ pub(super) fn evaluate_locked(
         tenant,
         course,
         assignment,
-        learner,
+        student_user,
         membership,
         audience: record.audience.clone(),
         current_groups,
@@ -278,11 +284,11 @@ pub(super) fn evaluate_locked(
 pub(super) fn require_current_assignment_entitlement(
     state: &State,
     tenant: TenantId,
-    learner: UserId,
+    student_user: UserId,
     course: CourseId,
     assignment: AssignmentId,
 ) -> Result<domain::entitlement::EntitlementGrant, StoreError> {
-    match evaluate_locked(state, tenant, learner, course, assignment)? {
+    match evaluate_locked(state, tenant, student_user, course, assignment)? {
         EntitlementDecision::Granted(grant) => Ok(grant),
         EntitlementDecision::Denied(_) => Err(StoreError::NotFound),
     }

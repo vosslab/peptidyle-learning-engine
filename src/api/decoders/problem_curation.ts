@@ -79,13 +79,12 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
     "bylines",
     "backends",
     "tags",
-    "responseFamilies",
+    "response_families",
     "taxonomy",
     "capabilities",
     "licenses",
-    "publicationScopes",
     "evidence",
-    "usedInMyCourses",
+    "used_in_my_courses",
     "authorship",
   ]);
   const decoded = {
@@ -112,9 +111,9 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
       (entry, entryPath) =>
         decodeFilterText(entry, entryPath, MAX_CATALOG_FILTER_TEXT_UNICODE_SCALARS),
     ),
-    responseFamilies: decodeBoundedArray(
-      field(record, "responseFamilies", path),
-      `${path}.responseFamilies`,
+    response_families: decodeBoundedArray(
+      field(record, "response_families", path),
+      `${path}.response_families`,
       9,
       (entry, entryPath) =>
         decodeStringEnum(entry, entryPath, [
@@ -180,20 +179,14 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
           "other",
         ]),
     ),
-    publicationScopes: decodeBoundedArray(
-      field(record, "publicationScopes", path),
-      `${path}.publicationScopes`,
-      2,
-      (entry, entryPath) => decodeStringEnum(entry, entryPath, ["institution", "public"]),
-    ),
     evidence: decodeStringEnum(field(record, "evidence", path), `${path}.evidence`, [
       "any",
       "available",
       "unavailable",
     ]),
-    usedInMyCourses: decodeStringEnum(
-      field(record, "usedInMyCourses", path),
-      `${path}.usedInMyCourses`,
+    used_in_my_courses: decodeStringEnum(
+      field(record, "used_in_my_courses", path),
+      `${path}.used_in_my_courses`,
       ["any", "used"],
     ),
     authorship: decodeStringEnum(field(record, "authorship", path), `${path}.authorship`, [

@@ -1,4 +1,4 @@
-//! Typed decoding for the learner-work source-preparation broker.
+//! Typed decoding for the Student-work source-preparation broker.
 //!
 //! The broker locks and authorizes the source facts under its protected role.
 //! This module treats its result as an untrusted database boundary: callers
@@ -54,7 +54,7 @@ pub(super) struct EntitlementPreparationWitness {
     pub(super) authority: EntitlementPreparationAuthority,
     pub(super) actor: UserId,
     pub(super) authority_membership: CourseMembershipId,
-    pub(super) learner: UserId,
+    pub(super) student_user: UserId,
     pub(super) student_membership: CourseMembershipId,
     pub(super) assignment_revision: u64,
     pub(super) lifecycle: WitnessAssignmentLifecycle,
@@ -95,7 +95,7 @@ struct ExpectedEntitlementWitness {
     tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
-    learner: UserId,
+    student_user: UserId,
     actor: UserId,
     authority: EntitlementPreparationAuthority,
 }
@@ -111,11 +111,11 @@ pub(super) async fn prepare_entitlement_materialization(
     let (actor, authority) = match command.authority() {
         question_model::MaterializationAuthority::Rule(_) => return Err(StoreError::Forbidden),
         question_model::MaterializationAuthority::Actor(actor) => match command.purpose() {
-            question_model::EntitlementPurpose::StartRun if actor == command.learner() => {
+            question_model::EntitlementPurpose::StartRun if actor == command.student_user() => {
                 (actor, EntitlementPreparationAuthority::StudentSelfService)
             }
             question_model::EntitlementPurpose::GradeBearingAction
-                if actor == command.learner() =>
+                if actor == command.student_user() =>
             {
                 (actor, EntitlementPreparationAuthority::StudentSelfService)
             }
@@ -132,7 +132,7 @@ pub(super) async fn prepare_entitlement_materialization(
         tenant,
         course: command.course(),
         assignment: command.assignment(),
-        learner: command.learner(),
+        student_user: command.student_user(),
         actor,
         authority,
     };
@@ -142,7 +142,7 @@ pub(super) async fn prepare_entitlement_materialization(
     .bind(tenant.as_uuid())
     .bind(command.course().as_uuid())
     .bind(command.assignment().as_uuid())
-    .bind(command.learner().as_uuid())
+    .bind(command.student_user().as_uuid())
     .bind(authority.database_value())
     .bind(actor.as_uuid())
     .fetch_all(&mut **transaction)
@@ -150,7 +150,7 @@ pub(super) async fn prepare_entitlement_materialization(
     .map_err(super::map_sqlx_error)?;
     let [row] = rows.as_slice() else {
         return Err(StoreError::Unavailable(
-            "learner-work preparation returned an unexpected row count".to_string(),
+            "Student-work preparation returned an unexpected row count".to_string(),
         ));
     };
     let decision_kind: String = row
@@ -160,7 +160,7 @@ pub(super) async fn prepare_entitlement_materialization(
         "granted" => {
             decode_entitlement_witness(row, expected).map(EntitlementPreparationDecision::Granted)
         }
-        "learner_not_active_course_student" => {
+        "student_not_active_course_student" => {
             validate_denied_entitlement_witness(raw_entitlement_witness(row))?;
             Ok(EntitlementPreparationDecision::Denied(
                 EntitlementDenial::StudentNotActiveCourse,
@@ -183,13 +183,13 @@ pub(super) async fn prepare_student_run_work(
         tenant,
         course: binding.course,
         assignment: binding.assignment,
-        learner: actor,
+        student_user: actor,
         actor,
         authority: EntitlementPreparationAuthority::StudentSelf,
     };
     let rows = sqlx::query(
         "SELECT tenant_id, course_id, assignment_id, authority_kind, actor_id, \
-                authority_membership_id, learner_id, student_membership_id, \
+                authority_membership_id, student_id, student_membership_id, \
                 assignment_revision, assignment_lifecycle, audience_kind, \
                 locked_audience_count, locked_audience_group_ids, \
                 locked_current_group_count, locked_current_group_ids, \
@@ -207,7 +207,7 @@ pub(super) async fn prepare_student_run_work(
     .map_err(super::map_sqlx_error)?;
     let [row] = rows.as_slice() else {
         return Err(StoreError::Unavailable(
-            "learner-work preparation returned an unexpected row count".to_string(),
+            "Student-work preparation returned an unexpected row count".to_string(),
         ));
     };
     decode_student_run_witness(row, expected, run)
@@ -228,13 +228,13 @@ pub(super) async fn prepare_student_attempt_work(
         tenant,
         course: binding.course,
         assignment: binding.assignment,
-        learner: actor,
+        student_user: actor,
         actor,
         authority: EntitlementPreparationAuthority::StudentSelf,
     };
     let rows = sqlx::query(
         "SELECT tenant_id, course_id, assignment_id, authority_kind, actor_id, \
-                authority_membership_id, learner_id, student_membership_id, \
+                authority_membership_id, student_id, student_membership_id, \
                 assignment_revision, assignment_lifecycle, audience_kind, \
                 locked_audience_count, locked_audience_group_ids, \
                 locked_current_group_count, locked_current_group_ids, \
@@ -252,7 +252,7 @@ pub(super) async fn prepare_student_attempt_work(
     .map_err(map_student_attempt_preparation_error)?;
     let [row] = rows.as_slice() else {
         return Err(StoreError::Unavailable(
-            "learner-work preparation returned an unexpected row count".to_string(),
+            "Student-work preparation returned an unexpected row count".to_string(),
         ));
     };
     validate_student_attempt_witness(
@@ -284,7 +284,7 @@ fn map_student_attempt_preparation_error(error: sqlx::Error) -> StoreError {
 }
 
 fn map_student_attempt_preparation_database_error(code: Option<&str>, message: &str) -> Option<()> {
-    (code == Some("42501") && message == "learner work is unavailable").then_some(())
+    (code == Some("42501") && message == "Student work is unavailable").then_some(())
 }
 
 #[cfg(test)]
@@ -296,7 +296,7 @@ mod preparation_error_tests {
         assert_eq!(
             map_student_attempt_preparation_database_error(
                 Some("42501"),
-                "learner work is unavailable"
+                "Student work is unavailable"
             ),
             Some(())
         );
@@ -307,7 +307,7 @@ mod preparation_error_tests {
         assert_eq!(
             map_student_attempt_preparation_database_error(
                 Some("XX000"),
-                "learner work is unavailable"
+                "Student work is unavailable"
             ),
             None
         );
@@ -315,7 +315,7 @@ mod preparation_error_tests {
 }
 
 fn invalid_witness(message: &'static str) -> StoreError {
-    StoreError::InvalidRecord(format!("learner-work preparation witness {message}"))
+    StoreError::InvalidRecord(format!("Student-work preparation witness {message}"))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -331,7 +331,7 @@ struct RawEntitlementWitness {
     course: WitnessCell<Uuid>,
     assignment: WitnessCell<Uuid>,
     actor: WitnessCell<Uuid>,
-    learner: WitnessCell<Uuid>,
+    student_user: WitnessCell<Uuid>,
     authority: WitnessCell<String>,
     authority_membership: WitnessCell<Uuid>,
     student_membership: WitnessCell<Uuid>,
@@ -379,7 +379,7 @@ fn validate_denied_entitlement_witness(raw: RawEntitlementWitness) -> Result<(),
     require_null(raw.course)?;
     require_null(raw.assignment)?;
     require_null(raw.actor)?;
-    require_null(raw.learner)?;
+    require_null(raw.student_user)?;
     require_null(raw.authority)?;
     require_null(raw.authority_membership)?;
     require_null(raw.student_membership)?;
@@ -407,7 +407,7 @@ fn raw_entitlement_witness(row: &sqlx::postgres::PgRow) -> RawEntitlementWitness
         course: cell(row, "course_id"),
         assignment: cell(row, "assignment_id"),
         actor: cell(row, "actor_id"),
-        learner: cell(row, "learner_id"),
+        student_user: cell(row, "student_id"),
         authority: cell(row, "authority_kind"),
         authority_membership: cell(row, "authority_membership_id"),
         student_membership: cell(row, "student_membership_id"),
@@ -451,7 +451,7 @@ fn validate_student_run_witness(
         return Err(invalid_witness("does not bind the requested run"));
     }
     if source.authority_membership != source.student_membership
-        || source.actor != source.learner
+        || source.actor != source.student_user
         || source.existing_enrollment.is_none()
     {
         return Err(invalid_witness(
@@ -488,7 +488,7 @@ fn validate_student_attempt_witness(
     let source = validate_entitlement_witness(raw_source, expected)?;
     let run = RunId::from_uuid(required(raw_run)?);
     if required(raw_attempt)? != expected_attempt.as_uuid()
-        || source.actor != source.learner
+        || source.actor != source.student_user
         || source.authority_membership != source.student_membership
     {
         return Err(invalid_witness(
@@ -529,13 +529,13 @@ fn validate_entitlement_witness(
     let course = required(raw.course)?;
     let assignment = required(raw.assignment)?;
     let actor = required(raw.actor)?;
-    let learner = required(raw.learner)?;
+    let student_user = required(raw.student_user)?;
     let authority = required(raw.authority)?;
     if tenant != expected.tenant.as_uuid()
         || course != expected.course.as_uuid()
         || assignment != expected.assignment.as_uuid()
         || actor != expected.actor.as_uuid()
-        || learner != expected.learner.as_uuid()
+        || student_user != expected.student_user.as_uuid()
         || authority != expected.authority.database_value()
     {
         return Err(invalid_witness("does not bind the entitlement command"));
@@ -580,7 +580,7 @@ fn validate_entitlement_witness(
         authority: expected.authority,
         actor: expected.actor,
         authority_membership: CourseMembershipId::from_uuid(authority_membership),
-        learner: expected.learner,
+        student_user: expected.student_user,
         student_membership: CourseMembershipId::from_uuid(student_membership),
         assignment_revision,
         lifecycle,
@@ -623,7 +623,7 @@ mod tests {
             tenant: TenantId::from_uuid(Uuid::from_u128(1)),
             course: CourseId::from_uuid(Uuid::from_u128(2)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-            learner: UserId::from_uuid(Uuid::from_u128(4)),
+            student_user: UserId::from_uuid(Uuid::from_u128(4)),
             actor: UserId::from_uuid(Uuid::from_u128(5)),
             authority: EntitlementPreparationAuthority::DirectInstructor,
         }
@@ -635,7 +635,7 @@ mod tests {
             course: WitnessCell::Value(Uuid::from_u128(2)),
             assignment: WitnessCell::Value(Uuid::from_u128(3)),
             actor: WitnessCell::Value(Uuid::from_u128(5)),
-            learner: WitnessCell::Value(Uuid::from_u128(4)),
+            student_user: WitnessCell::Value(Uuid::from_u128(4)),
             authority: WitnessCell::Value("direct_instructor".to_string()),
             authority_membership: WitnessCell::Value(Uuid::from_u128(6)),
             student_membership: WitnessCell::Value(Uuid::from_u128(7)),
@@ -660,7 +660,7 @@ mod tests {
                 tenant: TenantId::from_uuid(Uuid::from_u128(1)),
                 course: CourseId::from_uuid(Uuid::from_u128(2)),
                 assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-                learner: UserId::from_uuid(Uuid::from_u128(4)),
+                student_user: UserId::from_uuid(Uuid::from_u128(4)),
                 actor: UserId::from_uuid(Uuid::from_u128(4)),
                 authority: EntitlementPreparationAuthority::StudentSelf,
             },
@@ -696,13 +696,13 @@ mod tests {
     #[test]
     fn authority_mapping_is_closed_to_app_owned_provenance() {
         let id = UserId::from_uuid(Uuid::nil());
-        let command = MaterializeAssignmentEntitlementCommand::for_learner_action(
+        let command = MaterializeAssignmentEntitlementCommand::for_student_action(
             id,
             CourseId::from_uuid(Uuid::nil()),
             AssignmentId::from_uuid(Uuid::nil()),
             question_model::EntitlementPurpose::StartRun,
         )
-        .expect("learner start command");
+        .expect("Student start command");
         assert!(
             matches!(command.authority(), question_model::MaterializationAuthority::Actor(actor) if actor == id)
         );
@@ -746,7 +746,7 @@ mod tests {
         assert_rejected(raw);
 
         let mut raw = valid_raw_witness();
-        raw.learner = WitnessCell::Value(Uuid::from_u128(11));
+        raw.student_user = WitnessCell::Value(Uuid::from_u128(11));
         assert_rejected(raw);
 
         let mut raw = valid_raw_witness();

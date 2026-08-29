@@ -133,7 +133,7 @@ impl crate::PreviewPlaneStore for PostgresStore {
                 row.try_get("course_membership_id")
                     .map_err(map_sqlx_error)?,
             );
-            let learner = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
+            let student_user = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
             let student = question_model::StudentId::from_uuid(
                 row.try_get("student_id").map_err(map_sqlx_error)?,
             );
@@ -149,7 +149,11 @@ impl crate::PreviewPlaneStore for PostgresStore {
             let display = question_model::TeachingDisplayLabel::try_from(display_name)
                 .map_err(|_| StoreError::Unavailable("stored roster display is invalid".into()))?;
             let item = match entitlement::evaluate_current_read_only(
-                &mut tx, tenant, learner, course, assignment,
+                &mut tx,
+                tenant,
+                student_user,
+                course,
+                assignment,
             )
             .await?
             {
@@ -404,11 +408,12 @@ pub(super) async fn resolve_derived_preview_by_membership_read_only_bound(
         row.try_get("course_membership_id")
             .map_err(map_sqlx_error)?,
     );
-    let learner = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
+    let student_user = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
     let student =
         question_model::StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?);
     let entitlement =
-        entitlement::evaluate_current_read_only(tx, tenant, learner, course, assignment_id).await?;
+        entitlement::evaluate_current_read_only(tx, tenant, student_user, course, assignment_id)
+            .await?;
     let domain::entitlement::EntitlementDecision::Granted(grant) = entitlement else {
         return Ok(DerivedPreviewResolution {
             result: denied(PreviewDenialReason::NotEntitled),
@@ -532,7 +537,7 @@ async fn preview_assignment_read_only(
 }
 /// Resolves only public catalog display facts for already-saved candidate
 /// references. It intentionally reads no payload, grading, source, or
-/// learner-work relation.
+/// Student-work relation.
 async fn preview_question_titles(
     tx: &mut Transaction<'_, Postgres>,
     references: &[question_model::ProblemVersionRef],

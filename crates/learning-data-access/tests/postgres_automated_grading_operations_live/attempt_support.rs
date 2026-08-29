@@ -1,4 +1,4 @@
-//! Production-shaped learner-support invalidation evidence.
+//! Production-shaped student-support invalidation evidence.
 
 use learning_data_access::{AttemptSupportActionId, ClearAttemptCommand, Store, TenantContext};
 use question_model::{QuestionAttemptId, TenantId, UserId};
@@ -15,7 +15,7 @@ pub(super) struct AttemptSupportScenario<'a> {
     pub(super) attempt: QuestionAttemptId,
 }
 
-pub(super) async fn prove_learner_support_origin(scenario: AttemptSupportScenario<'_>) {
+pub(super) async fn prove_student_support_origin(scenario: AttemptSupportScenario<'_>) {
     let AttemptSupportScenario {
         store,
         pool,
@@ -47,7 +47,7 @@ pub(super) async fn prove_learner_support_origin(scenario: AttemptSupportScenari
     .bind(action.as_uuid())
     .fetch_one(pool)
     .await
-    .expect("read learner-support source origin");
+    .expect("read student-support source origin");
     assert_eq!(
         row.try_get::<uuid::Uuid, _>("actor_id").unwrap(),
         instructor.as_uuid()

@@ -163,7 +163,7 @@ async fn policies_and_relations(pool: &PgPool) {
             ("course_invitation_broker_state", "course_roster_state", "*"),
             (
                 "course_invitation_broker_identity",
-                "tenant_learner_identity",
+                "tenant_student_identity",
                 "*"
             ),
         ]
@@ -199,8 +199,8 @@ async fn policies_and_relations(pool: &PgPool) {
             ("course_roster_profile", "SELECT"),
             ("course_roster_state", "INSERT"),
             ("course_roster_state", "SELECT"),
-            ("tenant_learner_identity", "INSERT"),
-            ("tenant_learner_identity", "SELECT"),
+            ("tenant_student_identity", "INSERT"),
+            ("tenant_student_identity", "SELECT"),
         ]
         .map(|(relation, privilege)| (relation.to_owned(), privilege.to_owned()))
     );
@@ -234,7 +234,7 @@ async fn policies_and_relations(pool: &PgPool) {
          CROSS JOIN unnest(ARRAY['INSERT','UPDATE','DELETE']) p \
          WHERE n.nspname='public' AND c.relname IN \
            ('course_invitation','course_invitation_delivery','course_member', \
-            'tenant_learner_identity','course_roster_profile','course_roster_state')",
+            'tenant_student_identity','course_roster_profile','course_roster_state')",
     )
     .fetch_one(pool)
     .await

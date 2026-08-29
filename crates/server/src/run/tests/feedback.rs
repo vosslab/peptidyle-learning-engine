@@ -4,7 +4,7 @@ mod feedback_support;
 use feedback_support::*;
 
 #[tokio::test]
-async fn non_current_scoring_redacts_every_learner_item_http_surface() {
+async fn non_current_scoring_redacts_every_student_item_http_surface() {
     let (store, backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
     let first = active_attempt_for(

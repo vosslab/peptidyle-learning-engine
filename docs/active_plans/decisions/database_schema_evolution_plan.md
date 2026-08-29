@@ -6,7 +6,7 @@ the accepted baseline design as historical evidence, not as an implementation pa
 The baseline is frozen: every later schema change uses a new forward migration. WP-CA3 followed that
 rule with the accepted `2026080907_course_appearance.sql` forward migration and a fresh
 seven-migration PostgreSQL/RLS gate on 2026-08-09. WP-RC1 acceptance strengthened that migration
-with a trigger enforcing exact current-banner delivery kind/tenant/course ownership; the real
+with a trigger enforcing exact current-banner delivery kind and legacy tenant/course ownership; the real
 `ple_app` negative probe and combined PostgreSQL/MinIO cleanup oracle passed.
 
 ## Context
@@ -15,19 +15,27 @@ Historical pre-baseline context: PLE had no durable production data, so the init
 consolidated into one reviewed SQLx baseline. That consolidation is complete and is no longer an
 available schema-evolution path.
 
+The owner anchors for this plan are [Data philosophy](../../HUMAN_GUIDANCE.md#data-philosophy),
+[Question content philosophy](../../HUMAN_GUIDANCE.md#question-content-philosophy),
+[Course content philosophy](../../HUMAN_GUIDANCE.md#course-content-philosophy), and
+[Sysadmin philosophy](../../HUMAN_GUIDANCE.md#sysadmin-philosophy). The binding technical
+interpretation is in [DATABASE_AUTHORIZATION.md](../../DATABASE_AUTHORIZATION.md),
+[PROBLEM_IDENTITY.md](../../PROBLEM_IDENTITY.md), and the SD1 plans; this document does not alter
+Human Guidance.
+
 The database must serve several legitimate perspectives at once:
 
 | Perspective          | Database need                                                                    |
 | -------------------- | -------------------------------------------------------------------------------- |
 | Instructor           | Change points, dates, policies, and remove and regrade bad questions             |
 | Student              | Stable active attempts, fair recalculation, and recovery from technical problems |
-| Problem author       | Immutable published questions, drafts, new Question IDs, and provenance          |
+| Problem author       | Immutable published questions, drafts, Question ID lineages, versions, and provenance |
 | Problem finder       | Human-readable IDs and discovery that is not restricted by subject               |
-| Grader               | Raw responses, deterministic evaluation, manual grading, and recalculation       |
+| Grading service      | Raw responses, deterministic automated evaluation, and recalculation             |
 | Support staff        | Force-submit, clear attempts, access logs, and actionable statuses               |
 | Analyst              | Rebuildable item analysis without slowing operational queries                    |
-| Security and privacy | Tenant isolation, least privilege, retention, and access auditing                |
-| Operations           | Shard-ready tenant keys, bounded partitions, and current summaries               |
+| Security and privacy | Exact actor, relationship ownership, least privilege, retention, and access auditing |
+| Operations           | One-installation routing, bounded partitions, typed leases, and current summaries |
 | Import and export    | QTI provenance, partial failures, validation, and duplicate warnings             |
 
 The design must preserve adaptability without creating assignment-history or scoring-history cruft.
@@ -44,14 +52,14 @@ The unifying persistence model is:
 ## Objectives
 
 - Historical implementation objective (completed): produce the reviewed PostgreSQL baseline.
-- Version published problems without versioning ordinary assignment edits.
+- Version published questions without versioning ordinary assignment edits.
 - Let instructors change points, schedules, time limits, and policies after publication.
 - Support Blackboard Original-style **Delete and Regrade** after submissions exist.
 - Recalculate all attempts and retakes when current scoring changes; old computed scores disappear.
-- Give every published problem a copyable decimal ID while retaining internal UUIDv7 identities.
+- Give every published question one copyable `AAA-BBBB` Question ID while retaining internal UUIDv7 identities and immutable versions.
 - Make global, cross-subject problem discovery a primary database concern.
-- Protect FERPA education records through tenant isolation and least privilege.
-- Keep private records tenant-shardable and high-volume data predictably partitioned.
+- Protect FERPA education records through `ActorContext`, exact course/Student ownership, forced RLS, and least privilege.
+- Keep one installation's high-volume data predictably partitioned and worker work bounded by typed leases.
 - Replace the custom migration registry with a maintained raw-SQL migration system.
 
 ## Design decisions and alternatives
@@ -77,62 +85,77 @@ adapter-specific metadata. Every durable JSONB contract has a schema version and
 - Events receive database-authored `occurred_at`.
 - Pure join tables use composite keys unless another record must address the relationship directly.
 - Point values and credit calculations use fixed-precision `NUMERIC`, not floating point.
-- Tenant-owned keys, foreign keys, and important indexes begin with `tenant_id`.
+- Name keys and foreign keys for their actual owner: `user_id`, `workspace_id`, `course_id`, `student_id`,
+  `assignment_id`, `run_id`, `question_attempt_id`, or immutable catalog identity.
+- Transaction authority is the server-derived `ActorContext { user_id, session_id }`; it is not a caller-
+  selected tenant or database context.
 
 This preserves the useful part of Sinedon's required identity and timestamp convention without
 giving every pure relationship a meaningless surrogate ID.
 
-### Superseded human problem ID proposal
+### Current question identity and evolution
 
-The following predecessor proposal is retained only to explain the earlier schema review. It is not
-the current product or schema contract. [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#teaching-and-product-priorities)
-and [PROBLEM_IDENTITY.md](../../PROBLEM_IDENTITY.md#human-facing-question-id) define the current
-authority: `AAA-BBBB` is the sole durable question identity, every content change receives a new
-Question ID and fresh hidden exact evidence, and no browser workflow resolves a latest version or
-selects a hidden pair.
+[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#question-content-philosophy),
+[PROBLEM_IDENTITY.md](../../PROBLEM_IDENTITY.md#human-facing-question-id), and
+[QUESTION_MODEL.md](../../QUESTION_MODEL.md#identity) are the current authority. One stable,
+non-sequential Crockford Base32 `AAA-BBBB` `QuestionId` names a published question lineage. Each
+publication in that lineage has a fresh immutable `VersionId`; `ProblemVersionRef { problem, version }`
+is the hidden exact evidence used by assignments, issued attempts, grading, replay, audit, and
+provenance. Browser and instructor-safe projections carry the Question ID and safe metadata, never
+the hidden pair as a locator or authority.
 
-- `problem.problem_id UUID` remains the internal key.
-- Add `problem.public_id BIGINT GENERATED ALWAYS AS IDENTITY`, unique and never reused.
-- Display a stable problem as `P-123456`.
-- Display an exact version as `P-123456-v3`.
-- Importing `P-123456` resolves the latest assignable published version and shows the instructor
-  which version will be pinned.
-- Importing `P-123456-v3` selects that exact published version.
-- Sequential IDs are acceptable for catalog content, but never serve as authorization credentials
-  or student-record identifiers.
+- A private draft belongs to an Instructor-owned `WorkspaceId` and has no published identity.
+- Initial publication mints the Question ID lineage and first immutable version.
+- Editorial/accessibility work or a grading-semantic correction may publish another immutable version
+  under the same Question ID when the semantic stewardship rules permit it; an assignment never moves
+  automatically.
+- A major objective, task, or response-family change is a private fork; publication gives the fork a
+  new Question ID, immutable version, and exact visible ancestry to its source.
+- `ForcedQuestionCorrection` is the Sysadmin-approved emergency path for only `security_flaw` or
+  `critical_correctness_flaw`: the replacement is validated first; approval withdraws the flawed
+  version from ordinary new selection and issuance; the flawed version remains immutable historical
+  evidence; and a closed manifest records mapping, impact, generation, and deterministic remediation
+  without silently swapping issued work.
+- Question IDs are not credentials. No request resolves an implicit latest version or selects a hidden
+  pair; the server resolves and pins an exact version under the relevant authority.
 
 ## Catalog, authoring, and discovery
 
 ### Published problems
 
-- `problem` stores one immutable publication's stable identity, ownership, visibility, license,
-  lifecycle, and Question ID.
-- `problem_version` stores hidden exact publication evidence, schema version, checksum, searchable
-  metadata, and optional one-way provenance.
+- `problem` stores one global immutable Question ID lineage and lifecycle; it has no publication-
+  scope or institution selector.
+- `problem_version` stores one immutable publication's hidden exact evidence, schema version,
+  checksum, searchable metadata, and optional one-way provenance.
 - `problem_version_payload` stores the immutable normalized question definition separately from hot
-  search metadata.
-- Published questions are immutable. Every content change publishes a new Question ID and fresh
-  hidden exact evidence.
-- Drafts remain private workspace records and receive no public problem ID until publication.
+  search metadata; answer keys and grading secrets remain in their server-only boundary.
+- Published versions are immutable. Allowed compatible improvements and grading-semantic corrections
+  create a fresh version in the stewarded lineage; major semantic changes fork to a new Question ID.
+- Drafts remain private workspace records until validation and publication; they receive no published
+  identity before that transition.
 
 Question-type-specific structures, such as fill-in-multiple-blanks match rules, remain inside the
 versioned normalized question payload. They do not require a generic EAV schema.
 
 ### Reuse semantics
 
-Replace Blackboard's mutable "copy or link" behavior with two explicit operations:
+Replace Blackboard's mutable "copy or link" behavior with explicit operations:
 
-- **Use existing:** pin an immutable published problem version.
-- **Fork:** create a new private draft with lineage back to the source version.
+- **Use existing:** select a published Question ID and pin the resolved immutable version.
+- **Update:** deliberately opt an affected assignment into a selected exact version through its
+  revision-checked operation; existing pins remain authoritative.
+- **Fork:** create a new private draft with Question ID/version ancestry back to the source version.
+- **ForcedQuestionCorrection:** let a Sysadmin-approved closed manifest stop new use of a flawed
+  version and apply deterministic, generation-fenced remediation while preserving issued evidence.
 
-Editing a published catalog problem never silently changes every assignment using it. This is an
+Editing a published catalog question never silently changes every assignment using it. This is an
 intentional departure from Blackboard's linked pool questions. Local evidence:
 `OTHER_REPOS/Blackboard_Learn/question-pools.md`.
 
 ### Collections and randomized groups
 
 - `problem_collection` is a reusable saved collection or pool with no point values.
-- Collections may be private, institution-shared, or public.
+- Collections may be private, explicitly shared, or public.
 - `assignment_selection_group` represents a question set or random block.
 - `assignment_selection_candidate` pins eligible problem versions.
 - A group stores draw count, uniform points per selected question, ordering or randomization policy,
@@ -168,7 +191,7 @@ evidence: `OTHER_REPOS/Blackboard_Learn/reuse-questions.md` and
 
 `assignment` is one mutable current-state record containing:
 
-- Tenant and course ownership.
+- Exact `CourseId` ownership through the CourseInstance and current direct Instructor membership.
 - Lifecycle: `draft`, `published`, `closed`, or `archived`.
 - Title and instructions.
 - Visibility, availability start, due date, and close date.
@@ -187,7 +210,7 @@ Do not create `assignment_version`, assignment-history payloads, or scoring-revi
 `assignment_item` contains:
 
 - Stable UUID.
-- Tenant and assignment IDs.
+- Exact `CourseId` and `AssignmentId` parent IDs.
 - Hidden pinned problem and version IDs for server-side exact replay, grading, audit, and
   provenance; browser summaries use the Question ID and safe display metadata.
 - Current position.
@@ -200,11 +223,12 @@ authoritative afterward.
 
 ### Publication and locking
 
-Before the first student run, Instructors may add, replace, remove, and reorder items through the
-assignment's strong revision boundary. A focused replacement selects one new Question ID and keeps
-the item's ordinary assignment configuration.
+Before the first Student run, authorized current course Instructors may add, replace, remove, and
+reorder items through the
+assignment's strong revision boundary. A focused replacement selects a published Question ID and
+pins its selected immutable version while keeping the item's ordinary assignment configuration.
 
-After any student run has been issued:
+After any Student run has been issued:
 
 - Point values, assignment policies, and reordering remain editable for future runs.
 - A fixed item may be deliberately replaced through the same revision-checked Question-ID operation.
@@ -248,11 +272,12 @@ exclusion state; no former point value or score is preserved.
 ### Current scoring records
 
 - `submission` retains the raw student response.
-- `submission_evaluation` retains the current normalized evaluation and manual-grading status.
+- `submission_evaluation` retains the current normalized automated evaluation and policy-controlled
+  feedback basis.
 - `attempt_score_current` contains one current calculated result per attempt.
 - `student_assignment_summary` contains one current computed assignment result per student.
-- An optional manual override is separate current state. Recalculation replaces computed values
-  without silently deleting an explicit current override.
+- No manual-grading or manual-score authority is introduced. Recalculation replaces computed values
+  under the current scoring generation.
 - Do not retain historical grade projections or append obsolete computed values to `grade_event`.
 
 ### Recalculation queue
@@ -262,7 +287,7 @@ changes use this process:
 
 1. Update current assignment state and increment `scoring_generation`.
 2. Mark current grades `recalculating`.
-3. Enqueue one idempotent tenant-scoped recalculation job.
+3. Enqueue one idempotent course/assignment-scoped recalculation job.
 4. Recalculate all submitted attempts and retakes.
 5. Reapply the current first, last, highest, or lowest attempt-selection policy.
 6. Stage results under the new generation.
@@ -280,7 +305,7 @@ scores are gone.
 
 `assignment_run` and `assignment_run_item` store:
 
-- Student, tenant, assignment, and attempt identity.
+- Student, exact course, assignment, and attempt identity.
 - Selected assignment items and problem versions.
 - Issued order, randomization seed, and start time.
 - Delivery status and timestamps.
@@ -294,7 +319,6 @@ Support current states including:
 - `in_progress`
 - `submitted`
 - `auto_submitted`
-- `needs_manual_grading`
 - `cleared`
 - `exempt`
 
@@ -331,11 +355,11 @@ Item analysis is a derived, rerunnable projection based on the local evidence fi
 - Graded and unanswered counts.
 - Response distribution.
 - Completion time.
-- Flags for incomplete manual grading or recent rescoring.
+- Flags for incomplete automated grading or recent rescoring.
 
 Analysis is recalculated after grading changes rather than historically versioned. Operational
-grading never waits for analytics. Course-local analysis remains tenant-owned. Cross-course problem
-statistics become catalog signals only after aggregation and de-identification.
+grading never waits for analytics. Course-local analysis remains owned by its exact CourseInstance.
+Cross-course problem statistics become catalog signals only after aggregation and de-identification.
 
 ## Import and export
 
@@ -352,16 +376,39 @@ statistics become catalog signals only after aggregation and de-identification.
 These rules improve on the limitations documented in the local Blackboard evidence files
 `import-or-export-tests-surveys-and-pools.md` and `upload-questions.md`.
 
+## External metadata and historical evidence
+
+Institution names, institutional roster IDs, display labels, provider IDs, renderer IDs, source
+identifiers, and external protocol fields may be retained for presentation, audit, provenance,
+routing, or adapter exchange. They are metadata only: none can establish `UserId`, `ActorContext`,
+workspace, course, Student, catalog, assignment, or lease authority. PLE remains the education-record
+and grading authority; a provider is a private server-side adapter and its credentials, sessions,
+raw responses, and answer-bearing material never cross the browser boundary.
+
+The checked-in pre-SD1 migration files and current Rust Store names are migration/source evidence for
+the rebase. Their historical `tenant`, `tenant_id`, `TenantId`, `TenantContext`, publication-scope,
+Alpha, and provider vocabulary remains unchanged where needed to preserve lineage, but does not define
+the fresh schema, authorization, route, or API contract. One-time Graphify maps, source inventories,
+migration matrices, schema fingerprints, and clean-volume receipts record this distinction; they are
+not permanent tests or a second compatibility model.
+
 ## FERPA and security
 
 FERPA protects education records but does not define one technical certification checklist. PLE
 must enforce least privilege and defensible safeguards.
 
-- Separate catalog, authoring, educational-record, grader-secret, and operational schemas and roles.
-- Put `tenant_id` first in every private primary key, foreign key, and important index.
+- Separate catalog, authoring, educational-record, grading-secret, and operational schemas and roles.
+- Derive `ActorContext { user_id, session_id }` from the authenticated server session. It has no
+  caller-controlled constructor and no institution or tenant selector.
+- Author private drafts through the exact workspace owner/collaborator relationship; authorize
+  courses and assignments through current direct Instructor membership; bind Student records to the
+  exact course and Student owner; derive worker, object, export, retention, and provider work from a
+  locked typed lease and its durable target.
 - Enable and force PostgreSQL row-level security with default-deny policies.
 - Application connections may not own tables, use superuser privileges, or bypass RLS.
-- Tenant context comes only from the authenticated server session.
+- The protected transaction sets only transaction-local actor context. Route IDs, browser fields,
+  queue payloads, object keys, provider fields, and catalog Question IDs are input or evidence, not
+  authority.
 - Separate migration, application, grader, worker, export, analytics, and retention roles.
 - Keep correct answers and grader secrets unavailable to browser and catalog roles.
 - Store assignment access codes as slow password hashes, never plaintext.
@@ -373,23 +420,24 @@ must enforce least privilege and defensible safeguards.
 
 ## Partitioning and distribution
 
-Maximum distributability means preserving clean routing boundaries, not maximizing partition count.
+Maximum distributability means preserving clean typed ownership and routing boundaries, not inventing
+an institution or tenant hierarchy.
 
 - Start with one PostgreSQL cluster and separate logical schemas.
 - Keep the shared catalog central and read-replicable.
-- Make private records tenant-shardable from the first schema through leading `tenant_id` keys.
-- Introduce a `tenant_placement` routing contract so tenant records can later move to another cluster
-  without changing IDs or APIs.
-- Avoid cross-tenant business joins and transactions.
+- Keep private records addressable by their exact `UserId`, `WorkspaceId`, `CourseId`, `StudentId`,
+  and child identities. Do not add tenant-leading keys or a tenant-placement contract.
+- Avoid cross-course business joins and transactions where a typed course-owned operation suffices.
 - Monthly range-partition only high-volume append-only attempt, submission, access-log, and audit
   detail.
 - Use unpartitioned identity or header tables when necessary to preserve stable IDs and foreign keys.
 - Keep current grade summaries directly indexed and unpartitioned within each shard.
 - Pre-create partitions and alert on default-partition writes.
-- Do not partition by subject or create thousands of per-tenant partitions.
+- Do not partition by subject or create thousands of per-course partitions.
 - Gradebook request paths read current summaries and never aggregate attempt history.
 - Maintain the hot and cold split for a catalog approaching ten million problems.
-- Use queue backpressure and per-tenant fairness for large recalculation jobs.
+- Use queue backpressure and fairness across typed course/workspace/system targets for large
+  recalculation jobs.
 
 ## Migration system
 
@@ -414,10 +462,10 @@ Keep raw SQL while replacing custom orchestration:
 
 ### Initial epoch files
 
-The completed pre-data baseline contains exactly six ordered SQLx migrations. Each file owns a
+The historical pre-SD1 baseline contains exactly six ordered SQLx migrations. Each file owns a
 durable domain boundary rather than a chronological implementation slice:
 
-1. `2026080801_principals.sql`: runtime principals, tenant/session helpers, authentication
+1. `2026080801_principals.sql`: historical runtime principals, tenant/session helpers, authentication
    sessions, and the narrow read-only migration-state projection used by application compatibility
    checks.
 2. `2026080802_catalog_authoring.sql`: immutable problems and versions, payload and answer-key
@@ -454,11 +502,40 @@ concurrent migration runners, real role/RLS enforcement, partition pruning, and 
 upcasts are one-time PostgreSQL acceptance checks. Their temporary databases and inputs are removed
 after evidence is recorded rather than becoming committed fixtures.
 
+### Fresh SD1-C epoch
+
+The current single-installation target is a fresh disposable PostgreSQL epoch owned by `WP-SD1-C`,
+not a compatibility migration over the historical tenant-shaped schema. The exact allocation remains
+in [implementation_status.md](../implementation_status.md) and the single-installation scope
+register. The range is `2026082901` through `2026082932`, with these capability families:
+
+| Range | Capability family |
+| --- | --- |
+| `2026082901`-`2026082904` | Principals, global accounts, sessions, passkeys, roles, and actor context |
+| `2026082905`-`2026082908` | Global immutable catalog, publication, and safe discovery evidence |
+| `2026082909`-`2026082912` | Private authoring, collections, Stars, and saved searches |
+| `2026082913`-`2026082916` | Courses, equal co-Instructors, Students, invitations, and reusable curricula |
+| `2026082917`-`2026082920` | Assignments, schedules, runs, attempts, submissions, and artifacts |
+| `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, and improvement threads |
+| `2026082925`-`2026082928` | Typed jobs, exports, objects, retention, and external-tool state |
+| `2026082929`-`2026082932` | Capability brokers, forced RLS, grants, and schema acceptance helpers |
+
+Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
+and comments. It uses global content identities and exact user, workspace, course, membership,
+Student, lease, and immutable-version relationships. It creates no `tenant_id` compatibility column,
+tenant RLS predicate, Alpha compatibility table/function, or latest-version reader. Historical
+migrations remain unchanged and are one-time migration/source evidence; their tenant or provider
+spelling does not establish the current schema. Fresh-install convergence, no-op replay, checksum
+status, missing-actor refusal, exact Student/course authorization, equal co-Instructor behavior,
+typed lease scope, and forced-RLS denial are the required SD1-C PostgreSQL acceptance boundaries.
+
 ## Domain interfaces
 
 Introduce or revise these domain concepts:
 
-- `QuestionId` and internal `ProblemVersionRef`
+- `ActorContext { user_id, session_id }`
+- `QuestionId`, immutable `QuestionVersion`, and internal `ProblemVersionRef`
+- `ForcedQuestionCorrection` manifest and generation
 - `AssignmentItem`
 - `AssignmentSelectionGroup` and pinned candidates
 - `AssignmentScoringMode`
@@ -478,15 +555,21 @@ Instructor commands are explicit domain operations:
 - Force-submit.
 - Clear an attempt.
 
-Each command is tenant-scoped, revision-checked, idempotent where retryable, and validated against
-active attempts.
+Each command derives the actor from the authenticated session, authorizes its exact workspace,
+course, Student, catalog, or typed lease scope, is revision-checked, idempotent where retryable,
+and validated against active attempts. No command accepts a caller-selected tenant or institution as
+authority.
 
 ## Verification
 
 - Retain the recorded fresh-install and no-op replay evidence for the frozen six-file baseline.
 - Apply and verify each new forward migration with its package's focused PostgreSQL acceptance gate.
 - Reject modified historical SQL, missing migrations, and concurrent migration races.
-- Verify published problem immutability and human-ID resolution.
+- Verify published question immutability, stable Question ID lineage, semantic fork/version rules,
+  and authorized exact-version resolution.
+- Verify `ForcedQuestionCorrection`: Sysadmin-only approval, allowed reason, validated replacement,
+  closed manifest, immediate withdrawal from new selection, generation-fenced remediation, and
+  preservation of issued/graded evidence.
 - Verify global discovery without a subject filter and authorization-aware direct-ID lookup.
 - Verify publish and edit locks before and after student activity.
 - Verify point changes recalculate every submitted attempt and retake.
@@ -498,14 +581,17 @@ active attempts.
 - Verify random selection reproducibility and candidate retirement.
 - Verify a newer scoring generation supersedes an in-flight job.
 - Verify atomic replacement leaves exactly one current score per attempt and student.
-- Verify there are no assignment-history, scoring-revision, or old-grade tables.
+- Verify there are no assignment-history, scoring-revision, old-grade, tenant-compatibility, or
+  latest-version tables/readers in the fresh SD1-C epoch.
 - Verify active timer changes and server auto-submit.
 - Verify force-submit, clear, and access-log authorization.
-- Verify manual-grading and mixed automatic and manual assignments.
+- Verify that supported question families remain strictly and deterministically automated.
 - Verify item-analysis recalculation after rescoring.
-- Verify import partial failures, provenance, hostile archives, and duplicate warnings.
-- Verify forced-RLS cross-tenant denial for every application and worker role.
-- Verify partition pruning, current-summary gradebook queries, tenant purge, backup restoration, and
+- Verify import partial failures, external source/provider provenance, hostile archives, and duplicate
+  warnings without allowing external metadata to establish PLE ownership or authority.
+- Verify missing-actor refusal, forced-RLS denial across courses and Student owners, exact workspace
+  and catalog predicates, and typed worker-lease scope for every application and worker role.
+- Verify partition pruning, current-summary gradebook queries, course purge, backup restoration, and
   retention deletion.
 - Run focused PostgreSQL behavior tests followed by repository formatting, linting, compilation,
   complete tests, `./check_codebase.sh`, and `pytest tests/` when the plan is implemented.
@@ -514,25 +600,34 @@ active attempts.
 
 - Historical implementation condition: no durable production data required preservation during
   baseline creation.
-- Published problem content is immutable and versioned.
+- Published question content is immutable and versioned; a stable Question ID names its lineage.
+- Compatible improvements and grading-semantic corrections may create same-lineage versions; major
+  semantic changes fork to a new Question ID with visible ancestry.
+- `ForcedQuestionCorrection` is a Sysadmin-approved, closed, generation-fenced correction manifest;
+  it never mutates an immutable version or silently rewrites issued evidence.
 - Assignments and computed grades retain only current state.
 - Assignment items have stable identities but no historical versions.
 - Delete and Regrade is supported after submissions exist and blocked only by active attempts.
 - All affected attempts and retakes are recalculated; old computed scores disappear.
 - Runs retain only the execution evidence needed to identify what was delivered.
-- Problem IDs are human-readable decimal catalog IDs backed by internal UUIDv7 identities.
+- Question IDs are human-readable `AAA-BBBB` Crockford Base32 identities backed by internal UUIDv7
+  `ProblemId`/`VersionId` evidence.
 - Discovery is global by default and subject is an optional facet.
 - PostgreSQL and explicit SQL remain authoritative.
 - SQLx replaces the custom migration registry.
 - The accepted six-file baseline is immutable; all schema evolution now uses new forward migrations.
+- The fresh `WP-SD1-C` epoch owns `2026082901`-`2026082932`; historical tenant-shaped migrations are
+  unchanged migration evidence and are not a compatibility authority.
 
 ## Explicit non-goals
 
 - Assignment version history.
 - Historical computed scores.
 - Globally mutable linked published questions.
+- A new Question ID for every compatible content change.
 - Subject-based catalog silos.
-- A database per instructor or course.
+- Institution or tenant boundaries, selectors, tenant-leading keys, or tenant-based RLS.
+- A database per Instructor or CourseInstance.
 - Generic EAV storage for educational records.
 - Runtime automatic DDL.
 - Anonymous surveys in this database decision; a future activity type may reuse the framework

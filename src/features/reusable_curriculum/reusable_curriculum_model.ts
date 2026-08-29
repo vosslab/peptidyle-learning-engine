@@ -33,9 +33,9 @@ export interface CurriculumActionPresentation {
   readonly guidance: string;
 }
 
-/** Public Alpha curricula accept only questions that remain valid across tenant boundaries. */
+/** Shared curricula choose from the one global catalog. */
 export function alphaProblemPickerSources(): ReadonlyArray<ProblemPickerSource> {
-  return [{ kind: "publicCatalog", label: "Public library" }];
+  return [{ kind: "sharedCatalog", label: "Shared catalog" }];
 }
 
 export interface CurriculumContinuationPresentation {

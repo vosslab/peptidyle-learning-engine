@@ -23,10 +23,10 @@ browser or database feature.
 | **Fail closed** | Missing, foreign, malformed, stale, or contradictory input is refused. |
 | **Authoritative** | The component that decides the value; a copy elsewhere is only a projection or evidence. |
 
-An identifier is not authority. The server derives identity, tenant context,
-permissions, and grading backend from an authenticated request and the stored
-attempt. The browser can provide a value for validation, but cannot establish
-its meaning by naming it.
+An identifier is not authority. The server derives global identity, `ActorContext`,
+exact course/Student/workspace relationships, permissions, and grading backend
+from an authenticated request and the stored attempt. The browser can provide a
+value for validation, but cannot establish its meaning by naming it.
 
 ## Contract vocabulary
 
@@ -47,14 +47,14 @@ formats, database relations, and recovery procedures.
 | Data family | Authoritative owner | Browser visibility | Persistence | On invalid or unavailable data | Detailed authority |
 | --- | --- | --- | --- | --- | --- |
 | Durable identities | Server-issued typed IDs | Only IDs needed by the authorized route | Catalog, course, run, attempt, object, and evidence rows | Refuse malformed, foreign, or type-confused IDs | [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) |
-| Draft source | Authorized instructor workspace | Never learner-visible; bounded instructor projection only | Tenant workspace, source object, revision history | Refuse unauthorized, unpublished, or stale revision access | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
+| Draft source | Authorized instructor workspace | Never Student-visible; bounded Instructor projection only | Workspace, source object, revision history | Refuse unauthorized, unpublished, or stale revision access | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
 | Published question | Publication transition and immutable version | Answer-free render only | Catalog/version records and immutable source assets | Refuse missing version, unsupported public shape, or altered provenance | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
-| Attempt and timing | Issuance service and stored run state | Attempt ID plus permitted state summary | Tenant-bound run, attempt, timer, receipt, and provenance rows | Conceal or refuse foreign state; reject completed or expired transitions | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
+| Attempt and timing | Issuance service and stored run state | Attempt ID plus permitted state summary | Exact course/Student run, attempt, timer, receipt, and provenance rows | Conceal or refuse foreign state; reject completed or expired transitions | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Render presentation | Trusted backend reproducing version and seed | Prompt, public assets, response shape, presentation binding | Attempt provenance and private replay state | Refuse inconsistent reproduction or unsupported render | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Learner response | Learner, only within an issued attempt | Request body supplied by learner | Append-only submission evidence and idempotency receipt | Structural/membership failure receives no grade | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Grade and feedback | Server-only adapter, grader, and disclosure policy | Only policy-permitted result and feedback | Result, protected feedback, score, and summary rows | Do not disclose private material; failed grading does not invent a result | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Answer-bearing material | Private question definition, adapter, or grader | Never | Protected database/object/provider state | Refuse if unavailable, malformed, or not authorized for the backend | [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) |
-| Tenant and role records | Session resolver, membership records, PostgreSQL RLS | Authorized projections only | Tenant-leading records and memberships | Missing tenant context or role denies access | [DATABASE_TENANCY.md](DATABASE_TENANCY.md) |
+| Account, actor, and relationship records | Global session resolver, exact membership/ownership records, PostgreSQL forced RLS | Authorized projections only | Global accounts plus course, Student, workspace, and capability relationships | Missing actor context or required relationship denies access | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#authority-relationships) |
 | Binary objects and assets | Object record plus typed-key object store | Logical asset ID or authorized bytes only | Object record, immutable object, integrity metadata | Check scope and digest; refuse a mismatch | [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) |
 | Caches and prefetch reservations | Authoritative origin remains the database/backend | Safe reusable render or no browser visibility | Cache rows, reservation state, and metrics | Expire, re-render, or promote atomically; never grade a reservation | [CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md) |
 | Jobs, leases, and aggregates | Worker lease and generation fence | Coarse progress or aggregate projection only | Job, ledger, aggregate, and audit rows | Stale lease/generation cannot commit; cleanup remains retryable | [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) |
@@ -68,8 +68,9 @@ The following rules apply across every table row:
   browser request.
 - Answer-bearing data never enters a learner render payload, public asset,
   browser cache, analytics event, or generic worker payload.
-- A tenant ID in a path, header, JSON body, or cache key does not establish
-  tenant authority; authenticated server context does.
+- An actor, course, Student, or workspace ID in a path, header, JSON body, or
+  cache key does not establish authority; authenticated server context and the
+  exact stored relationship do.
 - A storage key is constructed from typed server state. Browsers use logical
   delivery identifiers, not raw object-store paths.
 - Private provider state, including WeBWorK upstream field/value mappings,
@@ -85,7 +86,7 @@ trust levels:
 | Exchange | Current status | Browser receives or sends | Server derives or retains | Owner |
 | --- | --- | --- | --- | --- |
 | Render | **Implemented** foundation | Answer-free prompt, public assets, widget shape, and safe presentation metadata | Key, rubric, backend provenance, private replay mapping, and policy authority | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
-| Submit | **Current compatibility contract** | Attempt route, idempotency key, and tagged `StudentResponse` | Tenant, learner, run, version, seed, backend, policy, and expected family | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
+| Submit | **Current compatibility contract** | Attempt route, idempotency key, and tagged `StudentResponse` | Actor, Student, exact course/run, version, seed, backend, policy, and expected family | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Compact submit | **Reserved** cutover | Attempt route, idempotency key, presentation digest, and family-minimal answer | The response family and all attempt-owned context | [secure question grading payload plan](active_plans/decisions/secure_question_grading_payload_plan.md) |
 
 `kind` is needed in the current render payload so the browser can select the
@@ -132,7 +133,7 @@ Use the narrowest owner document for a design or implementation decision:
 | Render/response payloads, CRC presentation IDs, WeBWorK boundary | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | HTTP routes, session boundary, idempotency | [API_CONTRACTS.md](API_CONTRACTS.md) |
 | Identity names, UUIDs, capability versus identifier | [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) |
-| RLS, tenant context, roles, concealed access failures | [DATABASE_TENANCY.md](DATABASE_TENANCY.md) and [SECURITY_MODEL.md](SECURITY_MODEL.md) |
+| Forced RLS, actor context, roles, concealed access failures | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security) and [SECURITY_MODEL.md](SECURITY_MODEL.md) |
 | Tables, migrations, and operational database layout | [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) |
 | Object lifecycle, assets, integrity, retention | [OBJECT_STORAGE.md](OBJECT_STORAGE.md) and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) |
 | Data sensitivity and permitted projections | [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) |

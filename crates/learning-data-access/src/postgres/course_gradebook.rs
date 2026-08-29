@@ -601,7 +601,7 @@ struct TotalAssignmentInput {
     scoring_status: question_model::ScoringStatus,
 }
 
-/// Builds one learner's evaluator input from the preloaded course snapshot.
+/// Builds one Student's evaluator input from the preloaded course snapshot.
 /// The absence of database arguments makes the one-load-per-assignment
 /// boundary explicit and testable.
 fn course_grade_inputs_for_student(
@@ -731,9 +731,9 @@ async fn export_rows_with_scheme(
     let mut rows = Vec::new();
     for person in roster {
         let student: Uuid = person.try_get("student_id").map_err(map_sqlx_error)?;
-        let learner_inputs = course_grade_inputs_for_student(&inputs, &scores, student);
+        let student_inputs = course_grade_inputs_for_student(&inputs, &scores, student);
         let outcome =
-            calculate_course_grade(&scheme.scheme, &learner_inputs).map_err(|e| match e {
+            calculate_course_grade(&scheme.scheme, &student_inputs).map_err(|e| match e {
                 CourseGradeError::MissingCategory { .. }
                 | CourseGradeError::UnknownCategory { .. } => StoreError::Unavailable(
                     "weighted course grade scheme requires a mapping for each included assignment"

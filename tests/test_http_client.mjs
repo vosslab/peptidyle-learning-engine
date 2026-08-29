@@ -47,7 +47,7 @@ test("issued external-tool envelopes accept only their public marker", () => {
   );
 });
 
-test("learner submission status decoder accepts only closed answer-free pending alternatives", () => {
+test("Student submission status decoder accepts only closed answer-free pending alternatives", () => {
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
   const pending = {

@@ -113,7 +113,7 @@ impl crate::PreviewPlaneStore for MemoryStore {
         }) {
             let student = membership.student.ok_or_else(|| {
                 StoreError::InvalidRecord(
-                    "active student course membership is missing its learner identity".into(),
+                    "active Student course membership is missing its Student identity".into(),
                 )
             })?;
             let reference = state
@@ -379,11 +379,11 @@ pub(super) fn resolve_derived_preview_locked(
     let membership = super::entitlement::active_membership_by_id(state, tenant, membership_id)
         .filter(|value| value.course == course && value.role == CourseMembershipRole::Student)
         .ok_or(StoreError::NotFound)?;
-    let learner = membership.user;
+    let student_user = membership.user;
     let student = membership.student.ok_or(StoreError::NotFound)?;
     let groups = current_groups(state, tenant, course, membership_id);
     let entitlement =
-        super::entitlement::evaluate_locked(state, tenant, learner, course, assignment)?;
+        super::entitlement::evaluate_locked(state, tenant, student_user, course, assignment)?;
     let domain::entitlement::EntitlementDecision::Granted(grant) = entitlement else {
         return Ok(denied(question_model::PreviewDenialReason::NotEntitled));
     };

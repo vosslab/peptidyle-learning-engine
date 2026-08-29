@@ -39,7 +39,7 @@ fn assert_answer_free_pending_attempt(attempt: &serde_json::Value) {
 }
 
 #[tokio::test]
-async fn learner_pending_receipt_reads_remain_submitted_and_answer_free() {
+async fn student_pending_receipt_reads_remain_submitted_and_answer_free() {
     let (store, _backend, app, student_cookie, _, assignment, _) = fixture().await;
     let course = CourseId::from_uuid(id(5));
     let attempt = active_attempt_for(&app, course, assignment, &student_cookie).await;
@@ -83,7 +83,7 @@ async fn learner_pending_receipt_reads_remain_submitted_and_answer_free() {
 }
 
 #[tokio::test]
-async fn submission_status_is_route_bound_answer_free_and_requires_the_learner() {
+async fn submission_status_is_route_bound_answer_free_and_requires_the_student() {
     let (store, _backend, app, student_cookie, outsider_cookie, assignment, _) = fixture().await;
     let course = CourseId::from_uuid(id(5));
     let attempt = active_attempt_for(&app, course, assignment, &student_cookie).await;

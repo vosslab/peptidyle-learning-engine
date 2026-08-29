@@ -18,7 +18,7 @@ const envelope = {
   },
 };
 
-test("learner response projection uses only public choice bodies and rejects mismatches", () => {
+test("Student response projection uses only public choice bodies and rejects mismatches", () => {
   assert.deepEqual(projectStudentResponse(envelope, { kind: "multipleChoice", selected: ["b"] }), [
     { kind: "text", markdown: "Visible B" },
   ]);
@@ -29,7 +29,7 @@ test("learner response projection uses only public choice bodies and rejects mis
   assert.deepEqual(projectStudentResponse(envelope, { kind: "shortText", text: "wrong kind" }), []);
 });
 
-test("file and external learner projections never expose private object identifiers", () => {
+test("file and external Student projections never expose private object identifiers", () => {
   const file = {
     ...envelope,
     response: { kind: "fileUpload", maxBytes: 1, acceptedExtensions: [] },

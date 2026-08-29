@@ -9,13 +9,14 @@ use std::str::FromStr;
 
 use super::id;
 
-// This oracle consumes learner-work preparation (1817), course creation
-// (1818), response-family publication metadata (1827), the prefetch parent
-// broker capability (1829), and the canonical immutable receipt aggregate
-// decoded for every lifecycle state (1851). Its terminal-receipt oracle clears
-// an evaluated attempt through the current support workflow, whose immutable
-// scoring-invalidation binding is owned by 1865.
-const ISSUED_ATTEMPT_READ_EPOCH: i64 = 2_026_081_865;
+// This oracle consumes Student-work preparation (1817), the Student identity
+// schema (1881), and the Student-work broker vocabulary (1882), alongside
+// course creation (1818), response-family publication metadata (1827), the
+// prefetch parent broker capability (1829), and the immutable receipt
+// aggregate decoded for every lifecycle state (1851). Its terminal-receipt
+// oracle clears an evaluated attempt through the current support workflow,
+// whose immutable scoring-invalidation binding is owned by 1865.
+const ISSUED_ATTEMPT_READ_EPOCH: i64 = 2_026_081_882;
 
 pub(super) struct DisposableDatabase {
     admin: PgPool,
@@ -107,7 +108,7 @@ async fn assert_issued_attempt_epoch(pool: &PgPool, migrations: &Path) {
         status.is_compatible(),
         "issued-read database ledger matches its bounded migration epoch: {status:?}"
     );
-    let capabilities: (bool, bool, bool, bool, bool, bool) = sqlx::query_as(
+    let capabilities: (bool, bool, bool, bool, bool, bool, bool) = sqlx::query_as(
         "SELECT has_function_privilege('ple_app', \
                 'public.ple_prepare_attempt_work(uuid,uuid,uuid,uuid,uuid,text)', 'EXECUTE'), \
                 has_function_privilege('ple_app', \
@@ -115,8 +116,12 @@ async fn assert_issued_attempt_epoch(pool: &PgPool, migrations: &Path) {
                 EXISTS (SELECT 1 FROM information_schema.columns \
                          WHERE table_schema='public' AND table_name='problem_version' \
                            AND column_name='response_family'), \
-                has_table_privilege('ple_learner_work_broker', \
+                has_table_privilege('ple_student_work_broker', \
                     'public.question_prefetch', 'SELECT'), \
+                EXISTS (SELECT 1 FROM information_schema.columns \
+                         WHERE table_schema='public' \
+                           AND table_name='tenant_student_identity' \
+                           AND column_name='student_id'), \
                 EXISTS (SELECT 1 FROM information_schema.columns \
                          WHERE table_schema='public' \
                            AND table_name='submission_receipt_snapshot' \
@@ -128,16 +133,17 @@ async fn assert_issued_attempt_epoch(pool: &PgPool, migrations: &Path) {
     .fetch_one(pool)
     .await
     .expect("read bounded issued-read capability catalog");
-    assert!(capabilities.0, "1817 learner-work broker is executable");
+    assert!(capabilities.0, "1817 Student-work broker is executable");
     assert!(capabilities.1, "1818 course-creation broker is executable");
     assert!(capabilities.2, "1827 response-family metadata is available");
     assert!(capabilities.3, "1829 prefetch parent broker is available");
+    assert!(capabilities.4, "1881 Student identity schema is available");
     assert!(
-        capabilities.4,
+        capabilities.5,
         "1851 immutable receipt aggregate is available"
     );
     assert!(
-        capabilities.5,
+        capabilities.6,
         "1865 support invalidation binding is available"
     );
 }

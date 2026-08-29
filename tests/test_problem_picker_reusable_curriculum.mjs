@@ -48,7 +48,6 @@ test("reusable picker sources preserve interleaved entry and candidate order", a
     evidence: null,
     usedInMyCourses: null,
     authorship: "any",
-    publicationScopes: [],
   };
   const personal = await source.search({
     source: { kind: "personalBlueprint", blueprint: "BP-7", label: "My blueprint" },
@@ -97,7 +96,6 @@ test("reusable picker rejects malformed human-facing Alpha positions before acce
     evidence: null,
     usedInMyCourses: null,
     authorship: "any",
-    publicationScopes: [],
   };
   await assert.rejects(
     source.search({

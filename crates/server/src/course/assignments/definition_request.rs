@@ -126,17 +126,10 @@ where
         else {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment references a missing or hidden published version",
+                "assignment references a missing or hidden referenced version",
             )
             .into());
         };
-        if !published.lifecycle.is_assignable() {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment references a nonassignable published version",
-            )
-            .into());
-        }
         display.insert(
             *reference,
             (
@@ -465,7 +458,7 @@ where
         )
         .into());
     };
-    if !record.lifecycle.is_assignable() {
+    if !record.lifecycle.is_eligible_for_ordinary_new_selection() {
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "assignment Question ID is not assignable",

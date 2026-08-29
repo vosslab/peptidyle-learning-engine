@@ -12,7 +12,7 @@ use crate::{
 
 /// Exact bounded semantic position of one replaceable source pin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", try_from = "CurriculumPinPositionParts")]
+#[serde(rename_all = "snake_case", try_from = "CurriculumPinPositionParts")]
 pub struct CurriculumPinPosition {
     module_index: Option<u16>,
     assignment_index: u16,
@@ -21,7 +21,7 @@ pub struct CurriculumPinPosition {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 struct CurriculumPinPositionParts {
     module_index: Option<u16>,
     assignment_index: u16,
@@ -69,7 +69,7 @@ impl CurriculumPinPosition {
         })
     }
 
-    /// Returns the optional zero-based Alpha module position.
+    /// Returns the optional zero-based BlueprintCourse module position.
     pub fn module_index(self) -> Option<u16> {
         self.module_index
     }
@@ -104,7 +104,7 @@ impl std::error::Error for CurriculumPinPositionError {}
 
 /// One explicit public-question substitution for an exact semantic pin position.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CurriculumPinReplacement {
     /// Exact fixed-item or pool-candidate coordinate selected by the server preview.
     pub position: CurriculumPinPosition,
@@ -235,3 +235,25 @@ impl std::fmt::Display for ReplacementQuestionChoicesError {
 }
 
 impl std::error::Error for ReplacementQuestionChoicesError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pin_replacements_use_snake_case_and_refuse_unknown_fields() {
+        let replacement = CurriculumPinReplacement {
+            position: CurriculumPinPosition::new(Some(1), 2, 3, Some(4)).expect("position"),
+            question: "7K3-M9QX".parse().expect("QuestionId"),
+        };
+        let wire = serde_json::to_value(&replacement).expect("replacement serializes");
+        assert_eq!(wire["position"]["module_index"], 1);
+        assert_eq!(wire["position"]["assignment_index"], 2);
+        assert_eq!(wire["position"]["candidate_index"], 4);
+        assert!(wire["position"].get("moduleIndex").is_none());
+        assert!(serde_json::from_value::<CurriculumPinReplacement>(wire.clone()).is_ok());
+        let mut forged = wire;
+        forged["position"]["authority"] = serde_json::json!("instructor");
+        assert!(serde_json::from_value::<CurriculumPinReplacement>(forged).is_err());
+    }
+}

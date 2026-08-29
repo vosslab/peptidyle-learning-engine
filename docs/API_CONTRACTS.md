@@ -9,7 +9,7 @@ every generated Rust or TypeScript field.
 [CONTRACTS.md](CONTRACTS.md) remains the module ownership register.
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) owns the detailed
 authorization decision sequence and authority sources.
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the learner
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the Student
 render-and-submit boundary and its planned cutover. [SECURITY_MODEL.md](SECURITY_MODEL.md)
 owns the threat model and storage rules. This document connects those sources
 at the HTTP boundary.
@@ -25,7 +25,7 @@ shape. Rust types under `crates/question_model/` and generated files under
 `generated/api/` own shared value definitions.
 
 Route paths below describe the current implementation unless a row says
-**target**. The planned compact learner response in
+**target**. The planned compact Student response in
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) is not silently
 substituted for the current tagged `StudentResponse` route contract.
 
@@ -34,36 +34,37 @@ substituted for the current tagged `StudentResponse` route contract.
 | Concern | Durable contract |
 | --- | --- |
 | Origin | Browser API requests use a relative same-origin path, `credentials: "same-origin"`, and `cache: "no-store"`. [request.ts](../src/api/http_client/request.ts) rejects an external base path. |
-| Sessions | The server resolves a hashed opaque session cookie and derives `TenantContext` from the stored session. Request paths, query parameters, headers, and JSON never select a tenant. [auth.rs](../crates/server/src/auth.rs) owns this boundary. |
+| Sessions | The server resolves a hashed opaque session cookie into global `ActorContext { user_id, session_id }`. Request paths, query parameters, headers, and JSON never select an actor, course, workspace, or Student relationship. [auth.rs](../crates/server/src/auth.rs) owns this boundary. |
 | Caching | Private JSON routes return `Cache-Control: no-store`, including errors where a route applies its response middleware. The browser verifies this for sensitive appearance traffic. Immutable public asset redirects are the explicit exception. |
 | JSON | **Current pre-WN1:** PLE JSON transport remains mixed and many routes use lower-camel fields directly. **Approved target:** PLE-owned JSON fields, TypeScript data-object properties, PLE query keys, and portable discriminants use direct `snake_case` generated from effective Serde. Feature decoders reject unknown and retired-camel PLE input and retain bounded-body, closed-union, numeric, and relationship checks. Registered external payloads retain owner spelling at their adapter boundary. |
 | Request parsing | Mutating Rust request types use closed Serde models or canonical typed-value comparison. Unknown fields, malformed IDs, and unsupported variants refuse. |
 | Pagination | Lists use opaque cursors. Clients do not use offsets and must reject a repeated cursor during traversal. |
 | Object delivery | JSON carries opaque delivery IDs, never object keys, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` can redirect only an immutable, active public asset. A protected object requires body-free `POST /api/assets/{id}/delivery`, which reauthorizes the current typed delivery record, audits the decision, and returns the short-lived delivery result. |
-| Error detail | Errors describe a permitted action or unavailable service, not hidden tenant, course, draft, answer, key, renderer, or object state. |
+| Error detail | Errors describe a permitted action or unavailable service, not hidden actor, course, Student, draft, answer, key, renderer, or object state. |
 
 ## Identity and authorization
 
 Every authenticated request follows one order:
 
 ```text
-cookie -> stored session -> TenantContext -> route resource lookup -> role or relationship check
+cookie -> stored session -> ActorContext -> route resource lookup -> exact course, Student, workspace, or lease check
 ```
 
-The route can use an identity in its path only after the session-derived tenant
-context constrains the lookup. A caller never supplies `tenantId`, `userId`,
-or a database object key as an authorization input.
+The route can use an identity in its path only after the session-derived actor
+context and exact relationship constrain the lookup. A caller never supplies
+an actor, membership, or database object key as an authorization input.
 
 | Scope | Authority | Normal concealed result |
 | --- | --- | --- |
-| Shared catalog | Visibility and lifecycle policy | Hidden or archived versions do not appear in browse results. |
+| Shared catalog | Authenticated approved-Instructor access plus visible lifecycle policy | Every published state appears in browse and exact lookup; the response labels `Published`, `Deprecated`, or `Archived`. |
 | Course | Persisted direct `course_member` relationship | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority. |
-| Assignment/run/attempt | Owning course, enrollment, and session-derived learner or instructor role | Learner-facing Store reads and mutations take the actor and require an active `Student` course membership in the same authority boundary as the record lookup. A revoked learner cannot retain access through an old enrollment, run, or attempt identifier. |
-| Workspace | Tenant-owned author/collaborator ACL | Student, foreign, and unshared workspaces share an absent projection. |
+| Assignment/run/attempt | Exact course, assignment, Student membership, and session-derived role | Student-facing Store reads and mutations require one active Student assignment entitlement in the same authority boundary as the record lookup. A revoked Student cannot retain access through an old enrollment, run, or attempt identifier. |
+| Workspace | Exact workspace owner/collaborator relationship | Student, foreign, and unshared workspaces share an absent projection. |
 | Protected asset | Typed delivery record plus current persisted authorization pointer | Unknown or unauthorized delivery ID is not an object-storage lookup. |
 
-The fuller authorization and RLS evidence is in
-[DATABASE_TENANCY.md](DATABASE_TENANCY.md) and [SECURITY_MODEL.md](SECURITY_MODEL.md).
+The fuller authorization and forced actor-scoped RLS evidence is in
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
+and [SECURITY_MODEL.md](SECURITY_MODEL.md).
 
 ## Route families
 
@@ -73,11 +74,11 @@ body limit, status response, and Rust type remain in the linked owner.
 | Family | Routes | Identity and payload boundary | Owner |
 | --- | --- | --- | --- |
 | Health | `GET /health` | Readiness only; it is not an authenticated API session probe. | [router.rs](../crates/server/src/composition/router.rs) |
-| Auth/session | production `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; deployment-gated seeded-persona `GET/POST /api/auth/live-demo/accounts`; `GET /api/auth/session`; `POST /api/auth/logout` | PLE-owned accounts use email as the canonical sign-in path and ordinary passkeys as optional shortcuts. Email, passkey, and the deployment-gated seeded persona selector issue the same bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives a tenant-scoped `ple_session` from an authorized relationship. The selector is unavailable unless its deployment configuration is complete. | [auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
-| Catalog | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/by-id/{reference}/detail`, `GET /api/taxonomy` | Browse, exact-ID lookup, and detail are browser-safe Question-ID projections with the immutable reviewed public byline. Source, private author-account IDs, private response/grading material, credentials, internal publication pairs, and student records are excluded. | [routes.rs](../crates/server/src/catalog/routes.rs) |
-| Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/by-id/{reference}/deprecate`, `/archive` | Publication mints one new immutable question with a fresh Question ID and hidden exact publication evidence. Lifecycle actions resolve the Question ID under authorization and retain protected historical evidence. | [routes.rs](../crates/server/src/catalog/routes.rs) |
+| Auth/session | production `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; deployment-gated seeded-persona `GET/POST /api/auth/live-demo/accounts`; `GET /api/auth/session`; `POST /api/auth/logout` | PLE-owned accounts use email as the canonical sign-in path and ordinary passkeys as optional shortcuts. Email, passkey, and the deployment-gated seeded persona selector issue the same bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives `ActorContext` from the authenticated account and exact relationship. The selector is unavailable unless its deployment configuration is complete. | [auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
+| Catalog (**target SD1-B3**) | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/by-id/{reference}/detail`, `GET /api/taxonomy` | Only an authenticated approved Instructor may browse, search, resolve, or inspect published question content. The stable Question ID exposes its immutable version history and exact ancestry without exposing private evidence. All published lifecycle states are discoverable and exactly resolvable. The safe projection excludes private response/grading material, credentials, internal publication pairs, and Student records. | [routes.rs](../crates/server/src/catalog/routes.rs) |
+| Catalog lifecycle (**target SD1-B3**) | `POST /api/problems/{workspace}/publish`, `POST /api/problems/by-id/{reference}/deprecate`, `/archive` | A same-lineage correction or compatible improvement keeps the Question ID and publishes a new immutable version under original-lineage stewardship. A major objective, task, or response-family change is a creator-private fork draft that validates before global publication with a new Question ID and exact source ancestry. A Sysadmin-approved `ForcedQuestionCorrection` accepts only `security_flaw` or `critical_correctness_flaw`, atomically maps the flawed version to its validated replacement so new selection and issuance resolve to the replacement immediately, and preserves the old version solely as immutable historical evidence. `Published` is the active state for ordinary new assignment selection; `Deprecated` and `Archived` remain discoverable and resolvable but are not ordinarily selectable. Publication has no scope field or branch. | [routes.rs](../crates/server/src/catalog/routes.rs) |
 | Course and assignment | `GET/POST /api/courses`, `GET /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`; exact-course Instructor workspace `GET /api/courses/{course}/assignments/{assignment}`, `POST .../drafts`, `PUT .../{assignment}/content`, `PUT .../{assignment}/policies`, and `GET .../{assignment}/student-view` | Course comes from the route plus the authenticated direct-course relationship. Workspace reads and writes require the exact course/assignment pair; the workspace read returns the complete Instructor editor projection, while focused content and policy writes each replace only their owned slice and return the complete authoritative projection. Every focused write uses the shared assignment revision and `If-Match`; stale or issued-work conflicts preserve the page's entered values for visible recovery. | [routing.rs](../crates/server/src/course/routing.rs), [workspace.rs](../crates/server/src/course/assignments/workspace.rs) |
-| Assignment learner delivery | learner `GET /api/assignments/{assignment}/learner` and `/summary` | Ordinary learner routes remain separate key-free projections. They use learner enrollment and effective-policy authority; they are not Instructor workspace reads and do not authorize an Instructor Student view. | `learner.rs` |
+| Assignment Student delivery (**target SD1-E**) | Student `GET /api/assignments/{assignment}/student` and `/summary` | Ordinary Student routes remain separate key-free projections. They deliver content only after exact server-side entitlement binds the authenticated Student, active Student membership, course, assignment, audience, lifecycle, and current policy. They never consult the shared Instructor catalog and do not authorize an Instructor Student view. | [student.rs](../crates/server/src/course/assignments/student.rs) |
 | Instructor grading operations | `GET /api/courses/{course}/assignments/{assignment}/grading-operations`; `POST .../grading-operations/{operation}/retry`; `POST .../grading-operations/recalculate` | Direct-Instructor-only, exact course/assignment authority derived from the authenticated session and active direct course membership. The GET is a bounded, answer-free, metadata-only, `no-store` projection grouped within the assignment by question or Student. Retry and recalculation are `no-store`, body-free commands: retry requires the operation revision in `If-Match`, recalculation requires the assignment revision, and both require one UUID `Idempotency-Key`. Neither route accepts Student responses, answer keys, scores, or operation state from the browser. | [grading_operations.rs](../crates/server/src/course/grading_operations.rs) |
 | Course groups and membership policy | `GET/POST /api/courses/{course}/groups`; `GET/PUT/DELETE /api/courses/{course}/groups/{group}`; `GET/PUT /api/courses/{course}/group-purpose-policies/{purpose}`; `GET /api/courses/{course}/group-membership-warnings` | Exact-course direct Instructors manage bounded, cursor-paged groups and the five purpose policies. Strong revisions protect mutations; referenced groups cannot be deleted or changed to an incompatible purpose. Multiple Section membership reports its actual warning disposition and count without blocking; other default purposes allow it. Responses are no-store and expose only safe `G-` and `M-` references and display labels. | [course router](../crates/server/src/course/routing.rs), [question-model facade](../crates/question_model/src/lib.rs) |
 | Assignment access modifiers and preview | `PUT/DELETE /api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}`; `PUT/DELETE .../group-accommodations/{group}`; `PUT/DELETE .../individual-policy-exceptions/{student}`; `GET .../policy-preview/{student}`; `GET /api/courses/{course}/student-targets` | Exact-course direct Instructors mutate M2, M3, and M4 through assignment `If-Match`; authorization and reference resolution precede body parsing. Course-local times are resolved by the server through the course IANA zone. Each mutation atomically re-evaluates active-attempt S5 entitlement and S3 effective policy. The server-owned preview is a closed denied/allowed union: denial leaks no policy, while allowance carries safe local values, course zone, and ordered `G-`/`M-` provenance labels without internal IDs, clocks, or raw policy inputs. | [course router](../crates/server/src/course/routing.rs), [question-model facade](../crates/question_model/src/lib.rs) |
@@ -91,16 +92,95 @@ body limit, status response, and Rust type remain in the linked owner.
 | Course appearance | `GET/PUT /api/courses/{course}/appearance`, `POST /api/courses/{course}/appearance/banner-candidates` | Safe theme/banner projection; candidate upload uses raw bounded raster bytes and returns an opaque candidate receipt. Current appearance update uses strong `If-Match`. | [course_appearance.rs](../crates/server/src/course_appearance.rs) |
 | Workspace | `GET /api/workspaces`, `GET/PUT/DELETE /api/workspaces/{workspace}`, `POST /publication-validation`, `GET /publication-diff` | Private authoring draft surface. Mutation and publication review use the strong workspace revision ETag. | [workspace.rs](../crates/server/src/workspace.rs) |
 | Private author presentation | `GET /api/workspaces/{workspace}/author-preview?seed=...` | Instructor-only teaching display; it may return rendered correct-response material but never an answer key or reusable grading contract. | [author_preview.rs](../crates/server/src/author_preview.rs) |
-| Flat authoring | `GET/PUT /api/workspaces/{workspace}/flat-question`, `POST /api/problems/{workspace}/flat-question-publish` | The narrow author route accepts answer-bearing source only after author authorization. Generic workspace and learner routes remain answer-free. | [flat_question_publication.rs](../crates/server/src/flat_question_publication.rs) |
+| Flat authoring | `GET/PUT /api/workspaces/{workspace}/flat-question`, `POST /api/problems/{workspace}/flat-question-publish` | The narrow author route accepts answer-bearing source only after author authorization. Generic workspace and Student routes remain answer-free. | [flat_question_publication.rs](../crates/server/src/flat_question_publication.rs) |
 | QTI profile | `GET/PUT /api/workspaces/{workspace}/qti-imports/{import}`, `POST /items/{item}/convert-flat`, `POST /api/problems/{workspace}/qti-publish` | Archive bytes and conversion/provenance stay private. Browser reports, acknowledgements, and converted draft handoff remain answer-free. | [qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) |
-| Runs and attempts | `POST /api/courses/{course}/assignments/{assignment}/runs`; nested `POST .../attempts/{attempt}/prefetch-next` and `/submissions`; `GET .../attempts/{attempt}/submission-status`; `GET /api/runs/{run}`, `/summary`, `/attempts`, `GET /api/attempts/{attempt}`, `/question` | The nested course/assignment pair is a server-verified routing assertion, never learner authority or a JSON field. An authenticated attempt binds learner, run, assignment position, immutable version, seed, timing, lifecycle, and backend. Submission acceptance returns an answer-free `202 accepted_pending` projection; the route-bound status read converges on pending, instructor-attention, or the immutable completed receipt. | [routes.rs](../crates/server/src/run/routes.rs) |
+| Runs and attempts | `POST /api/courses/{course}/assignments/{assignment}/runs`; nested `POST .../attempts/{attempt}/prefetch-next` and `/submissions`; `GET .../attempts/{attempt}/submission-status`; `GET /api/runs/{run}`, `/summary`, `/attempts`, `GET /api/attempts/{attempt}`, `/question` | The nested course/assignment pair is a server-verified routing assertion, never Student authority or a JSON field. An authenticated attempt binds Student, run, assignment position, immutable version, seed, timing, lifecycle, and backend. Submission acceptance returns an answer-free `202 accepted_pending` projection; the route-bound status read converges on pending, instructor-attention, or the immutable completed receipt. | [routes.rs](../crates/server/src/run/routes.rs) |
 | Automated grading recovery | `GET /api/courses/{course}/assignments/{assignment}/grading-operations`; `POST .../grading-operations/{operation}/retry`; `POST .../grading-operations/recalculate` | **Target WN1-MG:** automated grader exceptions receive an answer-free Instructor recovery surface. The browser requests retry or assignment-wide recalculation through revisioned, empty-body commands, and the server routes accepted private input through its worker capability before publishing the current Gradebook result. Student feedback and scores remain policy-projected. **Current pre-WN1:** the source still contains a human-grade endpoint; WN1-MG retires that product path together with its route, Store, and route-policy closure. | [grading_operations.rs](../crates/server/src/course/grading_operations.rs) |
 | External tool | Nested `GET/POST /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch`, plus bounded `/activity` and `/submission` children | The typed nested route is verified before provider work and is never accepted in JSON or provider data. Only the POST creates a server-held, one-attempt launch session. The GET returns an inert same-origin shell; it cannot create, renew, or reveal a provider launch. Activity requires the session-bound launch proof. Provider material, replay state, field names, credentials, and raw provider outcomes remain server-held. | [external_tool.rs](../crates/server/src/run/external_tool.rs) |
-| Item analysis | `GET /api/courses/{course}/assignments/{assignment}/item-analysis` | Instructor-only aggregate projection. It excludes learner, attempt, raw response, answer, and object identity. | [item_analysis.rs](../crates/server/src/item_analysis.rs) |
+| Item analysis | `GET /api/courses/{course}/assignments/{assignment}/item-analysis` | Instructor-only aggregate projection. It excludes Student, attempt, raw response, answer, and object identity. | [item_analysis.rs](../crates/server/src/item_analysis.rs) |
 | Export | `POST /api/assignments/{assignment}/exports`, `GET /api/exports/{export}` | Creation requires an exactly empty body. The server freezes the assignment and delivery plan; status returns safe identifiers and progress, not object keys or manifests. | [export.rs](../crates/server/src/export.rs) |
-| Retention | `GET /api/courses/{course}/retention`, `POST /end`, `/archive`, `/delete`, `PATCH /extend` | A stored course Instructor or a Sysadmin may read, end, archive, or delete the tenant-owned retention record. Only a Sysadmin may extend it. Unauthorized or cross-tenant requests remain non-enumerating and cannot expose learner data or worker lease state. The browser renders only the server-owned notification copy and closed action outcome; it does not derive retention timing or cleanup state. | [retention.rs](../crates/server/src/retention.rs) |
+| Retention | `GET /api/courses/{course}/retention`, `POST /end`, `/archive`, `/delete`, `PATCH /extend` | A current course Instructor or a Sysadmin using the narrow audited capability may read, end, archive, or delete the exact course retention record. Only the authorized retention capability may extend it. Unauthorized foreign-course requests remain non-enumerating and cannot expose Student data or worker lease state. The browser renders only the server-owned notification copy and closed action outcome; it does not derive retention timing or cleanup state. | [retention.rs](../crates/server/src/retention.rs) |
 | Assets | `GET /api/assets/{id}`, `POST /api/assets/{id}/delivery` | GET is deliberately public-only: it redirects an active immutable public asset and never signs private content. POST is deliberately protected: it rechecks the session-derived authorization pointer, records the authorization decision, and then creates the bounded private delivery. Pending public assets are unavailable from both paths until the dedicated publisher has verified and activated them. | [asset.rs](../crates/server/src/asset.rs) |
 | Browser validation fallback | `POST /api/validation/response-format`, `/timer`, `/assignment-capabilities` | Authenticated, key-free pure validation only. It never grades, authorizes publication, establishes server time, or replaces server grading. | [validation.rs](../crates/server/src/validation.rs) |
+
+### Shared catalog and Student entitlement
+
+The catalog is one installation-wide Instructor surface. Every authenticated
+approved Instructor can browse, search, resolve, and inspect the safe published
+question content referenced by any course. `Published`, `Deprecated`, and
+`Archived` are all discoverable states; the response labels the state and any
+retirement reason. Only `Published` (the active state) is eligible for ordinary
+new assignment selection. Deprecated and Archived questions remain available
+for exact historical references, evidence, provenance, and retained
+assignments.
+
+Question ID is stable within one lineage; each immutable version has exact
+assignment and evidence pins. Approved Instructors can inspect version history,
+lineage, and preserved improvement threads, including forks created by other
+Instructors. Any approved Instructor may start a fork, but its draft remains
+private to the creator until validation and publication. Star is one
+vetted-Instructor-visible endorsement per Question ID; approved Instructors may see its count
+and the identities of vetted Instructors who starred. Students and anonymous
+callers see neither the identity list nor star state. Watch is a private
+notification subscription for versions, forks, improvements, and impact
+events; Students and anonymous callers see no watch state.
+
+`QuestionChangeProposal` is the lightweight improvement command. Any vetted
+Instructor submits one patch and rationale against one exact immutable base
+version. The server completes publication validation and semantic/grading-
+impact analysis before accepting the submission for the lineage owner's
+accept/reject decision. A stale base returns a rebase-and-resubmit conflict.
+Acceptance of a compatible `ModerateEdit` publishes a new immutable `VersionId`
+under the original stable `QuestionId`, preserves canonical authorship and the
+compatible CC license, records contributor credit and proposal ancestry, and
+leaves every assignment and evidence `ProblemVersionRef` unchanged.
+`FullFork` remains the distinct major-change path: its creator-private draft
+validates before global publication with a new Question ID and exact ancestry.
+`ForcedQuestionCorrection` remains the distinct Sysadmin-only emergency
+replacement path below. The UI action is **Suggest an improvement**; any
+GitHub analogy is documentation-only and carries no API or authorization
+meaning.
+
+Catalog evidence is version-specific. After the configured disclosure
+threshold, a safe rollup may expose accepted-attempt, graded-attempt, and
+correct counts plus eligible-choice selection counts for supported choice
+families. Below the threshold the counts remain unavailable. The rollup never
+includes raw responses, small cells, linkable cohorts, Student identities,
+preview traffic, or the Instructor Student view. Course-local item analysis is
+a separate exact-course projection. The evidence is keyed to the immutable
+version that generated it, not to a mutable latest pointer.
+
+`ForcedQuestionCorrection` is a Sysadmin-approved security operation. It
+accepts only `security_flaw` or `critical_correctness_flaw`. It atomically
+activates one authoritative mapping from the flawed version to validated
+replacement content, so new selection and issuance resolve to the replacement
+immediately. The old version is preserved solely as immutable historical
+evidence. Replacement requires validated content and a closed, privacy-safe
+impact manifest. The activated generation is handed to bounded, idempotent,
+generation-fenced workers for active-binding and remediation materialization
+across active Blueprint, CourseInstance, assignment, selection-pool, and
+future-issuance bindings.
+A deterministic compatibility check governs reissue or excuse for in-progress
+work. Issued and graded evidence stays pinned to the original version;
+completed work receives superseding receipts and deterministic recalculation.
+There is no per-course approval step. Instructors receive audited,
+course-authorized results, while Sysadmin projections contain no FERPA-bearing
+course or Student records. Approval, validation, manifest, atomic advance,
+reissue, excuse, superseding receipt, recalculation, and publication events are
+append-only audited.
+
+Student delivery is a separate authority path. A Student receives a question
+only when the server grants an exact assignment entitlement for that
+authenticated Student, active Student membership, exact course and assignment,
+assignment audience and lifecycle, and current policy. Catalog visibility never
+grants Student delivery. Anonymous requests receive no catalog authority and
+cannot browse, search, resolve, or inspect a Question ID.
+
+Shared question visibility does not weaken course privacy. An approved
+Instructor may inspect published content used by another course, while
+assignment composition, course membership, Student assignment entitlement, and
+Student records remain available only through their exact course-authorized
+operations.
 
 ### Instructor assignment workspace
 
@@ -121,7 +201,13 @@ creation, requires an active deliverable position and valid policy state.
 Questions owns `PUT
 /api/courses/{course}/assignments/{assignment}/content`. It accepts the title
 and ordered public Question-ID entries, resolves each publication under the
-exact course authority, and changes no policy fields. Policies owns `PUT
+exact course authority, accepts only active `Published` questions for ordinary
+new selection, and records the selected Question ID with its exact immutable
+`ProblemVersionRef` pin. The Instructor may choose a shared question without
+importing its content into the course row. A future version becomes available
+only through this explicit, revision-checked update; publication and lifecycle
+work never advance an assignment automatically. Policies
+owns `PUT
 /api/courses/{course}/assignments/{assignment}/policies`. It accepts one closed
 aggregate of audience, disclosure, run policies, and course-local teaching
 settings, resolves local times and group references on the server, validates
@@ -130,19 +216,21 @@ require the current assignment revision in `If-Match`, advance one shared
 aggregate revision, and return the complete authoritative editor projection
 with its new `ETag`.
 
-Structural content changes are refused with a typed `issuedLearnerWork`
-conflict once immutable learner work has been issued. Ordinary stale-revision
+Structural content changes are refused with the current typed
+`issuedLearnerWork`
+conflict once immutable Student work has been issued. Ordinary stale-revision
 conflicts remain retryable; neither conflict path partially changes the
 assignment. The browser therefore keeps its local draft and offers a visible
 reload/recovery action instead of silently overwriting another page.
 
 `GET /api/courses/{course}/assignments/{assignment}/student-view` is a
 non-mutating, `no-store` Instructor read. It uses the exact same course and
-assignment authority, projects the current answer-free learner landing with
+assignment authority, projects the current answer-free Student landing with
 course-wide base delivery facts, and does not create enrollment, run, attempt,
 submission, receipt, grade, or preview state. The shared landing presentation
-is also used by ordinary learner overview; only ordinary enrolled Student
-entry creates work and supplies the server-owned gradebook evidence.
+is also used by ordinary Student overview; only an exact active Student
+assignment entitlement creates work and supplies the server-owned gradebook
+evidence.
 
 ### Instructor grading operations
 
@@ -174,7 +262,14 @@ session before the controlled operation reference or action is interpreted.
 
 The browser receives only the route-bound metadata and receipt projection. The
 server recovers accepted private input through the sealed worker capability; a
-retry never asks the learner to submit the response again.
+retry never asks the Student to submit the response again.
+
+A grading-semantic correction is an impact/recalculation operation, not an
+ordinary content edit. Its operation records the affected Question ID,
+version-specific assignment and evidence pins, evaluates the permitted impact,
+and uses the controlled recalculation path while preserving prior immutable
+attempt and receipt evidence. A correction cannot silently change a Student's
+historical answer or an assignment's pinned version.
 
 ### Identity composition and activation
 
@@ -190,7 +285,7 @@ legacy login route.
 [composition.rs](../crates/server/src/composition.rs)
 constructs persistent dependencies and composes the provider-free PLE
 passwordless/account/session graph. Its eight-hour `FirstPartyHttps` policy
-makes account, email-binding, and tenant-session cookies Secure, HttpOnly, and
+makes account, email-binding, and actor-session cookies Secure, HttpOnly, and
 first-party `SameSite=Lax`; its explicit `ReviewNotRequired` gate leaves
 institutional review integration optional. It mounts only the production
 account and session route families listed above.
@@ -250,7 +345,7 @@ server cannot derive from authenticated state and the existing record.
 | Mechanism | Applies to | Contract |
 | --- | --- | --- |
 | Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves, course appearance | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle. |
-| `Idempotency-Key` | Learner submission | The same key and same response represent one grading request. A retry returns the committed receipt without grading twice. The exact owner is [routes.rs](../crates/server/src/run/routes.rs). |
+| `Idempotency-Key` | Student submission | The same key and same response represent one grading request. A retry returns the committed receipt without grading twice. The exact owner is [routes.rs](../crates/server/src/run/routes.rs). |
 | Server-generated identity | Runs, attempts, publications, export jobs, upload candidates, object deliveries | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths. |
 | Bytes-first promotion | Candidate banners, QTI/flat publication, exports | Objects may be written before the database transaction, but an unbound candidate is not visible content. The database commits the authoritative public/delivery pointer atomically. |
 
@@ -262,10 +357,10 @@ question/version/seed tuple.
 
 | Browser may receive | Browser must not receive |
 | --- | --- |
-| Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public catalog metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, object keys, bucket names, signed URLs in JSON, tenant context, database provenance, or raw provider results |
+| Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public catalog metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, object keys, bucket names, signed URLs in JSON, actor context, database provenance, or raw provider results |
 
 An instructor's private author preview is a distinct, authorized exception for
-display-ready correct-response teaching material. It is not a learner route and
+display-ready correct-response teaching material. It is not a Student route and
 does not turn answer-bearing source or an `AnswerKey` into a browser API type.
 
 For native assessment payload detail, including attempt-specific rendered IDs,
@@ -282,8 +377,8 @@ The HTTP client treats a successful status as untrusted until it verifies:
 2. exact closed response shape through a route-specific decoder;
 3. bounded primitive values and known discriminants;
 4. returned identity matches the requested route identity; and
-5. related records in a composed screen agree on tenant, course, run, attempt,
-   version, and seed where relevant.
+5. related records in a composed screen agree on actor, exact course/Student or
+   workspace relationship, run, attempt, version, and seed where relevant.
 
 Browser acceptance uses the production `ApiClient` over the disposable HTTPS
 gateway. Narrow browser-free unit tests check serialized decoder and transport
@@ -294,9 +389,10 @@ fixtures without creating a second browser runtime. The implementation is in
 focused decoder and serialization tests under `tests/`.
 
 Server error status is part of the contract, but a client must not use a
-difference between `404`, `403`, malformed input, or a conflict as proof that
-another tenant's resource exists. Route modules deliberately choose concealed
-not-found responses where that distinction would leak ownership.
+difference between `404`, `403`, malformed input, or a conflict as proof that a
+foreign actor's course, Student, workspace, or object exists. Route modules
+deliberately choose concealed not-found responses where that distinction would
+leak ownership.
 
 ## Versioning and change control
 
@@ -304,7 +400,14 @@ PLE currently uses stable `/api/...` paths, not a global `/v1` URL prefix.
 Versioning is therefore explicit at the boundary that evolves:
 
 - immutable published questions, their protected exact evidence, and deterministic seeds identify
-  delivered educational content;
+  delivered educational content. A stable Question ID names one lineage,
+  immutable versions carry exact evidence, and assignments and attempts pin
+  the version they received;
+- semantic change classes determine whether an original-lineage steward may
+  publish a same-ID version or whether a major objective, task, or response-
+  family change requires a private fork draft and a new Question ID.
+  Transport-size limits protect request handling; semantic classification
+  determines compatibility;
 - strong numeric resource revisions protect concurrent workspace, assignment,
   course-appearance, QTI-review, and conversion updates;
 - closed Rust/TypeScript discriminants version a DTO by adding a reviewed,

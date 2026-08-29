@@ -37,13 +37,12 @@ test("saved search filter keeps the current normalized Library meaning", () => {
     bylines: [],
     backends: ["native"],
     tags: [],
-    responseFamilies: [],
+    response_families: [],
     taxonomy: [],
     capabilities: [],
     licenses: [],
-    publicationScopes: [],
     evidence: "available",
-    usedInMyCourses: "any",
+    used_in_my_courses: "any",
     authorship: "any",
   });
 });
@@ -58,13 +57,12 @@ test("running a saved search starts with its current-catalog filters", () => {
       bylines: ["Lab team"],
       backends: ["qti"],
       tags: ["inheritance"],
-      responseFamilies: ["multipleChoice"],
+      response_families: ["multipleChoice"],
       taxonomy: [{ scheme: "ncbi", code: "9606" }],
       capabilities: ["serverGrading"],
       licenses: ["ccBy"],
-      publicationScopes: ["public"],
       evidence: "available",
-      usedInMyCourses: "used",
+      used_in_my_courses: "used",
       authorship: "any",
     },
   });
@@ -81,7 +79,6 @@ test("running a saved search starts with its current-catalog filters", () => {
     evidence: "available",
     usedInMyCourses: "used",
     authorship: "any",
-    publicationScopes: ["public"],
   });
 });
 

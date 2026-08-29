@@ -37,10 +37,10 @@ pub(super) use receipt::{decode_group_purpose, insert_receipt, load_existing_rec
 
 #[async_trait]
 impl EntitlementStore for PostgresStore {
-    async fn list_learner_entitled_assignments_impl(
+    async fn list_student_entitled_assignments_impl(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: question_model::CourseId,
         page: PageRequest,
     ) -> Result<Page<crate::AssignmentRecord>, StoreError> {
@@ -51,7 +51,7 @@ impl EntitlementStore for PostgresStore {
             .map(|cursor| cursor.as_str().to_string());
         // SQL owns only candidate ordering and tenant/course confinement. The
         // pure domain evaluator owns *all* membership, audience, and group
-        // decisions so list visibility cannot drift from learner actions.
+        // decisions so list visibility cannot drift from Student actions.
         let visible_limit = usize::from(page.size.get()) + 1;
         let batch_limit = i64::from(page.size.get()) + 1;
         let mut records = Vec::with_capacity(visible_limit);
@@ -79,7 +79,7 @@ impl EntitlementStore for PostgresStore {
                 let decision = evaluate_current_read_only(
                     &mut transaction,
                     context.tenant_id(),
-                    learner,
+                    student_user,
                     course,
                     assignment,
                 )
@@ -88,7 +88,7 @@ impl EntitlementStore for PostgresStore {
                     continue;
                 };
                 // S5 alone decides audience and membership.  S3 decides
-                // whether that currently entitled learner may see/start this
+                // whether that currently entitled Student may see/start this
                 // assignment; only an allowed candidate consumes page space.
                 let prior_runs: i64 = sqlx::query_scalar(
                     "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3 AND run.completed_at IS NOT NULL",
@@ -144,7 +144,7 @@ impl EntitlementStore for PostgresStore {
     async fn evaluate_assignment_entitlement_impl(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student_user: UserId,
         course: question_model::CourseId,
         assignment: question_model::AssignmentId,
     ) -> Result<EntitlementDecision, StoreError> {
@@ -152,7 +152,7 @@ impl EntitlementStore for PostgresStore {
         let result = evaluate_current_read_only(
             &mut transaction,
             context.tenant_id(),
-            learner,
+            student_user,
             course,
             assignment,
         )
@@ -237,7 +237,7 @@ pub(super) async fn prepare_materialization(
         tenant,
         course: command.course(),
         assignment: command.assignment(),
-        learner: command.learner(),
+        student_user: command.student_user(),
         membership,
         audience,
         current_groups: groups,
@@ -274,7 +274,7 @@ pub(super) async fn materialize_prepared_entitlement(
     .await?;
     if existing.as_ref().map(|value| value.0.id) != prepared.witness.existing_enrollment {
         return Err(StoreError::InvalidRecord(
-            "entitlement receipt disagrees with learner-work preparation witness".to_string(),
+            "entitlement receipt disagrees with Student-work preparation witness".to_string(),
         ));
     }
     let (enrollment, summary, provenance, disposition) = match existing {
@@ -318,7 +318,7 @@ pub(super) async fn hydrate_assignment_from_witness(
         || !witness_audience_matches(&assignment.audience, witness)
     {
         return Err(StoreError::InvalidRecord(
-            "prepared assignment record disagrees with learner-work witness".to_string(),
+            "prepared assignment record disagrees with Student-work witness".to_string(),
         ));
     }
     let revision: i64 = sqlx::query_scalar(
@@ -332,7 +332,7 @@ pub(super) async fn hydrate_assignment_from_witness(
     .ok_or_else(|| StoreError::InvalidRecord("prepared assignment disappeared".to_string()))?;
     if u64::try_from(revision).ok() != Some(witness.assignment_revision) {
         return Err(StoreError::InvalidRecord(
-            "prepared assignment revision disagrees with learner-work witness".to_string(),
+            "prepared assignment revision disagrees with Student-work witness".to_string(),
         ));
     }
     Ok(assignment)
@@ -370,7 +370,7 @@ pub(super) async fn hydrate_entitlement_witness_sources(
         || !witness_lifecycle_matches(&lifecycle, witness.lifecycle)
     {
         return Err(StoreError::InvalidRecord(
-            "prepared assignment facts disagree with learner-work witness".to_string(),
+            "prepared assignment facts disagree with Student-work witness".to_string(),
         ));
     }
     let member = sqlx::query(
@@ -381,7 +381,7 @@ pub(super) async fn hydrate_entitlement_witness_sources(
     )
     .bind(witness.tenant.as_uuid())
     .bind(witness.course.as_uuid())
-    .bind(witness.learner.as_uuid())
+    .bind(witness.student_user.as_uuid())
     .bind(witness.student_membership.as_uuid())
     .fetch_optional(&mut **transaction)
     .await
@@ -401,13 +401,13 @@ pub(super) async fn hydrate_entitlement_witness_sources(
         .transpose()?;
     if membership.as_ref().map(|value| value.id) != Some(witness.student_membership) {
         return Err(StoreError::InvalidRecord(
-            "prepared student membership disagrees with learner-work witness".to_string(),
+            "prepared Student membership disagrees with Student-work witness".to_string(),
         ));
     }
     match witness.authority {
         super::student_work_preparation::EntitlementPreparationAuthority::StudentSelfService
         | super::student_work_preparation::EntitlementPreparationAuthority::StudentSelf
-            if witness.actor == witness.learner
+            if witness.actor == witness.student_user
                 && witness.authority_membership == witness.student_membership => {}
         super::student_work_preparation::EntitlementPreparationAuthority::DirectInstructor => {
             let actual: Option<Uuid> = sqlx::query_scalar(
@@ -425,14 +425,14 @@ pub(super) async fn hydrate_entitlement_witness_sources(
             .map_err(map_sqlx_error)?;
             if actual != Some(witness.authority_membership.as_uuid()) {
                 return Err(StoreError::InvalidRecord(
-                    "prepared instructor membership disagrees with learner-work witness"
+                    "prepared Instructor membership disagrees with Student-work witness"
                         .to_string(),
                 ));
             }
         }
         _ => {
             return Err(StoreError::InvalidRecord(
-                "prepared authority membership disagrees with learner-work witness".to_string(),
+                "prepared authority membership disagrees with Student-work witness".to_string(),
             ));
         }
     }
@@ -446,7 +446,7 @@ pub(super) async fn hydrate_entitlement_witness_sources(
     .await?;
     if !witness_audience_matches(&audience, witness) {
         return Err(StoreError::InvalidRecord(
-            "prepared audience disagrees with learner-work witness".to_string(),
+            "prepared audience disagrees with Student-work witness".to_string(),
         ));
     }
     let mut groups = load_current_groups(
@@ -460,7 +460,7 @@ pub(super) async fn hydrate_entitlement_witness_sources(
     groups.sort_by_key(|(group, _)| group.as_uuid());
     if groups.iter().map(|(group, _)| *group).collect::<Vec<_>>() != witness.current_groups {
         return Err(StoreError::InvalidRecord(
-            "prepared current groups disagree with learner-work witness".to_string(),
+            "prepared current groups disagree with Student-work witness".to_string(),
         ));
     }
     Ok((membership, audience, groups))
@@ -494,24 +494,33 @@ fn witness_audience_matches(
 pub(super) async fn evaluate_current(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    learner: UserId,
-    course: question_model::CourseId,
-    assignment: question_model::AssignmentId,
-) -> Result<EntitlementDecision, StoreError> {
-    evaluate_current_with_locks(transaction, tenant, learner, course, assignment, true, true).await
-}
-
-pub(super) async fn evaluate_current_read_only(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    learner: UserId,
+    student_user: UserId,
     course: question_model::CourseId,
     assignment: question_model::AssignmentId,
 ) -> Result<EntitlementDecision, StoreError> {
     evaluate_current_with_locks(
         transaction,
         tenant,
-        learner,
+        student_user,
+        course,
+        assignment,
+        true,
+        true,
+    )
+    .await
+}
+
+pub(super) async fn evaluate_current_read_only(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    student_user: UserId,
+    course: question_model::CourseId,
+    assignment: question_model::AssignmentId,
+) -> Result<EntitlementDecision, StoreError> {
+    evaluate_current_with_locks(
+        transaction,
+        tenant,
+        student_user,
         course,
         assignment,
         false,
@@ -522,18 +531,18 @@ pub(super) async fn evaluate_current_read_only(
 
 /// Evaluates S5 current facts under the broker-held course/assignment lock.
 /// The 1812 prepare serializes roster and group changes, so this entire read
-/// set is intentionally plain; learner runtime locks belong to 1817.
+/// set is intentionally plain; Student runtime locks belong to 1817.
 pub(super) async fn evaluate_current_broker_prelocked_current_facts(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    learner: UserId,
+    student_user: UserId,
     course: question_model::CourseId,
     assignment: question_model::AssignmentId,
 ) -> Result<EntitlementDecision, StoreError> {
     evaluate_current_with_locks(
         transaction,
         tenant,
-        learner,
+        student_user,
         course,
         assignment,
         false,
@@ -545,7 +554,7 @@ pub(super) async fn evaluate_current_broker_prelocked_current_facts(
 async fn evaluate_current_with_locks(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    learner: UserId,
+    student_user: UserId,
     course: question_model::CourseId,
     assignment: question_model::AssignmentId,
     lock_assignment_audience: bool,
@@ -578,7 +587,7 @@ async fn evaluate_current_with_locks(
         ));
     }
     let member = sqlx::query("SELECT course_membership_id, student_id FROM course_member WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 AND role = 'student' AND status = 'active'")
-        .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(learner.as_uuid()).fetch_optional(&mut **transaction).await.map_err(map_sqlx_error)?;
+        .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(student_user.as_uuid()).fetch_optional(&mut **transaction).await.map_err(map_sqlx_error)?;
     let membership = member
         .map(|member| {
             Ok::<_, StoreError>(ActiveStudentMembership {
@@ -613,14 +622,14 @@ async fn evaluate_current_with_locks(
         tenant,
         course,
         assignment,
-        learner,
+        student_user,
         membership,
         audience,
         current_groups: groups,
     }))
 }
 
-/// Resolves a current learner identity and evaluates plain S5 facts under the
+/// Resolves a current Student identity and evaluates plain S5 facts under the
 /// broker-held course/assignment lock established by the 1812 prepare.
 pub(super) async fn evaluate_current_student_broker_prelocked_current_facts(
     transaction: &mut Transaction<'_, Postgres>,

@@ -47,7 +47,8 @@ pub use crate::course_grade::{
 };
 pub use crate::teaching_authority::{
     CoInstructorInvitationAcceptance, CoInstructorInvitationError, DirectInstructorMembership,
-    InstructorAuthority, InstructorMembershipRemovalError, accept_co_instructor_invitation,
+    InstructorAuthority, InstructorMembershipRemovalError, StudentCourseMembership,
+    accept_co_instructor_invitation, approved_instructor, current_course_instructor,
     evaluate_course_instructor_authority, evaluate_multiple_membership, invitation_state,
-    refuse_final_instructor_removal, validate_instructor_approval,
+    refuse_final_instructor_removal, student_owns_course_record, validate_instructor_approval,
 };

@@ -236,7 +236,7 @@ mod tests {
             tenant: TenantId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
-            learner: UserId::from_uuid(id(4)),
+            student_user: UserId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student: StudentId::from_uuid(id(6)),
@@ -318,7 +318,7 @@ mod tests {
             preview_denial_for(&entitlement, false),
             Some(PreviewDenialReason::StaleRevision)
         );
-        let denied = EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner);
+        let denied = EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent);
         assert_eq!(
             preview_denial_for(&denied, true),
             Some(PreviewDenialReason::NotEntitled)
@@ -331,9 +331,9 @@ mod tests {
 
     #[test]
     fn actual_and_hypothetical_individual_sources_share_the_safe_layer() {
-        let learner = StudentId::from_uuid(id(9));
+        let student = StudentId::from_uuid(id(9));
         assert_eq!(
-            preview_source_layer(&PolicySource::IndividualException(learner)),
+            preview_source_layer(&PolicySource::IndividualException(student)),
             PreviewPolicySourceLayer::IndividualException
         );
         assert_eq!(
@@ -346,7 +346,7 @@ mod tests {
     fn project_preview_policy_and_schedule_project_course_local_values_and_all_sources() {
         let schedule_group = CourseGroupId::from_uuid(id(7));
         let accommodation_group = CourseGroupId::from_uuid(id(8));
-        let learner = StudentId::from_uuid(id(9));
+        let student = StudentId::from_uuid(id(9));
         let at = |hour| {
             ActivityTimestamp::from_unix_millis(
                 chrono::Utc
@@ -370,7 +370,7 @@ mod tests {
             },
             time_limit_seconds: ResolvedField {
                 value: NonZeroU32::new(1_200),
-                source: PolicySource::IndividualException(learner),
+                source: PolicySource::IndividualException(student),
             },
             attempt_limit: ResolvedField {
                 value: NonZeroU32::new(3),
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn denied_s5_s3_s4_never_produces_preview_data() {
-        let entitlement = EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner);
+        let entitlement = EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent);
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
             lifecycle: AssignmentLifecycleGate::Open,
             authorization: AuthorizationGate::Authorized,

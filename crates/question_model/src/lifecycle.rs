@@ -3,7 +3,8 @@
 //! A draft lives in a tenant workspace and has no [`ProblemId`]. Validation is
 //! explicit, publication is the only transition that assigns a catalog ID,
 //! and deprecated or archived versions remain exactly resolvable. Deprecation
-//! hides discovery; archival additionally blocks new references.
+//! hides discovery; deprecation and archival retain exact history while blocking
+//! ordinary new selection.
 
 use serde::{Deserialize, Serialize};
 
@@ -28,14 +29,14 @@ pub enum Lifecycle {
         /// Tenant-owned workspace authoring the question.
         workspace: WorkspaceId,
     },
-    /// Immutable version available for discovery and new assignments.
+    /// Immutable version available for discovery and ordinary new selection.
     Published {
         /// Stable catalog problem assigned only by publication.
         problem: ProblemId,
         /// Immutable published version.
         version: VersionId,
     },
-    /// Hidden from discovery but still eligible by exact reference.
+    /// Hidden from discovery but retained for authorized exact-pin resolution.
     Deprecated {
         /// Stable catalog problem.
         problem: ProblemId,
@@ -44,7 +45,7 @@ pub enum Lifecycle {
         /// Author-supplied explanation, including corrections when applicable.
         reason: String,
     },
-    /// Long-term historical record, still resolvable by existing references.
+    /// Long-term historical record, still resolvable through existing exact pins.
     Archived {
         /// Stable catalog problem.
         problem: ProblemId,
@@ -131,7 +132,7 @@ impl std::error::Error for LifecycleError {}
 ///     } },
 /// )
 /// .expect("publish transition");
-/// assert!(published.is_assignable());
+/// assert!(published.is_eligible_for_ordinary_new_selection());
 /// ```
 pub fn apply(state: Lifecycle, event: LifecycleEvent) -> Result<Lifecycle, LifecycleError> {
     match (state, event) {
@@ -197,9 +198,11 @@ impl Lifecycle {
         matches!(self, Self::Published { .. })
     }
 
-    /// Whether a new assignment may reference this version.
-    pub fn is_assignable(&self) -> bool {
-        matches!(self, Self::Published { .. } | Self::Deprecated { .. })
+    /// Whether this version can create a new reference through ordinary selection.
+    ///
+    /// This does not govern resolution of an existing exact immutable pin.
+    pub fn is_eligible_for_ordinary_new_selection(&self) -> bool {
+        matches!(self, Self::Published { .. })
     }
 }
 
@@ -250,11 +253,11 @@ mod tests {
         let published = published();
         assert_eq!(published.problem(), Some(problem()));
         assert!(published.is_discoverable());
-        assert!(published.is_assignable());
+        assert!(published.is_eligible_for_ordinary_new_selection());
     }
 
     #[test]
-    fn deprecation_requires_a_reason_and_preserves_exact_resolution_identity() {
+    fn deprecation_preserves_exact_resolution_identity_but_blocks_ordinary_selection() {
         assert_eq!(
             apply(
                 published(),
@@ -273,7 +276,7 @@ mod tests {
         .expect("deprecation works");
         assert_eq!(deprecated.problem(), Some(problem()));
         assert!(!deprecated.is_discoverable());
-        assert!(deprecated.is_assignable());
+        assert!(!deprecated.is_eligible_for_ordinary_new_selection());
         assert!(matches!(
             deprecated,
             Lifecycle::Deprecated { ref reason, .. } if reason == "Corrected molecular mass"
@@ -297,7 +300,7 @@ mod tests {
             Some(VersionId::from_uuid(Uuid::from_u128(2)))
         );
         assert!(!archived.is_discoverable());
-        assert!(!archived.is_assignable());
+        assert!(!archived.is_eligible_for_ordinary_new_selection());
         assert_eq!(
             apply(archived, LifecycleEvent::Validate),
             Err(LifecycleError::IllegalTransition)

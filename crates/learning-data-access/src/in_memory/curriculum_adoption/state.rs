@@ -1,156 +1,225 @@
-use question_model::curriculum_adoption::{
-    CurriculumSemanticAssignment, CurriculumSemanticCourse, CurriculumSemanticDigest,
-};
-use question_model::{
-    ActivityTimestamp, AlphaCourseReference, AssignmentDefinitionSourceView, AssignmentId,
-    AssignmentReference, CourseReference, CourseScheduleRevision, CourseTerm,
-    CurriculumAdoptionIdempotencyKey, CurriculumImportRevision, ObservedAlphaSource,
-    ObservedAssignmentRevision, TenantId, UserId,
-};
 use std::collections::BTreeMap;
+
+use question_model::{
+    ActivityTimestamp, AssignmentDefinitionSourceView, AssignmentId, AssignmentReference,
+    CourseInstanceReceiptTarget, CourseInstanceWitness, CourseReference,
+    CurriculumAdoptionCompleted, CurriculumAdoptionIdempotencyKey, CurriculumImportRevision,
+    CurriculumReplayStatus, ForkBlueprintCourseCompleted, ObservedBlueprintSource, UserId,
+};
 
 use crate::curriculum_adoption::{CurriculumAdoptionOperation, CurriculumAdoptionRequestDigest};
 
-/// Private state owned by the curriculum-adoption capability.
-///
-/// `State` retains the single outer lock and operation-level rollback snapshot;
-/// grouping these immutable import records only gives this capability one
-/// coherent ownership boundary.
+/// Private immutable and derived state for one Memory curriculum-adoption capability.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub(in crate::in_memory) struct CurriculumAdoptionState {
-    /// Current, repairable projection of the newest immutable import evidence.
-    pub(super) import_records: BTreeMap<(TenantId, AssignmentId), StoredAssignmentImport>,
-    pub(super) assignment_evidence: BTreeMap<
-        (TenantId, CurriculumAdoptionIdempotencyKey, AssignmentId),
-        StoredAssignmentAdoptionEvidence,
-    >,
-    /// Immutable aggregate evidence for courses created from Alpha or rollover.
-    pub(super) whole_course_adoptions:
-        BTreeMap<(TenantId, question_model::CourseId), StoredWholeCourseAdoption>,
-    pub(super) alpha_fork_lineage: BTreeMap<AlphaCourseReference, StoredAlphaForkLineage>,
     pub(super) receipts:
-        BTreeMap<(TenantId, CurriculumAdoptionIdempotencyKey), MemoryCurriculumAdoptionReceipt>,
+        BTreeMap<(UserId, CurriculumAdoptionIdempotencyKey), MemoryCurriculumAdoptionReceipt>,
+    pub(super) assignment_evidence:
+        BTreeMap<(AssignmentId, CurriculumImportRevision), StoredAssignmentAdoptionEvidence>,
+    pub(super) import_records: BTreeMap<AssignmentId, StoredAssignmentImport>,
+    pub(super) whole_course_adoptions:
+        BTreeMap<question_model::CourseId, StoredWholeCourseAdoption>,
+    pub(super) receipt_targets:
+        BTreeMap<(UserId, CurriculumAdoptionIdempotencyKey), CourseInstanceReceiptTarget>,
 }
 
+/// Safe locators sufficient to project an answer-free completed operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MemoryCurriculumAdoptionOutcome {
-    ForkAlpha {
-        source: ObservedAlphaSource,
-        alpha: AlphaCourseReference,
+    ForkBlueprintCourse {
+        source: ObservedBlueprintSource,
+        created: ObservedBlueprintSource,
     },
-    InstantiateBlueprint {
+    AdoptBlueprintAssignment {
         course: CourseReference,
         assignment: AssignmentReference,
     },
-    InstantiateAlpha {
-        source: ObservedAlphaSource,
+    InstantiateBlueprintCourse {
         course: CourseReference,
     },
-    RolloverCourse {
-        source_course: CourseReference,
+    RolloverCourseInstance {
         course: CourseReference,
     },
-    ShiftCourseTerm {
+    ShiftCourseInstanceTerm {
         course: CourseReference,
-        term: CourseTerm,
     },
-    FastForwardAssignment {
+    ControlledUpdateBlueprintAssignment {
         course: CourseReference,
         assignment: AssignmentReference,
-        import_revision: CurriculumImportRevision,
     },
-    CreateSourceDerivedAssignment {
+    CreateSelectedBlueprintAssignment {
         course: CourseReference,
         assignment: AssignmentReference,
+    },
+    ReconcileCourseInstanceAdoption {
+        course: CourseReference,
     },
 }
 
-/// Minimal private completed-operation evidence; semantic/source contents stay
-/// in their own immutable records and never enter a browser receipt.
-#[derive(Debug, Clone, PartialEq)]
+impl MemoryCurriculumAdoptionOutcome {
+    pub(super) fn operation(&self) -> CurriculumAdoptionOperation {
+        match self {
+            Self::ForkBlueprintCourse { .. } => CurriculumAdoptionOperation::ForkBlueprintCourse,
+            Self::AdoptBlueprintAssignment { .. } => {
+                CurriculumAdoptionOperation::AdoptBlueprintAssignment
+            }
+            Self::InstantiateBlueprintCourse { .. } => {
+                CurriculumAdoptionOperation::InstantiateBlueprintCourse
+            }
+            Self::RolloverCourseInstance { .. } => {
+                CurriculumAdoptionOperation::RolloverCourseInstance
+            }
+            Self::ShiftCourseInstanceTerm { .. } => {
+                CurriculumAdoptionOperation::ShiftCourseInstanceTerm
+            }
+            Self::ControlledUpdateBlueprintAssignment { .. } => {
+                CurriculumAdoptionOperation::ControlledUpdateBlueprintAssignment
+            }
+            Self::CreateSelectedBlueprintAssignment { .. } => {
+                CurriculumAdoptionOperation::CreateSelectedBlueprintAssignment
+            }
+            Self::ReconcileCourseInstanceAdoption { .. } => {
+                CurriculumAdoptionOperation::ReconcileCourseInstanceAdoption
+            }
+        }
+    }
+
+    pub(super) fn completed(
+        &self,
+        replay: CurriculumReplayStatus,
+    ) -> Option<CurriculumAdoptionCompleted> {
+        match self {
+            Self::ForkBlueprintCourse { created, .. } => {
+                Some(CurriculumAdoptionCompleted::ForkBlueprintCourse {
+                    completed: ForkBlueprintCourseCompleted {
+                        blueprint: created.reference,
+                        revision: created.revision,
+                        replay,
+                    },
+                })
+            }
+            Self::AdoptBlueprintAssignment { course, assignment } => {
+                Some(CurriculumAdoptionCompleted::AdoptBlueprintAssignment {
+                    completed: question_model::AdoptBlueprintAssignmentCompleted {
+                        course: *course,
+                        assignment: *assignment,
+                        replay,
+                    },
+                })
+            }
+            Self::InstantiateBlueprintCourse { course } => {
+                Some(CurriculumAdoptionCompleted::InstantiateBlueprintCourse {
+                    completed: question_model::InstantiateBlueprintCourseCompleted {
+                        course: *course,
+                        replay,
+                    },
+                })
+            }
+            Self::RolloverCourseInstance { course } => {
+                Some(CurriculumAdoptionCompleted::RolloverCourseInstance {
+                    completed: question_model::RolloverCourseInstanceCompleted {
+                        course: *course,
+                        replay,
+                    },
+                })
+            }
+            Self::ShiftCourseInstanceTerm { course } => {
+                Some(CurriculumAdoptionCompleted::ShiftCourseInstanceTerm {
+                    completed: question_model::ShiftCourseInstanceTermCompleted {
+                        course: *course,
+                        replay,
+                    },
+                })
+            }
+            Self::ControlledUpdateBlueprintAssignment { course, assignment } => Some(
+                CurriculumAdoptionCompleted::ControlledUpdateBlueprintAssignment {
+                    completed: question_model::ControlledUpdateBlueprintAssignmentCompleted {
+                        course: *course,
+                        assignment: *assignment,
+                        replay,
+                    },
+                },
+            ),
+            Self::CreateSelectedBlueprintAssignment { course, assignment } => Some(
+                CurriculumAdoptionCompleted::CreateSelectedBlueprintAssignment {
+                    completed: question_model::CreateSelectedBlueprintAssignmentCompleted {
+                        course: *course,
+                        assignment: *assignment,
+                        replay,
+                    },
+                },
+            ),
+            Self::ReconcileCourseInstanceAdoption { .. } => None,
+        }
+    }
+
+    pub(super) fn reconciliation_completed(
+        &self,
+        replay: CurriculumReplayStatus,
+    ) -> Option<question_model::ReconcileCourseInstanceAdoptionCompleted> {
+        let Self::ReconcileCourseInstanceAdoption { course } = self else {
+            return None;
+        };
+        Some(question_model::ReconcileCourseInstanceAdoptionCompleted {
+            course: *course,
+            replay,
+        })
+    }
+}
+
+/// Immutable receipt inserted only with its immutable evidence and derived projections.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MemoryCurriculumAdoptionReceipt {
     pub(super) operation: CurriculumAdoptionOperation,
     pub(super) actor: UserId,
-    pub(super) request_sha256: CurriculumAdoptionRequestDigest,
-    pub(super) completed: MemoryCurriculumAdoptionOutcome,
+    pub(super) idempotency_key: CurriculumAdoptionIdempotencyKey,
+    pub(super) request_digest: CurriculumAdoptionRequestDigest,
     pub(super) occurred_at: ActivityTimestamp,
+    pub(super) outcome: MemoryCurriculumAdoptionOutcome,
+    pub(super) evidence: MemoryCurriculumAdoptionEvidence,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct StoredCurriculumBaseline {
-    pub(super) payload: CurriculumSemanticAssignment,
-    pub(super) digest: CurriculumSemanticDigest,
-    pub(super) revision: CurriculumImportRevision,
-}
-
+/// Immutable, answer-free facts required to validate a completed operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum StoredAssignmentImportSource {
-    Reusable(AssignmentDefinitionSourceView),
-    Rollover(RolloverAssignmentProvenance),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct RolloverAssignmentProvenance {
-    pub(super) source_course: CourseReference,
-    pub(super) source_schedule_revision: CourseScheduleRevision,
-    pub(super) source_assignment: ObservedAssignmentRevision,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum StoredWholeCourseOrigin {
-    Alpha {
-        source: ObservedAlphaSource,
+pub(crate) enum MemoryCurriculumAdoptionEvidence {
+    ForkBlueprintCourse {
+        source: ObservedBlueprintSource,
+        created: ObservedBlueprintSource,
     },
-    Rollover {
-        source_course: CourseReference,
-        source_schedule_revision: CourseScheduleRevision,
+    AdoptBlueprintAssignment {
+        source: AssignmentDefinitionSourceView,
+        destination: CourseInstanceWitness,
+        import_revision: CurriculumImportRevision,
     },
+    InstantiateBlueprintCourse {
+        source: ObservedBlueprintSource,
+        destination: CourseInstanceWitness,
+    },
+    CourseInstanceReceipt(CourseInstanceReceiptTarget),
 }
 
-/// Immutable provenance separate from normalized reusable meaning.
+/// Immutable assignment evidence indexed by its exact destination and import revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct StoredAssignmentImportProvenance {
-    pub(super) source: StoredAssignmentImportSource,
-    pub(super) actor: UserId,
-    pub(super) occurred_at: ActivityTimestamp,
-    pub(super) receipt: CurriculumAdoptionIdempotencyKey,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct StoredAssignmentAdoptionEvidence {
-    pub(super) baseline: StoredCurriculumBaseline,
-    pub(super) provenance: StoredAssignmentImportProvenance,
+    pub(super) receipt_actor: UserId,
+    pub(super) receipt_key: CurriculumAdoptionIdempotencyKey,
+    pub(super) source: AssignmentDefinitionSourceView,
+    pub(super) destination: CourseInstanceWitness,
+    pub(super) import_revision: CurriculumImportRevision,
 }
 
-/// Current derived import projection. Immutable receipt-keyed evidence is the
-/// sole authority and can rebuild this record during reconciliation.
-#[derive(Debug, Clone, PartialEq)]
+/// Repairable current projection rebuilt only from immutable assignment evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct StoredAssignmentImport {
-    pub(super) baseline: StoredCurriculumBaseline,
-    pub(super) provenance: StoredAssignmentImportProvenance,
+    pub(super) receipt_actor: UserId,
+    pub(super) receipt_key: CurriculumAdoptionIdempotencyKey,
+    pub(super) import_revision: CurriculumImportRevision,
 }
 
-/// Exact immutable assignment set created by one whole-course adoption. The
-/// receipt-keyed evidence rows remain stable if an import is later advanced or
-/// an unrelated assignment is added to the destination course.
-#[derive(Debug, Clone, PartialEq)]
+/// Immutable whole-CourseInstance adoption locator retained beside its receipt.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct StoredWholeCourseAdoption {
-    pub(super) destination_assignments: Vec<AssignmentId>,
-    pub(super) payload: CurriculumSemanticCourse,
-    pub(super) digest: CurriculumSemanticDigest,
-    pub(super) origin: StoredWholeCourseOrigin,
-    pub(super) actor: UserId,
-    pub(super) occurred_at: ActivityTimestamp,
-    pub(super) receipt: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Immutable normalized fork meaning plus its separate source/provenance binding.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct StoredAlphaForkLineage {
-    pub(super) payload: CurriculumSemanticCourse,
-    pub(super) digest: CurriculumSemanticDigest,
-    pub(super) source: ObservedAlphaSource,
-    pub(super) actor: UserId,
-    pub(super) occurred_at: ActivityTimestamp,
-    pub(super) receipt: CurriculumAdoptionIdempotencyKey,
+    pub(super) receipt_actor: UserId,
+    pub(super) receipt_key: CurriculumAdoptionIdempotencyKey,
+    pub(super) destination: CourseInstanceWitness,
 }

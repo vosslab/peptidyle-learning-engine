@@ -406,13 +406,31 @@ async fn private_and_institution_collections_apply_the_curation_role_matrix() {
 #[tokio::test]
 async fn saved_searches_normalize_and_require_one_current_revision() {
     let fixture = fixture().await;
+    for retired_filter in [
+        r#"{"title":"Retired scope","filter":{"publication_scopes":[]}}"#,
+        r#"{"title":"Retired scope","filter":{"publicationScopes":[]}}"#,
+        r#"{"title":"Camel case","filter":{"responseFamilies":[]}}"#,
+    ] {
+        let rejected = dispatch(
+            &fixture.app,
+            request(
+                Method::POST,
+                "/api/saved-problem-searches",
+                Some(&fixture.elena_cookie),
+                retired_filter,
+            ),
+        )
+        .await;
+        assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_no_store(&rejected);
+    }
     let create = dispatch(
         &fixture.app,
         request(
             Method::POST,
             "/api/saved-problem-searches",
             Some(&fixture.elena_cookie),
-            r#"{"title":"Protein search","filter":{"text":"  kinase  ","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"publicationScopes":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#,
+            r#"{"title":"Protein search","filter":{"text":"  kinase  ","bylines":[],"backends":[],"tags":[],"response_families":[],"taxonomy":[],"capabilities":[],"licenses":[],"evidence":"any","used_in_my_courses":"any","authorship":"any"}}"#,
         ),
     )
     .await;
@@ -420,6 +438,11 @@ async fn saved_searches_normalize_and_require_one_current_revision() {
     let etag = create.headers().get(ETAG).cloned().expect("search ETag");
     let value = json(create).await;
     assert_eq!(value["filter"]["text"], "kinase");
+    assert!(value["filter"].get("response_families").is_some());
+    assert!(value["filter"].get("used_in_my_courses").is_some());
+    assert!(value["filter"].get("publication_scopes").is_none());
+    assert!(value["filter"].get("responseFamilies").is_none());
+    assert!(value["filter"].get("usedInMyCourses").is_none());
     let uri = format!(
         "/api/saved-problem-searches/{}",
         value["reference"].as_str().expect("search reference")
@@ -430,7 +453,7 @@ async fn saved_searches_normalize_and_require_one_current_revision() {
             Method::PUT,
             &uri,
             Some(&fixture.elena_cookie),
-            r#"{"title":"Protein search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"publicationScopes":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#,
+            r#"{"title":"Protein search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"response_families":[],"taxonomy":[],"capabilities":[],"licenses":[],"evidence":"any","used_in_my_courses":"any","authorship":"any"}}"#,
         ),
     )
     .await;
@@ -440,7 +463,7 @@ async fn saved_searches_normalize_and_require_one_current_revision() {
         .uri(&uri)
         .header(COOKIE, &fixture.elena_cookie)
         .header(IF_MATCH, etag)
-        .body(Body::from(r#"{"title":"Kinase search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"publicationScopes":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#))
+        .body(Body::from(r#"{"title":"Kinase search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"response_families":[],"taxonomy":[],"capabilities":[],"licenses":[],"evidence":"any","used_in_my_courses":"any","authorship":"any"}}"#))
         .expect("update request");
     let updated = dispatch(&fixture.app, update).await;
     assert_eq!(updated.status(), StatusCode::OK);

@@ -89,7 +89,7 @@ struct ReplaceCollectionRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 struct ReplaceSavedSearchRequest {
     title: String,
     filter: CatalogSearchFilter,
@@ -958,5 +958,16 @@ mod tests {
             )
             .is_err()
         );
+        for legacy_filter in [
+            r#"{"title":"x","filter":{"publication_scopes":[]}}"#,
+            r#"{"title":"x","filter":{"publicationScopes":[]}}"#,
+            r#"{"title":"x","filter":{"responseFamilies":[]}}"#,
+            r#"{"title":"x","filter":{"usedInMyCourses":"any"}}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<ReplaceSavedSearchRequest>(legacy_filter).is_err(),
+                "legacy saved-search filter must be refused: {legacy_filter}"
+            );
+        }
     }
 }

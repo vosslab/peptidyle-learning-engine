@@ -60,7 +60,7 @@ authorize exposing its attached diagnostic text.
 | ------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `NotFound`                      | No visible record exists in the active scope.                           | Treat as absent; routes may also use it to conceal a foreign record.                                  |
 | `AlreadyExists`                 | Immutable identity or first-writer boundary already exists.             | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload. |
-| `TenantMismatch` or `Forbidden` | Caller context lacks the required tenant, ownership, or role.           | Stop. Do not reveal whether another tenant owns the record.                                           |
+| `Forbidden` | Caller context lacks the required actor, course/Student ownership, workspace relationship, capability, or role. | Stop. Do not reveal whether a foreign actor owns the record. |
 | `Conflict`                      | A compare-and-swap, lifecycle, or immutable-state precondition changed. | Reload the authoritative projection and ask the user to review before retrying.                       |
 | `RetryableTransaction`          | PostgreSQL aborted the whole serializable/deadlock transaction.         | Retry only at the owner-defined transaction or idempotent command boundary.                           |
 | `TimedOut`                      | The database-authoritative attempt deadline already passed.             | Stop the submission path and reload the current attempt or summary.                                   |
@@ -77,7 +77,7 @@ relevant boundary's concealment rule instead of exposing a raw `StoreError` or m
 status mapping.
 
 Browser errors contain a stable short message only. They never contain SQL, object keys, bucket
-names, signed URLs, checksums not already public, tenant identities, leases, renderer/provider
+names, signed URLs, checksums not already public, actor or course identities, leases, renderer/provider
 state, source archives, answer keys, or raw backend errors.
 
 ## Submission and attempt recovery
@@ -87,7 +87,7 @@ timing, and grading backend. A replica reconstructs that state from PostgreSQL; 
 recover an uncertain submission by issuing a different attempt.
 
 - A learner supplies one `Idempotency-Key` header for a submission. The validated key is bounded,
-  visible ASCII and is stored with tenant-scoped submission evidence in
+  visible ASCII and is stored with exact course/Student submission evidence in
   [contracts/runs.rs](../crates/learning-data-access/src/contracts/runs.rs).
 - The Store first atomically persists the accepted response, immutable issued-work witness, pending
   evaluation, execution, and ready job. An exact retry returns the same durable acceptance rather
@@ -115,7 +115,7 @@ must not treat current provenance fields as client authority.
 ## Replica and cache recovery
 
 API replicas have no correctness-bearing process memory. The shared PostgreSQL session store,
-tenant context, attempts, submissions, idempotency receipts, and shared S3-compatible object store
+actor context, attempts, submissions, idempotency receipts, and shared S3-compatible object store
 allow a surviving replica to resume an authorized attempt. The exact topology and evidence are in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 
@@ -149,7 +149,7 @@ lease and generation rules are owned by
 perspective, a transient or timed-out job receives its bounded retry/backoff;
 a permanent or exhausted job becomes `Dead`; and an unavailable or unknown
 finalization remains recoverable rather than being immediately repeated.
-Tenant-visible inspection exposes only coarse state and count, not lease tokens
+Actor-visible inspection exposes only coarse state and count, not lease tokens
 or failure text. Operators use the authorized job boundary to investigate a
 dead job and choose a documented repair; they do not make a stale worker's
 output current.
@@ -222,7 +222,7 @@ projection. `Pending`, `Modified`, `Dirty`, unknown, or unavailable migration st
 an application write. The API reports safe dependency/schema state through readiness and workers
 refuse schema-incompatible draining. Migration code and the operator-only status/migrate/verify
 commands are in [postgres/migrations.rs](../crates/learning-data-access/src/postgres/migrations.rs)
-and [DATABASE_TENANCY.md](DATABASE_TENANCY.md).
+and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#fresh-migration-epoch).
 
 - Applied migration files are immutable. Repair uses a forward migration or a deliberate recovery
   procedure; it never edits a checksum already recorded in a durable database.
@@ -248,9 +248,9 @@ browser-facing data channel.
 - Browser responses may contain a status, a short stable message, and a route-safe identifier
   already visible to the caller. They never contain object keys, buckets, manifests, signed URLs,
   leases, provider payloads, source bytes, answer keys, raw responses, SQL, credentials, or a
-  foreign tenant's existence.
-- Durable audit and access records remain tenant-owned and retention-bound. Store the minimum
-  operation identity, actor/tenant scope, reason category, and time needed for investigation.
+  foreign actor's course, Student, workspace, or record existence.
+- Durable audit and access records remain course/Student-owned and retention-bound. Store the minimum
+  operation identity, actor, exact target scope, reason category, and time needed for investigation.
 - Worker and server logs use stable error categories such as `unavailable` or `conflict`; attach
   protected correlation data only in the authorized operator boundary and never copy it into an
   HTTP response.
