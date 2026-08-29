@@ -32,6 +32,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Course Instance**: A course created from a **Blueprint Course**. It contains enrolled **Students**, deadlines, releases, and other delivery-specific settings.
 - **Published Question**: A validated question that is part of the global question corpus and available to vetted **Instructors**.
 - **Draft Question**: A private, unpublished question being developed by an **Instructor**. It must pass publication validation before joining the global question corpus.
+- **Question Corpus**: The global collection of **Published Questions** available to vetted **Instructors**. All questions used in assignments are part of the corpus.
 - **Sysadmin**: A god-level PLE administrator responsible for system administration, **Instructor** vetting, account creation, and helping **Instructors** manage courses.
 - **Instructor**: A vetted user who teaches courses and can browse, reuse, create, fork, and publish question content.
 - **Student**: A user enrolled in a **Course Instance** who completes assigned questions and other course activities.
@@ -77,36 +78,49 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Course Instance** data defaults to notice after 30 days, archive after 100 days, and permanent deletion after 365 days.
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 
-## Question content philosophy
+## Question philosophy
 
-- Problem sharing, discovery, and reuse are a high-priority **Instructor** workflow.
-- All **Published Questions** are public to vetted **Instructors**. By published, I mean part of the global question corpus.
-- All questions in assignments are part of the global question corpus.
-- **Students** cannot see the question corpus. They only see questions in their assignments.
 - Questions are subject agnostic. Questions must be properly tagged, but all are part of the same corpus.
-- **Draft Questions** are kept private until publication so unfinished
-  material does not reduce shared-catalog quality.
+- **Draft Questions** are kept private until publication so unfinished material does not reduce shared-catalog quality.
 - **Draft Questions** must go through a validation process before being added to the corpus.
 - Questions are strictly and deterministically automated; do not add manual grading.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT flat-question families should be supported.
 - Versioned PLE flat-question JSON is the canonical machine format for simple static questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
-- **Published Questions** use one copyable Crockford Base32 Question ID in the form `AAA-BBBB`.
-- **Published Questions** are still discoverable even when used by a private **Course Instance**.
-- Question stewardship should use a GitHub-like model.
+- **Published Questions** use one copyable Crockford Base32 Question ID in the form `AAA-BBBB`. where the final character is a checksum.
 - **Published Questions** maintain version history, so updates can be propagated to other courses.
 - **Published Questions** should have a limit on the amount of change allowed, to avoid trolling or completely changing the content.
+- **Published Questions** have two editing paths: moderate edits by the question owner and full forks by any **Instructor**.
+- Moderate edits update the owner's **Published Question** while maintaining the original question authorship and CC licensing.
+- Full forks create a separate **Draft Question** with its own authorship while maintaining the source question's CC licensing and attribution.
+- Editing of a full fork happens in the **Instructor's** private **Draft Question**. Publication validation is required before the fork joins the corpus as a **Published Question**.
+- Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
+
+## Question corpus philosophy
+
+- Problem sharing, discovery, and reuse are a high-priority **Instructor** workflow.
+- All **Published Questions** are public to vetted **Instructors**. By published, I mean part of the global question corpus.
+- All questions in assignments are part of the global question corpus.
+- **Students** cannot see the question corpus. They only see questions in their assignments.
+- **Published Questions** are still discoverable even when used by a private **Course Instance**.
+- Question stewardship should use a GitHub-like model.
 - **Published Questions** can be forked and edited by any **Instructor**.
 - **Published Questions** can be starred and watched, just like GitHub.
 - Forks of **Published Questions** can be viewed by other **Instructors**.
 - Anonymized counts are maintained for every **Published Question**: # attempts, # correct, and, for certain types of flat questions, # times each choice was selected.
-- Editing happens in the **Instructor's** private fork draft. Publication validation is required before the fork joins the
-  corpus.
-- Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
 - Star = favorite/visible endorsement. Every vetted **Instructor** can see the star count and which vetted **Instructors** starred the question.
 - Watch = subscription. It drives the watching **Instructor's** in-app notifications for versions, forks, improvement threads, and impact notices; the watch list remains private unless you later choose otherwise.
 - **Students** and anonymous users see neither the **Instructor** identity list nor watch state.
 - Statistics are version-specific first: accepted graded attempt count, correct count, and eligible choice counts. Privacy-safe question-level rollups may combine versions only when clearly labeled and disclosure thresholds are met.
+- **Published Questions** support four change paths: moderate edits, change proposals, full forks, and forced corrections.
+- Moderate edits are made by the question owner and create a new immutable version in the same lineage.
+- A **Change Proposal** can be submitted by any **Instructor** against an exact version. The owner reviews the validated proposal, and acceptance creates a new version in the same lineage with contributor credit.
+- Full forks can be created by any **Instructor** as private **Draft Questions** and later published as separate lineages with source attribution.
+- Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
+- **Change Proposals** must pass publication validation before submission and show their semantic and grading impact.
+- A **Change Proposal** must be rebased or resubmitted if the question lineage advances before acceptance.
+- Question authorship, contributor credit, history, and compatible CC licensing are preserved across edits, proposals, and forks.
+- Assignments and graded work remain pinned to exact immutable versions and are never changed automatically by later revisions.
 
 ## Course content philosophy
 
@@ -156,6 +170,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Every **Student** browser action should be usable with the keyboard alone.
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
+- **Student** course data falls under FERPA; treat it as radioactive.
 
 ## Course observers, student observers, and graders philosophy
 
