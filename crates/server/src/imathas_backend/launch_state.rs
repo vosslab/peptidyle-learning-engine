@@ -3,7 +3,7 @@
 use base64::Engine as _;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use learning_data_access::{ExternalToolBinding, LearnerWorkRoutingBinding, TenantContext};
+use learning_data_access::{ExternalToolBinding, StudentWorkRoutingBinding, TenantContext};
 use question_model::{QuestionAttempt, UserId};
 
 use crate::run::RunBackendError;
@@ -199,7 +199,7 @@ impl LaunchStateAead {
 pub(super) fn launch_state_aad(
     context: TenantContext,
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt: &QuestionAttempt,
     binding: &ExternalToolBinding,
 ) -> Vec<u8> {
@@ -208,8 +208,8 @@ pub(super) fn launch_state_aad(
     for value in [
         context.tenant_id().as_uuid().to_string(),
         actor.as_uuid().to_string(),
-        learner_work_binding.course.as_uuid().to_string(),
-        learner_work_binding.assignment.as_uuid().to_string(),
+        student_work_binding.course.as_uuid().to_string(),
+        student_work_binding.assignment.as_uuid().to_string(),
         attempt.id.as_uuid().to_string(),
         attempt.problem.as_uuid().to_string(),
         attempt.question_version.as_uuid().to_string(),
@@ -229,15 +229,15 @@ pub(super) fn launch_state_aad(
 pub(crate) fn launch_cookie_aad(
     context: TenantContext,
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt: question_model::QuestionAttemptId,
 ) -> Vec<u8> {
     format!(
         "ple:imathas:launch-cookie:v2\\0{}\\0{}\\0{}\\0{}\\0{}\\0",
         context.tenant_id().as_uuid(),
         actor.as_uuid(),
-        learner_work_binding.course.as_uuid(),
-        learner_work_binding.assignment.as_uuid(),
+        student_work_binding.course.as_uuid(),
+        student_work_binding.assignment.as_uuid(),
         attempt.as_uuid(),
     )
     .into_bytes()
@@ -250,13 +250,13 @@ pub(crate) fn launch_cookie_value(
     aead: &LaunchStateAead,
     context: TenantContext,
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt: question_model::QuestionAttemptId,
     created: &learning_data_access::CreatedExternalToolLaunchSession,
 ) -> Result<String, RunBackendError> {
     aead.seal_cookie(
         created.id,
         &created.token,
-        &launch_cookie_aad(context, actor, learner_work_binding, attempt),
+        &launch_cookie_aad(context, actor, student_work_binding, attempt),
     )
 }

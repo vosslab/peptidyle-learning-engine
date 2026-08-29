@@ -16,8 +16,8 @@ use crate::records::{
     BASELINE_VERSION, BaseCourseIds, base_course, installation_recipe, practice_course,
 };
 use crate::{
-    BaseCourseInstallError, BaseCourseInstallPhase, BaseCourseInstallRequest,
-    BaseCourseParticipants,
+    AcceptedSubmissionSeedExecutor, BaseCourseInstallError, BaseCourseInstallPhase,
+    BaseCourseInstallRequest, BaseCourseParticipants,
 };
 
 struct PendingInstallation {
@@ -42,6 +42,7 @@ struct PendingInstallation {
 pub async fn install(
     installer_pool: &BaseCourseInstallerPool,
     store: &PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     request: BaseCourseInstallRequest,
 ) -> Result<BaseCourseInstallOutput, BaseCourseInstallError> {
     // ASVS 15.4.3: LDA owns acquisition and release of the session advisory lock.
@@ -53,7 +54,7 @@ pub async fn install(
                 source,
             )
         })?;
-    let result = install_locked(&mut lock, store, request).await;
+    let result = install_locked(&mut lock, store, seed_executor, request).await;
     match result {
         Ok(value) => {
             lock.release().await.map_err(|source| {
@@ -77,6 +78,7 @@ pub async fn install(
 async fn install_locked(
     lock: &mut learning_data_access::postgres::BaseCourseInstallLock,
     store: &PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     request: BaseCourseInstallRequest,
 ) -> Result<BaseCourseInstallOutput, BaseCourseInstallError> {
     let (participants, phase) = request.into_parts();
@@ -145,6 +147,7 @@ async fn install_locked(
                 complete_installation(
                     lock,
                     store,
+                    seed_executor,
                     PendingInstallation {
                         participants,
                         ids,
@@ -165,6 +168,7 @@ async fn install_locked(
 async fn complete_installation(
     lock: &mut learning_data_access::postgres::BaseCourseInstallLock,
     store: &PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     pending: PendingInstallation,
 ) -> Result<BaseCourseInstallOutput, BaseCourseInstallError> {
     lock.seed_accounts(pending.generation)
@@ -201,7 +205,7 @@ async fn complete_installation(
         practice_course(pending.participants, pending.ids.practice_course)?,
     )
     .await?;
-    let verified = publication::converge(store, pending.participants).await?;
+    let verified = publication::converge(store, seed_executor, pending.participants).await?;
     let expectation = BaseCourseCompletionExpectation::new(
         pending.participants.tenant(),
         pending.generation,

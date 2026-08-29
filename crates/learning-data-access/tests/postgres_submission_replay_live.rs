@@ -14,12 +14,11 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
-    NativeExecutionEnvelopeCapability, PrefetchedPrivateExecutionV1,
-    PrefetchedQuestionDescriptorV1, PresentationCapability, PublishDraftCommand,
-    QtiGradingCapability, ReplaceAssignmentCommand, ReservePrefetchedQuestionCommand, Store,
-    StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
-    UpsertCourseMember,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, NativeExecutionEnvelopeCapability,
+    PrefetchedPrivateExecutionV1, PrefetchedQuestionDescriptorV1, PresentationCapability,
+    PublishDraftCommand, QtiGradingCapability, ReplaceAssignmentCommand,
+    ReservePrefetchedQuestionCommand, Store, StoreError, StudentWorkRoutingBinding,
+    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -29,8 +28,8 @@ use question_model::presentation::{
     NonceSourceV1, PresentationBuildError, build_presentation_v1_with_nonce_source,
 };
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, LearnerDisclosurePolicy,
-    LearnerDisclosureTiming, RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    StudentDisclosurePolicy, StudentDisclosureTiming, TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::License;
 use question_model::{
@@ -316,7 +315,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 assignment_item_at(reference, 1),
             ],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         question_model::BaseAssignmentPolicy::default(),
@@ -340,7 +339,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await
@@ -351,7 +350,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id()),
                 run: run.id,
                 assignment_position: 0,
@@ -412,7 +411,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             context,
             ReservePrefetchedQuestionCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 reservation: prefetched_successor.clone(),
                 private_execution: prefetched_private_execution.clone(),
             },
@@ -432,7 +431,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .expect("valid receipt snapshot key");
     let submission = SubmitQuestionAttemptCommand {
         actor: student,
-        binding: LearnerWorkRoutingBinding::new(course, assignment),
+        binding: StudentWorkRoutingBinding::new(course, assignment),
         attempt: attempt.id,
         response: response.clone(),
         result: AttemptResult {
@@ -466,7 +465,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student,
-                    binding: LearnerWorkRoutingBinding::new(course, assignment),
+                    binding: StudentWorkRoutingBinding::new(course, assignment),
                     reservation,
                     private_execution: prefetched_private_execution.clone(),
                 },
@@ -514,12 +513,12 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                     audience: current.record.audience.clone(),
                     items: current.record.items.clone(),
                     selection_groups: current.record.selection_groups.clone(),
-                    disclosure_policy: LearnerDisclosurePolicy {
-                        score: LearnerDisclosureTiming::Never,
-                        per_item_correctness: LearnerDisclosureTiming::Never,
-                        feedback_text: LearnerDisclosureTiming::Never,
-                        solution: LearnerDisclosureTiming::Never,
-                        class_statistics: LearnerDisclosureTiming::Never,
+                    disclosure_policy: StudentDisclosurePolicy {
+                        score: StudentDisclosureTiming::Never,
+                        per_item_correctness: StudentDisclosureTiming::Never,
+                        feedback_text: StudentDisclosureTiming::Never,
+                        solution: StudentDisclosureTiming::Never,
+                        class_statistics: StudentDisclosureTiming::Never,
                     },
                     policies: current.record.policies,
                 },
@@ -571,7 +570,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id()),
                 run: run.id,
                 assignment_position: 1,
@@ -605,7 +604,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             .finalize_submission_next_attempt(
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(course, assignment),
+                StudentWorkRoutingBinding::new(course, assignment),
                 attempt.id,
                 Some(successor.id),
             )
@@ -636,7 +635,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             .finalize_submission_next_attempt(
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(course, assignment),
+                StudentWorkRoutingBinding::new(course, assignment),
                 attempt.id,
                 Some(successor.id),
             )

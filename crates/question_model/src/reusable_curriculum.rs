@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AlphaCourseReference, AssignmentDeadlineBehavior, AssignmentInstructions,
     AssignmentScoringMode, BlueprintReference, CatalogDiscoveryItem, LateSubmissionPolicy,
-    LearnerDisclosurePolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES,
-    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, PublicByline,
-    QuestionId, RunPolicies, SelectionOrdering,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS,
+    PointValue, PoolDrawAlgorithm, PublicByline, QuestionId, RunPolicies, SelectionOrdering,
+    StudentDisclosurePolicy,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
@@ -158,7 +158,7 @@ fn ordered_after(
 pub struct ReusableAssignmentDefaults {
     /// Whole-run time limit, if the reusable definition establishes one.
     pub time_limit_seconds: Option<std::num::NonZeroU32>,
-    /// Number of learner runs, if the reusable definition establishes one.
+    /// Number of Student runs, if the reusable definition establishes one.
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Late-work treatment copied into the future assignment policy.
     pub late_submission: LateSubmissionPolicy,
@@ -166,8 +166,9 @@ pub struct ReusableAssignmentDefaults {
     pub deadline_behavior: AssignmentDeadlineBehavior,
     /// Independent run behavior copied into the future assignment policy.
     pub run_policies: RunPolicies,
-    /// Learner-release policy copied into the future assignment policy.
-    pub learner_disclosure: LearnerDisclosurePolicy,
+    /// Student-release policy copied into the future assignment policy.
+    #[serde(rename = "student_disclosure")]
+    pub student_disclosure: StudentDisclosurePolicy,
 }
 
 impl ReusableAssignmentDefaults {
@@ -676,7 +677,7 @@ mod tests {
                 continued_practice: crate::ContinuedPractice::Unlimited,
                 variation: crate::VariationPolicy::NewSeeds,
             },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
+            student_disclosure: StudentDisclosurePolicy::default(),
         }
     }
 

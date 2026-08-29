@@ -46,6 +46,22 @@ CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 }
 
 
+#============================================
+def canonical_image_selections(manifest: "DisposableManifest") -> tuple[str, ...]:
+	"""Return the fixed image selections allowed by the selected profile."""
+	if manifest.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		return CANONICAL_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
+	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
+		return ("PLE_POSTGRES_IMAGE_SHA256",)
+	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
+		return (
+			"PLE_POSTGRES_IMAGE_SHA256",
+			"PLE_MINIO_IMAGE_SHA256",
+			"PLE_MINIO_MC_IMAGE_SHA256",
+		)
+	return CANONICAL_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
+
+
 @dataclasses.dataclass(frozen=True)
 class DisposableManifest:
 	"""Non-secret runner evidence needed to form a disposable target."""
@@ -116,15 +132,19 @@ def load_manifest(repo_root: pathlib.Path, manifest_path: pathlib.Path) -> Dispo
 	"""Load and normalize one runner-owned non-secret target manifest."""
 	manifest_path = manifest_path.absolute()
 	if manifest_path.name == local_stack_control.runtime_manifest.MANIFEST_NAME:
-		runtime = local_stack_control.runtime_manifest.load_database_baseline_runtime(
-			manifest_path.parent
-		)
+		profile = local_stack_control.runtime_manifest.acceptance_runtime_profile(manifest_path.parent)
+		if profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
+			runtime = local_stack_control.runtime_manifest.load_database_baseline_runtime(manifest_path.parent)
+		elif profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
+			runtime = local_stack_control.runtime_manifest.load_course_appearance_cross_store_runtime(manifest_path.parent)
+		else:
+			raise local_stack_control.models.ControllerError("acceptance runtime profile is invalid")
 		return DisposableManifest(
 			owner=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
 			project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 			env_file=runtime.compose_environment_path,
 			capability_file=runtime.cleanup_capability_path,
-			live_demo_profile=local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE,
+			live_demo_profile=profile,
 			acceptance_runtime_workspace=runtime.workspace,
 		)
 	values = manifest_values(manifest_path)
@@ -158,9 +178,7 @@ def disposable_target(
 	local_stack_control.compose.require_disposable_capability_file(manifest.capability_file)
 	local_stack_control.env_file.require_mutation_env_file(manifest.env_file)
 	declared_names = local_stack_control.env_file.add_canonical_selections(
-		repo_root,
-		manifest.env_file,
-		CANONICAL_IMAGE_SELECTIONS_BY_OWNER[policy.owner],
+		repo_root, manifest.env_file, canonical_image_selections(manifest)
 	)
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(
 		repo_root, policy.owner, manifest.live_demo_profile
@@ -695,27 +713,38 @@ def compose_command(
 	require_safe_compose_arguments(arguments)
 	if policy.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
 		profile = live_demo_profile_policy(disposable)
-		if (
-			profile.profile is not local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE
-			or "database_baseline_oracle" not in profile.child_capabilities
-		):
-			raise local_stack_control.models.ControllerError(
-				"this fixed live-demo profile cannot use generic Compose commands"
-			)
-		if arguments == ["up", "-d", "postgres"]:
-			pass
-		elif (
-			len(arguments) >= 5
-			and arguments[:4] == ["exec", "-T", "postgres", "psql"]
-		):
-			pass
+		if profile.profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
+			if "database_baseline_oracle" not in profile.child_capabilities:
+				raise local_stack_control.models.ControllerError("live-demo profile capability is invalid")
+			if arguments != ["up", "-d", "postgres"] and not (
+				len(arguments) >= 5 and arguments[:4] == ["exec", "-T", "postgres", "psql"]
+			):
+				raise local_stack_control.models.ControllerError(
+					"database baseline Compose commands are limited to PostgreSQL startup and psql"
+				)
+			if disposable.acceptance_runtime_workspace is not None:
+				local_stack_control.runtime_manifest.require_database_baseline_compose_password(
+					disposable.acceptance_runtime_workspace
+				)
+		elif profile.profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
+			if "course_appearance_cross_store_oracle" not in profile.child_capabilities:
+				raise local_stack_control.models.ControllerError("live-demo profile capability is invalid")
+			is_postgres_ready = arguments[:4] == ["exec", "-T", "postgres", "pg_isready"]
+			is_minio_ready = arguments == ["exec", "-T", "minio", "mc", "ready", "local"]
+			is_postgres_psql = len(arguments) >= 5 and arguments[:4] == ["exec", "-T", "postgres", "psql"]
+			if arguments != ["up", "-d", "postgres", "minio"] and not (
+				is_postgres_ready or is_minio_ready or is_postgres_psql or arguments == ["run", "--rm", "createbuckets"]
+			):
+				raise local_stack_control.models.ControllerError(
+					"cross-store Compose commands are limited to startup, readiness, bucket creation, and PostgreSQL psql"
+				)
+			if disposable.acceptance_runtime_workspace is not None:
+				local_stack_control.runtime_manifest.require_course_appearance_cross_store_compose_credentials(
+					disposable.acceptance_runtime_workspace
+				)
 		else:
 			raise local_stack_control.models.ControllerError(
-				"database baseline Compose commands are limited to PostgreSQL startup and psql"
-			)
-		if disposable.acceptance_runtime_workspace is not None:
-			local_stack_control.runtime_manifest.require_database_baseline_compose_password(
-				disposable.acceptance_runtime_workspace
+				"this fixed live-demo profile cannot use generic Compose commands"
 			)
 	elif not policy.allows_generic_compose:
 		raise local_stack_control.models.ControllerError(

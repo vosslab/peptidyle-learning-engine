@@ -7,16 +7,15 @@
 
 use question_model::{
     ActivityTimestamp, AssignmentTeachingSettingsField, CourseLocalDateTime, CourseTerm,
-    LearnerDisclosurePolicy, PreviewDeadlineBehaviorField, PreviewDenialReason,
-    PreviewDisclosureFlags, PreviewDisclosureMoment, PreviewDisclosureProjection,
-    PreviewDisclosureUnavailableReason, PreviewEntitlementDenialReason,
-    PreviewEntitlementGrantReason, PreviewEntitlementOutcome, PreviewLateSubmissionField,
-    PreviewLimitField, PreviewPolicySourceLayer, PreviewResolvedPolicy, PreviewScheduleProjection,
-    PreviewTimeField,
+    PreviewDeadlineBehaviorField, PreviewDenialReason, PreviewDisclosureFlags,
+    PreviewDisclosureMoment, PreviewDisclosureProjection, PreviewDisclosureUnavailableReason,
+    PreviewEntitlementDenialReason, PreviewEntitlementGrantReason, PreviewEntitlementOutcome,
+    PreviewLateSubmissionField, PreviewLimitField, PreviewPolicySourceLayer, PreviewResolvedPolicy,
+    PreviewScheduleProjection, PreviewTimeField, StudentDisclosurePolicy,
 };
 
 use crate::{
-    disclosure_policy::evaluate_learner_disclosure,
+    disclosure_policy::evaluate_student_disclosure,
     effective_assignment_policy::{
         EffectiveAssignmentPolicy, EffectivePolicyDecision, PolicySource,
     },
@@ -149,7 +148,7 @@ pub fn project_preview_entitlement(decision: &EntitlementDecision) -> PreviewEnt
 /// Runs S4 at the requested preview boundary. Due and Close remain unavailable when absent.
 pub fn project_preview_disclosure(
     effective: &EffectivePolicyDecision,
-    disclosure: LearnerDisclosurePolicy,
+    disclosure: StudentDisclosurePolicy,
     moment: PreviewDisclosureMoment,
     now: ActivityTimestamp,
     submitted_at: Option<ActivityTimestamp>,
@@ -169,7 +168,7 @@ pub fn project_preview_disclosure(
             reason: PreviewDisclosureUnavailableReason::BoundaryMissing,
         };
     };
-    let Some(value) = evaluate_learner_disclosure(disclosure, effective, moment_time, submitted_at)
+    let Some(value) = evaluate_student_disclosure(disclosure, effective, moment_time, submitted_at)
     else {
         return PreviewDisclosureProjection::Unavailable {
             moment,
@@ -223,7 +222,7 @@ mod tests {
     use question_model::{
         AssignmentAudience, AssignmentDeadlineBehavior, AssignmentId, CourseGroupId,
         CourseGroupPurpose, CourseId, CourseMembershipId, CourseTerm, LateSubmissionPolicy,
-        LearnerDisclosureTiming, StudentId, TenantId, UserId,
+        StudentDisclosureTiming, StudentId, TenantId, UserId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -276,7 +275,7 @@ mod tests {
             project_preview_entitlement(&entitlement),
             PreviewEntitlementOutcome::Granted { .. }
         ));
-        let disclosure = LearnerDisclosurePolicy::default();
+        let disclosure = StudentDisclosurePolicy::default();
         assert!(matches!(
             project_preview_disclosure(
                 &effective,
@@ -493,7 +492,7 @@ mod tests {
             assert_eq!(
                 project_preview_disclosure(
                     &effective,
-                    LearnerDisclosurePolicy::default(),
+                    StudentDisclosurePolicy::default(),
                     moment,
                     ActivityTimestamp::from_unix_millis(10),
                     None,
@@ -544,12 +543,12 @@ mod tests {
                 late: LateVerdict::OnTime,
             },
         };
-        let disclosure = LearnerDisclosurePolicy {
-            score: LearnerDisclosureTiming::DuringAttempt,
-            per_item_correctness: LearnerDisclosureTiming::AfterSubmit,
-            feedback_text: LearnerDisclosureTiming::AfterDue,
-            solution: LearnerDisclosureTiming::AfterClose,
-            class_statistics: LearnerDisclosureTiming::Never,
+        let disclosure = StudentDisclosurePolicy {
+            score: StudentDisclosureTiming::DuringAttempt,
+            per_item_correctness: StudentDisclosureTiming::AfterSubmit,
+            feedback_text: StudentDisclosureTiming::AfterDue,
+            solution: StudentDisclosureTiming::AfterClose,
+            class_statistics: StudentDisclosureTiming::Never,
         };
         let flags = |score_shown, feedback_shown, solution_shown| PreviewDisclosureFlags {
             score_shown,

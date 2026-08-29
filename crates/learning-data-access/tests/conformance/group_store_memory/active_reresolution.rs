@@ -390,7 +390,7 @@ async fn assert_in_progress<S>(
 {
     assert_eq!(
         store
-            .learner_get_question_attempt(fixture.context, learner, fixture.attempt)
+            .student_get_question_attempt(fixture.context, learner, fixture.attempt)
             .await
             .expect("learner attempt read")
             .expect("learner retains active attempt")
@@ -442,7 +442,7 @@ async fn assert_atomic_refusals<S>(
         .expect("group")
         .expect("schedule group");
     let attempt = store
-        .learner_get_question_attempt(fixture.context, learner, fixture.attempt)
+        .student_get_question_attempt(fixture.context, learner, fixture.attempt)
         .await
         .expect("attempt")
         .expect("attempt");
@@ -512,7 +512,7 @@ async fn assert_atomic_refusals<S>(
     );
     assert_eq!(
         store
-            .learner_get_question_attempt(fixture.context, learner, fixture.attempt)
+            .student_get_question_attempt(fixture.context, learner, fixture.attempt)
             .await
             .expect("attempt"),
         Some(attempt)
@@ -605,7 +605,7 @@ async fn assert_audience_revocation_terminalizes_current_attempt<S>(
             .start_or_resume_run(
                 fixture.context,
                 learner,
-                LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+                StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 RunId::from_uuid(uuid(99_231))
             )
             .await,

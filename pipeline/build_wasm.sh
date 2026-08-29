@@ -22,14 +22,14 @@
 #   --debug   build the unoptimized profile (faster, much larger artifact)
 
 set -euo pipefail
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY/.."
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory/.."
 
-CARGO_PROFILE="release"
-PROFILE_DIR="release"
+cargo_profile="release"
+profile_dir="release"
 if [ "${1:-}" = "--debug" ]; then
-	CARGO_PROFILE="dev"
-	PROFILE_DIR="debug"
+	cargo_profile="dev"
+	profile_dir="debug"
 fi
 
 if ! command -v cargo >/dev/null 2>&1; then
@@ -37,14 +37,14 @@ if ! command -v cargo >/dev/null 2>&1; then
 	exit 1
 fi
 
-echo "==> cargo build ($CARGO_PROFILE) for wasm32-unknown-unknown"
+echo "==> cargo build ($cargo_profile) for wasm32-unknown-unknown"
 # The wasm32-unknown-unknown target is listed in rust-toolchain.toml, so rustup
 # installs it automatically on first use. No manual `rustup target add` needed.
-cargo build --profile "$CARGO_PROFILE" --target wasm32-unknown-unknown -p wasm_bridge
+cargo build --profile "$cargo_profile" --target wasm32-unknown-unknown -p wasm_bridge
 
-WASM_INPUT="target/wasm32-unknown-unknown/${PROFILE_DIR}/wasm_bridge.wasm"
-if [ ! -f "$WASM_INPUT" ]; then
-	echo "ERROR: expected artifact missing: $WASM_INPUT" >&2
+wasm_input="target/wasm32-unknown-unknown/${profile_dir}/wasm_bridge.wasm"
+if [ ! -f "$wasm_input" ]; then
+	echo "ERROR: expected artifact missing: $wasm_input" >&2
 	exit 1
 fi
 
@@ -58,7 +58,7 @@ for pair in "web dist_wasm/web" "node dist_wasm/node"; do
 	flavor="$1"
 	out_dir="$2"
 	echo "==> bindgen --$flavor -> $out_dir"
-	cargo tools bindgen "$WASM_INPUT" "$flavor" "$out_dir" ple_bridge
+	cargo tools bindgen "$wasm_input" "$flavor" "$out_dir" ple_bridge
 done
 
 # The node flavor is CommonJS, but the repo-root package.json declares
@@ -77,4 +77,4 @@ test -f dist_wasm/node/ple_bridge.js || {
 	exit 1
 }
 
-echo "Built dist_wasm/ (web + node) from $WASM_INPUT"
+echo "Built dist_wasm/ (web + node) from $wasm_input"

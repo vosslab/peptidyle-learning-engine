@@ -4,25 +4,6 @@ use question_model::{ActivityTimestamp, CourseMembershipId, run_policy::TimingPo
 
 use super::*;
 
-/// Serializes policy changes with learner actions for one assignment.  The
-/// policy relations and receipt pointer are the authoritative state; this is
-/// deliberately only a lock, never a second resolver.
-pub(super) async fn lock_postgres_assignment_policy(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    assignment: AssignmentId,
-) -> Result<(), StoreError> {
-    sqlx::query(
-        "SELECT pg_advisory_xact_lock(hashtextextended($1::uuid::text || ':' || $2::uuid::text, 0))",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment.as_uuid())
-    .execute(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    Ok(())
-}
-
 pub(super) async fn load_postgres_course_group_members(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,

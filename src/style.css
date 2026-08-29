@@ -1,7 +1,5 @@
 /* style.css - shared PLE design system, shell, and responsive composition. */
 
-@import "./components/learner_assignment_presentation.css";
-
 :root {
   color-scheme: light;
   --ple-surface: #fbfaf7;

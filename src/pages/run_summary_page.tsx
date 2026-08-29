@@ -8,7 +8,7 @@ import { FeedbackPanel } from "../components/feedback_panel";
 import { useApiRuntime } from "../api/runtime";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { runRouteReference } from "../navigation/public_route";
-import { learnerProgressSummary, learnerScoreValue } from "../learner_progress";
+import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export function RunSummaryPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -93,9 +93,9 @@ export function RunSummaryPage(): JSX.Element {
             </Show>
             <section aria-label="Assignment score">
               <h2>Assignment score</h2>
-              <p>{learnerProgressSummary(current().summary)}</p>
-              <Show when={current().summary.scoreState === "available"}>
-                <p>This run: {learnerScoreValue(current().run.score)}</p>
+              <p>{studentProgressSummary(current().summary)}</p>
+              <Show when={current().summary.score_state === "available"}>
+                <p>This run: {studentScoreValue(current().run.score)}</p>
               </Show>
             </section>
             <Show when={current().practiceAllowed && assignmentId() !== undefined}>
@@ -118,8 +118,16 @@ export function RunSummaryPage(): JSX.Element {
                 <FeedbackPanel
                   disclosure={
                     outcome.feedback === null
-                      ? { kind: "awaiting", feedback: null }
-                      : { kind: "released", feedback: outcome.feedback }
+                      ? {
+                          kind: "awaiting",
+                          feedback: null,
+                          scoringStatus: outcome.scoringStatus,
+                        }
+                      : {
+                          kind: "released",
+                          feedback: outcome.feedback,
+                          scoringStatus: outcome.scoringStatus,
+                        }
                   }
                   assetUrl={(asset) =>
                     new URL(runtime.client.assetUrl(asset.asset), window.location.origin)

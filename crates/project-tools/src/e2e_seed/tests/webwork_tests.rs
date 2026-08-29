@@ -311,7 +311,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
             scoring_mode: AssignmentScoringMode::Normal,
         }],
         selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: RunPolicies {
             completion: CompletionRequirement::AnswerAll,
             grade: GradePolicy::Highest,

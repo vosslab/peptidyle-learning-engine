@@ -11,6 +11,7 @@ export * from "./decoders/run";
 export * from "./decoders/submission_status";
 export * from "./decoders/navigation";
 export * from "./decoders/course_grade";
+export * from "./decoders/calculated_gradebook";
 export * from "./decoders/teaching_operations";
 export * from "./decoders/preview_plane";
 export * from "./decoders/problem_curation";

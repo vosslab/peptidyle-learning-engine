@@ -33,7 +33,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(scale_problems),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -43,7 +43,7 @@ where
         .start_or_resume_run(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, scale_assignment),
+            StudentWorkRoutingBinding::new(course, scale_assignment),
             scale_run_id,
         )
         .await
@@ -70,7 +70,7 @@ where
                 context,
                 IssueQuestionAttemptCommand {
                     actor: student_user,
-                    binding: LearnerWorkRoutingBinding::new(course, scale_assignment),
+                    binding: StudentWorkRoutingBinding::new(course, scale_assignment),
                     attempt: attempt_id,
                     run: scale_run.id,
                     assignment_position: position,
@@ -113,7 +113,7 @@ where
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: student_user,
-                    binding: LearnerWorkRoutingBinding::new(course, scale_assignment),
+                    binding: StudentWorkRoutingBinding::new(course, scale_assignment),
                     attempt: attempt_id,
                     response: StudentResponse::Numeric { value: 1.0 },
                     result: AttemptResult {

@@ -9,8 +9,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_ROOT="$(cd "$SCRIPT_DIRECTORY/../.." && pwd -P)"
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$script_directory/../.." && pwd -P)"
 readonly REPO_ROOT
 
 if [ "${1:-}" != "--owned-child" ]; then
@@ -36,11 +36,11 @@ readonly POSTGRES_USER="ple_e2e_migrator"
 readonly POSTGRES_DB="postgres"
 readonly D2_PROBLEM_CURATION_MIGRATION="2026081836_problem_curation_capabilities.sql"
 
-TEMP_DIR=""
-COMPOSE_STARTED=0
-GATE_FAILURES=0
-PROJECT_NAME=""
-POSTGRES_VOLUME_NAME=""
+temp_dir=""
+compose_started=0
+gate_failures=0
+project_name=""
+postgres_volume_name=""
 
 fail() {
 	echo "database baseline E2E: $*" >&2
@@ -49,33 +49,33 @@ fail() {
 
 record_failure() {
 	echo "database baseline E2E: FAIL: $*" >&2
-	GATE_FAILURES=$((GATE_FAILURES + 1))
+	gate_failures=$((gate_failures + 1))
 }
 
 capture_postgres_volume() {
 	local container_ids container_id volume_projects
 	container_ids="$(podman ps -aq \
-		--filter "label=io.podman.compose.project=$PROJECT_NAME" \
+		--filter "label=io.podman.compose.project=$project_name" \
 		--filter 'label=io.podman.compose.service=postgres')"
 	if [ "$(printf '%s\n' "$container_ids" | sed '/^$/d' | wc -l | tr -d ' ')" -ne 1 ]; then
 		echo "database baseline E2E: could not resolve exactly one labelled postgres container" >&2
 		return 1
 	fi
 	container_id="$container_ids"
-	POSTGRES_VOLUME_NAME="$(podman inspect --format \
+	postgres_volume_name="$(podman inspect --format \
 		'{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
 		"$container_id")"
-	if [ -z "$POSTGRES_VOLUME_NAME" ]; then
+	if [ -z "$postgres_volume_name" ]; then
 		echo "database baseline E2E: postgres container has no data volume" >&2
 		return 1
 	fi
-	if ! podman volume inspect "$POSTGRES_VOLUME_NAME" >/dev/null 2>&1; then
+	if ! podman volume inspect "$postgres_volume_name" >/dev/null 2>&1; then
 		echo "database baseline E2E: inspected postgres data volume is unavailable" >&2
 		return 1
 	fi
-	volume_projects="$(podman volume inspect "$POSTGRES_VOLUME_NAME" --format \
+	volume_projects="$(podman volume inspect "$postgres_volume_name" --format \
 		'{{index .Labels "io.podman.compose.project"}}|{{index .Labels "com.docker.compose.project"}}')"
-	case "$POSTGRES_VOLUME_NAME" in
+	case "$postgres_volume_name" in
 		containers_ple_pgdata|containers_ple_miniodata|containers_ple_identity_runtime)
 			echo "database baseline E2E: refused to claim an ordinary containers volume" >&2
 			return 1
@@ -87,16 +87,16 @@ capture_postgres_volume() {
 			return 1
 			;;
 	esac
-	echo "database baseline E2E: captured disposable postgres volume $POSTGRES_VOLUME_NAME"
+	echo "database baseline E2E: captured disposable postgres volume $postgres_volume_name"
 }
 
 remove_postgres_volume() {
-	if [ -z "$POSTGRES_VOLUME_NAME" ]; then
+	if [ -z "$postgres_volume_name" ]; then
 		return 0
 	fi
-	if podman volume inspect "$POSTGRES_VOLUME_NAME" >/dev/null 2>&1; then
-		podman volume rm "$POSTGRES_VOLUME_NAME" >/dev/null || {
-			echo "database baseline E2E: could not remove disposable postgres volume $POSTGRES_VOLUME_NAME" >&2
+	if podman volume inspect "$postgres_volume_name" >/dev/null 2>&1; then
+		podman volume rm "$postgres_volume_name" >/dev/null || {
+			echo "database baseline E2E: could not remove disposable postgres volume $postgres_volume_name" >&2
 			return 1
 		}
 	fi
@@ -116,17 +116,17 @@ compose() {
 cleanup() {
 	local status="$?"
 	local cleanup_failed=0
-	if [ "$COMPOSE_STARTED" = "1" ]; then
+	if [ "$compose_started" = "1" ]; then
 		(
 			cd "$REPO_ROOT"
 			python3 -m local_stack_control._consumer_cli cleanup --manifest "$RUNTIME_MANIFEST_PATH"
 		) || cleanup_failed=1
 	fi
-	if [ "$cleanup_failed" = "0" ] && [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
-		rm -rf -- "$TEMP_DIR"
+	if [ "$cleanup_failed" = "0" ] && [ -n "$temp_dir" ] && [ -d "$temp_dir" ]; then
+		rm -rf -- "$temp_dir"
 	fi
 	if [ "$cleanup_failed" = "1" ]; then
-		echo "database baseline E2E: cleanup failed; inspect project $PROJECT_NAME with runtime manifest $RUNTIME_MANIFEST" >&2
+		echo "database baseline E2E: cleanup failed; inspect project $project_name with runtime manifest $RUNTIME_MANIFEST" >&2
 		[ "$status" -ne 0 ] || status=1
 	fi
 	exit "$status"
@@ -144,7 +144,7 @@ wait_for_postgres() {
 		fi
 		sleep 1
 	done
-	fail "disposable PostgreSQL did not become ready; inspect project $PROJECT_NAME"
+	fail "disposable PostgreSQL did not become ready; inspect project $project_name"
 }
 
 run_project_tools() {
@@ -253,23 +253,23 @@ export PLE_ACCEPTANCE_RUNTIME_MANIFEST="$RUNTIME_MANIFEST_PATH"
 case "$DATABASE_NAME" in
 	*[!a-z0-9_]* | '') fail "internal disposable database name is invalid" ;;
 esac
-PROJECT_NAME="ple-live-demo-browser"
+project_name="ple-live-demo-browser"
 
-echo "database baseline E2E: starting isolated project $PROJECT_NAME from its private runtime manifest"
-COMPOSE_STARTED=1
+echo "database baseline E2E: starting isolated project $project_name from its private runtime manifest"
+compose_started=1
 compose up -d postgres
 capture_postgres_volume || fail "could not resolve the disposable PostgreSQL data volume"
 wait_for_postgres
 
 psql_in_container -d postgres -c "CREATE DATABASE $DATABASE_NAME"
-EXPECTED_MIGRATION_COUNT="$(find "$REPO_ROOT/schemas/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
-[ "$EXPECTED_MIGRATION_COUNT" -gt 0 ] || fail "migration inventory is empty"
+expected_migration_count="$(find "$REPO_ROOT/schemas/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
+[ "$expected_migration_count" -gt 0 ] || fail "migration inventory is empty"
 [ -f "$REPO_ROOT/schemas/migrations/$D2_PROBLEM_CURATION_MIGRATION" ] || \
 	fail "required D2 problem-curation migration is missing: $D2_PROBLEM_CURATION_MIGRATION"
 
 initial_status="$(run_project_tools status)"
 printf '%s\n' "$initial_status"
-[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq "$EXPECTED_MIGRATION_COUNT" ] || \
+[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq "$expected_migration_count" ] || \
 	fail "empty database did not report every tracked migration as pending"
 printf '%s\n' "$initial_status" | grep -q "2026081836 problem curation capabilities: pending" || \
 	fail "empty database did not report the D2 problem-curation migration as pending"
@@ -278,7 +278,7 @@ run_project_tools migrate
 run_project_tools migrate
 final_status="$(run_project_tools status)"
 printf '%s\n' "$final_status"
-[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq "$EXPECTED_MIGRATION_COUNT" ] || \
+[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq "$expected_migration_count" ] || \
 	fail "migrated database did not report every tracked migration as applied"
 printf '%s\n' "$final_status" | grep -q "2026081836 problem curation capabilities: applied" || \
 	fail "migrated database did not report the D2 problem-curation migration as applied"
@@ -421,20 +421,10 @@ run_live_cargo_test "flat-question private grading boundary" cargo test -p learn
 	postgres_flat_question_publication_preserves_private_grading_boundary \
 	-- --ignored --exact --test-threads=1
 
-echo "database baseline E2E: course-local item-analysis generation fence and privacy"
-run_live_cargo_test "course-local item-analysis generation fence and privacy" cargo test -p learning-data-access --features postgres \
-	--test postgres_item_analysis_live \
-	postgres_item_analysis_is_current_private_and_generation_fenced \
-	-- --ignored --exact --test-threads=1
-
-echo "database baseline E2E: mixed automatic/manual generation fence"
-run_live_cargo_test "mixed automatic/manual generation fence" cargo test -p learning-data-access --features postgres \
-	--test postgres_manual_grading_live \
-	postgres_mixed_automatic_and_manual_grading_is_generation_fenced \
-	-- --ignored --exact --test-threads=1
-
-echo "database baseline E2E: course-grade scheme, compact totals, export audit, and RLS"
-run_live_cargo_test "course-grade scheme, compact totals, export audit, and RLS" cargo test -p learning-data-access --features postgres \
+echo "database baseline E2E: course-grade scheme, calculated Gradebook, compact totals, export audit, and RLS"
+# The selected service oracle also invokes
+# `calculated_gradebook_cases::postgres_calculated_gradebook_page_uses_roster_structure_and_live_witnesses`.
+run_live_cargo_test "course-grade scheme, calculated Gradebook, compact totals, export audit, and RLS" cargo test -p learning-data-access --features postgres \
 	--test postgres_course_grade_scheme_live \
 	course_grade_cases::postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_and_rls_fenced \
 	-- --ignored --exact --test-threads=1
@@ -512,18 +502,29 @@ run_live_cargo_test "B2 curriculum adoption, rollover, term shift, and reconcili
 		--emit-accepted-submission-login-provisioning "$WORKSPACE"
 ) | psql_in_container -d "$DATABASE_NAME"
 
+echo "database baseline E2E: course-local item-analysis generation fence and privacy"
+run_live_cargo_test "course-local item-analysis generation fence and privacy" cargo test -p learning-data-access --features postgres \
+	--test postgres_item_analysis_live \
+	postgres_item_analysis_is_current_private_and_generation_fenced \
+	-- --ignored --exact --test-threads=1
+
 run_live_cargo_test "G1 Instructor grading-operation authority, replay, and lifecycle projection" cargo test -p learning-data-access --features postgres \
 	--test postgres_automated_grading_operations_live \
 	postgres_automated_grading_operations_live_oracle_is_brokered_replay_safe_and_projected \
 	-- --ignored --exact --test-threads=1
 
-TEMP_DIR="$WORKSPACE/migration-checksum"
-mkdir "$TEMP_DIR"
-cp -R "$REPO_ROOT/schemas/migrations" "$TEMP_DIR/migrations"
-first_migration="$(find "$TEMP_DIR/migrations" -maxdepth 1 -type f -name '*.sql' | sort | head -n 1)"
+run_live_cargo_test "G2 Student-work inspection broker authority and concealment" cargo test -p learning-data-access --features postgres \
+	--test postgres_student_work_inspection_live \
+	postgres_student_work_inspection_broker_is_execute_only_and_fail_closed \
+	-- --ignored --exact --test-threads=1
+
+temp_dir="$WORKSPACE/migration-checksum"
+mkdir "$temp_dir"
+cp -R "$REPO_ROOT/schemas/migrations" "$temp_dir/migrations"
+first_migration="$(find "$temp_dir/migrations" -maxdepth 1 -type f -name '*.sql' | sort | head -n 1)"
 [ -n "$first_migration" ] || fail "copied migration directory is empty"
 printf '\n-- disposable E2E checksum mutation\n' >> "$first_migration"
-mutated_status="$(run_project_tools status --migrations-dir "$TEMP_DIR/migrations")"
+mutated_status="$(run_project_tools status --migrations-dir "$temp_dir/migrations")"
 printf '%s\n' "$mutated_status"
 printf '%s\n' "$mutated_status" | grep -q ': modified' || \
 	fail "copied mutated migration was not reported as modified"
@@ -727,7 +728,7 @@ for role in ple_app ple_student ple_grader ple_grading_reader ple_public_asset_p
 	run_role_matrix "$role"
 done
 
-if [ "$GATE_FAILURES" -gt 0 ]; then
-	fail "$GATE_FAILURES actionable schema inventory check(s) failed"
+if [ "$gate_failures" -gt 0 ]; then
+	fail "$gate_failures actionable schema inventory check(s) failed"
 fi
-echo "database baseline E2E: PASS ($EXPECTED_MIGRATION_COUNT tracked migrations and representative role denial)"
+echo "database baseline E2E: PASS ($expected_migration_count tracked migrations and representative role denial)"

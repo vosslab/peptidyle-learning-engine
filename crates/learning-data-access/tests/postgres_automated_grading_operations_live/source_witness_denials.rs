@@ -133,20 +133,6 @@ pub(super) async fn prove_source_witness_denials(scenario: SourceWitnessDenialSc
         .expect("rollback denied generic invalidation binding");
     let mut app = app_transaction(pool, tenant, session).await;
     assert!(
-        sqlx::query("SELECT * FROM public.ple_bind_manual_grade_invalidation_v1($1,$2,$3)")
-            .bind(tenant.as_uuid())
-            .bind(fresh_uuid())
-            .bind(fresh_uuid())
-            .fetch_all(&mut *app)
-            .await
-            .is_err(),
-        "the typed manual-grade wrapper requires its authoritative receipt"
-    );
-    app.rollback()
-        .await
-        .expect("rollback denied unproven typed source binding");
-    let mut app = app_transaction(pool, tenant, session).await;
-    assert!(
         sqlx::query("SELECT * FROM public.ple_bind_attempt_support_invalidation_v1($1,$2,$3)")
             .bind(tenant.as_uuid())
             .bind(fresh_uuid())

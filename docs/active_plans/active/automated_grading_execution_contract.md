@@ -92,15 +92,14 @@ guards apply. A populated pair persists until the existing retention capability
 deletes governed records. Existing `payload` and `payload_sha256` retain their
 queryable-projection semantics.
 
-The integrity layer establishes one receipt invariant across native, manual,
+The integrity layer establishes one receipt invariant across native,
 external-tool, and accepted-submission receipt writers: every
 `submission_receipt_snapshot` carries `receipt_attempt_payload` and
 `receipt_attempt_payload_sha256`, an answer-free attempt snapshot in the
 legitimate terminal state owned by that writer. A normal or automated
-completed receipt uses `Submitted`; a pending-manual receipt retains
-`NeedsManualGrading`. The normalized snapshot remains the immutable source for
+completed receipt uses `Submitted`. The normalized snapshot remains the immutable source for
 receipt replay and status reads; it never consults mutable catalog sources to
-reconstruct learner work. The accepted-submission completed branch additionally
+reconstruct Student work. The accepted-submission completed branch additionally
 requires the full `Submitted` plus `graded | exempt` completion aggregate.
 
 ## Canonical immutable evidence protocol
@@ -681,8 +680,9 @@ completed aggregate fails closed through the existing unavailable path.
 
 ## Learner status contract
 
-W4 extends W3's pending response into one flattened tagged union. Browser JSON
-uses lowerCamelCase fields and the `kind` discriminant. Portable symbolic values
+W4 extends W3's pending response into one flattened tagged union. **Current pre-WN1 behavior:**
+Browser JSON uses lowerCamelCase fields and the `kind` discriminant; the WN1-A source/type matrix
+assigns its complete PLE wire cutover to one C or QM closure. Portable symbolic values
 use snake_case, in accordance with
 [NAMING_CONVENTIONS.md](../../NAMING_CONVENTIONS.md).
 
@@ -706,7 +706,7 @@ GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission
 
 Lane D receives one focused server-only `LearnerSubmissionStatusStore`; it is
 injected beside the existing sealed execution capability rather than added to
-the broad `Store` facade. It proves tenant, learner, course, assignment, run,
+the broad `Store` facade. It proves tenant, Student, course, assignment, run,
 and attempt in one authoritative read before returning the union. Memory reads
 the completed aggregate under one lock; PostgreSQL checks the exact route
 binding and receipt in one tenant transaction. Both use the same closed table:
@@ -714,7 +714,7 @@ binding and receipt in one tenant transaction. Both use the same closed table:
 | Execution / evaluation / receipt | Read result |
 | --- | --- |
 | `ready`, `running`, or `retry_wait` / `automated_pending` / no completed receipt | `accepted_pending` |
-| `exception` / `automated_exception` or `needs_manual_grading` / no completed receipt | `instructor_attention` |
+| `exception` / `automated_exception` / no completed receipt | `instructor_attention` |
 | `completed` / `graded` or `exempt` / valid immutable completed receipt | `completed` |
 | Any other combination | unavailable closed failure |
 

@@ -80,13 +80,13 @@ import {
 } from "./shared";
 import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
-import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
+import { decodeStudentDisclosurePolicy } from "./assignment_policy";
 import { decodeCourseAppearance } from "./course_appearance";
 import { decodeCatalogSearchFacets } from "./catalog_search_facets";
 
 // Retain the established catalog-course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
-export { decodeLearnerDisclosurePolicy } from "./assignment_policy";
+export { decodeStudentDisclosurePolicy } from "./assignment_policy";
 export {
   decodeCourseAppearance,
   decodeCourseAppearanceUpdate,
@@ -827,7 +827,7 @@ export function decodeAssignmentSummary(
       `${path}.selectionGroups`,
       decodeAssignmentSelectionGroup,
     ),
-    disclosurePolicy: decodeLearnerDisclosurePolicy(
+    disclosurePolicy: decodeStudentDisclosurePolicy(
       field(record, "disclosurePolicy", path),
       `${path}.disclosurePolicy`,
     ),
@@ -840,7 +840,7 @@ export function decodeAssignmentSummary(
 export {
   decodeAssignmentTeachingSettingsValidationFailure,
   decodeInstructorAssignmentTeachingSettingsLocal,
-  decodeLearnerAssignmentDetail,
-  decodeLearnerAssignmentSummary,
+  decodeStudentAssignmentDetail,
+  decodeStudentAssignmentLandingSummary,
 } from "./assignment_teaching_delivery";
 export * from "./question_model";

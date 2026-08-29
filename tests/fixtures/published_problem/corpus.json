@@ -316,11 +316,11 @@
     ],
     "selectionGroups": [],
     "disclosurePolicy": {
-      "score": "afterSubmit",
-      "perItemCorrectness": "afterSubmit",
-      "feedbackText": "afterSubmit",
-      "solution": "afterSubmit",
-      "classStatistics": "never"
+      "score": "after_submit",
+      "per_item_correctness": "after_submit",
+      "feedback_text": "after_submit",
+      "solution": "after_submit",
+      "class_statistics": "never"
     },
     "policies": {
       "completion": {
@@ -595,12 +595,12 @@
   "gradebook": [
     {
       "tenant": "0198e000-0000-7000-8000-000000000001",
-      "courseId": "0198e000-0000-7000-8000-000000000014",
-      "enrollmentId": "0198e000-0000-7000-8000-000000000007",
-      "studentId": "0198e000-0000-7000-8000-000000000008",
-      "learnerName": "Jordan Learner",
-      "assignmentId": "0198e000-0000-7000-8000-000000000006",
-      "assignmentTitle": "Peptide bond mastery",
+      "course_id": "0198e000-0000-7000-8000-000000000014",
+      "enrollment_id": "0198e000-0000-7000-8000-000000000007",
+      "student_id": "0198e000-0000-7000-8000-000000000008",
+      "student_name": "Jordan Student",
+      "assignment_id": "0198e000-0000-7000-8000-000000000006",
+      "assignment_title": "Peptide bond mastery",
       "summary": {
         "tenant": "0198e000-0000-7000-8000-000000000001",
         "enrollment": "0198e000-0000-7000-8000-000000000007",
@@ -611,7 +611,7 @@
         "totalQuestionAttempts": 4,
         "lastActivityAt": 1786000004100
       },
-      "scoringStatus": "current"
+      "scoring_status": "current"
     }
   ]
 }

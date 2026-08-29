@@ -15,9 +15,10 @@ use axum::{Router, middleware};
 /// The security meaning of one externally reachable HTTP operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RouteIntent {
-    /// A read-only representation. GET handlers must not create sessions,
-    /// consume capabilities, enqueue work, sign private URLs, or write audit
-    /// records.
+    /// A representation that does not change the represented product state.
+    /// GET handlers may append non-authoritative access or security telemetry;
+    /// they must not create sessions, consume capabilities, enqueue work, or
+    /// sign private URLs.
     Representation,
     /// A state transition. It must use a non-safe HTTP method so the browser
     /// origin check applies before it reaches the handler.
@@ -166,11 +167,16 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/courses/{course}/assignments"),
     mutation("/api/courses/{course}/assignments/drafts", "POST"),
     read("/api/courses/{course}/gradebook"),
+    read("/api/courses/{course}/gradebook/selection"),
+    read("/api/courses/{course}/gradebook/students/{membership}/assignments/{assignment}/runs"),
+    read(
+        "/api/courses/{course}/gradebook/students/{membership}/assignments/{assignment}/runs/{run}",
+    ),
     read("/api/courses/{course}/grade-scheme"),
     mutation("/api/courses/{course}/grade-scheme", "PUT"),
     read("/api/courses/{course}/gradebook-totals"),
     mutation("/api/courses/{course}/grade-export.csv", "POST"),
-    read("/api/assignments/{assignment}/learner"),
+    read("/api/assignments/{assignment}/student"),
     read("/api/assignments/{assignment}/summary"),
     read("/api/courses/{course}/assignments/{assignment}"),
     mutation(
@@ -306,8 +312,6 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
         "POST",
     ),
     read("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status"),
-    read("/api/attempts/{attempt}/manual-grade"),
-    mutation("/api/attempts/{attempt}/manual-grade", "PUT"),
     mutation("/api/attempts/{attempt}/feedback-release", "POST"),
     read("/api/grading/summaries/{enrollment}"),
     read("/api/enrollments/{enrollment}"),
@@ -512,7 +516,7 @@ mod tests {
     }
 
     #[test]
-    fn learner_work_routes_preserve_nested_route_and_method_contracts() {
+    fn student_work_routes_preserve_nested_route_and_method_contracts() {
         for path in [
             "/api/courses/{course}/assignments/{assignment}/runs",
             "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/prefetch-next",
@@ -543,6 +547,13 @@ mod tests {
             ),
             Some(RouteIntent::Representation),
         );
+    }
+
+    #[test]
+    fn retired_manual_grade_routes_have_no_policy_authority() {
+        let path = "/api/attempts/{attempt}/manual-grade";
+        assert_eq!(route_policy(path, "GET"), None);
+        assert_eq!(route_policy(path, "PUT"), None);
     }
 
     #[test]

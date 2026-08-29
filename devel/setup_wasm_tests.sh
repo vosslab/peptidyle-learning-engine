@@ -2,27 +2,28 @@
 # setup_wasm_tests.sh - install the version-matched wasm-bindgen test runner.
 
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$repo_root"
 
-RUNNER_PACKAGE_ID="$(cargo pkgid wasm-bindgen)"
-RUNNER_VERSION="${RUNNER_PACKAGE_ID##*@}"
-RUNNER_ROOT="target/tooling/wasm-bindgen-cli"
-RUNNER="$RUNNER_ROOT/bin/wasm-bindgen-test-runner"
+runner_package_id="$(cargo pkgid wasm-bindgen)"
+runner_version="${runner_package_id##*@}"
+runner_root="target/tooling/wasm-bindgen-cli"
+runner="$runner_root/bin/wasm-bindgen-test-runner"
 
-if [ -x "$RUNNER" ]; then
-	ACTUAL_VERSION="$($RUNNER --version)"
-	if [[ "$ACTUAL_VERSION" == *"$RUNNER_VERSION"* ]]; then
-		echo "wasm-bindgen test runner $RUNNER_VERSION already installed in $RUNNER_ROOT"
+if [ -x "$runner" ]; then
+	actual_version="$($runner --version)"
+	if [[ "$actual_version" == *"$runner_version"* ]]; then
+		echo "wasm-bindgen test runner $runner_version already installed in $runner_root"
 		exit 0
 	fi
-	echo "ERROR: $RUNNER has the wrong version: $ACTUAL_VERSION" >&2
-	echo "Remove $RUNNER_ROOT and rerun this setup command." >&2
+	echo "ERROR: $runner has the wrong version: $actual_version" >&2
+	echo "Remove $runner_root and rerun this setup command." >&2
 	exit 1
 fi
 
 cargo install wasm-bindgen-cli \
-	--version "$RUNNER_VERSION" \
+	--version "$runner_version" \
 	--locked \
-	--root "$RUNNER_ROOT"
+	--root "$runner_root"
 
-echo "Installed wasm-bindgen test runner $RUNNER_VERSION in $RUNNER_ROOT"
+echo "Installed wasm-bindgen test runner $runner_version in $runner_root"

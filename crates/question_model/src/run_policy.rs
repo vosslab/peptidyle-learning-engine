@@ -15,60 +15,60 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AssignmentId, AssignmentRun, AssignmentSelectionGroupId};
 
-/// The point in an assignment lifecycle when one learner-facing field may be
+/// The point in an assignment lifecycle when one Student-facing field may be
 /// disclosed.
 ///
 /// Each timing is evaluated independently so an instructor can, for example,
 /// show a score after submission while holding solutions until the assignment
 /// closes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum LearnerDisclosureTiming {
-    /// The field is visible while a learner is working on the attempt.
+#[serde(rename_all = "snake_case")]
+pub enum StudentDisclosureTiming {
+    /// The field is visible while a Student is working on the attempt.
     DuringAttempt,
-    /// The field is visible once that learner has submitted the attempt.
+    /// The field is visible once that Student has submitted the attempt.
     AfterSubmit,
     /// The field is visible at or after the resolved assignment due time.
     AfterDue,
     /// The field is visible at or after the resolved assignment close time.
     AfterClose,
-    /// The field is never visible to a learner through this policy.
+    /// The field is never visible to a Student through this policy.
     Never,
 }
 
-/// Assignment-owned learner disclosure policy.
+/// Assignment-owned Student disclosure policy.
 ///
 /// These independently configured fields are evaluated server-side against
 /// the effective assignment policy. They are intentionally separate from
 /// [`RunPolicies`], whose run behavior remains stable while S4 migrates
-/// learner-facing projections.
+/// Student-facing projections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LearnerDisclosurePolicy {
-    /// When the learner may see their score.
-    pub score: LearnerDisclosureTiming,
-    /// When the learner may see per-item correctness.
-    pub per_item_correctness: LearnerDisclosureTiming,
-    /// When the learner may see teaching feedback text.
-    pub feedback_text: LearnerDisclosureTiming,
-    /// When the learner may see correct answers or solutions.
-    pub solution: LearnerDisclosureTiming,
-    /// When the learner may see anonymous class statistics.
-    pub class_statistics: LearnerDisclosureTiming,
+#[serde(rename_all = "snake_case")]
+pub struct StudentDisclosurePolicy {
+    /// When the Student may see their score.
+    pub score: StudentDisclosureTiming,
+    /// When the Student may see per-item correctness.
+    pub per_item_correctness: StudentDisclosureTiming,
+    /// When the Student may see teaching feedback text.
+    pub feedback_text: StudentDisclosureTiming,
+    /// When the Student may see correct answers or solutions.
+    pub solution: StudentDisclosureTiming,
+    /// When the Student may see anonymous class statistics.
+    pub class_statistics: StudentDisclosureTiming,
 }
 
-impl Default for LearnerDisclosurePolicy {
+impl Default for StudentDisclosurePolicy {
     /// Returns the policy used when authoring a new assignment.
     ///
     /// This is deliberately an initializer rather than a serde compatibility
     /// fallback: an assignment payload must still carry this policy explicitly.
     fn default() -> Self {
         Self {
-            score: LearnerDisclosureTiming::AfterSubmit,
-            per_item_correctness: LearnerDisclosureTiming::AfterSubmit,
-            feedback_text: LearnerDisclosureTiming::AfterSubmit,
-            solution: LearnerDisclosureTiming::AfterSubmit,
-            class_statistics: LearnerDisclosureTiming::Never,
+            score: StudentDisclosureTiming::AfterSubmit,
+            per_item_correctness: StudentDisclosureTiming::AfterSubmit,
+            feedback_text: StudentDisclosureTiming::AfterSubmit,
+            solution: StudentDisclosureTiming::AfterSubmit,
+            class_statistics: StudentDisclosureTiming::Never,
         }
     }
 }
@@ -348,32 +348,32 @@ mod tests {
     }
 
     #[test]
-    fn learner_disclosure_policy_serializes_independent_camel_case_fields() {
-        let policy = LearnerDisclosurePolicy {
-            score: LearnerDisclosureTiming::AfterSubmit,
-            per_item_correctness: LearnerDisclosureTiming::AfterDue,
-            feedback_text: LearnerDisclosureTiming::DuringAttempt,
-            solution: LearnerDisclosureTiming::AfterClose,
-            class_statistics: LearnerDisclosureTiming::Never,
+    fn student_disclosure_policy_serializes_independent_snake_case_fields() {
+        let policy = StudentDisclosurePolicy {
+            score: StudentDisclosureTiming::AfterSubmit,
+            per_item_correctness: StudentDisclosureTiming::AfterDue,
+            feedback_text: StudentDisclosureTiming::DuringAttempt,
+            solution: StudentDisclosureTiming::AfterClose,
+            class_statistics: StudentDisclosureTiming::Never,
         };
 
         let json = serde_json::to_string(&policy).expect("serialization should succeed");
 
-        assert!(json.contains(r#""perItemCorrectness":"afterDue""#));
-        assert!(json.contains(r#""classStatistics":"never""#));
+        assert!(json.contains(r#""per_item_correctness":"after_due""#));
+        assert!(json.contains(r#""class_statistics":"never""#));
     }
 
     #[test]
-    fn default_learner_disclosure_policy_releases_feedback_after_submission() {
-        let policy = LearnerDisclosurePolicy::default();
+    fn default_student_disclosure_policy_releases_feedback_after_submission() {
+        let policy = StudentDisclosurePolicy::default();
 
-        assert_eq!(policy.score, LearnerDisclosureTiming::AfterSubmit);
+        assert_eq!(policy.score, StudentDisclosureTiming::AfterSubmit);
         assert_eq!(
             policy.per_item_correctness,
-            LearnerDisclosureTiming::AfterSubmit
+            StudentDisclosureTiming::AfterSubmit
         );
-        assert_eq!(policy.feedback_text, LearnerDisclosureTiming::AfterSubmit);
-        assert_eq!(policy.solution, LearnerDisclosureTiming::AfterSubmit);
-        assert_eq!(policy.class_statistics, LearnerDisclosureTiming::Never);
+        assert_eq!(policy.feedback_text, StudentDisclosureTiming::AfterSubmit);
+        assert_eq!(policy.solution, StudentDisclosureTiming::AfterSubmit);
+        assert_eq!(policy.class_statistics, StudentDisclosureTiming::Never);
     }
 }

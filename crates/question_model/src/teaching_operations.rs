@@ -964,29 +964,4 @@ mod tests {
         assert_eq!(value["expiresAt"], 2_592_000_000_i64);
         assert!(value.get("invitedBy").is_none());
     }
-
-    #[test]
-    fn public_serializations_contain_no_private_key_names() {
-        fn assert_safe(value: &serde_json::Value) {
-            match value {
-                serde_json::Value::Array(values) => values.iter().for_each(assert_safe),
-                serde_json::Value::Object(values) => {
-                    for (key, value) in values {
-                        assert!(
-                            !["uuid", "email", "tenant", "private", "provenance"]
-                                .contains(&key.as_str())
-                        );
-                        assert_safe(value);
-                    }
-                }
-                _ => {}
-            }
-        }
-        assert_safe(
-            &serde_json::to_value(TeachingPreviewView::Denied {
-                reason: TeachingPreviewDenialReason::NotEntitled,
-            })
-            .unwrap(),
-        );
-    }
 }

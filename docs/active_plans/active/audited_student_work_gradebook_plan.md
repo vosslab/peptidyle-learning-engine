@@ -42,9 +42,9 @@ CalculatedAssignmentCell {
   selected_score_summary, inspection_choice
 }
 AssignmentInspectionChoice =
-  | { kind: "selectedRun", basis, run_ref, submitted_at }
-  | { kind: "chooseRun", completed_run_count }
-  | { kind: "noSubmittedRun" }
+  | { kind: "selected_run", basis, run_ref, submitted_at }
+  | { kind: "choose_run", completed_run_count }
+  | { kind: "no_submitted_run" }
 GradebookFilterRequest {
   assignment_ref?, membership_ref?, operation_ref?
 }
@@ -54,25 +54,25 @@ The closed filter request accepts zero or one typed filter scope. Operation cont
 
 ```text
 GradebookSelectionResult =
-  | { kind: "singleStudent", membership_ref, assignment_ref, inspection_choice }
-  | { kind: "studentSelection", rows: StudentSelectionRow[], next_cursor? }
+  | { kind: "single_student", membership_ref, assignment_ref, inspection_choice }
+  | { kind: "student_selection", rows: StudentSelectionRow[], next_cursor? }
 StudentSelectionRow {
   membership_ref, display_label, assignment_ref, inspection_choice
 }
 ```
 
-`studentSelection` is bounded, roster-ordered, answer-free, and contains only safe Student labels,
+`student_selection` is bounded, roster-ordered, answer-free, and contains only safe Student labels,
 public membership and assignment locators, and the shared `AssignmentInspectionChoice`. Every
-`selectedRun` row opens the canonical detail route; every `chooseRun` row opens the same bounded run
+`selected_run` row opens the canonical detail route; every `choose_run` row opens the same bounded run
 chooser used by a Gradebook cell. It gives an Instructor a named choice before opening inspected
-work. `singleStudent` permits the direct route for a Student-grouped operation. The normalized
+work. `single_student` permits the direct route for a Student-grouped operation. The normalized
 operation reference, filter, structural revisions, selection result, and last membership position
 bind into the opaque selection cursor. Gradebook page cursors bind scheme revision, roster revision,
 normalized filters, and last structural roster position.
 
-`selectedRun` names the exact run supplying `current_score` under the assignment's first, latest,
+`selected_run` names the exact run supplying `current_score` under the assignment's first, latest,
 highest, or Instructor-selected policy. The visible inspect action names the Student, assignment, run
-basis, and submitted time. `chooseRun` opens a bounded semantic run chooser when the current score
+basis, and submitted time. `choose_run` opens a bounded semantic run chooser when the current score
 does not select one exact run; the chooser marks any score-selected run, labels every submitted run,
 and restores focus to its invoking Gradebook cell when dismissed. The canonical detail request begins
 only after this human-visible run choice is exact.
@@ -90,11 +90,20 @@ The canonical browser destination and API are:
 GET /api/courses/{course}/gradebook/students/{membership}/assignments/{assignment}/runs/{run}
 ```
 
-The Store validates the full `TenantId + CourseId + CourseMembershipReference + AssignmentReference + RunReference` composite, active direct-Instructor membership, retention state, immutable receipt/presentation identity, disclosure policy, and scoring state. Its `return_context` is a closed Gradebook or grading-operation context with safe public references and a focus target; reload/back/direct-link recovery restores that context or gives a visible reselect action when exact evidence is unavailable.
+The Store resolves the full `TenantId + CourseId + CourseMembershipReference + AssignmentReference + RunReference` composite, active direct-Instructor membership, retention state, immutable receipt/issued-capability identity, disclosure policy, and scoring state. Its `return_context` is a closed Gradebook or grading-operation context with safe public references and a focus target; reload/back/direct-link recovery restores that context or gives a visible reselect action when exact evidence is unavailable.
 
 `question_model::presentation` owns the pure `project_durable_response_to_rendered_v1` conversion. It accepts durable submitted response plus verified issued-presentation descriptor and returns `InspectedStudentResponseV1`, a closed union of rendered response identifiers, display text, and safe typed artifact/external states. Its variants express allowed Student-facing facts such as a rendered selected option, entered text, uploaded-artifact state, or external-tool completion state. They carry no answer key, expected response, checker/rubric, private source, provider payload, hidden diagnostic, canonical durable object keys, or grading authority. The server performs this projection before serialization.
 
-This explicit detail is response-bearing and solution-free. It shows the named Student's submitted response, immutable issued presentation, timing, policy-permitted feedback, and scoring state with `Cache-Control: no-store`. URLs, cursors, browser storage, operation receipts, ordinary page responses, and audit payloads remain answer-free.
+This explicit detail is response-bearing and solution-free. Each submitted response owns one verified evidence state: `IssuedPresentation`, which carries the immutable `ReceiptPresentationSnapshot` and recomputed `PresentationDigestV1`, or `PresentationNotApplicable`, which proves the checksummed no-presentation capability and absent issued tuple for an ExternalTool submission. It shows the named Student's submitted response, the applicable verified evidence, timing, score/correctness-only feedback, and scoring state with `Cache-Control: no-store`. Hint, rationale, and correct-response content remain outside this closed detail type until a separately named authoring/storage classification can machine-enforce solution-free instructional content. URLs, cursors, browser storage, operation receipts, ordinary page responses, and audit payloads remain answer-free.
+
+`InspectedStudentWorkDetailV1` also returns required current presentation facts
+`student_display_label` and `assignment_title`. The broker resolves the active course roster
+profile's validated display label and the current course assignment title after it has validated the
+complete authorized composite.
+Both values are bounded safe display strings and are response projection only: they do not enter
+the return context, URL, cursor, browser storage, `record_access_log`, or `audit_event`. The ready
+detail uses them to name the Student and assignment, so ordinary navigation, reload, and direct
+entry have the same server-owned context.
 
 ### Authority, audit, and request boundary
 
@@ -113,13 +122,13 @@ action, target, and audit payload are derived only by the server.
 `StudentWorkInspectionStore::inspect_student_work` performs one atomic transaction:
 
 1. Resolve authenticated session, tenant, direct-Instructor course membership, request-origin witness, and retention state.
-2. Resolve the public composite and verify immutable receipt, presentation, disclosure, and scoring evidence.
+2. Resolve the public composite and verify immutable receipt, issued-capability/presentation, disclosure, and scoring evidence.
 3. Write the server-owned Student-record `record_access_log` fact and metadata-only `audit_event` fact.
 4. Return the closed solution-free detail projection.
 
-Successful audit records contain server-derived actor, purpose `gradebook_inspection`, action, server-resolved target identity, safe public course/assignment/membership/run references, issued-presentation digest, and scoring witness. They contain no response, score, feedback body, email, key, provider payload, source, diagnostic, token, lease, SQL value, or public UUID. The SQL broker uses typed parameters for every request-provided value. A failure to append either audit row makes detail unavailable.
+Successful audit records contain the server-derived actor, purpose `gradebook_inspection`, action, authoritative timestamp, protected internal `TenantId`, `CourseId`, `CourseMembershipId`, `AssignmentId`, and `RunId`, plus one ordered per-submission evidence witness. Each witness retains only its internal attempt identity, receipt timestamp, and either an issued-presentation digest or the closed no-presentation capability state. Browser navigation uses public course, membership, assignment, and run references only; those locators do not enter persisted inspection facts. Audit facts contain no response, score, feedback body, email, key, provider payload, source, diagnostic, token, lease, SQL value, or public UUID. The SQL broker uses typed parameters for every request-provided value. A failure to append either audit row makes detail unavailable.
 
-Authorization failures use a generic secure response and create separate security telemetry with a server-owned reason class and request context. That event records no Student-work target or Student-record access fact, so the access log remains an accurate statement of successful FERPA record reads.
+The W4 route and SQL broker own denial telemetry. They classify rejected request origin, authorization, and broker failures with server-owned reason/context before the Store can read Student work. That telemetry records no Student-work target or Student-record access fact, so the access log remains an accurate statement of successful FERPA record reads. W2B returns the ordinary concealed unavailable result and appends neither successful inspection fact when its resolved evidence is unavailable.
 
 ### Migration authority
 
@@ -131,6 +140,9 @@ Every migration leaves a closed authority state; each migration establishes its 
 | `2026081871_student_work_inspection_witness.sql`    | immutable evidence   | Private composite receipt/issued-presentation/response witness, integrity rules, private access owner, and catalog proof.                                                                            |
 | `2026081872_student_work_inspection_capability.sql` | inspection broker    | The only application-executable inspection function, owned by the dedicated role with fixed search path, parameter-bound SQL, revocations/grant, composite resolution, and atomic dual audit writes. |
 | `2026081873_student_work_inspection_indexes.sql`    | query evidence       | Query-demonstrated indexes and bounded plan evidence while retaining the closed broker authority.                                                                                                    |
+| `2026081874_tenant_bound_worker_failure.sql`        | queue failure broker | Tenant-bound failure finalization, exact leased-job ownership, publisher adaptation, and retirement of the unscoped capability.                                                                       |
+| `2026081875_student_work_inspection_rowset_contract.sql` | broker rowset repair | Forward repair that aligns the broker's transient JSON rowset with exact PostgreSQL field names.                                                                                                      |
+| `2026081876_student_work_inspection_safe_labels.sql` | inspection detail labels | Server-owned validated Student display label and assignment title in the existing audited inspection broker response, with labels excluded from audit facts.                                           |
 
 The inspection capability is the single app-executable private-response reader.
 
@@ -142,7 +154,9 @@ The inspection capability is the single app-executable private-response reader.
 
 ### G2-W1: freeze bindings and reserve migrations
 
-**Owner:** architecture and documentation. Record this plan, decision record, handoff, and four forward migration allocations.
+**Owner:** architecture and documentation. Record this plan, decision record, handoff, four
+inspection migrations, and the tenant-bound worker-failure migration discovered by the connected
+Gradebook acceptance path.
 
 **Narrow verification:** documentation-link and package/migration-registry checks pass.
 
@@ -154,23 +168,36 @@ The inspection capability is the single app-executable private-response reader.
 
 ### G2-W2B: inspected-response/detail contracts and Memory parity
 
-**Owner files:** `crates/question_model/src/presentation/`, inspected-detail models, `StudentWorkInspectionStore`, and Memory inspection implementation. Build pure response projection, closed safe artifact/external states, composite/retention/integrity checks, audit intent, and return context.
+**Owner files:** `crates/question_model/src/presentation/`, inspected-detail models, `crates/domain/src/disclosure_policy.rs`, `StudentWorkInspectionStore`, and Memory inspection implementation. Build pure response projection, closed `IssuedPresentation`/`PresentationNotApplicable` evidence states, score/correctness-only inspection feedback, composite/retention/integrity checks, internal audit witnesses, and return context.
 
-**Narrow verification:** deterministic projection and Memory conformance for all response variants, exact composite binding, concealment, and audit intent.
+**Narrow verification:** exhaustive deterministic pure response-projection coverage remains in `question_model::presentation`; Store conformance covers one rendered response family and one verified `PresentationNotApplicable` ExternalTool receipt, plus exact composite binding, concealment, retention, and paired audit witnesses. This division proves each owner without duplicating a fixture matrix through Store setup.
 
 ### G2-W3A: PostgreSQL paged Gradebook
 
-**Owner files:** `crates/learning-data-access/src/postgres/course_gradebook.rs` and focused PostgreSQL support modules. Implement bulk roster page assembly and stable structural continuation with page-local score witnesses.
+**Owner files:** `crates/learning-data-access/src/postgres/course_gradebook.rs`, the tenant-bound
+`JobStore` failure contract, migration `2026081874`, and focused PostgreSQL support modules.
+Implement bulk roster page assembly and stable structural continuation with page-local score
+witnesses. Preserve tenant context when a recalculation worker reports terminal failure so the
+assignment and grading-operation transition commits through the production queue capability.
 
 **Narrow verification:** disposable PostgreSQL proof for repeatable-read page, reload response, structural order, live score witness, and export separation.
 
 ### G2-W3B: SQL inspection broker and PostgreSQL detail
 
-**Owner files:** migrations `2026081870` through `2026081873` and
+**Owner files:** migrations `2026081870` through `2026081873`, forward broker-rowset repair
+`2026081875`, safe-label projection `2026081876`, and
 `crates/learning-data-access/src/postgres/student_work_inspection.rs`. Implement the closed
-witness, only executable broker, and PostgreSQL Store projection/audit integration.
+witness, only executable broker, and PostgreSQL Store projection/audit integration. The broker
+joins `accepted_submission_private_response` through its full immutable submission composite,
+recomputes canonical `StudentResponse` bytes, and compares `response_sha256` before projecting
+that private response against the verified receipt presentation. Migration `1876` recreates only
+the existing broker under its established owner, `SECURITY DEFINER`, fixed search path, and ACL
+proof; it returns validated `student_display_label` and `assignment_title` in each transient row
+after composite resolution, while the paired audit payload remains label-free.
 
-**Narrow verification:** disposable PostgreSQL proof for role/RLS/ACL, parameter binding, origin witness, exact composite, retention, atomic audit, and generic security failures.
+**Narrow verification:** disposable PostgreSQL proof for role/RLS/ACL, parameter binding, origin
+witness, exact composite, retention, atomic audit, generic security failures, required bounded
+label/title values, cross-row agreement, and label-free audit payloads.
 
 ### G2-W4A: server routes
 
@@ -181,9 +208,13 @@ the closed same-origin and user-initiated navigation decision table, and a read-
 
 ### G2-W4B: strict client and Instructor UI
 
-**Owner files:** `src/api/client.ts`, strict decoders, route contract, Gradebook/operation/detail page-model/CSS modules. Build course-total-first semantic Gradebook, explicit Student chooser, inspected detail, recovery, focus restoration, and return navigation.
+**Owner files:** `src/api/client.ts`, strict decoders, route contract, Gradebook/operation/detail
+page-model/CSS modules. Require `student_display_label` and `assignment_title` in the closed detail
+decoder, then build course-total-first semantic Gradebook, explicit Student chooser, named
+inspected detail, recovery, focus restoration, and return navigation from that one response.
 
-**Narrow verification:** offline decoder/page behavior validates closed unions, status announcements, semantic table/hierarchy, visible focus, and restored context.
+**Narrow verification:** offline decoder/page behavior validates closed unions, required bounded
+safe labels, status announcements, semantic table/hierarchy, visible focus, and restored context.
 
 The UI contract keeps the course name, Gradebook heading, selected scheme, total-state summary, and
 current recovery action ahead of the roster table. The roster uses semantic row and column headers.
@@ -196,6 +227,10 @@ heading after reload and to the invoking cell after a chooser or detail return.
 ### G2-W5: connected and task-based evidence
 
 **Owner files:** focused acceptance scenarios and browser/visual evidence. Exercise ordinary Student completion through Instructor Gradebook, named selection, audited detail, operation return, retry/recalculation recovery, and truthful live score state.
+
+The named-detail journey selects the Student/run, displays the server-provided Student and
+assignment labels, reloads the direct inspection URL, and displays the same labels after its one
+audited detail request. It keeps Gradebook and grading-operation return behavior intact.
 
 ### G2-W6: documentation and final validation
 
@@ -219,12 +254,17 @@ heading after reload and to the invoking cell after a chooser or detail return.
 
 | Evidence class                   | G2 evidence                                                                                                                                       |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Permanent                        | Deterministic offline Rust model/Store, server route, strict decoder, and page behavior with closed unions and stable accessibility semantics.    |
-| Connected acceptance             | PostgreSQL/RLS/broker/role/retention/audit proof and ordinary Student-to-Instructor HTTPS journey.                                                |
-| Visual acceptance                | 1280 by 800 Instructor review of total-first Gradebook, Student chooser, audited detail, return/recovery, hierarchy, focus, and contrast.         |
+| Permanent                        | Deterministic offline Rust model/Store, server route, strict decoder, and page behavior with closed unions, required safe labels, and stable accessibility semantics. |
+| Connected acceptance             | PostgreSQL/RLS/broker/role/retention/audit proof and ordinary Student-to-Instructor HTTPS journey, including reload/direct-entry label continuity. |
+| Visual acceptance                | 1280 by 800 Instructor review of total-first Gradebook, Student chooser, named audited detail, reload/direct-entry continuity, return/recovery, hierarchy, focus, and contrast. |
 | One-time implementation evidence | Query-plan/index rationale, migration fresh/no-op/checksum observations, rendered-review notes, and independent architecture/security/HCI review. |
 
-G2 is accepted when both grade modes produce server-calculated totals; structural continuation reloads cleanly while each page states its score witness; a named Student's immutable work is inspectable through an atomic audit; Memory/PostgreSQL have the same observable behavior; the task-based live flow and visual review pass; and `source source_me.sh && ./all_test.sh` passes on the final material tree.
+G2 is accepted when both grade modes produce server-calculated totals; structural continuation
+reloads cleanly while each page states its score witness; a named Student's immutable work is
+inspectable through an atomic audit; the server-owned validated Student display label and assignment
+title persist through reload and direct entry without entering audits; Memory/PostgreSQL have the
+same observable behavior; the task-based live flow and visual review pass; and
+`source source_me.sh && ./all_test.sh` passes on the final material tree.
 
 ## Documentation updates
 

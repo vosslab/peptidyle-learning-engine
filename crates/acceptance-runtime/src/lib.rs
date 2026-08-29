@@ -27,13 +27,16 @@ const MAX_COMPOSE_ENVIRONMENT_BYTES: usize = 16_384;
 const CAPABILITY_BYTES: usize = 32;
 const OWNER: &str = "live-demo-browser";
 const PROJECT: &str = "ple-live-demo-browser";
-const PROFILE: &str = "database_baseline";
+const DATABASE_BASELINE_PROFILE: &str = "database_baseline";
+const COURSE_APPEARANCE_CROSS_STORE_PROFILE: &str = "course_appearance_cross_store";
 const ADMIN_ROLE: &str = "ple_e2e_migrator";
 const GRADER_ROLE: &str = "ple_grading_reader";
 const FAST_PATH_ROLE: &str = "ple_accepted_submission_fast_path_login";
 const RECOVERY_ROLE: &str = "ple_accepted_submission_recovery_login";
 const DATABASE_NAME: &str = "ple_e2e_baseline";
 const PASSWORD_LENGTH: usize = 32;
+const MINIO_REGION: &str = "us-east-1";
+const MINIO_CREDENTIAL_LENGTH: usize = 32;
 
 /// A redacted failure from the runtime boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,6 +99,71 @@ pub struct AcceptanceRuntime {
     recovery_url: PostgresUrl,
 }
 
+/// Validated object-store inputs for the disposable course-appearance lane.
+#[derive(Clone, PartialEq, Eq)]
+pub struct MinioRuntime {
+    endpoint_url: String,
+    region: String,
+    access_key_id: String,
+    secret_access_key: String,
+}
+
+impl MinioRuntime {
+    pub fn endpoint_url(&self) -> &str {
+        &self.endpoint_url
+    }
+
+    pub fn region(&self) -> &str {
+        &self.region
+    }
+
+    pub fn access_key_id(&self) -> &str {
+        &self.access_key_id
+    }
+
+    /// Reveals the validated secret only to the object-store client constructor.
+    pub fn secret_access_key(&self) -> &str {
+        &self.secret_access_key
+    }
+}
+
+impl fmt::Debug for MinioRuntime {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("MinioRuntime(REDACTED)")
+    }
+}
+
+/// Validated private runtime for the PostgreSQL and MinIO course-appearance lane.
+#[derive(Debug)]
+pub struct CourseAppearanceRuntime {
+    runtime: AcceptanceRuntime,
+    minio: MinioRuntime,
+}
+
+impl CourseAppearanceRuntime {
+    /// Loads the generated cross-store runtime selected by its non-secret manifest locator.
+    pub fn load() -> Result<Self, RuntimeError> {
+        #[cfg(not(unix))]
+        {
+            return Err(RuntimeError::UnsupportedPlatform);
+        }
+        #[cfg(unix)]
+        {
+            let locator = std::env::var("PLE_ACCEPTANCE_RUNTIME_MANIFEST")
+                .map_err(|_| RuntimeError::Locator)?;
+            load_course_appearance_from_locator_unix(Path::new(&locator))
+        }
+    }
+
+    pub fn admin_url(&self) -> &PostgresUrl {
+        self.runtime.admin_url()
+    }
+
+    pub fn minio(&self) -> &MinioRuntime {
+        &self.minio
+    }
+}
+
 impl AcceptanceRuntime {
     /// Loads the generated runtime selected by its non-secret manifest locator.
     pub fn load() -> Result<Self, RuntimeError> {
@@ -133,14 +201,31 @@ impl AcceptanceRuntime {
 #[cfg(all(test, unix))]
 fn load_from_workspace_unix(workspace: &Path) -> Result<AcceptanceRuntime, RuntimeError> {
     let workspace = open_private_directory(workspace, RuntimeError::Workspace)?;
-    load_from_workspace_descriptor(&workspace)
+    load_from_workspace_descriptor(&workspace, Some(RuntimeProfile::DatabaseBaseline))
+        .map(|runtime| runtime.acceptance)
 }
 
 #[cfg(unix)]
 fn load_from_locator_unix(locator: &Path) -> Result<AcceptanceRuntime, RuntimeError> {
     let workspace_path = validate_locator(locator)?;
     let workspace = open_private_directory(workspace_path, RuntimeError::Workspace)?;
-    load_from_workspace_descriptor(&workspace)
+    load_from_workspace_descriptor(&workspace, None).map(|runtime| runtime.acceptance)
+}
+
+#[cfg(unix)]
+fn load_course_appearance_from_locator_unix(
+    locator: &Path,
+) -> Result<CourseAppearanceRuntime, RuntimeError> {
+    let workspace_path = validate_locator(locator)?;
+    let workspace = open_private_directory(workspace_path, RuntimeError::Workspace)?;
+    let runtime = load_from_workspace_descriptor(
+        &workspace,
+        Some(RuntimeProfile::CourseAppearanceCrossStore),
+    )?;
+    Ok(CourseAppearanceRuntime {
+        runtime: runtime.acceptance,
+        minio: runtime.minio.ok_or(RuntimeError::SecretContent)?,
+    })
 }
 
 #[cfg(unix)]
@@ -152,7 +237,22 @@ fn validate_locator(locator: &Path) -> Result<&Path, RuntimeError> {
 }
 
 #[cfg(unix)]
-fn load_from_workspace_descriptor(workspace: &File) -> Result<AcceptanceRuntime, RuntimeError> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RuntimeProfile {
+    DatabaseBaseline,
+    CourseAppearanceCrossStore,
+}
+
+struct LoadedRuntime {
+    acceptance: AcceptanceRuntime,
+    minio: Option<MinioRuntime>,
+}
+
+#[cfg(unix)]
+fn load_from_workspace_descriptor(
+    workspace: &File,
+    expected_profile: Option<RuntimeProfile>,
+) -> Result<LoadedRuntime, RuntimeError> {
     let manifest = read_private_file_at(
         workspace,
         MANIFEST_NAME,
@@ -162,7 +262,7 @@ fn load_from_workspace_descriptor(workspace: &File) -> Result<AcceptanceRuntime,
     reject_yaml_extensions(&manifest)?;
     let manifest: RuntimeManifest =
         serde_yaml_ng::from_slice(&manifest).map_err(|_| RuntimeError::Schema)?;
-    validate_manifest(&manifest)?;
+    let profile = validate_manifest(&manifest, expected_profile)?;
 
     let secrets = open_private_directory_at(workspace, "secrets", RuntimeError::SecretPath)?;
     invoke_test_hook_after_secrets_open();
@@ -226,11 +326,17 @@ fn load_from_workspace_descriptor(workspace: &File) -> Result<AcceptanceRuntime,
         )?,
         RECOVERY_ROLE,
     )?;
-    Ok(AcceptanceRuntime {
-        admin_url,
-        grader_url,
-        fast_path_url,
-        recovery_url,
+    let minio = matches!(profile, RuntimeProfile::CourseAppearanceCrossStore)
+        .then(|| load_minio_runtime(&secrets))
+        .transpose()?;
+    Ok(LoadedRuntime {
+        acceptance: AcceptanceRuntime {
+            admin_url,
+            grader_url,
+            fast_path_url,
+            recovery_url,
+        },
+        minio,
     })
 }
 
@@ -261,29 +367,93 @@ struct Secrets {
     postgres_grader_url: String,
     postgres_fast_path_url: String,
     postgres_recovery_url: String,
+    minio_endpoint: Option<String>,
+    minio_region: Option<String>,
+    minio_access_key_id: Option<String>,
+    minio_secret_access_key: Option<String>,
 }
 
-fn validate_manifest(manifest: &RuntimeManifest) -> Result<(), RuntimeError> {
-    if manifest.schema_version != 1 || manifest.kind != "ple.disposable_postgres_acceptance" {
+fn validate_manifest(
+    manifest: &RuntimeManifest,
+    expected_profile: Option<RuntimeProfile>,
+) -> Result<RuntimeProfile, RuntimeError> {
+    if manifest.schema_version != 1 {
         return Err(RuntimeError::Schema);
     }
-    if manifest.identity.owner != OWNER
-        || manifest.identity.project != PROJECT
-        || manifest.identity.profile != PROFILE
-    {
+    if manifest.identity.owner != OWNER || manifest.identity.project != PROJECT {
         return Err(RuntimeError::Identity);
     }
-    if manifest.secrets.compose_environment != "secrets/compose.env"
-        || manifest.secrets.cleanup_capability != "secrets/cleanup.capability"
-        || manifest.secrets.postgres_admin_url != "secrets/postgres-admin.url"
-        || manifest.secrets.postgres_admin_password != "secrets/postgres-admin.password"
-        || manifest.secrets.postgres_grader_url != "secrets/postgres-grader.url"
-        || manifest.secrets.postgres_fast_path_url != "secrets/postgres-fast-path.url"
-        || manifest.secrets.postgres_recovery_url != "secrets/postgres-recovery.url"
+    let profile = match (manifest.kind.as_str(), manifest.identity.profile.as_str()) {
+        ("ple.disposable_postgres_acceptance", DATABASE_BASELINE_PROFILE) => {
+            RuntimeProfile::DatabaseBaseline
+        }
+        ("ple.disposable_postgres_minio_acceptance", COURSE_APPEARANCE_CROSS_STORE_PROFILE) => {
+            RuntimeProfile::CourseAppearanceCrossStore
+        }
+        _ => return Err(RuntimeError::Identity),
+    };
+    if expected_profile.is_some_and(|expected| expected != profile) {
+        return Err(RuntimeError::Identity);
+    }
+    let shared_paths_are_exact = manifest.secrets.compose_environment == "secrets/compose.env"
+        && manifest.secrets.cleanup_capability == "secrets/cleanup.capability"
+        && manifest.secrets.postgres_admin_url == "secrets/postgres-admin.url"
+        && manifest.secrets.postgres_admin_password == "secrets/postgres-admin.password"
+        && manifest.secrets.postgres_grader_url == "secrets/postgres-grader.url"
+        && manifest.secrets.postgres_fast_path_url == "secrets/postgres-fast-path.url"
+        && manifest.secrets.postgres_recovery_url == "secrets/postgres-recovery.url";
+    let cross_store_paths_are_exact = manifest.secrets.minio_endpoint.as_deref()
+        == Some("secrets/minio-endpoint.url")
+        && manifest.secrets.minio_region.as_deref() == Some("secrets/minio-region")
+        && manifest.secrets.minio_access_key_id.as_deref() == Some("secrets/minio-access-key-id")
+        && manifest.secrets.minio_secret_access_key.as_deref()
+            == Some("secrets/minio-secret-access-key");
+    if !shared_paths_are_exact
+        || match profile {
+            RuntimeProfile::DatabaseBaseline => {
+                manifest.secrets.minio_endpoint.is_some()
+                    || manifest.secrets.minio_region.is_some()
+                    || manifest.secrets.minio_access_key_id.is_some()
+                    || manifest.secrets.minio_secret_access_key.is_some()
+            }
+            RuntimeProfile::CourseAppearanceCrossStore => !cross_store_paths_are_exact,
+        }
     {
         return Err(RuntimeError::SecretPath);
     }
-    Ok(())
+    Ok(profile)
+}
+
+#[cfg(unix)]
+fn load_minio_runtime(secrets: &File) -> Result<MinioRuntime, RuntimeError> {
+    let endpoint_url = parse_minio_endpoint(read_private_file_at(
+        secrets,
+        "minio-endpoint.url",
+        MAX_URL_BYTES,
+        RuntimeError::SecretFile,
+    )?)?;
+    let region = parse_exact_line(
+        read_private_file_at(secrets, "minio-region", 32, RuntimeError::SecretFile)?,
+        MINIO_REGION,
+    )?;
+    let access_key_id = parse_minio_access_key(read_private_file_at(
+        secrets,
+        "minio-access-key-id",
+        MINIO_CREDENTIAL_LENGTH + 1,
+        RuntimeError::SecretFile,
+    )?)?;
+    let secret_access_key = parse_minio_secret_key(read_private_file_at(
+        secrets,
+        "minio-secret-access-key",
+        MINIO_CREDENTIAL_LENGTH + 1,
+        RuntimeError::SecretFile,
+    )?)?;
+    Ok(MinioRuntime {
+        endpoint_url,
+        region,
+        access_key_id,
+        secret_access_key,
+    })
 }
 
 fn reject_yaml_extensions(bytes: &[u8]) -> Result<(), RuntimeError> {
@@ -441,6 +611,64 @@ fn parse_password(bytes: Vec<u8>) -> Result<String, RuntimeError> {
     Ok(password.to_owned())
 }
 
+fn parse_exact_line(bytes: Vec<u8>, expected: &str) -> Result<String, RuntimeError> {
+    let value = parse_secret_line(bytes)?;
+    if value != expected {
+        return Err(RuntimeError::SecretContent);
+    }
+    Ok(value)
+}
+
+fn parse_minio_endpoint(bytes: Vec<u8>) -> Result<String, RuntimeError> {
+    let value = parse_secret_line(bytes)?;
+    let parsed = Url::parse(&value).map_err(|_| RuntimeError::SecretContent)?;
+    let loopback = matches!(
+        parsed.host_str(),
+        Some("127.0.0.1") | Some("::1") | Some("[::1]")
+    );
+    if parsed.scheme() != "http"
+        || !loopback
+        || parsed.port().filter(|port| *port != 0).is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || !matches!(parsed.path(), "" | "/")
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(RuntimeError::SecretContent);
+    }
+    Ok(value)
+}
+
+fn parse_minio_access_key(bytes: Vec<u8>) -> Result<String, RuntimeError> {
+    parse_minio_credential(bytes)
+}
+
+fn parse_minio_secret_key(bytes: Vec<u8>) -> Result<String, RuntimeError> {
+    parse_minio_credential(bytes)
+}
+
+fn parse_minio_credential(bytes: Vec<u8>) -> Result<String, RuntimeError> {
+    let value = parse_secret_line(bytes)?;
+    if value.len() != MINIO_CREDENTIAL_LENGTH
+        || !value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+    {
+        return Err(RuntimeError::SecretContent);
+    }
+    Ok(value)
+}
+
+fn parse_secret_line(bytes: Vec<u8>) -> Result<String, RuntimeError> {
+    if !bytes.is_ascii() || !bytes.ends_with(b"\n") || bytes[..bytes.len() - 1].contains(&b'\n') {
+        return Err(RuntimeError::SecretContent);
+    }
+    std::str::from_utf8(&bytes[..bytes.len() - 1])
+        .map(str::to_owned)
+        .map_err(|_| RuntimeError::SecretContent)
+}
+
 fn valid_password(password: &str) -> bool {
     password.len() == PASSWORD_LENGTH
         && password
@@ -455,6 +683,9 @@ fn current_uid() -> Result<u32, RuntimeError> {
 }
 
 #[cfg(all(test, unix))]
+mod course_appearance_tests;
+
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::{PermissionsExt, symlink};
@@ -464,7 +695,7 @@ mod tests {
 
     static WORKSPACE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-    fn temp_workspace() -> PathBuf {
+    pub(super) fn temp_workspace() -> PathBuf {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()

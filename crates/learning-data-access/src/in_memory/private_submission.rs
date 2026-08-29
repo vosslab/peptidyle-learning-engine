@@ -82,3 +82,25 @@ pub(super) fn stored_submission_matches_canonical(
         })?;
     Ok(private.matches(response, canonical_text, sha256))
 }
+
+/// Reads one accepted private response after its immutable parent receipt has
+/// already been verified. The private row proves its own typed/canonical/digest
+/// identity before inspection projects it against the issued presentation.
+pub(super) fn load_verified_private_submission_response(
+    state: &State,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<&StudentResponse, StoreError> {
+    let private = state
+        .private_submission_responses
+        .get(&(tenant, attempt))
+        .ok_or(StoreError::NotFound)?;
+    let canonical_text = crate::canonical_student_response_json(&private.response)?;
+    let sha256 = objects::Sha256Digest::compute(canonical_text.as_bytes());
+    if private.canonical_text != canonical_text || private.sha256 != sha256 {
+        return Err(StoreError::Unavailable(
+            "accepted private response identity does not match its canonical witness".to_string(),
+        ));
+    }
+    Ok(&private.response)
+}

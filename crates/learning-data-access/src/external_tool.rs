@@ -15,7 +15,7 @@ use question_model::{
 use uuid::Uuid;
 
 use crate::{
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding, StoreError,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, StoreError, StudentWorkRoutingBinding,
     SubmissionIdempotencyKey, SubmissionRecord, TenantContext,
 };
 
@@ -210,7 +210,7 @@ impl std::fmt::Debug for ExternalToolBegin {
 #[derive(Clone)]
 pub struct BeginExternalToolGradeCommand {
     pub actor: UserId,
-    pub learner_work_binding: LearnerWorkRoutingBinding,
+    pub student_work_binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -223,7 +223,7 @@ pub struct BeginExternalToolGradeCommand {
 #[derive(Clone)]
 pub struct StageExternalToolVerificationCommand {
     pub actor: UserId,
-    pub learner_work_binding: LearnerWorkRoutingBinding,
+    pub student_work_binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -237,7 +237,7 @@ pub struct StageExternalToolVerificationCommand {
 #[derive(Clone)]
 pub struct CommitExternalToolSubmissionCommand {
     pub actor: UserId,
-    pub learner_work_binding: LearnerWorkRoutingBinding,
+    pub student_work_binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -255,7 +255,7 @@ pub struct CommitExternalToolSubmissionCommand {
 #[derive(Clone)]
 pub struct CommitVerifiedExternalToolSubmissionCommand {
     pub actor: UserId,
-    pub learner_work_binding: LearnerWorkRoutingBinding,
+    pub student_work_binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -405,7 +405,7 @@ impl std::fmt::Debug for ExternalToolLaunchProof {
 #[derive(Clone)]
 pub struct CreateExternalToolLaunchSessionCommand {
     pub actor: UserId,
-    pub learner_work_binding: LearnerWorkRoutingBinding,
+    pub student_work_binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub binding: ExternalToolBinding,
     pub encrypted_provider_state: Option<Vec<u8>>,
@@ -551,7 +551,7 @@ pub enum ExternalToolActivityClaim {
 /// submission finalizer.
 pub struct ClaimExternalToolFinalizationActivityCommand {
     pub actor: UserId,
-    pub learner_work_binding: LearnerWorkRoutingBinding,
+    pub student_work_binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub id: Uuid,
     pub token: ExternalToolLaunchToken,
@@ -579,7 +579,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) -> Result<PreparedExternalToolAttempt, StoreError>;
 
@@ -596,7 +596,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
@@ -610,7 +610,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
@@ -632,7 +632,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -645,7 +645,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -657,7 +657,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         token: &ExternalToolActivityLeaseToken,
     ) -> Result<(), StoreError>;
@@ -669,7 +669,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -679,7 +679,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,

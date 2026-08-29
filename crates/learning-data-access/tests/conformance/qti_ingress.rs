@@ -243,7 +243,12 @@ async fn memory_qti_ingress_exact_replay_failure_and_nonenumeration_conform() {
         .expect("request remains visible");
     assert_private_state(&processing, QtiImportApiState::Processing);
     store
-        .fail_job(claim.id, claim.lease_token, JobFailureKind::Permanent)
+        .fail_job(
+            context,
+            claim.id,
+            claim.lease_token,
+            JobFailureKind::Permanent,
+        )
         .await
         .expect("permanent refusal persists");
     let failed = store

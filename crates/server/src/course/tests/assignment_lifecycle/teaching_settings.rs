@@ -17,7 +17,7 @@ pub(super) async fn publish_and_assert(
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/assignments/{assignment}/learner"))
+                .uri(format!("/api/assignments/{assignment}/student"))
                 .header("cookie", student_cookie)
                 .body(Body::empty())
                 .expect("draft learner detail request"),
@@ -40,7 +40,7 @@ pub(super) async fn publish_and_assert(
                 .body(Body::from(
                     serde_json::json!({
                         "audience": {"kind": "courseWide"},
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
+                        "disclosurePolicy": question_model::StudentDisclosurePolicy::default(),
                         "policies": crate::course::tests::fixtures::policies(),
                         "teachingSettings": {
                             "timeZone": "America/Chicago",
@@ -92,7 +92,7 @@ pub(super) async fn publish_and_assert(
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/assignments/{assignment}/learner"))
+                .uri(format!("/api/assignments/{assignment}/student"))
                 .header("cookie", student_cookie)
                 .body(Body::empty())
                 .expect("published learner detail request"),
@@ -109,29 +109,29 @@ pub(super) async fn publish_and_assert(
         student_detail["instructions"],
         "Show your structural reasoning in complete sentences."
     );
-    assert_eq!(student_detail["timeZone"], "America/Chicago");
+    assert_eq!(student_detail["time_zone"], "America/Chicago");
     assert_eq!(
         student_detail["delivery"],
         serde_json::json!({
-            "availableAt": null,
-            "dueAt": null,
-            "closesAt": null,
-            "timeLimitSeconds": null,
-            "attemptLimit": 1,
-            "lateSubmission": "accept",
-            "deadlineBehavior": "autoSubmit",
-            "lateStatus": "onTime"
+            "available_at": null,
+            "due_at": null,
+            "closes_at": null,
+            "time_limit_seconds": null,
+            "attempt_limit": 1,
+            "late_submission": "accept",
+            "deadline_behavior": "autoSubmit",
+            "late_status": "on_time"
         })
     );
     for forbidden in [
         "tenant",
-        "courseId",
-        "basePolicy",
+        "course_id",
+        "base_policy",
         "policy",
         "provenance",
         "clock",
         "lifecycle",
-        "teachingSettings",
+        "teaching_settings",
     ] {
         assert!(
             student_detail.get(forbidden).is_none(),
@@ -143,7 +143,7 @@ pub(super) async fn publish_and_assert(
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/assignments/{assignment}/learner"))
+                .uri(format!("/api/assignments/{assignment}/student"))
                 .header("cookie", instructor_cookie)
                 .body(Body::empty())
                 .expect("instructor learner detail request"),
@@ -183,14 +183,14 @@ pub(super) async fn publish_and_assert(
         instructor_detail["instructions"],
         student_detail["instructions"]
     );
-    assert_eq!(instructor_detail["timeZone"], student_detail["timeZone"]);
+    assert_eq!(instructor_detail["timeZone"], student_detail["time_zone"]);
     assert_eq!(
         instructor_detail["delivery"]["availableAt"],
-        student_detail["delivery"]["availableAt"]
+        student_detail["delivery"]["available_at"]
     );
     assert_eq!(
         instructor_detail["delivery"]["dueAt"],
-        student_detail["delivery"]["dueAt"]
+        student_detail["delivery"]["due_at"]
     );
     assert!(instructor_detail["delivery"].get("lateStatus").is_none());
     assert_eq!(instructor_detail["questionsPerRun"], 1);

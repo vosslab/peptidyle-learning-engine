@@ -7,10 +7,10 @@ use domain::effective_assignment_policy::{
 };
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
-    CreateCourseCommand, DraftRecord, IssueQuestionAttemptCommand, LearnerWorkRoutingBinding,
-    PresentationCapability, PublishDraftCommand, PutAssignmentTeachingSettingsCommand,
-    PutIndividualPolicyExceptionCommand, ResolveEffectivePolicyCommand, SessionStore, Store,
-    StoreError, StoredIndividualPolicyException, SubmissionIdempotencyKey,
+    CreateCourseCommand, DraftRecord, IssueQuestionAttemptCommand, PresentationCapability,
+    PublishDraftCommand, PutAssignmentTeachingSettingsCommand, PutIndividualPolicyExceptionCommand,
+    ResolveEffectivePolicyCommand, SessionStore, Store, StoreError,
+    StoredIndividualPolicyException, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
     SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
@@ -200,7 +200,7 @@ where
             scoring_mode: AssignmentScoringMode::Normal,
         }],
         selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: question_model::RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: question_model::GradePolicy::Highest,
@@ -442,7 +442,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             question_model::RunId::from_uuid(id(99_514)),
         )
         .await
@@ -468,7 +468,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             question_model::RunId::from_uuid(id(99_515)),
         )
         .await
@@ -479,7 +479,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: learner,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id(99_516)),
                 run: active.id,
                 assignment_position: 0,
@@ -522,7 +522,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: learner,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: attempt.id,
                 response: StudentResponse::Numeric { value: 1.0 },
                 result: AttemptResult {
@@ -561,7 +561,7 @@ where
             .start_or_resume_run(
                 context,
                 learner,
-                LearnerWorkRoutingBinding::new(course, assignment),
+                StudentWorkRoutingBinding::new(course, assignment),
                 question_model::RunId::from_uuid(id(99_517)),
             )
             .await,

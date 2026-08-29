@@ -75,7 +75,7 @@ struct Fixture {
     provider: RecordedImathasProvider,
     context: TenantContext,
     actor: UserId,
-    learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+    student_work_binding: learning_data_access::StudentWorkRoutingBinding,
     reference: ProblemVersionRef,
     question: QuestionDefinition,
     issued_question_snapshot: IssuedQuestionSnapshotV1,
@@ -256,7 +256,7 @@ async fn fixture() -> Fixture {
                         scoring_mode: question_model::AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -286,7 +286,7 @@ async fn fixture() -> Fixture {
         .start_or_resume_run(
             context,
             actor,
-            learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id(11)),
         )
         .await
@@ -331,7 +331,7 @@ async fn fixture() -> Fixture {
                 actor,
                 attempt: QuestionAttemptId::from_uuid(id(12)),
                 run: run.id,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+                binding: learning_data_access::StudentWorkRoutingBinding::new(course, assignment),
                 assignment_position: 0,
                 problem,
                 question_version: version,
@@ -367,7 +367,7 @@ async fn fixture() -> Fixture {
         provider,
         context,
         actor,
-        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding::new(
+        student_work_binding: learning_data_access::StudentWorkRoutingBinding::new(
             course, assignment,
         ),
         reference,
@@ -521,7 +521,7 @@ async fn generic_submission_refuses_even_when_a_broker_exchange_exists() {
             tampered_fixture.context,
             BeginExternalToolGradeCommand {
                 actor: tampered_fixture.actor,
-                learner_work_binding: tampered_fixture.learner_work_binding,
+                student_work_binding: tampered_fixture.student_work_binding,
                 attempt: tampered_fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key.clone(),
@@ -557,7 +557,7 @@ async fn generic_submission_refuses_even_when_a_broker_exchange_exists() {
             in_progress.context,
             BeginExternalToolGradeCommand {
                 actor: in_progress.actor,
-                learner_work_binding: in_progress.learner_work_binding,
+                student_work_binding: in_progress.student_work_binding,
                 attempt: in_progress.attempt.id,
                 response: response.clone(),
                 idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(
@@ -596,7 +596,7 @@ async fn generic_submission_cannot_commit_verified_pending_without_launch_proof(
             fixture.context,
             BeginExternalToolGradeCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding,
+                student_work_binding: fixture.student_work_binding,
                 attempt: fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key.clone(),
@@ -619,7 +619,7 @@ async fn generic_submission_cannot_commit_verified_pending_without_launch_proof(
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding,
+                student_work_binding: fixture.student_work_binding,
                 attempt: fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key,

@@ -93,12 +93,11 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
     assert_eq!(wrong_status.status(), StatusCode::OK);
     let wrong_receipt = response_json(wrong_status).await;
     assert_eq!(
-        wrong_receipt
-            .pointer("/feedback/correctness")
-            .and_then(serde_json::Value::as_bool),
-        Some(false),
-        "first source position remains incorrect while score recalculation is pending"
+        wrong_receipt["feedback"]["correctness"],
+        serde_json::Value::Null,
+        "correctness remains withheld until the score is current"
     );
+    assert_eq!(wrong_receipt["scoringStatus"], "recalculating");
     let resumed = app
         .clone()
         .oneshot(
@@ -169,12 +168,11 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
     assert_eq!(correct_status.status(), StatusCode::OK);
     let correct_receipt = response_json(correct_status).await;
     assert_eq!(
-        correct_receipt
-            .pointer("/feedback/correctness")
-            .and_then(serde_json::Value::as_bool),
-        Some(true),
-        "second source position remains correct while score recalculation is pending"
+        correct_receipt["feedback"]["correctness"],
+        serde_json::Value::Null,
+        "correctness remains withheld until the score is current"
     );
+    assert_eq!(correct_receipt["scoringStatus"], "recalculating");
     assert!(
         correct_receipt
             .get("nextIssued")

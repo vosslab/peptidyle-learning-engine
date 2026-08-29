@@ -7,6 +7,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+async-trait.workspace = true
 adapter_native.workspace = true
 domain.workspace = true
 grading.workspace = true

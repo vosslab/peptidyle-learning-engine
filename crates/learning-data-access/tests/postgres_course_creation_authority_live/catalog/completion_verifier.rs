@@ -62,7 +62,6 @@ const RELATIONS: &[&str] = &[
     "submission_receipt_snapshot",
     "submission_next_attempt",
     "feedback_release",
-    "manual_grade_receipt",
     "question_prefetch",
     "question_statistics_contribution_receipt",
     "question_statistics_aggregate",

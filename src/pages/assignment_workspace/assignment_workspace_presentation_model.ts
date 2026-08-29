@@ -2,7 +2,7 @@
 
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
-import type { LearnerDisclosurePolicy } from "../../../generated/api/LearnerDisclosurePolicy";
+import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
 import type { RunPolicies } from "../../../generated/api/RunPolicies";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
 import {
@@ -34,7 +34,7 @@ export interface AssignmentPolicyDraftSummaryInput {
   readonly savedCurrentState: InstructorAssignmentCurrentState;
   readonly policies: RunPolicies;
   readonly runPolicyDraft: RunPolicyDraft;
-  readonly disclosurePolicy: LearnerDisclosurePolicy;
+  readonly disclosurePolicy: StudentDisclosurePolicy;
   readonly teachingSettings: InstructorAssignmentTeachingSettingsLocal;
   readonly timeLimitSecondsDraft: string;
   readonly attemptLimitDraft: string;
@@ -82,20 +82,20 @@ function continuedPracticeSummary(input: AssignmentPolicyDraftSummaryInput): str
   return `${additionalRuns.value} additional run${additionalRuns.value === 1 ? "" : "s"}`;
 }
 
-function disclosureSummary(policy: LearnerDisclosurePolicy): string {
+function disclosureSummary(policy: StudentDisclosurePolicy): string {
   const timing = {
-    duringAttempt: "while working",
-    afterSubmit: "after submit",
-    afterDue: "after due",
-    afterClose: "after close",
+    during_attempt: "while working",
+    after_submit: "after submit",
+    after_due: "after due",
+    after_close: "after close",
     never: "never",
   } as const;
   return [
     `Score ${timing[policy.score]}`,
-    `correctness ${timing[policy.perItemCorrectness]}`,
-    `feedback ${timing[policy.feedbackText]}`,
+    `correctness ${timing[policy.per_item_correctness]}`,
+    `feedback ${timing[policy.feedback_text]}`,
     `solutions ${timing[policy.solution]}`,
-    `statistics ${timing[policy.classStatistics]}`,
+    `statistics ${timing[policy.class_statistics]}`,
   ].join("; ");
 }
 

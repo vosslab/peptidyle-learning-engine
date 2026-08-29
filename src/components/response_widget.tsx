@@ -143,7 +143,7 @@ export function ResponseWidget(props: ResponseWidgetProps): JSX.Element {
           onSubmit={props.onSubmit}
           onEscape={props.onEscape}
           onResponseChange={props.onResponseChange}
-          learnerWorkRoute={props.learnerWorkRoute}
+          studentWorkRoute={props.studentWorkRoute}
           beginExternalToolLaunch={props.beginExternalToolLaunch}
         />
       );

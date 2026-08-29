@@ -1,510 +1,629 @@
-// gradebook_page.tsx - compact instructor projection with opt-in run history.
+// gradebook_page.tsx - roster-first, server-calculated Instructor Gradebook.
 
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { A, useLocation } from "@solidjs/router";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
-import "./instructor_data_tables.css";
-
-import type { AssignmentRun } from "../../generated/api/AssignmentRun";
+import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { CourseReference } from "../../generated/api/CourseReference";
-import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
+import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type {
+  CalculatedAssignmentCell,
+  CalculatedGradebookRow,
+} from "../api/decoders/calculated_gradebook";
+import type { AssignmentInspectionChoice } from "../api/decoders/gradebook_selection";
 import { useApiRuntime } from "../api/runtime";
-import { CourseManagementNav } from "../components/course_management_nav";
-import { formatPercentScore } from "../score_format";
-import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
-import { loadGradebookPage, loadGradebookRunHistory } from "./gradebook_page_model";
 import {
   courseRouteData,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
+import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
+import { formatPercentScore } from "../score_format";
+import { assignmentWorkspacePath } from "./assignment_workspace/assignment_workspace_paths";
+import {
+  gradebookCellFocusId,
+  inspectedStudentWorkUrl,
+  parseGradebookRouteSearch,
+  type GradebookRouteFilter,
+  type GradebookRouteSearchResult,
+} from "./gradebook_navigation";
+import {
+  GradebookPageSession,
+  type GradebookPageGradebookState,
+  type GradebookPageSelectionState,
+  type GradebookPageState,
+} from "./gradebook_page_model";
+import { GradebookRunChooser } from "./gradebook_run_chooser";
+import "./instructor_data_tables.css";
 
-type GradebookState =
-  | { readonly kind: "loading" }
-  | ({ readonly kind: "ready" } & CursorPageSessionState<GradebookSummaryRow>)
-  | { readonly kind: "error" };
-
-type RunHistoryState =
-  | { readonly kind: "loading" }
-  | {
-      readonly kind: "ready";
-      readonly runs: ReadonlyArray<AssignmentRun>;
-      readonly nextCursor: string | null;
-    }
-  | { readonly kind: "error" };
-
-function formatActivity(timestamp: number | null): string {
-  if (timestamp === null) {
-    return "No activity yet";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
+interface RunChooserRequest {
+  readonly membership: CourseMembershipReference;
+  readonly assignment: AssignmentReference;
+  readonly operation?: GradingOperationReference;
+  readonly studentLabel: string;
+  readonly assignmentTitle: string;
+  readonly trigger: HTMLButtonElement;
 }
 
-function formatRunStatus(
-  run: AssignmentRun,
-  scoringStatus: GradebookSummaryRow["scoringStatus"],
+function formatActivity(timestamp: number): string {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
+    new Date(timestamp),
+  );
+}
+function unavailableOutcome(reason: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    noIncludedAssignments: "No assignments included",
+    recalculating: "Recalculating",
+    failed: "Needs attention",
+    emptyAfterDrop: "No score after drop rules",
+    zeroPossiblePoints: "No possible points",
+  };
+  return labels[reason] ?? "Unavailable";
+}
+function invalidRouteReason(
+  result: Extract<GradebookRouteSearchResult, { readonly kind: "invalid" }>,
 ): string {
-  if (run.completedAt === null) {
-    return "In progress";
-  }
-  if (scoringStatus === "recalculating") return "Completed, recalculating";
-  if (scoringStatus === "failed") return "Completed, score unavailable";
-  return run.score === null ? "Completed" : `Completed, ${formatPercentScore(run.score)}`;
+  if (result.reason === "malformedSearch") return "The Gradebook address is malformed.";
+  if (result.reason === "unknownKey")
+    return `The Gradebook address contains an unsupported filter: ${result.key ?? "unknown"}.`;
+  if (result.reason === "duplicateKey")
+    return `The Gradebook address repeats the ${result.key ?? "selected"} filter.`;
+  if (result.reason === "multipleFilters") return "Choose one Gradebook filter at a time.";
+  return `The ${result.key ?? "selected"} reference is not a valid public course reference.`;
+}
+function filterLabel(filter: GradebookRouteFilter | undefined): string {
+  if (filter === undefined) return "All active Students";
+  if (filter.kind === "assignment") return `Assignment ${filter.assignment}`;
+  if (filter.kind === "student") return `Student ${filter.membership}`;
+  return `Grading operation ${filter.operation}`;
+}
+function scoreLabel(cell: CalculatedAssignmentCell): string {
+  if (cell.availability === "unavailable") return "Not assigned";
+  if (cell.scoringStatus === "recalculating") return "Recalculating";
+  if (cell.scoringStatus === "failed") return "Needs attention";
+  return cell.selectedScore === null ? "No score" : formatPercentScore(cell.selectedScore);
+}
+function studentLabel(
+  rows: ReadonlyArray<CalculatedGradebookRow>,
+  membership: CourseMembershipReference,
+): string {
+  return rows.find((row) => row.membership === membership)?.displayLabel ?? `Student ${membership}`;
+}
+function assignmentTitle(
+  rows: ReadonlyArray<CalculatedGradebookRow>,
+  assignment: AssignmentReference,
+): string {
+  return (
+    rows[0]?.assignmentCells.find((cell) => cell.assignment === assignment)?.title ??
+    `Assignment ${assignment}`
+  );
 }
 
-function pluralize(count: number, singular: string, plural: string): string {
-  return count === 1 ? singular : plural;
+function InspectionChoiceActions(props: {
+  readonly course: CourseReference;
+  readonly membership: CourseMembershipReference;
+  readonly assignment: AssignmentReference;
+  readonly operation?: GradingOperationReference;
+  readonly inspectionChoice: AssignmentInspectionChoice;
+  readonly studentLabel: string;
+  readonly assignmentTitle: string;
+  readonly onChooseRun: (
+    request: Omit<RunChooserRequest, "trigger">,
+    trigger: HTMLButtonElement,
+  ) => void;
+}): JSX.Element {
+  const selectedRun = ():
+    Extract<AssignmentInspectionChoice, { readonly kind: "selectedRun" }> | undefined =>
+    props.inspectionChoice.kind === "selectedRun" ? props.inspectionChoice : undefined;
+  const chooseRun = ():
+    Extract<AssignmentInspectionChoice, { readonly kind: "chooseRun" }> | undefined =>
+    props.inspectionChoice.kind === "chooseRun" ? props.inspectionChoice : undefined;
+  return (
+    <>
+      <Show when={selectedRun()}>
+        {(choice) => (
+          <A
+            class="gradebook-inspection-link"
+            href={inspectedStudentWorkUrl(
+              props.course,
+              props.membership,
+              props.assignment,
+              choice().run,
+              props.operation,
+            )}
+          >
+            Inspect submitted work
+          </A>
+        )}
+      </Show>
+      <Show when={chooseRun()}>
+        {(choice) => (
+          <button
+            class="quiet-action gradebook-choose-run"
+            type="button"
+            onClick={(event) =>
+              props.onChooseRun(
+                {
+                  membership: props.membership,
+                  assignment: props.assignment,
+                  operation: props.operation,
+                  studentLabel: props.studentLabel,
+                  assignmentTitle: props.assignmentTitle,
+                },
+                event.currentTarget,
+              )
+            }
+          >
+            Choose one of {choice().completedRunCount} submitted runs
+          </button>
+        )}
+      </Show>
+      <Show when={props.inspectionChoice.kind === "noSubmittedRun"}>
+        <span class="gradebook-cell-next-step">No submitted work</span>
+      </Show>
+    </>
+  );
+}
+function AssignmentCell(props: {
+  readonly course: CourseReference;
+  readonly row: CalculatedGradebookRow;
+  readonly cell: CalculatedAssignmentCell;
+  readonly operation?: GradingOperationReference;
+  readonly onChooseRun: (
+    request: Omit<RunChooserRequest, "trigger">,
+    trigger: HTMLButtonElement,
+  ) => void;
+}): JSX.Element {
+  const operationsHref = createMemo(() =>
+    assignmentWorkspacePath(
+      courseRouteReference(props.course),
+      assignmentRouteReference(props.cell.assignment),
+      "gradingOperations",
+    ),
+  );
+  return (
+    <td
+      id={gradebookCellFocusId(props.row.membership, props.cell.assignment)}
+      class="gradebook-assignment-cell"
+      tabindex="-1"
+      data-label={props.cell.title}
+    >
+      <span class="gradebook-cell-score">{scoreLabel(props.cell)}</span>
+      <InspectionChoiceActions
+        course={props.course}
+        membership={props.row.membership}
+        assignment={props.cell.assignment}
+        operation={props.operation}
+        inspectionChoice={props.cell.inspectionChoice}
+        studentLabel={props.row.displayLabel}
+        assignmentTitle={props.cell.title}
+        onChooseRun={props.onChooseRun}
+      />
+      <Show when={props.cell.scoringStatus === "failed"}>
+        <A class="gradebook-operations-link" href={operationsHref()}>
+          Open grading operations
+        </A>
+      </Show>
+    </td>
+  );
 }
 
-function gradebookRowKey(row: GradebookSummaryRow): string {
-  return `${row.assignmentId}:${row.enrollmentId}`;
-}
-
-function gradebookHistoryControlId(row: GradebookSummaryRow): string {
-  return `gradebook-history-control-${gradebookRowKey(row)}`;
-}
-
-function gradebookScore(row: GradebookSummaryRow, value: number | null): string {
-  if (row.scoringStatus === "recalculating") return "Recalculating";
-  if (row.scoringStatus === "failed") return "Unavailable";
-  return value === null ? "No score" : formatPercentScore(value);
-}
-
-interface GradebookCoursePageProps {
+function GradebookCoursePage(props: {
   readonly courseId: CourseId;
   readonly courseReference: CourseReference;
-}
-
-function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
+}): JSX.Element {
   const runtime = useApiRuntime();
-  const [gradebook, setGradebook] = createSignal<GradebookState>({ kind: "loading" });
-  const [histories, setHistories] = createSignal<Readonly<Record<string, RunHistoryState>>>({});
-  const [selectedHistoryKey, setSelectedHistoryKey] = createSignal<string | null>(null);
-  const [selectedHistoryRow, setSelectedHistoryRow] = createSignal<GradebookSummaryRow>();
-  const [announcement, setAnnouncement] = createSignal("");
-  let gradebookSession: CursorPageSession<GradebookSummaryRow> | undefined;
-  let paginationRecoveryButton: HTMLButtonElement | undefined;
-  let disposed = false;
-  let loadGeneration = 0;
-
-  const readyGradebook = (): Extract<GradebookState, { readonly kind: "ready" }> | undefined => {
-    const state = gradebook();
-    return state.kind === "ready" ? state : undefined;
-  };
-
-  async function loadGradebook(): Promise<void> {
-    const generation = ++loadGeneration;
-    const courseId = props.courseId;
-    setGradebook({ kind: "loading" });
-    setSelectedHistoryKey(null);
-    setSelectedHistoryRow(undefined);
-    setHistories({});
-    try {
-      const page = await loadGradebookPage(runtime.client, courseId);
-      if (disposed || generation !== loadGeneration) return;
-      let priorCount = page.items.length;
-      gradebookSession = new CursorPageSession(
-        page,
-        (cursor) => loadGradebookPage(runtime.client, courseId, cursor),
-        gradebookRowKey,
-        (next) => {
-          if (disposed || generation !== loadGeneration) return;
-          const addedCount = next.items.length - priorCount;
-          const shownCount = next.items.length;
-          let message: string;
-          if (next.loading) {
-            message = "Loading more gradebook records...";
-          } else if (next.error?.kind === "transport") {
-            message = `Could not load more gradebook records. The ${shownCount} ${pluralize(
-              shownCount,
-              "gradebook record",
-              "gradebook records",
-            )} already visible are still available.`;
-          } else if (next.error?.kind === "protocol") {
-            message = `Gradebook pagination stopped because the next page was not distinct. The ${shownCount} ${pluralize(
-              shownCount,
-              "gradebook record",
-              "gradebook records",
-            )} already visible are still available.`;
-          } else if (next.nextCursor === null) {
-            message = `Loaded ${shownCount} ${pluralize(
-              shownCount,
-              "gradebook record",
-              "gradebook records",
-            )}.`;
-          } else {
-            message = `Loaded ${addedCount} more ${pluralize(
-              addedCount,
-              "gradebook record",
-              "gradebook records",
-            )}. ${shownCount} ${pluralize(
-              shownCount,
-              "gradebook record",
-              "gradebook records",
-            )} visible.`;
-          }
-          priorCount = shownCount;
-          setGradebook({ kind: "ready", ...next });
-          setAnnouncement(next.error === null ? message : "");
-          if (next.error !== null) {
-            queueMicrotask(() => paginationRecoveryButton?.focus());
-          }
-        },
-      );
-      const initialState = gradebookSession.state;
-      setGradebook({ kind: "ready", ...initialState });
-      setAnnouncement(
-        initialState.nextCursor === null
-          ? `Loaded ${initialState.items.length} ${pluralize(
-              initialState.items.length,
-              "gradebook record",
-              "gradebook records",
-            )}.`
-          : initialState.items.length === 1
-            ? "Gradebook loaded with 1 gradebook record."
-            : `Gradebook loaded with ${initialState.items.length} gradebook records.`,
-      );
-    } catch {
-      if (disposed || generation !== loadGeneration) return;
-      setGradebook({ kind: "error" });
-      setAnnouncement("The gradebook could not load. You can try again.");
-    }
-  }
-
-  async function loadMoreGradebook(): Promise<void> {
-    const session = gradebookSession;
-    const generation = loadGeneration;
-    if (session === undefined) return;
-    const appended = await session.loadMore();
-    if (disposed || generation !== loadGeneration || session !== gradebookSession) return;
-    const firstAppended = appended[0];
-    if (firstAppended === undefined) return;
-    queueMicrotask(() => {
-      if (disposed || generation !== loadGeneration || session !== gradebookSession) return;
-      document.getElementById(gradebookHistoryControlId(firstAppended))?.focus();
-    });
-  }
-
-  async function retryLoadMoreGradebook(): Promise<void> {
-    const session = gradebookSession;
-    const generation = loadGeneration;
-    if (session === undefined) return;
-    const appended = await session.retry();
-    if (disposed || generation !== loadGeneration || session !== gradebookSession) return;
-    const firstAppended = appended[0];
-    if (firstAppended === undefined) return;
-    queueMicrotask(() => {
-      if (disposed || generation !== loadGeneration || session !== gradebookSession) return;
-      document.getElementById(gradebookHistoryControlId(firstAppended))?.focus();
-    });
-  }
-
-  async function loadHistory(row: GradebookSummaryRow, cursor?: string): Promise<void> {
-    const key = gradebookRowKey(row);
-    const previous = histories()[key];
-    setHistories((current) => ({ ...current, [key]: { kind: "loading" } }));
-    try {
-      const page = await loadGradebookRunHistory(runtime.client, row.enrollmentId, cursor);
-      if (disposed) return;
-      const previousRuns = cursor === undefined || previous?.kind !== "ready" ? [] : previous.runs;
-      const runs = [...previousRuns, ...page.items];
-      setHistories((current) => ({
-        ...current,
-        [key]: { kind: "ready", runs, nextCursor: page.nextCursor },
-      }));
-      setAnnouncement(
-        page.items.length === 0
-          ? "No additional runs were found."
-          : `Run history updated with ${page.items.length} record${page.items.length === 1 ? "" : "s"}.`,
-      );
-    } catch {
-      if (disposed) return;
-      setHistories((current) => ({ ...current, [key]: { kind: "error" } }));
-      setAnnouncement("Run history could not load. You can try again.");
-    }
-  }
-
-  function openHistory(row: GradebookSummaryRow): void {
-    const key = gradebookRowKey(row);
-    const existing = histories()[key];
-    setSelectedHistoryKey(key);
-    setSelectedHistoryRow(row);
-    if (existing === undefined) {
-      void loadHistory(row);
-    }
-  }
-
-  onMount(() => void loadGradebook());
-  onCleanup(() => {
-    disposed = true;
-    loadGeneration += 1;
-    gradebookSession = undefined;
-    paginationRecoveryButton = undefined;
-    setHistories({});
+  const location = useLocation();
+  const [pageState, setPageState] = createSignal<GradebookPageState>({
+    route: { kind: "valid", filter: undefined },
+    gradebook: { kind: "loading" },
+    operationSelection: { kind: "idle" },
   });
-
+  const session = new GradebookPageSession(props.courseId, runtime.client, setPageState);
+  const [runChooser, setRunChooser] = createSignal<RunChooserRequest>();
+  const [announcement, setAnnouncement] = createSignal("");
+  const routeSearch = createMemo(() => parseGradebookRouteSearch(location.search));
+  const gradebook = createMemo(() => pageState().gradebook);
+  const operationSelection = createMemo(() => pageState().operationSelection);
+  const ready = createMemo(
+    (): Extract<GradebookPageGradebookState, { readonly kind: "ready" }> | undefined => {
+      const state = gradebook();
+      return state.kind === "ready" ? state : undefined;
+    },
+  );
+  const columns = createMemo(
+    () => ready()?.rows[0]?.assignmentCells ?? ([] as ReadonlyArray<CalculatedAssignmentCell>),
+  );
+  const selectedOperation = createMemo(() => {
+    const route = pageState().route;
+    const filter = route.kind === "valid" ? route.filter : undefined;
+    return filter?.kind === "operation" ? filter.operation : undefined;
+  });
+  const invalidRoute = createMemo(
+    (): Extract<GradebookRouteSearchResult, { readonly kind: "invalid" }> | undefined => {
+      const route = pageState().route;
+      return route.kind === "invalid" ? route : undefined;
+    },
+  );
+  const reloadRequired = createMemo(
+    (): Extract<GradebookPageGradebookState, { readonly kind: "reloadRequired" }> | undefined => {
+      const state = gradebook();
+      return state.kind === "reloadRequired" ? state : undefined;
+    },
+  );
+  const singleSelection = createMemo(
+    (): Extract<GradebookPageSelectionState, { readonly kind: "singleStudent" }> | undefined => {
+      const state = operationSelection();
+      return state.kind === "singleStudent" ? state : undefined;
+    },
+  );
+  const studentSelection = createMemo(
+    (): Extract<GradebookPageSelectionState, { readonly kind: "studentSelection" }> | undefined => {
+      const state = operationSelection();
+      return state.kind === "studentSelection" ? state : undefined;
+    },
+  );
+  let restoreHeadingFocus = false;
+  let gradebookHeading: HTMLHeadingElement | undefined;
+  function reloadGradebook(): void {
+    restoreHeadingFocus = true;
+    session.reload();
+  }
+  function openRunChooser(
+    request: Omit<RunChooserRequest, "trigger">,
+    trigger: HTMLButtonElement,
+  ): void {
+    setRunChooser({ ...request, trigger });
+  }
+  function dismissRunChooser(): void {
+    const current = runChooser();
+    setRunChooser(undefined);
+    if (current?.trigger.isConnected)
+      queueMicrotask(() => current.trigger.focus({ preventScroll: true }));
+  }
+  createEffect(() => {
+    session.reset(routeSearch());
+  });
+  createEffect(() => {
+    const route = pageState().route;
+    const state = gradebook();
+    if (route.kind === "invalid") {
+      setAnnouncement("The Gradebook address needs correction before it can load.");
+    } else if (state.kind === "loading") {
+      setAnnouncement("Loading the current calculated Gradebook.");
+    } else if (state.kind === "error") {
+      setAnnouncement("The Gradebook could not load. You can try again.");
+    } else if (state.kind === "reloadRequired") {
+      setAnnouncement("The Gradebook changed and needs a fresh load.");
+    } else if (state.kind === "ready" && state.moreError) {
+      setAnnouncement("More Students could not load. The visible Gradebook remains available.");
+    } else if (state.kind === "ready" && state.loadingMore) {
+      setAnnouncement("Loading more Students.");
+    } else if (state.kind === "ready") {
+      setAnnouncement(
+        `Loaded current course totals for ${state.rows.length} Student${state.rows.length === 1 ? "" : "s"}.`,
+      );
+    }
+    if (restoreHeadingFocus && state.kind !== "loading") {
+      restoreHeadingFocus = false;
+      window.requestAnimationFrame(() => gradebookHeading?.focus({ preventScroll: true }));
+    }
+  });
+  onCleanup(() => {
+    session.dispose();
+  });
+  createEffect(() => {
+    if (ready() === undefined) return;
+    const target = window.location.hash.slice(1);
+    if (!/^gradebook-cell-M-[1-9][0-9]{0,9}-A-[1-9][0-9]{0,9}$/u.test(target)) return;
+    window.requestAnimationFrame(() =>
+      document.getElementById(target)?.focus({ preventScroll: true }),
+    );
+  });
+  function operationChoice(
+    membership: CourseMembershipReference,
+    assignment: AssignmentReference,
+    inspectionChoice: AssignmentInspectionChoice,
+    label?: string,
+  ): JSX.Element {
+    const rows = ready()?.rows ?? [];
+    const visibleLabel = label ?? studentLabel(rows, membership);
+    const title = assignmentTitle(rows, assignment);
+    return (
+      <article class="gradebook-selection-choice">
+        <h3>{visibleLabel}</h3>
+        <p>{title}</p>
+        <InspectionChoiceActions
+          course={props.courseReference}
+          membership={membership}
+          assignment={assignment}
+          operation={selectedOperation()}
+          inspectionChoice={inspectionChoice}
+          studentLabel={visibleLabel}
+          assignmentTitle={title}
+          onChooseRun={openRunChooser}
+        />
+      </article>
+    );
+  }
   return (
     <section class="page gradebook-page" data-route-surface="gradebook">
       <p class="eyebrow">Course progress</p>
-      <h1>Gradebook</h1>
+      <h1 ref={(element) => (gradebookHeading = element)} tabindex="-1">
+        Gradebook
+      </h1>
       <p class="page-lede">
-        A compact view of assignment progress. Open a learner's run history only when you need the
-        detail.
+        Current course totals and assignment scores calculated by the server. Open a submitted run
+        to inspect the Student&apos;s exact response with solution-free grading evidence.
       </p>
-      <CourseManagementNav courseReference={props.courseReference} active="gradebook" />
       <p class="gradebook-status" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
       </p>
-
+      <Show when={invalidRoute()}>
+        {(invalid) => (
+          <section class="route-error" role="alert">
+            <p class="eyebrow">Gradebook address needs correction</p>
+            <h2>Choose one valid Gradebook view</h2>
+            <p>{invalidRouteReason(invalid())}</p>
+            <A
+              class="primary-action"
+              href={`/instructor/courses/${props.courseReference}/gradebook`}
+            >
+              Open all active Students
+            </A>
+          </section>
+        )}
+      </Show>
       <Show when={gradebook().kind === "loading"}>
-        <p class="loading-state" role="status">
-          Loading gradebook...
-        </p>
+        <p class="loading-state">Loading calculated Gradebook...</p>
       </Show>
       <Show when={gradebook().kind === "error"}>
         <section class="route-error" role="alert">
           <p class="eyebrow">Gradebook unavailable</p>
-          <h2>Progress is still safely recorded</h2>
-          <p>Check your connection, then try loading this view again.</p>
-          <button class="primary-action" type="button" onClick={() => void loadGradebook()}>
+          <h2>Course progress is still safely recorded</h2>
+          <p>Check the live stack, then load the Gradebook again.</p>
+          <button class="primary-action" type="button" onClick={reloadGradebook}>
             Try again
           </button>
         </section>
       </Show>
-      <Show when={readyGradebook()}>
-        {(ready) => (
-          <Show
-            when={ready().items.length > 0 || ready().nextCursor !== null}
-            fallback={
-              <section class="gradebook-empty" aria-label="No gradebook records">
-                <h2>No assignment progress yet</h2>
-                <p>When learners begin an assignment, their progress will appear here.</p>
-              </section>
-            }
-          >
-            <Show when={ready().nextCursor !== null || ready().error !== null}>
-              <a class="skip-link" href="#gradebook-pagination" target="_self">
-                Skip to load more gradebook records
-              </a>
-            </Show>
-            <div
-              class="gradebook-table-wrap"
-              role="region"
-              aria-label="Gradebook records"
-              aria-busy={ready().loading}
-            >
-              <table class="gradebook-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Assignment</th>
-                    <th scope="col">Learner</th>
-                    <th scope="col">Best</th>
-                    <th scope="col">Latest</th>
-                    <th scope="col">Completed</th>
-                    <th scope="col">Last activity</th>
-                    <th scope="col">
-                      <span class="sr-only">Run history</span>
-                    </th>
-                  </tr>
-                </thead>
-                <For each={ready().items}>
-                  {(row) => {
-                    const key = gradebookRowKey(row);
-                    const expanded = (): boolean => selectedHistoryKey() === key;
-                    return (
-                      <tbody>
-                        <tr class="gradebook-row">
-                          <th data-label="Assignment" scope="row">
-                            {row.assignmentTitle}
-                          </th>
-                          <td data-label="Learner">{row.learnerName}</td>
-                          <td data-label="Best">{gradebookScore(row, row.summary.bestScore)}</td>
-                          <td data-label="Latest">
-                            {gradebookScore(row, row.summary.latestScore)}
-                          </td>
-                          <td data-label="Completed">{row.summary.completedRunCount}</td>
-                          <td data-label="Last activity">
-                            {formatActivity(row.summary.lastActivityAt)}
-                          </td>
-                          <td class="gradebook-history-control">
-                            <button
-                              id={gradebookHistoryControlId(row)}
-                              class="quiet-action"
-                              type="button"
-                              aria-expanded={expanded()}
-                              aria-controls={`run-history-${key}`}
-                              onClick={() => openHistory(row)}
-                            >
-                              View run history
-                            </button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    );
-                  }}
-                </For>
-              </table>
-            </div>
-            <Show when={selectedHistoryRow()}>
-              {(row) => {
-                const key = gradebookRowKey(row());
-                const history = (): RunHistoryState | undefined => histories()[key];
-                const readyHistory = ():
-                  Extract<RunHistoryState, { readonly kind: "ready" }> | undefined => {
-                  const state = history();
-                  return state?.kind === "ready" ? state : undefined;
-                };
-                return (
-                  <section
-                    id={`run-history-${key}`}
-                    class="gradebook-history-panel"
-                    aria-label={`Run history for learner ${row().learnerName}`}
-                  >
-                    <div class="gradebook-history-panel__heading">
-                      <div>
-                        <p class="card-kicker">Run history</p>
-                        <h2>{row().assignmentTitle}</h2>
-                        <p>{row().learnerName}</p>
-                      </div>
+      <Show when={reloadRequired()}>
+        {(reload) => (
+          <section class="route-error" role="alert">
+            <p class="eyebrow">Gradebook updated</p>
+            <h2>Load the current course structure</h2>
+            <p>{reload().reason}</p>
+            <button class="primary-action" type="button" onClick={reloadGradebook}>
+              Reload Gradebook
+            </button>
+          </section>
+        )}
+      </Show>
+      <Show when={ready()}>
+        {(current) => (
+          <>
+            <section class="gradebook-witness" aria-label="Gradebook calculation status">
+              <div>
+                <span>Calculation</span>
+                <strong>
+                  {current().page.mode === "totalPoints" ? "Total points" : "Weighted categories"}
+                </strong>
+              </div>
+              <div>
+                <span>Viewing</span>
+                <strong>{filterLabel(current().filter)}</strong>
+              </div>
+              <div>
+                <span>Observed</span>
+                <strong>{formatActivity(current().page.observationTime)}</strong>
+              </div>
+              <div>
+                <span>Students shown</span>
+                <strong>{current().rows.length}</strong>
+              </div>
+            </section>
+            <Show when={selectedOperation()}>
+              {(operation) => (
+                <section class="gradebook-selection" aria-labelledby="gradebook-selection-heading">
+                  <p class="eyebrow">Grading operation</p>
+                  <h2 id="gradebook-selection-heading">Select Student work to inspect</h2>
+                  <p>
+                    Choose one named Student and one exact submitted run for operation {operation()}
+                    .
+                  </p>
+                  <Show when={operationSelection().kind === "loading"}>
+                    <p class="loading-state">Loading affected Students...</p>
+                  </Show>
+                  <Show when={operationSelection().kind === "error"}>
+                    <section class="inline-error" role="alert">
+                      <p>Affected Students could not load. Try again to make an exact choice.</p>
                       <button
                         class="quiet-action"
                         type="button"
-                        onClick={() => {
-                          setSelectedHistoryKey(null);
-                          setSelectedHistoryRow(undefined);
-                        }}
+                        onClick={() => session.retrySelection()}
                       >
-                        Close history
+                        Try again
                       </button>
-                    </div>
-                    <Show when={history()?.kind === "loading"}>
-                      <p role="status">Loading run history...</p>
-                    </Show>
-                    <Show when={history()?.kind === "error"}>
-                      <div class="inline-error" role="alert">
-                        <p>Run history could not load.</p>
-                        <button
-                          class="quiet-action"
-                          type="button"
-                          onClick={() => void loadHistory(row())}
-                        >
-                          Try history again
-                        </button>
-                      </div>
-                    </Show>
-                    <Show when={readyHistory()}>
-                      {(loaded) => (
+                    </section>
+                  </Show>
+                  <Show when={singleSelection()}>
+                    {(selection) => {
+                      return operationChoice(
+                        selection().membership,
+                        selection().assignment,
+                        selection().inspectionChoice,
+                      );
+                    }}
+                  </Show>
+                  <Show when={studentSelection()}>
+                    {(selection) => {
+                      return (
                         <>
-                          <Show
-                            when={loaded().runs.length > 0}
-                            fallback={<p>No runs have been started yet.</p>}
-                          >
-                            <ul class="run-history-list">
-                              <For each={loaded().runs}>
-                                {(run) => (
-                                  <li>
-                                    <strong>Run {run.runNumber}</strong>
-                                    <span>{formatRunStatus(run, row().scoringStatus)}</span>
-                                    <span>Started {formatActivity(run.startedAt)}</span>
-                                  </li>
-                                )}
-                              </For>
-                            </ul>
+                          <div class="gradebook-selection-list">
+                            <For each={selection().rows}>
+                              {(row) =>
+                                operationChoice(
+                                  row.membership,
+                                  row.assignment,
+                                  row.inspectionChoice,
+                                  row.displayLabel,
+                                )
+                              }
+                            </For>
+                          </div>
+                          <Show when={selection().moreError}>
+                            <div class="inline-error" role="alert">
+                              <p>
+                                More affected Students could not load. The listed choices remain
+                                available.
+                              </p>
+                              <button
+                                class="quiet-action"
+                                type="button"
+                                onClick={() => session.loadMoreSelection()}
+                              >
+                                Try loading more Students
+                              </button>
+                            </div>
                           </Show>
-                          <Show when={loaded().nextCursor !== null}>
+                          <Show when={selection().nextCursor !== null && !selection().moreError}>
                             <button
                               class="quiet-action"
                               type="button"
-                              onClick={() =>
-                                void loadHistory(row(), loaded().nextCursor ?? undefined)
-                              }
+                              disabled={selection().loadingMore}
+                              onClick={() => session.loadMoreSelection()}
                             >
-                              Load older runs
+                              {selection().loadingMore
+                                ? "Loading more Students..."
+                                : "Load more affected Students"}
                             </button>
                           </Show>
                         </>
-                      )}
-                    </Show>
-                  </section>
-                );
-              }}
+                      );
+                    }}
+                  </Show>
+                </section>
+              )}
             </Show>
-            <section
-              id="gradebook-pagination"
-              class="gradebook-pagination"
-              aria-label="Gradebook pagination"
-              tabindex="-1"
+            <Show
+              when={current().rows.length > 0}
+              fallback={
+                <section class="gradebook-empty" aria-label="No active Students">
+                  <h2>No active Students yet</h2>
+                  <p>Students will appear after they are connected to this live course.</p>
+                </section>
+              }
             >
-              <Show when={ready().error}>
-                {(error) => (
-                  <div class="inline-error" role="alert">
-                    <p>
-                      {error().kind === "transport"
-                        ? `Could not load more gradebook records. The ${ready().items.length} ${pluralize(
-                            ready().items.length,
-                            "gradebook record",
-                            "gradebook records",
-                          )} already visible ${ready().items.length === 1 ? "is" : "are"} still available.`
-                        : `Gradebook pagination stopped because the next page was not distinct. The ${ready().items.length} ${pluralize(
-                            ready().items.length,
-                            "gradebook record",
-                            "gradebook records",
-                          )} already visible ${ready().items.length === 1 ? "is" : "are"} still available.`}
-                    </p>
-                    <Show when={error().kind === "transport"}>
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        ref={(element: HTMLButtonElement) => {
-                          paginationRecoveryButton = element;
-                        }}
-                        onClick={() => void retryLoadMoreGradebook()}
-                      >
-                        Try loading more gradebook records again
-                      </button>
-                    </Show>
-                    <Show when={error().kind === "protocol"}>
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        ref={(element: HTMLButtonElement) => {
-                          paginationRecoveryButton = element;
-                        }}
-                        onClick={() => void loadGradebook()}
-                      >
-                        Reload gradebook
-                      </button>
-                    </Show>
-                  </div>
-                )}
-              </Show>
-              <Show when={ready().nextCursor !== null && ready().error === null}>
+              <div class="gradebook-table-wrap" role="region" aria-label="Calculated Gradebook">
+                <table class="gradebook-table gradebook-table--calculated">
+                  <thead>
+                    <tr>
+                      <th scope="col">Student</th>
+                      <th scope="col">Course total</th>
+                      <For each={columns()}>
+                        {(cell) => (
+                          <th scope="col">
+                            <span>{cell.title}</span>
+                            <Show when={!cell.included}>
+                              <small>Excluded from total</small>
+                            </Show>
+                          </th>
+                        )}
+                      </For>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={current().rows}>
+                      {(row) => (
+                        <tr class="gradebook-row">
+                          <th scope="row">{row.displayLabel}</th>
+                          <td data-label="Course total" class="gradebook-course-total">
+                            <Show
+                              when={row.outcome.status === "available" ? row.outcome : undefined}
+                              fallback={
+                                <span>
+                                  {row.outcome.status === "unavailable"
+                                    ? unavailableOutcome(row.outcome.reason)
+                                    : "Unavailable"}
+                                </span>
+                              }
+                            >
+                              {(outcome) => (
+                                <>
+                                  <strong>{formatPercentScore(outcome().score)}</strong>
+                                  <Show when={outcome().letter}>
+                                    {(letter) => <span>{letter()}</span>}
+                                  </Show>
+                                </>
+                              )}
+                            </Show>
+                          </td>
+                          <For each={row.assignmentCells}>
+                            {(cell) => (
+                              <AssignmentCell
+                                course={props.courseReference}
+                                row={row}
+                                cell={cell}
+                                operation={selectedOperation()}
+                                onChooseRun={openRunChooser}
+                              />
+                            )}
+                          </For>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </Show>
+            <Show when={current().moreError}>
+              <div class="inline-error" role="alert">
+                <p>More Students could not load. The rows already shown remain current.</p>
                 <button
                   class="quiet-action"
                   type="button"
-                  disabled={ready().loading}
-                  onClick={() => void loadMoreGradebook()}
+                  onClick={() => session.loadMoreGradebook()}
                 >
-                  {ready().loading
-                    ? "Loading more gradebook records..."
-                    : "Load more gradebook records"}
+                  Try loading more Students
                 </button>
-              </Show>
-            </section>
-          </Show>
+              </div>
+            </Show>
+            <Show when={current().page.nextCursor !== null && !current().moreError}>
+              <button
+                class="quiet-action gradebook-load-more"
+                type="button"
+                disabled={current().loadingMore}
+                onClick={() => session.loadMoreGradebook()}
+              >
+                {current().loadingMore ? "Loading more Students..." : "Load more Students"}
+              </button>
+            </Show>
+          </>
+        )}
+      </Show>
+      <Show when={runChooser()} keyed>
+        {(request) => (
+          <GradebookRunChooser
+            client={runtime.client}
+            courseId={props.courseId}
+            course={props.courseReference}
+            membership={request.membership}
+            assignment={request.assignment}
+            operation={request.operation}
+            studentLabel={request.studentLabel}
+            assignmentTitle={request.assignmentTitle}
+            onDismiss={dismissRunChooser}
+          />
         )}
       </Show>
     </section>
   );
 }
-
-/** Recreates course-owned pagination and history state whenever the route course changes. */
+/** Recreates course-owned Gradebook state whenever the route course changes. */
 export function GradebookPage(): JSX.Element {
   const scopedRoute = useCourseThemeRouteData();
   const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
-
   return (
     <Show
       when={course}
@@ -514,12 +633,14 @@ export function GradebookPage(): JSX.Element {
           <section class="route-error" role="alert">
             <p class="eyebrow">Gradebook unavailable</p>
             <h1>Course route is missing</h1>
-            <p>Return to your course list, then open the gradebook again.</p>
+            <p>Return to your course list, then open the Gradebook again.</p>
           </section>
         </section>
       }
     >
-      {(course) => <GradebookCoursePage courseId={course.id} courseReference={course.reference} />}
+      {(loadedCourse) => (
+        <GradebookCoursePage courseId={loadedCourse.id} courseReference={loadedCourse.reference} />
+      )}
     </Show>
   );
 }

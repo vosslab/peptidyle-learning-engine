@@ -19,12 +19,12 @@ pub use receipt_contracts::*;
 /// authorization grant. The trusted server boundary constructs it from the
 /// typed route values before calling learner-work persistence operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LearnerWorkRoutingBinding {
+pub struct StudentWorkRoutingBinding {
     pub course: CourseId,
     pub assignment: AssignmentId,
 }
 
-impl LearnerWorkRoutingBinding {
+impl StudentWorkRoutingBinding {
     /// Constructs a routing assertion for one course and assignment pair.
     pub const fn new(course: CourseId, assignment: AssignmentId) -> Self {
         Self { course, assignment }
@@ -693,7 +693,10 @@ pub(crate) fn validate_issued_webwork_replay(
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReceiptPresentationSnapshot {
+    /// Answer-free content descriptor for the exact issued rendering.
     pub envelope: PresentationEnvelopeV1,
+    /// Public asset bindings retained to reproduce and validate that issued
+    /// rendering without exposing answer material or storage authority.
     pub asset_bindings: Vec<AssetBindingV1>,
 }
 
@@ -808,15 +811,15 @@ pub struct SubmissionRecord {
     /// Immutable grading and feedback content remain in the receipt; a later
     /// assignment policy or authoritative-clock change may alter only this
     /// public projection.
-    pub disclosure: LearnerDisclosureInput,
+    pub disclosure: StudentDisclosureInput,
 }
 
 impl std::fmt::Debug for SubmissionRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SubmissionRecord")
-            .field("attempt", &self.attempt)
-            .field("run", &self.run)
-            .field("summary", &self.summary)
+            .field("attempt", &"[REDACTED]")
+            .field("run", &"[REDACTED]")
+            .field("summary", &"[REDACTED]")
             .field("feedback", &"[redacted]")
             .field(
                 "presentation",

@@ -10,7 +10,6 @@ import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGra
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
-import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
@@ -18,20 +17,19 @@ import type { RunId } from "../../../generated/api/RunId";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
-  CursorPage,
   EnrollmentView,
   PublicationDiff,
   RunScreenData,
   RunSummaryResponse,
-  LearnerQuestionAttempt,
+  StudentQuestionAttempt,
   WorkspaceDraftDetail,
 } from "../contracts";
 import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
 import { assignmentRouteReference } from "../../navigation/public_route";
 import {
-  decodeLearnerAssignmentPage,
+  decodeStudentAssignmentPage,
   decodeAssignmentRun,
-  decodeLearnerAssignmentDetail,
+  decodeStudentAssignmentDetail,
   decodeAttemptPage,
   decodeCatalogPage,
   decodeCatalogProblemDetail,
@@ -45,13 +43,12 @@ import {
   decodeDraftQuestionDefinition,
   decodeEnrollmentView,
   decodeExternalToolLaunch,
-  decodeGradebookPage,
-  decodeLearnerQuestionAttempt,
+  decodeStudentQuestionAttempt,
   decodeQuestionEnvelope,
   decodeIssuedPresentationEnvelope,
   decodeRunPage,
   decodeRunSummaryResponse,
-  decodeLearnerAssignmentProgress,
+  decodeStudentAssignmentProgress,
   decodeTaxonomyPage,
   decodeWorkspaceDraftPage,
   decodePublicationDiff,
@@ -61,7 +58,7 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import {
   encodedId,
   cursorPath,
-  learnerAttemptPath,
+  studentAttemptPath,
   requestJson,
   requestPath,
   type ApiFetch,
@@ -116,7 +113,7 @@ function issuedQuestionForAttempt(
   basePath: string,
   courseId: CourseId,
   assignmentId: AssignmentId,
-  attempt: LearnerQuestionAttempt,
+  attempt: StudentQuestionAttempt,
 ): Promise<QuestionEnvelope> {
   const decoder =
     attempt.issuedCapability === "notApplicable"
@@ -125,7 +122,7 @@ function issuedQuestionForAttempt(
   return requestJson(
     fetchImplementation,
     basePath,
-    `${learnerAttemptPath(courseId, assignmentId, attempt.id)}/question`,
+    `${studentAttemptPath(courseId, assignmentId, attempt.id)}/question`,
     decoder,
   );
 }
@@ -177,20 +174,6 @@ function strongAppearanceRevision(value: string): string {
     throw new ApiProtocolError("Course appearance needs a canonical positive revision");
   return `"${value}"`;
 }
-function gradebookPath(
-  courseId: CourseId,
-  cursor: string | undefined,
-  pageSize: number | undefined,
-): string {
-  if (pageSize !== undefined && (!Number.isSafeInteger(pageSize) || pageSize <= 0))
-    throw new Error("gradebook pageSize must be a positive safe integer");
-  const query = new URLSearchParams();
-  if (cursor !== undefined) query.set("cursor", cursor);
-  if (pageSize !== undefined) query.set("pageSize", String(pageSize));
-  const suffix = query.size === 0 ? "" : `?${query.toString()}`;
-  return `/api/courses/${encodedId(courseId)}/gradebook${suffix}`;
-}
-
 async function workspaceDraft(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -257,7 +240,7 @@ async function publicationDiff(
     throw new ApiProtocolError("Publication diff ETag does not match its draftRevision");
   return diff;
 }
-async function activeAttempt(client: ApiClient, runId: RunId): Promise<LearnerQuestionAttempt> {
+async function activeAttempt(client: ApiClient, runId: RunId): Promise<StudentQuestionAttempt> {
   let cursor: string | undefined;
   const seen = new Set<string>();
   while (true) {
@@ -308,7 +291,6 @@ export function createResponseClient(
   | "getCourseAppearance"
   | "getCourseGradeScheme"
   | "getCourseGradebookTotals"
-  | "listGradebook"
   | "listAssignments"
   | "getAssignment"
   | "getAssignmentSummary"
@@ -416,33 +398,26 @@ export function createResponseClient(
       if (!response.ok) throw new ApiRequestError(response.status, path);
       return decodeCourseGradebookTotalsView(await boundedResponseJson(response, path));
     },
-    listGradebook: (courseId, cursor, pageSize): Promise<CursorPage<GradebookSummaryRow>> =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        gradebookPath(courseId, cursor, pageSize),
-        decodeGradebookPage,
-      ),
     listAssignments: (courseId, cursor) =>
       requestJson(
         fetchImplementation,
         basePath,
         cursorPath(`/api/courses/${encodedId(courseId)}/assignments`, cursor),
-        decodeLearnerAssignmentPage,
+        decodeStudentAssignmentPage,
       ),
     getAssignment: (assignmentId: AssignmentId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/assignments/${encodedId(assignmentId)}/learner`,
-        decodeLearnerAssignmentDetail,
+        `/api/assignments/${encodedId(assignmentId)}/student`,
+        decodeStudentAssignmentDetail,
       ),
     getAssignmentSummary: (assignmentId: AssignmentId) =>
       requestJson(
         fetchImplementation,
         basePath,
         `/api/assignments/${encodedId(assignmentId)}/summary`,
-        decodeLearnerAssignmentProgress,
+        decodeStudentAssignmentProgress,
       ),
     getEnrollment: (enrollmentId: EnrollmentId) =>
       requestJson(
@@ -497,14 +472,14 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/attempts/${encodedId(attemptId)}`,
-        decodeLearnerQuestionAttempt,
+        decodeStudentQuestionAttempt,
       ),
     getIssuedQuestion: async (courseId, assignmentId, attemptId): Promise<QuestionEnvelope> => {
       const attempt = await requestJson(
         fetchImplementation,
         basePath,
         `/api/attempts/${encodedId(attemptId)}`,
-        decodeLearnerQuestionAttempt,
+        decodeStudentQuestionAttempt,
       );
       return issuedQuestionForAttempt(
         fetchImplementation,
@@ -518,7 +493,7 @@ export function createResponseClient(
       requestJson(
         fetchImplementation,
         basePath,
-        `${learnerAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch`,
+        `${studentAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch`,
         (value, path = "response") =>
           decodeExternalToolLaunch(value, path, courseId, assignmentId, attemptId),
         { method: "POST" },
@@ -528,7 +503,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/grading/summaries/${encodedId(enrollmentId)}`,
-        decodeLearnerAssignmentProgress,
+        decodeStudentAssignmentProgress,
       ),
     getRunScreen: async (runId): Promise<RunScreenData> => {
       const client = getClient();
@@ -551,7 +526,7 @@ export function createResponseClient(
         throw new ApiProtocolError(
           "Run screen assignment reference did not resolve to an assignment",
         );
-      let attempt: LearnerQuestionAttempt;
+      let attempt: StudentQuestionAttempt;
       if (initial.kind === "attempt") attempt = initial.attempt;
       else {
         const noActive =

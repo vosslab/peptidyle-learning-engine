@@ -127,7 +127,7 @@ async fn follow_on_routes_require_the_exact_nested_binding_before_mutation() {
     assert_eq!(submission.status(), StatusCode::NOT_FOUND);
     assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
     let stored = store
-        .learner_get_question_attempt(
+        .student_get_question_attempt(
             TenantContext::from_authenticated_session(TenantId::from_uuid(id(1))),
             UserId::from_uuid(id(3)),
             attempt.id,

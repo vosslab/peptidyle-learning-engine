@@ -144,6 +144,7 @@ async fn memory_export_commits_exact_four_private_artifacts_atomically() {
     assert_eq!(
         store
             .fail_job(
+                context,
                 failed_claim.id,
                 failed_claim.lease_token,
                 JobFailureKind::Permanent,

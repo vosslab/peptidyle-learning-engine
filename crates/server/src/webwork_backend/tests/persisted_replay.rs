@@ -7,7 +7,7 @@ use axum::http::{Request, StatusCode};
 use learning_data_access::{
     AssignmentRecord, CourseRecord, CourseRosterStore, CreateCourseCommand,
     IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
-    LearnerWorkRoutingBinding, SealedPrivateExecutionStore, SessionLifetime, SessionSubject, Store,
+    SealedPrivateExecutionStore, SessionLifetime, SessionSubject, Store, StudentWorkRoutingBinding,
     SubmissionIdempotencyKey, SubmissionPreparation, TenantContext, UpsertCourseMember,
 };
 use question_model::response::{ChoiceId, StudentResponse};
@@ -69,7 +69,7 @@ async fn persist_attempt(
     context: TenantContext,
     question: &question_model::QuestionDefinition,
     issued: &adapter_webwork::WebworkIssuedAttempt,
-) -> (UserId, LearnerWorkRoutingBinding, QuestionAttempt) {
+) -> (UserId, StudentWorkRoutingBinding, QuestionAttempt) {
     let tenant = context.tenant_id();
     let instructor = UserId::from_uuid(id(15));
     let actor = UserId::from_uuid(id(20));
@@ -139,7 +139,7 @@ async fn persist_attempt(
                         scoring_mode: AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -170,7 +170,7 @@ async fn persist_attempt(
         .start_or_resume_run(
             context,
             actor,
-            learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id(26)),
         )
         .await
@@ -190,7 +190,7 @@ async fn persist_attempt(
                 actor,
                 attempt: QuestionAttemptId::from_uuid(id(27)),
                 run: run.id,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+                binding: learning_data_access::StudentWorkRoutingBinding::new(course, assignment),
                 assignment_position: 0,
                 problem: reference().problem,
                 question_version: reference().version,
@@ -233,7 +233,7 @@ async fn persist_attempt(
         .expect("attempt");
     (
         actor,
-        LearnerWorkRoutingBinding::new(course, assignment),
+        StudentWorkRoutingBinding::new(course, assignment),
         attempt,
     )
 }
@@ -246,7 +246,7 @@ async fn prepare_grade(
     >,
     context: TenantContext,
     actor: UserId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
     response: &StudentResponse,
     key: &str,
@@ -571,7 +571,7 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
                 &store,
             )),
         ),
-        Arc::clone(&store) as Arc<dyn learning_data_access::LearnerSubmissionStatusStore>,
+        Arc::clone(&store) as Arc<dyn learning_data_access::StudentSubmissionStatusStore>,
         Arc::clone(&store) as Arc<dyn learning_data_access::AutomatedGradingStore>,
     );
 
@@ -663,7 +663,11 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .await
         .expect("completed receipt body");
     let first_json: serde_json::Value = serde_json::from_slice(&first_body).expect("first receipt");
-    assert_eq!(first_json["feedback"]["correctness"], true);
+    assert_eq!(
+        first_json["feedback"]["correctness"],
+        serde_json::Value::Null,
+        "correctness remains withheld until the score is current"
+    );
     assert_eq!(
         first_json["attempt"]["result"],
         serde_json::Value::Null,

@@ -43,7 +43,7 @@ export function CourseEntryIdentity(): JSX.Element {
   if (routeData === undefined) return <></>;
   const course = courseRouteData(routeData);
   return (
-    <header class="course-entry-identity">
+    <header class="course-entry-identity" data-course-title>
       <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
       <p class="eyebrow">Course home</p>
       <h1>{course.summary.title}</h1>

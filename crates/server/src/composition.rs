@@ -56,8 +56,8 @@ pub(super) use learning_data_access::postgres::{
 pub(super) use learning_data_access::{
     AssetStore, AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore,
     CourseItemAnalysisStore, CourseRecordsAccessStore, ExportJobStore, FlatImportProvenanceStore,
-    FlatQuestionGradingStore, FlatQuestionStore, ManualGradingStore, QtiImportApiStore,
-    QtiImportStore, RetentionApiStore, RetentionStore, SessionStore, Store, WorkerId,
+    FlatQuestionGradingStore, FlatQuestionStore, QtiImportApiStore, QtiImportStore,
+    RetentionApiStore, RetentionStore, SessionStore, Store, WorkerId,
 };
 pub(super) use serde_json::json;
 

@@ -1,7 +1,7 @@
 //! Private teaching-feedback records and their bounded validation.
 
 use crate::{AssignmentRecord, Page, StoreError};
-use domain::disclosure_policy::LearnerDisclosureDecision;
+use domain::disclosure_policy::StudentDisclosureDecision;
 use domain::effective_assignment_policy::EffectiveAssignmentPolicy;
 use objects::Sha256Digest;
 use question_model::envelope::ContentBlock;
@@ -10,10 +10,10 @@ use question_model::{
     ScoringStatus, StudentAssignmentSummary, StudentResponse, TenantId, UserId,
 };
 
-/// One learner-safe summary and its score freshness read atomically by storage.
+/// One Student-safe summary and its score freshness read atomically by storage.
 /// It deliberately has no serialization or debug representation.
 #[derive(Clone, PartialEq)]
-pub struct LearnerAssignmentSummarySnapshot {
+pub struct StudentAssignmentSummarySnapshot {
     pub summary: StudentAssignmentSummary,
     pub scoring_status: ScoringStatus,
 }
@@ -32,7 +32,7 @@ pub struct AttemptFeedbackRecord {
 
 /// Immutable tenant-owned audit receipt for an instructor feedback action.
 ///
-/// This carries no feedback content and never changes learner disclosure.
+/// This carries no feedback content and never changes Student disclosure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackReleaseRecord {
     pub tenant: TenantId,
@@ -41,7 +41,7 @@ pub struct FeedbackReleaseRecord {
     pub released_at: ActivityTimestamp,
 }
 
-/// Private, current learner-disclosure evaluation input.
+/// Private, current Student-disclosure evaluation input.
 ///
 /// This boundary deliberately contains only assignment-owned disclosure
 /// policy, the effective policy read from the current sealed S3 receipt, and
@@ -50,16 +50,16 @@ pub struct FeedbackReleaseRecord {
 /// material, or an entitlement decision. S5 authorization is completed before
 /// a store returns it.
 #[derive(Clone, PartialEq, Eq)]
-pub struct LearnerDisclosureInput {
-    assignment_policy: question_model::LearnerDisclosurePolicy,
+pub struct StudentDisclosureInput {
+    assignment_policy: question_model::StudentDisclosurePolicy,
     effective_policy: EffectiveAssignmentPolicy,
     evaluated_at: ActivityTimestamp,
     submitted_at: Option<ActivityTimestamp>,
 }
 
-impl LearnerDisclosureInput {
+impl StudentDisclosureInput {
     pub(crate) fn new(
-        assignment_policy: question_model::LearnerDisclosurePolicy,
+        assignment_policy: question_model::StudentDisclosurePolicy,
         effective_policy: EffectiveAssignmentPolicy,
         evaluated_at: ActivityTimestamp,
         submitted_at: Option<ActivityTimestamp>,
@@ -73,8 +73,8 @@ impl LearnerDisclosureInput {
     }
 
     /// Evaluates every public field from the one current server-side source.
-    pub fn decision(&self) -> LearnerDisclosureDecision {
-        domain::disclosure_policy::evaluate_allowed_learner_disclosure(
+    pub fn decision(&self) -> StudentDisclosureDecision {
+        domain::disclosure_policy::evaluate_allowed_student_disclosure(
             &self.effective_policy,
             self.assignment_policy,
             self.evaluated_at,
@@ -97,7 +97,7 @@ pub struct RunSummaryOutcomeInput {
     pub submitted_at: Option<ActivityTimestamp>,
     pub response: Option<StudentResponse>,
     pub result: Option<AttemptResult>,
-    pub disclosure: LearnerDisclosureInput,
+    pub disclosure: StudentDisclosureInput,
     pub feedback: Option<AttemptFeedbackRecord>,
 }
 

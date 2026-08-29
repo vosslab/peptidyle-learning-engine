@@ -1,0 +1,778 @@
+// Strict browser contracts for the roster-first Gradebook and audited Student work.
+
+import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
+import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
+import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
+import type { AssetBindingV1 } from "../../../generated/api/AssetBindingV1";
+import type { CourseGradeMode } from "../../../generated/api/CourseGradeMode";
+import type { CourseGradeRoundingRule } from "../../../generated/api/CourseGradeRoundingRule";
+import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
+import type { CourseReference } from "../../../generated/api/CourseReference";
+import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
+import type { InspectedStudentResponseV1 } from "../../../generated/api/InspectedStudentResponseV1";
+import type { InspectedStudentScoreFeedbackV1 } from "../../../generated/api/InspectedStudentScoreFeedbackV1";
+import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
+import type { RunReference } from "../../../generated/api/RunReference";
+import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
+import {
+  DecodeError,
+  decodeBoolean,
+  decodeFiniteNumber,
+  decodeNonnegativeInteger,
+  decodeNullable,
+  decodeRecord,
+  decodeSafeInteger,
+  decodeString,
+  decodeStringEnum,
+} from "../decoder";
+import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
+import { decodeGradingOperationReference } from "./grading_operations";
+import {
+  decodeAssignmentInspectionChoice,
+  type AssignmentInspectionChoice,
+} from "./gradebook_selection";
+import {
+  MAX_CURSOR_PAGE_ITEMS,
+  decodeBoundedArray,
+  decodeAssignmentTitle,
+  decodeCursor,
+  decodeIdentifier,
+  decodeSha256,
+  decodeTimestamp,
+  field,
+  requireOnlyFields,
+} from "./shared";
+
+const MODES = [
+  "totalPoints",
+  "weightedCategories",
+] as const satisfies ReadonlyArray<CourseGradeMode>;
+const ROUNDING_RULES = [
+  "fourDecimalPlacesHalfAwayFromZero",
+] as const satisfies ReadonlyArray<CourseGradeRoundingRule>;
+const SCORING_STATUSES = [
+  "current",
+  "recalculating",
+  "failed",
+] as const satisfies ReadonlyArray<ScoringStatus>;
+const COURSE_GRADE_UNAVAILABLE_REASONS = [
+  "noIncludedAssignments",
+  "recalculating",
+  "failed",
+  "emptyAfterDrop",
+  "zeroPossiblePoints",
+] as const;
+const RELOAD_REASONS = ["schemeChanged", "rosterChanged", "filterChanged"] as const;
+const MAX_PRESENTED_ITEMS = 32;
+const MAX_INSPECTED_SUBMISSIONS = MAX_ASSIGNMENT_ORDERED_ENTRIES;
+// One presentation permits 32 prompt blocks and at most 32 rendered items,
+// each with at most 32 content blocks. The transport supplies the byte bound.
+const MAX_ASSET_BINDINGS = MAX_PRESENTED_ITEMS * (MAX_PRESENTED_ITEMS + 1);
+const RENDERED_ITEM_ID = /^[0-9a-f]{4}$/u;
+
+export type CalculatedCourseGradeOutcome =
+  | {
+      readonly status: "available";
+      readonly score: number;
+      readonly letter: string | null;
+      readonly droppedAssignments: ReadonlyArray<AssignmentReference>;
+      readonly totalEarned: number | null;
+      readonly totalPossible: number | null;
+    }
+  | {
+      readonly status: "unavailable";
+      readonly reason: (typeof COURSE_GRADE_UNAVAILABLE_REASONS)[number];
+    };
+
+export interface CalculatedAssignmentCell {
+  readonly assignment: AssignmentReference;
+  readonly title: string;
+  readonly included: boolean;
+  readonly category: string | null;
+  readonly availability: "available" | "unavailable";
+  readonly selectedScore: number | null;
+  readonly scoringStatus: ScoringStatus;
+  readonly inspectionChoice: AssignmentInspectionChoice;
+}
+
+export interface CalculatedGradebookRow {
+  readonly membership: CourseMembershipReference;
+  readonly displayLabel: string;
+  readonly outcome: CalculatedCourseGradeOutcome;
+  readonly assignmentCells: ReadonlyArray<CalculatedAssignmentCell>;
+}
+
+export interface AssignmentScoringWitness {
+  readonly assignment: AssignmentReference;
+  readonly generation: number;
+  readonly status: ScoringStatus;
+}
+
+export type CalculatedGradebookResult =
+  | {
+      readonly kind: "page";
+      readonly schemeRevision: number;
+      readonly rosterRevision: number;
+      readonly mode: CourseGradeMode;
+      readonly rounding: CourseGradeRoundingRule;
+      readonly observationTime: number;
+      readonly scoringWitnesses: ReadonlyArray<AssignmentScoringWitness>;
+      readonly nextCursor: string | null;
+      readonly rows: ReadonlyArray<CalculatedGradebookRow>;
+    }
+  | { readonly kind: "reloadRequired"; readonly reason: (typeof RELOAD_REASONS)[number] };
+
+export type CalculatedGradebookFilter =
+  | { readonly kind: "all" }
+  | { readonly kind: "assignment"; readonly assignment: AssignmentReference }
+  | { readonly kind: "student"; readonly membership: CourseMembershipReference }
+  | { readonly kind: "operation"; readonly operation: GradingOperationReference };
+
+export interface CalculatedGradebookQuery {
+  readonly cursor?: string;
+  readonly pageSize?: number;
+  readonly filter?: CalculatedGradebookFilter;
+}
+
+export type InspectedSubmissionEvidence =
+  | {
+      readonly kind: "issuedPresentation";
+      readonly question: QuestionEnvelope;
+      readonly assetBindings: ReadonlyArray<AssetBindingV1>;
+      readonly issuedPresentationDigest: string;
+    }
+  | { readonly kind: "presentationNotApplicable" };
+
+export interface InspectedStudentSubmission {
+  readonly submittedAt: number;
+  readonly evidence: InspectedSubmissionEvidence;
+  readonly scoringGeneration: number;
+  readonly feedback: InspectedStudentScoreFeedbackV1;
+  readonly response: InspectedStudentResponseV1;
+  readonly scoringStatus: ScoringStatus;
+}
+
+export interface InspectedStudentWorkDetail {
+  readonly course: CourseReference;
+  readonly membership: CourseMembershipReference;
+  readonly assignment: AssignmentReference;
+  readonly run: RunReference;
+  /** Current roster presentation label; never immutable evidence or an audit fact. */
+  readonly studentDisplayLabel: string;
+  /** Current assignment presentation title; never immutable evidence or an audit fact. */
+  readonly assignmentTitle: string;
+  readonly submissions: ReadonlyArray<InspectedStudentSubmission>;
+  readonly returnContext: InspectedStudentWorkReturnContext;
+}
+
+export type InspectedStudentWorkReturnContext =
+  | {
+      readonly kind: "gradebook";
+      readonly course: CourseReference;
+      readonly membership: CourseMembershipReference;
+      readonly assignment: AssignmentReference;
+      readonly focus: {
+        readonly kind: "gradebookCell";
+        readonly membership: CourseMembershipReference;
+        readonly assignment: AssignmentReference;
+      };
+    }
+  | {
+      readonly kind: "gradingOperation";
+      readonly course: CourseReference;
+      readonly membership: CourseMembershipReference;
+      readonly assignment: AssignmentReference;
+      readonly operation: GradingOperationReference;
+      readonly focus: {
+        readonly kind: "gradingOperationControl";
+        readonly membership: CourseMembershipReference;
+        readonly assignment: AssignmentReference;
+        readonly operation: GradingOperationReference;
+      };
+    };
+
+function closed(
+  value: unknown,
+  path: string,
+  keys: ReadonlyArray<string>,
+): Record<string, unknown> {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, keys);
+  for (const key of keys) field(record, key, path);
+  return record;
+}
+
+function optionalField(record: Record<string, unknown>, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
+}
+
+function publicReference(value: unknown, path: string, prefix: "A" | "C" | "M" | "R"): string {
+  const reference = decodeString(value, path);
+  const pattern = new RegExp(`^${prefix}-[1-9][0-9]{0,9}$`, "u");
+  const numericPart = reference.slice(prefix.length + 1);
+  if (!pattern.test(reference) || Number(numericPart) > 2_147_483_647) {
+    throw new DecodeError(path, `a canonical ${prefix}- reference`);
+  }
+  return reference;
+}
+
+function positiveSafeInteger(value: unknown, path: string): number {
+  const decoded = decodeSafeInteger(value, path);
+  if (decoded < 1) throw new DecodeError(path, "a positive browser-safe integer");
+  return decoded;
+}
+
+function boundedDisplayLabel(value: unknown, path: string): string {
+  const label = decodeString(value, path);
+  if (
+    label.trim() !== label ||
+    label.length === 0 ||
+    Array.from(label).length > MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS
+  ) {
+    throw new DecodeError(
+      path,
+      `trimmed text of 1 to ${MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS} Unicode scalars`,
+    );
+  }
+  return label;
+}
+
+function nullableFiniteNumber(value: unknown, path: string): number | null {
+  return decodeNullable(value, path, decodeFiniteNumber);
+}
+
+function decodeCourseGradeOutcome(value: unknown, path: string): CalculatedCourseGradeOutcome {
+  const record = decodeRecord(value, path);
+  const status = decodeString(field(record, "status", path), `${path}.status`);
+  if (status === "available") {
+    requireOnlyFields(record, path, [
+      "status",
+      "score",
+      "letter",
+      "droppedAssignments",
+      "totalEarned",
+      "totalPossible",
+    ]);
+    return {
+      status,
+      score: decodeFiniteNumber(field(record, "score", path), `${path}.score`),
+      letter: decodeNullable(field(record, "letter", path), `${path}.letter`, decodeString),
+      droppedAssignments: decodeBoundedArray(
+        field(record, "droppedAssignments", path),
+        `${path}.droppedAssignments`,
+        MAX_ASSIGNMENT_ORDERED_ENTRIES,
+        (item, itemPath) => publicReference(item, itemPath, "A"),
+      ),
+      totalEarned: nullableFiniteNumber(field(record, "totalEarned", path), `${path}.totalEarned`),
+      totalPossible: nullableFiniteNumber(
+        field(record, "totalPossible", path),
+        `${path}.totalPossible`,
+      ),
+    };
+  }
+  if (status === "unavailable") {
+    requireOnlyFields(record, path, ["status", "reason"]);
+    return {
+      status,
+      reason: decodeStringEnum(
+        field(record, "reason", path),
+        `${path}.reason`,
+        COURSE_GRADE_UNAVAILABLE_REASONS,
+      ),
+    };
+  }
+  throw new DecodeError(`${path}.status`, "available or unavailable");
+}
+
+function decodeAssignmentCell(value: unknown, path: string): CalculatedAssignmentCell {
+  const record = closed(value, path, [
+    "assignment",
+    "title",
+    "included",
+    "category",
+    "availability",
+    "selectedScore",
+    "scoringStatus",
+    "inspectionChoice",
+  ]);
+  return {
+    assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
+    title: boundedDisplayLabel(field(record, "title", path), `${path}.title`),
+    included: decodeBoolean(field(record, "included", path), `${path}.included`),
+    category: decodeNullable(field(record, "category", path), `${path}.category`, decodeIdentifier),
+    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
+      "available",
+      "unavailable",
+    ] as const),
+    selectedScore: nullableFiniteNumber(
+      field(record, "selectedScore", path),
+      `${path}.selectedScore`,
+    ),
+    scoringStatus: decodeStringEnum(
+      field(record, "scoringStatus", path),
+      `${path}.scoringStatus`,
+      SCORING_STATUSES,
+    ),
+    inspectionChoice: decodeAssignmentInspectionChoice(
+      field(record, "inspectionChoice", path),
+      `${path}.inspectionChoice`,
+    ),
+  };
+}
+
+function decodeGradebookRow(value: unknown, path: string): CalculatedGradebookRow {
+  const record = closed(value, path, ["membership", "displayLabel", "outcome", "assignmentCells"]);
+  return {
+    membership: publicReference(field(record, "membership", path), `${path}.membership`, "M"),
+    displayLabel: boundedDisplayLabel(field(record, "displayLabel", path), `${path}.displayLabel`),
+    outcome: decodeCourseGradeOutcome(field(record, "outcome", path), `${path}.outcome`),
+    assignmentCells: decodeBoundedArray(
+      field(record, "assignmentCells", path),
+      `${path}.assignmentCells`,
+      MAX_ASSIGNMENT_ORDERED_ENTRIES,
+      decodeAssignmentCell,
+    ),
+  };
+}
+
+function decodeScoringWitness(value: unknown, path: string): AssignmentScoringWitness {
+  const record = closed(value, path, ["assignment", "generation", "status"]);
+  return {
+    assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
+    generation: positiveSafeInteger(field(record, "generation", path), `${path}.generation`),
+    status: decodeStringEnum(field(record, "status", path), `${path}.status`, SCORING_STATUSES),
+  };
+}
+
+export function decodeCalculatedGradebookResult(
+  value: unknown,
+  path = "response",
+): CalculatedGradebookResult {
+  const record = decodeRecord(value, path);
+  const resultKind = decodeString(field(record, "kind", path), `${path}.kind`);
+  if (resultKind === "reloadRequired") {
+    requireOnlyFields(record, path, ["kind", "reason"]);
+    return {
+      kind: resultKind,
+      reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, RELOAD_REASONS),
+    };
+  }
+  if (resultKind !== "page") {
+    throw new DecodeError(`${path}.kind`, "page or reloadRequired");
+  }
+  requireOnlyFields(record, path, [
+    "kind",
+    "schemeRevision",
+    "rosterRevision",
+    "mode",
+    "rounding",
+    "observationTime",
+    "scoringWitnesses",
+    "nextCursor",
+    "rows",
+  ]);
+  const nextCursorValue = optionalField(record, "nextCursor");
+  return {
+    kind: resultKind,
+    schemeRevision: positiveSafeInteger(
+      field(record, "schemeRevision", path),
+      `${path}.schemeRevision`,
+    ),
+    rosterRevision: positiveSafeInteger(
+      field(record, "rosterRevision", path),
+      `${path}.rosterRevision`,
+    ),
+    mode: decodeStringEnum(field(record, "mode", path), `${path}.mode`, MODES),
+    rounding: decodeStringEnum(field(record, "rounding", path), `${path}.rounding`, ROUNDING_RULES),
+    observationTime: decodeTimestamp(
+      field(record, "observationTime", path),
+      `${path}.observationTime`,
+    ),
+    scoringWitnesses: decodeBoundedArray(
+      field(record, "scoringWitnesses", path),
+      `${path}.scoringWitnesses`,
+      MAX_ASSIGNMENT_ORDERED_ENTRIES,
+      decodeScoringWitness,
+    ),
+    nextCursor:
+      nextCursorValue === undefined ? null : decodeCursor(nextCursorValue, `${path}.nextCursor`),
+    rows: decodeBoundedArray(
+      field(record, "rows", path),
+      `${path}.rows`,
+      MAX_CURSOR_PAGE_ITEMS,
+      decodeGradebookRow,
+    ),
+  };
+}
+
+function renderedItemId(value: unknown, path: string): string {
+  const decoded = decodeString(value, path);
+  if (!RENDERED_ITEM_ID.test(decoded)) {
+    throw new DecodeError(path, "a four-character lowercase rendered item ID");
+  }
+  return decoded;
+}
+
+function inspectedText(value: unknown, path: string): string {
+  return decodeString(value, path);
+}
+
+function decodeInspectedResponse(value: unknown, path: string): InspectedStudentResponseV1 {
+  const record = decodeRecord(value, path);
+  const responseKind = decodeString(field(record, "kind", path), `${path}.kind`);
+  switch (responseKind) {
+    case "numeric":
+      requireOnlyFields(record, path, ["kind", "value"]);
+      return {
+        kind: responseKind,
+        value: decodeFiniteNumber(field(record, "value", path), `${path}.value`),
+      };
+    case "multipleChoice":
+      requireOnlyFields(record, path, ["kind", "selected"]);
+      return {
+        kind: responseKind,
+        selected: decodeBoundedArray(
+          field(record, "selected", path),
+          `${path}.selected`,
+          MAX_PRESENTED_ITEMS,
+          renderedItemId,
+        ),
+      };
+    case "shortText":
+      requireOnlyFields(record, path, ["kind", "text"]);
+      return {
+        kind: responseKind,
+        text: inspectedText(field(record, "text", path), `${path}.text`),
+      };
+    case "multiBlank":
+      requireOnlyFields(record, path, ["kind", "answers"]);
+      return {
+        kind: responseKind,
+        answers: decodeBoundedArray(
+          field(record, "answers", path),
+          `${path}.answers`,
+          MAX_PRESENTED_ITEMS,
+          (item, itemPath) => {
+            const answer = closed(item, itemPath, ["slot", "text"]);
+            return {
+              slot: renderedItemId(field(answer, "slot", itemPath), `${itemPath}.slot`),
+              text: inspectedText(field(answer, "text", itemPath), `${itemPath}.text`),
+            };
+          },
+        ),
+      };
+    case "matching":
+      requireOnlyFields(record, path, ["kind", "matches"]);
+      return {
+        kind: responseKind,
+        matches: decodeBoundedArray(
+          field(record, "matches", path),
+          `${path}.matches`,
+          MAX_PRESENTED_ITEMS,
+          (item, itemPath) => {
+            const pair = closed(item, itemPath, ["prompt", "choice"]);
+            return {
+              prompt: renderedItemId(field(pair, "prompt", itemPath), `${itemPath}.prompt`),
+              choice: renderedItemId(field(pair, "choice", itemPath), `${itemPath}.choice`),
+            };
+          },
+        ),
+      };
+    case "ordering":
+      requireOnlyFields(record, path, ["kind", "order"]);
+      return {
+        kind: responseKind,
+        order: decodeBoundedArray(
+          field(record, "order", path),
+          `${path}.order`,
+          MAX_PRESENTED_ITEMS,
+          renderedItemId,
+        ),
+      };
+    case "hotspot":
+      requireOnlyFields(record, path, ["kind", "points"]);
+      return {
+        kind: responseKind,
+        points: decodeBoundedArray(
+          field(record, "points", path),
+          `${path}.points`,
+          MAX_PRESENTED_ITEMS,
+          (item, itemPath) => {
+            const point = closed(item, itemPath, ["x", "y"]);
+            const x = decodeNonnegativeInteger(field(point, "x", itemPath), `${itemPath}.x`);
+            const y = decodeNonnegativeInteger(field(point, "y", itemPath), `${itemPath}.y`);
+            if (x > 10_000 || y > 10_000) {
+              throw new DecodeError(itemPath, "a normalized hotspot point");
+            }
+            return { x, y };
+          },
+        ),
+      };
+    case "fileUpload":
+      requireOnlyFields(record, path, ["kind", "artifact"]);
+      return {
+        kind: responseKind,
+        artifact: decodeStringEnum(field(record, "artifact", path), `${path}.artifact`, [
+          "submitted",
+        ] as const),
+      };
+    case "externalTool":
+      requireOnlyFields(record, path, ["kind", "completion"]);
+      return {
+        kind: responseKind,
+        completion: decodeStringEnum(field(record, "completion", path), `${path}.completion`, [
+          "submissionRecorded",
+        ] as const),
+      };
+    default:
+      throw new DecodeError(`${path}.kind`, "a known inspected Student response kind");
+  }
+}
+
+function decodeAssetBinding(value: unknown, path: string): AssetBindingV1 {
+  const record = closed(value, path, [
+    "asset",
+    "authoredChecksum",
+    "renditionChecksum",
+    "intrinsicWidth",
+    "intrinsicHeight",
+  ]);
+  const dimension = (item: unknown, itemPath: string): number | null =>
+    decodeNullable(item, itemPath, (candidate, candidatePath) => {
+      const decoded = positiveSafeInteger(candidate, candidatePath);
+      if (decoded > 4_294_967_295) throw new DecodeError(candidatePath, "a positive u32");
+      return decoded;
+    });
+  return {
+    asset: decodeIdentifier(field(record, "asset", path), `${path}.asset`),
+    authoredChecksum: decodeSha256(
+      field(record, "authoredChecksum", path),
+      `${path}.authoredChecksum`,
+    ),
+    renditionChecksum: decodeSha256(
+      field(record, "renditionChecksum", path),
+      `${path}.renditionChecksum`,
+    ),
+    intrinsicWidth: dimension(field(record, "intrinsicWidth", path), `${path}.intrinsicWidth`),
+    intrinsicHeight: dimension(field(record, "intrinsicHeight", path), `${path}.intrinsicHeight`),
+  };
+}
+
+function decodeEvidence(value: unknown, path: string): InspectedSubmissionEvidence {
+  const record = decodeRecord(value, path);
+  const evidenceKind = decodeString(field(record, "kind", path), `${path}.kind`);
+  if (evidenceKind === "presentationNotApplicable") {
+    requireOnlyFields(record, path, ["kind"]);
+    return { kind: evidenceKind };
+  }
+  if (evidenceKind !== "issuedPresentation") {
+    throw new DecodeError(`${path}.kind`, "issuedPresentation or presentationNotApplicable");
+  }
+  requireOnlyFields(record, path, ["kind", "presentation", "issuedPresentationDigest"]);
+  const presentationPath = `${path}.presentation`;
+  const presentation = closed(field(record, "presentation", path), presentationPath, [
+    "envelope",
+    "assetBindings",
+  ]);
+  return {
+    kind: evidenceKind,
+    question: decodeIssuedPresentationEnvelope(
+      field(presentation, "envelope", presentationPath),
+      `${presentationPath}.envelope`,
+    ),
+    assetBindings: decodeBoundedArray(
+      field(presentation, "assetBindings", presentationPath),
+      `${presentationPath}.assetBindings`,
+      MAX_ASSET_BINDINGS,
+      decodeAssetBinding,
+    ),
+    issuedPresentationDigest: decodeSha256(
+      field(record, "issuedPresentationDigest", path),
+      `${path}.issuedPresentationDigest`,
+    ),
+  };
+}
+
+function decodeScoreFeedback(value: unknown, path: string): InspectedStudentScoreFeedbackV1 {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["correctness", "pointsEarned", "pointsPossible"]);
+  const correctness = optionalField(record, "correctness");
+  const pointsEarned = optionalField(record, "pointsEarned");
+  const pointsPossible = optionalField(record, "pointsPossible");
+  return {
+    ...(correctness === undefined
+      ? {}
+      : { correctness: decodeBoolean(correctness, `${path}.correctness`) }),
+    ...(pointsEarned === undefined
+      ? {}
+      : { pointsEarned: decodeFiniteNumber(pointsEarned, `${path}.pointsEarned`) }),
+    ...(pointsPossible === undefined
+      ? {}
+      : { pointsPossible: decodeFiniteNumber(pointsPossible, `${path}.pointsPossible`) }),
+  };
+}
+
+function decodeSubmission(value: unknown, path: string): InspectedStudentSubmission {
+  const record = closed(value, path, [
+    "submittedAt",
+    "evidence",
+    "scoringGeneration",
+    "feedback",
+    "response",
+    "scoringStatus",
+  ]);
+  return {
+    submittedAt: decodeTimestamp(field(record, "submittedAt", path), `${path}.submittedAt`),
+    evidence: decodeEvidence(field(record, "evidence", path), `${path}.evidence`),
+    scoringGeneration: positiveSafeInteger(
+      field(record, "scoringGeneration", path),
+      `${path}.scoringGeneration`,
+    ),
+    feedback: decodeScoreFeedback(field(record, "feedback", path), `${path}.feedback`),
+    response: decodeInspectedResponse(field(record, "response", path), `${path}.response`),
+    scoringStatus: decodeStringEnum(
+      field(record, "scoringStatus", path),
+      `${path}.scoringStatus`,
+      SCORING_STATUSES,
+    ),
+  };
+}
+
+function decodeReturnContext(
+  value: unknown,
+  path: string,
+): InspectedStudentWorkDetail["returnContext"] {
+  const record = decodeRecord(value, path);
+  const contextKind = decodeString(field(record, "kind", path), `${path}.kind`);
+  const focusPath = `${path}.focus`;
+  if (contextKind === "gradebook") {
+    requireOnlyFields(record, path, ["kind", "course", "membership", "assignment", "focus"]);
+    const focus = closed(field(record, "focus", path), focusPath, [
+      "kind",
+      "membership",
+      "assignment",
+    ]);
+    if (field(focus, "kind", focusPath) !== "gradebookCell") {
+      throw new DecodeError(`${focusPath}.kind`, "gradebookCell");
+    }
+    return {
+      kind: contextKind,
+      course: publicReference(field(record, "course", path), `${path}.course`, "C"),
+      membership: publicReference(field(record, "membership", path), `${path}.membership`, "M"),
+      assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
+      focus: {
+        kind: "gradebookCell",
+        membership: publicReference(
+          field(focus, "membership", focusPath),
+          `${focusPath}.membership`,
+          "M",
+        ),
+        assignment: publicReference(
+          field(focus, "assignment", focusPath),
+          `${focusPath}.assignment`,
+          "A",
+        ),
+      },
+    };
+  }
+  if (contextKind !== "gradingOperation") {
+    throw new DecodeError(`${path}.kind`, "gradebook or gradingOperation");
+  }
+  requireOnlyFields(record, path, [
+    "kind",
+    "course",
+    "membership",
+    "assignment",
+    "operation",
+    "focus",
+  ]);
+  const focus = closed(field(record, "focus", path), focusPath, [
+    "kind",
+    "membership",
+    "assignment",
+    "operation",
+  ]);
+  if (field(focus, "kind", focusPath) !== "gradingOperationControl") {
+    throw new DecodeError(`${focusPath}.kind`, "gradingOperationControl");
+  }
+  return {
+    kind: contextKind,
+    course: publicReference(field(record, "course", path), `${path}.course`, "C"),
+    membership: publicReference(field(record, "membership", path), `${path}.membership`, "M"),
+    assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
+    operation: decodeGradingOperationReference(
+      field(record, "operation", path),
+      `${path}.operation`,
+    ),
+    focus: {
+      kind: "gradingOperationControl",
+      membership: publicReference(
+        field(focus, "membership", focusPath),
+        `${focusPath}.membership`,
+        "M",
+      ),
+      assignment: publicReference(
+        field(focus, "assignment", focusPath),
+        `${focusPath}.assignment`,
+        "A",
+      ),
+      operation: decodeGradingOperationReference(
+        field(focus, "operation", focusPath),
+        `${focusPath}.operation`,
+      ),
+    },
+  };
+}
+
+export function decodeInspectedStudentWorkDetail(
+  value: unknown,
+  path = "response",
+): InspectedStudentWorkDetail {
+  const record = closed(value, path, [
+    "course",
+    "membership",
+    "assignment",
+    "run",
+    "studentDisplayLabel",
+    "assignmentTitle",
+    "submissions",
+    "returnContext",
+  ]);
+  const detail: InspectedStudentWorkDetail = {
+    course: publicReference(field(record, "course", path), `${path}.course`, "C"),
+    membership: publicReference(field(record, "membership", path), `${path}.membership`, "M"),
+    assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
+    run: publicReference(field(record, "run", path), `${path}.run`, "R"),
+    studentDisplayLabel: boundedDisplayLabel(
+      field(record, "studentDisplayLabel", path),
+      `${path}.studentDisplayLabel`,
+    ),
+    assignmentTitle: decodeAssignmentTitle(
+      field(record, "assignmentTitle", path),
+      `${path}.assignmentTitle`,
+    ),
+    submissions: decodeBoundedArray(
+      field(record, "submissions", path),
+      `${path}.submissions`,
+      MAX_INSPECTED_SUBMISSIONS,
+      decodeSubmission,
+    ),
+    returnContext: decodeReturnContext(
+      field(record, "returnContext", path),
+      `${path}.returnContext`,
+    ),
+  };
+  const context = detail.returnContext;
+  const identityMismatch =
+    context.course !== detail.course ||
+    context.membership !== detail.membership ||
+    context.assignment !== detail.assignment ||
+    context.focus.membership !== detail.membership ||
+    context.focus.assignment !== detail.assignment;
+  const operationMismatch =
+    context.kind === "gradingOperation" && context.operation !== context.focus.operation;
+  if (identityMismatch || operationMismatch) {
+    throw new DecodeError(`${path}.returnContext`, "the inspected Student-work identity");
+  }
+  return detail;
+}

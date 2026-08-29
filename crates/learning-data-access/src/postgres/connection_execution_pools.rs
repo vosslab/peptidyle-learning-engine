@@ -146,6 +146,20 @@ pub async fn accepted_submission_fast_path_pool(
     .map(AcceptedSubmissionFastPathPool)
 }
 
+/// Connects the production Base Course pool under its host-only exact-target identity.
+pub async fn base_course_accepted_submission_fast_path_pool(
+    database_url: &str,
+) -> Result<AcceptedSubmissionFastPathPool, sqlx::Error> {
+    connect_execution_pool(
+        database_url,
+        LoginContract::BaseCourseAcceptedSubmissionFastPath,
+        FAST_PATH_PREFLIGHT,
+        verified_connect_options,
+    )
+    .await
+    .map(AcceptedSubmissionFastPathPool)
+}
+
 /// Connects the disposable-stack pool with exact-target claim authority.
 pub async fn local_accepted_submission_fast_path_pool(
     database_url: &str,
@@ -153,6 +167,20 @@ pub async fn local_accepted_submission_fast_path_pool(
     connect_execution_pool(
         database_url,
         LoginContract::AcceptedSubmissionFastPath,
+        FAST_PATH_PREFLIGHT,
+        local_connect_options,
+    )
+    .await
+    .map(AcceptedSubmissionFastPathPool)
+}
+
+/// Connects the disposable Base Course pool under its host-only exact-target identity.
+pub async fn local_base_course_accepted_submission_fast_path_pool(
+    database_url: &str,
+) -> Result<AcceptedSubmissionFastPathPool, sqlx::Error> {
+    connect_execution_pool(
+        database_url,
+        LoginContract::BaseCourseAcceptedSubmissionFastPath,
         FAST_PATH_PREFLIGHT,
         local_connect_options,
     )

@@ -26,46 +26,53 @@ a stronger reason.
 
 ## Naming matrix
 
-| Boundary                                              | Convention                             | PLE example                       |
-| ----------------------------------------------------- | -------------------------------------- | --------------------------------- |
-| Rust modules, functions, fields, and locals           | `snake_case`                           | `preview_assignment_fast_forward` |
-| Rust types, traits, and enum variants                 | `UpperCamelCase`                       | `AssignmentFastForwardDecision`   |
-| TypeScript functions, locals, properties, and signals | `lowerCamelCase`                       | `prepareFastForward`              |
-| TypeScript types, interfaces, classes, and components | `UpperCamelCase`                       | `CurriculumAdoptionPage`          |
-| Python modules, functions, locals, and fixtures       | `snake_case`                           | `origin_receipt_from_file`        |
-| Python classes                                        | `UpperCamelCase`                       | `ScenarioRunReceipt`              |
-| PostgreSQL identifiers                                | `snake_case`                           | `curriculum_adoption_receipt`     |
-| Browser JSON fields and union discriminants           | `lowerCamelCase`                       | `importRevision`, `fastForward`   |
-| Cross-runtime symbolic values and JSON map keys       | `snake_case`                           | `fresh_elena`                     |
-| Static URL segments and CSS class names               | lowercase kebab case                   | `course-blueprints`               |
-| Environment variables and constants                   | `SCREAMING_SNAKE_CASE`                 | `PLE_LIVE_DEMO_BROWSER_INPUT`     |
-| Public domain references                              | registered uppercase prefix plus value | `C-11`, `AC-2`                    |
-| Temporary work-package labels                         | plan-scoped uppercase hyphen form      | `WP-INST-B2`, `WP-R0`             |
+| Boundary                                                          | Convention                                | PLE example                       |
+| ----------------------------------------------------------------- | ----------------------------------------- | --------------------------------- |
+| Rust modules, functions, fields, and locals                       | `snake_case`                              | `preview_assignment_fast_forward` |
+| Rust types, traits, and enum variants                             | `UpperCamelCase`                          | `AssignmentFastForwardDecision`   |
+| TypeScript functions, locals, signals, and ordinary UI properties | `lowerCamelCase`                          | `prepareFastForward`              |
+| TypeScript PLE data-object properties                             | `snake_case`                              | `roster_id`                       |
+| TypeScript types, interfaces, classes, and components             | `UpperCamelCase`                          | `CurriculumAdoptionPage`          |
+| Python modules, functions, locals, and fixtures                   | `snake_case`                              | `origin_receipt_from_file`        |
+| Python classes                                                    | `UpperCamelCase`                          | `ScenarioRunReceipt`              |
+| PostgreSQL identifiers                                            | `snake_case`                              | `curriculum_adoption_receipt`     |
+| PLE-owned serialized fields and portable discriminants            | `snake_case`                              | `import_revision`, `fast_forward` |
+| Cross-runtime symbolic values and declared portable map keys      | `snake_case`                              | `fresh_elena`                     |
+| Static URL segments and CSS class names                           | lowercase kebab case                      | `course-blueprints`               |
+| Environment variables and constants                               | `SCREAMING_SNAKE_CASE`                    | `PLE_LIVE_DEMO_BROWSER_INPUT`     |
+| Generated TypeScript type modules                                 | generator-owned `UpperCamelCase.ts`       | `AssignmentSummary.ts`            |
+| Generated TypeScript constant modules                             | generator-owned `SCREAMING_SNAKE_CASE.ts` | `MAX_ASSIGNMENT_ATTEMPT_LIMIT.ts` |
+| Public domain references                                          | registered uppercase prefix plus value    | `C-11`, `AC-2`                    |
+| Temporary work-package labels                                     | plan-scoped uppercase hyphen form         | `WP-INST-B2`, `WP-R0`             |
 
 ## Why these conventions
 
 - `snake_case` is PLE's readable default and already aligns Rust, Python, PostgreSQL, migrations,
   evidence IDs, and operational scripts.
 - `lowerCamelCase` keeps browser code interoperable with DOM Web APIs, SolidJS, TypeScript libraries,
-  and generated clients without a second local dialect.
+  and ordinary UI state. PLE contract data objects retain their Serde-owned `snake_case` fields.
 - `UpperCamelCase` makes type-like objects and UI components visibly distinct from runtime values.
 - Lowercase kebab case follows URL, HTML, CSS, and Compose conventions where punctuation separates
   words more naturally than underscores.
 - `SCREAMING_SNAKE_CASE` makes process-level configuration and compile-time constants conspicuous.
-- One conversion at an owning boundary prevents handwritten aliases and casing drift between
-  runtimes.
+- Generated TypeScript module names preserve the source identity: type modules use their generated
+  `UpperCamelCase` type name and constant modules use their generated `SCREAMING_SNAKE_CASE` Rust
+  constant name. Direct generation keeps one visible spelling and avoids an alias layer.
+- **Current pre-WN1:** some PLE transport still uses direct lower-camel fields. **Approved target:**
+  Rust Serde owns PLE spelling; `tsgen` emits one direct per-type `Foo` from
+  `crates/question_model` and pure `crates/browser-api-contract`. TypeScript data-object properties
+  equal effective Serde names. Feature decoders retain strict semantic and security validation.
 - Registered public IDs retain their exact forms because stability is more valuable than local
   stylistic uniformity. Work-package keys follow their active plan namespace and may be renamed
   atomically while they remain temporary planning metadata.
 
 ## Boundary distinctions
 
-- A JSON object's field name follows the browser wire rule. A symbolic identifier carried as a
-  field value or map key follows the cross-runtime rule. For example, the field is
-  `observedContexts`, while one context key is `fresh_elena`.
-- Serde owns Rust-to-browser field and discriminant conversion. Browser consumers use generated
-  lower-camel contracts directly. Consumers do not maintain handwritten casing aliases.
-- Generated contract field names match the wire exactly. Rust source fields remain snake case.
+- A PLE-owned JSON object's field name and a portable discriminant value use `snake_case`; declared
+  portable map keys do too. User/content/opaque dictionary keys remain literal data.
+- Serde owns Rust-to-wire spelling. **Current pre-WN1** route payloads may still be lower-camel.
+  **After their WN1 closure lands,** generated direct TypeScript DTO fields match Serde exactly.
+  A route-only contract enters `crates/browser-api-contract` in its C-family package.
 - Frozen contract changes follow the atomic change rule in [CONTRACTS.md](CONTRACTS.md).
 - Acronyms follow the owning language's normal word rules. Use `Uuid`, not `UUID`, in an
   `UpperCamelCase` Rust or TypeScript type name unless an external API freezes another form.
@@ -94,9 +101,11 @@ learning outcomes.
   constructors.
 - Use lowercase kebab case for static URL path segments, CSS classes, CSS custom properties, and
   authored HTML `data-*` attribute names.
-- Use `lowerCamelCase` for PLE-owned JSON fields and tagged-union discriminants. Keep symbolic
-  values and map keys in `snake_case` when they cross runtimes or enter durable evidence.
-- Native DOM, Web API, framework, and dependency names retain their upstream spelling.
+- Use `lowerCamelCase` for runtime functions, variables, props, signals, and browser-owned query
+  state. PLE-owned data-object properties, JSON fields, PLE query keys, and portable discriminants
+  use `snake_case` end to end.
+- Native DOM, Web API, framework, dependency, and registered external-protocol names retain their
+  upstream spelling. HTTP headers, URL path segments, and wasm-bindgen exports retain protocol owner spelling.
 
 ## Rust
 
@@ -132,16 +141,17 @@ learning outcomes.
   suffixes `_pkey`, `_fkey`, `_key`, `_check`, and `_idx`.
 - Prefix PLE-owned functions and roles with `ple_`. Contract-versioned functions end in `_v1` or
   their registered version.
-- A JSON or JSONB column name follows the PostgreSQL rule. Keys inside the document follow the
-  contract that owns that document; browser and Rust bridge documents retain their registered
-  lower-camel field names.
+- A JSON or JSONB column name follows the PostgreSQL rule. PLE-owned document keys follow the
+  direct Serde `snake_case` contract; registered external documents retain their owner spelling.
 
 ## Files and operations
 
 - Durable Markdown reference files directly under `docs/` use `SCREAMING_SNAKE_CASE.md`.
 - Working documents under `docs/active_plans/` use lowercase `snake_case.md`.
-- Authored non-Markdown filenames use lowercase ASCII `snake_case`. Generated TypeScript files under
-  `generated/api/` retain generator-owned `UpperCamelCase.ts` names.
+- Authored non-Markdown filenames use lowercase ASCII `snake_case`. Generated TypeScript type files
+  under `generated/api/` retain generator-owned `UpperCamelCase.ts` names. Generated TypeScript
+  constant modules retain generator-owned `SCREAMING_SNAKE_CASE.ts` names that match their Rust
+  constant identity directly.
 - Migration filenames use a sortable numeric allocation followed by a lowercase snake-case
   description, such as `2026081847_curriculum_adoption_public_bridge.sql`.
 - Compose project, service, network, and container-facing names use lowercase kebab case when the

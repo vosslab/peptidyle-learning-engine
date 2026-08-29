@@ -607,6 +607,7 @@ async fn status_reports_queued_failed_and_recognized_ready_without_private_mater
     failed_fixture
         .store
         .fail_job(
+            TenantContext::from_authenticated_session(failed_claim.tenant),
             failed_claim.id,
             failed_claim.lease_token,
             JobFailureKind::Permanent,

@@ -14,10 +14,10 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
-    NativeExecutionEnvelopeCapability, PresentationCapability,
-    PutAssignmentTeachingSettingsCommand, QtiGradingCapability, Store, StoreError, TenantContext,
-    UpsertCourseMember, WebworkGradingCapability,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, NativeExecutionEnvelopeCapability,
+    PresentationCapability, PutAssignmentTeachingSettingsCommand, QtiGradingCapability, Store,
+    StoreError, StudentWorkRoutingBinding, TenantContext, UpsertCourseMember,
+    WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::{ContentBlock, QuestionEnvelope};
@@ -193,7 +193,7 @@ impl IssueFixture<'_> {
         };
         IssueQuestionAttemptCommand {
             actor: self.learner,
-            binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
+            binding: StudentWorkRoutingBinding::new(self.course, self.assignment),
             attempt: self.attempt,
             run: self.run,
             assignment_position: 0,
@@ -326,7 +326,7 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
                         scoring_mode: AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
                 base_policy: BaseAssignmentPolicy::default(),
@@ -336,7 +336,7 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
         .expect("draft assignment");
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, learner, assignment)
+            .student_get_enrollment_for_assignment(context, learner, assignment)
             .await
             .expect("draft read")
             .is_none()
@@ -363,7 +363,7 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await
@@ -471,7 +471,7 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
             .start_or_resume_run(
                 context,
                 learner,
-                LearnerWorkRoutingBinding::new(course, assignment),
+                StudentWorkRoutingBinding::new(course, assignment),
                 RunId::from_uuid(id()),
             )
             .await

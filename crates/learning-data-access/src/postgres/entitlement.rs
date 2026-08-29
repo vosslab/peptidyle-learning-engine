@@ -14,7 +14,7 @@ use question_model::{
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
-use super::learner_work_preparation::{
+use super::student_work_preparation::{
     EntitlementPreparationWitness, WitnessAssignmentLifecycle, WitnessAudienceKind,
     prepare_entitlement_materialization,
 };
@@ -224,10 +224,10 @@ pub(super) async fn prepare_materialization(
     command: MaterializeAssignmentEntitlementCommand,
 ) -> Result<PreparedEntitlementMaterialization, StoreError> {
     let witness = match prepare_entitlement_materialization(transaction, tenant, command).await? {
-        super::learner_work_preparation::EntitlementPreparationDecision::Granted(witness) => {
+        super::student_work_preparation::EntitlementPreparationDecision::Granted(witness) => {
             witness
         }
-        super::learner_work_preparation::EntitlementPreparationDecision::Denied(reason) => {
+        super::student_work_preparation::EntitlementPreparationDecision::Denied(reason) => {
             return Ok(PreparedEntitlementMaterialization::Denied(reason));
         }
     };
@@ -405,11 +405,11 @@ pub(super) async fn hydrate_entitlement_witness_sources(
         ));
     }
     match witness.authority {
-        super::learner_work_preparation::EntitlementPreparationAuthority::StudentSelfService
-        | super::learner_work_preparation::EntitlementPreparationAuthority::StudentSelf
+        super::student_work_preparation::EntitlementPreparationAuthority::StudentSelfService
+        | super::student_work_preparation::EntitlementPreparationAuthority::StudentSelf
             if witness.actor == witness.learner
                 && witness.authority_membership == witness.student_membership => {}
-        super::learner_work_preparation::EntitlementPreparationAuthority::DirectInstructor => {
+        super::student_work_preparation::EntitlementPreparationAuthority::DirectInstructor => {
             let actual: Option<Uuid> = sqlx::query_scalar(
                 "SELECT course_membership_id FROM course_member \
                  WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 \

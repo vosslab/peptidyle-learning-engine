@@ -3,14 +3,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 usage() {
   echo "Usage: ./run_live_demo.sh [--headless|start [--headless]|stop]"
 }
 
-COMMAND="start"
-HEADLESS="false"
+command="start"
+headless="false"
 
 case "$#" in
   0)
@@ -22,10 +22,10 @@ case "$#" in
         exit 0
         ;;
       --headless)
-        HEADLESS="true"
+        headless="true"
         ;;
       start|stop)
-        COMMAND="$1"
+        command="$1"
         ;;
       *)
         usage >&2
@@ -35,7 +35,7 @@ case "$#" in
     ;;
   2)
     if [ "$1" = "start" ] && [ "$2" = "--headless" ]; then
-      HEADLESS="true"
+      headless="true"
     else
       usage >&2
       exit 2
@@ -48,21 +48,21 @@ case "$#" in
 esac
 
 # shellcheck disable=SC1091
-source "$SCRIPT_DIRECTORY/source_me.sh"
+source "$script_directory/source_me.sh"
 
-"$SCRIPT_DIRECTORY/devel/setup_python.sh"
+"$script_directory/devel/setup_python.sh"
 
-if [ "$COMMAND" = "stop" ]; then
-  exec "$SCRIPT_DIRECTORY/.venv/bin/python" "$SCRIPT_DIRECTORY/local_stack.py" stop
+if [ "$command" = "stop" ]; then
+  exec "$script_directory/.venv/bin/python" "$script_directory/local_stack.py" stop
 fi
 
-if [ ! -d "$SCRIPT_DIRECTORY/node_modules" ]; then
+if [ ! -d "$script_directory/node_modules" ]; then
   echo "==> First launch: installing repository dependencies"
-  "$SCRIPT_DIRECTORY/devel/setup_typescript.sh"
+  "$script_directory/devel/setup_typescript.sh"
 fi
 
-if [ "$HEADLESS" = "true" ]; then
-  exec "$SCRIPT_DIRECTORY/.venv/bin/python" "$SCRIPT_DIRECTORY/local_stack.py" start --headless
+if [ "$headless" = "true" ]; then
+  exec "$script_directory/.venv/bin/python" "$script_directory/local_stack.py" start --headless
 fi
 
-exec "$SCRIPT_DIRECTORY/.venv/bin/python" "$SCRIPT_DIRECTORY/local_stack.py" start
+exec "$script_directory/.venv/bin/python" "$script_directory/local_stack.py" start

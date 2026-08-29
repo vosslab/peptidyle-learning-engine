@@ -25,7 +25,7 @@ impl IssueFixture {
                 self.context,
                 IssueQuestionAttemptCommand {
                     actor: self.student,
-                    binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
+                    binding: StudentWorkRoutingBinding::new(self.course, self.assignment),
                     attempt,
                     run: self.run,
                     assignment_position: position,
@@ -79,7 +79,7 @@ pub(super) async fn issue_webwork(
             fixture.context,
             IssueQuestionAttemptCommand {
                 actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+                binding: StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt,
                 run: fixture.run,
                 assignment_position: 0,

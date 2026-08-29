@@ -30,7 +30,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeCatalogProblemSummary } from "./catalog_course";
-import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
+import { decodeStudentDisclosurePolicy } from "./assignment_policy";
 import { decodePublicByline } from "../public_byline";
 import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
 
@@ -138,7 +138,7 @@ function defaults(
     "lateSubmission",
     "deadlineBehavior",
     "runPolicies",
-    "learnerDisclosure",
+    "student_disclosure",
   ]);
   const timeLimitSeconds = decodeNullable(
     field(record, "timeLimitSeconds", path),
@@ -161,9 +161,9 @@ function defaults(
     ["autoSubmit"],
   );
   const runPolicies = decodeRunPolicies(field(record, "runPolicies", path), `${path}.runPolicies`);
-  const learnerDisclosure = decodeLearnerDisclosurePolicy(
-    field(record, "learnerDisclosure", path),
-    `${path}.learnerDisclosure`,
+  const studentDisclosure = decodeStudentDisclosurePolicy(
+    field(record, "student_disclosure", path),
+    `${path}.student_disclosure`,
   );
   return {
     timeLimitSeconds,
@@ -171,7 +171,7 @@ function defaults(
     lateSubmission,
     deadlineBehavior,
     runPolicies,
-    learnerDisclosure,
+    student_disclosure: studentDisclosure,
   };
 }
 

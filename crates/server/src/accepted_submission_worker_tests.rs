@@ -739,9 +739,11 @@ async fn unavailable_backend_becomes_one_transient_outcome() {
 }
 
 #[tokio::test]
-async fn unexpected_terminal_disposition_is_committed_once() {
+async fn unsupported_submission_is_committed_once_as_terminal() {
     let (handler, calls, commits) = handler(
-        Ok(SubmissionDisposition::NeedsManualGrading),
+        Err(RunBackendError::Unsupported(
+            "no deterministic grader".to_string(),
+        )),
         Ok(AcceptedSubmissionExecutionDisposition::Terminal),
     );
     assert_eq!(

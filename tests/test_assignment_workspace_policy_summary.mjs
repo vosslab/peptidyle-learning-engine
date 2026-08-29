@@ -14,11 +14,11 @@ const baseInput = {
   },
   runPolicyDraft: { completionFraction: "0.75", additionalRuns: "2" },
   disclosurePolicy: {
-    score: "afterSubmit",
-    perItemCorrectness: "afterSubmit",
-    feedbackText: "afterDue",
-    solution: "afterClose",
-    classStatistics: "never",
+    score: "after_submit",
+    per_item_correctness: "after_submit",
+    feedback_text: "after_due",
+    solution: "after_close",
+    class_statistics: "never",
   },
   teachingSettings: {
     timeZone: "America/Chicago",

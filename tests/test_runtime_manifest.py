@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import stat
 
 import pytest
 
@@ -18,6 +19,45 @@ def generated_runtime(tmp_path: pathlib.Path) -> local_stack_control.runtime_man
 	"""Create one ordinary private runtime workspace for one focused contract."""
 	tmp_path.chmod(0o700)
 	return local_stack_control.runtime_manifest.write_database_baseline_runtime(tmp_path, 15432)
+
+
+#============================================
+def generated_cross_store_runtime(
+	tmp_path: pathlib.Path,
+) -> local_stack_control.runtime_manifest.CourseAppearanceCrossStoreRuntime:
+	"""Create one private two-store runtime for the cross-store contract."""
+	tmp_path.chmod(0o700)
+	return local_stack_control.runtime_manifest.write_course_appearance_cross_store_runtime(
+		tmp_path, 15432, 19000
+	)
+
+
+#============================================
+def test_cross_store_runtime_binds_exact_minio_locators_without_secret_yaml(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The cross-store runtime carries private MinIO files beside the baseline URLs."""
+	runtime = generated_cross_store_runtime(tmp_path)
+	manifest = runtime.manifest_path.read_text(encoding="ascii")
+	assert "course_appearance_cross_store" in manifest
+	assert "minio_endpoint: secrets/minio-endpoint.url" in manifest
+	assert "minio_region: secrets/minio-region" in manifest
+	assert "minio_access_key_id: secrets/minio-access-key-id" in manifest
+	assert "minio_secret_access_key: secrets/minio-secret-access-key" in manifest
+	assert "http://127.0.0.1" not in manifest
+	assert runtime.minio_endpoint_path.read_text(encoding="ascii") == "http://127.0.0.1:19000\n"
+	assert runtime.minio_region_path.read_text(encoding="ascii") == "us-east-1\n"
+	access_key_id = runtime.minio_access_key_id_path.read_text(encoding="ascii").removesuffix("\n")
+	secret_access_key = runtime.minio_secret_access_key_path.read_text(encoding="ascii").removesuffix("\n")
+	assert len(access_key_id) == 32 and all(character in "0123456789abcdef" for character in access_key_id)
+	assert len(secret_access_key) == 32 and all(
+		character in "0123456789abcdef" for character in secret_access_key
+	)
+	assert stat.S_IMODE(runtime.minio_secret_access_key_path.stat().st_mode) == 0o600
+	assert (
+		local_stack_control.runtime_manifest.acceptance_runtime_profile(tmp_path)
+		is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE
+	)
 
 
 #============================================
@@ -291,5 +331,20 @@ def test_consumer_forms_database_target_from_the_runtime_manifest(tmp_path: path
 	assert manifest.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
 	assert manifest.project == local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 	assert manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE
+	assert manifest.env_file == runtime.compose_environment_path
+	assert manifest.capability_file == runtime.cleanup_capability_path
+
+
+#============================================
+def test_consumer_forms_cross_store_target_from_the_runtime_manifest(tmp_path: pathlib.Path) -> None:
+	"""The child receives a closed fixed-owner profile, never a caller-selected target."""
+	runtime = generated_cross_store_runtime(tmp_path)
+	manifest = local_stack_control.consumer.load_manifest(tmp_path, runtime.manifest_path)
+	assert manifest.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
+	assert manifest.project == local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+	assert (
+		manifest.live_demo_profile
+		is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE
+	)
 	assert manifest.env_file == runtime.compose_environment_path
 	assert manifest.capability_file == runtime.cleanup_capability_path

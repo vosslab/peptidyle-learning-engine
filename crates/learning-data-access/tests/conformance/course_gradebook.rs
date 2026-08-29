@@ -3,12 +3,13 @@
 use super::*;
 use learning_data_access::{
     CalculatedGradebookRequest, CalculatedGradebookResult, CourseGradeAssignmentMembership,
-    CourseGradebookStore, GradebookFilter, PageRequest, PageSize, SessionLifetime,
-    UpdateCourseGradeScheme,
+    CourseGradebookStore, CourseRosterEntry, GradebookFilter, GradebookFilterRequest,
+    GradebookSelectionRequest, GradebookSelectionResult, PageRequest, PageSize, SessionLifetime,
+    SubmittedRunChoicesRequest, UpdateCourseGradeScheme,
 };
 use question_model::{
     CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, GradeCategoryId,
-    GradeCategoryTitle, WeightedGradeCategory,
+    GradeCategoryTitle, GradePolicy, ScoringStatus, WeightedGradeCategory,
 };
 
 async fn gradebook_session(store: &MemoryStore, user: UserId, token: &[u8]) -> SessionTokenHash {
@@ -228,7 +229,7 @@ async fn create_grade_assignment(
                 audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -532,139 +533,190 @@ async fn assignment_filter_keeps_every_active_student_and_marks_missing_enrollme
         panic!("assignment page must be available");
     };
     assert_eq!(page.rows.len(), 2);
-    assert!(page.rows.iter().all(|row| matches!(
-        row.assignment_cells.as_slice(),
-        [learning_data_access::CalculatedAssignmentCell {
-            availability: learning_data_access::CalculatedAssignmentCellAvailability::Unavailable,
-            inspection_choice: learning_data_access::AssignmentInspectionChoice::NoSubmittedRun,
-            ..
-        }]
-    )));
+    assert!(page.rows.iter().all(|row| {
+        matches!(
+            row.assignment_cells.as_slice(),
+            [learning_data_access::CalculatedAssignmentCell {
+                availability:
+                    learning_data_access::CalculatedAssignmentCellAvailability::Unavailable,
+                inspection_choice: learning_data_access::AssignmentInspectionChoice::NoSubmittedRun,
+                ..
+            }]
+        )
+    }));
 }
 
 #[tokio::test]
-async fn memory_course_grade_totals_use_public_roster_and_scheme_transitions() {
+async fn calculated_gradebook_reports_live_scoring_and_exact_run_choices() {
+    let store = MemoryStore::default();
+    let fixture = exercise_run_api_receipts_with_grade_policy(
+        &store,
+        StudentDisclosurePolicy::default(),
+        93_000,
+        GradePolicy::Highest,
+    )
+    .await;
+    let session = SessionTokenHash::compute(b"gradebook-run-choice-instructor");
+    store
+        .create_session(
+            session,
+            SessionSubject::new(
+                fixture.tenant,
+                fixture.publisher,
+                "Gradebook run choice instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("session subject"),
+            SessionLifetime::from_seconds(3_600).expect("session lifetime"),
+        )
+        .await
+        .expect("instructor session");
+    let assignment_reference = store
+        .assignment_reference(fixture.context, fixture.publisher, fixture.assignment)
+        .await
+        .expect("assignment reference lookup")
+        .expect("assignment reference");
+    let assignment = store
+        .get_assignment_for_edit(fixture.context, fixture.assignment)
+        .await
+        .expect("assignment read")
+        .expect("assignment exists");
+    let CalculatedGradebookResult::Page(page) = store
+        .calculated_gradebook_page(
+            fixture.context,
+            session,
+            fixture.course,
+            first_gradebook_page(GradebookFilter::All, 10),
+        )
+        .await
+        .expect("calculated gradebook page")
+    else {
+        panic!("calculated gradebook must produce a page");
+    };
+    assert_eq!(
+        page.scoring_witnesses,
+        vec![learning_data_access::AssignmentScoringWitness {
+            assignment: assignment_reference,
+            generation: assignment.scoring_generation,
+            status: assignment.scoring_status,
+        }]
+    );
+    assert_eq!(
+        page.rows[0].assignment_cells[0].inspection_choice,
+        learning_data_access::AssignmentInspectionChoice::SelectedRun {
+            basis: learning_data_access::AssignmentRunSelectionBasis::Highest,
+            run: fixture.run.reference,
+            submitted_at: fixture.run.completed_at.expect("completed fixture run"),
+        }
+    );
+    let debug = format!("{page:?}");
+    assert!(
+        !debug.contains("Run learner")
+            && !debug.contains("selected_score")
+            && !debug.contains("outcome"),
+        "calculated Gradebook debug output is structural and excludes Student labels and scores"
+    );
+
+    let mut recalculating_items = assignment.record.items.clone();
+    recalculating_items[0].points_possible = PointValue::from_whole(2);
+    let recalculating = store
+        .replace_assignment(
+            fixture.context,
+            ReplaceAssignmentCommand {
+                actor: fixture.publisher,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: assignment.revision,
+                update: AssignmentUpdate {
+                    title: assignment.record.title.clone(),
+                    audience: assignment.record.audience.clone(),
+                    items: recalculating_items,
+                    selection_groups: assignment.record.selection_groups.clone(),
+                    disclosure_policy: assignment.record.disclosure_policy,
+                    policies: assignment.record.policies,
+                },
+            },
+        )
+        .await
+        .expect("assignment point update queues recalculation");
+    assert_eq!(recalculating.scoring_status, ScoringStatus::Recalculating);
+    let CalculatedGradebookResult::Page(recalculating_page) = store
+        .calculated_gradebook_page(
+            fixture.context,
+            session,
+            fixture.course,
+            first_gradebook_page(GradebookFilter::All, 10),
+        )
+        .await
+        .expect("recalculating gradebook page")
+    else {
+        panic!("recalculating Gradebook must produce a page");
+    };
+    assert_eq!(
+        recalculating_page.scoring_witnesses,
+        vec![learning_data_access::AssignmentScoringWitness {
+            assignment: assignment_reference,
+            generation: recalculating.scoring_generation,
+            status: ScoringStatus::Recalculating,
+        }]
+    );
+    assert_eq!(
+        recalculating_page.rows[0].assignment_cells[0].selected_score, None,
+        "a non-current assignment never exposes a stale selected score"
+    );
+
+    let choose_fixture = exercise_run_api_receipts_with_grade_policy(
+        &store,
+        StudentDisclosurePolicy::default(),
+        94_000,
+        GradePolicy::InstructorSelected,
+    )
+    .await;
+    let choose_session = SessionTokenHash::compute(b"gradebook-choose-run-instructor");
+    store
+        .create_session(
+            choose_session,
+            SessionSubject::new(
+                choose_fixture.tenant,
+                choose_fixture.publisher,
+                "Gradebook choose-run instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("session subject"),
+            SessionLifetime::from_seconds(3_600).expect("session lifetime"),
+        )
+        .await
+        .expect("Instructor-selected session");
+    let CalculatedGradebookResult::Page(choose_page) = store
+        .calculated_gradebook_page(
+            choose_fixture.context,
+            choose_session,
+            choose_fixture.course,
+            first_gradebook_page(GradebookFilter::All, 10),
+        )
+        .await
+        .expect("Instructor-selected gradebook page")
+    else {
+        panic!("Instructor-selected gradebook must produce a page");
+    };
+    assert_eq!(
+        choose_page.rows[0].assignment_cells[0].inspection_choice,
+        learning_data_access::AssignmentInspectionChoice::ChooseRun {
+            completed_run_count: 2,
+        }
+    );
+    assert_eq!(
+        choose_page.rows[0].assignment_cells[0].scoring_status,
+        ScoringStatus::Current
+    );
+}
+
+#[tokio::test]
+async fn student_filter_requires_an_active_student_in_the_selected_course() {
     let store = MemoryStore::default();
     let (context, session, course, instructor) = claimed_gradebook_fixture(&store).await;
-    let tenant = context.tenant_id();
-    let first = create_grade_assignment(
-        &store,
-        context,
-        tenant,
-        instructor,
-        course,
-        91_010,
-        PointValue::from_whole(1),
-    )
-    .await;
-    let second = create_grade_assignment(
-        &store,
-        context,
-        tenant,
-        instructor,
-        course,
-        91_020,
-        PointValue::from_whole(2),
-    )
-    .await;
-
-    let totals = store
-        .course_gradebook_totals(context, session, course)
-        .await
-        .expect("contact-bearing student total");
-    let outcome = &totals.rows[0].outcome;
-    assert_eq!(outcome.rounded_score, Some(0.0));
-    assert_eq!(outcome.total_possible, Some(3.0));
-
-    let page = store
-        .calculated_gradebook_page(
-            context,
-            session,
-            course,
-            CalculatedGradebookRequest {
-                filter: GradebookFilter::All,
-                page: PageRequest::first(PageSize::new(10).expect("bounded page size")),
-            },
-        )
-        .await
-        .expect("calculated gradebook page");
-    let CalculatedGradebookResult::Page(page) = page else {
-        panic!("first calculated gradebook request must not require reload");
-    };
-    assert_eq!(page.rows.len(), 1);
-    assert_eq!(page.rows[0].display_label, "Numeric Student");
-    assert_eq!(page.rows[0].assignment_cells.len(), 2);
-    assert!(page.rows[0].assignment_cells.iter().all(|cell| matches!(
-        cell.inspection_choice,
-        learning_data_access::AssignmentInspectionChoice::NoSubmittedRun
-    )));
-    assert_eq!(page.scoring_witnesses.len(), 2);
-
-    let export = store
-        .create_course_grade_export(context, session, course)
-        .await
-        .expect("course export");
-    assert_eq!(export.rows, totals.rows);
-    assert_eq!(export.audit.row_count, export.rows.len());
-    assert_eq!(export.audit.course, course);
-    assert_eq!(export.audit.requested_by, instructor);
-    assert_eq!(export.audit.mode, CourseGradeMode::TotalPoints);
-
-    let initial = store
-        .course_grade_scheme(context, session, course)
-        .await
-        .expect("initial scheme");
-    let category = GradeCategoryId::from_uuid(uuid(91_030));
-    let weighted = CourseGradeScheme {
-        mode: CourseGradeMode::WeightedCategories,
-        rounding: CourseGradeRoundingRule::FourDecimalPlacesHalfAwayFromZero,
-        categories: vec![WeightedGradeCategory {
-            id: category,
-            title: GradeCategoryTitle::new("Practice").expect("category title"),
-            position: 0,
-            weight_basis_points: 10_000,
-            drop_lowest: 1,
-        }],
-        letter_bands: Vec::new(),
-    };
-    let weighted_assignments = vec![
-        CourseGradeAssignmentMembership {
-            assignment: first,
-            included: true,
-            category: Some(category),
-            position: Some(0),
-        },
-        CourseGradeAssignmentMembership {
-            assignment: second,
-            included: true,
-            category: Some(category),
-            position: Some(1),
-        },
-    ];
-    let weighted_record = store
-        .update_course_grade_scheme(
-            context,
-            session,
-            UpdateCourseGradeScheme {
-                course,
-                expected_revision: initial.revision,
-                scheme: weighted,
-                assignments: weighted_assignments,
-            },
-        )
-        .await
-        .expect("weighted scheme");
-    let weighted_totals = store
-        .course_gradebook_totals(context, session, course)
-        .await
-        .expect("weighted missing summaries are zero");
-    assert_eq!(weighted_totals.rows[0].outcome.rounded_score, Some(0.0));
-    assert_eq!(
-        weighted_totals.rows[0].outcome.dropped_assignment_ids,
-        vec![second],
-        "equal missing summaries deterministically drop the later category position"
-    );
-    let CalculatedGradebookResult::Page(weighted_page) = store
+    let page_size = PageSize::new(10).expect("page size");
+    let CalculatedGradebookResult::Page(page) = store
         .calculated_gradebook_page(
             context,
             session,
@@ -672,61 +724,262 @@ async fn memory_course_grade_totals_use_public_roster_and_scheme_transitions() {
             first_gradebook_page(GradebookFilter::All, 10),
         )
         .await
-        .expect("weighted calculated page")
+        .expect("active gradebook page")
     else {
-        panic!("weighted page must be available");
+        panic!("active roster must produce a gradebook page");
     };
-    assert_eq!(
-        weighted_page.rows[0].outcome.dropped_assignment_ids,
-        vec![second]
-    );
+    let active_student = page.rows[0].membership;
 
-    let third = create_grade_assignment(
-        &store,
-        context,
-        tenant,
-        instructor,
-        course,
-        91_040,
-        PointValue::ZERO,
-    )
-    .await;
-    assert!(matches!(
-        store.course_gradebook_totals(context, session, course).await,
-        Err(StoreError::Unavailable(message)) if message.contains("mapping")
-    ));
-
-    let remapped = store
-        .course_grade_scheme(context, session, course)
+    let roster = store
+        .list_course_roster(context, session, course, PageRequest::first(page_size))
         .await
-        .expect("new assignment appears for remapping");
-    let mut remapped_assignments = memberships(&remapped);
-    remapped_assignments
-        .iter_mut()
-        .find(|membership| membership.assignment == third)
-        .expect("new assignment membership")
-        .category = Some(category);
-    remapped_assignments
-        .iter_mut()
-        .find(|membership| membership.assignment == third)
-        .expect("new assignment membership")
-        .position = Some(2);
+        .expect("course roster");
+    let member = roster
+        .entries
+        .items
+        .into_iter()
+        .find_map(|entry| match entry {
+            CourseRosterEntry::Member(member) => Some(member),
+            CourseRosterEntry::Invitation(_) => None,
+        })
+        .expect("active Student roster entry");
     store
-        .update_course_grade_scheme(
+        .revoke_course_member(
             context,
             session,
-            UpdateCourseGradeScheme {
+            RevokeCourseMember {
                 course,
-                expected_revision: remapped.revision,
-                scheme: weighted_record.scheme,
-                assignments: remapped_assignments,
+                member: member.id,
+                expected_revision: roster.policy.revision,
             },
         )
         .await
-        .expect("new assignment remapping");
-    let remapped_totals = store
-        .course_gradebook_totals(context, session, course)
+        .expect("revoke Student membership");
+    assert_eq!(
+        store
+            .calculated_gradebook_page(
+                context,
+                session,
+                course,
+                first_gradebook_page(GradebookFilter::Student(active_student), 10),
+            )
+            .await,
+        Err(StoreError::NotFound)
+    );
+
+    let foreign_course = CourseId::from_uuid(uuid(91_070));
+    let authority =
+        sysadmin_course_creation_authority(&store, context.tenant_id(), foreign_course, instructor)
+            .await;
+    store
+        .create_course(
+            context,
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: foreign_course,
+                    tenant: context.tenant_id(),
+                    title: "Foreign gradebook course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("fixture term"),
+                },
+                authority,
+            },
+        )
         .await
-        .expect("remapped weighted totals");
-    assert_eq!(remapped_totals.rows[0].outcome.rounded_score, Some(0.0));
+        .expect("foreign course");
+    add_gradebook_student(&store, context, foreign_course, instructor, 91_071).await;
+    let CalculatedGradebookResult::Page(foreign_page) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            foreign_course,
+            first_gradebook_page(GradebookFilter::All, 10),
+        )
+        .await
+        .expect("foreign gradebook page")
+    else {
+        panic!("foreign roster must produce a gradebook page");
+    };
+    assert_eq!(
+        store
+            .calculated_gradebook_page(
+                context,
+                session,
+                course,
+                first_gradebook_page(
+                    GradebookFilter::Student(foreign_page.rows[0].membership),
+                    10
+                ),
+            )
+            .await,
+        Err(StoreError::NotFound)
+    );
 }
+
+#[tokio::test]
+async fn gradebook_selection_is_roster_ordered_and_cursor_bound() {
+    let store = MemoryStore::default();
+    let (context, session, course, instructor) = claimed_gradebook_fixture(&store).await;
+    add_gradebook_student(&store, context, course, instructor, 95_001).await;
+    let assignment = create_grade_assignment(
+        &store,
+        context,
+        context.tenant_id(),
+        instructor,
+        course,
+        95_010,
+        PointValue::from_whole(1),
+    )
+    .await;
+    let assignment = store
+        .assignment_reference(context, instructor, assignment)
+        .await
+        .expect("assignment reference lookup")
+        .expect("assignment reference");
+    let request = GradebookSelectionRequest {
+        filter: GradebookFilterRequest::Assignment(assignment),
+        page: PageRequest::first(PageSize::new(1).expect("bounded page")),
+    };
+    let GradebookSelectionResult::StudentSelection {
+        rows: first,
+        next_cursor,
+    } = store
+        .gradebook_selection(context, session, course, request.clone())
+        .await
+        .expect("first named Student selection")
+    else {
+        panic!("assignment scope selects a Student");
+    };
+    let cursor = next_cursor.expect("selection continues");
+    let GradebookSelectionResult::StudentSelection { rows: second, .. } = store
+        .gradebook_selection(
+            context,
+            session,
+            course,
+            GradebookSelectionRequest {
+                filter: GradebookFilterRequest::Assignment(assignment),
+                page: PageRequest::after(cursor.clone(), PageSize::new(1).expect("bounded page")),
+            },
+        )
+        .await
+        .expect("continued named Student selection")
+    else {
+        panic!("continued selection remains a list");
+    };
+    assert!(first[0].membership < second[0].membership);
+    assert_eq!(
+        store
+            .gradebook_selection(
+                context,
+                session,
+                course,
+                GradebookSelectionRequest {
+                    filter: GradebookFilterRequest::All,
+                    page: PageRequest::after(cursor, PageSize::new(1).expect("bounded page")),
+                }
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a selection cursor cannot be replayed into a different scope",
+    );
+}
+
+#[tokio::test]
+async fn submitted_run_choices_are_bounded_and_mark_the_score_selected_run() {
+    let store = MemoryStore::default();
+    let fixture = exercise_run_api_receipts_with_grade_policy(
+        &store,
+        StudentDisclosurePolicy::default(),
+        96_000,
+        GradePolicy::Highest,
+    )
+    .await;
+    let session = SessionTokenHash::compute(b"submitted-run-choices-instructor");
+    store
+        .create_session(
+            session,
+            SessionSubject::new(
+                fixture.tenant,
+                fixture.publisher,
+                "Run choices instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("session subject"),
+            SessionLifetime::from_seconds(3_600).expect("session lifetime"),
+        )
+        .await
+        .expect("instructor session");
+    let assignment = store
+        .assignment_reference(fixture.context, fixture.publisher, fixture.assignment)
+        .await
+        .expect("assignment reference lookup")
+        .expect("assignment reference");
+    let CalculatedGradebookResult::Page(page) = store
+        .calculated_gradebook_page(
+            fixture.context,
+            session,
+            fixture.course,
+            first_gradebook_page(GradebookFilter::All, 10),
+        )
+        .await
+        .expect("Gradebook page")
+    else {
+        panic!("Gradebook page available");
+    };
+    let membership = page.rows[0].membership;
+    let first = store
+        .submitted_run_choices(
+            fixture.context,
+            session,
+            fixture.course,
+            SubmittedRunChoicesRequest {
+                membership,
+                assignment,
+                operation: None,
+                page: PageRequest::first(PageSize::new(1).expect("bounded page")),
+            },
+        )
+        .await
+        .expect("first submitted-run chooser page");
+    assert_eq!(first.rows.len(), 1);
+    assert!(
+        first.next_cursor.is_some(),
+        "two completed runs require a bounded continuation"
+    );
+    let second = store
+        .submitted_run_choices(
+            fixture.context,
+            session,
+            fixture.course,
+            SubmittedRunChoicesRequest {
+                membership,
+                assignment,
+                operation: None,
+                page: PageRequest::after(
+                    first.next_cursor.expect("chooser cursor"),
+                    PageSize::new(1).expect("bounded page"),
+                ),
+            },
+        )
+        .await
+        .expect("continued submitted-run chooser page");
+    assert_eq!(second.rows.len(), 1);
+    assert_ne!(first.rows[0].run, second.rows[0].run);
+    assert_eq!(
+        first
+            .rows
+            .iter()
+            .chain(second.rows.iter())
+            .filter(|choice| choice.score_selected)
+            .count(),
+        1,
+        "one completed run remains selected by the current score policy",
+    );
+}
+
+#[path = "course_gradebook/totals.rs"]
+mod totals;

@@ -53,7 +53,7 @@ pub(crate) use store_capabilities::{
     FeedbackStore, RunStore, StatisticsStore,
 };
 pub use store_capabilities::{
-    CourseGroupManagementStore, LearnerSubmissionStatusStore, SealedPrivateExecutionStore,
+    CourseGroupManagementStore, SealedPrivateExecutionStore, StudentSubmissionStatusStore,
 };
 pub use store_error::StoreError;
 pub use workers::*;

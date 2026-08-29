@@ -306,7 +306,7 @@ async fn chapter_one_seed_upserts_the_selected_learner_through_the_canonical_ros
                 scoring_mode: AssignmentScoringMode::Normal,
             }],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: CompletionRequirement::AnswerAll,
                 grade: GradePolicy::Highest,

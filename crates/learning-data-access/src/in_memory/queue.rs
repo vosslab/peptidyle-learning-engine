@@ -1,4 +1,5 @@
 use super::*;
+use crate::JobKind;
 
 fn mark_export_failed(state: &mut State, job: JobId) {
     for export in state.exports.values_mut() {
@@ -156,6 +157,7 @@ impl JobStore for MemoryStore {
     async fn claim_exact_job(
         &self,
         id: JobId,
+        kind: JobKind,
         lease: JobLeaseDuration,
     ) -> Result<Option<ClaimedJob>, StoreError> {
         let token = JobLeaseToken::generate()?;
@@ -164,7 +166,9 @@ impl JobStore for MemoryStore {
         let Some(job) = state.jobs.get_mut(&id) else {
             return Ok(None);
         };
-        if matches!(job.payload, JobPayload::GradeAcceptedSubmission { .. }) {
+        if job.payload.kind() != kind
+            || matches!(job.payload, JobPayload::GradeAcceptedSubmission { .. })
+        {
             return Ok(None);
         }
         let ready = job.state == JobState::Ready && job.available_at <= now;
@@ -219,6 +223,7 @@ impl JobStore for MemoryStore {
 
     async fn fail_job(
         &self,
+        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
@@ -226,7 +231,8 @@ impl JobStore for MemoryStore {
         let mut state = self.write_state()?;
         let now = state.authoritative_time;
         let job = state.jobs.get_mut(&id).ok_or(StoreError::NotFound)?;
-        if job.state != JobState::Leased
+        if job.tenant != context.tenant_id()
+            || job.state != JobState::Leased
             || job.lease_token != Some(token)
             || !job.lease_expires_at.is_some_and(|expiry| expiry > now)
         {
@@ -738,12 +744,12 @@ mod tests {
         let lease = JobLeaseDuration::from_seconds(30).expect("bounded lease");
 
         let first = store
-            .claim_exact_job(job, lease)
+            .claim_exact_job(job, JobKind::RecalculateAssignment, lease)
             .await
             .expect("first claim")
             .expect("one lease");
         let second = store
-            .claim_exact_job(job, lease)
+            .claim_exact_job(job, JobKind::RecalculateAssignment, lease)
             .await
             .expect("second claim");
 

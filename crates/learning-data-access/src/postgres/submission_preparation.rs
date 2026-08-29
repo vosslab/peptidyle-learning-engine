@@ -4,12 +4,12 @@ use question_model::{AttemptStatus, IssuedAttemptCapabilityV1, StudentResponse};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::entitlement::{PreparedStudentAttemptWork, hydrate_prepared_student_attempt_work};
-use super::learner_work_preparation::{
+use super::student_work_preparation::{
     StudentAttemptPreparationWitness, prepare_student_attempt_work,
 };
 use super::*;
 use crate::{
-    AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, SubmissionPreparation,
+    AuthorizedSubmissionIntent, StudentWorkRoutingBinding, SubmissionPreparation,
     SubmissionReceiptRead,
 };
 
@@ -19,7 +19,7 @@ impl crate::SealedPrivateExecutionStore for crate::postgres::PostgresGraderStore
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         intent: AuthorizedSubmissionIntent,
         _response: &StudentResponse,
         _idempotency_key: &SubmissionIdempotencyKey,
@@ -361,7 +361,7 @@ pub(super) async fn prepare_question_submission(
     store: &PostgresStore,
     context: TenantContext,
     actor: UserId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
     response: &StudentResponse,
     idempotency_key: &SubmissionIdempotencyKey,
@@ -478,7 +478,7 @@ async fn prepared_submission_replay_for_witness(
 pub(super) async fn prepare_bound_student_attempt(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     actor: UserId,
     attempt: QuestionAttemptId,
 ) -> Result<PreparedStudentAttemptWork, StoreError> {

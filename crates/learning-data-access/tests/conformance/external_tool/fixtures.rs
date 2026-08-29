@@ -5,16 +5,18 @@ pub(crate) struct ExternalToolFixture {
     pub(crate) context: TenantContext,
     pub(crate) foreign_context: TenantContext,
     pub(crate) actor: UserId,
+    pub(crate) instructor: UserId,
     pub(crate) stranger: UserId,
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) attempt: QuestionAttemptId,
+    pub(crate) run: RunId,
     pub(crate) binding: learning_data_access::ExternalToolBinding,
 }
 
 impl ExternalToolFixture {
-    pub(crate) fn learner_work_binding(&self) -> LearnerWorkRoutingBinding {
-        LearnerWorkRoutingBinding::new(self.course, self.assignment)
+    pub(crate) fn student_work_binding(&self) -> StudentWorkRoutingBinding {
+        StudentWorkRoutingBinding::new(self.course, self.assignment)
     }
 }
 
@@ -161,7 +163,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: external_policies,
             },
         )
@@ -171,7 +173,7 @@ where
         .start_or_resume_run(
             context,
             actor,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             run_id,
         )
         .await
@@ -193,7 +195,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt,
                 run: run.id,
                 assignment_position: 0,
@@ -237,21 +239,23 @@ where
         context,
         foreign_context,
         actor,
+        instructor,
         stranger,
         course,
         assignment,
         attempt,
+        run: run.id,
         binding,
     }
 }
 
-pub(super) fn external_begin(
+pub(crate) fn external_begin(
     fixture: &ExternalToolFixture,
     key: &str,
 ) -> BeginExternalToolGradeCommand {
     BeginExternalToolGradeCommand {
         actor: fixture.actor,
-        learner_work_binding: fixture.learner_work_binding(),
+        student_work_binding: fixture.student_work_binding(),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: SubmissionIdempotencyKey::parse(key).expect("valid external key"),

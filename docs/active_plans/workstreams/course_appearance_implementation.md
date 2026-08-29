@@ -11,6 +11,10 @@ implemented capability is one revisioned, instructor-managed appearance per cour
 reviewed themes and at most one normalized banner shown only at course entry. The next dependency is
 WP-RC2 production-seam closure.
 
+The current service-oracle successor is the leased `course_appearance_cross_store` acceptance
+profile. It retains the accepted PostgreSQL-to-MinIO cleanup claim while using the repository's
+canonical private runtime manifest and exact fixed-owner reset boundary.
+
 The shared worktree remains mixed staged, unstaged, and untracked for owner review. This handoff did
 not stage, reset, delete, or overwrite unrelated work.
 

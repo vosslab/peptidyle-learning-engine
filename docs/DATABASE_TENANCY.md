@@ -201,8 +201,7 @@ record:
   `course_roster_import`;
 - attempt lifecycle: `assignment_run`, `assignment_run_item`,
   `question_attempt`, `question_prefetch`, `attempt_timing_current`,
-  `feedback_release`, `manual_grade_receipt`, `submission_next_attempt`, and
-  `webwork_grade_replay_state`;
+  `feedback_release`, `submission_next_attempt`, and `webwork_grade_replay_state`;
 - external activity: `external_tool_exchange` and
   `external_tool_launch_session`;
 - contribution, export, delivery, and audit links:

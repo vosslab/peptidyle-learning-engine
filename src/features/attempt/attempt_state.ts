@@ -1,4 +1,4 @@
-// attempt_state.ts - durable, question-agnostic browser state for one learner attempt.
+// attempt_state.ts - durable, question-agnostic browser state for one Student attempt.
 
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback";
@@ -10,7 +10,7 @@ import type { Seed } from "../../../generated/api/Seed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { TenantId } from "../../../generated/api/TenantId";
 import type { VersionId } from "../../../generated/api/VersionId";
-import type { LearnerSubmissionStatus, SubmissionReceipt } from "../../api/contracts";
+import type { StudentSubmissionStatus, SubmissionReceipt } from "../../api/contracts";
 import type { FormatValidator } from "../../wasm/index";
 
 export type IdempotencyKey = string;
@@ -69,6 +69,8 @@ export interface SubmissionAcknowledgement {
   readonly nextIssued: SubmissionReceipt["nextIssued"];
   /** Receipt state that keeps feedback visible while successor issuance recovers. */
   readonly nextPending: SubmissionReceipt["nextPending"];
+  /** Currentness of the server-owned score projection. */
+  readonly scoringStatus: SubmissionReceipt["scoringStatus"];
 }
 
 /** Answer-free acknowledgement that permits a status read but never another answer POST. */
@@ -120,6 +122,8 @@ export type AttemptState =
   | (StateBase & {
       readonly phase: "feedback";
       readonly acknowledgement: SubmissionAcknowledgement;
+      readonly checkingStatus: boolean;
+      readonly statusMessage: string | null;
     })
   | (StateBase & {
       readonly phase: "acceptedPending";
@@ -176,14 +180,14 @@ export interface AttemptStateMachineOptions {
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: IdempotencyKey,
-  ) => Promise<LearnerSubmissionStatus>;
-  /** Route-bound status reader injected by the owning learner page/client composition. */
-  readonly getSubmissionStatus: (attemptId: QuestionAttemptId) => Promise<LearnerSubmissionStatus>;
+  ) => Promise<StudentSubmissionStatus>;
+  /** Route-bound status reader injected by the owning Student page/client composition. */
+  readonly getSubmissionStatus: (attemptId: QuestionAttemptId) => Promise<StudentSubmissionStatus>;
   /** Recognizes an authentication failure without coupling this state to an HTTP implementation. */
   readonly isSessionExpired: (error: unknown) => boolean;
   /**
    * Recognizes a browser transport failure without coupling attempt state to an HTTP client.
-   * Request refusals and response-contract failures remain actionable learner errors instead.
+   * Request refusals and response-contract failures remain actionable Student errors instead.
    */
   readonly isTransientTransportFailure: (error: unknown) => boolean;
   /** Browser-safe semantic validation for a persisted response before it reaches a controlled UI. */
@@ -350,13 +354,26 @@ function feedbackFor(receipt: SubmissionReceipt): Feedback {
 }
 
 function pendingAcknowledgement(
-  status: Exclude<LearnerSubmissionStatus, { readonly kind: "completed" }>,
+  status: Exclude<StudentSubmissionStatus, { readonly kind: "completed" }>,
 ): PendingSubmissionAcknowledgement {
   return {
     accepted: status.accepted,
     attemptId: status.attemptId,
     automatedGradingStatus: status.automatedGradingStatus,
     nextAction: status.nextAction,
+  };
+}
+
+function completedAcknowledgement(
+  status: Extract<StudentSubmissionStatus, { readonly kind: "completed" }>,
+): SubmissionAcknowledgement {
+  return {
+    accepted: true,
+    attemptId: status.attempt.id,
+    runCompletionStatus: status.runCompletionStatus,
+    nextIssued: status.nextIssued,
+    nextPending: status.nextPending,
+    scoringStatus: status.scoringStatus,
   };
 }
 
@@ -616,17 +633,13 @@ export function createAttemptStateMachine(
         return { kind: "accepted" };
       }
       const feedback = feedbackFor(status);
-      const acknowledgement = {
-        accepted: true as const,
-        attemptId: status.attempt.id,
-        runCompletionStatus: status.runCompletionStatus,
-        nextIssued: status.nextIssued,
-        nextPending: status.nextPending,
-      };
+      const acknowledgement = completedAcknowledgement(status);
       const state = {
         ...base({ response, feedback }),
         phase: "feedback" as const,
         acknowledgement,
+        checkingStatus: false,
+        statusMessage: null,
       } satisfies AttemptState;
       publish(state);
       return { kind: "accepted" };
@@ -686,14 +699,25 @@ export function createAttemptStateMachine(
   }
 
   async function checkGradingStatus(): Promise<void> {
-    if (current.phase !== "acceptedPending" || current.checkingStatus) return;
-    const pending = current;
+    const checkingStatus =
+      current.phase === "acceptedPending" || current.phase === "feedback"
+        ? current.checkingStatus
+        : false;
+    const canCheck =
+      (current.phase === "acceptedPending" ||
+        (current.phase === "feedback" && current.acknowledgement.scoringStatus !== "current")) &&
+      !checkingStatus;
+    if (!canCheck) return;
+    const pending = current as Extract<
+      AttemptState,
+      { readonly phase: "acceptedPending" | "feedback" }
+    >;
     requestNumber += 1;
     const request = requestNumber;
     publish({ ...pending, checkingStatus: true, statusMessage: null });
     try {
       const status = await options.getSubmissionStatus(context.attemptId);
-      if (disposed || request !== requestNumber || current.phase !== "acceptedPending") return;
+      if (disposed || request !== requestNumber) return;
       if (status.kind !== "completed") {
         publish({
           ...base({ response: pending.response, feedback: { kind: "none" } }),
@@ -705,20 +729,16 @@ export function createAttemptStateMachine(
         return;
       }
       const feedback = feedbackFor(status);
-      const acknowledgement = {
-        accepted: true as const,
-        attemptId: status.attempt.id,
-        runCompletionStatus: status.runCompletionStatus,
-        nextIssued: status.nextIssued,
-        nextPending: status.nextPending,
-      };
+      const acknowledgement = completedAcknowledgement(status);
       publish({
         ...base({ response: pending.response, feedback }),
         phase: "feedback",
         acknowledgement,
+        checkingStatus: false,
+        statusMessage: null,
       });
     } catch (error: unknown) {
-      if (disposed || request !== requestNumber || current.phase !== "acceptedPending") return;
+      if (disposed || request !== requestNumber) return;
       publish({ ...pending, checkingStatus: false, statusMessage: messageFor(error) });
     }
   }

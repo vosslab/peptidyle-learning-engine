@@ -20,8 +20,8 @@ use super::{
     InspectedExternalToolStateV1, InspectedStudentArtifactStateV1, InspectedStudentResponseV1,
     PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
     RenderedResponseTranslationErrorV1, ResponseSchemaV1, project_durable_response_to_rendered_v1,
-    rebuild_public_presentation_v1, reproduce_presentation_v1, translate_rendered_response_v1,
-    verify_presentation_v1,
+    project_rendered_response_for_inspection_v1, rebuild_public_presentation_v1,
+    reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
 };
 
 fn choice(id: &str, text: &str) -> ChoiceOption {
@@ -421,6 +421,25 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
             completion: InspectedExternalToolStateV1::SubmissionRecorded
         })
     );
+}
+
+#[test]
+fn browser_submitted_response_round_trips_through_safe_inspection() {
+    let presentation = presentation_for(ResponseDefinition::MultipleChoice {
+        choices: vec![choice("a", "A"), choice("b", "B")],
+        selection: SelectionCardinality::ExactlyOne,
+    });
+    let submitted = StudentResponse::MultipleChoice {
+        selected: vec![rendered(&presentation, RenderedItemRoleV1::Choice)],
+    };
+    let rebuilt = rebuild_public_presentation_v1(&presentation.envelope, &[])
+        .expect("browser-safe presentation rebuild");
+
+    assert!(matches!(
+        project_rendered_response_for_inspection_v1(&submitted, &rebuilt),
+        Ok(InspectedStudentResponseV1::MultipleChoice { selected })
+            if selected == vec![presentation.item_bindings[0].rendered.clone()]
+    ));
 }
 
 #[test]

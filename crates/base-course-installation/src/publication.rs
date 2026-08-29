@@ -18,7 +18,7 @@ use crate::records::{
     BaseCourseIds, PublicationState, assignment, base_course, base_course_native_draft,
     native_capabilities, practice_course, publication_state,
 };
-use crate::{BaseCourseInstallError, BaseCourseParticipants};
+use crate::{AcceptedSubmissionSeedExecutor, BaseCourseInstallError, BaseCourseParticipants};
 
 pub(crate) struct VerifiedCompletion {
     pub(crate) manifest: BaseCourseManifest,
@@ -31,6 +31,7 @@ pub(crate) struct VerifiedCompletion {
 
 pub(crate) async fn converge(
     store: &learning_data_access::postgres::PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     participants: BaseCourseParticipants,
 ) -> Result<VerifiedCompletion, BaseCourseInstallError> {
     let context = TenantContext::from_authenticated_session(participants.tenant());
@@ -171,6 +172,7 @@ pub(crate) async fn converge(
     verify_participant_membership_matrix(store, context, participants, ids).await?;
     ensure_activity(
         store,
+        seed_executor,
         context,
         participants,
         ids,

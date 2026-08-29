@@ -175,7 +175,7 @@ where
         .start_or_resume_run(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(89_970 + fixture_offset)),
         )
         .await
@@ -185,7 +185,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_971 + fixture_offset)),
                 run: concurrent_run.id,
                 assignment_position: 0,
@@ -219,7 +219,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: concurrent_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {

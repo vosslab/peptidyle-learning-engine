@@ -21,10 +21,9 @@ use crate::{
     CreatedExternalToolLaunchSession, ExternalToolActivityClaim, ExternalToolActivityLeaseToken,
     ExternalToolBegin, ExternalToolBrokerStore, ExternalToolLaunchSessionStore,
     ExternalToolLaunchToken, ExternalToolLease, ExternalToolLeaseToken,
-    ExternalToolVerifiedPending, LearnerWorkRoutingBinding, PreparedExternalToolAttempt,
-    StageExternalToolVerificationCommand, StoreError, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext, fresh_external_tool_launch_id,
-    validate_external_snapshot_binding,
+    ExternalToolVerifiedPending, PreparedExternalToolAttempt, StageExternalToolVerificationCommand,
+    StoreError, StudentWorkRoutingBinding, SubmissionRecord, SubmitQuestionAttemptCommand,
+    TenantContext, fresh_external_tool_launch_id, validate_external_snapshot_binding,
 };
 use validation::{
     revoke_external_launch, validate_active_external_launch, validate_exchange,
@@ -45,7 +44,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &state,
             context,
             command.actor,
-            command.learner_work_binding,
+            command.student_work_binding,
             command.attempt,
             &command.response,
             &command.idempotency_key,
@@ -101,7 +100,7 @@ impl ExternalToolBrokerStore for MemoryStore {
         let expires_at = add_external_millis(now, command.lease_millis)?;
         let exchange = StoredExternalToolExchange {
             actor: command.actor,
-            learner_work_binding: command.learner_work_binding,
+            student_work_binding: command.student_work_binding,
             binding: command.binding.clone(),
             response: command.response,
             key: command.idempotency_key,
@@ -139,7 +138,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             .get_mut(&(tenant, command.attempt))
             .ok_or(StoreError::NotFound)?;
         if exchange.actor != command.actor
-            || exchange.learner_work_binding != command.learner_work_binding
+            || exchange.student_work_binding != command.student_work_binding
             || exchange.binding != command.binding
             || exchange.response != command.response
             || exchange.key != command.idempotency_key
@@ -175,7 +174,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &state,
             context,
             command.actor,
-            command.learner_work_binding,
+            command.student_work_binding,
             command.attempt,
             &command.response,
             &command.idempotency_key,
@@ -194,7 +193,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &state,
             tenant,
             command.actor,
-            command.learner_work_binding,
+            command.student_work_binding,
             command.attempt,
             &command.binding,
             &command.launch_proof,
@@ -205,7 +204,7 @@ impl ExternalToolBrokerStore for MemoryStore {
                 .get(&(tenant, command.attempt))
                 .ok_or(StoreError::NotFound)?;
             if exchange.actor != command.actor
-                || exchange.learner_work_binding != command.learner_work_binding
+                || exchange.student_work_binding != command.student_work_binding
                 || exchange.binding != command.binding
                 || exchange.response != command.response
                 || exchange.key != command.idempotency_key
@@ -227,7 +226,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             context,
             SubmitQuestionAttemptCommand {
                 actor: command.actor,
-                binding: command.learner_work_binding,
+                binding: command.student_work_binding,
                 attempt: command.attempt,
                 response: command.response,
                 result,
@@ -254,7 +253,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &state,
             context,
             command.actor,
-            command.learner_work_binding,
+            command.student_work_binding,
             command.attempt,
             &command.response,
             &command.idempotency_key,
@@ -272,7 +271,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &state,
             tenant,
             command.actor,
-            command.learner_work_binding,
+            command.student_work_binding,
             command.attempt,
             &command.binding,
             &command.launch_proof,
@@ -283,7 +282,7 @@ impl ExternalToolBrokerStore for MemoryStore {
                 .get(&(tenant, command.attempt))
                 .ok_or(StoreError::NotFound)?;
             if exchange.actor != command.actor
-                || exchange.learner_work_binding != command.learner_work_binding
+                || exchange.student_work_binding != command.student_work_binding
                 || exchange.binding != command.binding
                 || exchange.response != command.response
                 || exchange.key != command.idempotency_key
@@ -302,7 +301,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             context,
             SubmitQuestionAttemptCommand {
                 actor: command.actor,
-                binding: command.learner_work_binding,
+                binding: command.student_work_binding,
                 attempt: command.attempt,
                 response: command.response,
                 result,
@@ -324,11 +323,11 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) -> Result<PreparedExternalToolAttempt, StoreError> {
         let state = self.read_state()?;
-        prepare_external_tool_attempt_locked(&state, context, actor, learner_work_binding, attempt)
+        prepare_external_tool_attempt_locked(&state, context, actor, student_work_binding, attempt)
     }
 
     async fn create_external_tool_launch_session(
@@ -354,7 +353,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             &state,
             context,
             command.actor,
-            command.learner_work_binding,
+            command.student_work_binding,
             command.attempt,
         )?;
         if state
@@ -377,7 +376,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             StoredExternalToolLaunchSession {
                 actor: command.actor,
                 attempt: command.attempt,
-                learner_work_binding: command.learner_work_binding,
+                student_work_binding: command.student_work_binding,
                 binding: command.binding,
                 token_hash: token.hash(),
                 encrypted_provider_state: command.encrypted_provider_state,
@@ -397,7 +396,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
@@ -410,7 +409,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             &state,
             context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt,
         )?;
         let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
@@ -418,7 +417,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         };
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.token_hash != token.hash()
         {
             return Ok(ExternalToolActivityClaim::Unavailable);
@@ -446,7 +445,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
@@ -459,7 +458,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             &state,
             context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt,
         )?;
         let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
@@ -467,7 +466,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         };
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.revoked
             || session.expires_at <= state.authoritative_time
             || session.token_hash != token.hash()
@@ -497,7 +496,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
     ) -> Result<ExternalToolActivityClaim, StoreError> {
         let ClaimExternalToolFinalizationActivityCommand {
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt,
             id,
             token,
@@ -511,7 +510,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             &state,
             context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt,
         )?;
         let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
@@ -519,7 +518,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         };
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.revoked
             || session.expires_at <= state.authoritative_time
             || session.token_hash != token.hash()
@@ -536,7 +535,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             return Ok(ExternalToolActivityClaim::Unavailable);
         };
         if exchange.verified.is_some()
-            || exchange.learner_work_binding != learner_work_binding
+            || exchange.student_work_binding != student_work_binding
             || exchange.lease.as_ref() != Some(&verification_lease)
             || !exchange
                 .lease_expires_at
@@ -551,7 +550,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -564,7 +563,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.activity_lease_hash.as_ref() != Some(&token.hash())
         {
             return Err(StoreError::Conflict);
@@ -578,7 +577,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -591,7 +590,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.activity_lease_hash.as_ref() != Some(&token.hash())
             || session
                 .activity_lease_expires_at
@@ -612,7 +611,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         token: &ExternalToolActivityLeaseToken,
     ) -> Result<(), StoreError> {
@@ -628,7 +627,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         if !state.external_tool_launch_sessions.values().any(|session| {
             session.actor == actor
                 && session.attempt == attempt
-                && session.learner_work_binding == learner_work_binding
+                && session.student_work_binding == student_work_binding
                 && session.activity_lease_hash.as_ref() == Some(&token.hash())
         }) {
             return Err(StoreError::Conflict);
@@ -643,7 +642,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -656,7 +655,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.activity_lease_hash.as_ref() != Some(&token.hash())
         {
             return Err(StoreError::Conflict);
@@ -674,7 +673,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
@@ -694,7 +693,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         if session.actor != actor
             || session.attempt != attempt
-            || session.learner_work_binding != learner_work_binding
+            || session.student_work_binding != student_work_binding
             || session.token_hash != token.hash()
         {
             return Err(StoreError::NotFound);
@@ -714,30 +713,30 @@ fn prepare_external_tool_attempt_locked(
     state: &State,
     context: TenantContext,
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
 ) -> Result<PreparedExternalToolAttempt, StoreError> {
     let tenant = context.tenant_id();
     // ASVS 8.2.2: establish route-scoped Student authority before resolving an
     // opaque attempt identity or its protected source.
-    super::entitlement::active_membership_for(state, tenant, learner_work_binding.course, actor)
+    super::entitlement::active_membership_for(state, tenant, student_work_binding.course, actor)
         .filter(|membership| {
             membership.role == question_model::CourseMembershipRole::Student
                 && membership.student.is_some()
         })
         .ok_or(StoreError::NotFound)?;
-    let assignment = assignment_record(state, tenant, learner_work_binding.assignment)?;
-    if assignment.course_id != learner_work_binding.course {
+    let assignment = assignment_record(state, tenant, student_work_binding.assignment)?;
+    if assignment.course_id != student_work_binding.course {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(state, tenant, learner_work_binding.course)?;
+    require_course_records_accessible(state, tenant, student_work_binding.course)?;
     let domain::entitlement::EntitlementDecision::Granted(grant) =
         super::entitlement::evaluate_locked(
             state,
             tenant,
             actor,
-            learner_work_binding.course,
-            learner_work_binding.assignment,
+            student_work_binding.course,
+            student_work_binding.assignment,
         )?
     else {
         return Err(StoreError::NotFound);
@@ -753,7 +752,7 @@ fn prepare_external_tool_attempt_locked(
         .get(&(tenant, attempt.run))
         .ok_or(StoreError::NotFound)?;
     let enrollment = enrollment_record(state, tenant, run.enrollment)?;
-    if enrollment.assignment != learner_work_binding.assignment
+    if enrollment.assignment != student_work_binding.assignment
         || enrollment.user != actor
         || enrollment.student != grant.student()
     {

@@ -5,7 +5,7 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::http::header::ETAG;
 use axum::response::Response;
-use learning_data_access::LearnerWorkRoutingBinding;
+use learning_data_access::StudentWorkRoutingBinding;
 use question_model::{AssignmentId, RunId};
 use tower::ServiceExt;
 
@@ -112,7 +112,7 @@ async fn issued_learner_work_returns_a_typed_structural_content_recovery() {
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            LearnerWorkRoutingBinding::new(fixture.course, assignment),
+            StudentWorkRoutingBinding::new(fixture.course, assignment),
             RunId::generate(),
         )
         .await
@@ -232,7 +232,7 @@ async fn policy_publish_of_an_empty_draft_returns_readiness_without_advancing_re
             .body(Body::from(
                 serde_json::json!({
                     "audience": {"kind": "anyOfGroups", "groups": []},
-                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
+                    "disclosurePolicy": question_model::StudentDisclosurePolicy::default(),
                     "policies": super::fixtures::policies(),
                     "teachingSettings": {
                         "timeZone": "America/Chicago",

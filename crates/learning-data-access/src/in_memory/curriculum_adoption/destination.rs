@@ -43,7 +43,7 @@ pub(super) fn materialize_semantic_assignment(
         audience: AssignmentAudience::CourseWide,
         items,
         selection_groups,
-        disclosure_policy: plan.defaults.learner_disclosure,
+        disclosure_policy: plan.defaults.student_disclosure,
         policies: plan.defaults.run_policies,
     };
     super::super::course_assignments::materialize_assignment_locked(
@@ -85,7 +85,7 @@ pub(super) fn replace_reusable_meaning(
     replacement.instructions = semantic.instructions().clone();
     replacement.items = items;
     replacement.selection_groups = selection_groups;
-    replacement.disclosure_policy = semantic.defaults().learner_disclosure;
+    replacement.disclosure_policy = semantic.defaults().student_disclosure;
     replacement.policies = semantic.defaults().run_policies;
     validate_assignment(&replacement)?;
     validate_memory_assignment_references(
@@ -177,7 +177,7 @@ pub(super) fn current_semantic_assignment(
         late_submission: stored_policy.policy.late_submission,
         deadline_behavior: stored_policy.policy.deadline_behavior,
         run_policies: record.policies,
-        learner_disclosure: record.disclosure_policy,
+        student_disclosure: record.disclosure_policy,
     };
     CurriculumSemanticAssignment::new(
         record.title.clone(),

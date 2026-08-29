@@ -236,6 +236,7 @@ impl MemoryStore {
 
     /// Returns paired Student-record inspection facts for deterministic conformance tests.
     /// Application code has no audit lookup capability.
+    #[cfg(feature = "test-support")]
     pub fn student_work_inspection_audit_facts(
         &self,
     ) -> Result<
@@ -250,6 +251,23 @@ impl MemoryStore {
             state.student_work_inspection_record_accesses.clone(),
             state.student_work_inspection_audits.clone(),
         ))
+    }
+
+    /// Corrupts one accepted private-response canonical witness for deterministic
+    /// conformance. Production code cannot access this test-support probe.
+    #[cfg(feature = "test-support")]
+    pub fn tamper_private_submission_response_witness_for_test(
+        &self,
+        tenant: TenantId,
+        attempt: QuestionAttemptId,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let private = state
+            .private_submission_responses
+            .get_mut(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        private.canonical_text.push('!');
+        Ok(())
     }
 
     /// Test-only equivalent of the later submission-completion capability.

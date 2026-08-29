@@ -166,6 +166,34 @@ test("a receipt with a pending successor preserves feedback without resubmitting
   assert.equal(state.response.kind, "numeric");
 });
 
+test("a completed recalculation exposes status and refreshes without resubmitting", async () => {
+  let statusReads = 0;
+  const fixture = createMachine({
+    submitResponse: async () => ({ ...receipt(), scoringStatus: "recalculating" }),
+    getSubmissionStatus: async () => {
+      statusReads += 1;
+      return {
+        ...receipt(),
+        scoringStatus: statusReads === 1 ? "recalculating" : "current",
+        feedback: statusReads === 1 ? null : { correctness: true, pointsEarned: 1 },
+      };
+    },
+  });
+  ready(fixture.machine);
+
+  await fixture.machine.submit();
+  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().acknowledgement.scoringStatus, "recalculating");
+
+  await fixture.machine.checkGradingStatus();
+  assert.equal(statusReads, 1);
+  assert.equal(fixture.machine.state().acknowledgement.scoringStatus, "recalculating");
+  await fixture.machine.checkGradingStatus();
+  assert.equal(statusReads, 2);
+  assert.equal(fixture.machine.state().acknowledgement.scoringStatus, "current");
+  assert.equal(fixture.submissionCalls.length, 0);
+});
+
 test("an acknowledged pending submission clears its replay and checks status without another post", async () => {
   let statusReads = 0;
   const fixture = createMachine({
@@ -666,6 +694,7 @@ test("storage exceptions retain accepted state without exposing a raw receipt", 
     runCompletionStatus: "inProgress",
     nextIssued: null,
     nextPending: false,
+    scoringStatus: "current",
   });
   assert.equal("receipt" in state, false);
 });

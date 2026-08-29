@@ -457,9 +457,9 @@ mod tests {
         AssignmentTeachingSettingsField, BaseAssignmentPolicy, BlueprintReference,
         BlueprintRevision, CompletionRequirement, ContinuedPractice, CourseLocalDateTime,
         CourseReference, CourseScheduleRevision, CourseTerm, CurriculumCourseImportOriginView,
-        GradePolicy, LateSubmissionPolicy, LearnerDisclosurePolicy, ObservedAssignmentRevision,
-        PointValue, ProblemId, ProblemVersionRef, RelativeAssignmentSchedule,
-        ReusableAssignmentDefaults, RunPolicies, VariationPolicy, VersionId,
+        GradePolicy, LateSubmissionPolicy, ObservedAssignmentRevision, PointValue, ProblemId,
+        ProblemVersionRef, RelativeAssignmentSchedule, ReusableAssignmentDefaults, RunPolicies,
+        StudentDisclosurePolicy, VariationPolicy, VersionId,
     };
 
     use crate::curriculum_adoption::{SemanticAssignmentEntryInputV1, semantic_payload_input};
@@ -483,7 +483,7 @@ mod tests {
                 continued_practice: ContinuedPractice::Unlimited,
                 variation: VariationPolicy::NewSeeds,
             },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
+            student_disclosure: StudentDisclosurePolicy::default(),
         }
     }
 

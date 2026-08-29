@@ -1,5 +1,5 @@
 use super::*;
-use crate::LearnerDisclosureInput;
+use crate::StudentDisclosureInput;
 use crate::canonical_json::{CanonicalJsonV1, canonical_json_bytes_v1};
 
 /// Encodes the immutable receipt attempt without retaining the learner answer.
@@ -54,7 +54,7 @@ pub(super) async fn current_disclosure_input(
     assignment: &AssignmentRecord,
     attempt: QuestionAttemptId,
     submitted_at: Option<ActivityTimestamp>,
-) -> Result<LearnerDisclosureInput, StoreError> {
+) -> Result<StudentDisclosureInput, StoreError> {
     let bound: bool = sqlx::query_scalar(
         "SELECT EXISTS( \
             SELECT 1 FROM attempt_effective_policy_current AS current_effect \
@@ -92,7 +92,7 @@ pub(super) async fn current_disclosure_input(
             "current effective-policy receipt does not bind the attempt".to_string(),
         ));
     }
-    Ok(LearnerDisclosureInput::new(
+    Ok(StudentDisclosureInput::new(
         assignment.disclosure_policy,
         receipt.policy,
         database_timestamp(transaction).await?,
@@ -175,16 +175,15 @@ pub(super) async fn apply_postgres_attempt_support(
     }
 
     let resulting_status = match action {
+        // ASVS 2.2.1-2.2.3, 2.3.1-2.3.4: persist the only authorized,
+        // answer-free closure atomically with its replayable support receipt.
         AttemptSupportAction::ForceSubmit if previous.status == AttemptStatus::InProgress => {
-            AttemptStatus::NeedsManualGrading
+            AttemptStatus::AutoSubmitted
         }
         AttemptSupportAction::Clear
             if matches!(
                 previous.status,
-                AttemptStatus::InProgress
-                    | AttemptStatus::Submitted
-                    | AttemptStatus::AutoSubmitted
-                    | AttemptStatus::NeedsManualGrading
+                AttemptStatus::InProgress | AttemptStatus::Submitted | AttemptStatus::AutoSubmitted
             ) =>
         {
             AttemptStatus::Cleared

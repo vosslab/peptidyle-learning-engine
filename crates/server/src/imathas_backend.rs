@@ -108,7 +108,7 @@ pub trait ExternalToolSubmissionBackend: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        student_work_binding: learning_data_access::StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey,
@@ -305,7 +305,7 @@ where
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        student_work_binding: learning_data_access::StudentWorkRoutingBinding,
         issued_question_snapshot: &IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         state_aead: &LaunchStateAead,
@@ -346,14 +346,14 @@ where
             )
             .await
             .map_err(map_adapter_error)?;
-        let aad = launch_state_aad(context, actor, learner_work_binding, attempt, &binding);
+        let aad = launch_state_aad(context, actor, student_work_binding, attempt, &binding);
         let encrypted = state_aead.seal_adapter_session(&session, &aad)?;
         self.sources
             .create_external_tool_launch_session(
                 context,
                 learning_data_access::CreateExternalToolLaunchSessionCommand {
                     actor,
-                    learner_work_binding,
+                    student_work_binding,
                     attempt: attempt.id,
                     binding,
                     encrypted_provider_state: Some(encrypted),

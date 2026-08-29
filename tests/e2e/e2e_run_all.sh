@@ -15,22 +15,22 @@
 # Run: bash tests/e2e/e2e_run_all.sh
 
 set -uo pipefail
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY/../.." || exit 1
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory/../.." || exit 1
 
-PASSED=0
-FAILED=0
-FAILED_NAMES=()
+passed=0
+failed=0
+failed_names=()
 
 run_check() {
 	local name="$1"
 	shift
 	echo "==> $name"
 	if "$@"; then
-		PASSED=$((PASSED + 1))
+		passed=$((passed + 1))
 	else
-		FAILED=$((FAILED + 1))
-		FAILED_NAMES+=("$name")
+		failed=$((failed + 1))
+		failed_names+=("$name")
 	fi
 }
 
@@ -46,18 +46,24 @@ run_check browser_production_build node tests/e2e/e2e_browser_production_build.m
 # SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
 run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 
+# PostgreSQL current-pointer state and MinIO object cleanup agree across the durable boundary.
+run_check course_appearance bash tests/e2e/e2e_course_appearance.sh
+
+# The isolated upstream WebWork renderer honors PLE's authenticated render-and-grade contract.
+run_check webwork_render_rpc bash tests/e2e/e2e_webwork_render_rpc.sh
+
 # Fresh, retained, interrupted, concurrent, mixed, and regenerated live-demo baseline lifecycle.
 run_check live_demo_baseline bash -c \
 	'source source_me.sh && .venv/bin/python tests/e2e/e2e_live_demo_baseline.py'
 
-# A learner session and idempotent submission survive across two API replicas.
+# A Student session and idempotent submission survive across two API replicas.
 # A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.
 run_check replica_restart node tests/e2e/e2e_replica_restart.mjs
 
 echo
-echo "Summary: $PASSED passed, $FAILED failed."
-if [ "$FAILED" -gt 0 ]; then
-	for name in "${FAILED_NAMES[@]}"; do
+echo "Summary: $passed passed, $failed failed."
+if [ "$failed" -gt 0 ]; then
+	for name in "${failed_names[@]}"; do
 		echo "  FAIL $name"
 	done
 	exit 1

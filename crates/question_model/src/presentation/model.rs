@@ -169,10 +169,16 @@ impl From<PresentationDigestTokenV1> for String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssetBindingV1 {
+    /// Public presentation binding for the logical asset. This identifier
+    /// describes issued rendering and grants no storage or download authority.
     pub asset: AssetId,
+    /// Checksum of the authored public asset selected for this rendering.
     pub authored_checksum: String,
+    /// Checksum of the public rendition selected for this rendering.
     pub rendition_checksum: String,
+    /// Intrinsic width of the selected public rendition, when known.
     pub intrinsic_width: Option<u32>,
+    /// Intrinsic height of the selected public rendition, when known.
     pub intrinsic_height: Option<u32>,
 }
 
@@ -271,7 +277,7 @@ pub struct PresentationEnvelopeV1 {
 /// Minimal active attempt fields needed by the learner screen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct LearnerAttemptDescriptorV1 {
+pub struct StudentAttemptDescriptorV1 {
     pub id: QuestionAttemptId,
     pub deadline: Option<ActivityTimestamp>,
     pub presentation_digest: PresentationDigestTokenV1,
@@ -280,7 +286,7 @@ pub struct LearnerAttemptDescriptorV1 {
 /// Course and assignment shell needed for authorized navigation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct LearnerRunScreenScopeV1 {
+pub struct StudentRunScreenScopeV1 {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub theme: CourseThemeId,
@@ -289,7 +295,7 @@ pub struct LearnerRunScreenScopeV1 {
 /// Learner-visible run context, without storage or policy internals.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct LearnerRunScreenRunV1 {
+pub struct StudentRunScreenRunV1 {
     pub number: u32,
     pub mode: RunMode,
 }
@@ -297,9 +303,9 @@ pub struct LearnerRunScreenRunV1 {
 /// One consolidated active learner screen response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct LearnerRunScreenV1 {
-    pub scope: LearnerRunScreenScopeV1,
-    pub run: LearnerRunScreenRunV1,
-    pub attempt: LearnerAttemptDescriptorV1,
+pub struct StudentRunScreenV1 {
+    pub scope: StudentRunScreenScopeV1,
+    pub run: StudentRunScreenRunV1,
+    pub attempt: StudentAttemptDescriptorV1,
     pub envelope: PresentationEnvelopeV1,
 }

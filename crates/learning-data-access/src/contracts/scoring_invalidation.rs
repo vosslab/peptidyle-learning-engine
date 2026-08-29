@@ -12,8 +12,7 @@ use uuid::Uuid;
 pub enum ScoringInvalidationOriginKind {
     InstructorRecalculation,
     AssignmentDefinition,
-    ManualGrade,
-    LearnerSupport,
+    StudentSupport,
     AcceptedSubmissionCompletion,
 }
 
@@ -63,17 +62,9 @@ impl ScoringInvalidationOrigin {
         }
     }
 
-    pub fn manual_grade(id: ScoringInvalidationOriginId, actor: UserId) -> Self {
+    pub fn student_support(id: ScoringInvalidationOriginId, actor: UserId) -> Self {
         Self {
-            kind: ScoringInvalidationOriginKind::ManualGrade,
-            id,
-            actor: Some(actor),
-        }
-    }
-
-    pub fn learner_support(id: ScoringInvalidationOriginId, actor: UserId) -> Self {
-        Self {
-            kind: ScoringInvalidationOriginKind::LearnerSupport,
+            kind: ScoringInvalidationOriginKind::StudentSupport,
             id,
             actor: Some(actor),
         }

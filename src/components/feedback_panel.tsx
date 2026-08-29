@@ -12,6 +12,7 @@ import {
 
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
+import type { ScoringStatus } from "../../generated/api/ScoringStatus";
 import { formatPointScore, formatScoreValue } from "../score_format";
 
 import {
@@ -26,13 +27,21 @@ import { FEEDBACK_PANEL_STYLES } from "./feedback_panel_styles";
  * released teaching response. The server is the only authority that constructs this union.
  */
 export type FeedbackPresentation =
-  | { readonly kind: "awaiting"; readonly feedback: null }
-  | { readonly kind: "released"; readonly feedback: DisclosedFeedback };
+  | {
+      readonly kind: "awaiting";
+      readonly feedback: null;
+      readonly scoringStatus: ScoringStatus;
+    }
+  | {
+      readonly kind: "released";
+      readonly feedback: DisclosedFeedback;
+      readonly scoringStatus: ScoringStatus;
+    };
 
 export interface FeedbackPanelProps {
   readonly disclosure: FeedbackPresentation;
   /** A server-projected record of what the learner submitted, never a question definition. */
-  readonly learnerResponse?: ReadonlyArray<ContentBlock>;
+  readonly studentResponse?: ReadonlyArray<ContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
   /** Omit on read-only history surfaces so static feedback does not add a no-op tab stop. */
@@ -47,7 +56,7 @@ function assertNever(value: never): never {
 }
 
 function outcomeHeading(disclosure: FeedbackPresentation): string {
-  if (disclosure.kind === "awaiting") {
+  if (disclosure.kind === "awaiting" || disclosure.scoringStatus !== "current") {
     return "Response recorded";
   }
   if (disclosure.feedback.correctness === true) {
@@ -61,6 +70,12 @@ function outcomeHeading(disclosure: FeedbackPresentation): string {
 
 /** Exposed for focused behavior tests and so the neutral copy stays consistent with the heading. */
 export function feedbackAnnouncement(disclosure: FeedbackPresentation): string {
+  if (disclosure.scoringStatus === "recalculating") {
+    return "Your response was recorded. Your score is being updated.";
+  }
+  if (disclosure.scoringStatus === "failed") {
+    return "Your response was recorded. Your score is waiting for instructor review.";
+  }
   if (disclosure.kind === "awaiting") {
     return "Your response was recorded. Feedback is not available for this response.";
   }
@@ -217,7 +232,7 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
     return props.disclosure.kind === "released" ? props.disclosure.feedback : undefined;
   };
   const advanceLabel = (): string => props.advanceLabel ?? "Continue";
-  const response = (): ReadonlyArray<ContentBlock> => props.learnerResponse ?? [];
+  const response = (): ReadonlyArray<ContentBlock> => props.studentResponse ?? [];
 
   return (
     <section class="feedback-panel" aria-labelledby={headingId}>
@@ -277,10 +292,13 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
           </>
         )}
       </Show>
+      <Show
+        when={props.disclosure.kind === "released" && props.disclosure.scoringStatus !== "current"}
+      >
+        <p class="feedback-panel__empty">{feedbackAnnouncement(props.disclosure)}</p>
+      </Show>
       <Show when={props.disclosure.kind === "awaiting"}>
-        <p class="feedback-panel__empty">
-          Your response was recorded. Feedback is not available for this response.
-        </p>
+        <p class="feedback-panel__empty">{feedbackAnnouncement(props.disclosure)}</p>
       </Show>
 
       <Show when={props.onAdvance !== undefined}>

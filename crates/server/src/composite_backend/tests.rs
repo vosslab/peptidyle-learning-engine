@@ -96,7 +96,7 @@ impl ExternalToolLaunchBackend for CountingConfiguredProvider {
         &self,
         _: TenantContext,
         _: UserId,
-        _: learning_data_access::LearnerWorkRoutingBinding,
+        _: learning_data_access::StudentWorkRoutingBinding,
         _: &learning_data_access::IssuedQuestionSnapshotV1,
         _: &QuestionAttempt,
         _: &crate::imathas_backend::LaunchStateAead,
@@ -108,7 +108,7 @@ impl ExternalToolLaunchBackend for CountingConfiguredProvider {
         &self,
         _: TenantContext,
         _: UserId,
-        _: learning_data_access::LearnerWorkRoutingBinding,
+        _: learning_data_access::StudentWorkRoutingBinding,
         _: &learning_data_access::IssuedQuestionSnapshotV1,
         _: &QuestionAttempt,
         _: Uuid,
@@ -128,7 +128,7 @@ impl ExternalToolSubmissionBackend for CountingConfiguredProvider {
         &self,
         _: TenantContext,
         _: UserId,
-        _: learning_data_access::LearnerWorkRoutingBinding,
+        _: learning_data_access::StudentWorkRoutingBinding,
         _: &learning_data_access::IssuedQuestionSnapshotV1,
         _: &QuestionAttempt,
         _: SubmissionIdempotencyKey,
@@ -360,7 +360,7 @@ async fn foreign_imathas_provider_refuses_every_dispatch_before_any_delegate() {
     let attempt = attempt();
     let context = TenantContext::from_authenticated_session(attempt.tenant);
     let actor = UserId::from_uuid(id(8));
-    let learner_work_binding = learning_data_access::LearnerWorkRoutingBinding::new(
+    let student_work_binding = learning_data_access::StudentWorkRoutingBinding::new(
         question_model::CourseId::from_uuid(id(11)),
         question_model::AssignmentId::from_uuid(id(12)),
     );
@@ -482,7 +482,7 @@ async fn foreign_imathas_provider_refuses_every_dispatch_before_any_delegate() {
             .create_external_tool_launch(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 &question_b_snapshot,
                 &attempt,
                 &aead
@@ -495,7 +495,7 @@ async fn foreign_imathas_provider_refuses_every_dispatch_before_any_delegate() {
             .proxy_external_tool_activity(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 &question_b_snapshot,
                 &attempt,
                 id(10),
@@ -512,7 +512,7 @@ async fn foreign_imathas_provider_refuses_every_dispatch_before_any_delegate() {
             .submit_external_tool(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 &question_b_snapshot,
                 &attempt,
                 key,

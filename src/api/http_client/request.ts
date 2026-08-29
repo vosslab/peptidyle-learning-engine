@@ -25,7 +25,7 @@ import type {
   PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
-  LearnerSubmissionStatus,
+  StudentSubmissionStatus,
   WorkspaceDraftDetail,
 } from "../contracts";
 import {
@@ -50,7 +50,7 @@ import {
   decodePublicationValidationReport,
   decodeResponseFormatReport,
   decodeStudentResponse,
-  decodeLearnerSubmissionStatus,
+  decodeStudentSubmissionStatus,
   decodeTimerVerdict,
 } from "../decoders";
 import { decodeQuestionId } from "../decoders/shared";
@@ -218,7 +218,7 @@ function assignmentDraftPath(courseId: CourseId): string {
   return `${assignmentPath(courseId)}/drafts`;
 }
 
-export function learnerAttemptPath(
+export function studentAttemptPath(
   courseId: CourseId,
   assignmentId: AssignmentId,
   attemptId: QuestionAttemptId,
@@ -226,10 +226,10 @@ export function learnerAttemptPath(
   return `${assignmentPath(courseId, assignmentId)}/attempts/${encodedId(attemptId)}`;
 }
 
-function verifyLearnerSubmissionStatus(
-  status: LearnerSubmissionStatus,
+function verifyStudentSubmissionStatus(
+  status: StudentSubmissionStatus,
   attemptId: QuestionAttemptId,
-): LearnerSubmissionStatus {
+): StudentSubmissionStatus {
   const returnedAttemptId = status.kind === "completed" ? status.attempt.id : status.attemptId;
   if (returnedAttemptId !== attemptId)
     throw new ApiProtocolError("Submission status attempt does not match its request");
@@ -726,7 +726,7 @@ export function createRequestClient(
       attemptId,
       signal,
     ): Promise<PrefetchedNextQuestion | null> => {
-      const path = `${learnerAttemptPath(courseId, assignmentId, attemptId)}/prefetch-next`;
+      const path = `${studentAttemptPath(courseId, assignmentId, attemptId)}/prefetch-next`;
       const response = await fetchImplementation(requestPath(basePath, path), {
         method: "POST",
         headers: { accept: "application/json" },
@@ -754,34 +754,34 @@ export function createRequestClient(
       const decoded = decodeStudentResponse(response, "request.response");
       const path =
         decoded.kind === "externalTool"
-          ? `${learnerAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch/submission`
-          : `${learnerAttemptPath(courseId, assignmentId, attemptId)}/submissions`;
+          ? `${studentAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch/submission`
+          : `${studentAttemptPath(courseId, assignmentId, attemptId)}/submissions`;
       const status = await requestJson(
         fetchImplementation,
         basePath,
         path,
-        decodeLearnerSubmissionStatus,
+        decodeStudentSubmissionStatus,
         {
           method: "POST",
           headers: { "idempotency-key": idempotencyKey },
           body: { response: decoded },
         },
       );
-      return verifyLearnerSubmissionStatus(status, attemptId);
+      return verifyStudentSubmissionStatus(status, attemptId);
     },
     getSubmissionStatus: async (
       courseId,
       assignmentId,
       attemptId,
     ): ReturnType<ApiClient["getSubmissionStatus"]> => {
-      const path = `${learnerAttemptPath(courseId, assignmentId, attemptId)}/submission-status`;
+      const path = `${studentAttemptPath(courseId, assignmentId, attemptId)}/submission-status`;
       const status = await requestJson(
         fetchImplementation,
         basePath,
         path,
-        decodeLearnerSubmissionStatus,
+        decodeStudentSubmissionStatus,
       );
-      return verifyLearnerSubmissionStatus(status, attemptId);
+      return verifyStudentSubmissionStatus(status, attemptId);
     },
     releaseAttemptFeedback: (attemptId): Promise<FeedbackReleaseResponse> =>
       requestJson(

@@ -1,22 +1,21 @@
 //! Closed browser-safe contracts for automated-grading recovery.
 //!
 //! These values describe state and safe next actions. They carry neither a
-//! learner response nor a grade, answer, provider diagnostic, or private source.
+//! Student response nor a grade, answer, provider diagnostic, or private source.
 
 use serde::{Deserialize, Serialize};
 
-/// Current learner-safe evaluation projection.
+/// Current Student-safe evaluation projection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum SubmissionEvaluationStatus {
     AutomatedPending,
     AutomatedException,
-    NeedsManualGrading,
     Graded,
     Exempt,
 }
 
-/// The learner-visible subset of an automated evaluation state.
+/// The Student-visible subset of an automated evaluation state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AutomatedGradingStatus {
@@ -30,8 +29,7 @@ impl From<SubmissionEvaluationStatus> for AutomatedGradingStatus {
         match value {
             SubmissionEvaluationStatus::AutomatedPending => Self::Pending,
             SubmissionEvaluationStatus::Graded | SubmissionEvaluationStatus::Exempt => Self::Graded,
-            SubmissionEvaluationStatus::AutomatedException
-            | SubmissionEvaluationStatus::NeedsManualGrading => Self::InstructorAttention,
+            SubmissionEvaluationStatus::AutomatedException => Self::InstructorAttention,
         }
     }
 }
@@ -83,10 +81,61 @@ mod tests {
     use super::*;
 
     #[test]
-    fn learner_status_is_closed_and_does_not_expose_exception_detail() {
+    fn student_status_is_closed_and_does_not_expose_exception_detail() {
+        assert_eq!(
+            serde_json::to_string(&SubmissionEvaluationStatus::AutomatedPending)
+                .expect("serializes"),
+            "\"automated_pending\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SubmissionEvaluationStatus::AutomatedException)
+                .expect("serializes"),
+            "\"automated_exception\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SubmissionEvaluationStatus::Graded).expect("serializes"),
+            "\"graded\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SubmissionEvaluationStatus::Exempt).expect("serializes"),
+            "\"exempt\""
+        );
+        assert_eq!(
+            serde_json::from_str::<SubmissionEvaluationStatus>("\"automated_pending\"")
+                .expect("deserializes"),
+            SubmissionEvaluationStatus::AutomatedPending
+        );
+        assert_eq!(
+            serde_json::from_str::<SubmissionEvaluationStatus>("\"automated_exception\"")
+                .expect("deserializes"),
+            SubmissionEvaluationStatus::AutomatedException
+        );
+        assert_eq!(
+            serde_json::from_str::<SubmissionEvaluationStatus>("\"graded\"").expect("deserializes"),
+            SubmissionEvaluationStatus::Graded
+        );
+        assert_eq!(
+            serde_json::from_str::<SubmissionEvaluationStatus>("\"exempt\"").expect("deserializes"),
+            SubmissionEvaluationStatus::Exempt
+        );
+        assert!(
+            serde_json::from_str::<SubmissionEvaluationStatus>("\"automatedPending\"").is_err()
+        );
         assert_eq!(
             AutomatedGradingStatus::from(SubmissionEvaluationStatus::AutomatedException),
             AutomatedGradingStatus::InstructorAttention
+        );
+        assert_eq!(
+            AutomatedGradingStatus::from(SubmissionEvaluationStatus::AutomatedPending),
+            AutomatedGradingStatus::Pending
+        );
+        assert_eq!(
+            AutomatedGradingStatus::from(SubmissionEvaluationStatus::Graded),
+            AutomatedGradingStatus::Graded
+        );
+        assert_eq!(
+            AutomatedGradingStatus::from(SubmissionEvaluationStatus::Exempt),
+            AutomatedGradingStatus::Graded
         );
         assert_eq!(
             serde_json::to_string(&AutomatedGradingStatus::Pending).expect("serializes"),

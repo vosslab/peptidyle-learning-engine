@@ -2,10 +2,10 @@
 
 ## Current work
 
-- [ ] Implement `WP-INST-G2` from the approved
-      [calculated Gradebook and audited Student-work plan](active_plans/active/audited_student_work_gradebook_plan.md);
-      see [implementation_status.md](active_plans/implementation_status.md) for the current handoff and
-      migration allocation.
+- [ ] Accept revised `WP-INST-WN1-A`, then implement `WN1-B/C1-C6/QM/WA/D/F` from the approved
+      [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md);
+      see [implementation_status.md](active_plans/implementation_status.md) for the current handoff,
+      G2 acceptance-open dependency, and any evidence-backed migration allocation.
 - [ ] Apply the dependency-ordered Student role-vocabulary convergence in
       [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) as each affected subsystem becomes current work.
 

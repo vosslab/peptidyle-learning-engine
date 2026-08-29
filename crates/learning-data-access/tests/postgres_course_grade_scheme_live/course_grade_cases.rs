@@ -8,7 +8,8 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentEntitlementMaterialization, CourseGradeAssignmentMembership,
     CourseGradeSchemeRevision, CourseGradebookStore, CourseRosterContact, CourseRosterId,
-    CourseRosterStore, GradingOperationActionId, GradingOperationStore,
+    CourseRosterStore, GradingOperationActionId, GradingOperationStore, JobClaimFilter,
+    JobFailureDisposition, JobFailureKind, JobKind, JobLeaseDuration, JobPayload, JobStore,
     MaterializeAssignmentEntitlementCommand, RecalculateAssignmentCommand, Store, StoreError,
     TenantContext, UpdateCourseGradeScheme, UpsertCourseMember,
 };
@@ -18,6 +19,9 @@ use question_model::{
 };
 use sqlx::Row;
 use uuid::Uuid;
+
+#[path = "course_grade_cases/calculated_gradebook_cases.rs"]
+mod calculated_gradebook_cases;
 async fn scalar_i64(pool: &sqlx::PgPool, sql: &'static str) -> i64 {
     sqlx::query(sql)
         .fetch_one(pool)
@@ -25,6 +29,43 @@ async fn scalar_i64(pool: &sqlx::PgPool, sql: &'static str) -> i64 {
         .expect("live oracle query")
         .try_get(0)
         .expect("integer result")
+}
+
+async fn fail_recalculation_job(
+    store: &PostgresStore,
+    tenant: TenantId,
+    assignment: question_model::AssignmentId,
+) {
+    let filter =
+        JobClaimFilter::new([JobKind::RecalculateAssignment]).expect("recalculation job filter");
+    let claim = store
+        .claim_next_job(
+            &filter,
+            JobLeaseDuration::from_seconds(30).expect("bounded fixture lease"),
+        )
+        .await
+        .expect("claim recalculation job")
+        .expect("Instructor recalculation enqueues one job");
+    assert_eq!(claim.tenant, tenant);
+    assert!(matches!(
+        claim.payload,
+        JobPayload::RecalculateAssignment {
+            assignment: claimed,
+            ..
+        } if claimed == assignment
+    ));
+    assert_eq!(
+        store
+            .fail_job(
+                TenantContext::from_authenticated_session(tenant),
+                claim.id,
+                claim.lease_token,
+                JobFailureKind::Permanent,
+            )
+            .await
+            .expect("record terminal recalculation failure"),
+        JobFailureDisposition::Dead
+    );
 }
 
 async fn scheme_version_marker(
@@ -357,20 +398,13 @@ async fn postgres_course_grade_totals_use_only_summary_projection_and_preserve_t
         assert!(matches!(issued, AssignmentEntitlementMaterialization::Granted(_)), "current learner receives numeric enrollment");
     }
     let scores = [(assignments[0], Some(0.8)), (assignments[1], None), (assignments[2], Some(5.0)), (assignments[3], Some(-0.1))];
-    set_summary_scores(&pool, tenant, student, &scores, None).await;
+    set_summary_scores(&pool, tenant, student, &scores).await;
     let total = store.course_gradebook_totals(context, token, course).await.expect("summary-only total");
     assert_eq!(total.rows[0].outcome.rounded_score, Some(0.24), "10/30-point weighting, missing zero, negative score, and zero-point extra credit contribute exactly once");
-    set_summary_scores(&pool, tenant, student, &[(assignments[0], Some(0.8))], None).await;
-    let recalculated_assignment = store.get_assignment_for_edit(context, assignments[0]).await.expect("recalculation assignment query").expect("recalculation assignment");
-    store.recalculate_instructor_assignment(context, RecalculateAssignmentCommand { tenant, session: token, course, assignment: assignments[0], action: GradingOperationActionId::from_uuid(id()), expected_assignment_revision: recalculated_assignment.revision }).await.expect("production recalculation capability");
-    assert_eq!(store.course_gradebook_totals(context, token, course).await.expect("recalculating row").rows[0].outcome.unavailable_reason, Some(domain::course_grade::CourseGradeUnavailableReason::Recalculating));
-    set_summary_scores(&pool, tenant, student, &[(assignments[0], Some(0.8))], Some("failed")).await;
-    assert_eq!(store.course_gradebook_totals(context, token, course).await.expect("failed row").rows[0].outcome.unavailable_reason, Some(domain::course_grade::CourseGradeUnavailableReason::Failed));
-    set_summary_scores(&pool, tenant, student, &scores, Some("current")).await;
     let before = store.course_grade_scheme(context, token, course).await.expect("default scheme"); let home = GradeCategoryId::from_uuid(id()); let exam = GradeCategoryId::from_uuid(id());
     let weighted = CourseGradeScheme { mode: CourseGradeMode::WeightedCategories, rounding: CourseGradeRoundingRule::FourDecimalPlacesHalfAwayFromZero, categories: vec![WeightedGradeCategory { id: home, title: GradeCategoryTitle::new("Homework").expect("title"), position: 0, weight_basis_points: 5000, drop_lowest: 1 }, WeightedGradeCategory { id: exam, title: GradeCategoryTitle::new("Exam").expect("title"), position: 1, weight_basis_points: 5000, drop_lowest: 0 }], letter_bands: Vec::new() };
     let tied = [(assignments[0], Some(0.8)), (assignments[1], Some(0.8)), (assignments[2], Some(5.0)), (assignments[3], Some(-0.1))];
-    set_summary_scores(&pool, tenant, student, &tied, None).await;
+    set_summary_scores(&pool, tenant, student, &tied).await;
     let mapped = store
         .update_course_grade_scheme(
             context,
@@ -499,8 +533,17 @@ async fn postgres_course_grade_totals_use_only_summary_projection_and_preserve_t
         .create_course_grade_export(context, token, course)
         .await
         .expect("export");
-    assert_eq!(export.rows, totals.rows);
+    assert_eq!(export.rows.len(), totals.rows.len());
+    for (export_row, total_row) in export.rows.iter().zip(&totals.rows) {
+        assert_eq!(export_row.display_name, total_row.display_name);
+        assert_eq!(export_row.outcome, total_row.outcome);
+    }
     assert_eq!(export.audit.row_count, 1);
+    let recalculated_assignment = store.get_assignment_for_edit(context, assignments[0]).await.expect("recalculation assignment query").expect("recalculation assignment");
+    store.recalculate_instructor_assignment(context, RecalculateAssignmentCommand { tenant, session: token, course, assignment: assignments[0], action: GradingOperationActionId::from_uuid(id()), expected_assignment_revision: recalculated_assignment.revision }).await.expect("production recalculation capability");
+    assert_eq!(store.course_gradebook_totals(context, token, course).await.expect("recalculating row").rows[0].outcome.unavailable_reason, Some(domain::course_grade::CourseGradeUnavailableReason::Recalculating));
+    fail_recalculation_job(&store, tenant, assignments[0]).await;
+    assert_eq!(store.course_gradebook_totals(context, token, course).await.expect("failed row").rows[0].outcome.unavailable_reason, Some(domain::course_grade::CourseGradeUnavailableReason::Failed));
 }
 
 #[tokio::test]
@@ -631,14 +674,8 @@ async fn postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_a
             UpsertCourseMember {
                 course,
                 user: student,
-                display_name: "S6 learner".into(),
-                roster_contact: Some(CourseRosterContact {
-                    email: learning_data_access::AuthenticationEmail::parse(
-                        "s6.live@roosevelt.edu",
-                    )
-                    .expect("roster email"),
-                    roster_id: CourseRosterId::parse("900123459").expect("roster ID"),
-                }),
+                display_name: "S6 Student".into(),
+                roster_contact: None,
             },
         )
         .await
@@ -658,7 +695,7 @@ async fn postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_a
         .await
         .expect("materialize no-activity enrollment");
     let AssignmentEntitlementMaterialization::Granted(materialized) = materialized else {
-        panic!("current course-wide learner must receive an enrollment")
+        panic!("current course-wide Student must receive an enrollment")
     };
     let enrollment = materialized.enrollment.id.as_uuid();
     physical_scheme_and_score_guards(&pool, tenant, course, assignment, enrollment).await;
@@ -672,6 +709,8 @@ async fn postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_a
         .await
         .expect("synchronous bounded export");
     assert_eq!(export.audit.row_count, 1);
+    assert_eq!(export.rows[0].roster_id, None);
+    assert_eq!(export.rows[0].roster_email, None);
     app_cannot_mutate_audit(&pool, tenant, course).await;
     assert_eq!(
         app_without_tenant_count(&pool).await,
@@ -901,4 +940,5 @@ async fn postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_a
     // The baseline calls this established test by name; retain the numeric
     // adapter/evaluator oracle in that same permanent execution path.
     postgres_course_grade_totals_use_only_summary_projection_and_preserve_transitions().await;
+    calculated_gradebook_cases::postgres_calculated_gradebook_page_uses_roster_structure_and_live_witnesses().await;
 }

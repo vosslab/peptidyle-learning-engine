@@ -336,9 +336,9 @@ where
             grading::GradeOutcome::Graded(result) => {
                 Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
             }
-            grading::GradeOutcome::NeedsManualGrading | grading::GradeOutcome::Ungraded => Err(
-                RunBackendError::Deterministic(DeterministicGraderFailure::Contract),
-            ),
+            grading::GradeOutcome::Ungraded => Err(RunBackendError::Deterministic(
+                DeterministicGraderFailure::Contract,
+            )),
         }
     }
 }

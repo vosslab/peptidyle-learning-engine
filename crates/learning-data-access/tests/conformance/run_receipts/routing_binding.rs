@@ -29,8 +29,8 @@ pub(super) async fn assert_successor_receipt_route_binding<S>(
         run,
     } = fixture;
     let wrong_bindings = [
-        LearnerWorkRoutingBinding::new(course, AssignmentId::from_uuid(uuid(88_001))),
-        LearnerWorkRoutingBinding::new(CourseId::from_uuid(uuid(88_002)), assignment),
+        StudentWorkRoutingBinding::new(course, AssignmentId::from_uuid(uuid(88_001))),
+        StudentWorkRoutingBinding::new(CourseId::from_uuid(uuid(88_002)), assignment),
     ];
     for wrong_binding in wrong_bindings {
         assert_eq!(
@@ -59,7 +59,7 @@ pub(super) async fn assert_successor_receipt_route_binding<S>(
             .submission_next_attempt(
                 context,
                 student_user,
-                LearnerWorkRoutingBinding::new(course, assignment),
+                StudentWorkRoutingBinding::new(course, assignment),
                 first_attempt.id,
             )
             .await,

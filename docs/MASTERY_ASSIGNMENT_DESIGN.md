@@ -155,7 +155,7 @@ the selected question or its retry bound.
 Private feedback is intentionally not serializable or debug-printable. The public
 `DisclosedFeedback` DTO omits locked fields rather than sending hidden nulls. The implementation is
 in [crates/question_model/src/feedback.rs](../crates/question_model/src/feedback.rs),
-[crates/server/src/feedback.rs](../crates/server/src/feedback.rs), and
+[crates/domain/src/disclosure_policy.rs](../crates/domain/src/disclosure_policy.rs), and
 [crates/learning-data-access/src/feedback.rs](../crates/learning-data-access/src/feedback.rs).
 
 ### Time is server-owned

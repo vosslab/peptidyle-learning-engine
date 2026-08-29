@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::envelope::ContentBlock;
 
-/// Trusted, sanitized teaching material held behind the server boundary.
+/// Trusted teaching material held behind the server boundary.
 ///
 /// This is intentionally neither `Debug`, `Serialize`, nor `Deserialize`: it
 /// must not reach logs or become a browser DTO merely because the root model
@@ -19,11 +19,11 @@ use crate::envelope::ContentBlock;
 /// private persistence representation in the next work package.
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct FeedbackContent {
-    /// A teaching hint that does not reveal the answer by itself.
+    /// A teaching hint that may contain answer-bearing instructional content.
     pub hint: Option<Vec<ContentBlock>>,
-    /// A rendered, accessible correct-response explanation, never an answer key.
+    /// A rendered, accessible correct-response explanation.
     pub correct_response: Option<Vec<ContentBlock>>,
-    /// A rendered explanation of why the response is correct.
+    /// A rationale that may contain answer-bearing instructional content.
     pub rationale: Option<Vec<ContentBlock>>,
 }
 
@@ -70,6 +70,44 @@ impl DisclosedFeedback {
     }
 }
 
+/// Closed score-only feedback for an audited Instructor Student-work read.
+///
+/// This type deliberately cannot carry hints, rationale, correct responses,
+/// or any other instructional material.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InspectedStudentScoreFeedbackV1 {
+    /// Current correctness verdict when disclosure permits it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub correctness: Option<bool>,
+    /// Current earned points when disclosure permits it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub points_earned: Option<f64>,
+    /// Current possible points when disclosure permits it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub points_possible: Option<f64>,
+}
+
+impl InspectedStudentScoreFeedbackV1 {
+    /// Returns the no-score/no-correctness inspection projection.
+    pub const fn empty() -> Self {
+        Self {
+            correctness: None,
+            points_earned: None,
+            points_possible: None,
+        }
+    }
+}
+
+impl std::fmt::Debug for InspectedStudentScoreFeedbackV1 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("InspectedStudentScoreFeedbackV1")
+            .field("score", &"[REDACTED]")
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -79,5 +117,18 @@ mod tests {
         let json = serde_json::to_value(DisclosedFeedback::empty())
             .expect("the public feedback DTO should serialize");
         assert_eq!(json, serde_json::json!({}));
+    }
+
+    #[test]
+    fn inspected_score_feedback_debug_is_redacted() {
+        let feedback = InspectedStudentScoreFeedbackV1 {
+            correctness: Some(true),
+            points_earned: Some(17.25),
+            points_possible: Some(20.0),
+        };
+        let rendered = format!("{feedback:?}");
+        assert!(rendered.contains("[REDACTED]"));
+        assert!(!rendered.contains("17.25"));
+        assert!(!rendered.contains("true"));
     }
 }

@@ -165,7 +165,7 @@ pub(super) fn statistics_attempt(
 pub(super) struct StatisticsSubmissionFixture {
     pub(super) context: TenantContext,
     pub(super) actor: UserId,
-    pub(super) binding: LearnerWorkRoutingBinding,
+    pub(super) binding: StudentWorkRoutingBinding,
     pub(super) attempt: QuestionAttempt,
 }
 
@@ -633,7 +633,7 @@ async fn catalog_search_applies_metadata_filters_facets_and_actor_course_usage()
                     })
                     .collect(),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: question_model::RunPolicies {
                     completion: question_model::CompletionRequirement::AnswerAll,
                     grade: question_model::GradePolicy::First,

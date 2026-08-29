@@ -6,6 +6,10 @@ import { createMemo, createSignal, Show, type JSX } from "solid-js";
 import { useApiRuntime } from "../../api/runtime";
 import type { CourseRouteData } from "../../api/contracts";
 import {
+  CourseManagementFrame,
+  courseManagementSectionForRoute,
+} from "../../components/course_management_frame";
+import {
   CourseThemeRouteContext,
   CourseThemePresentationContext,
   courseRouteData,
@@ -18,6 +22,7 @@ import { resolveCourseRoute, resolveRunRoute } from "../../navigation/resolved_r
 import { courseRouteReference } from "../../navigation/public_route";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { RunId } from "../../../generated/api/RunId";
+import { routeContractForPathname, type RouteContract } from "../../route_contract";
 
 export interface CourseThemeScopeProps {
   readonly pathname: string;
@@ -33,6 +38,7 @@ type ScopedThemeRequest = Exclude<CourseThemeRouteRequest, { readonly kind: "glo
 
 interface ResolvedCourseThemeScopeProps {
   readonly request: ScopedThemeRequest;
+  readonly pathname: string;
   readonly children: JSX.Element;
 }
 
@@ -86,6 +92,14 @@ function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Ele
     >
       {(loaded) => {
         const course = (): CourseRouteData => courseRouteData(loaded());
+        const managementRoute = (): RouteContract | undefined => {
+          if (course().summary.role !== "instructor") return undefined;
+          const route = routeContractForPathname(props.pathname);
+          if (route === undefined || courseManagementSectionForRoute(route.id) === undefined) {
+            return undefined;
+          }
+          return route;
+        };
         const [savedAppearance, setSavedAppearance] = createSignal(course().appearance);
         const tokens = (): CourseThemeTokens => courseThemeTokens(savedAppearance().theme);
         return (
@@ -98,7 +112,13 @@ function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Ele
                 data-course-reference={courseRouteReference(course().summary.reference)}
                 style={courseThemeStyle(tokens())}
               >
-                {props.children}
+                <Show when={managementRoute()} keyed fallback={props.children}>
+                  {(route) => (
+                    <CourseManagementFrame course={course().summary} routeId={route.id}>
+                      {props.children}
+                    </CourseManagementFrame>
+                  )}
+                </Show>
               </div>
             </CourseThemePresentationContext.Provider>
           </CourseThemeRouteContext.Provider>
@@ -118,7 +138,9 @@ export function CourseThemeScope(props: CourseThemeScopeProps): JSX.Element {
   return (
     <Show when={scopedRequest()} keyed fallback={<>{props.children}</>}>
       {(request) => (
-        <ResolvedCourseThemeScope request={request}>{props.children}</ResolvedCourseThemeScope>
+        <ResolvedCourseThemeScope request={request} pathname={props.pathname}>
+          {props.children}
+        </ResolvedCourseThemeScope>
       )}
     </Show>
   );

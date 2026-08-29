@@ -6,8 +6,8 @@ use uuid::Uuid;
 
 use super::super::{State, StoredExternalToolExchange};
 use crate::{
-    BeginExternalToolGradeCommand, ExternalToolBinding, ExternalToolLaunchProof,
-    LearnerWorkRoutingBinding, StoreError,
+    BeginExternalToolGradeCommand, ExternalToolBinding, ExternalToolLaunchProof, StoreError,
+    StudentWorkRoutingBinding,
 };
 
 pub(super) fn validate_external_command(
@@ -47,7 +47,7 @@ pub(super) fn validate_active_external_launch(
     state: &State,
     tenant: TenantId,
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
     binding: &ExternalToolBinding,
     proof: &ExternalToolLaunchProof,
@@ -58,7 +58,7 @@ pub(super) fn validate_active_external_launch(
         .ok_or(StoreError::Conflict)?;
     if session.actor != actor
         || session.attempt != attempt
-        || session.learner_work_binding != learner_work_binding
+        || session.student_work_binding != student_work_binding
         || session.binding != *binding
         || session.revoked
         || session.expires_at <= state.authoritative_time
@@ -97,7 +97,7 @@ pub(super) fn validate_exchange(
     command: &BeginExternalToolGradeCommand,
 ) -> Result<(), StoreError> {
     if exchange.actor != command.actor
-        || exchange.learner_work_binding != command.learner_work_binding
+        || exchange.student_work_binding != command.student_work_binding
         || exchange.binding != command.binding
         || exchange.response != command.response
         || exchange.key != command.idempotency_key

@@ -117,7 +117,7 @@ pub(super) fn issue(
 ) -> IssueQuestionAttemptCommand {
     IssueQuestionAttemptCommand {
         actor: learner,
-        binding: LearnerWorkRoutingBinding::new(course, assignment),
+        binding: StudentWorkRoutingBinding::new(course, assignment),
         attempt,
         run,
         assignment_position: 0,

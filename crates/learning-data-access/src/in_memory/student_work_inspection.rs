@@ -1,17 +1,20 @@
 //! Deterministic Memory parity for the Student-work inspection boundary.
 
 use async_trait::async_trait;
+use domain::disclosure_policy::project_inspected_student_score_feedback;
 use question_model::{
-    AttemptStatus, CourseMembershipRole, ScoringStatus,
-    presentation::{project_durable_response_to_rendered_v1, reproduce_presentation_v1},
+    CourseMembershipRole, RunCompletionStatus, ScoringStatus, StudentResponse,
+    TeachingDisplayLabel, presentation,
 };
 
-use super::{MemoryStore, State, require_course_records_accessible};
+use super::{MemoryStore, State};
 use crate::{
     CourseMemberStatus, InspectStudentWorkRequest, InspectedStudentSubmissionV1,
-    InspectedStudentWorkDetailV1, SessionTokenHash, StoreError, StudentWorkInspectionAudit,
-    StudentWorkInspectionAuditIntent, StudentWorkInspectionRecordAccess,
-    StudentWorkInspectionReturnContext, StudentWorkInspectionStore, TenantContext,
+    InspectedStudentWorkDetailV1, InspectedSubmissionEvidenceV1, SessionTokenHash, StoreError,
+    StudentWorkInspectionAudit, StudentWorkInspectionAuditIntent,
+    StudentWorkInspectionEvidenceWitness, StudentWorkInspectionRecordAccess,
+    StudentWorkInspectionReturnContext, StudentWorkInspectionStore,
+    StudentWorkInspectionSubmissionWitness, SubmissionReceiptRead, TenantContext,
 };
 
 #[async_trait]
@@ -25,13 +28,33 @@ impl StudentWorkInspectionStore for MemoryStore {
         let mut state = self.write_state()?;
         let tenant = context.tenant_id();
         let course = resolve_course(&state, tenant, request.course)?;
-        require_course_records_accessible(&state, tenant, course)?;
+        super::require_course_records_accessible(&state, tenant, course)?;
         let actor =
             super::course_roster::require_course_instructor(&state, context, session, course)
                 .map_err(conceal)?;
         let assignment = resolve_assignment(&state, tenant, request.assignment, course)?;
         let membership = resolve_student_membership(&state, tenant, request.membership, course)?;
         let run = resolve_run(&state, tenant, request.run, assignment, membership)?;
+        let student_display_label = state
+            .roster_profiles
+            .get(&(tenant, course, membership))
+            .map(|profile| TeachingDisplayLabel::try_from(profile.display_name.clone()))
+            .transpose()
+            .map_err(|_| StoreError::NotFound)?
+            .ok_or(StoreError::NotFound)?;
+        let assignment_title = state
+            .assignments
+            .get(&(tenant, assignment))
+            .filter(|record| record.course_id == course)
+            .map(|record| record.title.clone())
+            .ok_or(StoreError::NotFound)?;
+        if state
+            .runs
+            .get(&(tenant, run))
+            .is_none_or(|record| record.completion_status() != RunCompletionStatus::Completed)
+        {
+            return Err(StoreError::NotFound);
+        }
         validate_return_context(
             request.return_context,
             request.course,
@@ -48,14 +71,6 @@ impl StudentWorkInspectionStore for MemoryStore {
             .attempts
             .values()
             .filter(|attempt| attempt.tenant == tenant && attempt.run == run)
-            .filter(|attempt| {
-                matches!(
-                    attempt.status,
-                    AttemptStatus::Submitted
-                        | AttemptStatus::AutoSubmitted
-                        | AttemptStatus::NeedsManualGrading
-                ) && attempt.response.is_some()
-            })
             .map(|attempt| {
                 inspect_attempt(
                     &state,
@@ -67,18 +82,38 @@ impl StudentWorkInspectionStore for MemoryStore {
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
-        submissions.sort_by_key(|submission| submission.submitted_at);
+        submissions.sort_by_key(|submission| {
+            inspection_submission_order_key(
+                submission.submitted_at,
+                submission.assignment_position,
+                submission.attempt,
+            )
+        });
         if submissions.is_empty() {
             return Err(StoreError::NotFound);
         }
 
-        let presentation_digests = submissions
+        let submission_witnesses = submissions
             .iter()
-            .map(|submission| submission.issued_presentation_digest)
+            .map(|submission| StudentWorkInspectionSubmissionWitness {
+                attempt: submission.attempt,
+                submitted_at: submission.submitted_at,
+                evidence: match submission.evidence {
+                    InspectedSubmissionEvidenceV1::IssuedPresentation {
+                        issued_presentation_digest,
+                        ..
+                    } => StudentWorkInspectionEvidenceWitness::IssuedPresentation {
+                        digest: issued_presentation_digest,
+                    },
+                    InspectedSubmissionEvidenceV1::PresentationNotApplicable => {
+                        StudentWorkInspectionEvidenceWitness::PresentationNotApplicable
+                    }
+                },
+            })
             .collect::<Vec<_>>();
         // These two closed facts are appended together only after every
-        // response has passed the immutable-record checks. They carry public
-        // references and scoring state, never response or grading material.
+        // response has passed the immutable-record checks. They retain internal
+        // identity witnesses and scoring state, never response or grading material.
         let occurred_at = state.authoritative_time;
         state
             .student_work_inspection_record_accesses
@@ -86,11 +121,12 @@ impl StudentWorkInspectionStore for MemoryStore {
                 actor,
                 intent: StudentWorkInspectionAuditIntent::GradebookInspection,
                 occurred_at,
-                course: request.course,
-                membership: request.membership,
-                assignment: request.assignment,
-                run: request.run,
-                issued_presentation_digests: presentation_digests.clone(),
+                tenant,
+                course,
+                membership,
+                assignment,
+                run,
+                submissions: submission_witnesses.clone(),
                 scoring_generation,
                 scoring_status,
             });
@@ -100,11 +136,12 @@ impl StudentWorkInspectionStore for MemoryStore {
                 actor,
                 intent: StudentWorkInspectionAuditIntent::GradebookInspection,
                 occurred_at,
-                course: request.course,
-                membership: request.membership,
-                assignment: request.assignment,
-                run: request.run,
-                issued_presentation_digests: presentation_digests,
+                tenant,
+                course,
+                membership,
+                assignment,
+                run,
+                submissions: submission_witnesses,
                 scoring_generation,
                 scoring_status,
             });
@@ -113,10 +150,24 @@ impl StudentWorkInspectionStore for MemoryStore {
             membership: request.membership,
             assignment: request.assignment,
             run: request.run,
+            student_display_label,
+            assignment_title,
             submissions,
             return_context: request.return_context,
         })
     }
+}
+
+fn inspection_submission_order_key(
+    submitted_at: question_model::ActivityTimestamp,
+    assignment_position: u32,
+    attempt: question_model::QuestionAttemptId,
+) -> (
+    question_model::ActivityTimestamp,
+    u32,
+    question_model::QuestionAttemptId,
+) {
+    (submitted_at, assignment_position, attempt)
 }
 
 fn resolve_course(
@@ -262,59 +313,86 @@ fn inspect_attempt(
         .attempts
         .get(&(tenant, attempt_id))
         .ok_or(StoreError::NotFound)?;
-    let private_response = state
-        .private_submission_responses
-        .get(&(tenant, attempt_id))
+    // This is the sole completed-receipt reader. It verifies the immutable
+    // issued snapshot, reconstructs the current disclosure input, and never
+    // substitutes mutable catalog state for the receipt evidence.
+    let SubmissionReceiptRead::Completed(receipt) =
+        super::runs::load_submission_record(state, tenant, attempt).map_err(conceal)?
+    else {
+        return Err(StoreError::NotFound);
+    };
+    let submitted_at = receipt
+        .attempt
+        .timer
+        .submitted_at
         .ok_or(StoreError::NotFound)?;
-    let receipt = state
-        .submissions
-        .get(&(tenant, attempt_id))
-        .and_then(super::StoredSubmission::completed_record_opt)
-        .ok_or(StoreError::NotFound)?;
-    let public_response = attempt.response.as_ref().ok_or(StoreError::NotFound)?;
-    if !super::private_submission::stored_submission_matches_response(
-        state,
-        tenant,
-        attempt_id,
-        public_response,
-    )? {
+    let private_response = super::private_submission::load_verified_private_submission_response(
+        state, tenant, attempt_id,
+    )
+    .map_err(conceal)?;
+    if receipt.attempt.id != attempt_id || receipt.run.id != run {
         return Err(StoreError::NotFound);
     }
-    let submitted_at = attempt.timer.submitted_at.ok_or(StoreError::NotFound)?;
-    let envelope = state
-        .attempt_grading_envelopes
-        .get(&(tenant, attempt_id))
-        .ok_or(StoreError::NotFound)?;
-    let binding = state
-        .attempt_presentations
-        .get(&(tenant, attempt_id))
-        .copied()
-        .ok_or(StoreError::NotFound)?;
-    let snapshot = state
-        .attempt_presentation_snapshots
-        .get(&(tenant, attempt_id))
-        .ok_or(StoreError::NotFound)?;
-    let receipt_presentation = receipt.presentation.as_ref().ok_or(StoreError::NotFound)?;
-    if receipt.attempt.id != attempt_id
-        || receipt.run.id != run
-        || receipt.attempt.timer.submitted_at != Some(submitted_at)
-        || receipt_presentation != snapshot
-    {
-        return Err(StoreError::NotFound);
-    }
-    let presentation = reproduce_presentation_v1(envelope, &snapshot.asset_bindings, binding)
-        .map_err(|_| StoreError::NotFound)?;
-    if presentation.envelope != snapshot.envelope || presentation.digest != binding.digest() {
-        return Err(StoreError::NotFound);
-    }
-    let projection =
-        project_durable_response_to_rendered_v1(&private_response.response, &presentation)
+    let (evidence, projection) = match receipt.presentation.as_ref() {
+        Some(snapshot) => {
+            let envelope = state
+                .attempt_grading_envelopes
+                .get(&(tenant, attempt_id))
+                .ok_or(StoreError::NotFound)?;
+            let binding = state
+                .attempt_presentations
+                .get(&(tenant, attempt_id))
+                .copied()
+                .ok_or(StoreError::NotFound)?;
+            let presentation = presentation::reproduce_presentation_v1(
+                envelope,
+                &snapshot.asset_bindings,
+                binding,
+            )
             .map_err(|_| StoreError::NotFound)?;
+            if presentation.envelope != snapshot.envelope || presentation.digest != binding.digest()
+            {
+                return Err(StoreError::NotFound);
+            }
+            (
+                InspectedSubmissionEvidenceV1::IssuedPresentation {
+                    presentation: Box::new(snapshot.clone()),
+                    issued_presentation_digest: binding.digest(),
+                },
+                presentation::project_rendered_response_for_inspection_v1(
+                    private_response,
+                    &presentation,
+                )
+                .map_err(|_| StoreError::NotFound)?,
+            )
+        }
+        None => {
+            if receipt.attempt.issued_capability
+                != question_model::IssuedAttemptCapabilityV1::NotApplicable
+                || !matches!(private_response, StudentResponse::ExternalTool {})
+            {
+                return Err(StoreError::NotFound);
+            }
+            (
+                InspectedSubmissionEvidenceV1::PresentationNotApplicable,
+                question_model::presentation::InspectedStudentResponseV1::ExternalTool {
+                    completion: question_model::presentation::InspectedExternalToolStateV1::SubmissionRecorded,
+                },
+            )
+        }
+    };
+    let feedback = project_inspected_student_score_feedback(
+        receipt.disclosure.decision(),
+        scoring_status,
+        receipt.attempt.result,
+    );
     Ok(InspectedStudentSubmissionV1 {
+        attempt: attempt_id,
         submitted_at,
-        presentation: snapshot.clone(),
-        issued_presentation_digest: binding.digest(),
+        assignment_position: receipt.attempt.assignment_position,
+        evidence,
         scoring_generation,
+        feedback,
         response: projection,
         scoring_status,
     })
@@ -339,6 +417,17 @@ mod tests {
 
     fn assignment() -> question_model::AssignmentReference {
         "A-3".parse().expect("assignment reference")
+    }
+
+    #[test]
+    fn inspection_order_uses_assignment_position_before_attempt_id_at_equal_timestamps() {
+        let submitted_at = question_model::ActivityTimestamp::from_unix_millis(1_000);
+        let later_id = question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2));
+        let earlier_id = question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(1));
+        assert!(
+            inspection_submission_order_key(submitted_at, 0, later_id)
+                < inspection_submission_order_key(submitted_at, 1, earlier_id)
+        );
     }
 
     #[test]

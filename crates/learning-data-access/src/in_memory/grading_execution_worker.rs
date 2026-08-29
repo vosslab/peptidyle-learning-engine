@@ -5,6 +5,7 @@ use question_model::{
     ActivityTimestamp, GradingOperationReason, QuestionAttemptId, SubmissionEvaluationStatus,
     TenantId,
 };
+#[cfg(test)]
 use uuid::Uuid;
 
 use super::*;
@@ -419,9 +420,7 @@ fn apply_successful_evaluation(
         crate::ScoringInvalidationOrigin::accepted_submission_completion(
             crate::ScoringInvalidationOriginId::from_uuid(accepted.submission.as_uuid()),
         ),
-        crate::JobId::from_uuid(Uuid::from_u128(
-            accepted.submission.as_uuid().as_u128() ^ u128::MAX,
-        )),
+        crate::accepted_submission_recalculation_job(accepted.submission),
     )?;
     state.attempt_current.insert(
         (accepted.tenant, accepted.attempt),
@@ -875,5 +874,5 @@ mod tests {
 #[path = "grading_execution_worker_completion_tests.rs"]
 pub(crate) mod completion_tests;
 #[cfg(test)]
-#[path = "runs/learner_submission_status_tests.rs"]
-mod learner_submission_status_tests;
+#[path = "runs/student_submission_status_tests.rs"]
+mod student_submission_status_tests;

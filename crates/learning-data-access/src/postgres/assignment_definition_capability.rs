@@ -651,15 +651,15 @@ fn practice_wire(v: ContinuedPractice) -> PracticeWire {
         },
     }
 }
-fn disclosure_wire(v: question_model::LearnerDisclosureTiming) -> DisclosureTimingWire {
+fn disclosure_wire(v: question_model::StudentDisclosureTiming) -> DisclosureTimingWire {
     match v {
-        question_model::LearnerDisclosureTiming::DuringAttempt => {
+        question_model::StudentDisclosureTiming::DuringAttempt => {
             DisclosureTimingWire::DuringAttempt
         }
-        question_model::LearnerDisclosureTiming::AfterSubmit => DisclosureTimingWire::AfterSubmit,
-        question_model::LearnerDisclosureTiming::AfterDue => DisclosureTimingWire::AfterDue,
-        question_model::LearnerDisclosureTiming::AfterClose => DisclosureTimingWire::AfterClose,
-        question_model::LearnerDisclosureTiming::Never => DisclosureTimingWire::Never,
+        question_model::StudentDisclosureTiming::AfterSubmit => DisclosureTimingWire::AfterSubmit,
+        question_model::StudentDisclosureTiming::AfterDue => DisclosureTimingWire::AfterDue,
+        question_model::StudentDisclosureTiming::AfterClose => DisclosureTimingWire::AfterClose,
+        question_model::StudentDisclosureTiming::Never => DisclosureTimingWire::Never,
     }
 }
 fn late_wire(v: question_model::LateSubmissionPolicy) -> LateWire {
@@ -751,9 +751,9 @@ mod tests {
 
     fn assignment() -> AssignmentRecord {
         AssignmentRecord {
-            id: AssignmentId::generate(),
-            tenant: TenantId::generate(),
-            course_id: CourseId::generate(),
+            id: AssignmentId::from_uuid(Uuid::from_u128(101)),
+            tenant: TenantId::from_uuid(Uuid::from_u128(102)),
+            course_id: CourseId::from_uuid(Uuid::from_u128(103)),
             title: "Creation witness".to_string(),
             lifecycle: question_model::AssignmentLifecycle::Draft,
             instructions: question_model::AssignmentInstructions::default(),
@@ -766,7 +766,7 @@ mod tests {
                 continued_practice: question_model::run_policy::ContinuedPractice::Unlimited,
                 variation: question_model::run_policy::VariationPolicy::NewSeeds,
             },
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         }
     }
 
@@ -801,12 +801,12 @@ mod tests {
     #[test]
     fn creation_witness_accepts_only_exact_bindings_and_valid_term() {
         let assignment = assignment();
-        let actor = UserId::generate();
+        let actor = UserId::from_uuid(Uuid::from_u128(104));
         let exact = || decode_witness(&assignment, actor, exact_fields(&assignment, actor));
         assert!(exact().is_ok());
 
         for changed in [0_u8, 1, 2, 3] {
-            let foreign = TenantId::generate().as_uuid();
+            let foreign = Uuid::from_u128(200 + u128::from(changed));
             let mut fields = exact_fields(&assignment, actor);
             match changed {
                 0 => fields.tenant_id = foreign,

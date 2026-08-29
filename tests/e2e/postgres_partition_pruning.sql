@@ -531,7 +531,7 @@ BEGIN
         SELECT
             enrollment.enrollment_id,
             enrollment.student_id,
-            COALESCE(profile.display_name, 'Learner') AS learner_name,
+            COALESCE(profile.display_name, 'Student') AS student_name,
             assignment.assignment_id,
             assignment.title AS assignment_title,
             summary.current_score,

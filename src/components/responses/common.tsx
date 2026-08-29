@@ -31,7 +31,7 @@ type WidgetPhase =
   | { readonly kind: "submitted" }
   | { readonly kind: "failed"; readonly message: string };
 
-export interface LearnerWorkRouteScope {
+export interface StudentWorkRouteScope {
   readonly courseId: CourseId;
   readonly assignmentId: AssignmentId;
 }
@@ -44,7 +44,7 @@ export interface ResponseWidgetBaseProps {
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
   /** Exact navigation scope required to activate an external-tool response. */
-  readonly learnerWorkRoute?: LearnerWorkRouteScope;
+  readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
 }
 

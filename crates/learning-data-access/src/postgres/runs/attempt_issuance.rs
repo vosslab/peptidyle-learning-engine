@@ -21,8 +21,8 @@ use super::super::row_decode::{
 };
 use super::super::transaction_context::database_timestamp;
 use super::authored_timing::{issued_timer, validate_postgres_assignment_position};
-use super::learner_transition::{
-    lock_prepared_predecessor_for_learner_run, record_submission_successor,
+use super::student_transition::{
+    lock_prepared_predecessor_for_student_run, record_submission_successor,
 };
 
 #[cfg(feature = "postgres")]
@@ -64,7 +64,7 @@ pub(super) async fn issue_or_resume_question_attempt(
         ));
     }
     if let Some(predecessor) = command.predecessor_submission {
-        lock_prepared_predecessor_for_learner_run(transaction, tenant, command.run, predecessor)
+        lock_prepared_predecessor_for_student_run(transaction, tenant, command.run, predecessor)
             .await?;
     }
     let (effective_decision, assignment_revision) =

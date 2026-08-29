@@ -5,7 +5,6 @@ import { Show, createSignal, onMount, type JSX } from "solid-js";
 import type { CourseGroupMemberView } from "../../generated/api/CourseGroupMemberView";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
-import { CourseManagementNav } from "../components/course_management_nav";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -96,9 +95,6 @@ export function TeachingOperationsPage(): JSX.Element {
       <p class="eyebrow">Instructor course settings</p>
       <h1>Teaching operations</h1>
       <p class="page-lede">Manage groups, the teaching team, and student-record retention.</p>
-      <Show when={course !== undefined && state() === "ready"}>
-        <CourseManagementNav courseReference={course!.reference} active="teachingOperations" />
-      </Show>
       <Show when={state() === "loading"}>
         <p role="status">Loading authorized course members...</p>
       </Show>

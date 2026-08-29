@@ -7,9 +7,10 @@ import { useApiRuntime } from "../api/runtime";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 import { runRouteReference } from "../navigation/public_route";
 import {
-  LearnerAssignmentPresentation,
-  toLearnerAssignmentPresentationData,
-} from "../components/learner_assignment_presentation";
+  StudentAssignmentPresentation,
+  toStudentAssignmentPresentationData,
+} from "../components/student_assignment_presentation";
+import "../components/student_assignment_presentation.css";
 
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -58,8 +59,8 @@ export function AssignmentOverviewPage(): JSX.Element {
       <Suspense fallback={<p class="loading-state">Loading assignment...</p>}>
         <Show when={assignment()}>
           {(current) => (
-            <LearnerAssignmentPresentation
-              assignment={toLearnerAssignmentPresentationData(current())}
+            <StudentAssignmentPresentation
+              assignment={toStudentAssignmentPresentationData(current())}
               progress={summary()}
               primaryAction={
                 <>

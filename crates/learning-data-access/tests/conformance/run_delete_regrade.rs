@@ -50,7 +50,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: delete_items,
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -60,7 +60,7 @@ where
         .start_or_resume_run(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, delete_assignment),
+            StudentWorkRoutingBinding::new(course, delete_assignment),
             delete_run_id,
         )
         .await
@@ -70,7 +70,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
+                binding: StudentWorkRoutingBinding::new(course, delete_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_964 + fixture_offset)),
                 run: delete_run.id,
                 assignment_position: 0,
@@ -123,7 +123,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
+                binding: StudentWorkRoutingBinding::new(course, delete_assignment),
                 attempt: affected_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -245,7 +245,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
+                binding: StudentWorkRoutingBinding::new(course, delete_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_965 + fixture_offset)),
                 run: delete_run.id,
                 assignment_position: 1,
@@ -279,7 +279,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
+                binding: StudentWorkRoutingBinding::new(course, delete_assignment),
                 attempt: unaffected_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -300,7 +300,7 @@ where
         .start_or_resume_run(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, delete_assignment),
+            StudentWorkRoutingBinding::new(course, delete_assignment),
             RunId::from_uuid(uuid(89_966 + fixture_offset)),
         )
         .await

@@ -10,11 +10,11 @@ pub(super) use axum::http::{HeaderMap, StatusCode};
 pub(super) use axum::response::{IntoResponse, Response};
 pub(super) use learning_data_access::{
     AuthoritativeTimeStore, AutomatedGradingStore, CatalogStore, CourseAppearanceStore,
-    CourseItemAnalysisStore, Cursor, IssueQuestionAttemptCommand, IssuedAttemptRead,
-    LearnerAssignmentSummarySnapshot, LearnerSubmissionStatusStore, LearnerWorkRoutingBinding,
-    ManualGradingStore, PageRequest, PageSize, PaginationError, PresentationCapability,
-    ReceiptNextAttempt, ReceiptPresentationSnapshot, ResolveEffectivePolicyCommand,
-    SealedPrivateExecutionStore, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
+    CourseItemAnalysisStore, Cursor, IssueQuestionAttemptCommand, IssuedAttemptRead, PageRequest,
+    PageSize, PaginationError, PresentationCapability, ReceiptNextAttempt,
+    ReceiptPresentationSnapshot, ResolveEffectivePolicyCommand, SealedPrivateExecutionStore,
+    SessionStore, Store, StoreError, StudentAssignmentSummarySnapshot,
+    StudentSubmissionStatusStore, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
     SubmissionRecord, TenantContext,
 };
 #[cfg(test)]
@@ -26,9 +26,9 @@ pub(super) use question_model::presentation::{
 pub(super) use question_model::{
     AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentRunItem, AttemptResult,
     CourseAppearance, CourseId, CourseSummary, DisclosedFeedback, FeedbackContent,
-    LearnerAssignmentProgress, PresentationBindingV1, ProblemVersionRef, QuestionAttempt,
-    QuestionAttemptId, QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary,
-    StudentResponse,
+    PresentationBindingV1, ProblemVersionRef, QuestionAttempt, QuestionAttemptId,
+    QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentProgress,
+    StudentAssignmentSummary, StudentResponse,
 };
 pub(super) use serde::{Deserialize, Serialize};
 
@@ -36,7 +36,7 @@ pub(super) use crate::accepted_submission_worker::AcceptedSubmissionFastPath;
 pub(super) use crate::auth::{
     AuthenticatedSession, auth_error_response, no_store, resolve_request_session,
 };
-pub(super) use crate::feedback::{project_feedback, score_current_disclosure};
+pub(super) use domain::disclosure_policy::{project_disclosed_feedback, score_current_disclosure};
 
 use super::contracts::RunBackendError;
 
@@ -48,13 +48,13 @@ pub(super) const MAX_JSON_SAFE_INTEGER: u64 = (1_u64 << 53) - 1;
 
 /// Reads the atomic learner summary/status snapshot. A transient absence is
 /// deliberately treated as failed for learner projections, never as current.
-pub(super) async fn learner_scoring_status<S: Store>(
+pub(super) async fn student_scoring_status<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     enrollment: question_model::EnrollmentId,
 ) -> question_model::ScoringStatus {
     store
-        .learner_get_summary(
+        .student_get_summary(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             enrollment,
@@ -78,7 +78,7 @@ pub(super) struct RunRouteState<S, B> {
     /// Route-bound, answer-free learner recovery projection. Composition
     /// injects this narrower capability so the status read cannot grow into a
     /// second broad persistence dependency on browser-adjacent routes.
-    pub(super) learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
+    pub(super) student_submission_status: Arc<dyn StudentSubmissionStatusStore>,
     /// First-effect acceptance capability. Submission owns its use; sibling
     /// route code receives no broad grading-operation authority.
     pub(super) automated_grading: Arc<dyn AutomatedGradingStore>,
@@ -93,7 +93,7 @@ impl<S, B> Clone for RunRouteState<S, B> {
             store: Arc::clone(&self.store),
             backend: Arc::clone(&self.backend),
             sealed_execution: Arc::clone(&self.sealed_execution),
-            learner_submission_status: Arc::clone(&self.learner_submission_status),
+            student_submission_status: Arc::clone(&self.student_submission_status),
             automated_grading: Arc::clone(&self.automated_grading),
             accepted_submission_fast_path: Arc::clone(&self.accepted_submission_fast_path),
         }
@@ -145,7 +145,7 @@ struct AcceptedPendingResponse {
 /// `QuestionAttempt` remains the shared raw record used by instructor paths.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct LearnerAttemptProjection {
+pub(super) struct StudentAttemptProjection {
     #[serde(flatten)]
     pub(super) attempt: QuestionAttempt,
     pub(super) scoring_status: question_model::ScoringStatus,
@@ -234,7 +234,7 @@ pub(super) struct RunSummaryOutcome {
 pub(super) struct RunSummaryResponse {
     pub(super) course: CourseRouteData,
     pub(super) run: AssignmentRun,
-    pub(super) summary: LearnerAssignmentProgress,
+    pub(super) summary: StudentAssignmentProgress,
     pub(super) practice_allowed: bool,
     pub(super) outcomes: learning_data_access::Page<RunSummaryOutcome>,
 }
@@ -273,19 +273,19 @@ pub(super) struct FeedbackReleaseResponse {
 #[serde(rename_all = "camelCase")]
 pub(super) struct EnrollmentView {
     pub(super) enrollment: AssignmentEnrollment,
-    pub(super) summary: LearnerAssignmentProgress,
+    pub(super) summary: StudentAssignmentProgress,
 }
 
 /// Projects aggregate progress only after S5 entitlement and S3's current
 /// effective-policy resolver have accepted the learner's access.
-pub(crate) async fn learner_assignment_progress<
+pub(crate) async fn student_assignment_progress<
     S: Store + AuthoritativeTimeStore + CourseItemAnalysisStore,
 >(
     store: &S,
     authenticated: &AuthenticatedSession,
     assignment_id: question_model::AssignmentId,
-    snapshot: Option<&LearnerAssignmentSummarySnapshot>,
-) -> HttpResult<(LearnerAssignmentProgress, bool)> {
+    snapshot: Option<&StudentAssignmentSummarySnapshot>,
+) -> HttpResult<(StudentAssignmentProgress, bool)> {
     let assignment = store
         .get_assignment_for_edit(authenticated.tenant_context, assignment_id)
         .await
@@ -331,7 +331,7 @@ pub(crate) async fn learner_assignment_progress<
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
-    let decision = domain::disclosure_policy::evaluate_learner_disclosure(
+    let decision = domain::disclosure_policy::evaluate_student_disclosure(
         assignment.record.disclosure_policy,
         &resolution.decision,
         now,
@@ -346,17 +346,17 @@ pub(crate) async fn learner_assignment_progress<
     )
     .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
     let mut progress = match snapshot {
-        Some(snapshot) => LearnerAssignmentProgress::from_summary(
+        Some(snapshot) => StudentAssignmentProgress::from_summary(
             &snapshot.summary,
             decision.score,
             snapshot.scoring_status,
         ),
-        None => LearnerAssignmentProgress::no_activity(assignment.scoring_status),
+        None => StudentAssignmentProgress::no_activity(assignment.scoring_status),
     };
     if decision.class_statistics {
         progress.class_statistics = Some(
             store
-                .learner_class_statistics(
+                .student_class_statistics(
                     authenticated.tenant_context,
                     authenticated.record.subject.user(),
                     assignment.record.course_id,

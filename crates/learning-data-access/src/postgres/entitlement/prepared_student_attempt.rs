@@ -6,7 +6,7 @@ use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{hydrate_assignment_from_witness, hydrate_entitlement_witness_sources};
-use crate::postgres::learner_work_preparation::StudentAttemptPreparationWitness;
+use crate::postgres::student_work_preparation::StudentAttemptPreparationWitness;
 use crate::postgres::{
     decode_current_attempt_row, decode_presentation_binding_row, decode_summary_row, map_sqlx_error,
 };

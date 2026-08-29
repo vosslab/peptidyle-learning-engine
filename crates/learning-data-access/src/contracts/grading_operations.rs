@@ -1,6 +1,6 @@
 //! Server-only persistence boundary for accepted automated-grading input.
 //!
-//! The learner response enters this capability exactly once. Public route and
+//! The Student response enters this capability exactly once. Public route and
 //! worker packages receive metadata-only records and resolve private input
 //! only inside a server-owned execution capability.
 
@@ -48,6 +48,16 @@ impl AcceptedSubmissionId {
     }
 }
 
+/// Derives the one assignment-recalculation job owned by a successful
+/// accepted-submission completion.
+///
+/// Keeping this identity derivation beside [`AcceptedSubmissionId`] gives the
+/// in-memory adapter, PostgreSQL adapter, and server composition one canonical
+/// replay key for the same durable follow-on work.
+pub fn accepted_submission_recalculation_job(submission: AcceptedSubmissionId) -> JobId {
+    JobId::from_uuid(Uuid::from_u128(submission.as_uuid().as_u128() ^ u128::MAX))
+}
+
 /// Positive execution fence, independent of assignment scoring generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct GradingExecutionGeneration(u64);
@@ -65,7 +75,7 @@ impl GradingExecutionGeneration {
 /// Opaque identity of one server worker process.
 ///
 /// This is deliberately separate from [`UserId`]: execution evidence records
-/// the server process that held the lease, never an instructor or learner.
+/// the server process that held the lease, never an Instructor or Student.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorkerId(Uuid);
 
@@ -92,7 +102,7 @@ pub enum GradingExecutionState {
 /// Closed, answer-free category for one immutable execution receipt.
 ///
 /// A category is separate from the mutable execution state: it preserves why
-/// that state was reached without recording private learner material or a
+/// that state was reached without recording private Student material or a
 /// provider diagnostic.  The database validates its exact state and identity
 /// pairing on every append.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,7 +218,7 @@ pub struct GradingOperation {
     pub next_action: Option<GradingOperationAction>,
 }
 
-/// Exact private queue claim required to reload one accepted learner input.
+/// Exact private queue claim required to reload one accepted Student input.
 ///
 /// The worker identity is recorded by W4's committer. It is deliberately not
 /// an authenticated user identity. The lease capability is redacted from all
@@ -293,8 +303,8 @@ pub fn canonical_attempt_result_json(
 /// Server-private grade material returned by one accepted grading execution.
 ///
 /// The feedback value deliberately remains outside browser contracts. Its
-/// manual diagnostics marker keeps a worker failure from logging teaching
-/// material or a learner's result evidence.
+/// custom diagnostics marker keeps a worker failure from logging teaching
+/// material or a Student's result evidence.
 #[derive(Clone, PartialEq)]
 pub struct AcceptedSubmissionGrade {
     pub evidence: CanonicalAttemptResult,
@@ -447,7 +457,7 @@ pub struct GradingExecutionReceipt {
     pub generation: GradingExecutionGeneration,
     pub resulting_state: GradingExecutionState,
     pub safe_category: GradingExecutionReceiptSafeCategory,
-    /// The authenticated learner or Instructor that initiated a ready
+    /// The authenticated Student or Instructor that initiated a ready
     /// execution generation. Exactly one of `actor` and `worker` is present.
     pub actor: Option<UserId>,
     /// The server worker that made a claimed, completed, retry, or exception
@@ -464,7 +474,7 @@ pub struct AcceptedSubmissionCommand {
     pub assignment: AssignmentId,
     pub attempt: QuestionAttemptId,
     pub idempotency_key: SubmissionIdempotencyKey,
-    /// Server-private accepted learner input. Browser DTOs never receive it.
+    /// Server-private accepted Student input. Browser DTOs never receive it.
     pub response: StudentResponse,
     pub execution_job: JobId,
 }
@@ -506,7 +516,7 @@ pub fn canonical_student_response_json(response: &StudentResponse) -> Result<Str
     })
 }
 
-/// Automated persistence has no `ManualGradingStore` supertrait.
+/// Automated persistence owns accepted-submission scoring without a second mutation path.
 #[async_trait]
 pub trait AutomatedGradingStore: Send + Sync {
     async fn accept_automated_submission(
@@ -565,7 +575,7 @@ pub trait AcceptedSubmissionExecutionRecoveryClaimStore: Send + Sync {
 /// Exact-claim authority used by the synchronous accepted-submission path.
 ///
 /// The target and process identity are explicit so a browser request cannot
-/// select another learner's work.  The same eligible-state transition used by
+/// select another Student's work.  The same eligible-state transition used by
 /// recovery decides whether this call wins (ASVS V2.3.1 and V2.3.4).
 #[async_trait]
 pub trait AcceptedSubmissionExecutionFastPathClaimStore: Send + Sync {

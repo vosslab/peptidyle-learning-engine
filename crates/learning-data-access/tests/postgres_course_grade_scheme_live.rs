@@ -113,11 +113,11 @@ async fn publish_fixture_question(store: &PostgresStore, context: TenantContext,
 
 #[rustfmt::skip]
 fn numeric_assignment(tenant: TenantId, course: CourseId, reference: ProblemVersionRef, title: &str, points: u32) -> AssignmentRecord {
-    AssignmentRecord { id: AssignmentId::from_uuid(id()), tenant, course_id: course, title: title.into(), lifecycle: question_model::AssignmentLifecycle::Published, instructions: question_model::AssignmentInstructions::default(), audience: AssignmentAudience::CourseWide, items: vec![AssignmentItem { id: AssignmentItemId::from_uuid(id()), reference, position: 0, points_possible: PointValue::from_whole(points), delivery_state: AssignmentDeliveryState::Active, scoring_mode: AssignmentScoringMode::Normal }], selection_groups: Vec::new(), disclosure_policy: question_model::LearnerDisclosurePolicy::default(), policies: RunPolicies { completion: CompletionRequirement::AnswerAll, grade: GradePolicy::Highest, continued_practice: ContinuedPractice::Unlimited, variation: VariationPolicy::NewSeeds } }
+    AssignmentRecord { id: AssignmentId::from_uuid(id()), tenant, course_id: course, title: title.into(), lifecycle: question_model::AssignmentLifecycle::Published, instructions: question_model::AssignmentInstructions::default(), audience: AssignmentAudience::CourseWide, items: vec![AssignmentItem { id: AssignmentItemId::from_uuid(id()), reference, position: 0, points_possible: PointValue::from_whole(points), delivery_state: AssignmentDeliveryState::Active, scoring_mode: AssignmentScoringMode::Normal }], selection_groups: Vec::new(), disclosure_policy: question_model::StudentDisclosurePolicy::default(), policies: RunPolicies { completion: CompletionRequirement::AnswerAll, grade: GradePolicy::Highest, continued_practice: ContinuedPractice::Unlimited, variation: VariationPolicy::NewSeeds } }
 }
 
 #[rustfmt::skip]
-async fn set_summary_scores(pool: &sqlx::PgPool, tenant: TenantId, student: UserId, scores: &[(AssignmentId, Option<f64>)], status: Option<&str>) {
+async fn set_summary_scores(pool: &sqlx::PgPool, tenant: TenantId, student: UserId, scores: &[(AssignmentId, Option<f64>)]) {
     let mut tx = pool.begin().await.expect("summary fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_app").execute(&mut *tx).await.expect("app role");
     sqlx::query("SELECT set_config('ple.tenant_id', $1, true)").bind(tenant.to_string()).execute(&mut *tx).await.expect("tenant context");
@@ -126,11 +126,6 @@ async fn set_summary_scores(pool: &sqlx::PgPool, tenant: TenantId, student: User
             .bind(tenant.as_uuid()).bind(student.as_uuid()).bind(assignment.as_uuid()).bind(score)
             .execute(&mut *tx).await.expect("summary projection update");
         assert_eq!(updated.rows_affected(), 1, "one materialized learner summary is updated");
-        if let Some(status) = status {
-            sqlx::query("RESET ROLE").execute(&mut *tx).await.expect("schema owner fixture role");
-            sqlx::query("UPDATE assignment SET scoring_status=$3 WHERE tenant_id=$1 AND assignment_id=$2").bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(status).execute(&mut *tx).await.expect("assignment scoring state update");
-            sqlx::query("SET LOCAL ROLE ple_app").execute(&mut *tx).await.expect("restore app role");
-        }
     }
     tx.commit().await.expect("summary fixture commit");
 }

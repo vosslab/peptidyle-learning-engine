@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/question_model",
+    "crates/browser-api-contract",
     "crates/domain",
     "crates/grading",
     "crates/objects",

@@ -45,7 +45,7 @@ impl crate::StatisticsStore for MemoryStore {
                     return None;
                 }
                 let summary = state.summaries.get(&(tenant, *enrollment_id))?.clone();
-                let learner_name = state
+                let student_name = state
                     .course_memberships
                     .values()
                     .find(|membership| {
@@ -68,7 +68,7 @@ impl crate::StatisticsStore for MemoryStore {
                         course_id: course,
                         enrollment_id: enrollment.id,
                         student_id: enrollment.student,
-                        learner_name,
+                        student_name,
                         assignment_id: assignment.id,
                         assignment_title: assignment.title.clone(),
                         summary,

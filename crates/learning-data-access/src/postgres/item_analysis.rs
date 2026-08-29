@@ -1,7 +1,7 @@
 //! PostgreSQL current, course-local item-analysis projection.
 //!
 //! The database query deliberately selects only delivery metadata, lifecycle
-//! state, timestamps, and current numeric credit.  Responses, learner
+//! state, timestamps, and current numeric credit. Responses, Student
 //! identities, and object references never enter the report or its staging
 //! payload.
 
@@ -30,10 +30,14 @@ use crate::{
     CourseItemAnalysisWorkerStore, JobPayload, SessionTokenHash, StoreError, TenantContext,
 };
 
-pub(super) const REPORT_SCHEMA_VERSION: i32 = 1;
+/// Version two is the automated-only, snake_case report payload. Existing
+/// payloads remain immutable evidence and are intentionally not reinterpreted.
+pub(super) const REPORT_SCHEMA_VERSION: i32 = 2;
 type DeliveredItemKey = (AssignmentItemId, ProblemId, VersionId);
 
-mod learner_class_statistics;
+#[cfg(test)]
+mod reducer_tests;
+mod student_class_statistics;
 
 #[derive(Debug)]
 struct DeliveredItem {
@@ -43,7 +47,10 @@ struct DeliveredItem {
     completed: bool,
     completion_millis: Option<u64>,
     status: Option<String>,
+    has_response: bool,
+    execution_state: Option<String>,
     grading_status: Option<String>,
+    has_completion_receipt: bool,
     credit: Option<BigDecimal>,
     correct: Option<bool>,
     earned_points: Option<BigDecimal>,
@@ -155,15 +162,15 @@ impl CourseItemAnalysisStore for PostgresStore {
         Ok(Some(report))
     }
 
-    async fn learner_class_statistics(
+    async fn student_class_statistics(
         &self,
         context: TenantContext,
-        learner: question_model::UserId,
+        student: question_model::UserId,
         course: CourseId,
         assignment: AssignmentId,
-    ) -> Result<question_model::LearnerClassStatistics, StoreError> {
-        learner_class_statistics::learner_class_statistics(
-            self, context, learner, course, assignment,
+    ) -> Result<question_model::StudentClassStatistics, StoreError> {
+        student_class_statistics::student_class_statistics(
+            self, context, student, course, assignment,
         )
         .await
     }
@@ -426,6 +433,9 @@ async fn build_course_item_analysis_report(
     generation: ScoringGeneration,
     analyzed_at: ActivityTimestamp,
 ) -> Result<CourseItemAnalysisReport, StoreError> {
+    // The completion receipt is the app-readable immutable witness for the
+    // sealed worker commit. Item analysis needs only its existence; the
+    // worker-owned canonical automated-result source remains undisclosed.
     let rows = sqlx::query(
         "WITH latest_run AS ( \
              SELECT DISTINCT ON (run.enrollment_id) run.run_id, run.enrollment_id, run.started_at, run.completed_at \
@@ -441,10 +451,16 @@ async fn build_course_item_analysis_report(
                JOIN assignment_run_item AS item \
                  ON item.tenant_id = $1 AND item.run_id = latest_run.run_id \
          ), selected_attempt AS ( \
-             SELECT delivered.*, attempt.attempt_id, attempt.attempt_status, attempt.submitted_at \
+             SELECT delivered.*, attempt.attempt_id, attempt.attempt_status, attempt.submitted_at, \
+                    attempt.has_response \
                FROM delivered \
                LEFT JOIN LATERAL ( \
-                    SELECT candidate.attempt_id, candidate.attempt_status, candidate.submitted_at \
+                    SELECT candidate.attempt_id, candidate.attempt_status, candidate.submitted_at, \
+                           EXISTS ( \
+                               SELECT 1 FROM submission AS response_submission \
+                                WHERE response_submission.tenant_id = candidate.tenant_id \
+                                  AND response_submission.attempt_id = candidate.attempt_id \
+                           ) AS has_response \
                       FROM question_attempt AS candidate \
                      WHERE candidate.tenant_id = $1 AND candidate.run_id = delivered.run_id \
                        AND candidate.assignment_position = delivered.issued_position \
@@ -453,7 +469,7 @@ async fn build_course_item_analysis_report(
                ) AS attempt ON true \
          ), terminal_run AS ( \
              SELECT run_id, \
-                    bool_and(attempt_status IN ('submitted', 'auto_submitted', 'needs_manual_grading', 'cleared', 'exempt')) AS terminal, \
+                    bool_and(attempt_status IN ('submitted', 'auto_submitted', 'cleared', 'exempt')) AS terminal, \
                     max(submitted_at) AS terminal_submitted_at \
                FROM selected_attempt GROUP BY run_id \
          ) \
@@ -462,11 +478,20 @@ async fn build_course_item_analysis_report(
                 floor(extract(epoch FROM terminal_run.terminal_submitted_at) * 1000)::bigint AS completed_at_millis, \
                 floor(extract(epoch FROM selected_attempt.started_at) * 1000)::bigint AS started_at_millis, \
                 score.earned_points, score.possible_points, \
-                selected_attempt.attempt_status, evaluation.grading_status, evaluation.credit_fraction, evaluation.correct \
+                selected_attempt.attempt_status, COALESCE(selected_attempt.has_response, false) AS has_response, \
+                execution.state AS execution_state, \
+                evaluation.grading_status, \
+                completion_receipt.attempt_id IS NOT NULL AS has_completion_receipt, \
+                evaluation.credit_fraction, evaluation.correct \
            FROM selected_attempt \
            JOIN terminal_run ON terminal_run.run_id = selected_attempt.run_id AND terminal_run.terminal \
            LEFT JOIN submission_evaluation AS evaluation \
              ON evaluation.tenant_id = $1 AND evaluation.attempt_id = selected_attempt.attempt_id \
+           LEFT JOIN grading_execution AS execution \
+             ON execution.tenant_id = $1 AND execution.attempt_id = selected_attempt.attempt_id \
+           LEFT JOIN submission_receipt_snapshot AS completion_receipt \
+             ON completion_receipt.tenant_id = $1 \
+            AND completion_receipt.attempt_id = selected_attempt.attempt_id \
            LEFT JOIN attempt_score_current AS score \
              ON score.tenant_id = $1 AND score.attempt_id = selected_attempt.attempt_id \
             AND score.scoring_generation = $3 \
@@ -499,7 +524,7 @@ async fn build_course_item_analysis_report(
                   ) AS attempt ON true \
            ), terminal_run AS ( \
                 SELECT latest_run.run_id, COALESCE(bool_and(selected_attempt.attempt_status IN \
-                    ('submitted', 'auto_submitted', 'needs_manual_grading', 'cleared', 'exempt')), false) AS terminal \
+                    ('submitted', 'auto_submitted', 'cleared', 'exempt')), false) AS terminal \
                   FROM latest_run LEFT JOIN selected_attempt ON selected_attempt.run_id = latest_run.run_id \
                  GROUP BY latest_run.run_id \
            ) \
@@ -545,7 +570,12 @@ async fn build_course_item_analysis_report(
             completed: completed_at.is_some(),
             completion_millis,
             status: row.try_get("attempt_status").map_err(map_sqlx_error)?,
+            has_response: row.try_get("has_response").map_err(map_sqlx_error)?,
+            execution_state: row.try_get("execution_state").map_err(map_sqlx_error)?,
             grading_status: row.try_get("grading_status").map_err(map_sqlx_error)?,
+            has_completion_receipt: row
+                .try_get("has_completion_receipt")
+                .map_err(map_sqlx_error)?,
             credit: row.try_get("credit_fraction").map_err(map_sqlx_error)?,
             correct: row.try_get("correct").map_err(map_sqlx_error)?,
             earned_points: row.try_get("earned_points").map_err(map_sqlx_error)?,
@@ -584,7 +614,7 @@ fn course_report_from_deliveries(
     let mut inputs: BTreeMap<DeliveredItemKey, ItemAnalysisMetricInput> = BTreeMap::new();
     let mut graded = Vec::new();
     let mut completion_times = BTreeMap::new();
-    let mut incomplete_manual_grading = false;
+    let mut incomplete_scoring = false;
     let mut fully_graded_runs: BTreeMap<Uuid, bool> = BTreeMap::new();
     let mut run_scores: BTreeMap<Uuid, (f64, f64)> = BTreeMap::new();
 
@@ -605,20 +635,49 @@ fn course_report_from_deliveries(
         fully_graded_runs.entry(item.run).or_insert(true);
         match (
             item.status.as_deref(),
+            item.has_response,
+            item.execution_state.as_deref(),
             item.grading_status.as_deref(),
+            item.has_completion_receipt,
             item.credit,
             item.correct,
         ) {
-            (Some("cleared" | "exempt"), _, _, _) => {}
-            (_, Some("needs_manual_grading"), _, _) => {
-                input.pending_manual_attempt_count =
-                    input.pending_manual_attempt_count.saturating_add(1);
-                incomplete_manual_grading = true;
+            (Some("cleared" | "exempt"), _, _, _, _, _, _) => {}
+            (Some("auto_submitted"), false, _, _, _, _, _) => {
+                input.unanswered_attempt_count = input.unanswered_attempt_count.saturating_add(1);
                 fully_graded_runs.insert(item.run, false);
             }
-            (Some("submitted" | "auto_submitted"), Some("graded"), Some(credit), Some(correct))
-                if item.completed =>
-            {
+            (
+                Some("submitted" | "auto_submitted"),
+                true,
+                Some("ready" | "running" | "retry_wait"),
+                Some("automated_pending"),
+                false,
+                _,
+                _,
+            )
+            | (
+                Some("submitted" | "auto_submitted"),
+                true,
+                Some("exception"),
+                Some("automated_exception"),
+                false,
+                _,
+                _,
+            ) => {
+                input.unscored_attempt_count = input.unscored_attempt_count.saturating_add(1);
+                incomplete_scoring = true;
+                fully_graded_runs.insert(item.run, false);
+            }
+            (
+                Some("submitted" | "auto_submitted"),
+                true,
+                Some("completed"),
+                Some("graded"),
+                true,
+                Some(credit),
+                Some(correct),
+            ) if item.completed => {
                 let credit = checked_credit(credit)?;
                 let (earned, possible) =
                     item.earned_points
@@ -633,10 +692,10 @@ fn course_report_from_deliveries(
                 aggregate.1 += checked_possible_points(possible)?;
                 graded.push((item.run, key, credit, correct));
             }
-            (Some("submitted" | "auto_submitted"), Some("exempt"), _, _) => {}
             _ => {
-                input.unanswered_attempt_count = input.unanswered_attempt_count.saturating_add(1);
-                fully_graded_runs.insert(item.run, false);
+                return Err(StoreError::Unavailable(
+                    "stored automated item-analysis evaluation tuple is inconsistent".to_string(),
+                ));
             }
         }
     }
@@ -678,12 +737,9 @@ fn course_report_from_deliveries(
     let items = references
         .into_iter()
         .map(|(key @ (assignment_item, _, _), reference)| {
-            let metrics = calculate_item_analysis_metrics(
-                inputs
-                    .get(&key)
-                    .unwrap_or(&ItemAnalysisMetricInput::default()),
-            )
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+            let input = inputs.get(&key).cloned().unwrap_or_default();
+            let metrics = calculate_item_analysis_metrics(&input)
+                .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
             Ok(AssignmentItemAnalysis {
                 tenant,
                 course,
@@ -694,7 +750,7 @@ fn course_report_from_deliveries(
                 analyzed_at,
                 graded_attempt_count: metrics.graded_attempt_count,
                 unanswered_attempt_count: metrics.response_distribution.unanswered,
-                pending_manual_attempt_count: metrics.response_distribution.pending_manual,
+                unscored_attempt_count: input.unscored_attempt_count,
                 difficulty: metrics.difficulty,
                 average_credit: metrics.average_credit,
                 credit_standard_deviation: metrics.credit_standard_deviation,
@@ -712,9 +768,11 @@ fn course_report_from_deliveries(
         analyzed_at,
         completed_run_count,
         in_progress_run_count,
-        incomplete_manual_grading,
+        incomplete_scoring,
         recent_rescoring: false,
-        assignment_average_score,
+        assignment_average_score: (!incomplete_scoring)
+            .then_some(assignment_average_score)
+            .flatten(),
         average_completion_time_millis,
         items,
     })
@@ -778,103 +836,4 @@ pub(super) fn validate_report_identity(
         ));
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn uuid(value: u128) -> Uuid {
-        Uuid::from_u128(value)
-    }
-
-    fn context() -> AnalysisReportContext {
-        AnalysisReportContext {
-            tenant: TenantId::from_uuid(uuid(1)),
-            course: CourseId::from_uuid(uuid(2)),
-            assignment: AssignmentId::from_uuid(uuid(3)),
-            generation: ScoringGeneration::INITIAL,
-            analyzed_at: ActivityTimestamp::from_unix_millis(4),
-            completed_run_count: 1,
-            in_progress_run_count: 0,
-        }
-    }
-
-    fn delivered(
-        assignment_item: u128,
-        status: &str,
-        grading_status: &str,
-        credit: Option<BigDecimal>,
-        correct: Option<bool>,
-        earned_points: Option<BigDecimal>,
-        possible_points: Option<BigDecimal>,
-    ) -> DeliveredItem {
-        DeliveredItem {
-            assignment_item: AssignmentItemId::from_uuid(uuid(assignment_item)),
-            reference: ProblemVersionRef {
-                problem: ProblemId::from_uuid(uuid(assignment_item + 100)),
-                version: VersionId::from_uuid(uuid(assignment_item + 200)),
-            },
-            run: uuid(5),
-            completed: true,
-            completion_millis: Some(6),
-            status: Some(status.to_string()),
-            grading_status: Some(grading_status.to_string()),
-            credit,
-            correct,
-            earned_points,
-            possible_points,
-        }
-    }
-
-    #[test]
-    fn assignment_average_accepts_authored_points_above_manual_credit_range() {
-        let report = course_report_from_deliveries(
-            context(),
-            vec![delivered(
-                10,
-                "submitted",
-                "graded",
-                Some("0.8".parse().expect("valid credit")),
-                Some(false),
-                Some(BigDecimal::from(1_600)),
-                Some(BigDecimal::from(2_000)),
-            )],
-        )
-        .expect("large exact point values remain valid");
-
-        assert_eq!(report.assignment_average_score, Some(0.8));
-        assert_eq!(report.items[0].average_credit, Some(0.8));
-    }
-
-    #[test]
-    fn pending_manual_item_prevents_partial_assignment_average() {
-        let report = course_report_from_deliveries(
-            context(),
-            vec![
-                delivered(
-                    10,
-                    "submitted",
-                    "graded",
-                    Some(BigDecimal::from(1)),
-                    Some(true),
-                    Some(BigDecimal::from(1)),
-                    Some(BigDecimal::from(1)),
-                ),
-                delivered(
-                    11,
-                    "needs_manual_grading",
-                    "needs_manual_grading",
-                    None,
-                    None,
-                    None,
-                    None,
-                ),
-            ],
-        )
-        .expect("pending item remains an aggregate flag");
-
-        assert_eq!(report.assignment_average_score, None);
-        assert!(report.incomplete_manual_grading);
-    }
 }

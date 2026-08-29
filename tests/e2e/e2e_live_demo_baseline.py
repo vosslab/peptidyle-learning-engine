@@ -32,6 +32,17 @@ USER_CREATED_COURSE_ID = "00000000-0000-4000-8000-000000000999"
 RECEIPT_BUCKET = "private-content"
 RECEIPT_KEY = "ple/live-demo/base-course-install-receipt.json"
 BIOCHEMISTRY_COURSE_TITLE = "Biochemistry: Protein Structure and Function"
+INTERRUPTED_BOUNDARIES = (
+	("publication", "workspace_draft"),
+	("activity", "question_attempt"),
+)
+SCRATCH_DATABASES = tuple(
+	f"ple_live_demo_{boundary}_boundary" for boundary, _table in INTERRUPTED_BOUNDARIES
+) + (
+	"ple_live_demo_concurrent",
+	"ple_live_demo_pre_marker",
+	"ple_live_demo_regenerated",
+)
 
 
 #============================================
@@ -78,7 +89,7 @@ def migrate_database(
 def provision_base_course_database_urls(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
 	"""Create closed child logins only after this database has its complete schema."""
 	values = database_values(stack, database)
 	return local_stack_control.base_course_logins.provision(
@@ -93,20 +104,29 @@ def provision_base_course_database_urls(
 def prepare_database(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
-) -> tuple[str, str]:
-	"""Migrate one disposable database, then issue its two closed runtime identities."""
+) -> tuple[str, str, str]:
+	"""Migrate one disposable database, then issue its three closed runtime identities."""
 	migrate_database(stack, database)
 	return provision_base_course_database_urls(stack, database)
+
+
+#============================================
+def initialize_database_schemas(stack: e2e_live_demo_stack.DisposableStack) -> None:
+	"""Migrate every database before issuing cluster-wide service-role memberships."""
+	migrate_database(stack, e2e_live_demo_stack.POSTGRES_DATABASE)
+	for database in SCRATCH_DATABASES:
+		stack.create_database(database)
+		migrate_database(stack, database)
 
 
 #============================================
 def phase_environment(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
-	base_course_database_urls: tuple[str, str],
+	base_course_database_urls: tuple[str, str, str],
 ) -> dict[str, str]:
 	"""Build an answerable installed Biochemistry course child without migration administration."""
-	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
+	installer_database_url, app_database_url, fast_path_database_url = local_stack_control.base_course_logins.require_urls(
 		base_course_database_urls
 	)
 	return local_stack_control.base_course_logins.child_environment(
@@ -114,14 +134,15 @@ def phase_environment(
 		database_values(stack, database),
 		installer_database_url,
 		app_database_url,
+		fast_path_database_url,
 	)
 
 
 #============================================
 def base_course_private_values(
-	base_course_database_urls: tuple[str, str],
+	base_course_database_urls: tuple[str, str, str],
 ) -> tuple[str, ...]:
-	"""Return both closed URLs and their passwords for bounded child diagnostics."""
+	"""Return every closed URL and its password for bounded child diagnostics."""
 	private_values = list(base_course_database_urls)
 	for database_url_value in base_course_database_urls:
 		password = urllib.parse.urlsplit(database_url_value).password
@@ -134,7 +155,7 @@ def base_course_private_values(
 def run_phase(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
-	base_course_database_urls: tuple[str, str],
+	base_course_database_urls: tuple[str, str, str],
 	phase: str,
 	receipt: str | None = None,
 ) -> local_stack_control.base_course_lifecycle.Receipt:
@@ -525,7 +546,7 @@ def remove_trigger(
 def expect_phase_failure(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
-	base_course_database_urls: tuple[str, str],
+	base_course_database_urls: tuple[str, str, str],
 	receipt: str,
 ) -> None:
 	"""Require the install phase to fail at an injected interruption."""
@@ -572,13 +593,8 @@ def verify_prefix_state(
 #============================================
 def verify_interrupted_boundaries(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	"""Prove representative publication and activity boundaries resume safely."""
-	boundaries = (
-		("publication", "workspace_draft"),
-		("activity", "question_attempt"),
-	)
-	for boundary, table in boundaries:
+	for boundary, table in INTERRUPTED_BOUNDARIES:
 		database = f"ple_live_demo_{boundary}_boundary"
-		stack.create_database(database)
 		base_course_database_urls = prepare_database(stack, database)
 		prepared = run_phase(stack, database, base_course_database_urls, "prepare")
 		install_trigger(stack, database, table)
@@ -617,7 +633,6 @@ def base_course_argv(receipt: str) -> list[str]:
 def verify_concurrent_installers(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	"""Prove two real installers serialize to one completed baseline."""
 	database = "ple_live_demo_concurrent"
-	stack.create_database(database)
 	base_course_database_urls = prepare_database(stack, database)
 	prepared = run_phase(stack, database, base_course_database_urls, "prepare")
 	environment = phase_environment(stack, database, base_course_database_urls)
@@ -657,7 +672,6 @@ def verify_concurrent_installers(stack: e2e_live_demo_stack.DisposableStack) -> 
 def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	"""Prove ordinary upgrades work while first installed Biochemistry course install rejects live state."""
 	database = "ple_live_demo_pre_marker"
-	stack.create_database(database)
 	base_course_database_urls = prepare_database(stack, database)
 	run_phase(stack, database, base_course_database_urls, "prepare")
 	stack.psql(
@@ -667,9 +681,12 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 	)
 	stack.psql(
 		database,
+		"BEGIN; "
+		f"SELECT set_config('ple.tenant_id', '{TENANT_ID}', true); "
 		f"INSERT INTO course (tenant_id, course_id, title, term_start_date, "
 		f"term_end_date, time_zone) VALUES ('{TENANT_ID}', '{deterministic_id('course')}', "
-		"'pre-marker course', DATE '2026-01-01', DATE '2099-12-31', 'America/Chicago')",
+		"'pre-marker course', DATE '2026-01-01', DATE '2099-12-31', 'America/Chicago'); "
+		"COMMIT",
 	)
 	migrate_database(stack, database)
 	marker = stack.psql(
@@ -700,7 +717,7 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 #============================================
 def verify_retained_data(
 	stack: e2e_live_demo_stack.DisposableStack,
-	base_course_database_urls: tuple[str, str],
+	base_course_database_urls: tuple[str, str, str],
 ) -> None:
 	"""Prove one-command retained startup preserves ordinary database and storage data."""
 	database = e2e_live_demo_stack.POSTGRES_DATABASE
@@ -708,11 +725,14 @@ def verify_retained_data(
 	practice_course_id = deterministic_id("practice-course")
 	stack.psql(
 		database,
+		"BEGIN; "
+		f"SELECT set_config('ple.tenant_id', '{TENANT_ID}', true); "
 		f"UPDATE course SET title = 'Instructor edited Biochemistry course' "
 		f"WHERE tenant_id = '{TENANT_ID}' AND course_id = '{course_id}'; INSERT INTO course "
 		"(tenant_id, course_id, title, term_start_date, term_end_date, time_zone) VALUES "
 		f"('{TENANT_ID}', '{USER_CREATED_COURSE_ID}', "
-		"'User-created course', DATE '2026-01-01', DATE '2099-12-31', 'America/Chicago')",
+		"'User-created course', DATE '2026-01-01', DATE '2099-12-31', 'America/Chicago'); "
+		"COMMIT",
 	)
 	stack.put_object("student-records", "ordinary/user-created.txt", "preserve me")
 	stack.compose(["restart", "postgres", "minio"])
@@ -784,7 +804,6 @@ def verify_regeneration(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	)
 	expect_object_absent(stack, RECEIPT_BUCKET, RECEIPT_KEY, "previous installation receipt")
 	database = "ple_live_demo_regenerated"
-	stack.create_database(database)
 	base_course_database_urls = prepare_database(stack, database)
 	prepared = run_phase(stack, database, base_course_database_urls, "prepare")
 	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
@@ -824,9 +843,10 @@ def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	stack.start_service("postgres")
 	version = stack.psql(e2e_live_demo_stack.POSTGRES_DATABASE, "SHOW server_version")
 	if not version.startswith("17."):
-		raise local_stack_control.models.ControllerError(
-			f"live-demo baseline E2E requires PostgreSQL 17, got {version}"
-		)
+			raise local_stack_control.models.ControllerError(
+				f"live-demo baseline E2E requires PostgreSQL 17, got {version}"
+			)
+	initialize_database_schemas(stack)
 	base_course_database_urls = prepare_database(
 		stack, e2e_live_demo_stack.POSTGRES_DATABASE
 	)

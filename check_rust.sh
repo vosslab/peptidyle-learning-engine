@@ -44,8 +44,8 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY"
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory"
 
 if ! command -v cargo >/dev/null 2>&1; then
 	echo "ERROR: cargo not found on PATH." >&2

@@ -1,18 +1,18 @@
 //! Immutable submission-receipt reads and exact replay binding.
 
 use super::*;
-use crate::{LearnerWorkRoutingBinding, ReceiptPresentationSnapshot};
+use crate::{ReceiptPresentationSnapshot, StudentWorkRoutingBinding};
 use std::collections::BTreeMap;
 
 #[async_trait::async_trait]
-impl crate::LearnerSubmissionStatusStore for PostgresStore {
-    async fn learner_submission_status(
+impl crate::StudentSubmissionStatusStore for PostgresStore {
+    async fn student_submission_status(
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<crate::LearnerSubmissionStatusRead, StoreError> {
+    ) -> Result<crate::StudentSubmissionStatusRead, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         // ASVS V8.2.2/V8.3.1: the complete nested route assertion is part of
         // this authoritative status boundary.
@@ -22,7 +22,7 @@ impl crate::LearnerSubmissionStatusStore for PostgresStore {
         if authorized_binding != binding {
             return Err(StoreError::NotFound);
         }
-        let status = learner_submission_status(
+        let status = student_submission_status(
             &mut transaction,
             context.tenant_id(),
             authorized_binding,
@@ -80,7 +80,7 @@ pub(super) async fn load_accepted_submission_status_state(
             ("ready" | "running" | "retry_wait", "automated_pending") => {
                 AcceptedSubmissionStatusState::Pending
             }
-            (_, "needs_manual_grading") | ("exception", "automated_exception") => {
+            ("exception", "automated_exception") => {
                 AcceptedSubmissionStatusState::InstructorAttention
             }
             ("completed", "graded") => AcceptedSubmissionStatusState::CompletedGraded,
@@ -95,12 +95,12 @@ pub(super) async fn load_accepted_submission_status_state(
 /// execution/evaluation state.  The caller establishes authorization before
 /// invoking this function in its tenant transaction.
 #[cfg(feature = "postgres")]
-pub(super) async fn learner_submission_status(
+pub(super) async fn student_submission_status(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
-) -> Result<crate::LearnerSubmissionStatusRead, StoreError> {
+) -> Result<crate::StudentSubmissionStatusRead, StoreError> {
     let receipt = load_submission_record_with_evaluation_verification(
         transaction,
         tenant,
@@ -120,11 +120,11 @@ pub(super) async fn learner_submission_status(
         (
             crate::SubmissionReceiptRead::AcceptedPending(pending),
             Some(AcceptedSubmissionStatusState::Pending),
-        ) => Ok(crate::LearnerSubmissionStatusRead::AcceptedPending(pending)),
+        ) => Ok(crate::StudentSubmissionStatusRead::AcceptedPending(pending)),
         (
             crate::SubmissionReceiptRead::AcceptedPending(pending),
             Some(AcceptedSubmissionStatusState::InstructorAttention),
-        ) => Ok(crate::LearnerSubmissionStatusRead::InstructorAttention(
+        ) => Ok(crate::StudentSubmissionStatusRead::InstructorAttention(
             pending,
         )),
         (
@@ -141,7 +141,7 @@ pub(super) async fn learner_submission_status(
             .await?;
             let next_pending =
                 completed_successor_is_eligible(transaction, tenant, &record).await?;
-            Ok(crate::LearnerSubmissionStatusRead::Completed {
+            Ok(crate::StudentSubmissionStatusRead::Completed {
                 record,
                 next_pending,
             })
@@ -156,7 +156,7 @@ pub(super) async fn learner_submission_status(
                 .await?;
             let next_pending =
                 completed_successor_is_eligible(transaction, tenant, &record).await?;
-            Ok(crate::LearnerSubmissionStatusRead::Completed {
+            Ok(crate::StudentSubmissionStatusRead::Completed {
                 record,
                 next_pending,
             })
@@ -497,7 +497,7 @@ async fn validate_accepted_completed_evaluation(
 async fn validate_accepted_completed_graded_evaluation(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
     receipt_attempt: &QuestionAttempt,
 ) -> Result<(), StoreError> {
@@ -647,10 +647,7 @@ fn validate_receipt_attempt_snapshot(
     if receipt_attempt.response.is_some()
         || !matches!(
             receipt_attempt.status,
-            AttemptStatus::Submitted
-                | AttemptStatus::AutoSubmitted
-                | AttemptStatus::NeedsManualGrading
-                | AttemptStatus::Exempt
+            AttemptStatus::Submitted | AttemptStatus::AutoSubmitted | AttemptStatus::Exempt
         )
     {
         return Err(StoreError::Unavailable(
@@ -825,6 +822,14 @@ mod tests {
                 tenant,
                 attempt,
                 &receipt_attempt(AttemptStatus::Submitted, None),
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_receipt_attempt_snapshot(
+                tenant,
+                attempt,
+                &receipt_attempt(AttemptStatus::AutoSubmitted, None),
             )
             .is_ok()
         );

@@ -156,7 +156,7 @@ pub(super) async fn build() -> AssignmentFixture {
             UpsertCourseMember {
                 course,
                 user: student,
-                display_name: "Biochemistry learner".to_string(),
+                display_name: "Biochemistry Student".to_string(),
                 roster_contact: None,
             },
         )

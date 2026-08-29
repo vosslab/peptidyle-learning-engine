@@ -15,7 +15,11 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			visible_observation="instructor_retry_resolves_deterministic_grader_exception",
 			service_receipt="worker_completion",
 			fault_transition="deterministic_grader_exception",
-			screenshot_states=("instructor_operation", "instructor_gradebook"),
+			screenshot_states=(
+				"instructor_operation",
+				"instructor_gradebook",
+				"audited_student_work",
+			),
 		),
 		ScenarioContract(
 			scenario_id="learner_gateway_recovery",

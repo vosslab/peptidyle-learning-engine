@@ -3,11 +3,13 @@
 //! Route groups own browser-facing behavior while the small composition root
 //! supplies their production dependencies and security boundaries.
 
+/// Shared accepted-submission service for HTTP delivery and host-only seeds.
+pub mod accepted_submission_service;
 /// Private common handler for lease-bound accepted automated submissions.
 ///
 /// Lane C2 wires this reusable entry point into the fast and background paths.
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) mod accepted_submission_worker;
+pub mod accepted_submission_worker;
 /// Public-CDN and authorized short-lived asset delivery.
 pub mod asset;
 /// Authentication, sessions, and the middleware stack.
@@ -29,8 +31,6 @@ pub mod curriculum_adoption;
 pub mod export;
 /// Frozen assignment export preparation and atomic four-artifact finalization.
 pub mod export_worker;
-/// Policy-redacted server feedback projections; persistence and routes consume it later.
-pub mod feedback;
 /// Author-only registration of immutable native flat-question image assets.
 pub mod flat_question_assets;
 /// Dedicated authoring and immutable publication routes for PLE flat questions.

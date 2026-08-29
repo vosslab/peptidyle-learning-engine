@@ -87,7 +87,7 @@ pub struct GroupPurposeCapabilities {
     pub assignment_audience: bool,
     pub schedule_scope: bool,
     pub accommodation_scope: bool,
-    pub learner_visible: bool,
+    pub student_visible: bool,
 }
 
 impl GroupPurposeCapabilities {
@@ -98,20 +98,20 @@ impl GroupPurposeCapabilities {
                     assignment_audience: true,
                     schedule_scope: true,
                     accommodation_scope: false,
-                    learner_visible: true,
+                    student_visible: true,
                 }
             }
             CourseGroupPurpose::Accommodation => Self {
                 assignment_audience: false,
                 schedule_scope: false,
                 accommodation_scope: true,
-                learner_visible: false,
+                student_visible: false,
             },
             CourseGroupPurpose::Work => Self {
                 assignment_audience: false,
                 schedule_scope: false,
                 accommodation_scope: false,
-                learner_visible: false,
+                student_visible: false,
             },
         }
     }
@@ -224,7 +224,7 @@ mod tests {
                 assignment_audience: true,
                 schedule_scope: true,
                 accommodation_scope: false,
-                learner_visible: true,
+                student_visible: true,
             }
         );
         assert_eq!(
@@ -241,7 +241,7 @@ mod tests {
                 assignment_audience: false,
                 schedule_scope: false,
                 accommodation_scope: true,
-                learner_visible: false,
+                student_visible: false,
             }
         );
         assert_eq!(
@@ -250,7 +250,7 @@ mod tests {
                 assignment_audience: false,
                 schedule_scope: false,
                 accommodation_scope: false,
-                learner_visible: false,
+                student_visible: false,
             }
         );
     }

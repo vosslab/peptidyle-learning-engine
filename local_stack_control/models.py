@@ -63,6 +63,7 @@ class LiveDemoProfile(enum.StrEnum):
 	WEBWORK_RENDER_RPC = "webwork_render_rpc"
 	REPLICA_RESTART = "replica_restart"
 	DATABASE_BASELINE = "database_baseline"
+	COURSE_APPEARANCE_CROSS_STORE = "course_appearance_cross_store"
 	AUTOMATED_GRADING_FAULT = "automated_grading_fault"
 
 
@@ -139,6 +140,14 @@ LIVE_DEMO_PROFILE_POLICIES = (
 		profile=LiveDemoProfile.DATABASE_BASELINE,
 		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
 		child_capabilities=("database_baseline_oracle",),
+	),
+	LiveDemoProfilePolicy(
+		profile=LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE,
+		compose_relative_paths=(
+			"tests/e2e/compose.database-baseline.yaml",
+			"tests/e2e/compose.course-appearance-cross-store.yaml",
+		),
+		child_capabilities=("course_appearance_cross_store_oracle",),
 	),
 )
 

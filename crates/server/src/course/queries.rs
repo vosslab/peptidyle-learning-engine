@@ -289,7 +289,7 @@ where
                     Ok(value) => value,
                     Err(response) => return response.into_response(),
                 };
-                summaries.push(question_model::LearnerAssignmentSummary::from(
+                summaries.push(question_model::StudentAssignmentLandingSummary::from(
                     assignment.summary(public_id, items, selection_groups),
                 ));
             }
@@ -300,55 +300,6 @@ where
                 })
                 .into_response(),
             )
-        }
-        Err(error) => store_error_response(error),
-    }
-}
-
-/// Lists the compact, browser-safe gradebook projection for one managed course.
-///
-/// The store owns the bounded assignment/enrollment/summary join. This route
-/// intentionally neither loads historical runs nor accepts student or tenant
-/// identifiers as authority inputs.
-pub(super) async fn list_gradebook<S>(
-    State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
-    Path(course): Path<CourseId>,
-    Query(query): Query<CourseQuery>,
-) -> Response
-where
-    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
-    {
-        return response.into_response();
-    }
-    let page = match page_request(query) {
-        Ok(page) => page,
-        Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
-    };
-    match state
-        .store
-        .list_gradebook_rows(authenticated.tenant_context, course, page)
-        .await
-    {
-        Ok(mut page) => {
-            // A retained aggregate can remain present while the scorer is
-            // recalculating or has failed. Do not turn that retained value
-            // into an instructor-visible stale total.
-            for row in &mut page.items {
-                if !matches!(row.scoring_status, question_model::ScoringStatus::Current) {
-                    row.summary.current_score = None;
-                    row.summary.best_score = None;
-                    row.summary.latest_score = None;
-                }
-            }
-            no_store(Json(page).into_response())
         }
         Err(error) => store_error_response(error),
     }

@@ -85,6 +85,27 @@ def database_baseline_disposable(
 
 
 #============================================
+def cross_store_disposable(
+	tmp_path: pathlib.Path,
+) -> local_stack_control.models.DisposableComposeTarget:
+	"""Build the fixed owner with its PostgreSQL and MinIO acceptance profile."""
+	baseline = tmp_path / "tests" / "e2e" / "compose.database-baseline.yaml"
+	overlay = tmp_path / "tests" / "e2e" / "compose.course-appearance-cross-store.yaml"
+	baseline.parent.mkdir(parents=True, exist_ok=True)
+	baseline.write_text("services: {}\n", encoding="ascii")
+	overlay.write_text("services: {}\n", encoding="ascii")
+	selected = target(tmp_path, (baseline.resolve(), overlay.resolve()))
+	return local_stack_control.models.DisposableComposeTarget(
+		target=selected,
+		owner_policy=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+		capability_file=tmp_path / "capability",
+		project_prefix=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		private_environment_file=selected.env_file,
+		live_demo_profile=local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE,
+	)
+
+
+#============================================
 def cleanup_disposable(
 	tmp_path: pathlib.Path,
 ) -> local_stack_control.models.DisposableComposeTarget:
@@ -240,6 +261,32 @@ def test_database_baseline_profile_allows_only_its_postgres_oracle_commands(
 	):
 		with pytest.raises(local_stack_control.models.ControllerError, match="database baseline Compose"):
 			local_stack_control.consumer.compose_command(selected, arguments)
+
+
+#============================================
+def test_cross_store_profile_allows_only_its_two_store_oracle_commands(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The closed profile exposes only startup, readiness, buckets, and PostgreSQL inspection."""
+	selected = cross_store_disposable(tmp_path)
+	for arguments in (
+		["up", "-d", "postgres", "minio"],
+		["exec", "-T", "postgres", "pg_isready", "-U", "ple_e2e_migrator"],
+		["exec", "-T", "minio", "mc", "ready", "local"],
+		["run", "--rm", "createbuckets"],
+		["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"],
+	):
+		argv, environment = local_stack_control.consumer.compose_command(selected, list(arguments))
+		assert argv[-len(arguments):] == list(arguments)
+		assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
+	for arguments in (
+		["up", "-d", "postgres"],
+		["exec", "-T", "minio", "sh"],
+		["run", "--rm", "other"],
+		["exec", "-T", "api", "env"],
+	):
+		with pytest.raises(local_stack_control.models.ControllerError, match="cross-store Compose"):
+			local_stack_control.consumer.compose_command(selected, list(arguments))
 
 
 #============================================

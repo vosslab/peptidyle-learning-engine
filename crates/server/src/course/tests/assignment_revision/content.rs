@@ -59,7 +59,7 @@ async fn assignment_content_rejects_unavailable_question_and_exposes_qid() {
     assert!(state.content["items"][0].get("reference").is_none());
     assert_eq!(
         state.content["disclosurePolicy"],
-        serde_json::to_value(question_model::LearnerDisclosurePolicy::default())
+        serde_json::to_value(question_model::StudentDisclosurePolicy::default())
             .expect("default disclosure policy serializes")
     );
 }

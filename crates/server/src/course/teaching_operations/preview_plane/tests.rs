@@ -122,7 +122,7 @@ async fn fixture() -> Fixture {
                             delivery_state: question_model::AssignmentDeliveryState::Active,
                         }],
                     }],
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
                 base_policy,

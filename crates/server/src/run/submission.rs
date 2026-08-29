@@ -2,7 +2,7 @@
 
 use super::contracts::RunBackend;
 use super::prefetch::ensure_active_questions;
-use super::submission_status::learner_submission_status_projection;
+use super::submission_status::student_submission_status_projection;
 use super::support::*;
 use crate::accepted_submission_worker::AcceptedSubmissionHandlerResult;
 
@@ -13,12 +13,12 @@ pub(super) async fn submit_response<S, B>(
     Json(request): Json<SubmitResponseRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store + CatalogStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     // ASVS 2.2.1 and 8.3.1: the typed route supplies routing context only;
     // persisted learner authority and exact relationships are server-verified.
-    let binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let binding = StudentWorkRoutingBinding::new(course, assignment);
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
@@ -28,22 +28,28 @@ where
         Err(message) => return error_response(StatusCode::BAD_REQUEST, message),
     };
     let actor = authenticated.record.subject.user();
-    // First pass is intentionally answer-free. It establishes the route,
-    // actor, idempotency fence, and exact replay before any private issued
-    // family contract is materialized.
-    let intent = match state
-        .store
-        .prepare_question_submission(
-            authenticated.tenant_context,
+    let outcome = match crate::accepted_submission_service::accept_and_execute(
+        state.store.as_ref(),
+        state.automated_grading.as_ref(),
+        state.accepted_submission_fast_path.as_ref(),
+        crate::accepted_submission_service::AcceptedSubmissionRequest {
+            context: authenticated.tenant_context,
             actor,
             binding,
-            attempt_id,
-            &request.response,
-            &idempotency_key,
-        )
-        .await
+            attempt: attempt_id,
+            response: request.response,
+            idempotency_key,
+        },
+    )
+    .await
     {
-        Ok(learning_data_access::SubmissionPreparation::Replay(record)) => {
+        Ok(outcome) => outcome,
+        Err(error) => return store_error_response(error),
+    };
+    match outcome {
+        crate::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Replay(
+            record,
+        ) => {
             return finish_submission(
                 state.store.as_ref(),
                 state.backend.as_ref(),
@@ -54,130 +60,35 @@ where
             )
             .await;
         }
-        Ok(learning_data_access::SubmissionPreparation::AcceptedPending(pending)) => {
-            return accepted_pending_response(pending.attempt());
-        }
-        Ok(learning_data_access::SubmissionPreparation::FirstEffect(intent)) => *intent,
-        Err(error) => return store_error_response(error),
-    };
-    // This snapshot is answer-free first-effect evidence. It validates the
-    // browser shape, while the worker's sealed capability owns every private
-    // family contract and grading call after durable acceptance.
-    let question = intent.issued_question_snapshot.question();
-    if matches!(
-        &question.response,
-        question_model::ResponseDefinition::FileUpload { .. }
-    ) {
-        return error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "file upload submissions are unavailable",
-        );
-    }
-    // The iMathAS launch broker owns its distinct, actor-bound provider
-    // exchange. Its response must therefore reach the contracted nested route
-    // rather than be converted into generic worker input.
-    if matches!(
-        &question.response,
-        question_model::ResponseDefinition::ExternalTool {}
-    ) {
-        return error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "external-tool submissions require the launch route",
-        );
-    }
-    match intent.presentation.as_ref() {
-        Some(snapshot) => {
-            let report = domain::validation::validate_presentation_response_format(
-                &snapshot.envelope.response,
-                &request.response,
-            );
-            if !report.is_valid() {
-                return no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(report)).into_response());
-            }
-        }
-        None => {
-            let report =
-                domain::validation::validate_response_format(&question.response, &request.response);
-            if !report.is_valid() {
-                return no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(report)).into_response());
-            }
-        }
-    }
-    // ASVS 2.3.1 and 2.3.3: this one durable first effect is the sole
-    // transition from a validated browser response into worker-owned grading.
-    // It records the original browser response, preserves the replay fence,
-    // and gives recovery a server-minted queue identity without releasing any
-    // private grading material to the route.
-    let execution_job = match learning_data_access::JobId::generate() {
-        Ok(job) => job,
-        Err(error) => return store_error_response(error),
-    };
-    let accepted = match state
-        .automated_grading
-        .accept_automated_submission(
-            authenticated.tenant_context,
-            learning_data_access::AcceptedSubmissionCommand {
-                actor,
-                course,
-                assignment,
-                attempt: attempt_id,
-                idempotency_key,
-                response: request.response,
-                execution_job,
-            },
-        )
-        .await
-    {
-        Ok(accepted) => accepted,
-        Err(error) => return store_error_response(error),
-    };
-    let target = learning_data_access::AcceptedSubmissionExecutionTarget {
-        tenant: accepted.tenant,
-        attempt: accepted.attempt,
-        submission: accepted.submission,
-        job: execution_job,
-    };
-    match state
-        .accepted_submission_fast_path
-        .execute_accepted_submission(target)
-        .await
-    {
-        Ok(
-            AcceptedSubmissionHandlerResult::Committed | AcceptedSubmissionHandlerResult::Terminal,
-        ) => {
-            match learner_submission_status_projection(
-                &state,
-                &authenticated,
-                binding,
-                accepted.attempt,
-            )
-            .await
-            {
-                Ok(response) => response,
-                Err(error) => {
-                    log_accepted_submission_fast_path_error(
-                        course,
-                        assignment,
-                        accepted.attempt,
-                        &error,
-                    );
-                    accepted_pending_response(accepted.attempt)
+        crate::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Pending {
+            attempt,
+            ..
+        } => accepted_pending_response(attempt),
+        crate::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Executed {
+            attempt,
+            result,
+            ..
+        } => match result {
+            AcceptedSubmissionHandlerResult::Committed
+            | AcceptedSubmissionHandlerResult::Terminal => {
+                match student_submission_status_projection(&state, &authenticated, binding, attempt)
+                    .await
+                {
+                    Ok(response) => response,
+                    Err(error) => {
+                        log_accepted_submission_fast_path_error(
+                            course, assignment, attempt, &error,
+                        );
+                        accepted_pending_response(attempt)
+                    }
                 }
             }
-        }
-        #[cfg(feature = "e2e-grader-fault")]
-        Ok(AcceptedSubmissionHandlerResult::RecoveryQueued) => {
-            accepted_pending_response(accepted.attempt)
-        }
-        Ok(
+            #[cfg(feature = "e2e-grader-fault")]
+            AcceptedSubmissionHandlerResult::RecoveryQueued => accepted_pending_response(attempt),
             AcceptedSubmissionHandlerResult::Rescheduled
             | AcceptedSubmissionHandlerResult::ClaimNoLongerActive
-            | AcceptedSubmissionHandlerResult::OutcomeUnknown,
-        ) => accepted_pending_response(accepted.attempt),
-        Err(error) => {
-            log_accepted_submission_fast_path_error(course, assignment, accepted.attempt, &error);
-            accepted_pending_response(accepted.attempt)
-        }
+            | AcceptedSubmissionHandlerResult::OutcomeUnknown => accepted_pending_response(attempt),
+        },
     }
 }
 
@@ -216,8 +127,8 @@ fn accepted_submission_fast_path_error_class(error: &StoreError) -> &'static str
 /// Removes the combined legacy result unless every field it contains is
 /// currently disclosed. This prevents points or correctness from leaking
 /// through `QuestionAttempt.result` beside the field-by-field feedback DTO.
-pub(super) fn apply_learner_disclosure(
-    disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
+pub(super) fn apply_student_disclosure(
+    disclosure: domain::disclosure_policy::StudentDisclosureDecision,
     scoring_status: question_model::ScoringStatus,
     attempt: &mut QuestionAttempt,
 ) {
@@ -230,7 +141,7 @@ pub(super) fn apply_learner_disclosure(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SuccessorIssuance {
     /// Issue through the exact course/assignment route supplied by trusted composition.
-    Bound(LearnerWorkRoutingBinding),
+    Bound(StudentWorkRoutingBinding),
     /// Preserve the durable receipt and leave any successor for nested-route recovery.
     ///
     /// ASVS 2.3.1: a flat provider workflow cannot skip the route-bound
@@ -242,7 +153,7 @@ pub(super) async fn finish_submission<S, B>(
     store: &S,
     backend: &B,
     authenticated: &AuthenticatedSession,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     record: SubmissionRecord,
     successor_issuance: SuccessorIssuance,
 ) -> Response
@@ -253,7 +164,7 @@ where
     let actor = authenticated.record.subject.user();
     // A submission receipt is a learner per-item surface. Fail closed if the
     // fresh atomic status snapshot cannot be read.
-    let scoring_status = learner_scoring_status(store, authenticated, record.run.enrollment).await;
+    let scoring_status = student_scoring_status(store, authenticated, record.run.enrollment).await;
     let next_state = match store
         .submission_next_attempt(
             authenticated.tenant_context,
@@ -368,7 +279,7 @@ pub(super) fn submission_response(
         record.feedback.content(),
     );
     let mut attempt = record.attempt;
-    apply_learner_disclosure(decision, scoring_status, &mut attempt);
+    apply_student_disclosure(decision, scoring_status, &mut attempt);
     no_store(
         Json(SubmissionReceipt {
             kind: "completed",
@@ -385,7 +296,7 @@ pub(super) fn submission_response(
 }
 
 pub(super) fn feedback_projection(
-    disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
+    disclosure: domain::disclosure_policy::StudentDisclosureDecision,
     scoring_status: question_model::ScoringStatus,
     attempt: &QuestionAttempt,
     content: &FeedbackContent,
@@ -395,12 +306,12 @@ pub(super) fn feedback_projection(
 
 /// Projects trusted feedback from one current, server-side disclosure decision.
 pub(super) fn project_run_feedback(
-    disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
+    disclosure: domain::disclosure_policy::StudentDisclosureDecision,
     scoring_status: question_model::ScoringStatus,
     result: Option<AttemptResult>,
     content: &FeedbackContent,
 ) -> Option<DisclosedFeedback> {
-    project_feedback(
+    project_disclosed_feedback(
         score_current_disclosure(disclosure, scoring_status),
         result,
         content,

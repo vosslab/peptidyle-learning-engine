@@ -27,7 +27,7 @@ use crate::worker::{AcceptedOneClaimDrain, WorkerSettings};
 /// commit-or-fail request was ambiguous; callers must read later durable state
 /// rather than submit the response again.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AcceptedSubmissionHandlerResult {
+pub enum AcceptedSubmissionHandlerResult {
     Committed,
     Rescheduled,
     Terminal,
@@ -52,15 +52,15 @@ pub(crate) enum AcceptedSubmissionHandlerResult {
 /// ASVS 2.3.1 and 8.3.1: the target originates from durable acceptance and the
 /// route cannot select, load, or grade work on its own.
 #[async_trait::async_trait]
-pub(crate) trait AcceptedSubmissionFastPath: Send + Sync {
+pub trait AcceptedSubmissionFastPath: Send + Sync {
     async fn execute_accepted_submission(
         &self,
         target: AcceptedSubmissionExecutionTarget,
     ) -> Result<AcceptedSubmissionHandlerResult, StoreError>;
 }
 
-/// Explicit composition placeholder until the typed fast-path PostgreSQL pool
-/// is supplied. It preserves durable acceptance and leaves recovery available.
+/// Intentional durable-acceptance fallback for compositions that omit a
+/// dedicated synchronous execution path. The queued worker retains recovery.
 pub(crate) struct UnavailableAcceptedSubmissionFastPath;
 
 #[async_trait::async_trait]
@@ -154,7 +154,7 @@ impl RunBackend for DeterministicGraderExceptionBackend {
 
 /// Rejects a handler deadline that cannot bound an execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct InvalidAcceptedSubmissionExecutionDeadline;
+pub struct InvalidAcceptedSubmissionExecutionDeadline;
 
 impl std::fmt::Display for InvalidAcceptedSubmissionExecutionDeadline {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -319,7 +319,7 @@ pub(crate) struct AcceptedSubmissionExecutionWorkerReport {
 /// `worker_id` is supplied once at process composition and retained for every
 /// pass. The generic `JobStore` and its finalization methods are deliberately
 /// absent: this type can only use the private execution-store capability.
-pub(crate) struct AcceptedSubmissionExecutionWorker<S, B> {
+pub struct AcceptedSubmissionExecutionWorker<S, B> {
     handler: AcceptedSubmissionExecutionHandler<S, B>,
     worker_id: WorkerId,
     lease: learning_data_access::JobLeaseDuration,
@@ -327,7 +327,7 @@ pub(crate) struct AcceptedSubmissionExecutionWorker<S, B> {
 
 impl<S, B> AcceptedSubmissionExecutionWorker<S, B> {
     /// Builds a worker from the existing validated process bounds.
-    pub(crate) fn new(
+    pub fn new(
         store: S,
         backend: B,
         worker_id: WorkerId,
@@ -466,10 +466,9 @@ fn map_backend_result(
                 },
             }
         }
-        // Manual and backend-owned external-tool paths cannot enter this
-        // sealed deterministic worker. Record a safe terminal recovery.
-        Ok(SubmissionDisposition::NeedsManualGrading | SubmissionDisposition::Committed(_))
-        | Err(RunBackendError::Unsupported(_)) => {
+        // Backend-owned external-tool paths and unsupported deterministic
+        // capabilities cannot enter this sealed worker. Record a safe terminal recovery.
+        Ok(SubmissionDisposition::Committed(_)) | Err(RunBackendError::Unsupported(_)) => {
             AcceptedSubmissionExecutionOutcome::TerminalFailure
         }
         Err(RunBackendError::Deterministic(failure)) => {

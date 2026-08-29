@@ -37,7 +37,7 @@ pub enum EntitlementDenial {
     CourseNotFound,
     AssignmentNotFound,
     AssignmentOutsideCourse,
-    LearnerNotActiveCourseStudent,
+    StudentNotActiveCourse,
     AudienceExcludesLearner,
 }
 
@@ -177,7 +177,7 @@ pub struct ActiveStudentMembership {
 /// lifecycle, scheduling, late-work, disclosure, or receipt logic.
 pub fn evaluate_assignment_entitlement(facts: EntitlementFacts) -> EntitlementDecision {
     let Some(membership) = facts.membership else {
-        return EntitlementDecision::Denied(EntitlementDenial::LearnerNotActiveCourseStudent);
+        return EntitlementDecision::Denied(EntitlementDenial::StudentNotActiveCourse);
     };
     let scopes = ApplicablePolicyScopes::from_current_memberships(facts.current_groups.clone());
     let basis = materialization_basis(facts.audience, &facts.current_groups);

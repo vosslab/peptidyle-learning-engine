@@ -532,6 +532,12 @@ impl RetentionWorkerStore for MemoryStore {
                     .retain(|(tenant_id, attempt_id), _| {
                         !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                     });
+                state
+                    .student_work_inspection_record_accesses
+                    .retain(|fact| !(fact.tenant == tenant && fact.course == course));
+                state
+                    .student_work_inspection_audits
+                    .retain(|fact| !(fact.tenant == tenant && fact.course == course));
                 state.attempt_scores.retain(|(tenant_id, attempt_id), _| {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });

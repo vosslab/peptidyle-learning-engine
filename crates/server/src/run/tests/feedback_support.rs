@@ -39,12 +39,16 @@ pub(super) async fn fail_assignment_scoring_job(store: &MemoryStore, assignment:
                 assignment: candidate,
                 ..
             } if candidate == assignment => {
+                let context = TenantContext::from_authenticated_session(claim.tenant);
                 store
-                    .fail_job(claim.id, claim.lease_token, JobFailureKind::Permanent)
+                    .fail_job(
+                        context,
+                        claim.id,
+                        claim.lease_token,
+                        JobFailureKind::Permanent,
+                    )
                     .await
                     .expect("permanent score-worker failure");
-                let context =
-                    TenantContext::from_authenticated_session(TenantId::from_uuid(id(201)));
                 let status = store
                     .get_assignment_for_edit(context, assignment)
                     .await
@@ -67,12 +71,12 @@ pub(super) async fn fail_assignment_scoring_job(store: &MemoryStore, assignment:
 async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     let (store, backend, app, student_cookie, outsider_cookie, assignment) =
         native_feedback_fixture().await;
-    let mixed_policy = question_model::LearnerDisclosurePolicy {
-        score: question_model::LearnerDisclosureTiming::AfterSubmit,
-        per_item_correctness: question_model::LearnerDisclosureTiming::Never,
-        feedback_text: question_model::LearnerDisclosureTiming::AfterSubmit,
-        solution: question_model::LearnerDisclosureTiming::Never,
-        class_statistics: question_model::LearnerDisclosureTiming::AfterSubmit,
+    let mixed_policy = question_model::StudentDisclosurePolicy {
+        score: question_model::StudentDisclosureTiming::AfterSubmit,
+        per_item_correctness: question_model::StudentDisclosureTiming::Never,
+        feedback_text: question_model::StudentDisclosureTiming::AfterSubmit,
+        solution: question_model::StudentDisclosureTiming::Never,
+        class_statistics: question_model::StudentDisclosureTiming::AfterSubmit,
     };
     replace_disclosure_policy(store.as_ref(), assignment, mixed_policy).await;
 
@@ -86,7 +90,7 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     let before_submit = run_summary(&app, first.run, &student_cookie).await;
     assert!(before_submit["outcomes"]["items"][0]["submittedAt"].is_null());
     assert!(before_submit["outcomes"]["items"][0]["feedback"].is_null());
-    assert!(before_submit["summary"].get("classStatistics").is_none());
+    assert!(before_submit["summary"].get("class_statistics").is_none());
 
     let ester = presented_choice_id(
         &app,
@@ -194,8 +198,8 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     );
     assert!(summary["run"]["score"].is_number());
     assert_eq!(
-        summary["summary"]["classStatistics"],
-        serde_json::json!({ "state": "insufficientEvidence" })
+        summary["summary"]["class_statistics"],
+        serde_json::json!({ "state": "insufficient_evidence" })
     );
     for forbidden in ["answerKey", "checker", "provider", "source", "launchUrl"] {
         assert!(!summary.to_string().contains(forbidden));
@@ -204,20 +208,20 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     replace_disclosure_policy(
         store.as_ref(),
         assignment,
-        question_model::LearnerDisclosurePolicy {
-            score: question_model::LearnerDisclosureTiming::Never,
-            per_item_correctness: question_model::LearnerDisclosureTiming::Never,
-            feedback_text: question_model::LearnerDisclosureTiming::Never,
-            solution: question_model::LearnerDisclosureTiming::Never,
-            class_statistics: question_model::LearnerDisclosureTiming::Never,
+        question_model::StudentDisclosurePolicy {
+            score: question_model::StudentDisclosureTiming::Never,
+            per_item_correctness: question_model::StudentDisclosureTiming::Never,
+            feedback_text: question_model::StudentDisclosureTiming::Never,
+            solution: question_model::StudentDisclosureTiming::Never,
+            class_statistics: question_model::StudentDisclosureTiming::Never,
         },
     )
     .await;
     let revised = run_summary(&app, first.run, &student_cookie).await;
     assert!(revised["run"]["score"].is_null());
     assert!(revised["outcomes"]["items"][0]["feedback"].is_null());
-    assert_eq!(revised["summary"]["scoreState"], "withheld");
-    assert!(revised["summary"].get("classStatistics").is_none());
+    assert_eq!(revised["summary"]["score_state"], "withheld");
+    assert!(revised["summary"].get("class_statistics").is_none());
     assert!(revised["summary"].get("tenant").is_none());
     assert!(revised["summary"].get("enrollment").is_none());
 
@@ -292,8 +296,8 @@ async fn during_attempt_class_statistics_are_projected_without_score_activity() 
     replace_disclosure_policy(
         store.as_ref(),
         assignment,
-        question_model::LearnerDisclosurePolicy {
-            class_statistics: question_model::LearnerDisclosureTiming::DuringAttempt,
+        question_model::StudentDisclosurePolicy {
+            class_statistics: question_model::StudentDisclosureTiming::DuringAttempt,
             ..Default::default()
         },
     )
@@ -308,10 +312,10 @@ async fn during_attempt_class_statistics_are_projected_without_score_activity() 
     .await;
     let summary = run_summary(&app, first.run, &student_cookie).await;
 
-    assert_eq!(summary["summary"]["scoreState"], "noActivity");
+    assert_eq!(summary["summary"]["score_state"], "no_activity");
     assert_eq!(
-        summary["summary"]["classStatistics"],
-        serde_json::json!({ "state": "insufficientEvidence" })
+        summary["summary"]["class_statistics"],
+        serde_json::json!({ "state": "insufficient_evidence" })
     );
     assert!(summary["summary"].get("disclosurePolicy").is_none());
 }
@@ -323,8 +327,8 @@ async fn pre_receipt_assignment_summary_projects_policy_without_materializing() 
     replace_disclosure_policy(
         store.as_ref(),
         assignment,
-        question_model::LearnerDisclosurePolicy {
-            class_statistics: question_model::LearnerDisclosureTiming::DuringAttempt,
+        question_model::StudentDisclosurePolicy {
+            class_statistics: question_model::StudentDisclosureTiming::DuringAttempt,
             ..Default::default()
         },
     )
@@ -334,7 +338,7 @@ async fn pre_receipt_assignment_summary_projects_policy_without_materializing() 
     let student = UserId::from_uuid(id(203));
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, student, assignment)
+            .student_get_enrollment_for_assignment(context, student, assignment)
             .await
             .expect("pre-receipt enrollment lookup")
             .is_none()
@@ -353,14 +357,14 @@ async fn pre_receipt_assignment_summary_projects_policy_without_materializing() 
         .expect("pre-receipt assignment summary response");
     assert_eq!(summary.status(), StatusCode::OK);
     let summary = json(summary).await;
-    assert_eq!(summary["scoreState"], "noActivity");
+    assert_eq!(summary["score_state"], "no_activity");
     assert_eq!(
-        summary["classStatistics"],
-        serde_json::json!({ "state": "insufficientEvidence" })
+        summary["class_statistics"],
+        serde_json::json!({ "state": "insufficient_evidence" })
     );
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, student, assignment)
+            .student_get_enrollment_for_assignment(context, student, assignment)
             .await
             .expect("post-projection enrollment lookup")
             .is_none()
@@ -378,12 +382,12 @@ async fn pre_receipt_assignment_summary_projects_policy_without_materializing() 
     assert_eq!(denied.status(), StatusCode::NOT_FOUND);
 }
 
-/// A five-learner cohort reaches this route only after ordinary HTTP attempts,
+/// A five-Student cohort reaches this route only after ordinary HTTP attempts,
 /// the real scoring worker, and the real item-analysis worker have produced a
 /// current report.  Keep the fixture end-to-end so safe metrics cannot become
 /// a hand-built test-only projection.
 #[tokio::test]
-async fn current_five_learner_analysis_projects_only_safe_available_class_statistics_at_http() {
+async fn current_five_student_analysis_projects_only_safe_available_class_statistics_at_http() {
     let (store, backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
     let tenant = TenantId::from_uuid(id(201));
@@ -394,25 +398,25 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
     replace_disclosure_policy(
         store.as_ref(),
         assignment,
-        question_model::LearnerDisclosurePolicy {
-            score: question_model::LearnerDisclosureTiming::Never,
-            class_statistics: question_model::LearnerDisclosureTiming::AfterSubmit,
+        question_model::StudentDisclosurePolicy {
+            score: question_model::StudentDisclosureTiming::Never,
+            class_statistics: question_model::StudentDisclosureTiming::AfterSubmit,
             ..Default::default()
         },
     )
     .await;
 
-    let mut learners = vec![(UserId::from_uuid(id(203)), student_cookie)];
+    let mut students = vec![(UserId::from_uuid(id(203)), student_cookie)];
     for offset in 0..4_u128 {
-        let learner = UserId::from_uuid(id(250 + offset));
+        let student = UserId::from_uuid(id(250 + offset));
         store
             .upsert_course_member(
                 context,
                 instructor,
                 UpsertCourseMember {
                     course,
-                    user: learner,
-                    display_name: format!("Class statistics learner {offset}"),
+                    user: student,
+                    display_name: format!("Class statistics Student {offset}"),
                     roster_contact: None,
                 },
             )
@@ -422,7 +426,7 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
             .issue_assignment_entitlement(
                 context,
                 MaterializeAssignmentEntitlementCommand::for_instructor_action(
-                    learner,
+                    student,
                     course,
                     assignment,
                     instructor,
@@ -436,14 +440,14 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
             entitlement,
             learning_data_access::AssignmentEntitlementMaterialization::Granted(_)
         ));
-        learners.push((
-            learner,
-            issued_cookie_for(store.as_ref(), tenant, learner, "Class statistics learner").await,
+        students.push((
+            student,
+            issued_cookie_for(store.as_ref(), tenant, student, "Class statistics Student").await,
         ));
     }
 
-    let mut learner_runs = Vec::new();
-    for (_learner, cookie) in &learners {
+    let mut student_runs = Vec::new();
+    for (_student, cookie) in &students {
         let first =
             active_attempt_for(&app, CourseId::from_uuid(id(205)), assignment, cookie).await;
         let second = submit_peptide_linkage(
@@ -466,7 +470,7 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
             cookie,
         )
         .await;
-        learner_runs.push(first.run);
+        student_runs.push(first.run);
     }
 
     publish_pending_assignment_scoring(store.as_ref(), context).await;
@@ -512,31 +516,31 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
         .expect("current analysis read")
         .expect("current analysis report");
     assert_eq!(report.completed_run_count, 5);
-    assert!(!report.incomplete_manual_grading);
+    assert!(!report.incomplete_scoring);
     assert!(!report.recent_rescoring);
     assert_eq!(report.assignment_average_score, Some(1.0));
     assert_eq!(
         store
-            .learner_class_statistics(context, learners[0].0, course, assignment)
+            .student_class_statistics(context, students[0].0, course, assignment)
             .await
-            .expect("current entitled learner statistics"),
-        question_model::LearnerClassStatistics::Available {
-            completed_learner_cohort_size: 5,
+            .expect("current entitled Student statistics"),
+        question_model::StudentClassStatistics::Available {
+            completed_student_cohort_size: 5,
             assignment_average_score: 1.0,
         }
     );
 
-    let summary = run_summary(&app, learner_runs[0], &learners[0].1).await;
-    assert_eq!(summary["summary"]["scoreState"], "withheld");
+    let summary = run_summary(&app, student_runs[0], &students[0].1).await;
+    assert_eq!(summary["summary"]["score_state"], "withheld");
     assert_eq!(
-        summary["summary"]["classStatistics"],
+        summary["summary"]["class_statistics"],
         serde_json::json!({
             "state": "available",
-            "completedLearnerCohortSize": 5,
-            "assignmentAverageScore": 1.0,
+            "completed_student_cohort_size": 5,
+            "assignment_average_score": 1.0,
         })
     );
-    let class_statistics = &summary["summary"]["classStatistics"];
+    let class_statistics = &summary["summary"]["class_statistics"];
     assert_eq!(
         class_statistics.as_object().map(|value| value.len()),
         Some(3)
@@ -545,7 +549,7 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
         "tenant",
         "course",
         "assignment",
-        "learner",
+        "student",
         "enrollment",
         "run",
         "attempt",
@@ -719,9 +723,11 @@ pub(super) async fn submit_peptide_linkage(
     .await;
     assert_eq!(replay.status(), StatusCode::OK);
     assert_eq!(
-        completed["feedback"]["correctness"], true,
-        "each cohort learner must submit the peptide linkage"
+        completed["feedback"]["correctness"],
+        serde_json::Value::Null,
+        "correctness remains withheld until the score is current"
     );
+    assert_eq!(completed["scoringStatus"], "recalculating");
     let replay_body = json(replay).await;
     replay_body
         .get("nextIssued")
@@ -868,9 +874,9 @@ async fn feedback_release_is_content_free_audit_not_projection_authority() {
         before["outcomes"]["items"][0]["feedback"]
     );
 
-    let revised_policy = question_model::LearnerDisclosurePolicy {
-        feedback_text: question_model::LearnerDisclosureTiming::Never,
-        solution: question_model::LearnerDisclosureTiming::Never,
+    let revised_policy = question_model::StudentDisclosurePolicy {
+        feedback_text: question_model::StudentDisclosureTiming::Never,
+        solution: question_model::StudentDisclosureTiming::Never,
         ..Default::default()
     };
     replace_disclosure_policy(store.as_ref(), assignment, revised_policy).await;
@@ -901,12 +907,12 @@ pub(super) async fn run_summary(app: &Router, run: RunId, cookie: &str) -> serde
 }
 
 /// Changes only the current assignment policy through its revision-checked
-/// store contract. Learner routes must use this current value, not a receipt
+/// store contract. Student routes must use this current value, not a receipt
 /// or feedback-release audit event retained from an earlier policy.
 pub(super) async fn replace_disclosure_policy(
     store: &MemoryStore,
     assignment: AssignmentId,
-    disclosure_policy: question_model::LearnerDisclosurePolicy,
+    disclosure_policy: question_model::StudentDisclosurePolicy,
 ) {
     let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(201)));
     let stored = store

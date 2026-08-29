@@ -217,9 +217,6 @@ where
                         feedback: evaluation.feedback,
                     }))
                 }
-                grading::GradeOutcome::NeedsManualGrading => {
-                    Ok(SubmissionDisposition::NeedsManualGrading)
-                }
                 grading::GradeOutcome::Ungraded => Err(RunBackendError::Unsupported(
                     "flat question did not produce a server grade".to_string(),
                 )),
@@ -243,9 +240,6 @@ where
                     result,
                     feedback,
                 }))
-            }
-            grading::GradeOutcome::NeedsManualGrading => {
-                Ok(SubmissionDisposition::NeedsManualGrading)
             }
             grading::GradeOutcome::Ungraded => Err(RunBackendError::Unsupported(
                 "native question did not produce a server grade".to_string(),

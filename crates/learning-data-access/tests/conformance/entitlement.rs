@@ -109,7 +109,7 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
                     audience,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )
@@ -248,7 +248,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![reference]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )

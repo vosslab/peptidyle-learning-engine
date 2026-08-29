@@ -342,12 +342,13 @@ seven-family capability receipt; and `consumer.py` limits disposable E2E ownersh
 `local_stack_control/_consumer_cli.py` is intentionally narrower than the public controller.
 It accepts a private, owner-specific manifest and only runs scoped Compose
 
-The private `DATABASE_BASELINE` runtime is materialized by the acceptance-runtime
-crate and validated by `runtime_manifest.py`. Its mode-0600 handoff contains
+The private `database_baseline` and `course_appearance_cross_store` runtimes are materialized by
+`runtime_manifest.py` and validated by the acceptance-runtime crate. Their mode-0600 handoffs contain
 separate PostgreSQL URLs for the grader, accepted-submission fast path, and
 accepted-submission recovery; `process_logins.py` provisions the matching
-capability-specific local logins. The API consumes only the fast-path URL, and
-the worker consumes only the recovery URL.
+capability-specific local logins. The cross-store profile additionally carries exact private MinIO
+connection files for its service oracle. The API consumes only the fast-path URL, and the worker
+consumes only the recovery URL.
 actions or the matching scoped cleanup plan. The controller's default mutation
 target is `containers`; its disposable adapter does not provide arbitrary
 Podman or Compose-project access.
@@ -442,6 +443,8 @@ offline `pytest tests/` suite.
 Store, disclosure, and qualitative plan suites by exact test name. It creates
 the `DATABASE_BASELINE` profile of the fixed `ple-live-demo-browser` shared
 lease and project. It is live acceptance evidence, not a fast offline test.
+`tests/e2e/e2e_course_appearance.sh` uses the same lease with the distinct
+`course_appearance_cross_store` profile to prove the real PostgreSQL-to-MinIO cleanup invariant.
 
 `./capture_screenshots.sh` is the explicit publication gate when UI, corpus,
 or viewport changes require fresh visual evidence. `./all_test.sh` validates

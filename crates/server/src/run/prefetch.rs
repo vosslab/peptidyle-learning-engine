@@ -300,7 +300,7 @@ where
 {
     // ASVS 2.2.1 and 8.3.1: parse the complete route shape into closed IDs,
     // then verify it at the trusted service layer before any prefetch write.
-    let binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let binding = StudentWorkRoutingBinding::new(course, assignment);
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(value) => value,
         Err(error) => return auth_error_response(error),
@@ -322,7 +322,7 @@ where
     }
     let active = match state
         .store
-        .learner_get_question_attempt(
+        .student_get_question_attempt(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             predecessor,
@@ -347,7 +347,7 @@ where
     }
     let run_items = match state
         .store
-        .learner_assignment_run_items(
+        .student_assignment_run_items(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run.id,
@@ -383,7 +383,7 @@ where
     let actor = authenticated.record.subject.user();
     let existing = match state
         .store
-        .learner_get_prefetched_question(
+        .student_get_prefetched_question(
             authenticated.tenant_context,
             actor,
             run.id,
@@ -491,7 +491,7 @@ where
                 Ok(value) => value,
                 Err(StoreError::Conflict) => match state
                     .store
-                    .learner_get_prefetched_question(
+                    .student_get_prefetched_question(
                         authenticated.tenant_context,
                         actor,
                         run.id,
@@ -582,7 +582,7 @@ pub(super) async fn ensure_active_questions<S, B>(
     store: &S,
     backend: &B,
     authenticated: &AuthenticatedSession,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     run: &AssignmentRun,
     predecessor: Option<QuestionAttemptId>,
 ) -> HttpResult<()>
@@ -595,7 +595,7 @@ where
     }
     require_run_binding(store, authenticated, binding, run).await?;
     let run_items = store
-        .learner_assignment_run_items(
+        .student_assignment_run_items(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run.id,
@@ -621,7 +621,7 @@ where
             let question = load_run_question(store, authenticated, reference).await?;
             let prefetched = match predecessor {
                 Some(predecessor) => store
-                    .learner_get_prefetched_question(
+                    .student_get_prefetched_question(
                         authenticated.tenant_context,
                         authenticated.record.subject.user(),
                         run.id,
@@ -714,7 +714,7 @@ where
 pub(super) async fn require_run_binding<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     run: &AssignmentRun,
 ) -> HttpResult<()> {
     let assignment = owned_assignment_for_run(store, authenticated, run).await?;
@@ -757,7 +757,7 @@ pub(super) async fn load_run_question<S: CatalogStore>(
 }
 
 pub(super) struct IssueQuestionRequest<'a> {
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     assignment_position: u32,
     reference: ProblemVersionRef,
     question: &'a QuestionDefinition,

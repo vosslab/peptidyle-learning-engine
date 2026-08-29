@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::LearnerAssignmentSummarySnapshot;
+use crate::StudentAssignmentSummarySnapshot;
 
 #[async_trait]
 impl crate::ActivityStore for MemoryStore {
@@ -34,7 +34,7 @@ impl crate::ActivityStore for MemoryStore {
             Ok(None)
         }
     }
-    async fn learner_get_enrollment_impl(
+    async fn student_get_enrollment_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -64,7 +64,7 @@ impl crate::ActivityStore for MemoryStore {
         }
         Ok(Some(record))
     }
-    async fn learner_get_enrollment_for_assignment_impl(
+    async fn student_get_enrollment_for_assignment_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -105,7 +105,7 @@ impl crate::ActivityStore for MemoryStore {
         }
         Ok(Some(record))
     }
-    async fn learner_get_run_impl(
+    async fn student_get_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -382,7 +382,7 @@ impl crate::ActivityStore for MemoryStore {
             .collect();
         Ok(Some(page_records(records, &page)))
     }
-    async fn learner_list_runs_impl(
+    async fn student_list_runs_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -437,7 +437,7 @@ impl crate::ActivityStore for MemoryStore {
         }
         Ok(Some(projected_attempt(&state, context.tenant_id(), record)))
     }
-    async fn learner_get_question_attempt_impl(
+    async fn student_get_question_attempt_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -496,12 +496,12 @@ impl crate::ActivityStore for MemoryStore {
         }
         Ok(Some(record))
     }
-    async fn learner_get_summary_impl(
+    async fn student_get_summary_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         enrollment: EnrollmentId,
-    ) -> Result<Option<LearnerAssignmentSummarySnapshot>, StoreError> {
+    ) -> Result<Option<StudentAssignmentSummarySnapshot>, StoreError> {
         let state = self.read_state()?;
         let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
             return Ok(None);
@@ -532,7 +532,7 @@ impl crate::ActivityStore for MemoryStore {
             .get(&(context.tenant_id(), assignment.id))
             .ok_or(StoreError::NotFound)?
             .1;
-        Ok(Some(LearnerAssignmentSummarySnapshot {
+        Ok(Some(StudentAssignmentSummarySnapshot {
             summary,
             scoring_status,
         }))
@@ -648,16 +648,16 @@ pub(super) fn apply_memory_attempt_support(
 
     let previous = projected_attempt(state, tenant, &base);
     let resulting_status = match action {
+        // ASVS 2.2.1-2.2.3, 2.3.1-2.3.4: force-submit has one authorized,
+        // answer-free terminal transition. The support-action receipt preserves
+        // exact replay while the attempt remains closed.
         AttemptSupportAction::ForceSubmit if previous.status == AttemptStatus::InProgress => {
-            AttemptStatus::NeedsManualGrading
+            AttemptStatus::AutoSubmitted
         }
         AttemptSupportAction::Clear
             if matches!(
                 previous.status,
-                AttemptStatus::InProgress
-                    | AttemptStatus::Submitted
-                    | AttemptStatus::AutoSubmitted
-                    | AttemptStatus::NeedsManualGrading
+                AttemptStatus::InProgress | AttemptStatus::Submitted | AttemptStatus::AutoSubmitted
             ) =>
         {
             AttemptStatus::Cleared
@@ -690,7 +690,7 @@ pub(super) fn apply_memory_attempt_support(
             tenant,
             assignment.course_id,
             assignment.id,
-            crate::ScoringInvalidationOrigin::learner_support(
+            crate::ScoringInvalidationOrigin::student_support(
                 crate::ScoringInvalidationOriginId::from_uuid(action_id.as_uuid()),
                 actor,
             ),

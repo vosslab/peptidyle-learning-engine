@@ -9,13 +9,13 @@ import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDet
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { RunId } from "../../generated/api/RunId";
-import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
+import type { CalculatedGradebookResult } from "./decoders/calculated_gradebook";
 import type {
-  LearnerAssignmentSummary,
-  LearnerAssignmentDetail,
+  StudentAssignmentLandingSummary,
+  StudentAssignmentDetail,
   CourseRouteData,
   CourseSummary,
   CursorPage,
@@ -35,10 +35,10 @@ export interface ApiRuntime<Client extends ApiClient = ApiClient> {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
     readonly catalogDetail: QueryFunction<[QuestionId], CatalogProblemDetail>;
-    readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
-    readonly assignments: QueryFunction<[CourseId], CursorPage<LearnerAssignmentSummary>>;
-    readonly assignment: QueryFunction<[AssignmentId], LearnerAssignmentDetail>;
-    readonly assignmentSummary: QueryFunction<[AssignmentId], LearnerAssignmentProgress>;
+    readonly gradebook: QueryFunction<[CourseId], CalculatedGradebookResult>;
+    readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
+    readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
+    readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
     readonly runSummary: QueryFunction<[RunId], RunSummaryResponse>;
@@ -59,7 +59,10 @@ export function createApiRuntime<Client extends ApiClient>(client: Client): ApiR
         (questionId: QuestionId) => client.getCatalogProblemDetail(questionId),
         "catalog-detail",
       ),
-      gradebook: query((courseId: CourseId) => client.listGradebook(courseId), "course-gradebook"),
+      gradebook: query(
+        (courseId: CourseId) => client.getCalculatedGradebook(courseId),
+        "course-gradebook",
+      ),
       assignments: query(
         (courseId: CourseId) => client.listAssignments(courseId),
         "course-assignments",

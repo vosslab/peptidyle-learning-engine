@@ -99,10 +99,11 @@ The logical attempt lifecycle and the durable record status are related but not
 interchangeable. `domain::attempt::AttemptState` is a pure state machine for a
 logical assignment position: it decides whether the next outcome is correct,
 retryable, exhausted, timed out, or abandoned. `QuestionAttempt.status` records
-the operational state of one issued evidence record. The latter also represents
-server workflows that are not a learner retry decision, including
-`NeedsManualGrading`, `Cleared`, and `Exempt`. Neither representation gives the
-browser authority to change a score, bypass a timer, or erase earlier evidence.
+the operational state of one issued evidence record, including server-owned
+`AutoSubmitted`, `Cleared`, and `Exempt` transitions. The separate
+`SubmissionEvaluationStatus` records `automated_pending`, `automated_exception`,
+`graded`, or `exempt`. Neither representation gives the browser authority to
+change a score, bypass a timer, or erase earlier evidence.
 
 Seed replay is secondary to fresh practice. The server gives every newly issued
 parameterized question instance a fresh seed. Resuming or re-rendering that
@@ -194,8 +195,10 @@ deadline or pause extension.
 
 The browser may project these values for display and submits at its displayed
 expiry. Its local clock never becomes an input to the authoritative verdict.
-The API fallback and WebAssembly export use the same lower-camel JSON contract,
-including `pauseExtensionMillis` and `submittedWithinGrace`.
+**Current pre-WN1 behavior:** the API fallback and WebAssembly export use the same lower-camel JSON
+contract, including `pauseExtensionMillis` and `submittedWithinGrace`. The matrix-selected
+`WP-INST-WN1-WA` closure changes PLE bridge JSON to direct `pause_extension_millis` and
+`submitted_within_grace`; raw wasm-bindgen exports remain protocol-owned.
 
 ## Independent policies
 
@@ -250,7 +253,7 @@ normalized `assignmentAverageScore`. The server reads the current course-local
 analysis only after S5 and S3/time evaluation. Its completed-learner cohort is
 the latest completed run per enrollment. The default privacy floor is five;
 the server returns `insufficientEvidence` for a smaller cohort, incomplete
-manual grading, recent rescoring, or a missing or invalid average. The browser
+automated scoring, recent rescoring, or a missing or invalid average. The browser
 renders that result and never derives it from policy, timing, a clock, or
 aggregate evidence.
 

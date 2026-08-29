@@ -2,9 +2,10 @@ import { A } from "@solidjs/router";
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import {
-  LearnerAssignmentPresentation,
-  toLearnerAssignmentPresentationData,
-} from "../../components/learner_assignment_presentation";
+  StudentAssignmentPresentation,
+  toStudentAssignmentPresentationData,
+} from "../../components/student_assignment_presentation";
+import "../../components/student_assignment_presentation.css";
 import { assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import {
@@ -76,7 +77,7 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
       );
       setState({
         kind: "ready",
-        assignment: toLearnerAssignmentPresentationData(projection),
+        assignment: toStudentAssignmentPresentationData(projection),
       });
     } catch (error: unknown) {
       setState({ kind: studentViewFailureState(error) });
@@ -131,7 +132,7 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
     >
       {(ready) => (
         <section class="assignment-workspace-student-view" aria-label="Student view">
-          <LearnerAssignmentPresentation
+          <StudentAssignmentPresentation
             assignment={ready.assignment}
             contextCue={<span>{STUDENT_VIEW_CUE}</span>}
             returnAction={

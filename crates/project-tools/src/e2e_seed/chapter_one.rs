@@ -280,7 +280,7 @@ pub(super) async fn seed_chapter_one_pilot(
                 )
                 .expect("Chapter 1 instructions are valid"),
                 audience: question_model::AssignmentAudience::CourseWide,
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 items,
                 selection_groups: Vec::new(),
                 policies: RunPolicies {

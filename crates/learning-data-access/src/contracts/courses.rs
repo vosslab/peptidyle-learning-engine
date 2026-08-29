@@ -119,7 +119,7 @@ pub struct AssignmentRecord {
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
     /// Assignment-owned learner-facing disclosure schedule, evaluated only by
     /// the server-side learner projection path.
-    pub disclosure_policy: question_model::LearnerDisclosurePolicy,
+    pub disclosure_policy: question_model::StudentDisclosurePolicy,
     /// Four independent run policies.
     pub policies: RunPolicies,
 }
@@ -167,7 +167,7 @@ pub fn new_assignment_draft(
             audience: question_model::AssignmentAudience::CourseWide,
             items: Vec::new(),
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: question_model::GradePolicy::Highest,
@@ -194,7 +194,7 @@ pub struct AssignmentContentUpdate {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssignmentPoliciesUpdate {
     pub audience: question_model::AssignmentAudience,
-    pub disclosure_policy: question_model::LearnerDisclosurePolicy,
+    pub disclosure_policy: question_model::StudentDisclosurePolicy,
     pub policies: RunPolicies,
     pub teaching_settings: question_model::AssignmentTeachingSettings,
 }
@@ -207,7 +207,7 @@ pub struct AssignmentUpdate {
     pub audience: question_model::AssignmentAudience,
     pub items: Vec<question_model::AssignmentItem>,
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
-    pub disclosure_policy: question_model::LearnerDisclosurePolicy,
+    pub disclosure_policy: question_model::StudentDisclosurePolicy,
     pub policies: RunPolicies,
 }
 

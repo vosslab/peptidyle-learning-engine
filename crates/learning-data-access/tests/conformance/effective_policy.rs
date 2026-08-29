@@ -34,7 +34,7 @@ fn policy_issue(
 ) -> IssueQuestionAttemptCommand {
     IssueQuestionAttemptCommand {
         actor: learner,
-        binding: LearnerWorkRoutingBinding::new(course, assignment),
+        binding: StudentWorkRoutingBinding::new(course, assignment),
         attempt,
         run,
         assignment_position: 0,
@@ -178,7 +178,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![reference]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -199,7 +199,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![reference]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -398,7 +398,7 @@ where
     let proposed_run = RunId::from_uuid(uuid(99_030));
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, learner, assignment_a)
+            .student_get_enrollment_for_assignment(context, learner, assignment_a)
             .await
             .expect("enrollment lookup before denied start")
             .is_none()
@@ -408,7 +408,7 @@ where
             .start_or_resume_run(
                 context,
                 learner,
-                LearnerWorkRoutingBinding::new(course, assignment_a),
+                StudentWorkRoutingBinding::new(course, assignment_a),
                 proposed_run,
             )
             .await,
@@ -416,7 +416,7 @@ where
     ));
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, learner, assignment_a)
+            .student_get_enrollment_for_assignment(context, learner, assignment_a)
             .await
             .expect("enrollment lookup after denied start")
             .is_none()
@@ -514,7 +514,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment_a),
+            StudentWorkRoutingBinding::new(course, assignment_a),
             RunId::from_uuid(uuid(99_031)),
         )
         .await
@@ -686,7 +686,7 @@ async fn memory_start_rejects_valid_assignment_bound_to_different_course_without
         .expect("asserted course");
 
     let existing_enrollment = store
-        .learner_get_enrollment_for_assignment(fixture.context, learner, fixture.assignment)
+        .student_get_enrollment_for_assignment(fixture.context, learner, fixture.assignment)
         .await
         .expect("existing enrollment lookup")
         .expect("fixture enrollment");
@@ -702,7 +702,7 @@ async fn memory_start_rejects_valid_assignment_bound_to_different_course_without
             .start_or_resume_run(
                 fixture.context,
                 learner,
-                LearnerWorkRoutingBinding::new(asserted_course, fixture.assignment),
+                StudentWorkRoutingBinding::new(asserted_course, fixture.assignment),
                 proposed_run,
             )
             .await,
@@ -712,7 +712,7 @@ async fn memory_start_rejects_valid_assignment_bound_to_different_course_without
 
     assert_eq!(
         store
-            .learner_get_enrollment_for_assignment(fixture.context, learner, fixture.assignment)
+            .student_get_enrollment_for_assignment(fixture.context, learner, fixture.assignment)
             .await
             .expect("enrollment lookup after rejected start"),
         Some(existing_enrollment),

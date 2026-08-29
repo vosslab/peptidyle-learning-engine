@@ -19,8 +19,8 @@ use std::{
 
 use async_trait::async_trait;
 use learning_data_access::{
-    ExportArtifactRecord, JobClaimFilter, JobFailureKind, JobId, JobKind, JobLeaseDuration,
-    JobLeaseToken, JobPayload, JobStore, QueueDepth, StoreError, TenantContext,
+    ClaimedJob, ExportArtifactRecord, JobClaimFilter, JobFailureKind, JobId, JobKind,
+    JobLeaseDuration, JobLeaseToken, JobPayload, JobStore, QueueDepth, StoreError, TenantContext,
 };
 use question_model::{
     AssignmentId, ObjectId, QuestionAttemptId, ScoringGeneration, TenantId, WorkspaceId,
@@ -297,7 +297,7 @@ impl JobRegistry {
 
 /// Validated bounds for one worker process.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct WorkerSettings {
+pub struct WorkerSettings {
     lease: JobLeaseDuration,
     preparation_timeout: Duration,
     cancellation_grace: Duration,
@@ -306,7 +306,7 @@ pub(crate) struct WorkerSettings {
 
 impl WorkerSettings {
     /// Creates bounds leaving a cancellation confirmation interval inside lease.
-    pub(crate) fn new(
+    pub fn new(
         lease_seconds: u32,
         preparation_timeout: Duration,
         batch_size: usize,
@@ -357,7 +357,7 @@ pub(crate) struct DrainReport {
 }
 
 impl DrainReport {
-    fn claimed(&self) -> bool {
+    pub(crate) fn claimed(&self) -> bool {
         self.completed + self.rescheduled + self.retrying + self.dead + self.finalization_failed > 0
     }
 
@@ -552,6 +552,35 @@ where
         else {
             return Ok(DrainReport::default());
         };
+        self.execute_claimed(claimed).await
+    }
+
+    /// Claims and processes one known generic queue identity at most.
+    ///
+    /// Synchronous server-owned convergence paths use the same preparation,
+    /// cancellation, staging, and atomic commit behavior as the background
+    /// worker while avoiding unrelated ready work.
+    pub(crate) async fn drain_exact(
+        &self,
+        job: JobId,
+        kind: JobKind,
+    ) -> Result<DrainReport, StoreError> {
+        let Some(claimed) = self
+            .store
+            .claim_exact_job(job, kind, self.settings.lease)
+            .await?
+        else {
+            return Ok(DrainReport::default());
+        };
+        if claimed.id != job {
+            return Err(StoreError::Unavailable(
+                "exact queue broker returned another job identity".to_string(),
+            ));
+        }
+        self.execute_claimed(claimed).await
+    }
+
+    async fn execute_claimed(&self, claimed: ClaimedJob) -> Result<DrainReport, StoreError> {
         let mut report = DrainReport::default();
         let family = self.registry.for_payload(&claimed.payload).ok_or_else(|| {
             StoreError::Unavailable(
@@ -571,13 +600,20 @@ where
             match tokio::time::timeout(self.settings.preparation_timeout, &mut task).await {
                 Ok(Ok(Ok(effect))) => Some(effect),
                 Ok(Ok(Err(failure))) => {
-                    self.finalize_failure(&mut report, claimed.id, claimed.lease_token, failure)
-                        .await;
+                    self.finalize_failure(
+                        &mut report,
+                        context,
+                        claimed.id,
+                        claimed.lease_token,
+                        failure,
+                    )
+                    .await;
                     None
                 }
                 Ok(Err(_panic)) => {
                     self.finalize_failure(
                         &mut report,
+                        context,
                         claimed.id,
                         claimed.lease_token,
                         JobFailureKind::Transient,
@@ -592,6 +628,7 @@ where
                         Ok(_) => {
                             self.finalize_failure(
                                 &mut report,
+                                context,
                                 claimed.id,
                                 claimed.lease_token,
                                 JobFailureKind::TimedOut,
@@ -605,6 +642,7 @@ where
                             let _ = task.await;
                             self.finalize_failure(
                                 &mut report,
+                                context,
                                 claimed.id,
                                 claimed.lease_token,
                                 JobFailureKind::Permanent,
@@ -636,11 +674,12 @@ where
     async fn finalize_failure(
         &self,
         report: &mut DrainReport,
+        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
     ) {
-        match self.store.fail_job(id, token, failure).await {
+        match self.store.fail_job(context, id, token, failure).await {
             Ok(learning_data_access::JobFailureDisposition::Retrying) => report.retrying += 1,
             Ok(learning_data_access::JobFailureDisposition::Dead) => report.dead += 1,
             Err(_) => report.finalization_failed += 1,

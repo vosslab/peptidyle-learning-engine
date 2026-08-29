@@ -3,20 +3,26 @@
 use adapter_native::{NativeAdapter, NativeIssuedAttempt};
 use learning_data_access::{
     AssignmentRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
-    PageRequest, PageSize, PresentationCapability, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitQuestionAttemptCommand, TenantContext,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, PageRequest, PageSize,
+    PresentationCapability, Store, StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
+    TenantContext,
 };
 use question_model::generation::Seed;
-use question_model::presentation::{build_presentation_v1, reproduce_presentation_v1};
+use question_model::presentation::{
+    InspectedStudentResponseV1, PresentationV1, build_presentation_v1,
+    project_durable_response_to_rendered_v1, reproduce_presentation_v1,
+};
 use question_model::{
     AssignmentEnrollment, AttemptProvenance, AttemptResult, AttemptStatus, EnrollmentId,
-    FeedbackContent, PresentationBindingV1, QuestionAttemptId, QuestionDefinition,
-    QuestionEnvelope, RunId, UserId,
+    PresentationBindingV1, QuestionAttemptId, QuestionDefinition, QuestionEnvelope, RunId,
+    StudentResponse, UserId,
 };
 
 use crate::records::BaseCourseIds;
-use crate::{BaseCourseInstallError, BaseCourseParticipants};
+use crate::{
+    AcceptedSubmissionSeedExecutor, AcceptedSubmissionSeedOutcome, AcceptedSubmissionSeedRequest,
+    BaseCourseInstallError, BaseCourseParticipants,
+};
 
 const COMPLETED_SEED: u64 = 17;
 const ACTIVE_SEED: u64 = 23;
@@ -43,6 +49,7 @@ struct InstalledIssuedAttempt {
     provenance: AttemptProvenance,
     presentation: PresentationBindingV1,
     presentation_snapshot: learning_data_access::ReceiptPresentationSnapshot,
+    submission_response: StudentResponse,
     completed_result: AttemptResult,
 }
 
@@ -55,6 +62,7 @@ pub(crate) struct ActivityRecords<'a> {
 
 pub(crate) async fn ensure_activity(
     store: &learning_data_access::postgres::PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     context: TenantContext,
     participants: BaseCourseParticipants,
     ids: BaseCourseIds,
@@ -62,12 +70,11 @@ pub(crate) async fn ensure_activity(
 ) -> Result<(), BaseCourseInstallError> {
     ensure_completed_activity(
         store,
+        seed_executor,
         context,
         participants.mary(),
         ids,
-        records.assignment,
-        records.question,
-        records.mary_enrollment,
+        &records,
     )
     .await?;
     ensure_active_activity(
@@ -84,13 +91,15 @@ pub(crate) async fn ensure_activity(
 
 async fn ensure_completed_activity(
     store: &learning_data_access::postgres::PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     context: TenantContext,
     student: UserId,
     ids: BaseCourseIds,
-    assignment: &AssignmentRecord,
-    question: &QuestionDefinition,
-    enrollment: &AssignmentEnrollment,
+    records: &ActivityRecords<'_>,
 ) -> Result<(), BaseCourseInstallError> {
+    let assignment = records.assignment;
+    let question = records.question;
+    let enrollment = records.mary_enrollment;
     let issued = installed_issued_attempt(question, COMPLETED_SEED)?;
     let run = store
         .get_run(context, ids.mary_run)
@@ -117,7 +126,7 @@ async fn ensure_completed_activity(
             store,
             context,
             student,
-            LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+            StudentWorkRoutingBinding::new(assignment.course_id, assignment.id),
             ids.mary_attempt,
             &issued,
         )
@@ -131,7 +140,7 @@ async fn ensure_completed_activity(
                 .start_or_resume_run(
                     context,
                     student,
-                    LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+                    StudentWorkRoutingBinding::new(assignment.course_id, assignment.id),
                     ids.mary_run,
                 )
                 .await
@@ -147,12 +156,11 @@ async fn ensure_completed_activity(
             )
             .await?;
             submit_attempt(
-                store,
+                seed_executor,
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                StudentWorkRoutingBinding::new(ids.base_course, ids.assignment),
                 attempt.id,
-                question,
                 &issued,
             )
             .await
@@ -170,12 +178,11 @@ async fn ensure_completed_activity(
             )
             .await?;
             submit_attempt(
-                store,
+                seed_executor,
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                StudentWorkRoutingBinding::new(ids.base_course, ids.assignment),
                 attempt.id,
-                question,
                 &issued,
             )
             .await
@@ -183,12 +190,11 @@ async fn ensure_completed_activity(
         CompletedActivityState::IssuedAttempt => {
             let attempt = attempt.expect("validated completed activity has an attempt");
             submit_attempt(
-                store,
+                seed_executor,
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                StudentWorkRoutingBinding::new(ids.base_course, ids.assignment),
                 attempt.id,
-                question,
                 &issued,
             )
             .await
@@ -231,7 +237,7 @@ async fn ensure_active_activity(
             store,
             context,
             student,
-            LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+            StudentWorkRoutingBinding::new(assignment.course_id, assignment.id),
             ids.jack_attempt,
             &issued,
         )
@@ -245,7 +251,7 @@ async fn ensure_active_activity(
                 .start_or_resume_run(
                     context,
                     student,
-                    LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+                    StudentWorkRoutingBinding::new(assignment.course_id, assignment.id),
                     ids.jack_run,
                 )
                 .await
@@ -505,6 +511,30 @@ fn completed_response() -> question_model::StudentResponse {
     }
 }
 
+fn browser_completed_response(
+    presentation: &PresentationV1,
+) -> Result<StudentResponse, BaseCourseInstallError> {
+    match project_durable_response_to_rendered_v1(&completed_response(), presentation).map_err(
+        |_| {
+            BaseCourseInstallError::baseline(
+                "the completed Base Course answer cannot bind to its issued presentation",
+            )
+        },
+    )? {
+        InspectedStudentResponseV1::MultipleChoice { selected } if selected.len() == 1 => {
+            Ok(StudentResponse::MultipleChoice {
+                selected: selected
+                    .into_iter()
+                    .map(|id| question_model::response::ChoiceId::new(id.as_str()))
+                    .collect(),
+            })
+        }
+        _ => Err(BaseCourseInstallError::baseline(
+            "the completed Base Course answer has an unexpected rendered response shape",
+        )),
+    }
+}
+
 async fn reject_unrelated_activity(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
@@ -542,7 +572,7 @@ async fn issue_attempt(
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                binding: StudentWorkRoutingBinding::new(ids.base_course, ids.assignment),
                 attempt,
                 run,
                 assignment_position: 0,
@@ -575,34 +605,33 @@ async fn issue_attempt(
 }
 
 async fn submit_attempt(
-    store: &learning_data_access::postgres::PostgresStore,
+    seed_executor: &dyn AcceptedSubmissionSeedExecutor,
     context: TenantContext,
     student: UserId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
-    question: &QuestionDefinition,
     issued: &InstalledIssuedAttempt,
 ) -> Result<(), BaseCourseInstallError> {
-    let response = completed_response();
-    let (result, feedback) = grade_installed_response(question, issued, &response)?;
+    let response = issued.submission_response.clone();
     let idempotency_key = SubmissionIdempotencyKey::parse("installed-base-course-mary-answer")
         .at("forming the Base Course submission key")?;
-    store
-        .submit_question_attempt(
+    match seed_executor
+        .execute_seed_submission(AcceptedSubmissionSeedRequest {
             context,
-            SubmitQuestionAttemptCommand {
-                actor: student,
-                binding,
-                attempt,
-                response,
-                result,
-                feedback,
-                idempotency_key,
-            },
-        )
+            actor: student,
+            binding,
+            attempt,
+            response,
+            idempotency_key,
+        })
         .await
-        .at("submitting the completed Base Course answer")?;
-    Ok(())
+        .at("submitting the completed Base Course answer through accepted submission")?
+    {
+        AcceptedSubmissionSeedOutcome::Completed => Ok(()),
+        AcceptedSubmissionSeedOutcome::PendingRecovery => Err(BaseCourseInstallError::baseline(
+            "the completed Base Course answer remains pending accepted-submission recovery",
+        )),
+    }
 }
 
 fn installed_issued_attempt(
@@ -619,27 +648,10 @@ fn installed_issued_attempt(
         .map_err(|source| {
             BaseCourseInstallError::native("issuing the Base Course native question", source)
         })?;
-    let response = completed_response();
-    let (outcome, _) = adapter
-        .grade_with_feedback(
-            question,
-            envelope.seed,
-            &parameter_hash,
-            &provenance,
-            &[],
-            &response,
-        )
-        .map_err(|source| {
-            BaseCourseInstallError::native("grading the Base Course native answer", source)
-        })?;
-    let grading::GradeOutcome::Graded(completed_result) = outcome else {
-        return Err(BaseCourseInstallError::baseline(
-            "the Base Course native answer did not produce an automatic grade",
-        ));
-    };
     let presentation = build_presentation_v1(&envelope, &[]).map_err(|source| {
         BaseCourseInstallError::presentation("building the Base Course presentation", source)
     })?;
+    let submission_response = browser_completed_response(&presentation)?;
     let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
         question.clone(),
         IssuedQuestionFamilyWitnessV1::Native {
@@ -674,40 +686,20 @@ fn installed_issued_attempt(
             envelope: presentation.envelope,
             asset_bindings: presentation.asset_bindings,
         },
-        completed_result,
+        submission_response,
+        completed_result: AttemptResult {
+            points_earned: 1.0,
+            points_possible: 1.0,
+            correct: true,
+        },
     })
-}
-
-fn grade_installed_response(
-    question: &QuestionDefinition,
-    issued: &InstalledIssuedAttempt,
-    response: &question_model::StudentResponse,
-) -> Result<(AttemptResult, FeedbackContent), BaseCourseInstallError> {
-    let (outcome, feedback) = NativeAdapter::new()
-        .grade_with_feedback(
-            question,
-            issued.envelope.seed,
-            &issued.parameter_hash,
-            &issued.provenance,
-            &[],
-            response,
-        )
-        .map_err(|source| {
-            BaseCourseInstallError::native("grading the completed Base Course answer", source)
-        })?;
-    let grading::GradeOutcome::Graded(result) = outcome else {
-        return Err(BaseCourseInstallError::baseline(
-            "the Base Course native answer did not produce an automatic grade",
-        ));
-    };
-    Ok((result, feedback))
 }
 
 async fn validate_persisted_issuance(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
     student: UserId,
-    routing: LearnerWorkRoutingBinding,
+    routing: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
     issued: &InstalledIssuedAttempt,
 ) -> Result<(), BaseCourseInstallError> {
@@ -893,15 +885,27 @@ mod tests {
                 &[],
             )
             .unwrap();
-        let (result, feedback) =
-            grade_installed_response(&question, &issued, &completed_response()).unwrap();
         let presentation =
             reproduce_presentation_v1(&issued.envelope, &[], issued.presentation).unwrap();
 
         assert_eq!(replay, issued.envelope);
-        assert_eq!(result, issued.completed_result);
-        assert!(feedback.correct_response.is_some());
+        assert_eq!(issued.completed_result.points_earned, 1.0);
         assert_eq!(presentation.envelope, issued.presentation_snapshot.envelope);
+        assert!(
+            domain::validation::validate_presentation_response_format(
+                &presentation.envelope.response,
+                &issued.submission_response,
+            )
+            .is_valid()
+        );
+        assert_eq!(
+            question_model::presentation::translate_rendered_response_v1(
+                &issued.submission_response,
+                &presentation,
+            )
+            .unwrap(),
+            completed_response(),
+        );
     }
 
     #[test]

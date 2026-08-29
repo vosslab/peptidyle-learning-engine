@@ -15,7 +15,7 @@ use super::validation::{
 };
 use crate::{
     BeginExternalToolGradeCommand, ExternalToolBinding, ExternalToolLaunchProof,
-    ExternalToolLeaseToken, LearnerWorkRoutingBinding, StoreError,
+    ExternalToolLeaseToken, StoreError, StudentWorkRoutingBinding,
     validate_external_snapshot_binding,
 };
 
@@ -40,7 +40,7 @@ pub(super) async fn postgres_external_activity_is_indeterminate(
 pub(super) async fn prepare_external_student_attempt(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     actor: UserId,
     attempt: QuestionAttemptId,
     external_binding: &ExternalToolBinding,
@@ -48,7 +48,7 @@ pub(super) async fn prepare_external_student_attempt(
     let prepared = submission_preparation::prepare_bound_student_attempt(
         transaction,
         tenant,
-        learner_work_binding,
+        student_work_binding,
         actor,
         attempt,
     )
@@ -165,7 +165,7 @@ pub(super) async fn validate_and_lock_external_launch(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
     binding: &ExternalToolBinding,
     proof: &ExternalToolLaunchProof,
@@ -190,7 +190,7 @@ pub(super) async fn validate_and_lock_external_launch(
     if !postgres_binding_matches(&stored, binding)
         || stored.response_sha256 != binding.response_sha256
         || token_hash.as_slice() != proof.token.hash().as_bytes()
-        || !postgres_stored_course_matches(&row, learner_work_binding)?
+        || !postgres_stored_course_matches(&row, student_work_binding)?
     {
         return Err(StoreError::Conflict);
     }

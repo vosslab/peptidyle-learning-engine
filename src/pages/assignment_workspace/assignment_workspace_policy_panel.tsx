@@ -2,8 +2,8 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { LearnerDisclosurePolicy } from "../../../generated/api/LearnerDisclosurePolicy";
-import type { LearnerDisclosureTiming } from "../../../generated/api/LearnerDisclosureTiming";
+import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
+import type { StudentDisclosureTiming } from "../../../generated/api/StudentDisclosureTiming";
 import type { RunPolicies } from "../../../generated/api/RunPolicies";
 
 import type {
@@ -31,12 +31,12 @@ function variationPolicy(value: string): RunPolicies["variation"] {
   throw new Error("Variation policy selection is invalid");
 }
 
-function disclosureTiming(value: string): LearnerDisclosureTiming {
+function disclosureTiming(value: string): StudentDisclosureTiming {
   if (
-    value === "duringAttempt" ||
-    value === "afterSubmit" ||
-    value === "afterDue" ||
-    value === "afterClose" ||
+    value === "during_attempt" ||
+    value === "after_submit" ||
+    value === "after_due" ||
+    value === "after_close" ||
     value === "never"
   ) {
     return value;
@@ -44,23 +44,23 @@ function disclosureTiming(value: string): LearnerDisclosureTiming {
   throw new Error("Disclosure timing selection is invalid");
 }
 
-const disclosureTimingOptions: ReadonlyArray<readonly [LearnerDisclosureTiming, string]> = [
-  ["duringAttempt", "While they work"],
-  ["afterSubmit", "After they submit"],
-  ["afterDue", "After the due time"],
-  ["afterClose", "After the close time"],
+const disclosureTimingOptions: ReadonlyArray<readonly [StudentDisclosureTiming, string]> = [
+  ["during_attempt", "While they work"],
+  ["after_submit", "After they submit"],
+  ["after_due", "After the due time"],
+  ["after_close", "After the close time"],
   ["never", "Never"],
 ];
 
 interface AssignmentWorkspacePolicyPanelProps {
   readonly policies: () => RunPolicies;
-  readonly disclosurePolicy: () => LearnerDisclosurePolicy;
+  readonly disclosurePolicy: () => StudentDisclosurePolicy;
   readonly runPolicyDraft: () => RunPolicyDraft;
   readonly runPolicyFieldError: (field: RunPolicyDraftField) => string | undefined;
   readonly variationPolicyError: () => string | undefined;
   readonly onPoliciesChange: (policies: RunPolicies) => void;
   readonly onVariationChange: (policies: RunPolicies) => void;
-  readonly onDisclosurePolicyChange: (policy: LearnerDisclosurePolicy) => void;
+  readonly onDisclosurePolicyChange: (policy: StudentDisclosurePolicy) => void;
   readonly onRunPolicyDraftChange: (field: RunPolicyDraftField, raw: string) => void;
   readonly onCompletionKindChange: (kind: RunPolicies["completion"]["kind"]) => void;
   readonly onContinuedPracticeKindChange: (kind: RunPolicies["continuedPractice"]["kind"]) => void;
@@ -75,7 +75,7 @@ interface AssignmentWorkspacePolicyPanelProps {
 export function AssignmentWorkspacePolicyPanel(
   props: AssignmentWorkspacePolicyPanelProps,
 ): JSX.Element {
-  function changeDisclosure(field: keyof LearnerDisclosurePolicy, value: string): void {
+  function changeDisclosure(field: keyof StudentDisclosurePolicy, value: string): void {
     props.onDisclosurePolicyChange({
       ...props.disclosurePolicy(),
       [field]: disclosureTiming(value),
@@ -247,13 +247,13 @@ export function AssignmentWorkspacePolicyPanel(
         />
         <DisclosureControl
           label="Per-item correctness"
-          value={props.disclosurePolicy().perItemCorrectness}
-          onChange={(value) => changeDisclosure("perItemCorrectness", value)}
+          value={props.disclosurePolicy().per_item_correctness}
+          onChange={(value) => changeDisclosure("per_item_correctness", value)}
         />
         <DisclosureControl
           label="Feedback text"
-          value={props.disclosurePolicy().feedbackText}
-          onChange={(value) => changeDisclosure("feedbackText", value)}
+          value={props.disclosurePolicy().feedback_text}
+          onChange={(value) => changeDisclosure("feedback_text", value)}
         />
         <DisclosureControl
           label="Correct answer or solution"
@@ -262,8 +262,8 @@ export function AssignmentWorkspacePolicyPanel(
         />
         <DisclosureControl
           label="Class statistics"
-          value={props.disclosurePolicy().classStatistics}
-          onChange={(value) => changeDisclosure("classStatistics", value)}
+          value={props.disclosurePolicy().class_statistics}
+          onChange={(value) => changeDisclosure("class_statistics", value)}
         />
       </fieldset>
     </section>
@@ -287,7 +287,7 @@ function FieldError(props: {
 
 function DisclosureControl(props: {
   readonly label: string;
-  readonly value: LearnerDisclosureTiming;
+  readonly value: StudentDisclosureTiming;
   readonly onChange: (value: string) => void;
 }): JSX.Element {
   return (

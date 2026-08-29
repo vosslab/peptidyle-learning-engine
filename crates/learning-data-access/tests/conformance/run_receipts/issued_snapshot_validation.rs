@@ -4,12 +4,12 @@ use super::*;
 async fn memory_rejects_missing_or_mismatched_issued_snapshots_before_mutation() {
     let store = MemoryStore::default();
     let fixture =
-        exercise_run_api_receipts(&store, LearnerDisclosurePolicy::default(), 20_000).await;
+        exercise_run_api_receipts(&store, StudentDisclosurePolicy::default(), 20_000).await;
     let run = store
         .start_or_resume_run(
             fixture.context,
             fixture.student_user,
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(420)),
         )
         .await
@@ -17,7 +17,7 @@ async fn memory_rejects_missing_or_mismatched_issued_snapshots_before_mutation()
     let (binding, snapshot) = receipt_presentation(fixture.version, 778, 12);
     let command = IssueQuestionAttemptCommand {
         actor: fixture.student_user,
-        binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+        binding: StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
         attempt: QuestionAttemptId::from_uuid(uuid(421)),
         run: run.id,
         assignment_position: 0,

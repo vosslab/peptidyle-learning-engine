@@ -1,8 +1,8 @@
 //! Server-only answer-key types (WP-C6, MOD-GRD).
 //!
-//! These values decide correctness or guide manual grading. They therefore
-//! stay in `grading`, outside the generated browser types and the WASM
-//! dependency closure.
+//! These values decide deterministic correctness. They therefore stay in
+//! `grading`, outside the generated browser types and the WASM dependency
+//! closure.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -55,11 +55,6 @@ pub enum AnswerKey {
     Hotspot {
         /// Exact correct region set; geometry remains in the public definition.
         correct: BTreeSet<ChoiceId>,
-    },
-    /// Private rubric for a server-routed manual review.
-    FileUpload {
-        /// Instructions visible to the grader, not the student client.
-        rubric: String,
     },
 }
 

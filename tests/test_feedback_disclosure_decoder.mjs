@@ -6,22 +6,22 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeDisclosedFeedback,
-  decodeLearnerQuestionAttempt,
+  decodeStudentQuestionAttempt,
   decodeQuestionAttempt,
   decodeRunSummaryResponse,
   decodeSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 
-const learnerProgress = {
-  scoringStatus: "current",
-  scoreState: "available",
-  currentScore: 0,
-  bestScore: 1,
-  latestScore: 0,
-  completedRunCount: 2,
-  totalQuestionAttempts: 4,
-  lastActivityAt: 1786000000000,
+const studentProgress = {
+  scoring_status: "current",
+  score_state: "available",
+  current_score: 0,
+  best_score: 1,
+  latest_score: 0,
+  completed_run_count: 2,
+  total_question_attempts: 4,
+  last_activity_at: 1786000000000,
 };
 
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {
@@ -36,7 +36,7 @@ test("disclosed feedback preserves allowed accessible blocks and optional omissi
 test("learner attempts require score freshness and redact stale numeric results", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   const current = { ...attempt, scoringStatus: "current" };
-  assert.deepEqual(decodeLearnerQuestionAttempt(current), current);
+  assert.deepEqual(decodeStudentQuestionAttempt(current), current);
   assert.throws(
     () => decodeQuestionAttempt(current),
     DecodeError,
@@ -45,18 +45,26 @@ test("learner attempts require score freshness and redact stale numeric results"
 
   for (const scoringStatus of ["recalculating", "failed"]) {
     const redacted = { ...attempt, result: null, scoringStatus };
-    assert.deepEqual(decodeLearnerQuestionAttempt(redacted), redacted);
+    assert.deepEqual(decodeStudentQuestionAttempt(redacted), redacted);
     assert.throws(
-      () => decodeLearnerQuestionAttempt({ ...redacted, result: attempt.result }),
+      () => decodeStudentQuestionAttempt({ ...redacted, result: attempt.result }),
       DecodeError,
       `${scoringStatus} must reject a numeric result`,
     );
   }
 
   const { scoringStatus: _scoringStatus, ...missingStatus } = current;
-  assert.throws(() => decodeLearnerQuestionAttempt(missingStatus), DecodeError);
+  assert.throws(() => decodeStudentQuestionAttempt(missingStatus), DecodeError);
   assert.throws(
-    () => decodeLearnerQuestionAttempt({ ...attempt, scoringStatus: "stale" }),
+    () => decodeStudentQuestionAttempt({ ...attempt, scoringStatus: "stale" }),
+    DecodeError,
+  );
+});
+
+test("attempt decoder rejects the retired manual attempt status", () => {
+  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  assert.throws(
+    () => decodeStudentQuestionAttempt({ ...attempt, status: "needs_manual_grading" }),
     DecodeError,
   );
 });
@@ -68,15 +76,15 @@ test("learner pool provenance exposes only a valid server-selected ordinal", () 
     scoringStatus: "current",
     poolSelection: { itemNumber: 1, itemCount: 2 },
   };
-  assert.deepEqual(decodeLearnerQuestionAttempt(pooled), pooled);
+  assert.deepEqual(decodeStudentQuestionAttempt(pooled), pooled);
   assert.throws(
     () =>
-      decodeLearnerQuestionAttempt({ ...pooled, poolSelection: { itemNumber: 3, itemCount: 2 } }),
+      decodeStudentQuestionAttempt({ ...pooled, poolSelection: { itemNumber: 3, itemCount: 2 } }),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodeLearnerQuestionAttempt({
+      decodeStudentQuestionAttempt({
         ...pooled,
         poolSelection: { itemNumber: 1, itemCount: 2, seed: 7 },
       }),
@@ -92,7 +100,7 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
       appearance: { theme: "grass", revision: "1", banner: null },
     },
     run,
-    summary: learnerProgress,
+    summary: studentProgress,
     practiceAllowed: true,
     outcomes: {
       items: [

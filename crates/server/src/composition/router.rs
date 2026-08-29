@@ -52,7 +52,6 @@ where
         + FlatImportProvenanceStore
         + CourseItemAnalysisStore
         + ExportJobStore
-        + ManualGradingStore
         + QtiImportApiStore
         + QtiImportStore
         + RetentionStore
@@ -62,6 +61,7 @@ where
         + learning_data_access::CourseInvitationDeliveryStore
         + learning_data_access::ManualGradeExportStore
         + learning_data_access::CourseGradebookStore
+        + learning_data_access::StudentWorkInspectionStore
         + learning_data_access::CourseGroupManagementStore
         + learning_data_access::AccountIdentityStore
         + learning_data_access::AccountSessionStore
@@ -71,7 +71,7 @@ where
         + learning_data_access::NavigationReferenceStore
         + learning_data_access::PoolPreviewStore
         + learning_data_access::PreviewPlaneStore
-        + learning_data_access::LearnerSubmissionStatusStore
+        + learning_data_access::StudentSubmissionStatusStore
         + learning_data_access::AutomatedGradingStore
         + learning_data_access::GradingOperationStore
         + AssetStore

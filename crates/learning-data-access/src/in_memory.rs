@@ -171,8 +171,6 @@ pub(super) fn completed_submission_receipt_from_record(
     }
 }
 
-mod manual_grading;
-
 /// Test fixture adapter that establishes an active instructor session before
 /// exercising the production actor-bound catalog capability.
 #[cfg(test)]
@@ -307,7 +305,7 @@ fn require_course_records_accessible(
         .ok_or(StoreError::NotFound)
 }
 
-use crate::LearnerWorkRoutingBinding;
+use crate::StudentWorkRoutingBinding;
 use crate::{
     ClaimedJob, CreateAssignmentExport, EnqueueJob, ExportArtifactKind, ExportArtifactRecord,
     ExportCommitDisposition, ExportId, ExportJobCommit, ExportJobStore, JobFailureDisposition,
@@ -710,9 +708,6 @@ struct State {
     attempt_effective_policy_current: BTreeMap<(TenantId, QuestionAttemptId), u64>,
     attempt_current: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
     attempt_support_actions: BTreeMap<(TenantId, AttemptSupportActionId), AttemptSupportRecord>,
-    manual_evaluations: BTreeMap<(TenantId, QuestionAttemptId), crate::ManualEvaluationRecord>,
-    manual_grade_actions:
-        BTreeMap<(TenantId, crate::ManualGradeActionId), manual_grading::MemoryManualGradeReceipt>,
     prefetched_questions:
         BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestionDescriptorV1>,
     prefetched_private_execution:
@@ -966,7 +961,7 @@ struct CatalogDiscoveryEvidenceRevision {
 #[derive(Debug, Clone)]
 struct StoredExternalToolExchange {
     actor: UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     binding: ExternalToolBinding,
     response: StudentResponse,
     key: SubmissionIdempotencyKey,
@@ -981,7 +976,7 @@ struct StoredExternalToolExchange {
 struct StoredExternalToolLaunchSession {
     actor: UserId,
     attempt: QuestionAttemptId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     binding: ExternalToolBinding,
     token_hash: Sha256Digest,
     encrypted_provider_state: Option<Vec<u8>>,

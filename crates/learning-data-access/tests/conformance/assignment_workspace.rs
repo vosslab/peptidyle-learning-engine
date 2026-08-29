@@ -244,7 +244,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(70_330)),
         )
         .await

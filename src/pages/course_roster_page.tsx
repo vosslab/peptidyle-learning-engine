@@ -5,7 +5,7 @@ import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js
 import "./instructor_data_tables.css";
 import "./course_roster_page.css";
 
-import type { LearnerAssignmentSummary } from "../api/contracts";
+import type { StudentAssignmentLandingSummary } from "../api/contracts";
 import type {
   AllowedEmailDomain,
   CourseInvitationEmailDelivery,
@@ -13,7 +13,6 @@ import type {
   RosterImportDelivery,
   RosterImportPreview,
 } from "../api/enrollment";
-import { CourseManagementNav } from "../components/course_management_nav";
 import { newIdempotencyKey, readyRosterRows } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
 import { rosterImportTemplateCsv } from "./roster_import_template";
@@ -36,7 +35,7 @@ type RosterState =
   | {
       readonly kind: "ready";
       readonly roster: CourseRosterPage;
-      readonly assignments: ReadonlyArray<LearnerAssignmentSummary>;
+      readonly assignments: ReadonlyArray<StudentAssignmentLandingSummary>;
     }
   | { readonly kind: "error"; readonly message: string };
 
@@ -431,11 +430,6 @@ export function CourseRosterPage(): JSX.Element {
         Students
       </h1>
       <p class="page-lede">Review active students, manage course invitations, and export grades.</p>
-      <Show when={course}>
-        {(currentCourse) => (
-          <CourseManagementNav courseReference={currentCourse().reference} active="students" />
-        )}
-      </Show>
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
       </p>

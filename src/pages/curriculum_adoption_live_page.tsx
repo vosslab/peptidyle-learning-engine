@@ -6,7 +6,6 @@ import { Show, createMemo, type JSX } from "solid-js";
 import type { CourseReference } from "../../generated/api/CourseReference";
 
 import { useApiRuntime } from "../api/runtime";
-import { CourseManagementNav } from "../components/course_management_nav";
 import { CurriculumAdoptionPage } from "../features/curriculum_adoption";
 import { resolveCourseRoute } from "../navigation/resolved_route";
 import {
@@ -44,18 +43,12 @@ export function CurriculumAdoptionLivePage(): JSX.Element {
       }
     >
       {(currentCourse) => (
-        <>
-          <CourseManagementNav
-            courseReference={currentCourse().reference}
-            active="curriculumAdoption"
-          />
-          <CurriculumAdoptionPage
-            course={currentCourse()}
-            client={runtime.client}
-            reusableClient={runtime.client}
-            onCourseChanged={refreshChangedCourse}
-          />
-        </>
+        <CurriculumAdoptionPage
+          course={currentCourse()}
+          client={runtime.client}
+          reusableClient={runtime.client}
+          onCourseChanged={refreshChangedCourse}
+        />
       )}
     </Show>
   );

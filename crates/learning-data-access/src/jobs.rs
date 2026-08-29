@@ -599,9 +599,10 @@ pub trait JobStore: Send + Sync {
     async fn claim_exact_job(
         &self,
         id: JobId,
+        kind: JobKind,
         lease: JobLeaseDuration,
     ) -> Result<Option<ClaimedJob>, StoreError> {
-        let _ = (id, lease);
+        let _ = (id, kind, lease);
         Err(StoreError::Unavailable(
             "exact job claim is unavailable for this queue capability".to_string(),
         ))
@@ -610,9 +611,10 @@ pub trait JobStore: Send + Sync {
     /// Completes the current claim only; stale tokens are rejected.
     async fn complete_job(&self, id: JobId, token: JobLeaseToken) -> Result<(), StoreError>;
 
-    /// Applies bounded backoff or marks the current claim dead.
+    /// Applies bounded backoff or marks the current tenant's claim dead.
     async fn fail_job(
         &self,
+        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,

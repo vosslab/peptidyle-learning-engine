@@ -213,8 +213,8 @@ generation still equals that row's generation. A superseded job completes as
 superseded rather than overwriting a newer projection.
 
 This dual fence prevents an old calculation from becoming current after an
-assignment edit, a manual grade, or a timer adjustment. The concrete scoring
-and auto-submit checks are in
+assignment-definition change, accepted-submission completion, authorized
+attempt support, or a timer adjustment. The concrete scoring and auto-submit checks are in
 [jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs) and
 [item_analysis.rs](../crates/learning-data-access/src/postgres/item_analysis.rs).
 

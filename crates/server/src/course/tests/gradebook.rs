@@ -1,20 +1,22 @@
 use super::fixtures::{id, issued_cookie_for_tenant, publish_fixture};
 use super::*;
 use axum::body::{Body, to_bytes};
-use axum::http::header::{CACHE_CONTROL, CONTENT_DISPOSITION, ETAG, IF_MATCH};
+use axum::http::header::{CACHE_CONTROL, CONTENT_DISPOSITION, ETAG};
 use axum::http::{Request, StatusCode};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    AuthenticationEmail, CatalogStore, ClaimCourseInvitation, CourseInvitationSecretHash,
-    CourseRecord, CourseRosterStore, CreateCourseCommand, Store, TenantContext,
+    AuthenticationEmail, ClaimCourseInvitation, CourseInvitationSecretHash, CourseRecord,
+    CourseRosterStore, CreateCourseCommand, Store,
 };
-use question_model::{CourseId, TenantId, UserId, UserRole};
+use learning_data_access::{CatalogStore, TenantContext};
+use question_model::{CourseId, TenantId};
+use question_model::{UserId, UserRole};
 use std::sync::Arc;
 use tower::ServiceExt;
 
-async fn fixture() -> (Arc<MemoryStore>, String, TenantId, UserId, CourseId) {
+pub(super) async fn fixture() -> (Arc<MemoryStore>, String, TenantId, UserId, CourseId) {
     let store = Arc::new(MemoryStore::default());
     let tenant = TenantId::from_uuid(id(9_100));
     let course = CourseId::from_uuid(id(9_101));
@@ -50,7 +52,7 @@ async fn fixture() -> (Arc<MemoryStore>, String, TenantId, UserId, CourseId) {
     (store, cookie, tenant, instructor, course)
 }
 
-async fn create_assignment(
+pub(super) async fn create_assignment(
     app: &axum::Router,
     cookie: &str,
     course: CourseId,
@@ -113,6 +115,78 @@ async fn create_assignment(
         .expect("assignment content response");
     assert_eq!(saved.status(), StatusCode::OK);
     saved
+}
+
+pub(super) async fn created_assignment_id(response: axum::response::Response) -> String {
+    let body = to_bytes(response.into_body(), 64 * 1024)
+        .await
+        .expect("assignment response body");
+    serde_json::from_slice::<serde_json::Value>(&body).expect("assignment response JSON")["id"]
+        .as_str()
+        .expect("assignment ID")
+        .to_string()
+}
+
+pub(super) struct EnrolledStudent<'a> {
+    pub(super) user: UserId,
+    pub(super) email: &'a str,
+    pub(super) roster_id: &'a str,
+    pub(super) display_name: &'a str,
+}
+
+pub(super) async fn enrolled_student(
+    store: &Arc<MemoryStore>,
+    tenant: TenantId,
+    instructor: UserId,
+    course: CourseId,
+    student: EnrolledStudent<'_>,
+) -> String {
+    let instructor_cookie =
+        issued_cookie_for_tenant(store, tenant, vec![UserRole::Instructor], instructor).await;
+    let app = crate::course::router_with_invitations(
+        Arc::clone(store),
+        crate::course::CourseInvitationIssuer::from_server_secret([0x82; 32]),
+    );
+    let response = app
+        .oneshot(
+            Request::post(format!("/api/courses/{course}/invitations"))
+                .header("cookie", instructor_cookie)
+                .header("content-type", "application/json")
+                .header(
+                    "idempotency-key",
+                    format!("gradebook-student-{}", student.roster_id),
+                )
+                .body(Body::from(
+                    serde_json::json!({"email": student.email, "rosterId": student.roster_id})
+                        .to_string(),
+                ))
+                .expect("invitation request"),
+        )
+        .await
+        .expect("invitation response");
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let body = to_bytes(response.into_body(), 64 * 1024)
+        .await
+        .expect("invitation body");
+    let value: serde_json::Value = serde_json::from_slice(&body).expect("invitation JSON");
+    let encoded_secret = value["redemptionPath"]
+        .as_str()
+        .expect("redemption path")
+        .strip_prefix("/course-invitations/redeem#token=")
+        .expect("redemption secret");
+    let secret = URL_SAFE_NO_PAD
+        .decode(encoded_secret)
+        .expect("secret encoding");
+    store
+        .claim_course_invitation(ClaimCourseInvitation {
+            token_hash: CourseInvitationSecretHash::compute(&secret),
+            user: student.user,
+            verified_email: AuthenticationEmail::parse(student.email).expect("student email"),
+            display_name: student.display_name.to_string(),
+        })
+        .await
+        .expect("student enrollment");
+    issued_cookie_for_tenant(store, tenant, vec![UserRole::Student], student.user).await
 }
 
 #[tokio::test]
@@ -523,78 +597,6 @@ async fn course_grade_export_emits_rectangular_inert_csv_rows_from_the_real_http
     assert_eq!(records[2].get(7), Some("'=A"));
     assert_eq!(records[2].get(8), Some(""));
     assert!(student_cookie.starts_with("__Host-ple_session="));
-}
-
-async fn created_assignment_id(response: axum::response::Response) -> String {
-    let body = to_bytes(response.into_body(), 64 * 1024)
-        .await
-        .expect("assignment response body");
-    serde_json::from_slice::<serde_json::Value>(&body).expect("assignment response JSON")["id"]
-        .as_str()
-        .expect("assignment ID")
-        .to_string()
-}
-
-struct EnrolledStudent<'a> {
-    user: UserId,
-    email: &'a str,
-    roster_id: &'a str,
-    display_name: &'a str,
-}
-
-async fn enrolled_student(
-    store: &Arc<MemoryStore>,
-    tenant: TenantId,
-    instructor: UserId,
-    course: CourseId,
-    student: EnrolledStudent<'_>,
-) -> String {
-    let instructor_cookie =
-        issued_cookie_for_tenant(store, tenant, vec![UserRole::Instructor], instructor).await;
-    let app = crate::course::router_with_invitations(
-        Arc::clone(store),
-        crate::course::CourseInvitationIssuer::from_server_secret([0x82; 32]),
-    );
-    let response = app
-        .oneshot(
-            Request::post(format!("/api/courses/{course}/invitations"))
-                .header("cookie", instructor_cookie)
-                .header("content-type", "application/json")
-                .header(
-                    "idempotency-key",
-                    format!("gradebook-student-{}", student.roster_id),
-                )
-                .body(Body::from(
-                    serde_json::json!({"email": student.email, "rosterId": student.roster_id})
-                        .to_string(),
-                ))
-                .expect("invitation request"),
-        )
-        .await
-        .expect("invitation response");
-    assert_eq!(response.status(), StatusCode::ACCEPTED);
-    let body = to_bytes(response.into_body(), 64 * 1024)
-        .await
-        .expect("invitation body");
-    let value: serde_json::Value = serde_json::from_slice(&body).expect("invitation JSON");
-    let encoded_secret = value["redemptionPath"]
-        .as_str()
-        .expect("redemption path")
-        .strip_prefix("/course-invitations/redeem#token=")
-        .expect("redemption secret");
-    let secret = URL_SAFE_NO_PAD
-        .decode(encoded_secret)
-        .expect("secret encoding");
-    store
-        .claim_course_invitation(ClaimCourseInvitation {
-            token_hash: CourseInvitationSecretHash::compute(&secret),
-            user: student.user,
-            verified_email: AuthenticationEmail::parse(student.email).expect("student email"),
-            display_name: student.display_name.to_string(),
-        })
-        .await
-        .expect("student enrollment");
-    issued_cookie_for_tenant(store, tenant, vec![UserRole::Student], student.user).await
 }
 
 async fn assert_denied_grade_response(

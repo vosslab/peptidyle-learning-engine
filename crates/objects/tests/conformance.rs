@@ -380,15 +380,17 @@ async fn memory_object_store_conforms() {
 #[tokio::test]
 #[ignore = "requires a running MinIO stack and explicit credentials"]
 async fn minio_object_store_conforms() {
+    let runtime = acceptance_runtime::CourseAppearanceRuntime::load()
+        .expect("validated course-appearance acceptance runtime");
     use objects::minio::{EndpointConfig, client};
     use objects::s3::{BucketNames, S3ObjectStore};
 
+    let minio = runtime.minio();
     let settings = EndpointConfig {
-        endpoint_url: std::env::var("PLE_S3_ENDPOINT").expect("PLE_S3_ENDPOINT must be set"),
-        region: std::env::var("PLE_S3_REGION").expect("PLE_S3_REGION must be set"),
-        access_key_id: std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set"),
-        secret_access_key: std::env::var("AWS_SECRET_ACCESS_KEY")
-            .expect("AWS_SECRET_ACCESS_KEY must be set"),
+        endpoint_url: minio.endpoint_url().to_owned(),
+        region: minio.region().to_owned(),
+        access_key_id: minio.access_key_id().to_owned(),
+        secret_access_key: minio.secret_access_key().to_owned(),
     };
     let store = S3ObjectStore::new(client(&settings), BucketNames::default());
 

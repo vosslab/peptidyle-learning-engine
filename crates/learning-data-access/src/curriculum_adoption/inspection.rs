@@ -110,10 +110,9 @@ mod tests {
         AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode,
         BlueprintReference, BlueprintRevision, CompletionRequirement, ContinuedPractice,
         CourseReference, CourseScheduleRevision, CourseScheduleWitness, GradePolicy,
-        LateSubmissionPolicy, LearnerDisclosurePolicy, ObservedAssignmentRevision,
-        ObservedBlueprintSource, PointValue, ProblemId, ProblemVersionRef,
-        RelativeAssignmentSchedule, ReusableAssignmentDefaults, RunPolicies, VariationPolicy,
-        VersionId,
+        LateSubmissionPolicy, ObservedAssignmentRevision, ObservedBlueprintSource, PointValue,
+        ProblemId, ProblemVersionRef, RelativeAssignmentSchedule, ReusableAssignmentDefaults,
+        RunPolicies, StudentDisclosurePolicy, VariationPolicy, VersionId,
     };
 
     fn payload(title: &str) -> CurriculumSemanticPayload {
@@ -140,7 +139,7 @@ mod tests {
                         continued_practice: ContinuedPractice::Unlimited,
                         variation: VariationPolicy::NewSeeds,
                     },
-                    learner_disclosure: LearnerDisclosurePolicy::default(),
+                    student_disclosure: StudentDisclosurePolicy::default(),
                 },
                 RelativeAssignmentSchedule::default(),
             )

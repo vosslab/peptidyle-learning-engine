@@ -11,10 +11,9 @@ struct AnalysisFixture {
     instructor: UserId,
     student: UserId,
     enrollment: EnrollmentId,
-    automatic: ProblemVersionRef,
-    manual: ProblemVersionRef,
-    automatic_item: AssignmentItemId,
-    manual_item: AssignmentItemId,
+    primary: ProblemVersionRef,
+    secondary: ProblemVersionRef,
+    secondary_item: AssignmentItemId,
     instructor_session: SessionTokenHash,
     sysadmin_session: SessionTokenHash,
     student_session: SessionTokenHash,
@@ -35,15 +34,15 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     let assignment = AssignmentId::from_uuid(uuid(80_009));
     let course_creation_authority =
         sysadmin_course_creation_authority(store, tenant, course, instructor).await;
-    let automatic = ProblemVersionRef {
+    let primary = ProblemVersionRef {
         problem: ProblemId::from_uuid(uuid(80_011)),
         version: VersionId::from_uuid(uuid(80_012)),
     };
-    let manual = ProblemVersionRef {
+    let secondary = ProblemVersionRef {
         problem: ProblemId::from_uuid(uuid(80_013)),
         version: VersionId::from_uuid(uuid(80_014)),
     };
-    for reference in [automatic, manual] {
+    for reference in [primary, secondary] {
         let draft = DraftRecord {
             tenant,
             question: draft_question(workspace),
@@ -101,17 +100,16 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student,
-                display_name: "Analysis learner".to_string(),
+                display_name: "Analysis Student".to_string(),
                 roster_contact: None,
             },
         )
         .await
-        .expect("analysis learner membership");
+        .expect("analysis Student membership");
     let mut policy = policies();
     policy.completion = CompletionRequirement::AnswerAll;
-    let items = fixed_items(vec![automatic, manual]);
-    let automatic_item = items[0].id;
-    let manual_item = items[1].id;
+    let items = fixed_items(vec![primary, secondary]);
+    let secondary_item = items[1].id;
     store
         .create_assignment_with_default_policy(
             context,
@@ -126,7 +124,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policy,
             },
         )
@@ -184,10 +182,9 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
         instructor,
         student,
         enrollment,
-        automatic,
-        manual,
-        automatic_item,
-        manual_item,
+        primary,
+        secondary,
+        secondary_item,
         instructor_session: session(
             store,
             tenant,
@@ -261,7 +258,7 @@ async fn issue(
             fixture.context,
             IssueQuestionAttemptCommand {
                 actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+                binding: StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(id)),
                 run,
                 assignment_position: position,
@@ -298,60 +295,163 @@ async fn submit_auto(
     attempt: QuestionAttemptId,
     key: &str,
 ) {
-    store
-        .submit_question_attempt(
+    let accepted = store
+        .accept_automated_submission(
             fixture.context,
-            SubmitQuestionAttemptCommand {
+            AcceptedSubmissionCommand {
                 actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+                course: fixture.course,
+                assignment: fixture.assignment,
                 attempt,
-                response: StudentResponse::Numeric { value: 42.0 },
-                result: AttemptResult {
-                    correct: true,
-                    points_earned: 1.0,
-                    points_possible: 1.0,
-                },
-                feedback: FeedbackContent::default(),
                 idempotency_key: SubmissionIdempotencyKey::parse(key).expect("fixture key"),
+                response: StudentResponse::Numeric { value: 42.0 },
+                execution_job: JobId::from_uuid(uuid(90_000 + attempt.as_uuid().as_u128())),
             },
         )
         .await
-        .expect("automatic item submit");
+        .expect("accepted automated submission");
+    let claim = store
+        .claim_next_accepted_submission_execution(
+            WorkerId::from_uuid(uuid(91_000 + attempt.as_uuid().as_u128())),
+            JobLeaseDuration::from_seconds(30).expect("analysis worker lease"),
+        )
+        .await
+        .expect("analysis worker claim")
+        .expect("accepted submission is claimable");
+    assert_eq!(claim.submission, accepted.submission);
+    assert_eq!(
+        store
+            .commit_or_fail_accepted_submission_execution(
+                fixture.context,
+                claim,
+                AcceptedSubmissionExecutionOutcome::Evaluated {
+                    grade: AcceptedSubmissionGrade {
+                        evidence: canonical_attempt_result_json(AttemptResult {
+                            correct: true,
+                            points_earned: 1.0,
+                            points_possible: 1.0,
+                        })
+                        .expect("canonical automated result"),
+                        feedback: FeedbackContent::default(),
+                    },
+                },
+            )
+            .await
+            .expect("automated worker completion"),
+        AcceptedSubmissionExecutionDisposition::Committed
+    );
+}
+
+async fn submit_pending_auto(
+    store: &MemoryStore,
+    fixture: &AnalysisFixture,
+    attempt: QuestionAttemptId,
+    key: &str,
+) {
+    store
+        .accept_automated_submission(
+            fixture.context,
+            AcceptedSubmissionCommand {
+                actor: fixture.student,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                attempt,
+                idempotency_key: SubmissionIdempotencyKey::parse(key).expect("fixture key"),
+                response: StudentResponse::Numeric { value: 42.0 },
+                execution_job: JobId::from_uuid(uuid(92_000 + attempt.as_uuid().as_u128())),
+            },
+        )
+        .await
+        .expect("accepted pending automated submission");
+}
+
+async fn submit_auto_exception(
+    store: &MemoryStore,
+    fixture: &AnalysisFixture,
+    attempt: QuestionAttemptId,
+    key: &str,
+) {
+    submit_pending_auto(store, fixture, attempt, key).await;
+    let claim = store
+        .claim_next_accepted_submission_execution(
+            WorkerId::from_uuid(uuid(93_000 + attempt.as_uuid().as_u128())),
+            JobLeaseDuration::from_seconds(30).expect("analysis worker lease"),
+        )
+        .await
+        .expect("analysis worker claim")
+        .expect("accepted submission is claimable");
+    assert_eq!(
+        store
+            .commit_or_fail_accepted_submission_execution(
+                fixture.context,
+                claim,
+                AcceptedSubmissionExecutionOutcome::TerminalFailure,
+            )
+            .await
+            .expect("automated worker exception"),
+        AcceptedSubmissionExecutionDisposition::Terminal
+    );
 }
 
 async fn run_analysis_job(
     store: &MemoryStore,
     fixture: &AnalysisFixture,
 ) -> CourseItemAnalysisCommitOutcome {
-    let claim = store
-        .claim_next_job(
-            &JobClaimFilter::all(),
-            JobLeaseDuration::from_seconds(30).expect("analysis lease"),
-        )
-        .await
-        .expect("analysis job claim")
-        .expect("analysis job available");
-    let JobPayload::RecalculateCourseItemAnalysis {
-        assignment,
-        generation,
-    } = claim.payload
-    else {
-        panic!("expected item-analysis job")
-    };
-    let command = CourseItemAnalysisWorkerCommand {
-        job: claim.id,
-        lease: claim.lease_token,
-        assignment,
-        generation,
-    };
-    store
-        .prepare_course_item_analysis(fixture.context, command)
-        .await
-        .expect("analysis staging");
-    store
-        .commit_course_item_analysis(fixture.context, command)
-        .await
-        .expect("analysis publication")
+    for _ in 0..4 {
+        let claim = store
+            .claim_next_job(
+                &JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("analysis lease"),
+            )
+            .await
+            .expect("analysis job claim")
+            .expect("analysis job available");
+        match claim.payload {
+            JobPayload::RecalculateAssignment {
+                assignment,
+                generation,
+            } => {
+                let command = AssignmentScoringWorkerCommand {
+                    job: claim.id,
+                    lease: claim.lease_token,
+                    assignment,
+                    generation,
+                };
+                store
+                    .prepare_assignment_scoring(fixture.context, command)
+                    .await
+                    .expect("scoring staging");
+                store
+                    .commit_assignment_scoring(fixture.context, command)
+                    .await
+                    .expect("scoring publication");
+            }
+            JobPayload::RecalculateCourseItemAnalysis {
+                assignment,
+                generation,
+            } => {
+                let command = CourseItemAnalysisWorkerCommand {
+                    job: claim.id,
+                    lease: claim.lease_token,
+                    assignment,
+                    generation,
+                };
+                store
+                    .prepare_course_item_analysis(fixture.context, command)
+                    .await
+                    .expect("analysis staging");
+                let outcome = store
+                    .commit_course_item_analysis(fixture.context, command)
+                    .await
+                    .expect("analysis publication");
+                if outcome == CourseItemAnalysisCommitOutcome::Committed {
+                    return outcome;
+                }
+            }
+            other => panic!("unexpected item-analysis dependency job: {other:?}"),
+        }
+    }
+    panic!("item-analysis job was not enqueued after its scoring dependency")
 }
 
 async fn run_scoring_job(
@@ -406,7 +506,7 @@ async fn current_report(
 }
 
 #[tokio::test]
-async fn memory_learner_class_statistics_requires_current_s5_and_never_leaks_absent_evidence() {
+async fn memory_student_class_statistics_requires_current_s5_and_never_leaks_absent_evidence() {
     let store = MemoryStore::default();
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
@@ -415,19 +515,19 @@ async fn memory_learner_class_statistics_requires_current_s5_and_never_leaks_abs
 
     assert_eq!(
         store
-            .learner_class_statistics(
+            .student_class_statistics(
                 fixture.context,
                 fixture.student,
                 fixture.course,
                 fixture.assignment,
             )
             .await
-            .expect("currently entitled learner"),
-        question_model::LearnerClassStatistics::InsufficientEvidence
+            .expect("currently entitled Student"),
+        question_model::StudentClassStatistics::InsufficientEvidence
     );
     assert_eq!(
         store
-            .learner_class_statistics(
+            .student_class_statistics(
                 fixture.context,
                 UserId::from_uuid(uuid(80_099)),
                 fixture.course,
@@ -439,7 +539,7 @@ async fn memory_learner_class_statistics_requires_current_s5_and_never_leaks_abs
 }
 
 #[tokio::test]
-async fn memory_item_analysis_tracks_pending_manual_then_corrected_current_scoring() {
+async fn memory_item_analysis_excludes_a_cleared_attempt_without_fabricating_a_bucket() {
     let store = MemoryStore::default();
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
@@ -449,112 +549,139 @@ async fn memory_item_analysis_tracks_pending_manual_then_corrected_current_scori
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
-            RunId::from_uuid(uuid(80_020)),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            RunId::from_uuid(uuid(80_034)),
         )
         .await
         .expect("analysis run");
-    let automatic = issue(&store, &fixture, run.id, 0, fixture.automatic, 80_021).await;
+    let primary_attempt = issue(&store, &fixture, run.id, 0, fixture.primary, 80_035).await;
+    submit_auto(
+        &store,
+        &fixture,
+        primary_attempt.id,
+        "analysis-cleared-primary",
+    )
+    .await;
+    let cleared_attempt = issue(&store, &fixture, run.id, 1, fixture.secondary, 80_036).await;
     store
-        .set_authoritative_time(ActivityTimestamp::from_unix_millis(2_000))
-        .expect("automatic submission time");
-    submit_auto(&store, &fixture, automatic.id, "analysis-auto").await;
-    let manual = issue(&store, &fixture, run.id, 1, fixture.manual, 80_022).await;
-    store
-        .set_authoritative_time(ActivityTimestamp::from_unix_millis(3_000))
-        .expect("manual submission time");
-    store
-        .submit_pending_manual_question_attempt(
+        .clear_attempt(
             fixture.context,
-            SubmitPendingManualQuestionAttemptCommand {
-                actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
-                attempt: manual.id,
-                response: StudentResponse::Numeric { value: 7.0 },
-                idempotency_key: SubmissionIdempotencyKey::parse("analysis-manual")
-                    .expect("fixture key"),
-            },
-        )
-        .await
-        .expect("manual pending submission");
-
-    store
-        .enqueue_job(
-            fixture.context,
-            EnqueueJob {
-                tenant: fixture.tenant,
-                payload: JobPayload::RecalculateCourseItemAnalysis {
-                    assignment: fixture.assignment,
-                    generation: question_model::ScoringGeneration::INITIAL,
-                },
-                max_attempts: 1,
-            },
-        )
-        .await
-        .expect("initial analysis job");
-    assert_eq!(
-        run_analysis_job(&store, &fixture).await,
-        CourseItemAnalysisCommitOutcome::Committed
-    );
-    let pending = current_report(&store, &fixture).await;
-    assert!(pending.incomplete_manual_grading);
-    let automatic_row = pending
-        .items
-        .iter()
-        .find(|row| row.assignment_item == fixture.automatic_item)
-        .expect("automatic row");
-    assert_eq!(automatic_row.graded_attempt_count, 1);
-    let manual_row = pending
-        .items
-        .iter()
-        .find(|row| row.assignment_item == fixture.manual_item)
-        .expect("manual row");
-    assert_eq!(manual_row.graded_attempt_count, 0);
-    assert_eq!(manual_row.pending_manual_attempt_count, 1);
-    assert_eq!(pending.average_completion_time_millis, Some(2_000));
-    assert_eq!(manual_row.average_completion_time_millis, Some(2_000));
-
-    store
-        .set_authoritative_time(ActivityTimestamp::from_unix_millis(5_000))
-        .expect("manual grading time");
-    let evaluation = store
-        .get_manual_evaluation_for_edit(fixture.context, fixture.instructor, manual.id)
-        .await
-        .expect("evaluation lookup")
-        .expect("pending evaluation");
-    store
-        .set_manual_grade(
-            fixture.context,
-            SetManualGradeCommand {
-                action: ManualGradeActionId::from_uuid(uuid(80_023)),
+            ClearAttemptCommand {
+                action: AttemptSupportActionId::from_uuid(uuid(80_037)),
                 actor: fixture.instructor,
-                attempt: manual.id,
-                expected_revision: evaluation.revision,
-                credit: ManualCredit::parse("0.5").expect("manual credit"),
+                attempt: cleared_attempt.id,
             },
         )
         .await
-        .expect("manual grading");
-    assert_eq!(
-        run_scoring_job(&store, &fixture).await,
-        AssignmentScoringCommitOutcome::Committed
-    );
+        .expect("clear second current attempt");
     assert_eq!(
         run_analysis_job(&store, &fixture).await,
         CourseItemAnalysisCommitOutcome::Committed
     );
-    let graded = current_report(&store, &fixture).await;
-    assert!(!graded.incomplete_manual_grading);
-    let manual_row = graded
+    let report = current_report(&store, &fixture).await;
+    let cleared_row = report
         .items
         .iter()
-        .find(|row| row.assignment_item == fixture.manual_item)
-        .expect("graded manual row");
-    assert_eq!(manual_row.graded_attempt_count, 1);
-    assert_eq!(manual_row.pending_manual_attempt_count, 0);
-    assert_eq!(manual_row.response_distribution.partial, 1);
-    assert_eq!(graded.average_completion_time_millis, Some(2_000));
-    assert_eq!(manual_row.average_completion_time_millis, Some(2_000));
+        .find(|row| row.assignment_item == fixture.secondary_item)
+        .expect("cleared row");
+    assert_eq!(cleared_row.unscored_attempt_count, 0);
+    assert_eq!(cleared_row.response_distribution.unanswered, 0);
+}
+
+#[tokio::test]
+async fn memory_item_analysis_marks_pending_automated_scoring_unscored() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
+        .expect("fixture clock");
+    let fixture = analysis_fixture(&store).await;
+    let run = store
+        .start_or_resume_run(
+            fixture.context,
+            fixture.student,
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            RunId::from_uuid(uuid(80_038)),
+        )
+        .await
+        .expect("analysis run");
+    let primary_attempt = issue(&store, &fixture, run.id, 0, fixture.primary, 80_039).await;
+    submit_auto(
+        &store,
+        &fixture,
+        primary_attempt.id,
+        "analysis-pending-primary",
+    )
+    .await;
+    let pending_attempt = issue(&store, &fixture, run.id, 1, fixture.secondary, 80_040).await;
+    submit_pending_auto(
+        &store,
+        &fixture,
+        pending_attempt.id,
+        "analysis-pending-secondary",
+    )
+    .await;
+    assert_eq!(
+        run_analysis_job(&store, &fixture).await,
+        CourseItemAnalysisCommitOutcome::Committed
+    );
+    let report = current_report(&store, &fixture).await;
+    let pending_row = report
+        .items
+        .iter()
+        .find(|row| row.assignment_item == fixture.secondary_item)
+        .expect("pending row");
+    assert!(report.incomplete_scoring);
+    assert_eq!(pending_row.unscored_attempt_count, 1);
+    assert_eq!(pending_row.response_distribution.unanswered, 0);
+    assert_eq!(report.assignment_average_score, None);
+}
+
+#[tokio::test]
+async fn memory_item_analysis_marks_automated_exception_unscored() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
+        .expect("fixture clock");
+    let fixture = analysis_fixture(&store).await;
+    let run = store
+        .start_or_resume_run(
+            fixture.context,
+            fixture.student,
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            RunId::from_uuid(uuid(80_041)),
+        )
+        .await
+        .expect("analysis run");
+    let primary_attempt = issue(&store, &fixture, run.id, 0, fixture.primary, 80_042).await;
+    submit_auto(
+        &store,
+        &fixture,
+        primary_attempt.id,
+        "analysis-exception-primary",
+    )
+    .await;
+    let exception_attempt = issue(&store, &fixture, run.id, 1, fixture.secondary, 80_043).await;
+    submit_auto_exception(
+        &store,
+        &fixture,
+        exception_attempt.id,
+        "analysis-exception-secondary",
+    )
+    .await;
+    assert_eq!(
+        run_analysis_job(&store, &fixture).await,
+        CourseItemAnalysisCommitOutcome::Committed
+    );
+    let report = current_report(&store, &fixture).await;
+    let exception_row = report
+        .items
+        .iter()
+        .find(|row| row.assignment_item == fixture.secondary_item)
+        .expect("exception row");
+    assert!(report.incomplete_scoring);
+    assert_eq!(exception_row.unscored_attempt_count, 1);
+    assert_eq!(exception_row.response_distribution.unanswered, 0);
+    assert_eq!(report.assignment_average_score, None);
 }
 
 #[tokio::test]
@@ -568,88 +695,39 @@ async fn memory_item_analysis_is_instructor_only_and_report_is_identity_free() {
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_030)),
         )
         .await
         .expect("analysis run");
-    let automatic = issue(&store, &fixture, run.id, 0, fixture.automatic, 80_031).await;
-    submit_auto(&store, &fixture, automatic.id, "analysis-auth-auto").await;
-    let manual = issue(&store, &fixture, run.id, 1, fixture.manual, 80_032).await;
+    let primary_attempt = issue(&store, &fixture, run.id, 0, fixture.primary, 80_031).await;
+    submit_auto(&store, &fixture, primary_attempt.id, "analysis-auth-auto").await;
+    let unanswered_attempt = issue(&store, &fixture, run.id, 1, fixture.secondary, 80_032).await;
     store
         .force_submit_attempt(
             fixture.context,
             ForceSubmitAttemptCommand {
                 action: AttemptSupportActionId::from_uuid(uuid(80_033)),
                 actor: fixture.instructor,
-                attempt: manual.id,
+                attempt: unanswered_attempt.id,
             },
         )
         .await
         .expect("force submit produces unanswered evidence");
-    store
-        .enqueue_job(
-            fixture.context,
-            EnqueueJob {
-                tenant: fixture.tenant,
-                payload: JobPayload::RecalculateCourseItemAnalysis {
-                    assignment: fixture.assignment,
-                    generation: question_model::ScoringGeneration::INITIAL,
-                },
-                max_attempts: 1,
-            },
-        )
-        .await
-        .expect("analysis job");
     assert_eq!(
         run_analysis_job(&store, &fixture).await,
         CourseItemAnalysisCommitOutcome::Committed
     );
     let report = current_report(&store, &fixture).await;
-    let manual_row = report
+    let unanswered_row = report
         .items
         .iter()
-        .find(|row| row.assignment_item == fixture.manual_item)
-        .expect("manual row");
-    assert_eq!(manual_row.unanswered_attempt_count, 1);
-    store
-        .clear_attempt(
-            fixture.context,
-            ClearAttemptCommand {
-                action: AttemptSupportActionId::from_uuid(uuid(80_034)),
-                actor: fixture.instructor,
-                attempt: manual.id,
-            },
-        )
-        .await
-        .expect("clearing keeps protected evidence but removes current analysis observation");
-    store
-        .enqueue_job(
-            fixture.context,
-            EnqueueJob {
-                tenant: fixture.tenant,
-                payload: JobPayload::RecalculateCourseItemAnalysis {
-                    assignment: fixture.assignment,
-                    generation: question_model::ScoringGeneration::INITIAL,
-                },
-                max_attempts: 1,
-            },
-        )
-        .await
-        .expect("post-clear analysis job");
-    assert_eq!(
-        run_analysis_job(&store, &fixture).await,
-        CourseItemAnalysisCommitOutcome::Committed
-    );
-    let report = current_report(&store, &fixture).await;
-    let cleared_row = report
-        .items
-        .iter()
-        .find(|row| row.assignment_item == fixture.manual_item)
-        .expect("cleared item remains structurally visible");
-    assert_eq!(cleared_row.graded_attempt_count, 0);
-    assert_eq!(cleared_row.unanswered_attempt_count, 0);
-    assert_eq!(cleared_row.pending_manual_attempt_count, 0);
+        .find(|row| row.assignment_item == fixture.secondary_item)
+        .expect("unanswered row");
+    assert_eq!(unanswered_row.unanswered_attempt_count, 1);
+    assert_eq!(unanswered_row.unscored_attempt_count, 0);
+    assert_eq!(unanswered_row.response_distribution.unanswered, 1);
+    assert!(!report.incomplete_scoring);
     for (context, session, label) in [
         (fixture.context, fixture.student_session, "student"),
         (
@@ -677,14 +755,14 @@ async fn memory_item_analysis_is_instructor_only_and_report_is_identity_free() {
         fixture.student.to_string(),
         fixture.enrollment.to_string(),
         run.id.to_string(),
-        automatic.id.to_string(),
-        manual.id.to_string(),
+        primary_attempt.id.to_string(),
+        unanswered_attempt.id.to_string(),
         "analysis-auth-auto".to_string(),
         "feedback".to_string(),
     ] {
         assert!(
             !serialized.contains(&private_value),
-            "course analysis must not serialize private learner, attempt, response, or feedback data: {private_value}"
+            "course analysis must not serialize private Student, attempt, response, or feedback data: {private_value}"
         );
     }
 }
@@ -740,46 +818,21 @@ async fn memory_item_analysis_stale_generation_cannot_replace_current_report() {
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_040)),
         )
         .await
         .expect("run");
-    let automatic = issue(&store, &fixture, run.id, 0, fixture.automatic, 80_041).await;
-    submit_auto(&store, &fixture, automatic.id, "analysis-stale-auto").await;
-    let manual = issue(&store, &fixture, run.id, 1, fixture.manual, 80_042).await;
-    store
-        .submit_pending_manual_question_attempt(
-            fixture.context,
-            SubmitPendingManualQuestionAttemptCommand {
-                actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
-                attempt: manual.id,
-                response: StudentResponse::Numeric { value: 3.0 },
-                idempotency_key: SubmissionIdempotencyKey::parse("analysis-stale-manual")
-                    .expect("key"),
-            },
-        )
-        .await
-        .expect("pending");
-    let evaluation = store
-        .get_manual_evaluation_for_edit(fixture.context, fixture.instructor, manual.id)
-        .await
-        .expect("evaluation")
-        .expect("pending evaluation");
-    store
-        .set_manual_grade(
-            fixture.context,
-            SetManualGradeCommand {
-                action: ManualGradeActionId::from_uuid(uuid(80_043)),
-                actor: fixture.instructor,
-                attempt: manual.id,
-                expected_revision: evaluation.revision,
-                credit: ManualCredit::parse("1").expect("credit"),
-            },
-        )
-        .await
-        .expect("grade updates generation");
+    let primary_attempt = issue(&store, &fixture, run.id, 0, fixture.primary, 80_041).await;
+    submit_auto(&store, &fixture, primary_attempt.id, "analysis-stale-auto").await;
+    let secondary_attempt = issue(&store, &fixture, run.id, 1, fixture.secondary, 80_042).await;
+    submit_auto(
+        &store,
+        &fixture,
+        secondary_attempt.id,
+        "analysis-stale-second-auto",
+    )
+    .await;
     assert_eq!(
         store
             .commit_course_item_analysis(fixture.context, stale_command)
@@ -800,12 +853,12 @@ async fn memory_item_analysis_stale_generation_cannot_replace_current_report() {
             .await
             .source_scoring_generation
             .value(),
-        2
+        3
     );
 }
 
 #[tokio::test]
-async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_active() {
+async fn memory_item_analysis_uses_only_each_students_latest_run_when_it_is_active() {
     let store = MemoryStore::default();
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
@@ -815,62 +868,37 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_050)),
         )
         .await
         .expect("completed fixture run");
-    let automatic = issue(
+    let primary_attempt = issue(
         &store,
         &fixture,
         completed_run.id,
         0,
-        fixture.automatic,
+        fixture.primary,
         80_051,
     )
     .await;
-    submit_auto(&store, &fixture, automatic.id, "analysis-old-auto").await;
-    let manual = issue(
+    submit_auto(&store, &fixture, primary_attempt.id, "analysis-old-auto").await;
+    let secondary_attempt = issue(
         &store,
         &fixture,
         completed_run.id,
         1,
-        fixture.manual,
+        fixture.secondary,
         80_052,
     )
     .await;
-    store
-        .submit_pending_manual_question_attempt(
-            fixture.context,
-            SubmitPendingManualQuestionAttemptCommand {
-                actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
-                attempt: manual.id,
-                response: StudentResponse::Numeric { value: 5.0 },
-                idempotency_key: SubmissionIdempotencyKey::parse("analysis-old-manual")
-                    .expect("fixture key"),
-            },
-        )
-        .await
-        .expect("old pending submission");
-    let evaluation = store
-        .get_manual_evaluation_for_edit(fixture.context, fixture.instructor, manual.id)
-        .await
-        .expect("old evaluation lookup")
-        .expect("old pending evaluation");
-    store
-        .set_manual_grade(
-            fixture.context,
-            SetManualGradeCommand {
-                action: ManualGradeActionId::from_uuid(uuid(80_053)),
-                actor: fixture.instructor,
-                attempt: manual.id,
-                expected_revision: evaluation.revision,
-                credit: ManualCredit::parse("1").expect("manual credit"),
-            },
-        )
-        .await
-        .expect("old manual grade");
+    submit_auto(
+        &store,
+        &fixture,
+        secondary_attempt.id,
+        "analysis-old-second-auto",
+    )
+    .await;
     assert_eq!(
         run_scoring_job(&store, &fixture).await,
         AssignmentScoringCommitOutcome::Committed
@@ -888,20 +916,12 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_054)),
         )
         .await
         .expect("newer run starts after the completed run");
-    let _active = issue(
-        &store,
-        &fixture,
-        latest_run.id,
-        0,
-        fixture.automatic,
-        80_055,
-    )
-    .await;
+    let _active = issue(&store, &fixture, latest_run.id, 0, fixture.primary, 80_055).await;
     store
         .enqueue_job(
             fixture.context,
@@ -909,7 +929,7 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
                 tenant: fixture.tenant,
                 payload: JobPayload::RecalculateCourseItemAnalysis {
                     assignment: fixture.assignment,
-                    generation: question_model::ScoringGeneration::new(2)
+                    generation: question_model::ScoringGeneration::new(3)
                         .expect("scoring generation"),
                 },
                 max_attempts: 1,
@@ -926,6 +946,6 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
     assert_eq!(report.in_progress_run_count, 1);
     assert!(
         report.items.is_empty(),
-        "an active newer run suppresses the learner's older completed observations"
+        "an active newer run suppresses the Student's older completed observations"
     );
 }

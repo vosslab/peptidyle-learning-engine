@@ -218,7 +218,7 @@ async fn recorded_transport_launches_and_verifies_only_a_bound_result() {
     let launches = transport.launches.lock().unwrap();
     assert_eq!(launches.len(), 1);
     assert!(!launches[0].2.contains("result-secret"));
-    assert!(!format!("{:?}", session).contains("eyJ"));
+    assert!(!format!("{:?}", session).contains(&launches[0].2));
 }
 
 #[tokio::test]

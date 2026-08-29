@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use learning_data_access::{CourseCreationAuthority, CourseRecordsAccessStore, Store};
+use learning_data_access::{CourseCreationAuthority, CourseRecordsAccessStore, Store, StoreError};
 use question_model::{CourseId, CourseMembershipRole, UserRole};
 
 use crate::auth::AuthenticatedSession;
@@ -47,6 +47,50 @@ where
                 Ok(())
             }
         }
+    }
+}
+
+/// Requires current direct Instructor authority while concealing course records.
+pub(super) async fn require_direct_instructor_course<S>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    course: CourseId,
+) -> HttpResult<()>
+where
+    S: Store + CourseRecordsAccessStore,
+{
+    if !authenticated
+        .record
+        .subject
+        .roles()
+        .contains(&UserRole::Instructor)
+    {
+        return Err(error_response(StatusCode::NOT_FOUND, "course record not found").into());
+    }
+    match store
+        .get_current_course_membership(
+            authenticated.tenant_context,
+            course,
+            authenticated.record.subject.user(),
+        )
+        .await
+    {
+        Ok(Some(membership)) if membership.role == CourseMembershipRole::Instructor => {
+            match store
+                .course_records_accessible(authenticated.tenant_context, course)
+                .await
+            {
+                Ok(true) => Ok(()),
+                Ok(false) | Err(StoreError::NotFound | StoreError::Forbidden) => {
+                    Err(error_response(StatusCode::NOT_FOUND, "course record not found").into())
+                }
+                Err(error) => Err(store_error_response(error).into()),
+            }
+        }
+        Ok(Some(_)) | Ok(None) | Err(StoreError::NotFound | StoreError::Forbidden) => {
+            Err(error_response(StatusCode::NOT_FOUND, "course record not found").into())
+        }
+        Err(error) => Err(store_error_response(error).into()),
     }
 }
 

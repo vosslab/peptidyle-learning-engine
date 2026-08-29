@@ -37,7 +37,7 @@ connected-service lanes, final aggregate, screenshots, and independent review ar
 acceptance evidence for the accepted G1 boundary.
 
 This plan extends the accepted T6 assignment workspace with assignment-local automated-grading
-operations. It consumes the existing learner delivery, deterministic grading, immutable evidence,
+operations. It consumes the existing Student delivery, deterministic grading, immutable evidence,
 and generation-fenced scoring foundations. It provides the contract G2, G3, and G5 will consume.
 
 Parallel-plan ready: yes. The accepted-submission and operation contract is the serial foundation.
@@ -87,7 +87,7 @@ through the actual capability boundary.
   actor-or-worker provenance, V2 owner/ACL/`SECURITY DEFINER`/search-path authority, absent V1
   capability and grants, forced RLS, direct table denial, lease and generation fences,
   retry/recalculation idempotency, and sole score publication.
-- Rerun the production HTTPS browser path for answer-free learner and Instructor projections,
+- Rerun the production HTTPS browser path for answer-free Student and Instructor projections,
   network observations, and screenshots, then run `source source_me.sh && ./all_test.sh` on the
   exact final material tree.
 
@@ -111,18 +111,18 @@ Source inspection established an important foundation requirement. `submit_respo
 grader before `submit_question_attempt`, while preparation hydrated and authorized without
 persisting the browser response or idempotency key. A deterministic grader exception therefore
 lost its retry input when the request ended. G1 fixed the state machine: an accepted, shape-valid
-learner input is first persisted as the existing canonical immutable `submission`, then a
+Student input is first persisted as the existing canonical immutable `submission`, then a
 synchronous grader or a worker grades that exact server-private record. `submission_evaluation`
 remains the grade outcome. The successful synchronous fast path remains valuable as an optimization
 over this durable state machine, not its source of truth.
 
-ADAPT confirms the value of question-first grading and learner alternates. PLE carries that
+ADAPT confirms the value of question-first grading and Student alternatives. PLE carries that
 information scent forward with deterministic server-owned grading, immutable evidence, no-store
 browser contracts, and an operation queue rather than mutable score editing or diagnostic exports.
 
 ## Objectives
 
-1. Persist accepted learner input before grading so deterministic recovery has exact immutable
+1. Persist accepted Student input before grading so deterministic recovery has exact immutable
    server-private evidence.
 2. Give a current Instructor one assignment-local automated-grading operation surface.
 3. Route validated deterministic exceptions into typed state and immutable action receipts.
@@ -135,17 +135,17 @@ browser contracts, and an operation queue rather than mutable score editing or d
 ## Design philosophy
 
 - **Accept before grade.** The canonical `submission` records exactly one immutable
-  server-accepted learner input before any grader effect. Mutable execution, evaluation, and
-  Instructor-operation projections each have one separate owner. Existing learner-record retention
+  server-accepted Student input before any grader effect. Mutable execution, evaluation, and
+  Instructor-operation projections each have one separate owner. Existing Student-record retention
   owns deletion of the immutable input at the approved horizon.
 - **Operate on server-owned evidence.** Browsers select typed operations with concurrency and
-  idempotency proof. Servers derive learner, assignment, tenant, grader, generation, and job facts.
+  idempotency proof. Servers derive Student, assignment, tenant, grader, generation, and job facts.
 - **Separate state from history.** Mutable operation state informs a next safe action; append-only
   receipts establish what was requested and accepted.
 - **Keep one score publisher.** Existing private staging, lease checks, generation fences, and
   atomic publication remain authoritative.
 - **Make the next action obvious.** Question-first rows, named controls, safe status language, and
-  focus recovery let an Instructor resolve work without opening learner responses.
+  focus recovery let an Instructor resolve work without opening Student responses.
 - **Prove the actual boundary.** Offline tests protect stable behavior. The disposable production
   HTTPS stack proves real UI, PostgreSQL/RLS, worker recovery, and current-total visibility.
 
@@ -171,7 +171,7 @@ browser contracts, and an operation queue rather than mutable score editing or d
   `2026081865_scoring_invalidation_source_bindings.sql` for source-specific witness adapters.
   Accepted migrations remain immutable.
 - Assignment-local route `/courses/:courseRef/assignments/:assignmentRef/grading-operations`,
-  question-first grouping, learner alternate, cursor pagination, and explicit recovery controls.
+  question-first grouping, Student alternative, cursor pagination, and explicit recovery controls.
 - Deterministic exception routing, bounded retry, and generation-fenced recalculation.
 - Reuse of existing `2026081830` enqueue behind W5's canonical invalidation capability and
   `2026081831` scoring publication as the only recalculation and visible-score path. Every
@@ -184,11 +184,11 @@ browser contracts, and an operation queue rather than mutable score editing or d
 
 ## Non-goals
 
-- G2 audited learner-work inspection or browser delivery of raw responses.
+- G2 audited Student-work inspection or browser delivery of raw responses.
 - G3 item/course analysis and replacement-impact evidence.
 - G5 cross-course attention projection.
 - A second scheduler, direct score-row mutation, browser-to-worker commands, or browser fields for
-  grade values, correctness, partial credit, answer keys, rubrics, or raw learner responses.
+  grade values, correctness, partial credit, answer keys, rubrics, or raw Student responses.
 - Expanding the existing separately authorized human-grading capability into automated operations.
 - Evidence uses behavior, authorization, semantic accessibility, and durable state transitions.
   Graph inventories, exact pixels, incidental counts, and wall-clock performance observations
@@ -214,8 +214,9 @@ as the relevant connected communities. Direct source remains authoritative.
   hands current data to G3 analysis. G1 retains it as the sole derived-score committer.
 - **Instructor shell:** the T6 workspace, navigation, and strict client already provide exact
   assignment authority. G1 adds one local page and focused client seam.
-- **Human grading:** the existing manual-grade route and receipt retain their separate authority.
-  G1 proves automated commands cannot reach that mutation.
+- **Automated exception recovery:** `GradingOperationStore` owns bounded retry and
+  assignment recalculation. Immutable receipts preserve each transition without
+  introducing another score-mutation authority.
 
 ## W4 migration stabilization gate
 
@@ -240,31 +241,30 @@ before implementation continues.
 The approved binding architecture freezes this section. W1 records the plan and allocation; W2
 owns the production types and schema named here.
 
-### Accepted learner input and grading lifecycle
+### Accepted Student input and grading lifecycle
 
 The first server step validates bounded browser shape, session, assignment entitlement, active
 attempt, and idempotency. Invalid shape remains a pre-persistence 422. For accepted input, the
-server writes one immutable `submission` tied to tenant, learner/attempt, assignment item,
+server writes one immutable `submission` tied to tenant, Student/attempt, assignment item,
 idempotency key, issued question/grader identity, and retention policy. Its private response child
 is never a browser read DTO.
 
 The accepted parent rows never change after insertion, apart from deletion by the existing retention
 capability. For G1 contract-version-2 input, their generic `payload` fields contain only the fixed
-answer-free marker `{"kind":"acceptedPrivateResponseV1"}`; their existing digest metadata remains
+answer-free marker `{"kind":"accepted_private_response_v1"}`; their existing digest metadata remains
 metadata. The composite-FK `accepted_submission_private_response` child is the sole response
 authority. It contains canonical UTF-8 response text and its SHA-256 and is append-only except for
 retention-owned deletion. `grading_execution` is the attempt-unique mutable execution owner: it carries
 execution generation, state, retry bound, and current job/lease association.
 `submission_evaluation` is the mutable current evaluation projection. Its canonical
-`SubmissionEvaluationStatus` owns `automated_pending`, `automated_exception`,
-`needs_manual_grading`, `graded`, and `exempt`; `ManualEvaluationRecord` may remain a focused view
-for the separately authorized human-grading capability. `grading_operation` is the mutable,
-Instructor-facing recovery-thread projection. Execution and operation receipts are append-only.
+`SubmissionEvaluationStatus` owns exactly `automated_pending`, `automated_exception`, `graded`,
+and `exempt`. `grading_operation` is the mutable, Instructor-facing recovery-thread projection.
+Execution and operation receipts are append-only.
 
 One acceptance transaction inserts the immutable `submission`, binds `submission_idempotency` to
 that record and request digest, writes `submission_evaluation=automated_pending`, creates
 `grading_execution` generation 1, appends its acceptance receipt, and enqueues one closed
-accepted-submission execution job. Exact learner replay resolves the same immutable submission and
+accepted-submission execution job. Exact Student replay resolves the same immutable submission and
 returns its current policy-projected grading status; it creates no second execution. A changed key,
 response digest, attempt, or actor conflicts.
 
@@ -320,9 +320,9 @@ ASVS 1.2.4, 1.5.2-1.5.3, 2.2, 2.3, 8.1-8.4, 11.4, 14.1-14.2, 15.3-15.4, and 16.2
 ### Automated operation and receipt model
 
 The domain owns closed values for operation target, deterministic exception class, state, action,
-and outcome. Operation targets include assignment, public question reference, learner/attempt
+and outcome. Operation targets include assignment, public question reference, Student/attempt
 reference, source submission, and source grading generation. The taxonomy distinguishes a safe
-deterministic grader exception from invalid learner input, dependency outage, integrity failure, and
+deterministic grader exception from invalid Student input, dependency outage, integrity failure, and
 stale/superseded work. `RunBackendError` gains the approved closed deterministic-execution subtype,
 separate from invalid issued authority and unavailable dependency failure.
 
@@ -338,14 +338,14 @@ diagnostic, feedback internals, and score values.
 One submission recovery thread is unique for `(tenant, assignment, attempt, submission)` and its
 first deterministic exception. Retries append receipts to that thread. A recalculation operation is
 unique for `(tenant, assignment, requested_scoring_generation)` after the broker assigns the
-generation. Question and learner grouping present these threads; grouping never creates them.
+generation. Question and Student grouping present these threads; grouping never creates them.
 Every action has its own idempotency identity and expected operation revision. An exact action
 replay returns the original receipt. The same key with a changed target, revision, actor, or command
 conflicts without mutation. `worker_job`, `audit_event`, and `manual_grade_receipt` remain distinct
 concepts.
 
-The public learner field `automatedGradingStatus` has the closed symbolic values `pending`,
-`graded`, and `instructor_attention`. The Instructor field `operationReason` has the closed safe
+The public Student field `automated_grading_status` has the closed symbolic values `pending`,
+`graded`, and `instructor_attention`. The Instructor field `operation_reason` has the closed safe
 values `grader_contract_failure`, `grader_execution_failure`, `issued_evidence_integrity`,
 `retry_exhausted`, and `scoring_recalculation_failed`. A server-owned mapping provides visible
 messages. Backend text, tracing/provider data, answer material, private source, and feedback
@@ -375,24 +375,26 @@ issued-contract witnesses before changing the evaluation and calling `2026081830
 Successful grade finalization invokes `2026081830`, which alone advances assignment scoring
 generation and creates its recalculation job. The assignment scoring committer separately rechecks
 its exact job, lease, assignment generation, and scoring status before `2026081831` publication.
-Stale work at either generation is superseded and cannot publish. Original learner submission and
+Stale work at either generation is superseded and cannot publish. Original Student submission and
 grade receipts remain immutable; operation receipts record recovery.
 
 ### HTTP and browser contract
 
-The learner submission route remains the exact existing plural path:
+The Student submission route remains the exact existing plural path:
 
 ```text
 POST /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions
 ```
 
-It returns an answer-free no-store flattened tagged learner union. The browser JSON field/
-discriminant is lowerCamelCase `kind`; its cross-runtime symbolic values are snake_case
+It returns an answer-free no-store flattened tagged Student union. **Current pre-WN1:** the source
+uses `kind`, `attemptId`, `automatedGradingStatus`, and `nextAction`. WN1-QM or C3 closes that
+source transition. The target PLE contract uses `kind`, `attempt_id`,
+`automated_grading_status`, and `next_action`; its cross-runtime symbolic values are
 `completed`, `accepted_pending`, and `instructor_attention`. `200 OK` returns `completed` after
 the exact leased fast path commits. `202 Accepted` returns `accepted_pending` for durable pending
 work or `instructor_attention` for a typed execution exception. Pending and attention bodies contain
-only acceptance, the route-bound `attemptId`, closed automated-grading status, and closed
-snake_case `nextAction` value `check_status`; they exclude response, feedback, result, successor,
+only acceptance, the route-bound `attempt_id`, closed automated-grading status, and closed
+snake_case `next_action` value `check_status`; they exclude response, feedback, result, successor,
 execution identity, and score. The browser owns the visible copy for `check_status`.
 `422 Unprocessable Entity` remains only for shape/timing validation before accepted-input
 persistence. A dependency outage after acceptance remains durable pending work and uses worker
@@ -402,15 +404,15 @@ backoff. Exact replay returns the current union projection for the same immutabl
 GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status
 ```
 
-The no-store status GET rechecks learner entitlement and the complete route witness, then returns
-the same union. It allows an acknowledged learner to use visible **Check grading status** without a
+The no-store status GET rechecks Student entitlement and the complete route witness, then returns
+the same union. It allows an acknowledged Student to use visible **Check grading status** without a
 second answer POST. A `202 Accepted` clears the response buffer and idempotency key, enters the
 explicit `acceptedPending` client state, and provides that action; it does not restore or replay an
 accepted answer. Transport recovery retains the buffered exact replay only before acknowledgement.
 
 ```text
 GET  /api/courses/{course}/assignments/{assignment}/grading-operations
-     ?groupBy=question|learner&cursor=<opaque>&pageSize=<bounded>
+     ?group_by=question|student&cursor=<opaque>&page_size=<bounded>
 POST /api/courses/{course}/assignments/{assignment}/grading-operations/{operation}/retry
 POST /api/courses/{course}/assignments/{assignment}/grading-operations/recalculate
 ```
@@ -421,13 +423,13 @@ The server resolves it only within trusted tenant/course/assignment Instructor a
 UUID, job, attempt, and submission identities remain Store/server details.
 
 The server establishes session, tenant, current Instructor authority, and exact course/assignment
-relationship before interpreting optional values or returning facts. Learners, other tenants, and
+relationship before interpreting optional values or returning facts. Students, other tenants, and
 stale memberships receive the common concealed no-store result.
 
 Question grouping is the default because the first teaching question is "which item needs attention
-across learners?" Learner grouping answers impact questions. A group contains public Question ID and
-title or learner display identity, safe exception/status summary, affected-learner count, trust
-generation/state, action eligibility, and stable cursor key. G2 owns protected learner-work detail.
+across Students?" Student grouping answers impact questions. A group contains public Question ID and
+title or Student display identity, safe exception/status summary, affected-Student count, trust
+generation/state, action eligibility, and stable cursor key. G2 owns protected Student-work detail.
 
 Retry and recalculation POSTs are body-free. Required `Idempotency-Key` and `If-Match` headers carry
 the bounded action identity and current operation or assignment revision. Strict no-store
@@ -440,7 +442,7 @@ T6 assignment navigation gains **Grading operations** between **Policies** and *
 The header identifies assignment and scoring generation/status. A status band names the safe next
 action; recalculating and failed totals are never presented as current or zero.
 
-Rows lead with question title and `AAA-BBBB` ID or learner identity, then safe status, impact,
+Rows lead with question title and `AAA-BBBB` ID or Student identity, then safe status, impact,
 generation, and a named action such as **Retry automated grading for [question]**. Switching group
 mode resets opaque cursor/action context and announces the new scope. Pending action controls expose
 busy state without disabling unrelated work. Receipt, conflict, transport, and load recovery retain
@@ -448,7 +450,7 @@ context and direct focus to the next control.
 
 The product-wide Instructor and Sysadmin visual profile is 1280 by 800 desktop 16:10. G1's visible
 operation evidence is Instructor-only at that profile. A G1 Sysadmin surface uses the same profile
-when that surface exists; student responsive evidence continues through ordinary learner journeys.
+when that surface exists; student responsive evidence continues through ordinary Student journeys.
 
 ## Milestones
 
@@ -545,7 +547,7 @@ journey, connected oracles, and final Validation.
 
 ### G1-W3: stabilize typed pending reads and classify outcomes
 
-- **Owner/package:** expert coder, `WP-INST-G1 / G1-W3`, learner
+- **Owner/package:** expert coder, `WP-INST-G1 / G1-W3`, Student
   submission/grader boundary.
 - **Depends on:** G1-W2. W4 and W5 wait for the stabilization gate below.
 - **Owned artifacts:** the two `submission_record` matches in
@@ -553,7 +555,7 @@ journey, connected oracles, and final Validation.
   replay/read helper in `crates/server/src/run/submission.rs`; the matching
   typed read arm in `crates/server/src/run/external_tool.rs`; a minimal
   server-side answer-free `accepted_pending` 202 projection/helper with
-  lowerCamelCase `kind`, `attemptId`, `automatedGradingStatus`, and `nextAction`
+  **Current pre-WN1:** `kind`, `attemptId`, `automatedGradingStatus`, and `nextAction`
   fields for those established replay states; the closed `RunBackendError`/
   `SubmissionDisposition` mappings in native, WebWork, QTI, and composite
   backends; and an explicit preservation decision for the iMathAS broker's
@@ -568,12 +570,12 @@ journey, connected oracles, and final Validation.
   remain opaque, its provider and object-store outages remain unavailable, and
   its committed replay stays atomic on the external-tool path. W3 makes no
   first-effect acceptance call, exact claim, outcome commit, job mutation, or
-  learner-client mutation.
+  Student-client mutation.
 - **Accepted stabilization evidence:** the named read/replay call sites, minimal
-  accepted-pending helper, backend mappings, and canonical Memory learner read
+  accepted-pending helper, backend mappings, and canonical Memory Student read
   are green under the focused W3 gates and independent architecture and
   security/privacy approval. W4 consumes these contracts while retaining
-  ownership of first-effect acceptance, claims, outcomes, and learner state.
+  ownership of first-effect acceptance, claims, outcomes, and Student state.
 - **Permanent offline gate:** `cargo fmt --check`, `cargo check -p server_core`,
   and focused deterministic pending/read, 202-helper, outcome-matrix, and
   external-tool provider-bypass tests. The pending read proof covers list and
@@ -587,9 +589,9 @@ journey, connected oracles, and final Validation.
   read shape, exception category, operation target/revision, and private-loader
   invariant. Send W5 only answer-free Instructor action semantics and bounds.
 
-### G1-W4: accept, execute, and recover learner grading
+### G1-W4: accept, execute, and recover Student grading
 
-- **Owner/package:** expert coder, `WP-INST-G1 / G1-W4`, learner acceptance,
+- **Owner/package:** expert coder, `WP-INST-G1 / G1-W4`, Student acceptance,
   worker/scoring, and persistence-capability boundary.
 - **Depends on:** G1-W3 green stabilization gate, W2 accepted SQL/security
   review, and the W4 migration stabilization gate. Migrations
@@ -604,7 +606,7 @@ journey, connected oracles, and final Validation.
   immutable-evidence boundaries prepare the later database-normalization
   roadmap package without expanding W4's focused operation boundary.
 - **Owned artifacts:** the first-effect branch and helpers in
-  `crates/server/src/run/submission.rs`; learner delivery serialization in
+  `crates/server/src/run/submission.rs`; Student delivery serialization in
   `crates/server/src/run/support.rs`; the route-bound status GET in the run
   router/query owner; `CompletedSubmissionReceipt`, the crate-private
   `submission_completion.rs` lifecycle planner, and
@@ -615,9 +617,9 @@ journey, connected oracles, and final Validation.
   `in_memory/queue.rs`, and `postgres/jobs.rs`; worker, scoring-worker, and
   worker-composition modules; `src/api/contracts.ts`, `src/api/decoders/run.ts`,
   `src/api/http_client/request.ts`, `src/features/attempt/attempt_state.ts`, and
-  `src/api/client.ts`, `src/api/http_client/response.ts`, and focused learner
+  `src/api/client.ts`, `src/api/http_client/response.ts`, and focused Student
   page/presentation modules; focused tests; and migrations 1851 through 1860.
-- **Required behavior:** validate public response shape and learner route
+- **Required behavior:** validate public response shape and Student route
   witnesses without invoking a grader, then call `accept_automated_submission`
   once. W2 persists immutable input, replay evidence, pending projection,
   execution receipt, and the exact ready job. W4 implements the binding
@@ -642,8 +644,8 @@ journey, connected oracles, and final Validation.
   `submission_receipt_snapshot`; `student_assignment_summary` remains the typed
   scalar current projection. Migrations 1856/1857 load and lock return named scalar
   summary fields, and commit-v2 validates exactly `tenant`, `enrollment`,
-  `currentScore`, `bestScore`, `latestScore`, `completedRunCount`,
-  `totalQuestionAttempts`, and `lastActivityAt` before writing those scalars.
+  `current_score`, `best_score`, `latest_score`, `completed_run_count`,
+  `total_question_attempts`, and `last_activity_at` before writing those scalars.
   The capability has exactly 36 positional values, with canonical JSON version
   at position 7 before evaluation status. The attempt's immutable
   issuance payload remains unchanged while relational lifecycle fields advance;
@@ -662,18 +664,19 @@ journey, connected oracles, and final Validation.
   translation and envelope validation run inside the common leased handler, so
   a post-acceptance integrity failure becomes typed `instructor_attention`.
 
-  W4 extends W3's minimal helper into a flattened learner tagged union. Its
-  browser JSON field/discriminant is lowerCamelCase `kind`; its cross-runtime
-  symbolic values are snake_case `completed`, `accepted_pending`, and
-  `instructor_attention`. `completed` contains the established receipt
+  W4 extends W3's minimal helper into a flattened Student tagged union. **Current pre-WN1:** the
+  source uses `kind`, `attemptId`, and `automatedGradingStatus`. The target PLE contract uses
+  `kind`, `attempt_id`, `automated_grading_status`, and `next_action`; its symbolic values are
+  `completed`, `accepted_pending`, and `instructor_attention`. `completed` contains the
+  established receipt
   projection sourced from the immutable completed receipt. The two pending
   alternatives contain only `accepted: true`, the
-  route-bound `attemptId`, `automatedGradingStatus`, and closed snake_case
-  `nextAction: "check_status"`; the browser maps that action to visible copy.
+  route-bound `attempt_id`, `automated_grading_status`, and closed
+  `next_action: "check_status"`; the browser maps that action to visible copy after its WN1 closure.
   They contain no response, feedback, result, successor, execution identifier,
   or score. W4 adds the no-store route-bound
   `GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status`;
-  it rechecks learner entitlement and the full route witness in the same Rust
+  it rechecks Student entitlement and the full route witness in the same Rust
   transaction before calling the four-key verified integrity reader, which
   returns only the existing app-readable projection and does not authorize an
   actor independently. It returns the
@@ -729,12 +732,12 @@ journey, connected oracles, and final Validation.
   replay/status convergence, and ordinary synchronous completion versus
   accepted-worker completion parity for equal run, enrollment, and scalar
   summary results. It also proves 1830 enqueue and the 1831-only
-  assignment/course current-score publication path. W7a runs the visible learner
+  assignment/course current-score publication path. W7a runs the visible Student
   pending-to-completed status journey on the built HTTPS stack.
 - **Handoff:** send W5 closed retry/recalculate results and metadata-only
-  operation projections. W6 receives no learner contract work and remains the
+  operation projections. W6 receives no Student contract work and remains the
   Instructor operations page. Send W7a/W7b the status route, tagged union,
-  claim/load/lock/commit-v2/fail names, fault hook, visible learner states,
+  claim/load/lock/commit-v2/fail names, fault hook, visible Student states,
   role assumptions, canonical evidence protocol, immutable-completion invariant, and 1830/1831 score
   receipt, including known function failure and the reviewed final-
   acknowledgement fault proof that only final commit acknowledgement becomes
@@ -763,7 +766,7 @@ G1-W2 accepted submission + operation persistence
 G1-W3 typed pending reads and classification
        |
        v
-G1-W4 learner acceptance, execution, and status
+G1-W4 Student acceptance, execution, and status
        |
        v
 G1-W5 strict HTTP boundary
@@ -793,8 +796,8 @@ G1-W4 worker execution + G1-W5 HTTP boundary
   migration. Own schema, RLS, retention, and transactions.
 - **Typed pending/classification - expert coder:** W3 submission read/replay and backend modules.
   Own the minimal accepted-pending helper and closed classification.
-- **Learner acceptance/execution - expert coder:** W4 first-effect submission, worker/scoring/queue,
-  route-bound status, learner delivery contracts, and learner client state. Retain sole
+- **Student acceptance/execution - expert coder:** W4 first-effect submission, worker/scoring/queue,
+  route-bound status, Student delivery contracts, and Student client state. Retain sole
   derived-score authority.
 - **HTTP authorization - expert coder:** W5 focused course route and policy. Own public
   representations and authorization.

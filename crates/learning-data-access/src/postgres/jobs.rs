@@ -1,6 +1,7 @@
 //! PostgreSQL worker jobs, scoring workers, and assignment exports.
 
 use super::*;
+use crate::JobKind;
 
 #[cfg(feature = "postgres")]
 #[async_trait]
@@ -57,6 +58,33 @@ impl JobStore for PostgresStore {
         Ok(claimed)
     }
 
+    async fn claim_exact_job(
+        &self,
+        id: JobId,
+        kind: JobKind,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<ClaimedJob>, StoreError> {
+        let token = JobLeaseToken::generate()?;
+        let mut transaction = self.begin_app().await?;
+        let row = sqlx::query(
+            "SELECT job_id, tenant_id, payload, lease_token, attempt_count \
+             FROM public.ple_claim_exact_worker_job_v1($1, $2, $3, $4)",
+        )
+        .bind(id.as_uuid())
+        .bind(token.as_uuid())
+        .bind(lease.seconds())
+        .bind(kind.database_name())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let claimed = row
+            .as_ref()
+            .map(|row| decode_claimed_job(row, token))
+            .transpose()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(claimed)
+    }
+
     async fn complete_job(&self, id: JobId, token: JobLeaseToken) -> Result<(), StoreError> {
         let mut transaction = self.begin_app().await?;
         let completed: bool = sqlx::query_scalar("SELECT ple_complete_worker_job($1, $2)")
@@ -73,12 +101,14 @@ impl JobStore for PostgresStore {
 
     async fn fail_job(
         &self,
+        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
     ) -> Result<JobFailureDisposition, StoreError> {
-        let mut transaction = self.begin_app().await?;
-        let row = sqlx::query("SELECT ple_fail_worker_job($1, $2, $3) AS disposition")
+        let mut transaction = self.begin_tenant(context).await?;
+        let row = sqlx::query("SELECT ple_fail_worker_job($1, $2, $3, $4) AS disposition")
+            .bind(context.tenant_id().as_uuid())
             .bind(id.as_uuid())
             .bind(token.as_uuid())
             .bind(failure.as_db())
@@ -463,7 +493,7 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
                    WHERE pending.tenant_id = ar.tenant_id \
                      AND pending.run_id = ar.run_id \
                      AND pending.attempt_status NOT IN ('cleared', 'exempt') \
-                     AND evaluation.grading_status = 'needs_manual_grading' \
+                     AND evaluation.grading_status IN ('automated_pending', 'automated_exception') \
                 ) \
               GROUP BY ar.enrollment_id, ar.run_id, ar.run_number, ar.completed_at",
         )

@@ -21,10 +21,11 @@ can lag the current material tree until the named Validation gates are rerun.
 
 `WP-INST-G1` is accepted. Its automated-grading operation boundary completed W5 through W7, its
 seven predecessor migrations and four-file `2026081866`-`2026081869` closeout sequence are present,
-and final material-tree Validation passed on the 99-migration tree. `WP-INST-G2` is current under
-the [calculated Gradebook and audited Student-work plan](active_plans/active/audited_student_work_gradebook_plan.md),
-which reserves four forward migrations: authority foundation, private immutable witness, only
-app-executable broker, and query-demonstrated indexes (`2026081870` through `2026081873`).
+and final material-tree Validation passed on the 99-migration tree. `WP-INST-WN1` is current under
+the [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md).
+`WP-INST-G2` is implemented and acceptance-open behind WN1 plus its remaining visual/documentation
+close-out; current package and migration allocation details remain solely in the
+[implementation status registry](active_plans/implementation_status.md).
 `WP-RC8` remains acceptance-open for provider/mailbox, unrelated passkey, multi-replica, security,
 HCI, and release work. Instructor live-demo acceptance does not imply production onboarding,
 deployment, or release acceptance.
@@ -46,9 +47,8 @@ deployment, or release acceptance.
 
 ### Current and acceptance-open
 
-- Implement `WP-INST-G2` from its approved calculated Gradebook and audited Student-work contract,
-  then continue the Instructor sequence in declared dependency order. `WP-INST-G1` contributes
-  accepted operation and receipt links.
+- Accept revised `WP-INST-WN1-A`, then implement `WN1-B/C1-C6/QM/WA/D/F` from its approved [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md),
+  then resume G2 W5/W6 visual/documentation close-out in declared dependency order. `WP-INST-G1` contributes accepted operation and receipt links.
 - Rerun the complete named Validation suite on each final material tree. Focused or historical
   migration counts do not establish release acceptance.
 - Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.

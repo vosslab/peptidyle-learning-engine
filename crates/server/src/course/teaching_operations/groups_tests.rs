@@ -11,8 +11,8 @@ use learning_data_access::{
 use question_model::{
     AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentInstructions,
     AssignmentItem, AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode,
-    AssignmentTeachingSettings, BaseAssignmentPolicy, CourseId, LearnerDisclosurePolicy,
-    PointValue, TenantId, UserId, UserRole,
+    AssignmentTeachingSettings, BaseAssignmentPolicy, CourseId, PointValue,
+    StudentDisclosurePolicy, TenantId, UserId, UserRole,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -241,7 +241,7 @@ async fn assignment_referencing_group(
                         scoring_mode: AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: LearnerDisclosurePolicy::default(),
+                    disclosure_policy: StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
                 base_policy,

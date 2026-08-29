@@ -86,8 +86,7 @@ pub(super) fn request_scoring_invalidation(
             GradingOperationReason::InstructorRequestedRecalculation
         }
         crate::ScoringInvalidationOriginKind::AssignmentDefinition
-        | crate::ScoringInvalidationOriginKind::ManualGrade
-        | crate::ScoringInvalidationOriginKind::LearnerSupport
+        | crate::ScoringInvalidationOriginKind::StudentSupport
         | crate::ScoringInvalidationOriginKind::AcceptedSubmissionCompletion => {
             GradingOperationReason::ScoringRecalculationRequested
         }
@@ -229,7 +228,7 @@ mod tests {
     }
 
     fn origin(id: u128) -> ScoringInvalidationOrigin {
-        ScoringInvalidationOrigin::manual_grade(
+        ScoringInvalidationOrigin::student_support(
             crate::ScoringInvalidationOriginId::from_uuid(Uuid::from_u128(id)),
             UserId::from_uuid(Uuid::from_u128(4)),
         )
@@ -244,11 +243,7 @@ mod tests {
             Some(actor)
         );
         assert_eq!(
-            ScoringInvalidationOrigin::manual_grade(id, actor).actor,
-            Some(actor)
-        );
-        assert_eq!(
-            ScoringInvalidationOrigin::learner_support(id, actor).actor,
+            ScoringInvalidationOrigin::student_support(id, actor).actor,
             Some(actor)
         );
         assert!(

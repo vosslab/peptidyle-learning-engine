@@ -228,8 +228,6 @@ pub enum CourseGradeOutcomeView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseGradebookTotalViewRow {
-    /// Course-local roster identity.
-    pub roster_id: String,
     /// Course roster display name.
     pub display_name: String,
     /// Server-calculated result or a closed unavailable reason.

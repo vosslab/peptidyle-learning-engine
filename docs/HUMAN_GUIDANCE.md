@@ -15,6 +15,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 
 - Keep every source file below 1000 lines. Split complete capabilities into focused modules.
 - PLE is pre-production with no users or durable production data. Improve the design directly.
+- PLE-owned data-object fields, serialized names, query keys, and portable discriminants use readable `snake_case`; TypeScript functions and locals follow their language/browser convention, and registered external protocols keep their owner spelling.
 - Focus on adaptability so the software can evolve as requirements and insights change.
 - Use the latest dependency versions because security bugs are continually fixed.
 - When measured behavior is slow, consider moving the hot path to Rust or WebAssembly.

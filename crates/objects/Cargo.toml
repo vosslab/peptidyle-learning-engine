@@ -44,5 +44,6 @@ default = []
 s3 = ["dep:aws-config", "dep:aws-sdk-s3", "dep:base64", "dep:serde_json"]
 
 [dev-dependencies]
+acceptance-runtime = { path = "../acceptance-runtime" }
 tokio.workspace = true
 serde_json.workspace = true

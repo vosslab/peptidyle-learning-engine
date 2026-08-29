@@ -6,8 +6,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    ActivityTimestamp, AssignmentReference, CourseMembershipReference, CourseReference,
-    RunReference, ScoringGeneration, ScoringStatus,
+    ActivityTimestamp, AssignmentId, AssignmentReference, CourseId, CourseMembershipId,
+    CourseMembershipReference, CourseReference, InspectedStudentScoreFeedbackV1, QuestionAttemptId,
+    RunId, RunReference, ScoringGeneration, ScoringStatus, TeachingDisplayLabel, TenantId,
     presentation::{InspectedStudentResponseV1, PresentationDigestV1},
 };
 
@@ -16,6 +17,7 @@ use crate::{ReceiptPresentationSnapshot, SessionTokenHash, StoreError, TenantCon
 /// Server-owned purpose for the paired successful-record audit writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StudentWorkInspectionAuditIntent {
+    /// Records an Instructor's successful Gradebook-initiated inspection.
     GradebookInspection,
 }
 
@@ -23,16 +25,25 @@ pub enum StudentWorkInspectionAuditIntent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StudentWorkInspectionReturnContext {
     Gradebook {
+        /// Course that owns the restored Gradebook cell.
         course: CourseReference,
+        /// Student membership represented by the restored cell.
         membership: CourseMembershipReference,
+        /// Assignment represented by the restored cell.
         assignment: AssignmentReference,
+        /// Exact browser focus target after return.
         focus: StudentWorkInspectionFocusTarget,
     },
     GradingOperation {
+        /// Course that owns the restored grading operation.
         course: CourseReference,
+        /// Student membership selected by the operation.
         membership: CourseMembershipReference,
+        /// Assignment selected by the operation.
         assignment: AssignmentReference,
+        /// Operation control that opened the inspection.
         operation: question_model::GradingOperationReference,
+        /// Exact browser focus target after return.
         focus: StudentWorkInspectionFocusTarget,
     },
 }
@@ -61,28 +72,71 @@ pub enum StudentWorkInspectionFocusTarget {
 /// Exact public composite selected by an Instructor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InspectStudentWorkRequest {
+    /// Public reference for the selected course.
     pub course: CourseReference,
+    /// Public reference for the selected Student membership.
     pub membership: CourseMembershipReference,
+    /// Public reference for the selected assignment.
     pub assignment: AssignmentReference,
+    /// Public reference for the selected Student run.
     pub run: RunReference,
+    /// Closed return destination and focus target.
     pub return_context: StudentWorkInspectionReturnContext,
 }
 
 /// One immutable submitted response in the selected run.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct InspectedStudentSubmissionV1 {
+    /// Internal immutable attempt identity used only for deterministic ordering.
+    pub(crate) attempt: QuestionAttemptId,
+    /// Immutable assignment position used only for deterministic ordering.
+    pub(crate) assignment_position: u32,
     /// The immutable receipt timestamp for this submitted response.
     pub submitted_at: ActivityTimestamp,
-    /// The exact issued presentation retained by the immutable receipt.
-    pub presentation: ReceiptPresentationSnapshot,
-    /// The server-verified digest of the issued presentation.
-    pub issued_presentation_digest: PresentationDigestV1,
+    /// Closed evidence proving how this response may be interpreted.
+    pub evidence: InspectedSubmissionEvidenceV1,
     /// The page-local scoring generation observed with this detail read.
     pub scoring_generation: ScoringGeneration,
-    /// The page-local scoring state observed with this detail read.
+    /// Current score/correctness-only feedback with no instructional content.
+    pub feedback: InspectedStudentScoreFeedbackV1,
+    /// Safe rendering of the Student's submitted response, bound to issued IDs.
     pub response: InspectedStudentResponseV1,
     /// The current status for the assignment scoring generation.
     pub scoring_status: ScoringStatus,
+}
+
+/// Browser-safe immutable evidence for one inspected Student submission.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InspectedSubmissionEvidenceV1 {
+    /// A receipt retained and verified one issued presentation.
+    IssuedPresentation {
+        /// Exact answer-free issued presentation snapshot.
+        presentation: Box<ReceiptPresentationSnapshot>,
+        /// Recomputed digest of that issued presentation.
+        issued_presentation_digest: PresentationDigestV1,
+    },
+    /// The immutable issued capability correctly has no presentation.
+    PresentationNotApplicable,
+}
+
+/// Internal receipt witness retained in the paired protected audit facts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudentWorkInspectionSubmissionWitness {
+    /// Internal immutable attempt identity selected by the completed receipt.
+    pub attempt: QuestionAttemptId,
+    /// Immutable receipt timestamp for the submitted attempt.
+    pub submitted_at: ActivityTimestamp,
+    /// Closed evidence classification retained without response content.
+    pub evidence: StudentWorkInspectionEvidenceWitness,
+}
+
+/// Internal evidence witness for one inspected submission.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StudentWorkInspectionEvidenceWitness {
+    /// A verified issued-presentation digest without the presentation payload.
+    IssuedPresentation { digest: PresentationDigestV1 },
+    /// A verified ExternalTool receipt whose issued capability has no presentation.
+    PresentationNotApplicable,
 }
 
 /// Closed successful Student-record access fact retained with an inspection.
@@ -94,16 +148,18 @@ pub struct StudentWorkInspectionRecordAccess {
     pub intent: StudentWorkInspectionAuditIntent,
     /// Authoritative timestamp for the paired facts.
     pub occurred_at: ActivityTimestamp,
-    /// Course selected by the Instructor.
-    pub course: CourseReference,
+    /// Tenant owning this protected Student record.
+    pub tenant: TenantId,
+    /// Course owning this protected Student record.
+    pub course: CourseId,
     /// Student membership selected by the Instructor.
-    pub membership: CourseMembershipReference,
+    pub membership: CourseMembershipId,
     /// Assignment selected by the Instructor.
-    pub assignment: AssignmentReference,
+    pub assignment: AssignmentId,
     /// Run selected by the Instructor.
-    pub run: RunReference,
-    /// Verified issued-presentation digests in submitted-at order.
-    pub issued_presentation_digests: Vec<PresentationDigestV1>,
+    pub run: RunId,
+    /// Verified immutable submission evidence in total inspection order.
+    pub submissions: Vec<StudentWorkInspectionSubmissionWitness>,
     /// Server-owned scoring generation.
     pub scoring_generation: ScoringGeneration,
     /// Server-owned scoring status.
@@ -115,14 +171,22 @@ pub struct StudentWorkInspectionRecordAccess {
 pub struct StudentWorkInspectionAudit {
     /// Instructor identity authorized for this read.
     pub actor: question_model::UserId,
+    /// Fixed server-owned purpose for this successful read.
     pub intent: StudentWorkInspectionAuditIntent,
+    /// Authoritative timestamp shared with the paired access fact.
     pub occurred_at: ActivityTimestamp,
-    pub course: CourseReference,
-    pub membership: CourseMembershipReference,
-    pub assignment: AssignmentReference,
-    pub run: RunReference,
-    /// Verified issued-presentation digests in submitted-at order.
-    pub issued_presentation_digests: Vec<PresentationDigestV1>,
+    /// Tenant owning this protected Student record.
+    pub tenant: TenantId,
+    /// Course selected by the Instructor.
+    pub course: CourseId,
+    /// Student membership selected by the Instructor.
+    pub membership: CourseMembershipId,
+    /// Assignment selected by the Instructor.
+    pub assignment: AssignmentId,
+    /// Run selected by the Instructor.
+    pub run: RunId,
+    /// Verified immutable submission evidence in total inspection order.
+    pub submissions: Vec<StudentWorkInspectionSubmissionWitness>,
     /// Server-owned scoring generation.
     pub scoring_generation: ScoringGeneration,
     /// Server-owned scoring status.
@@ -130,14 +194,53 @@ pub struct StudentWorkInspectionAudit {
 }
 
 /// Closed, solution-free inspection detail.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct InspectedStudentWorkDetailV1 {
+    /// Selected course reference.
     pub course: CourseReference,
+    /// Selected Student membership reference.
     pub membership: CourseMembershipReference,
+    /// Selected assignment reference.
     pub assignment: AssignmentReference,
+    /// Selected run reference.
     pub run: RunReference,
+    /// Current, validated display label for the inspected active Student.
+    ///
+    /// This presentation fact is resolved from the active course roster after
+    /// the exact inspection composite is authorized; it is not audit evidence.
+    pub student_display_label: TeachingDisplayLabel,
+    /// Current title for the inspected course assignment.
+    ///
+    /// This presentation fact is resolved from the authorized assignment and
+    /// is not immutable submission or audit evidence.
+    pub assignment_title: String,
+    /// Receipt-verified submissions in submitted-at order.
     pub submissions: Vec<InspectedStudentSubmissionV1>,
+    /// Closed destination used when the client returns from this detail.
     pub return_context: StudentWorkInspectionReturnContext,
+}
+
+impl std::fmt::Debug for InspectedStudentSubmissionV1 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("InspectedStudentSubmissionV1")
+            .field("evidence", &"[REDACTED]")
+            .field("scoring_generation", &self.scoring_generation)
+            .field("scoring_status", &self.scoring_status)
+            .field("response", &"[REDACTED]")
+            .field("feedback", &"[REDACTED]")
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for InspectedStudentWorkDetailV1 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("InspectedStudentWorkDetailV1")
+            .field("submission_count", &self.submissions.len())
+            .field("submissions", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// Store capability for the one audit-recorded Student-work detail read.

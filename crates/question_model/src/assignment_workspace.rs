@@ -10,8 +10,8 @@ use crate::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentLandingPresentation,
     AssignmentLifecycle, AssignmentScoringMode, AssignmentSelectionGroup, Capability,
     CourseGroupReference, IanaTimeZone, InstructorAssignmentTeachingSettingsLocal,
-    LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, QuestionId, RunPolicies,
-    SelectionOrdering, VariationPolicy,
+    LateSubmissionPolicy, PointValue, QuestionId, RunPolicies, SelectionOrdering,
+    StudentDisclosurePolicy, VariationPolicy,
 };
 
 /// Browser request to create a persisted, incomplete assignment draft.
@@ -50,7 +50,7 @@ pub struct ReplaceAssignmentPoliciesRequest {
     /// Explicit learner audience.
     pub audience: AssignmentAudienceRequest,
     /// Learner-facing disclosure timing.
-    pub disclosure_policy: LearnerDisclosurePolicy,
+    pub disclosure_policy: StudentDisclosurePolicy,
     /// Completion, grade, practice, and variation policy.
     pub policies: RunPolicies,
     /// Course-local teaching settings resolved by the server before storage.
@@ -222,7 +222,7 @@ pub struct InstructorStudentView {
     /// Learner-visible variation policy.
     pub variation: VariationPolicy,
     /// Learner-visible disclosure schedule.
-    pub disclosure_policy: LearnerDisclosurePolicy,
+    pub disclosure_policy: StudentDisclosurePolicy,
 }
 
 /// Instructor-base delivery facts for stable-identity Student view. These
@@ -411,7 +411,7 @@ mod tests {
 
         let policy = ReplaceAssignmentPoliciesRequest {
             audience: AssignmentAudienceRequest::CourseWide,
-            disclosure_policy: LearnerDisclosurePolicy::default(),
+            disclosure_policy: StudentDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: crate::CompletionRequirement::AnswerAll,
                 grade: crate::GradePolicy::Highest,

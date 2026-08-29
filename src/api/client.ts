@@ -26,13 +26,12 @@ import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGrad
 import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
 import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseBannerId } from "../../generated/api/CourseBannerId";
-import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { EnrollmentId } from "../../generated/api/EnrollmentId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../generated/api/RunId";
-import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
@@ -76,10 +75,10 @@ import type {
   AssignmentContentInput,
   AssignmentPoliciesInput,
   InstructorStudentView,
-  LearnerAssignmentSummary,
-  LearnerAssignmentDetail,
-  LearnerQuestionAttempt,
-  LearnerSubmissionStatus,
+  StudentAssignmentLandingSummary,
+  StudentAssignmentDetail,
+  StudentQuestionAttempt,
+  StudentSubmissionStatus,
   AuthSession,
   CourseCreateInput,
   CourseSummary,
@@ -112,6 +111,18 @@ import type {
   InstructorGradingOperationsPage,
 } from "./decoders/grading_operations";
 import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type { RunReference } from "../../generated/api/RunReference";
+import type {
+  CalculatedGradebookQuery,
+  CalculatedGradebookResult,
+  InspectedStudentWorkDetail,
+} from "./decoders/calculated_gradebook";
+import type {
+  GradebookSelectionQuery,
+  GradebookSelectionResult,
+  SubmittedRunChoicesPage,
+  SubmittedRunChoicesQuery,
+} from "./decoders/gradebook_selection";
 
 /** Instructor-only browser capability for answer-free automated-grading recovery metadata. */
 export interface GradingOperationsClient {
@@ -137,6 +148,31 @@ export interface GradingOperationsClient {
   ) => Promise<GradingOperationActionReceipt>;
 }
 
+/** Instructor-only calculated Gradebook and audited Student-work capability. */
+export interface CalculatedGradebookClient {
+  readonly getCalculatedGradebook: (
+    courseId: CourseId,
+    query?: CalculatedGradebookQuery,
+  ) => Promise<CalculatedGradebookResult>;
+  readonly getGradebookSelection: (
+    courseId: CourseId,
+    query: GradebookSelectionQuery,
+  ) => Promise<GradebookSelectionResult>;
+  readonly getSubmittedRunChoices: (
+    courseId: CourseId,
+    membership: CourseMembershipReference,
+    assignment: AssignmentReference,
+    query?: SubmittedRunChoicesQuery,
+  ) => Promise<SubmittedRunChoicesPage>;
+  readonly getInspectedStudentWork: (
+    courseId: CourseId,
+    membership: CourseMembershipReference,
+    assignment: AssignmentReference,
+    run: RunReference,
+    operationRef?: GradingOperationReference,
+  ) => Promise<InspectedStudentWorkDetail>;
+}
+
 /** Sysadmin-only discovery capability over generated public account references. */
 export interface SysadminInstructorCandidateClient {
   readonly searchSysadminInstructorCandidates: (
@@ -151,7 +187,8 @@ export interface ApiClient
     ProblemCurationClient,
     ReusableCurriculumClient,
     CurriculumAdoptionClient,
-    GradingOperationsClient {
+    GradingOperationsClient,
+    CalculatedGradebookClient {
   readonly listCourseGroups: (
     courseId: CourseId,
     cursor?: string,
@@ -392,23 +429,14 @@ export interface ApiClient
     update: CourseAppearanceUpdate,
     revision: string,
   ) => Promise<CourseAppearance>;
-  /**
-   * Instructor gradebook projection. This cursor-paged route never loads
-   * historical runs or question attempts.
-   */
-  readonly listGradebook: (
-    courseId: CourseId,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<CursorPage<GradebookSummaryRow>>;
   readonly listAssignments: (
     courseId: CourseId,
     cursor?: string,
-  ) => Promise<CursorPage<LearnerAssignmentSummary>>;
+  ) => Promise<CursorPage<StudentAssignmentLandingSummary>>;
   /** Learner-safe detail; Instructor workspace reads require an exact course identity. */
-  readonly getAssignment: (assignmentId: AssignmentId) => Promise<LearnerAssignmentDetail>;
+  readonly getAssignment: (assignmentId: AssignmentId) => Promise<StudentAssignmentDetail>;
   /** Current key-free learner progress; the server omits withheld score totals. */
-  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<LearnerAssignmentProgress>;
+  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<StudentAssignmentProgress>;
   /** Reads the course-bound Instructor assignment workspace. */
   readonly getAssignmentWorkspace: (
     courseId: CourseId,
@@ -465,8 +493,8 @@ export interface ApiClient
   readonly listAttempts: (
     runId: RunId,
     cursor?: string,
-  ) => Promise<CursorPage<LearnerQuestionAttempt>>;
-  readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<LearnerQuestionAttempt>;
+  ) => Promise<CursorPage<StudentQuestionAttempt>>;
+  readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
   /** Returns only the regenerated renderable variant; grading stays server-side. */
   readonly getIssuedQuestion: (
     courseId: CourseId,
@@ -492,18 +520,18 @@ export interface ApiClient
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: string,
-  ) => Promise<LearnerSubmissionStatus>;
+  ) => Promise<StudentSubmissionStatus>;
   /** Reads a previously acknowledged learner submission without resending answer material. */
   readonly getSubmissionStatus: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
-  ) => Promise<LearnerSubmissionStatus>;
+  ) => Promise<StudentSubmissionStatus>;
   /** Instructor command only; current feedback is read through a later summary GET. */
   readonly releaseAttemptFeedback: (
     attemptId: QuestionAttemptId,
   ) => Promise<FeedbackReleaseResponse>;
-  readonly getSummary: (enrollmentId: EnrollmentId) => Promise<LearnerAssignmentProgress>;
+  readonly getSummary: (enrollmentId: EnrollmentId) => Promise<StudentAssignmentProgress>;
   readonly getRunScreen: (runId: RunId) => Promise<RunScreenData>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;

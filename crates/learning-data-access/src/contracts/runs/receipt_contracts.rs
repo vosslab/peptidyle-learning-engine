@@ -12,7 +12,7 @@ pub struct CompletedSubmissionReceipt {
 }
 
 impl CompletedSubmissionReceipt {
-    pub fn into_submission_record(self, disclosure: LearnerDisclosureInput) -> SubmissionRecord {
+    pub fn into_submission_record(self, disclosure: StudentDisclosureInput) -> SubmissionRecord {
         SubmissionRecord {
             attempt: self.attempt,
             run: self.run,

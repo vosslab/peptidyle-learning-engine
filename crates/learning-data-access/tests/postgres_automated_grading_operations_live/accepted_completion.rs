@@ -9,9 +9,10 @@ use learning_data_access::{
     AcceptedSubmissionExecutionFastPathClaimStore, AcceptedSubmissionExecutionOutcome,
     AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, AcceptedSubmissionGrade,
     AutomatedGradingStore, CourseRosterStore, FlatGradingCapability, IssueQuestionAttemptCommand,
-    JobId, JobLeaseDuration, LearnerWorkRoutingBinding, NativeExecutionEnvelopeCapability,
-    PresentationCapability, QtiGradingCapability, Store, SubmissionIdempotencyKey, TenantContext,
-    UpsertCourseMember, WebworkGradingCapability, WorkerId, canonical_attempt_result_json,
+    JobId, JobLeaseDuration, NativeExecutionEnvelopeCapability, PresentationCapability,
+    QtiGradingCapability, Store, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
+    TenantContext, UpsertCourseMember, WebworkGradingCapability, WorkerId,
+    canonical_attempt_result_json,
 };
 use question_model::{
     AssignmentId, AttemptProvenance, AttemptResult, CourseId, EnrollmentId, FeedbackContent,
@@ -40,6 +41,7 @@ pub(super) struct AcceptedCompletionOrigin {
     pub(super) scoring_generation: i64,
     pub(super) student: UserId,
     pub(super) enrollment: EnrollmentId,
+    pub(super) attempt: QuestionAttemptId,
 }
 
 pub(super) async fn prove_accepted_completion_origin(
@@ -75,7 +77,7 @@ pub(super) async fn prove_accepted_completion_origin(
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(fresh_uuid()),
         )
         .await
@@ -86,7 +88,7 @@ pub(super) async fn prove_accepted_completion_origin(
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt,
                 run: run.id,
                 assignment_position: 0,
@@ -256,5 +258,6 @@ pub(super) async fn prove_accepted_completion_origin(
         scoring_generation: row.try_get("scoring_generation").unwrap(),
         student,
         enrollment: run.enrollment,
+        attempt,
     }
 }

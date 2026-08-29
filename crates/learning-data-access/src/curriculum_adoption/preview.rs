@@ -83,8 +83,8 @@ mod tests {
         AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode,
         AssignmentTeachingSettingsFailureReason, AssignmentTeachingSettingsField,
         CompletionRequirement, ContinuedPractice, GradePolicy, LateSubmissionPolicy,
-        LearnerDisclosurePolicy, LocalTimeOfDay, PointValue, ProblemId, ProblemVersionRef,
-        RelativeScheduleMoment, ReusableAssignmentDefaults, RunPolicies, VariationPolicy,
+        LocalTimeOfDay, PointValue, ProblemId, ProblemVersionRef, RelativeScheduleMoment,
+        ReusableAssignmentDefaults, RunPolicies, StudentDisclosurePolicy, VariationPolicy,
         VersionId,
     };
 
@@ -107,7 +107,7 @@ mod tests {
                 continued_practice: ContinuedPractice::Unlimited,
                 variation: VariationPolicy::NewSeeds,
             },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
+            student_disclosure: StudentDisclosurePolicy::default(),
         }
     }
 

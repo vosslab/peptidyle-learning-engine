@@ -9,17 +9,11 @@ import subprocess
 from collections.abc import Callable
 
 import local_stack_control.browser_suite_lease
-import local_stack_control.browser_suite_reset
+import local_stack_control.acceptance_profile_owner
 import local_stack_control.compose
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.runtime_manifest
-
-
-#============================================
-def _resources_empty(snapshot: local_stack_control.models.ProjectSnapshot) -> bool:
-	"""Report whether the fixed browser-owner inventory is empty."""
-	return not (snapshot.containers or snapshot.volumes or snapshot.networks)
 
 
 #============================================
@@ -65,41 +59,20 @@ def run_owned_database_baseline(
 	port_checker: Callable[[tuple[int, ...], local_stack_control.process.CommandRunner, pathlib.Path], None] = local_stack_control.process.require_available_loopback_ports,
 ) -> None:
 	"""Run one serial database oracle with fresh and final fixed-stack resets."""
-	lease = lease_factory(repository_root)
-	failures: list[BaseException] = []
-	try:
-		local_stack_control.browser_suite_reset.reset_live_demo_browser(
-			lease, reset_runner_factory(), repository_root
-		)
-		workspace = lease.reset_workspace()
-		port = port_selector()
-		port_checker((port,), reset_runner_factory(), repository_root)
-		try:
-			oracle_runner(repository_root, workspace, port)
-		except BaseException as error:
-			failures.append(error)
-	finally:
-		try:
-			final_snapshot = local_stack_control.browser_suite_reset.reset_live_demo_browser(
-				lease, reset_runner_factory(), repository_root
-			)
-			if not _resources_empty(final_snapshot):
-				raise local_stack_control.models.ControllerError(
-					"database baseline final reset left fixed browser resources"
-				)
-			workspace = lease.reset_workspace()
-			if any(workspace.iterdir()):
-				raise local_stack_control.models.ControllerError(
-					"database baseline final workspace is not empty"
-				)
-		except BaseException as error:
-			failures.append(error)
-		finally:
-			lease.release()
-	if len(failures) == 1:
-		raise failures[0]
-	if failures:
-		raise BaseExceptionGroup("database baseline lifecycle failures", failures)
+	def profile_oracle(
+		root: pathlib.Path, workspace: pathlib.Path, ports: tuple[int, ...]
+	) -> None:
+		oracle_runner(root, workspace, ports[0])
+
+	local_stack_control.acceptance_profile_owner.run_owned_acceptance_profile(
+		repository_root,
+		"database baseline",
+		profile_oracle,
+		lease_factory,
+		reset_runner_factory,
+		lambda: (port_selector(),),
+		port_checker,
+	)
 
 
 #============================================

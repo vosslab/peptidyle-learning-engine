@@ -46,6 +46,7 @@ mod feedback;
 mod flat_import_provenance;
 mod flat_question;
 mod flat_question_assets;
+#[cfg(any(test, feature = "postgres", feature = "test-support"))]
 mod gradebook_cursor;
 mod grading_operations;
 /// In-memory backend for deterministic unit and conformance tests.
@@ -57,7 +58,6 @@ mod item_analysis;
 pub mod jobs;
 mod live_demo_installation;
 mod manual_grade_export;
-mod manual_grading;
 mod navigation_references;
 /// Cursor and bounded-page types shared by every list method.
 pub mod pagination;
@@ -115,7 +115,7 @@ pub use crate::asset_delivery::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
     AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, PublicAssetPublicationStore,
 };
-pub use crate::contracts::{CourseGroupManagementStore, LearnerSubmissionStatusStore};
+pub use crate::contracts::{CourseGroupManagementStore, StudentSubmissionStatusStore};
 pub use crate::contracts::{
     CurriculumAdoptionStore, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
     IssuedQuestionSnapshotV1, PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit,
@@ -136,11 +136,12 @@ pub use crate::course_gradebook::{
     CalculatedAssignmentCell, CalculatedAssignmentCellAvailability, CalculatedGradebookPage,
     CalculatedGradebookRequest, CalculatedGradebookResult, CalculatedGradebookRow,
     CourseGradeAssignmentMembership, CourseGradeAssignmentRecord, CourseGradeExport,
-    CourseGradeExportAudit, CourseGradeExportId, CourseGradeSchemeRecord,
+    CourseGradeExportAudit, CourseGradeExportId, CourseGradeExportRow, CourseGradeSchemeRecord,
     CourseGradeSchemeRevision, CourseGradebookStore, CourseGradebookTotalRow,
-    CourseGradebookTotals, GradebookFilter, GradebookFilterRequest, GradebookReloadReason,
-    GradebookSelectionResult, MAX_COURSE_GRADE_EXPORT_ROWS, StudentSelectionRow,
-    UpdateCourseGradeScheme,
+    CourseGradebookTotals, GradebookFilter, GradebookFilterRequest, GradebookOperationSelection,
+    GradebookReloadReason, GradebookSelectionRequest, GradebookSelectionResult,
+    MAX_COURSE_GRADE_EXPORT_ROWS, StudentSelectionRow, SubmittedRunChoice, SubmittedRunChoicesPage,
+    SubmittedRunChoicesRequest, UpdateCourseGradeScheme,
 };
 pub use crate::course_roster::{
     AllowedEmailDomain, ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
@@ -169,9 +170,9 @@ pub(crate) use crate::external_tool::{
     fresh_external_tool_launch_id, validate_external_snapshot_binding,
 };
 pub use crate::feedback::{
-    AttemptFeedbackRecord, FeedbackReleaseRecord, LearnerAssignmentSummarySnapshot,
-    LearnerDisclosureInput, ReleaseAttemptFeedbackCommand, RunSummaryOutcomeInput,
-    RunSummaryPageInput, private_feedback_record,
+    AttemptFeedbackRecord, FeedbackReleaseRecord, ReleaseAttemptFeedbackCommand,
+    RunSummaryOutcomeInput, RunSummaryPageInput, StudentAssignmentSummarySnapshot,
+    StudentDisclosureInput, private_feedback_record,
 };
 pub use crate::flat_import_provenance::{
     FlatImportChoiceMapPayload, FlatImportConversionVersion, FlatImportIntegrityDigests,
@@ -204,7 +205,8 @@ pub use crate::grading_operations::{
     GradingOperationTrustGeneration, InstructorGradingOperationProjection,
     InstructorGradingOperationRow, ListInstructorGradingOperationsCommand,
     MAX_INSTRUCTOR_GRADING_RETRY_COUNT, RecalculateAssignmentCommand, RetryGradingOperationCommand,
-    WorkerId, canonical_attempt_result_json, canonical_student_response_json,
+    WorkerId, accepted_submission_recalculation_job, canonical_attempt_result_json,
+    canonical_student_response_json,
 };
 pub use crate::invitation_delivery::MAX_COURSE_INVITATION_DELIVERY_ATTEMPTS;
 pub use crate::invitation_delivery::{
@@ -229,11 +231,6 @@ pub use crate::live_demo_installation::LiveDemoInstallationStore;
 pub use crate::manual_grade_export::{
     CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS, ManualGradeExport, ManualGradeExportId,
     ManualGradeExportRow, ManualGradeExportStore,
-};
-pub use crate::manual_grading::{
-    EvaluationRevision, ManualCredit, ManualEvaluationRecord, ManualEvaluationStatus,
-    ManualGradeActionId, ManualGradeReceipt, ManualGradingStore, SetManualGradeCommand,
-    SubmitPendingManualQuestionAttemptCommand,
 };
 pub use crate::navigation_references::{
     AssignmentRouteIdentity, NavigationReferenceStore, RunRouteIdentity,
@@ -283,9 +280,10 @@ pub use crate::session::{
 };
 pub use crate::student_work_inspection::{
     InspectStudentWorkRequest, InspectedStudentSubmissionV1, InspectedStudentWorkDetailV1,
-    StudentWorkInspectionAudit, StudentWorkInspectionAuditIntent, StudentWorkInspectionFocusTarget,
+    InspectedSubmissionEvidenceV1, StudentWorkInspectionAudit, StudentWorkInspectionAuditIntent,
+    StudentWorkInspectionEvidenceWitness, StudentWorkInspectionFocusTarget,
     StudentWorkInspectionRecordAccess, StudentWorkInspectionReturnContext,
-    StudentWorkInspectionStore,
+    StudentWorkInspectionStore, StudentWorkInspectionSubmissionWitness,
 };
 pub use crate::teaching_authority_references::{
     CourseCoInstructorInvitationReferenceView, CourseInstructorMembershipReferencePage,

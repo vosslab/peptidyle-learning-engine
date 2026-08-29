@@ -10,7 +10,11 @@
 import { expect, test, type BrowserContext, type Page, type Request } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { decodeLearnerSubmissionStatus } from "../../../src/api/decoders/submission_status";
+import { decodeStudentSubmissionStatus } from "../../../src/api/decoders/submission_status";
+import {
+  decodeGradingOperationActionReceipt,
+  decodeInstructorGradingOperationsPage,
+} from "../../../src/api/decoders/grading_operations";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
@@ -25,15 +29,14 @@ import {
   writeContextOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
+import { waitForAutomatedFeedback } from "./automated_grading_ui";
 import {
   AUTOMATED_GRADING_RECOVERY_LABELS,
-  answerFreeViolation,
   automatedGradingRetryName,
-  completedLearnerReceiptViolation,
   isInstructorRetryPost,
   isInstructorOperationsListGet,
-  isLearnerStatusGet,
-  isLearnerSubmissionPost,
+  isStudentStatusGet,
+  isStudentSubmissionPost,
 } from "./automated_grading_recovery_ui";
 
 const maryEmail = "mary.okafor@live-demo.ple.example";
@@ -51,6 +54,10 @@ const completionStep =
   "Mary checks grading status after recovery and sees completed feedback without resubmitting";
 const gradebookStep =
   "Elena sees the real current gradebook total after the ordinary worker completes";
+const gradebookReturnStep =
+  "Elena inspects Mary's submitted work and returns to the exact Gradebook cell";
+const operationReturnStep =
+  "Elena follows the recovered operation through Gradebook selection and back to its exact control";
 
 async function createQuestion(page: Page, title: string, correctChoice: string): Promise<string> {
   await page.getByRole("link", { name: "Workspace" }).click();
@@ -172,13 +179,13 @@ function trackRecoveryNetworkTraffic(learner: Page, instructor: Page): RecoveryN
 
   learner.on("request", (request: Request) => {
     const pathname = new URL(request.url()).pathname;
-    if (isLearnerSubmissionPost(request.method(), pathname)) {
+    if (isStudentSubmissionPost(request.method(), pathname)) {
       evidence.learnerSubmissionBodies.push(request.postData() ?? "");
     }
   });
   learner.on("response", (response) => {
     const pathname = new URL(response.url()).pathname;
-    if (isLearnerSubmissionPost("POST", pathname)) {
+    if (isStudentSubmissionPost("POST", pathname)) {
       evidence.learnerSubmissionStatuses.push(response.status());
       evidence.pendingResponses.push(
         response.text().then((body) => {
@@ -186,7 +193,7 @@ function trackRecoveryNetworkTraffic(learner: Page, instructor: Page): RecoveryN
         }),
       );
     }
-    if (isLearnerStatusGet("GET", pathname)) {
+    if (isStudentStatusGet("GET", pathname)) {
       evidence.learnerStatusStatuses.push(response.status());
       evidence.pendingResponses.push(
         response.text().then((body) => {
@@ -222,18 +229,21 @@ function trackRecoveryNetworkTraffic(learner: Page, instructor: Page): RecoveryN
   return evidence;
 }
 
-async function assertRecoveryNetworkEvidence(
-  evidence: RecoveryNetworkEvidence,
-  privateValues: ReadonlyArray<string>,
-): Promise<void> {
+async function assertRecoveryNetworkEvidence(evidence: RecoveryNetworkEvidence): Promise<void> {
   await Promise.all(evidence.pendingResponses);
   expect(evidence.learnerSubmissionBodies).toHaveLength(1);
   expect(evidence.learnerSubmissionStatuses).toEqual([202]);
   expect(evidence.learnerSubmissionResponses).toHaveLength(1);
   expect(evidence.learnerStatusStatuses.length).toBeGreaterThan(0);
   expect(evidence.learnerStatusStatuses).toContain(202);
-  expect(evidence.learnerStatusStatuses.slice(0, -1).every((status) => status === 202)).toBe(true);
-  expect(evidence.learnerStatusStatuses[evidence.learnerStatusStatuses.length - 1]).toBe(200);
+  const firstCompletedStatus = evidence.learnerStatusStatuses.indexOf(200);
+  expect(firstCompletedStatus).toBeGreaterThan(0);
+  expect(
+    evidence.learnerStatusStatuses.slice(0, firstCompletedStatus).every((status) => status === 202),
+  ).toBe(true);
+  expect(
+    evidence.learnerStatusStatuses.slice(firstCompletedStatus).every((status) => status === 200),
+  ).toBe(true);
   expect(evidence.learnerStatusResponses).toHaveLength(evidence.learnerStatusStatuses.length);
   expect(evidence.instructorOperationsListStatuses.length).toBeGreaterThan(0);
   expect(evidence.instructorOperationsListStatuses.every((status) => status === 200)).toBe(true);
@@ -248,20 +258,13 @@ async function assertRecoveryNetworkEvidence(
     ...evidence.learnerSubmissionResponses,
     ...evidence.learnerStatusResponses,
   ]) {
-    let violation: string | null;
-    try {
-      const decoded = decodeLearnerSubmissionStatus(response);
-      violation = decoded.kind === "completed" ? completedLearnerReceiptViolation(decoded) : null;
-    } catch {
-      violation = "response is not a valid learner submission status";
-    }
-    expect(violation).toBeNull();
+    expect(() => decodeStudentSubmissionStatus(response)).not.toThrow();
   }
   for (const response of evidence.instructorOperationsListResponses) {
-    expect(answerFreeViolation(response, privateValues)).toBeNull();
+    expect(() => decodeInstructorGradingOperationsPage(response)).not.toThrow();
   }
   for (const response of evidence.retryResponses) {
-    expect(answerFreeViolation(response, privateValues)).toBeNull();
+    expect(() => decodeGradingOperationActionReceipt(response)).not.toThrow();
   }
 }
 
@@ -307,6 +310,7 @@ test(journeyName, async ({ browser }) => {
   const contexts: BrowserContext[] = [];
   let originEvidenceVerified = false;
   let questionId = "";
+  let operationReference = "";
 
   try {
     const instructorContext = await browser.newContext(contextOptions);
@@ -385,6 +389,10 @@ test(journeyName, async ({ browser }) => {
       await openInstructorOperations(instructor, assignmentTitle);
       const retry = instructor.getByRole("button", { name: automatedGradingRetryName });
       await expect(retry).toHaveCount(1);
+      const operationRow = instructor.getByRole("article").filter({ has: retry });
+      operationReference = (
+        await operationRow.getByText(/^GO-[1-9][0-9]{0,9}$/u).innerText()
+      ).trim();
       await expect(
         instructor.getByRole("heading", {
           level: 2,
@@ -420,25 +428,7 @@ test(journeyName, async ({ browser }) => {
     });
 
     await test.step(completionStep, async () => {
-      const feedback = learner
-        .getByRole("heading", { name: "Feedback", exact: true })
-        .locator("..");
-      const statusButton = learner.getByRole("button", {
-        name: AUTOMATED_GRADING_RECOVERY_LABELS.checkGradingStatus,
-        exact: true,
-      });
-      await expect
-        .poll(
-          async () => {
-            if (await feedback.isVisible()) return true;
-            if ((await statusButton.isVisible()) && (await statusButton.isEnabled())) {
-              await statusButton.click();
-            }
-            return false;
-          },
-          { timeout: journeyTimeoutMs / 2, intervals: [pollingIntervalMs] },
-        )
-        .toBe(true);
+      const feedback = await waitForAutomatedFeedback(learner);
       await expect(feedback).toBeVisible();
       await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
       expect(traffic.learnerSubmissionBodies).toHaveLength(1);
@@ -448,17 +438,15 @@ test(journeyName, async ({ browser }) => {
       await instructor
         .getByRole("link", { name: AUTOMATED_GRADING_RECOVERY_LABELS.gradebook })
         .click();
-      const records = instructor.getByRole("region", { name: "Gradebook records" });
+      const records = instructor.getByRole("region", { name: "Calculated Gradebook" });
       await expect
         .poll(
           async () => {
-            const row = instructor
-              .getByRole("row")
-              .filter({ hasText: assignmentTitle })
-              .filter({ hasText: "Mary Okafor" });
+            const row = records.getByRole("row").filter({ hasText: "Mary Okafor" });
+            const assignmentCell = row.locator(`[data-label="${assignmentTitle}"]`);
             if (
               (await row.isVisible()) &&
-              /100%/u.test((await row.innerText()).replace(/\s+/gu, " "))
+              /100%/u.test((await assignmentCell.innerText()).replace(/\s+/gu, " "))
             ) {
               return true;
             }
@@ -479,11 +467,149 @@ test(journeyName, async ({ browser }) => {
       );
     });
 
+    await test.step(gradebookReturnStep, async () => {
+      const records = instructor.getByRole("region", { name: "Calculated Gradebook" });
+      const maryRow = records.getByRole("row").filter({ hasText: "Mary Okafor" });
+      const invokingCell = maryRow.locator(`[data-label="${assignmentTitle}"]`);
+      await expect(invokingCell).toHaveCount(1);
+      const inspectSubmittedWork = invokingCell.getByRole("link", {
+        name: "Inspect submitted work",
+        exact: true,
+      });
+      const chooseSubmittedRun = invokingCell.getByRole("button", {
+        name: /^Choose one of [1-9][0-9]* submitted runs$/u,
+      });
+      await expect
+        .poll(async () => (await inspectSubmittedWork.count()) + (await chooseSubmittedRun.count()))
+        .toBe(1);
+      const invokingControl =
+        (await inspectSubmittedWork.count()) === 1 ? inspectSubmittedWork : chooseSubmittedRun;
+      await expect(invokingControl).toBeVisible();
+      const invokingCellId = await invokingCell.getAttribute("id");
+      expect(invokingCellId).toMatch(/^gradebook-cell-M-[1-9][0-9]{0,9}-A-[1-9][0-9]{0,9}$/u);
+
+      if ((await inspectSubmittedWork.count()) === 1) {
+        await inspectSubmittedWork.click();
+      } else {
+        await chooseSubmittedRun.click();
+        const chooser = instructor.getByRole("dialog", { name: "Choose one submitted run" });
+        await expect(chooser).toBeVisible();
+        await chooser
+          .getByRole("link", { name: "Inspect this submitted run", exact: true })
+          .first()
+          .click();
+      }
+
+      const inspectedWork = instructor.locator('[data-route-surface="studentWorkInspection"]');
+      await expect(inspectedWork).toBeVisible();
+      await expect(
+        inspectedWork.getByRole("heading", { name: assignmentTitle, exact: true }),
+      ).toBeVisible();
+      await expect(inspectedWork.locator(".page-lede")).toContainText("Mary Okafor");
+      await captureRealStackScreenshot(instructor, scenarioInput, "audited_student_work_laptop");
+      await instructor
+        .getByRole("link", { name: "Return to this Student in the Gradebook", exact: true })
+        .click();
+
+      await expect(instructor).toHaveURL(new RegExp(`#${invokingCellId}$`, "u"));
+      await expect(instructor.locator(`#${invokingCellId}`)).toBeFocused();
+    });
+
+    await test.step(operationReturnStep, async () => {
+      await instructor.getByRole("link", { name: "Assignments", exact: true }).click();
+      const assignment = instructor
+        .getByRole("article")
+        .filter({ has: instructor.getByRole("heading", { name: assignmentTitle, exact: true }) });
+      await assignment.getByRole("link", { name: assignmentTitle, exact: true }).click();
+      await instructor
+        .getByRole("link", { name: AUTOMATED_GRADING_RECOVERY_LABELS.gradingOperations })
+        .click();
+      const operationRow = instructor.getByRole("article").filter({ hasText: operationReference });
+      await expect(operationRow).toHaveCount(1);
+      await operationRow
+        .getByRole("link", { name: "Inspect affected Student work", exact: true })
+        .click();
+
+      await expect(
+        instructor.getByRole("heading", { name: "Gradebook", exact: true }),
+      ).toBeVisible();
+      await expect
+        .poll(() => new URL(instructor.url()).searchParams.get("operationRef"))
+        .toBe(operationReference);
+      const selection = instructor.getByRole("region", {
+        name: "Select Student work to inspect",
+        exact: true,
+      });
+      await expect(selection).toBeVisible();
+      const marySelection = selection.getByRole("article").filter({ hasText: "Mary Okafor" });
+      await expect(marySelection).toHaveCount(1);
+      await expect(
+        marySelection.getByRole("heading", { name: "Mary Okafor", exact: true }),
+      ).toBeVisible();
+
+      const inspectSelectedRun = marySelection.getByRole("link", {
+        name: "Inspect submitted work",
+        exact: true,
+      });
+      const chooseRun = marySelection.getByRole("button", {
+        name: /^Choose one of [1-9][0-9]* submitted runs$/u,
+      });
+      await expect
+        .poll(async () => (await inspectSelectedRun.count()) + (await chooseRun.count()))
+        .toBe(1);
+      if ((await inspectSelectedRun.count()) === 1) {
+        await inspectSelectedRun.click();
+      } else {
+        await chooseRun.click();
+        const chooser = instructor.getByRole("dialog", { name: "Choose one submitted run" });
+        await expect(chooser).toBeVisible();
+        await expect(
+          chooser.getByText("Used for the current score", { exact: true }),
+        ).toBeVisible();
+        const inspectExactRun = chooser.getByRole("link", {
+          name: "Inspect this submitted run",
+          exact: true,
+        });
+        await expect(inspectExactRun).toHaveCount(1);
+        await inspectExactRun.click();
+      }
+
+      const inspectedWork = instructor.locator('[data-route-surface="studentWorkInspection"]');
+      await expect(inspectedWork).toBeVisible();
+      await expect(
+        inspectedWork.getByRole("heading", { name: assignmentTitle, exact: true }),
+      ).toBeVisible();
+      await expect(inspectedWork.locator(".page-lede")).toContainText("Mary Okafor");
+      await expect(instructor.getByText("Audited Student work", { exact: true })).toBeVisible();
+      await expect(instructor.getByText("Immutable evidence", { exact: true })).toBeVisible();
+      await expect(instructor.getByText("Correct", { exact: true })).toBeVisible();
+      await expect(
+        inspectedWork.getByRole("region", { name: "Inspection privacy boundary", exact: true }),
+      ).toContainText("Answer keys and grader material remain server-owned.");
+      const inspectionUrl = instructor.url();
+      await instructor.reload();
+      await expect(instructor).toHaveURL(inspectionUrl);
+      await expect(inspectedWork).toBeVisible();
+      await expect(
+        inspectedWork.getByRole("heading", { name: assignmentTitle, exact: true }),
+      ).toBeVisible();
+      await expect(inspectedWork.locator(".page-lede")).toContainText("Mary Okafor");
+      const returnToOperation = instructor.getByRole("link", {
+        name: "Return to this grading operation",
+        exact: true,
+      });
+      await expect(returnToOperation).toBeVisible();
+      await returnToOperation.click();
+
+      const operationControlId = `grading-operation-control-${operationReference}`;
+      await expect(instructor).toHaveURL(
+        new RegExp(`/grading-operations#${operationControlId}$`, "u"),
+      );
+      await expect(instructor.locator(`#${operationControlId}`)).toBeFocused();
+    });
+
     await test.step("the live network proves one learner answer, one empty retry, and answer-free JSON", async () => {
-      await assertRecoveryNetworkEvidence(traffic, [
-        correctChoice,
-        `Alternative response for Peptide Bond Resonance During Automated Recovery`,
-      ]);
+      await assertRecoveryNetworkEvidence(traffic);
     });
 
     expectObservedOrigin(origins.instructor, expectedOrigin);

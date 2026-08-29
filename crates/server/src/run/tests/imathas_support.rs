@@ -58,7 +58,7 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
@@ -68,7 +68,7 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
             .create_external_tool_launch(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 issued_question_snapshot,
                 attempt,
                 aead,
@@ -80,7 +80,7 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: Uuid,
@@ -94,7 +94,7 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
             .proxy_external_tool_activity(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 issued_question_snapshot,
                 attempt,
                 session_id,
@@ -113,7 +113,7 @@ impl ExternalToolSubmissionBackend for CountingExternalRouteBackend {
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey,
@@ -125,7 +125,7 @@ impl ExternalToolSubmissionBackend for CountingExternalRouteBackend {
             .submit_external_tool(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 issued_question_snapshot,
                 attempt,
                 idempotency_key,
@@ -337,7 +337,7 @@ pub(super) async fn contracted_route_fixture(
                     instructions: question_model::AssignmentInstructions::default(),
                     items: assignment_items(vec![reference, reference]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -392,7 +392,7 @@ pub(super) async fn contracted_route_fixture(
         .start_or_resume_run(
             context,
             actor,
-            learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id(813)),
         )
         .await
@@ -421,7 +421,7 @@ pub(super) async fn contracted_route_fixture(
                 actor,
                 attempt: QuestionAttemptId::from_uuid(id(814)),
                 run: run.id,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+                binding: learning_data_access::StudentWorkRoutingBinding::new(course, assignment),
                 assignment_position: 0,
                 problem,
                 question_version: version,
@@ -466,7 +466,7 @@ pub(super) async fn contracted_route_fixture(
         Arc::clone(&store),
         Arc::clone(&route_backend),
         sealed_memory(&store),
-        learner_submission_status(&store),
+        student_submission_status(&store),
         automated_grading(&store),
     )
     .merge(external_tool_router(

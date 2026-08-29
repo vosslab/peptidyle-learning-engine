@@ -67,34 +67,40 @@ def values() -> dict[str, str]:
 
 
 #============================================
-def test_provision_resets_both_exact_memberships_without_argv_or_env_secrets(
+def test_provision_resets_three_exact_memberships_without_argv_or_env_secrets(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""One transactional stdin script supplies two independently bounded pools."""
+	"""One transactional stdin script supplies three independently bounded capabilities."""
 	runner = RecordingRunner()
-	passwords = iter(("a" * 64, "b" * 64))
+	passwords = iter(("a" * 64, "b" * 64, "c" * 64))
 	monkeypatch.setattr(
 		local_stack_control.base_course_logins.secrets,
 		"token_hex",
 		lambda size: next(passwords),
 	)
 
-	installer_url, app_url = local_stack_control.base_course_logins.provision(
+	installer_url, app_url, fast_path_url = local_stack_control.base_course_logins.provision(
 		target(tmp_path), runner, values(), {"PATH": "/bin"}
 	)
 
 	assert installer_url.endswith("@127.0.0.1:55432/ple")
 	assert app_url.endswith("@127.0.0.1:55432/ple")
+	assert fast_path_url.endswith("@127.0.0.1:55432/ple")
 	argv, environment, sql = runner.calls[0]
 	assert "a" * 64 not in " ".join(argv)
 	assert "b" * 64 not in " ".join(argv)
+	assert "c" * 64 not in " ".join(argv)
 	assert "a" * 64 not in environment.values()
 	assert "b" * 64 not in environment.values()
+	assert "c" * 64 not in environment.values()
 	assert environment == {"PATH": "/bin", "PGPASSWORD": "admin-private"}
 	assert sql is not None and sql.startswith("BEGIN;\n") and sql.endswith("COMMIT;\n")
 	assert "GRANT ple_base_course_installer TO ple_base_course_installer_login" in sql
 	assert "GRANT ple_app TO ple_base_course_app_login" in sql
+	assert "GRANT ple_accepted_submission_execution_fast_path TO ple_base_course_fast_path_login" in sql
+	assert "ALTER ROLE ple_base_course_fast_path_login" in sql
+	assert "CONNECTION LIMIT 4 PASSWORD" in sql
 	assert "WITH INHERIT FALSE, SET TRUE, ADMIN FALSE" in sql
 	assert "REVOKE %I FROM %I" in sql
 
@@ -123,10 +129,11 @@ def test_reset_sql_is_idempotent_and_refuses_cross_role_profile() -> None:
 
 
 #============================================
-def test_base_course_child_gets_two_urls_but_never_migration_authority() -> None:
-	"""The two pools are the entire private Base Course database authority."""
+def test_base_course_child_gets_three_urls_but_never_migration_authority() -> None:
+	"""The three capabilities are the entire private Base Course database authority."""
 	installer_url = "postgres://installer:" + "d" * 64 + "@127.0.0.1:5432/ple"
 	app_url = "postgres://app:" + "e" * 64 + "@127.0.0.1:5432/ple"
+	fast_path_url = "postgres://fast-path:" + "f" * 64 + "@127.0.0.1:5432/ple"
 	child = local_stack_control.base_course_logins.child_environment(
 		{
 			"PATH": "/bin",
@@ -138,11 +145,13 @@ def test_base_course_child_gets_two_urls_but_never_migration_authority() -> None
 		values(),
 		installer_url,
 		app_url,
+		fast_path_url,
 	)
 	assert child == {
 		"PATH": "/bin",
 		"PLE_BASE_COURSE_INSTALLER_DATABASE_URL": installer_url,
 		"PLE_BASE_COURSE_APP_DATABASE_URL": app_url,
+		"PLE_BASE_COURSE_FAST_PATH_DATABASE_URL": fast_path_url,
 		"PLE_BASE_COURSE_DEPLOYMENT_MODE": "local",
 		"PLE_QUESTION_ID_SECRET_FILE": "/private/question-secret",
 	}

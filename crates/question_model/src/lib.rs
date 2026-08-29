@@ -79,9 +79,9 @@ pub use crate::activity::{
     AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem, AssignmentSelectionGroupId,
     AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord, CourseGroupId, CourseId,
     CourseMembershipId, EnrollmentId, EnrollmentStatus, ImplementationVersion,
-    IssuedAttemptCapabilityV1, LearnerAssignmentProgress, LearnerScoreState, QuestionAttempt,
-    QuestionAttemptId, RunCompletionStatus, RunId, RunMode, SourceArtifact,
-    StudentAssignmentSummary, StudentId, TenantId,
+    IssuedAttemptCapabilityV1, QuestionAttempt, QuestionAttemptId, RunCompletionStatus, RunId,
+    RunMode, SourceArtifact, StudentAssignmentProgress, StudentAssignmentSummary, StudentId,
+    StudentScoreState, TenantId,
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentInstructions,
@@ -130,8 +130,8 @@ pub use crate::catalog_facets::CatalogSearchFilter;
 pub use crate::course::{
     AssignmentItemSummary, AssignmentLandingPresentation, AssignmentSelectionCandidateSummary,
     AssignmentSelectionGroupSummary, AssignmentSummary, CourseMembershipRole, CourseSummary,
-    GradebookSummaryRow, LearnerAssignmentDelivery, LearnerAssignmentDetail,
-    LearnerAssignmentSummary, LearnerLateStatus,
+    GradebookSummaryRow, StudentAssignmentDelivery, StudentAssignmentDetail,
+    StudentAssignmentLandingSummary, StudentLateStatus,
 };
 pub use crate::course_appearance::{
     CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,
@@ -206,7 +206,7 @@ pub use crate::entitlement::{
     NonEmptyAudienceGroups,
 };
 pub use crate::envelope::QuestionEnvelope;
-pub use crate::feedback::{DisclosedFeedback, FeedbackContent};
+pub use crate::feedback::{DisclosedFeedback, FeedbackContent, InspectedStudentScoreFeedbackV1};
 pub use crate::generation::GeneratorReference;
 pub use crate::grading_operations::{
     AutomatedGradingStatus, GradingOperationAction, GradingOperationReason, GradingOperationState,
@@ -218,10 +218,10 @@ pub use crate::identity::{
 pub use crate::lifecycle::{Lifecycle, LifecycleError, LifecycleEvent};
 pub use crate::pool_preview::{PoolDrawPreview, PoolDrawPreviewQuestion, PoolDrawPreviewRequest};
 pub use crate::presentation::{
-    AssetBindingV1, LearnerAttemptDescriptorV1, LearnerRunScreenRunV1, LearnerRunScreenScopeV1,
-    LearnerRunScreenV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
+    AssetBindingV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
     PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
     PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
+    StudentAttemptDescriptorV1, StudentRunScreenRunV1, StudentRunScreenScopeV1, StudentRunScreenV1,
 };
 pub use crate::preview_plane::{
     DerivedPreviewSubjectRequest, InstructorPreviewSchedulePage, InstructorPreviewScheduleRow,
@@ -256,13 +256,13 @@ pub use crate::reusable_curriculum::{
     validate_reusable_curriculum_title,
 };
 pub use crate::run_policy::{
-    CompletionRequirement, ContinuedPractice, GradePolicy, LearnerDisclosurePolicy,
-    LearnerDisclosureTiming, PoolDrawBasis, PoolDrawBasisError, PoolDrawPreviewNonce, RunPolicies,
+    CompletionRequirement, ContinuedPractice, GradePolicy, PoolDrawBasis, PoolDrawBasisError,
+    PoolDrawPreviewNonce, RunPolicies, StudentDisclosurePolicy, StudentDisclosureTiming,
     VariationPolicy,
 };
 pub use crate::statistics::{
-    DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, LearnerClassStatistics, QuestionStatisticsDisclosure,
-    QuestionStatisticsView, StatisticsDisclosurePolicy, StatisticsDisclosurePolicyError,
+    DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, QuestionStatisticsDisclosure, QuestionStatisticsView,
+    StatisticsDisclosurePolicy, StatisticsDisclosurePolicyError, StudentClassStatistics,
 };
 pub use crate::teaching_authority::{
     CoInstructorInvitation, CoInstructorInvitationId, CoInstructorInvitationState,

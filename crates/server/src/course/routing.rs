@@ -7,21 +7,21 @@ use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseGradebookStore, CourseGroupManagementStore,
     CourseInvitationDeliveryStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
     CourseRosterStore, GradingOperationStore, ManualGradeExportStore, NavigationReferenceStore,
-    PoolPreviewStore, PreviewPlaneStore, SessionStore, Store, TeachingAuthorityReferenceStore,
-    TeachingAuthorityStore,
+    PoolPreviewStore, PreviewPlaneStore, SessionStore, Store, StudentWorkInspectionStore,
+    TeachingAuthorityReferenceStore, TeachingAuthorityStore,
 };
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{
     create_assignment_draft, get_assignment_summary, get_assignment_workspace,
-    get_instructor_student_view, get_learner_assignment, replace_assignment_content,
+    get_instructor_student_view, get_student_assignment, replace_assignment_content,
     replace_assignment_fixed_item, replace_assignment_policies,
 };
 use super::grading_operations::{
     list_grading_operations, recalculate_assignment, retry_grading_operation,
 };
 use super::invitation_capability::CourseInvitationIssuer;
-use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
+use super::queries::{create_course, get_course, list_assignments, list_courses};
 use super::roster::roster_router;
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -47,6 +47,7 @@ where
         + NavigationReferenceStore
         + PoolPreviewStore
         + PreviewPlaneStore
+        + StudentWorkInspectionStore
         + 'static,
 {
     router_with_invitations(store, CourseInvitationIssuer::unavailable())
@@ -72,6 +73,7 @@ where
         + NavigationReferenceStore
         + PoolPreviewStore
         + PreviewPlaneStore
+        + StudentWorkInspectionStore
         + 'static,
 {
     let course_routes = Router::new()
@@ -87,7 +89,22 @@ where
             "/api/courses/{course}/assignments/drafts",
             post(create_assignment_draft::<S>),
         )
-        .route("/api/courses/{course}/gradebook", get(list_gradebook::<S>))
+        .route(
+            "/api/courses/{course}/gradebook",
+            get(super::gradebook::get_calculated_gradebook::<S>),
+        )
+        .route(
+            "/api/courses/{course}/gradebook/selection",
+            get(super::gradebook::get_gradebook_selection::<S>),
+        )
+        .route(
+            "/api/courses/{course}/gradebook/students/{membership}/assignments/{assignment}/runs",
+            get(super::gradebook::get_submitted_run_choices::<S>),
+        )
+        .route(
+            "/api/courses/{course}/gradebook/students/{membership}/assignments/{assignment}/runs/{run}",
+            get(super::gradebook::get_student_work::<S>),
+        )
         .route(
             "/api/courses/{course}/grade-scheme",
             get(super::gradebook::get_scheme::<S>).put(super::gradebook::put_scheme::<S>),
@@ -102,8 +119,8 @@ where
         )
         .route("/api/courses/{course}", get(get_course::<S>))
         .route(
-            "/api/assignments/{assignment}/learner",
-            get(get_learner_assignment::<S>),
+            "/api/assignments/{assignment}/student",
+            get(get_student_assignment::<S>),
         )
         .route(
             "/api/assignments/{assignment}/summary",

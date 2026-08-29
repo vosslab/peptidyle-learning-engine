@@ -8,7 +8,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeCatalogPage,
   decodeDraftQuestionDefinition,
-  decodeLearnerSubmissionStatus,
+  decodeStudentSubmissionStatus,
   decodeQuestionEnvelope,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
@@ -57,8 +57,8 @@ test("learner submission status decoder accepts only closed answer-free pending 
     automatedGradingStatus: "pending",
     nextAction: "check_status",
   };
-  assert.deepEqual(decodeLearnerSubmissionStatus(pending), pending);
-  assert.throws(() => decodeLearnerSubmissionStatus({ ...pending, kind: "unknown" }), DecodeError);
+  assert.deepEqual(decodeStudentSubmissionStatus(pending), pending);
+  assert.throws(() => decodeStudentSubmissionStatus({ ...pending, kind: "unknown" }), DecodeError);
   for (const forbidden of [
     "response",
     "feedback",
@@ -68,13 +68,13 @@ test("learner submission status decoder accepts only closed answer-free pending 
     "nextPending",
   ]) {
     assert.throws(
-      () => decodeLearnerSubmissionStatus({ ...pending, [forbidden]: "private" }),
+      () => decodeStudentSubmissionStatus({ ...pending, [forbidden]: "private" }),
       DecodeError,
       forbidden,
     );
   }
   assert.throws(
-    () => decodeLearnerSubmissionStatus({ ...pending, attempt: {} }),
+    () => decodeStudentSubmissionStatus({ ...pending, attempt: {} }),
     DecodeError,
     "completed receipt fields cannot mix with pending acknowledgement",
   );

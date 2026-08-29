@@ -336,9 +336,8 @@ mod tests {
     use question_model::{
         AssignmentDeadlineBehavior, BlueprintReference, BlueprintRevision, CompletionRequirement,
         ContinuedPractice, CurriculumPinPosition, GradePolicy, LateSubmissionPolicy,
-        LearnerDisclosurePolicy, LocalTimeOfDay, ObservedBlueprintSource, ProblemId,
-        RelativeAssignmentSchedule, RelativeScheduleMoment, RunPolicies, VariationPolicy,
-        VersionId,
+        LocalTimeOfDay, ObservedBlueprintSource, ProblemId, RelativeAssignmentSchedule,
+        RelativeScheduleMoment, RunPolicies, StudentDisclosurePolicy, VariationPolicy, VersionId,
     };
 
     fn reference(value: u128) -> ProblemVersionRef {
@@ -378,7 +377,7 @@ mod tests {
                 continued_practice: ContinuedPractice::Unlimited,
                 variation: VariationPolicy::NewSeeds,
             },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
+            student_disclosure: StudentDisclosurePolicy::default(),
         }
     }
 

@@ -291,12 +291,8 @@ export function decodeCourseGradebookTotalsView(
   const record = closed(value, path, ["mode", "rounding", "rows"]);
   const mode = decodeStringEnum(record.mode, `${path}.mode`, MODES);
   const rows = decodeArray(record.rows, `${path}.rows`, (entry, entryPath) => {
-    const row = closed(entry, entryPath, ["rosterId", "displayName", "outcome"]);
-    const rosterId = decodeString(row.rosterId, `${entryPath}.rosterId`);
-    if (!/^[A-Za-z0-9._-]{1,64}$/u.test(rosterId))
-      throw new DecodeError(`${entryPath}.rosterId`, "an ASCII roster ID of 1 to 64 characters");
+    const row = closed(entry, entryPath, ["displayName", "outcome"]);
     return {
-      rosterId,
       displayName: trimmedText(row.displayName, `${entryPath}.displayName`, 200),
       outcome: decodeOutcome(row.outcome, mode, `${entryPath}.outcome`),
     };

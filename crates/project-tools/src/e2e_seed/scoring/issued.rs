@@ -53,7 +53,7 @@ pub(super) fn native_issue_command(
     )?;
     Ok(IssueQuestionAttemptCommand {
         actor,
-        binding: learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+        binding: learning_data_access::StudentWorkRoutingBinding::new(ids.course, ids.assignment),
         attempt,
         run,
         assignment_position: 0,

@@ -6,7 +6,7 @@ pub(super) struct SealedWebworkFixture {
     pub(super) context: TenantContext,
     pub(super) tenant: TenantId,
     pub(super) student: UserId,
-    pub(super) binding: LearnerWorkRoutingBinding,
+    pub(super) binding: StudentWorkRoutingBinding,
     pub(super) attempt: QuestionAttemptId,
     pub(super) mismatched_attempt: QuestionAttemptId,
 }

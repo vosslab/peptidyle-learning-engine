@@ -86,7 +86,7 @@ async fn postgres_course_group_edit_reresolves_zero_one_and_multiple_assignments
                         scoring_mode: AssignmentScoringMode::Normal,
                     }],
                     selection_groups: vec![],
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
                 base_policy,
@@ -205,7 +205,7 @@ async fn postgres_course_group_edit_reresolves_zero_one_and_multiple_assignments
                 .start_or_resume_run(
                     context,
                     learner,
-                    LearnerWorkRoutingBinding::new(course, assignment),
+                    StudentWorkRoutingBinding::new(course, assignment),
                     RunId::from_uuid(id()),
                 )
                 .await

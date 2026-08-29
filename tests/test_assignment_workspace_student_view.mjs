@@ -7,7 +7,7 @@ import {
   STUDENT_VIEW_ENTRY_PATH,
   studentViewFailureState,
 } from "../src/pages/assignment_workspace/assignment_workspace_student_view_model.ts";
-import { toLearnerAssignmentPresentationData } from "../src/components/learner_assignment_presentation.tsx";
+import { toStudentAssignmentPresentationData } from "../src/components/student_assignment_presentation.tsx";
 
 test("Student view keeps its exact mode cue and explicit live-demo entry path", () => {
   assert.equal(
@@ -24,7 +24,7 @@ test("Student view hides authorization failures while allowing retryable errors"
 });
 
 test("Student view presentation stays answer-free and preserves live delivery facts", () => {
-  const presentation = toLearnerAssignmentPresentationData({
+  const presentation = toStudentAssignmentPresentationData({
     title: "Protein structure",
     instructions: "Use your notes.",
     timeZone: "America/Chicago",
@@ -40,11 +40,11 @@ test("Student view presentation stays answer-free and preserves live delivery fa
     questionsPerRun: 3,
     variation: "newSeeds",
     disclosurePolicy: {
-      score: "afterSubmit",
-      perItemCorrectness: "afterSubmit",
-      feedbackText: "afterDue",
-      solution: "afterClose",
-      classStatistics: "never",
+      score: "after_submit",
+      per_item_correctness: "after_submit",
+      feedback_text: "after_due",
+      solution: "after_close",
+      class_statistics: "never",
     },
   });
 

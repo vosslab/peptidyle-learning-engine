@@ -76,7 +76,7 @@ impl crate::StatisticsStore for PostgresStore {
                         student_id: question_model::StudentId::from_uuid(
                             row.try_get("student_id").map_err(map_sqlx_error)?,
                         ),
-                        learner_name: row.try_get("learner_name").map_err(map_sqlx_error)?,
+                        student_name: row.try_get("student_name").map_err(map_sqlx_error)?,
                         assignment_id,
                         assignment_title: row
                             .try_get("assignment_title")

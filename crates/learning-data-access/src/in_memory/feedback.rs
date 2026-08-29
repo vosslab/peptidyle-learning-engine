@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::LearnerDisclosureInput;
+use crate::StudentDisclosureInput;
 
 /// Builds the sole S4 disclosure input from the assignment-owned schedule,
 /// the current sealed S3 receipt, and the Memory authoritative clock.  The
@@ -12,7 +12,7 @@ pub(super) fn current_disclosure_input(
     assignment: &AssignmentRecord,
     attempt: QuestionAttemptId,
     submitted_at: Option<ActivityTimestamp>,
-) -> Result<LearnerDisclosureInput, StoreError> {
+) -> Result<StudentDisclosureInput, StoreError> {
     if state
         .attempt_timing
         .get(&(tenant, attempt))
@@ -40,7 +40,7 @@ pub(super) fn current_disclosure_input(
             "current effective-policy receipt does not bind the attempt".to_string(),
         ));
     }
-    Ok(LearnerDisclosureInput::new(
+    Ok(StudentDisclosureInput::new(
         assignment.disclosure_policy,
         receipt.policy.clone(),
         state.authoritative_time,

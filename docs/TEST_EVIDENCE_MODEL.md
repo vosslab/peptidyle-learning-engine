@@ -162,6 +162,10 @@ browser invocation in `local_stack.py acceptance`:
 - PostgreSQL migrations, forced RLS, and disclosure semantics use a named
   database oracle or a declared ignored database test. This is a disposable
   database boundary, not deployment availability.
+- Course-appearance cleanup coherence uses the leased
+  `course_appearance_cross_store` profile. It joins the real PostgreSQL current-pointer state to
+  real MinIO candidate and promoted objects, then proves that cleanup removes superseded bytes and
+  preserves the exact current Student-deliverable object.
 - Renderer render, grade, cache, outage, and redaction use a named renderer or
   worker oracle. This is a provider/service contract, not general
   compatibility.

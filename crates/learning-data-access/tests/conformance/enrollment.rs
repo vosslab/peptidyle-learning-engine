@@ -90,7 +90,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![first_version]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -152,7 +152,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![second_version]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -175,7 +175,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, first_assignment),
+            StudentWorkRoutingBinding::new(course, first_assignment),
             RunId::from_uuid(uuid(121_041)),
         )
         .await
@@ -184,7 +184,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, second_assignment),
+            StudentWorkRoutingBinding::new(course, second_assignment),
             RunId::from_uuid(uuid(121_042)),
         )
         .await
@@ -252,7 +252,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
             .start_or_resume_run(
                 context,
                 learner,
-                LearnerWorkRoutingBinding::new(course, first_assignment),
+                StudentWorkRoutingBinding::new(course, first_assignment),
                 RunId::from_uuid(uuid(121_050)),
             )
             .await,

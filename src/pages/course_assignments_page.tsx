@@ -5,15 +5,14 @@ import { For, Show, Suspense, createSignal, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
 import { useApiRuntime } from "../api/runtime";
-import type { CursorPage, LearnerAssignmentSummary } from "../api/contracts";
+import type { CursorPage, StudentAssignmentLandingSummary } from "../api/contracts";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import {
   courseRouteData,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { useSessionBootstrap } from "../auth/session_context";
-import { learnerProgressSummary } from "../learner_progress";
-import { CourseManagementNav } from "../components/course_management_nav";
+import { studentProgressSummary } from "../student_progress";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 import {
   assignmentRouteReference,
@@ -24,12 +23,12 @@ import {
 export interface AssignmentListProps {
   readonly courseId: CourseId;
   readonly courseReference: CourseRouteReference;
-  readonly initialPage: CursorPage<LearnerAssignmentSummary>;
+  readonly initialPage: CursorPage<StudentAssignmentLandingSummary>;
   readonly reloadAssignments: () => Promise<void>;
   readonly canCreateAssignment: boolean;
 }
 
-function assignmentLinkId(assignment: LearnerAssignmentSummary): string {
+function assignmentLinkId(assignment: StudentAssignmentLandingSummary): string {
   const id = `assignment-review-${assignmentRouteReference(assignment.reference)}`;
   return id;
 }
@@ -39,10 +38,13 @@ function pluralize(count: number, singular: string, plural: string): string {
 }
 
 interface AssignmentCardProps {
-  readonly assignment: LearnerAssignmentSummary;
+  readonly assignment: StudentAssignmentLandingSummary;
   readonly courseReference: CourseRouteReference;
   readonly canManageAssignment: boolean;
-  readonly registerLink: (assignment: LearnerAssignmentSummary, element: HTMLAnchorElement) => void;
+  readonly registerLink: (
+    assignment: StudentAssignmentLandingSummary,
+    element: HTMLAnchorElement,
+  ) => void;
 }
 
 function AssignmentCard(props: AssignmentCardProps): JSX.Element {
@@ -80,7 +82,7 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
             fallback={<p class="course-card-progress">Progress unavailable.</p>}
           >
             {(assignmentProgress) => (
-              <p class="course-card-progress">{learnerProgressSummary(assignmentProgress())}</p>
+              <p class="course-card-progress">{studentProgressSummary(assignmentProgress())}</p>
             )}
           </Show>
         </Suspense>
@@ -117,7 +119,7 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
 
 export function AssignmentList(props: AssignmentListProps): JSX.Element {
   const runtime = useApiRuntime();
-  const [state, setState] = createSignal<CursorPageSessionState<LearnerAssignmentSummary>>({
+  const [state, setState] = createSignal<CursorPageSessionState<StudentAssignmentLandingSummary>>({
     items: [],
     nextCursor: null,
     loading: false,
@@ -141,7 +143,7 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
     );
   }
 
-  function focusFirstAppended(appended: ReadonlyArray<LearnerAssignmentSummary>): void {
+  function focusFirstAppended(appended: ReadonlyArray<StudentAssignmentLandingSummary>): void {
     const first = appended[0];
     if (first === undefined) return;
     requestAnimationFrame(() => reviewLinks.get(first.id)?.focus());
@@ -333,13 +335,10 @@ export function CourseAssignmentsPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="courseAssignments">
-      <CourseEntryIdentity />
-      <h2>Assignments</h2>
-      <Show when={canManageCourse() ? course : undefined}>
-        {(currentCourse) => (
-          <CourseManagementNav courseReference={currentCourse().reference} active="assignments" />
-        )}
+      <Show when={!canManageCourse()}>
+        <CourseEntryIdentity />
       </Show>
+      <h2>Assignments</h2>
       <Suspense fallback={<p class="loading-state">Loading assignments...</p>}>
         <Show
           when={assignments()}

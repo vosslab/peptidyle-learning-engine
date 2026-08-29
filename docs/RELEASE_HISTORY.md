@@ -54,7 +54,7 @@ remains owned by the active release plan and `WP-RC12`.
   migration, PostgreSQL, WebWork, replica-restart, source-policy, documentation, and cleanup gates
   are recorded as passing in the August changelog.
 - The connected production-shaped stack completed the registered browser scenarios and published
-  the current 63-artifact screenshot corpus with privacy, provenance, and cleanup checks.
+  the current 64-artifact screenshot corpus with privacy, provenance, and cleanup checks.
 - The exact aggregate attempt passed Rust and codebase gates and reported 7,913 Python checks plus
   tracking-dependent Markdown-link failures for physical targets awaiting Git tracking. Final tracked-tree `all_test.sh`, the remaining
   active packages, and human release approval remain open; this is not a production release.

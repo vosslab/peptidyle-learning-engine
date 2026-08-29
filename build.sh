@@ -31,17 +31,17 @@
 # is a client bundle the API serves, not a static site.
 
 set -euo pipefail
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY"
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory"
 
-PROFILE="debug"
+profile="debug"
 for arg in "$@"; do
 	case "$arg" in
 		--release)
-			PROFILE="release"
+			profile="release"
 			;;
 		--debug)
-			PROFILE="debug"
+			profile="debug"
 			;;
 		-h|--help)
 			echo "Usage: build.sh [--release|--debug]"
@@ -73,9 +73,9 @@ now_seconds() {
 	python3 -c 'import time; print(f"{time.time():.3f}")'
 }
 
-STAGE_NAMES=()
-STAGE_TIMES=()
-BUILD_START="$(now_seconds)"
+stage_names=()
+stage_times=()
+build_start="$(now_seconds)"
 
 # run_stage <name> <command...>
 run_stage() {
@@ -87,25 +87,25 @@ run_stage() {
 	"$@"
 	local finished
 	finished="$(now_seconds)"
-	STAGE_NAMES+=("$name")
-	STAGE_TIMES+=("$(python3 -c "print(f'{${finished} - ${started}:.2f}')")")
+	stage_names+=("$name")
+	stage_times+=("$(python3 -c "print(f'{${finished} - ${started}:.2f}')")")
 }
 
-CARGO_PROFILE_FLAG=""
-WASM_PROFILE_FLAG=""
-if [ "$PROFILE" = "release" ]; then
-	CARGO_PROFILE_FLAG="--release"
+cargo_profile_flag=""
+wasm_profile_flag=""
+if [ "$profile" = "release" ]; then
+	cargo_profile_flag="--release"
 else
-	WASM_PROFILE_FLAG="--debug"
+	wasm_profile_flag="--debug"
 fi
 
 # 1. The Rust workspace, including the API server binary.
 # shellcheck disable=SC2086
-run_stage rust cargo build --workspace $CARGO_PROFILE_FLAG
+run_stage rust cargo build --workspace $cargo_profile_flag
 
 # 2. The WASM bridge. Always built before the client, which copies it.
 # shellcheck disable=SC2086
-run_stage wasm ./pipeline/build_wasm.sh $WASM_PROFILE_FLAG
+run_stage wasm ./pipeline/build_wasm.sh $wasm_profile_flag
 
 # 3. TypeScript definitions generated from the Rust model, so the client cannot
 #    compile against a stale shape.
@@ -117,16 +117,16 @@ run_stage fixtures cargo tools fixtures --check
 # 5. The browser client. --skip-wasm because stage 2 already built the bridge.
 run_stage client node pipeline/build.mjs --skip-wasm
 
-BUILD_END="$(now_seconds)"
-TOTAL="$(python3 -c "print(f'{${BUILD_END} - ${BUILD_START}:.2f}')")"
+build_end="$(now_seconds)"
+total="$(python3 -c "print(f'{${build_end} - ${build_start}:.2f}')")"
 
 echo
-echo "Build summary ($PROFILE):"
+echo "Build summary ($profile):"
 index=0
-while [ "$index" -lt "${#STAGE_NAMES[@]}" ]; do
-	printf '  %-8s %6ss\n' "${STAGE_NAMES[$index]}" "${STAGE_TIMES[$index]}"
+while [ "$index" -lt "${#stage_names[@]}" ]; do
+	printf '  %-8s %6ss\n' "${stage_names[$index]}" "${stage_times[$index]}"
 	index=$((index + 1))
 done
-printf '  %-8s %6ss\n' "total" "$TOTAL"
+printf '  %-8s %6ss\n' "total" "$total"
 echo
 echo "Client bundle in dist/, WASM bridge in dist_wasm/."

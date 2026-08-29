@@ -22,11 +22,11 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupRecord, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
-    NativeExecutionEnvelopeCapability, PresentationCapability,
-    PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
-    PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand, QtiGradingCapability,
-    ResolveEffectivePolicyCommand, Store, StoredIndividualPolicyException, TenantContext,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, NativeExecutionEnvelopeCapability,
+    PresentationCapability, PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand,
+    PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
+    PutIndividualPolicyExceptionCommand, QtiGradingCapability, ResolveEffectivePolicyCommand,
+    Store, StoredIndividualPolicyException, StudentWorkRoutingBinding, TenantContext,
     UpsertCourseMember, WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
@@ -169,7 +169,7 @@ impl IssueCommandFixture<'_> {
         .expect("construct exact effective-policy native question snapshot");
         IssueQuestionAttemptCommand {
             actor: self.learner,
-            binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
+            binding: StudentWorkRoutingBinding::new(self.course, self.assignment),
             attempt: self.attempt,
             run: self.run,
             assignment_position: 0,
@@ -390,7 +390,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
                 scoring_mode: AssignmentScoringMode::Normal,
             }],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         BaseAssignmentPolicy::default(),
@@ -501,7 +501,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         .expect("M4 exists before any learner receipt");
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, learner, assignment)
+            .student_get_enrollment_for_assignment(context, learner, assignment)
             .await
             .expect("read pre-materialization enrollment")
             .is_none()
@@ -569,7 +569,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
             ResolveEffectivePolicyCommand {
                 assignment,
                 entitlement: domain::entitlement::EntitlementDecision::Denied(
-                    domain::entitlement::EntitlementDenial::LearnerNotActiveCourseStudent,
+                    domain::entitlement::EntitlementDenial::StudentNotActiveCourse,
                 ),
                 authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
                 now: ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 1_000),
@@ -590,7 +590,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await
@@ -617,7 +617,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         .start_or_resume_run(
             context,
             second_learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await

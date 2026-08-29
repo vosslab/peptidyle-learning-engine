@@ -164,7 +164,7 @@ fn payload(
     json!({
         "schemaVersion": 1, "title": title, "lifecycle": "published", "instructions": "Use the displayed model.",
         "policies": {"completion":{"kind":"answerAll"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"variation":"newSeeds"},
-        "disclosurePolicy": {"score":"afterSubmit","perItemCorrectness":"afterSubmit","feedbackText":"afterSubmit","solution":"afterClose","classStatistics":"never"},
+        "disclosurePolicy": {"score":"after_submit","per_item_correctness":"after_submit","feedback_text":"after_submit","solution":"after_close","class_statistics":"never"},
         "audience": {"kind":"anyOfGroups","groups":[source.group]},
         "basePolicy": {"availableAt":1787590800000_i64,"dueAt":1787677200000_i64,"closesAt":1787763600000_i64,"lateSubmission":"markLate","deadlineBehavior":"autoSubmit","timeLimitSeconds":3600,"attemptLimit":2},
         "entries": [
@@ -865,7 +865,7 @@ async fn creation_prepare_catalog_and_membership_lock_preserve_least_authority()
                         scoring_mode: AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AnswerAll,
                         grade: GradePolicy::Highest,

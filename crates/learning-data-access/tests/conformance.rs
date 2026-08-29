@@ -71,8 +71,6 @@ mod group_store_memory;
 mod item_analysis;
 #[path = "conformance/jobs.rs"]
 mod jobs;
-#[path = "conformance/manual_grading.rs"]
-mod manual_grading;
 #[path = "conformance/preview_plane_memory.rs"]
 mod preview_plane_memory;
 #[path = "conformance/qti.rs"]
@@ -81,14 +79,19 @@ mod qti;
 mod qti_ingress;
 #[path = "conformance/sessions.rs"]
 mod sessions;
+#[path = "conformance/student_work_inspection.rs"]
+mod student_work_inspection;
 
 use assets::source_artifact;
 
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
-    AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
-    AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
+    AcceptedSubmissionCommand, AcceptedSubmissionExecutionDisposition,
+    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
+    AcceptedSubmissionExecutionStore, AcceptedSubmissionGrade, AccountIdentityStore,
+    AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash, AuthenticationEmail,
+    AuthenticationRateLimitDecision, AuthenticationRateLimitKey, AuthenticationRateLimitPolicy,
+    AuthenticationRateLimitScope, AutomatedGradingStore, BeginEmailAuthentication,
     BrowserBindingHash, ClaimCourseInvitation, CommitCourseRosterImport,
     CompleteCourseInvitationDelivery, CompleteEmailAuthentication,
     CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
@@ -112,9 +115,8 @@ use learning_data_access::{
     CatalogTransition, ClearAttemptCommand, CourseCreationAuthority, CourseGroupRecord,
     CourseListScope, CourseRecord, CreateAssignmentCommand, CreateAssignmentDraftCommand,
     CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand, DraftRecord,
-    EvaluationRevision, FlatGradingCapability, ForceSubmitAttemptCommand,
-    IssueQuestionAttemptCommand, LearnerWorkRoutingBinding, ManualCredit, ManualGradeActionId,
-    ManualGradingStore, MaterializeAssignmentEntitlementCommand, NativeExecutionEnvelopeCapability,
+    FlatGradingCapability, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
+    MaterializeAssignmentEntitlementCommand, NativeExecutionEnvelopeCapability,
     NavigationReferenceStore, PageRequest, PageSize, PrefetchedPrivateExecutionV1,
     PrefetchedQuestionDescriptorV1, PresentationCapability, PublishDraftCommand,
     PublishedSourceArtifact, PutCourseGroupCommand, QtiGradingCapability,
@@ -122,10 +124,9 @@ use learning_data_access::{
     ReplaceAssignmentContentCommand, ReplaceAssignmentContentOutcome,
     ReplaceAssignmentFixedItemCommand, ReplaceAssignmentPoliciesCommand,
     ReplaceAssignmentPoliciesOutcome, ReservePrefetchedQuestionCommand, RunRouteIdentity,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, SetManualGradeCommand, Store,
-    StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
-    SubmitQuestionAttemptCommand, TenantContext, WebworkGradingCapability, WebworkReplayControlV1,
-    WebworkReplayMappingV1,
+    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store, StoreError,
+    StudentWorkRoutingBinding, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand,
+    TenantContext, WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
 };
 use learning_data_access::{
     BeginExternalToolGradeCommand, CommitVerifiedExternalToolSubmissionCommand,
@@ -146,8 +147,8 @@ use learning_data_access::{
 use learning_data_access::{
     CreateAssignmentExport, EnqueueJob, ExportArtifactKind, ExportArtifactRecord,
     ExportCommitDisposition, ExportJobCommit, ExportJobStore, JobClaimFilter,
-    JobFailureDisposition, JobFailureKind, JobKind, JobLeaseDuration, JobLeaseToken, JobPayload,
-    JobState, JobStore,
+    JobFailureDisposition, JobFailureKind, JobId, JobKind, JobLeaseDuration, JobLeaseToken,
+    JobPayload, JobState, JobStore, WorkerId, canonical_attempt_result_json,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::NumericTolerance;
@@ -164,12 +165,12 @@ use question_model::{
     Capability, CompletionRequirement, ContinuedPractice, CourseGroupId, CourseId,
     CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, EnrollmentId,
     EntitlementPurpose, FeedbackContent, GeneratorReference, GradePolicy, GradingDefinition,
-    ImplementationVersion, LearnerDisclosurePolicy, LearnerDisclosureTiming, ObjectId, PointValue,
-    ProblemDisplayRef, ProblemId, ProblemVersionRef, PublicAuthorName, PublicByline,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
-    QuestionMetadata, QuestionSource, RenderedItemIdV1, ResponseDefinition, RunId, RunPolicies,
-    SelectionOrdering, SourceArtifact, TenantId, UserId, UserRole, VariationPolicy, VersionId,
-    WorkspaceId, WorkspaceImportId,
+    ImplementationVersion, ObjectId, PointValue, ProblemDisplayRef, ProblemId, ProblemVersionRef,
+    PublicAuthorName, PublicByline, PublicationScope, QuestionAttempt, QuestionAttemptId,
+    QuestionBackend, QuestionDefinition, QuestionMetadata, QuestionSource, RenderedItemIdV1,
+    ResponseDefinition, RunId, RunPolicies, SelectionOrdering, SourceArtifact,
+    StudentDisclosurePolicy, StudentDisclosureTiming, TenantId, UserId, UserRole, VariationPolicy,
+    VersionId, WorkspaceId, WorkspaceImportId,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;

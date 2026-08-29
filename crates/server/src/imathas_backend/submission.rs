@@ -10,7 +10,7 @@ use learning_data_access::{
     ClaimExternalToolFinalizationActivityCommand, CommitExternalToolSubmissionCommand,
     CommitVerifiedExternalToolSubmissionCommand, ExternalToolActivityClaim, ExternalToolBegin,
     ExternalToolBrokerStore, ExternalToolLaunchProof, ExternalToolLaunchSessionStore,
-    LearnerWorkRoutingBinding, StageExternalToolVerificationCommand, SubmissionIdempotencyKey,
+    StageExternalToolVerificationCommand, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
     TenantContext,
 };
 use objects::ObjectStore;
@@ -39,7 +39,7 @@ where
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: SubmissionIdempotencyKey,
@@ -63,7 +63,7 @@ where
                 context,
                 BeginExternalToolGradeCommand {
                     actor,
-                    learner_work_binding,
+                    student_work_binding,
                     attempt: attempt.id,
                     response: response.clone(),
                     idempotency_key: idempotency_key.clone(),
@@ -85,7 +85,7 @@ where
                     context,
                     CommitVerifiedExternalToolSubmissionCommand {
                         actor,
-                        learner_work_binding,
+                        student_work_binding,
                         attempt: attempt.id,
                         response,
                         idempotency_key,
@@ -104,7 +104,7 @@ where
                         context,
                         ClaimExternalToolFinalizationActivityCommand {
                             actor,
-                            learner_work_binding,
+                            student_work_binding,
                             attempt: attempt.id,
                             id: launch_proof.session_id,
                             token: launch_proof.token.clone(),
@@ -142,7 +142,7 @@ where
                             )
                         })?;
                     let aad =
-                        launch_state_aad(context, actor, learner_work_binding, attempt, &binding);
+                        launch_state_aad(context, actor, student_work_binding, attempt, &binding);
                     let plain = state_aead.open(encrypted, &aad)?;
                     let text = std::str::from_utf8(&plain).map_err(|_| {
                         RunBackendError::Invalid("external-tool launch state is invalid".into())
@@ -182,7 +182,7 @@ where
                     .release_external_tool_activity(
                         context,
                         actor,
-                        learner_work_binding,
+                        student_work_binding,
                         attempt.id,
                         launch_proof.session_id,
                         &activity_lease.token,
@@ -196,7 +196,7 @@ where
                         context,
                         StageExternalToolVerificationCommand {
                             actor,
-                            learner_work_binding,
+                            student_work_binding,
                             attempt: attempt.id,
                             response: response.clone(),
                             idempotency_key: idempotency_key.clone(),
@@ -213,7 +213,7 @@ where
                         context,
                         CommitExternalToolSubmissionCommand {
                             actor,
-                            learner_work_binding,
+                            student_work_binding,
                             attempt: attempt.id,
                             response,
                             idempotency_key,

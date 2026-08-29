@@ -159,11 +159,12 @@ def database_values() -> dict[str, str]:
 
 
 #============================================
-def base_course_database_urls() -> tuple[str, str]:
-	"""Return fixed child-only URLs for the closed Base Course pools."""
+def base_course_database_urls() -> tuple[str, str, str]:
+	"""Return fixed child-only URLs for the three closed Base Course capabilities."""
 	return (
 		"postgres://ple_base_course_installer_login:installer-private@127.0.0.1:5432/ple",
 		"postgres://ple_base_course_app_login:application-private@127.0.0.1:5432/ple",
+		"postgres://ple_base_course_fast_path_login:fast-path-private@127.0.0.1:5432/ple",
 	)
 
 
@@ -263,6 +264,7 @@ def test_installing_base_course_routes_receipt_and_writes_diagnostic(
 		environment = call[1]
 		assert environment["PLE_BASE_COURSE_INSTALLER_DATABASE_URL"] == database_urls[0]
 		assert environment["PLE_BASE_COURSE_APP_DATABASE_URL"] == database_urls[1]
+		assert environment["PLE_BASE_COURSE_FAST_PATH_DATABASE_URL"] == database_urls[2]
 		assert environment["PLE_BASE_COURSE_DEPLOYMENT_MODE"] == "local"
 		assert "PLE_MIGRATION_DATABASE_URL" not in environment
 	diagnostic = diagnostic_path(target)
@@ -299,8 +301,8 @@ def test_retained_base_course_has_zero_storage_calls(tmp_path: pathlib.Path) -> 
 
 
 #============================================
-def test_base_course_failure_redacts_both_child_database_urls() -> None:
-	"""A failed runtime child cannot disclose either closed database credential."""
+def test_base_course_failure_redacts_all_child_database_urls() -> None:
+	"""A failed runtime child cannot disclose any closed database credential."""
 	database_urls = base_course_database_urls()
 	result = local_stack_control.models.CommandResult(
 		("cargo", "tools", "base-course"),
@@ -316,7 +318,7 @@ def test_base_course_failure_redacts_both_child_database_urls() -> None:
 
 	message = str(error.value)
 	assert all(database_url not in message for database_url in database_urls)
-	assert message.count("[private]") == 2
+	assert message.count("[private]") == 3
 
 
 #============================================

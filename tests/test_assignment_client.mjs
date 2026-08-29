@@ -21,10 +21,10 @@ test("Instructor Student view accepts an empty draft and full regeneration witho
     variation: "fullRegeneration",
     disclosurePolicy: {
       score: "never",
-      perItemCorrectness: "never",
-      feedbackText: "never",
+      per_item_correctness: "never",
+      feedback_text: "never",
       solution: "never",
-      classStatistics: "never",
+      class_statistics: "never",
     },
   });
   assert.equal(view.questionsPerRun, 0);

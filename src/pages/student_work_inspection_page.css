@@ -1,0 +1,110 @@
+.student-work-page {
+  display: grid;
+  gap: var(--ple-section-gap);
+}
+
+.student-work-page > h1,
+.student-work-page > p {
+  margin-block: 0;
+}
+
+.student-work-boundary {
+  padding: 0.8rem 1rem;
+  border-inline-start: 0.3rem solid var(--ple-accent);
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-surface-soft);
+  color: var(--ple-text);
+}
+
+.student-work-submissions {
+  display: grid;
+  gap: var(--ple-section-gap);
+}
+
+.student-work-submission {
+  display: grid;
+  gap: var(--ple-layout-gap);
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.student-work-submission > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--ple-layout-gap);
+  padding-block-end: 0.75rem;
+  border-block-end: 1px solid var(--ple-border);
+}
+
+.student-work-submission > header h2,
+.student-work-submission > header p {
+  margin: 0;
+}
+
+.student-work-prompt > h3,
+.student-work-response > h3,
+.student-work-scoring > h3 {
+  margin-block-start: 0;
+}
+
+.student-work-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 0.6fr);
+  gap: var(--ple-layout-gap);
+}
+
+.student-work-response,
+.student-work-scoring {
+  padding: 0.8rem 1rem;
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-surface-soft);
+}
+
+.student-work-response blockquote {
+  margin: 0;
+  padding-inline-start: 0.8rem;
+  border-inline-start: 0.2rem solid var(--ple-border-strong);
+  white-space: pre-wrap;
+}
+
+.student-work-response dl,
+.student-work-evidence dl {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) minmax(0, 1fr);
+  gap: 0.35rem 0.8rem;
+}
+
+.student-work-response dt,
+.student-work-evidence dt {
+  font-weight: 720;
+}
+
+.student-work-response dd,
+.student-work-evidence dd {
+  margin: 0;
+}
+
+.student-work-score {
+  color: var(--ple-accent-strong);
+  font-size: 1.35rem;
+  font-weight: 760;
+}
+
+.student-work-evidence {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+}
+
+.student-work-evidence summary {
+  cursor: pointer;
+  font-weight: 720;
+}
+
+.student-work-evidence code {
+  overflow-wrap: anywhere;
+}

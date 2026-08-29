@@ -10,10 +10,9 @@ use question_model::{
     AlphaCourseAccess, AlphaCourseDefinitionInput, AlphaCourseModuleInput,
     AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode,
     BlueprintDefinitionInput, CompletionRequirement, ContinuedPractice, GradePolicy,
-    LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, PublicationScope,
-    RelativeAssignmentSchedule, ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput,
-    ReusableAssignmentEntryInput, ReusableFixedQuestionInput, RunPolicies, UserRole,
-    VariationPolicy,
+    LateSubmissionPolicy, PointValue, PublicationScope, RelativeAssignmentSchedule,
+    ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput, ReusableAssignmentEntryInput,
+    ReusableFixedQuestionInput, RunPolicies, StudentDisclosurePolicy, UserRole, VariationPolicy,
 };
 use uuid::Uuid;
 
@@ -41,7 +40,7 @@ fn definition(question_id: question_model::QuestionId) -> BlueprintDefinitionInp
                     continued_practice: ContinuedPractice::Unlimited,
                     variation: VariationPolicy::NewSeeds,
                 },
-                learner_disclosure: LearnerDisclosurePolicy::default(),
+                student_disclosure: StudentDisclosurePolicy::default(),
             },
             schedule: RelativeAssignmentSchedule::default(),
         },

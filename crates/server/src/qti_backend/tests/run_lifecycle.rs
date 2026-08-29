@@ -272,7 +272,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                         scoring_mode: question_model::AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -332,7 +332,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                 &store,
             )),
         ),
-        Arc::clone(&store) as Arc<dyn learning_data_access::LearnerSubmissionStatusStore>,
+        Arc::clone(&store) as Arc<dyn learning_data_access::StudentSubmissionStatusStore>,
         Arc::clone(&store) as Arc<dyn learning_data_access::AutomatedGradingStore>,
     );
     let run = app
@@ -506,7 +506,12 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     );
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&wrong_json).expect("receipt")["feedback"]["correctness"],
-        false
+        serde_json::Value::Null,
+        "correctness remains withheld until the score is current"
+    );
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&wrong_json).expect("receipt")["scoringStatus"],
+        "recalculating"
     );
     assert_eq!(
         grader_calls.load(Ordering::SeqCst),
@@ -655,14 +660,17 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .await
         .expect("correct status response");
     assert_eq!(correct_status.status(), axum::http::StatusCode::OK);
+    let correct_json = serde_json::from_slice::<serde_json::Value>(
+        &axum::body::to_bytes(correct_status.into_body(), 64 * 1024)
+            .await
+            .expect("correct body"),
+    )
+    .expect("correct receipt");
     assert_eq!(
-        serde_json::from_slice::<serde_json::Value>(
-            &axum::body::to_bytes(correct_status.into_body(), 64 * 1024)
-                .await
-                .expect("correct body")
-        )
-        .expect("correct receipt")["feedback"]["correctness"],
-        true
+        correct_json["feedback"]["correctness"],
+        serde_json::Value::Null,
+        "correctness remains withheld until the score is current"
     );
+    assert_eq!(correct_json["scoringStatus"], "recalculating");
     assert_eq!(grader_calls.load(Ordering::SeqCst), 2);
 }

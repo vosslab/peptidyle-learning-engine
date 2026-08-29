@@ -1,4 +1,12 @@
-//! Instructor-only course-grade configuration, totals, and CSV export.
+//! Instructor-only calculated Gradebook, inspection, configuration, and export.
+
+mod calculated;
+mod inspection;
+mod selection;
+
+pub(super) use calculated::get_calculated_gradebook;
+pub(super) use inspection::get_student_work;
+pub(super) use selection::{get_gradebook_selection, get_submitted_run_choices};
 
 use axum::Json;
 use axum::body::to_bytes;
@@ -8,8 +16,8 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use domain::course_grade::{CourseGradeOutcome, CourseGradeUnavailableReason};
 use learning_data_access::{
-    CourseGradeAssignmentMembership, CourseGradeSchemeRevision, CourseGradebookStore, StoreError,
-    UpdateCourseGradeScheme,
+    AuthenticationEmail, CourseGradeAssignmentMembership, CourseGradeSchemeRevision,
+    CourseGradebookStore, CourseRosterId, StoreError, UpdateCourseGradeScheme,
 };
 use question_model::{
     CourseGradeAssignmentSetting, CourseGradeAssignmentView, CourseGradeOutcomeView,
@@ -181,7 +189,6 @@ where
                     .rows
                     .into_iter()
                     .map(|row| CourseGradebookTotalViewRow {
-                        roster_id: row.roster_id.as_str().to_owned(),
                         display_name: row.display_name,
                         outcome: outcome_view(row.outcome),
                     })
@@ -286,7 +293,17 @@ where
                 String::new(),
             ),
         };
-        let email = csv_text(row.roster_email.delivery());
+        let email = csv_text(
+            row.roster_email
+                .as_ref()
+                .map(AuthenticationEmail::delivery)
+                .unwrap_or_default(),
+        );
+        let roster_id = row
+            .roster_id
+            .as_ref()
+            .map(CourseRosterId::as_str)
+            .unwrap_or_default();
         let display_name = csv_text(row.display_name.as_str());
         let letter = csv_text(&letter);
         if writer
@@ -294,7 +311,7 @@ where
                 "student",
                 mode,
                 rounding,
-                row.roster_id.as_str(),
+                roster_id,
                 email.as_str(),
                 display_name.as_str(),
                 &score,

@@ -3,18 +3,17 @@
 import type { AssignmentEnrollment } from "../../generated/api/AssignmentEnrollment";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
-import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
-import type { LearnerAssignmentDetail } from "../../generated/api/LearnerAssignmentDetail";
+import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
+import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
-import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { ScoringStatus } from "../../generated/api/ScoringStatus";
 import type { RunCompletionStatus } from "../../generated/api/RunCompletionStatus";
 import type { RunId } from "../../generated/api/RunId";
-import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
@@ -48,10 +47,9 @@ export type {
   AssignmentSummary,
   CourseSummary,
   InstructorStudentView,
-  LearnerAssignmentDetail,
-  LearnerAssignmentSummary,
+  StudentAssignmentDetail,
+  StudentAssignmentLandingSummary,
 };
-export type { GradebookSummaryRow };
 export type {
   CreateAssignmentDraftRequest as AssignmentDraftInput,
   ReplaceAssignmentPoliciesRequest as AssignmentPoliciesInput,
@@ -179,11 +177,11 @@ export interface SignedOutResponse {
 export interface EnrollmentView {
   readonly enrollment: AssignmentEnrollment;
   /** Key-free current learner projection; score totals are omitted while withheld. */
-  readonly summary: LearnerAssignmentProgress;
+  readonly summary: StudentAssignmentProgress;
 }
 
-/** Learner attempt projection with the current server-owned score freshness gate. */
-export interface LearnerQuestionAttempt extends QuestionAttempt {
+/** Student attempt projection with the current server-owned score freshness gate. */
+export interface StudentQuestionAttempt extends QuestionAttempt {
   readonly scoringStatus: ScoringStatus;
   /** Null for a fixed item; a safe ordinal explanation for one server-selected pool item. */
   readonly poolSelection: PoolSelection | null;
@@ -209,10 +207,10 @@ export interface SubmissionReceipt {
 }
 
 /**
- * The closed learner acknowledgement returned by submission and status routes.
+ * The closed Student acknowledgement returned by submission and status routes.
  * Pending alternatives deliberately omit answers, feedback, results, successors, and scores.
  */
-export type LearnerSubmissionStatus =
+export type StudentSubmissionStatus =
   | ({ readonly kind: "completed" } & SubmissionReceipt)
   | {
       readonly kind: "accepted_pending";
@@ -268,7 +266,7 @@ export interface RunSummaryResponse {
   readonly course: CourseRouteData;
   readonly run: AssignmentRun;
   /** Server-derived learner progress, never a policy, clock, or enrollment identifier. */
-  readonly summary: LearnerAssignmentProgress;
+  readonly summary: StudentAssignmentProgress;
   readonly practiceAllowed: boolean;
   readonly outcomes: CursorPage<RunSummaryOutcome>;
 }
@@ -382,9 +380,9 @@ export interface ExternalToolLaunch {
 export interface RunScreenData {
   readonly course: CourseRouteData;
   /** Learner-safe assignment projection; no policy or ownership inputs. */
-  readonly assignment: LearnerAssignmentSummary;
+  readonly assignment: StudentAssignmentLandingSummary;
   readonly run: AssignmentRun;
-  readonly attempt: LearnerQuestionAttempt;
+  readonly attempt: StudentQuestionAttempt;
   /** Server-regenerated, key-free variant bound to this issued attempt. */
   readonly issuedQuestion: QuestionEnvelope;
 }

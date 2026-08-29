@@ -53,6 +53,7 @@
 .assignment-workspace-operations-status,
 .assignment-workspace-operations-list,
 .assignment-workspace-operation-row,
+.assignment-workspace-operation-actions,
 .assignment-workspace-operations-list-state,
 .assignment-workspace-operations-inline-error {
   display: grid;
@@ -139,10 +140,20 @@
   min-inline-size: 0;
 }
 
-.assignment-workspace-operation-row > .quiet-action {
+.assignment-workspace-operation-actions {
   grid-row: 1 / span 3;
   grid-column: 2;
   align-self: center;
+  justify-items: stretch;
+}
+
+.assignment-workspace-operation-actions:focus-visible {
+  outline: 0.2rem solid var(--ple-focus);
+  outline-offset: 0.2rem;
+}
+
+.assignment-workspace-operation-actions .quiet-action {
+  text-align: center;
 }
 
 .assignment-workspace-operation-row-heading {

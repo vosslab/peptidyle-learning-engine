@@ -96,9 +96,9 @@ async fn non_current_scoring_redacts_every_learner_item_http_surface() {
         assert_redacted_item_surface(&detail, expected_status, "attempt detail");
 
         let summary = run_summary(&app, first.run, &student_cookie).await;
-        assert_eq!(summary["summary"]["scoringStatus"], expected_status);
+        assert_eq!(summary["summary"]["scoring_status"], expected_status);
         assert!(summary["run"]["score"].is_null());
-        assert!(summary["summary"]["currentScore"].is_null());
+        assert!(summary["summary"]["current_score"].is_null());
         let outcome = &summary["outcomes"]["items"][0];
         assert_eq!(outcome["scoringStatus"], expected_status);
         assert!(outcome["feedback"]["pointsEarned"].is_null());

@@ -313,7 +313,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             items: vec![AssignmentItemSummary {
                 id: assignment_item_id("0198e000-0000-7000-8000-000000000017"),
                 question_id: catalog_problem.question_id.clone(),
@@ -345,7 +345,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             course_id,
             enrollment_id,
             student_id: student,
-            learner_name: "Jordan Learner".to_string(),
+            student_name: "Jordan Student".to_string(),
             assignment_id,
             assignment_title: "Peptide bond mastery".to_string(),
             summary: summary.clone(),
@@ -472,9 +472,6 @@ fn question_attempt(
             response,
         )? {
             GradeOutcome::Graded(result) => Some(result),
-            GradeOutcome::NeedsManualGrading => {
-                bail!("fixture native question must be graded")
-            }
             GradeOutcome::Ungraded => bail!("fixture native question must be graded"),
         },
         None => None,

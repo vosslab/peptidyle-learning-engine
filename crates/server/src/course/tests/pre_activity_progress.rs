@@ -1,4 +1,4 @@
-//! Read-only learner progress before the first educational receipt.
+//! Read-only Student progress before the first educational receipt.
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
@@ -19,11 +19,11 @@ pub(super) async fn assert_read_only_no_activity(
 ) {
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, student, assignment)
+            .student_get_enrollment_for_assignment(context, student, assignment)
             .await
             .expect("pre-activity enrollment lookup")
             .is_none(),
-        "publishing an assignment must not pre-materialize learner receipts"
+        "publishing an assignment must not pre-materialize Student receipts"
     );
     let response = app
         .clone()
@@ -44,19 +44,19 @@ pub(super) async fn assert_read_only_no_activity(
     assert_eq!(
         body,
         serde_json::json!({
-            "scoreState": "noActivity",
-            "scoringStatus": "current",
-            "currentScore": null,
-            "bestScore": null,
-            "latestScore": null,
-            "completedRunCount": 0,
-            "totalQuestionAttempts": 0,
-            "lastActivityAt": null,
+            "score_state": "no_activity",
+            "scoring_status": "current",
+            "current_score": null,
+            "best_score": null,
+            "latest_score": null,
+            "completed_run_count": 0,
+            "total_question_attempts": 0,
+            "last_activity_at": null,
         })
     );
     assert!(
         store
-            .learner_get_enrollment_for_assignment(context, student, assignment)
+            .student_get_enrollment_for_assignment(context, student, assignment)
             .await
             .expect("post-summary enrollment lookup")
             .is_none(),

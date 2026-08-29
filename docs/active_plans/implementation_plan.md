@@ -45,8 +45,12 @@ updates. WP-INST-T6 is accepted: each assignment has a linked home, separate Que
 pages, and a live answer-free Student view. WP-INST-G1 is accepted under the
 [automated-grading operations plan](active/automated_grading_operations_plan.md). It persists one
 immutable accepted learner input before grading and adds assignment-local exception recovery,
-bounded retry, generation-fenced recalculation, and immutable receipts. WP-INST-G2 is the current
-package under the [audited Student-work and calculated Gradebook plan](active/audited_student_work_gradebook_plan.md).
+bounded retry, generation-fenced recalculation, and immutable receipts. `WP-INST-WN1` is the current
+repository-wide corrective prerequisite under the [wire naming contract migration plan](active/wire_naming_contract_migration_plan.md).
+Current pre-WN1 transport remains lower camel where source still does so; the approved direct
+Serde-to-TypeScript snake data-object boundary lands through WN1-A/B/C1-C6/QM/WA/D/F before G2 resumes.
+`WP-INST-G2` is implemented and acceptance-open behind WN1 and its remaining visual/documentation close-out;
+its [audited Student-work and calculated Gradebook plan](active/audited_student_work_gradebook_plan.md) resumes after WN1 acceptance.
 It establishes a roster-first, server-calculated Gradebook and an explicit atomic-audit inspection
 read that is response-bearing, solution-free, and no-store. The shared status registry owns the
 current handoff and migration allocation; the Instructor capability plan retains the accepted

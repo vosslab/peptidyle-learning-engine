@@ -244,7 +244,7 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
                         scoring_mode: AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
                 base_policy: question_model::BaseAssignmentPolicy::default(),

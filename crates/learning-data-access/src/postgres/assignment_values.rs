@@ -14,15 +14,15 @@ pub(super) fn assignment_delivery_state_name(
 /// permissive compatibility default: a malformed or missing row must fail
 /// closed before it can reach a learner projection.
 #[cfg(feature = "postgres")]
-pub(super) fn parse_learner_disclosure_timing(
+pub(super) fn parse_student_disclosure_timing(
     value: &str,
-) -> Result<question_model::LearnerDisclosureTiming, StoreError> {
+) -> Result<question_model::StudentDisclosureTiming, StoreError> {
     match value {
-        "during_attempt" => Ok(question_model::LearnerDisclosureTiming::DuringAttempt),
-        "after_submit" => Ok(question_model::LearnerDisclosureTiming::AfterSubmit),
-        "after_due" => Ok(question_model::LearnerDisclosureTiming::AfterDue),
-        "after_close" => Ok(question_model::LearnerDisclosureTiming::AfterClose),
-        "never" => Ok(question_model::LearnerDisclosureTiming::Never),
+        "during_attempt" => Ok(question_model::StudentDisclosureTiming::DuringAttempt),
+        "after_submit" => Ok(question_model::StudentDisclosureTiming::AfterSubmit),
+        "after_due" => Ok(question_model::StudentDisclosureTiming::AfterDue),
+        "after_close" => Ok(question_model::StudentDisclosureTiming::AfterClose),
+        "never" => Ok(question_model::StudentDisclosureTiming::Never),
         _ => Err(invalid_stored_assignment_value(
             "learner disclosure timing",
             value,
@@ -243,36 +243,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn learner_disclosure_timings_round_trip_through_postgres_values() {
+    fn student_disclosure_timings_round_trip_through_postgres_values() {
         let timings = [
             (
                 "during_attempt",
-                question_model::LearnerDisclosureTiming::DuringAttempt,
+                question_model::StudentDisclosureTiming::DuringAttempt,
             ),
             (
                 "after_submit",
-                question_model::LearnerDisclosureTiming::AfterSubmit,
+                question_model::StudentDisclosureTiming::AfterSubmit,
             ),
             (
                 "after_due",
-                question_model::LearnerDisclosureTiming::AfterDue,
+                question_model::StudentDisclosureTiming::AfterDue,
             ),
             (
                 "after_close",
-                question_model::LearnerDisclosureTiming::AfterClose,
+                question_model::StudentDisclosureTiming::AfterClose,
             ),
-            ("never", question_model::LearnerDisclosureTiming::Never),
+            ("never", question_model::StudentDisclosureTiming::Never),
         ];
 
         for (stored, timing) in timings {
-            assert_eq!(parse_learner_disclosure_timing(stored), Ok(timing));
+            assert_eq!(parse_student_disclosure_timing(stored), Ok(timing));
         }
     }
 
     #[test]
-    fn invalid_learner_disclosure_timing_fails_closed() {
+    fn invalid_student_disclosure_timing_fails_closed() {
         assert!(matches!(
-            parse_learner_disclosure_timing("immediate_full"),
+            parse_student_disclosure_timing("immediate_full"),
             Err(StoreError::Unavailable(_))
         ));
     }

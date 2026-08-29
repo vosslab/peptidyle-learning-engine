@@ -1,5 +1,5 @@
 use super::*;
-use crate::LearnerWorkRoutingBinding;
+use crate::StudentWorkRoutingBinding;
 
 #[cfg(feature = "postgres")]
 /// Authorizes an immutable submission-receipt projection through its explicit
@@ -10,7 +10,7 @@ pub(super) async fn require_attempt_owner_for_read(
     tenant: TenantId,
     attempt: QuestionAttemptId,
     actor: UserId,
-) -> Result<LearnerWorkRoutingBinding, StoreError> {
+) -> Result<StudentWorkRoutingBinding, StoreError> {
     let owner = sqlx::query(
         "SELECT a.course_id, e.assignment_id, e.student_id FROM question_attempt AS qa \
          JOIN assignment_run AS ar ON ar.tenant_id = qa.tenant_id AND ar.run_id = qa.run_id \
@@ -25,7 +25,7 @@ pub(super) async fn require_attempt_owner_for_read(
     .await
     .map_err(map_sqlx_error)?;
     let owner = owner.ok_or(StoreError::NotFound)?;
-    let binding = LearnerWorkRoutingBinding::new(
+    let binding = StudentWorkRoutingBinding::new(
         CourseId::from_uuid(owner.try_get("course_id").map_err(map_sqlx_error)?),
         AssignmentId::from_uuid(owner.try_get("assignment_id").map_err(map_sqlx_error)?),
     );

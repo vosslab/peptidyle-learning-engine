@@ -95,8 +95,10 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
 8. Return to the Student session and use **Check grading status** until **View completed run** and
    **Your completed run is recorded.** appear. This is the learner's completed status; wait for it
    before checking grades.
-9. Open **Gradebook** and expand the assignment's **View run history**. Confirm the Student's score,
-   latest run, completed-run count, and authorized submission evidence after a fresh read.
+9. Open **Gradebook** and find the Student's assignment cell. Choose **Inspect submitted work** when
+   one completed run is available. When the cell offers **Choose one of N submitted runs**, open it
+   and choose **Inspect this submitted run** for the exact run you need. Confirm the Student's score
+   and immutable, authorized submission evidence after a fresh read.
 
 Assignments pin exact immutable questions for issued learner work. A later Questions replacement is
 for future runs; existing runs keep their original question. Use a visible `AAA-BBBB` Question ID
@@ -117,8 +119,9 @@ After a learner submits, let the visible status determine the next operation:
    **Retry automated grading for [question]** action when the operation is eligible. Follow the
    current operation state and available action rather than a prescribed retry count.
 3. Return to the Student session and choose **Check grading status** until **View completed run**
-   and **Your completed run is recorded.** appear. Then open **Gradebook** and expand **View run
-   history** for the assignment row.
+   and **Your completed run is recorded.** appear. Then open **Gradebook** and choose **Inspect
+   submitted work** from the Student's assignment cell, or choose one exact submitted run when the
+   cell offers multiple runs.
 4. Confirm the Student's score, latest run, completed-run count, and authorized submission evidence
    after a fresh read. If status already reports feedback rather than attention, proceed directly to
    Gradebook after the completed status appears.

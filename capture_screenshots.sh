@@ -27,6 +27,6 @@ if (( $# > 0 )); then
 	exit 2
 fi
 
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY"
-exec "$SCRIPT_DIRECTORY/run_playwright_tests.sh" --screenshots
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory"
+exec "$script_directory/run_playwright_tests.sh" --screenshots

@@ -25,6 +25,9 @@ use uuid::Uuid;
 
 use super::*;
 
+#[path = "tests/live.rs"]
+mod live;
+
 struct Fixture<O> {
     store: Arc<MemoryStore>,
     objects: Arc<O>,
@@ -527,7 +530,9 @@ async fn author_atomic_flow_student_read_and_current_only_delivery_conform() {
 #[tokio::test]
 #[ignore = "requires the disposable MinIO course-appearance acceptance stack"]
 async fn minio_author_atomic_flow_student_read_and_current_only_delivery_conform() {
-    let objects = minio_objects();
+    let runtime = acceptance_runtime::CourseAppearanceRuntime::load()
+        .expect("validated course-appearance acceptance runtime");
+    let objects = live::minio_objects(&runtime);
 
     assert_author_atomic_flow_student_read_and_current_only_delivery(
         fixture_with_objects(objects).await,
@@ -535,36 +540,20 @@ async fn minio_author_atomic_flow_student_read_and_current_only_delivery_conform
     .await;
 }
 
-fn minio_objects() -> Arc<objects::s3::S3ObjectStore> {
-    use objects::minio::{EndpointConfig, client};
-    use objects::s3::{BucketNames, S3ObjectStore};
-
-    let settings = EndpointConfig {
-        endpoint_url: std::env::var("PLE_S3_ENDPOINT").expect("PLE_S3_ENDPOINT must be set"),
-        region: std::env::var("PLE_S3_REGION").expect("PLE_S3_REGION must be set"),
-        access_key_id: std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set"),
-        secret_access_key: std::env::var("AWS_SECRET_ACCESS_KEY")
-            .expect("AWS_SECRET_ACCESS_KEY must be set"),
-    };
-    Arc::new(S3ObjectStore::new(
-        client(&settings),
-        BucketNames::default(),
-    ))
-}
-
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL and MinIO course-appearance acceptance stack"]
 async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current() {
     use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 
-    let runtime = crate::test_acceptance_runtime::load();
+    let runtime = acceptance_runtime::CourseAppearanceRuntime::load()
+        .expect("validated course-appearance acceptance runtime");
     let database_url = runtime.admin_url().expose();
     let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
     let store = Arc::new(PostgresStore::new(pool));
-    let objects = minio_objects();
+    let objects = live::minio_objects(&runtime);
     let tenant = TenantId::from_uuid(Uuid::from_u128(82_001));
     let course = CourseId::from_uuid(Uuid::from_u128(82_002));
     let instructor = UserId::from_uuid(Uuid::from_u128(82_003));

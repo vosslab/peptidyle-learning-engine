@@ -48,10 +48,10 @@ import {
   type SubmissionOutcome,
 } from "../features/attempt/attempt_state";
 import { prefetchMatchesIssuedSuccessor } from "../features/attempt/prefetch_binding";
-import { projectLearnerResponse } from "../features/attempt/learner_response";
+import { projectStudentResponse } from "../features/attempt/student_response";
 import type { ResponseFormatReport } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
-import { learnerProgressSummary, learnerScoreValue } from "../learner_progress";
+import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 function attemptContext(attempt: QuestionAttempt): AttemptContext {
   return {
@@ -410,8 +410,16 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     feedback: Extract<AttemptState, { readonly phase: "feedback" }>,
   ): FeedbackPresentation =>
     feedback.feedback.kind === "released"
-      ? { kind: "released" as const, feedback: feedback.feedback.feedback }
-      : { kind: "awaiting" as const, feedback: null };
+      ? {
+          kind: "released" as const,
+          feedback: feedback.feedback.feedback,
+          scoringStatus: feedback.acknowledgement.scoringStatus,
+        }
+      : {
+          kind: "awaiting" as const,
+          feedback: null,
+          scoringStatus: feedback.acknowledgement.scoringStatus,
+        };
 
   createEffect(() => {
     if (recoveringState()?.reason === "sessionExpired") {
@@ -473,9 +481,9 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
               <>
                 <section aria-label="Assignment score">
                   <h3>Assignment score</h3>
-                  <p>{learnerProgressSummary(summary().summary)}</p>
-                  <Show when={summary().summary.scoreState === "available"}>
-                    <p>This run: {learnerScoreValue(summary().run.score)}</p>
+                  <p>{studentProgressSummary(summary().summary)}</p>
+                  <Show when={summary().summary.score_state === "available"}>
+                    <p>This run: {studentScoreValue(summary().run.score)}</p>
                   </Show>
                 </section>
                 <For each={summaryOutcomes()}>
@@ -483,12 +491,20 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                     <FeedbackPanel
                       disclosure={
                         outcome.feedback === null
-                          ? { kind: "awaiting", feedback: null }
-                          : { kind: "released", feedback: outcome.feedback }
+                          ? {
+                              kind: "awaiting",
+                              feedback: null,
+                              scoringStatus: outcome.scoringStatus,
+                            }
+                          : {
+                              kind: "released",
+                              feedback: outcome.feedback,
+                              scoringStatus: outcome.scoringStatus,
+                            }
                       }
-                      learnerResponse={
+                      studentResponse={
                         outcome.attempt === currentAttemptId()
-                          ? projectLearnerResponse(currentEnvelope(), outcome.response)
+                          ? projectStudentResponse(currentEnvelope(), outcome.response)
                           : undefined
                       }
                       assetUrl={(asset) =>
@@ -632,7 +648,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                               onResponseChange={responseChanged}
                               onSubmit={submit}
                               onEscape={escapeToAssignment}
-                              learnerWorkRoute={{
+                              studentWorkRoute={{
                                 courseId: screen().course.summary.id,
                                 assignmentId: screen().assignment.id,
                               }}
@@ -676,18 +692,48 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                   }
                 >
                   {(feedback) => (
-                    <FeedbackPanel
-                      disclosure={feedbackPanelState(feedback())}
-                      learnerResponse={projectLearnerResponse(
-                        currentEnvelope(),
-                        feedback().response,
-                      )}
-                      assetUrl={(asset) =>
-                        new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
-                      }
-                      onAdvance={() => void continueAttempt()}
-                      advanceLabel={submissionAdvanceLabel(feedback().acknowledgement)}
-                    />
+                    <>
+                      <Show when={feedback().acknowledgement.scoringStatus !== "current"}>
+                        <section class="attempt-pending" aria-labelledby="score-status-heading">
+                          <h2 id="score-status-heading">
+                            {feedback().acknowledgement.scoringStatus === "recalculating"
+                              ? "Score is being updated"
+                              : "Score update needs attention"}
+                          </h2>
+                          <p>
+                            {feedback().acknowledgement.scoringStatus === "recalculating"
+                              ? "Your response is recorded. The current score will appear after grading finishes."
+                              : "Your response is recorded. Check again to see whether the score is available."}
+                          </p>
+                          <p id="score-status-message" role="status" aria-live="polite">
+                            {feedback().checkingStatus
+                              ? "Checking for an updated score..."
+                              : (feedback().statusMessage ?? "")}
+                          </p>
+                          <button
+                            class="primary-action"
+                            type="button"
+                            disabled={feedback().checkingStatus}
+                            aria-describedby="score-status-message"
+                            onClick={() => void machine.checkGradingStatus()}
+                          >
+                            Check for updated score
+                          </button>
+                        </section>
+                      </Show>
+                      <FeedbackPanel
+                        disclosure={feedbackPanelState(feedback())}
+                        studentResponse={projectStudentResponse(
+                          currentEnvelope(),
+                          feedback().response,
+                        )}
+                        assetUrl={(asset) =>
+                          new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                        }
+                        onAdvance={() => void continueAttempt()}
+                        advanceLabel={submissionAdvanceLabel(feedback().acknowledgement)}
+                      />
+                    </>
                   )}
                 </Show>
               }

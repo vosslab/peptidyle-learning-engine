@@ -500,9 +500,7 @@ impl AcceptedSubmissionExecutionCore {
             .into());
         }
         let statistics = encode_statistics(&plan.statistics)?;
-        let recalculation_job = crate::JobId::from_uuid(Uuid::from_u128(
-            claim.submission.as_uuid().as_u128() ^ u128::MAX,
-        ));
+        let recalculation_job = crate::accepted_submission_recalculation_job(claim.submission);
         let row = sqlx::query(
             "SELECT * FROM public.ple_commit_accepted_submission_completion_v2(\
              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,\

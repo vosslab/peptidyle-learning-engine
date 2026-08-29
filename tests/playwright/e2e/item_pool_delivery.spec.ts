@@ -267,10 +267,14 @@ async function inspectPostIssueEdits(
   await chooseSeededIdentity(page, /Elena Rivera/u);
   await selectVisibleCourse(page, courseTitle);
   await page.getByRole("link", { name: "Gradebook", exact: true }).click();
-  await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
-  const gradebookRow = page.getByRole("row", { name: new RegExp(assignmentTitle) });
+  const gradebook = page.locator("[data-route-surface=gradebook]");
+  await expect(gradebook).toBeVisible();
+  const gradebookRow = gradebook
+    .getByRole("row")
+    .filter({ has: page.getByText("Mary Okafor", { exact: true }) });
   await expect(gradebookRow).toBeVisible();
-  await expect(gradebookRow).toContainText("100%");
+  await expect(gradebookRow.locator('[data-label="Course total"]')).toContainText("100%");
+  await expect(gradebookRow.locator(`[data-label="${assignmentTitle}"]`)).toContainText("100%");
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   const assignmentCard = page
     .getByRole("article")

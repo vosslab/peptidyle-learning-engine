@@ -22,6 +22,7 @@ export interface RouteContract {
     | "assignmentWorkspaceStudentView"
     | "assignmentWorkspaceGradingOperations"
     | "gradebook"
+    | "studentWorkInspection"
     | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
@@ -197,8 +198,14 @@ export const ROUTE_CONTRACT = [
   {
     id: "gradebook",
     path: "/instructor/courses/:courseRef/gradebook",
-    surface: "Summary-row gradebook",
+    surface: "Calculated Gradebook",
     requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "studentWorkInspection",
+    path: "/instructor/courses/:courseRef/gradebook/students/:membershipRef/assignments/:assignmentRef/runs/:runRef",
+    surface: "Audited Student-work inspection",
+    requiredRoles: ["instructor"],
   },
   {
     id: "courseGradeSettings",

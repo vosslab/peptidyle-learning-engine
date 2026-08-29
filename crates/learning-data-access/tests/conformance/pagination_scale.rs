@@ -86,7 +86,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )
@@ -96,7 +96,7 @@ where
             .start_or_resume_run(
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(course, assignment),
+                StudentWorkRoutingBinding::new(course, assignment),
                 RunId::from_uuid(uuid(80_300 + offset)),
             )
             .await

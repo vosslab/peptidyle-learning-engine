@@ -15,5 +15,6 @@ pub use crate::contracts::{
     GradingOperationTrustGeneration, InstructorGradingOperationProjection,
     InstructorGradingOperationRow, ListInstructorGradingOperationsCommand,
     MAX_INSTRUCTOR_GRADING_RETRY_COUNT, RecalculateAssignmentCommand, RetryGradingOperationCommand,
-    WorkerId, canonical_attempt_result_json, canonical_student_response_json,
+    WorkerId, accepted_submission_recalculation_job, canonical_attempt_result_json,
+    canonical_student_response_json,
 };

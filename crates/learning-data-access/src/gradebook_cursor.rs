@@ -7,14 +7,27 @@
 use base64::Engine as _;
 use uuid::Uuid;
 
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 use question_model::{AssignmentReference, CourseMembershipReference};
 
-use crate::{CourseGradeSchemeRevision, Cursor, GradebookFilter, RosterRevision, StoreError};
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+use crate::{CourseGradeSchemeRevision, GradebookFilter, RosterRevision};
+use crate::{Cursor, StoreError};
 
 const ENCODED_LENGTH: usize = 43;
 const RAW_LENGTH: usize = 32;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 const CALCULATED_RAW_LENGTH: usize = 25;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 const CALCULATED_ENCODED_LENGTH: usize = 34;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+const SELECTION_RAW_LENGTH: usize = 29;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+const SELECTION_ENCODED_LENGTH: usize = 39;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+const RUN_CHOICES_RAW_LENGTH: usize = 36;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+const RUN_CHOICES_ENCODED_LENGTH: usize = 48;
 
 /// Native UUID tuple used by the gradebook page order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -63,6 +76,7 @@ fn invalid_cursor() -> StoreError {
 /// current scheme, roster, and normalized filter before a later page is read.
 /// The Store resolves those values under Instructor authority, so a changed or
 /// forged continuation cannot widen the accessible record set (ASVS V2.2.1-3).
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CalculatedGradebookCursor {
     pub(crate) scheme_revision: CourseGradeSchemeRevision,
@@ -71,6 +85,7 @@ pub(crate) struct CalculatedGradebookCursor {
     pub(crate) last_membership: CourseMembershipReference,
 }
 
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 impl CalculatedGradebookCursor {
     pub(crate) fn encode(self) -> Cursor {
         let mut bytes = [0_u8; CALCULATED_RAW_LENGTH];
@@ -127,6 +142,7 @@ impl CalculatedGradebookCursor {
     }
 }
 
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 fn encode_filter(filter: GradebookFilter) -> (u8, u32) {
     match filter {
         GradebookFilter::All => (0, 0),
@@ -135,6 +151,7 @@ fn encode_filter(filter: GradebookFilter) -> (u8, u32) {
     }
 }
 
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 fn decode_filter(kind: u8, reference: u32) -> Result<GradebookFilter, StoreError> {
     match (kind, reference) {
         (0, 0) => Ok(GradebookFilter::All),
@@ -148,8 +165,187 @@ fn decode_filter(kind: u8, reference: u32) -> Result<GradebookFilter, StoreError
     }
 }
 
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
 fn invalid_calculated_cursor() -> StoreError {
     StoreError::InvalidRecord("invalid calculated gradebook cursor".to_string())
+}
+
+/// Structural continuation for a bounded Gradebook Student selection.
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GradebookSelectionCursor {
+    pub(crate) scheme_revision: CourseGradeSchemeRevision,
+    pub(crate) roster_revision: RosterRevision,
+    pub(crate) assignment: AssignmentReference,
+    pub(crate) operation: Option<question_model::GradingOperationReference>,
+    pub(crate) last_membership: CourseMembershipReference,
+}
+
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+impl GradebookSelectionCursor {
+    pub(crate) fn encode(self) -> Cursor {
+        let mut bytes = [0_u8; SELECTION_RAW_LENGTH];
+        bytes[..8].copy_from_slice(&self.scheme_revision.value().to_be_bytes());
+        bytes[8..16].copy_from_slice(&self.roster_revision.value().to_be_bytes());
+        bytes[16..20].copy_from_slice(&self.assignment.number().to_be_bytes());
+        bytes[20..24].copy_from_slice(
+            &self
+                .operation
+                .map_or(0, |value| value.number())
+                .to_be_bytes(),
+        );
+        bytes[24..28].copy_from_slice(&self.last_membership.number().to_be_bytes());
+        bytes[28] = u8::from(self.operation.is_some());
+        Cursor::from_stable_key(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes))
+    }
+
+    pub(crate) fn decode(cursor: &Cursor) -> Result<Self, StoreError> {
+        let bytes = decode_fixed_cursor(cursor, SELECTION_ENCODED_LENGTH, SELECTION_RAW_LENGTH)?;
+        let scheme_revision = decode_scheme_revision(&bytes[..8])?;
+        let roster_revision = decode_roster_revision(&bytes[8..16])?;
+        let assignment = decode_assignment_reference(&bytes[16..20])?;
+        let operation_number =
+            u32::from_be_bytes(bytes[20..24].try_into().expect("fixed operation"));
+        let operation = match (bytes[28], operation_number) {
+            (0, 0) => None,
+            (1, number) => question_model::GradingOperationReference::new(u64::from(number))
+                .map(Some)
+                .ok_or_else(invalid_selection_cursor)?,
+            _ => return Err(invalid_selection_cursor()),
+        };
+        let last_membership = decode_membership_reference(&bytes[24..28])?;
+        Ok(Self {
+            scheme_revision,
+            roster_revision,
+            assignment,
+            operation,
+            last_membership,
+        })
+    }
+}
+
+/// Structural continuation for the bounded submitted-run chooser.
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SubmittedRunChoicesCursor {
+    pub(crate) roster_revision: RosterRevision,
+    pub(crate) membership: CourseMembershipReference,
+    pub(crate) assignment: AssignmentReference,
+    pub(crate) operation: Option<question_model::GradingOperationReference>,
+    pub(crate) submitted_at_millis: i64,
+    pub(crate) last_run: question_model::RunReference,
+}
+
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+impl SubmittedRunChoicesCursor {
+    pub(crate) fn encode(self) -> Cursor {
+        let mut bytes = [0_u8; RUN_CHOICES_RAW_LENGTH];
+        bytes[..8].copy_from_slice(&self.roster_revision.value().to_be_bytes());
+        bytes[8..12].copy_from_slice(&self.membership.number().to_be_bytes());
+        bytes[12..16].copy_from_slice(&self.assignment.number().to_be_bytes());
+        bytes[16..20].copy_from_slice(
+            &self
+                .operation
+                .map_or(0, |value| value.number())
+                .to_be_bytes(),
+        );
+        bytes[20..28].copy_from_slice(&self.submitted_at_millis.to_be_bytes());
+        bytes[28..32].copy_from_slice(&self.last_run.number().to_be_bytes());
+        bytes[32] = u8::from(self.operation.is_some());
+        Cursor::from_stable_key(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes))
+    }
+
+    pub(crate) fn decode(cursor: &Cursor) -> Result<Self, StoreError> {
+        let bytes =
+            decode_fixed_cursor(cursor, RUN_CHOICES_ENCODED_LENGTH, RUN_CHOICES_RAW_LENGTH)?;
+        if bytes[33..].iter().any(|value| *value != 0) {
+            return Err(invalid_run_choices_cursor());
+        }
+        let operation_number =
+            u32::from_be_bytes(bytes[16..20].try_into().expect("fixed operation"));
+        let operation = match (bytes[32], operation_number) {
+            (0, 0) => None,
+            (1, number) => question_model::GradingOperationReference::new(u64::from(number))
+                .map(Some)
+                .ok_or_else(invalid_run_choices_cursor)?,
+            _ => return Err(invalid_run_choices_cursor()),
+        };
+        let last_run = question_model::RunReference::new(u64::from(u32::from_be_bytes(
+            bytes[28..32].try_into().expect("fixed run"),
+        )))
+        .ok_or_else(invalid_run_choices_cursor)?;
+        Ok(Self {
+            roster_revision: decode_roster_revision(&bytes[..8])
+                .map_err(|_| invalid_run_choices_cursor())?,
+            membership: decode_membership_reference(&bytes[8..12])
+                .map_err(|_| invalid_run_choices_cursor())?,
+            assignment: decode_assignment_reference(&bytes[12..16])
+                .map_err(|_| invalid_run_choices_cursor())?,
+            operation,
+            submitted_at_millis: i64::from_be_bytes(
+                bytes[20..28].try_into().expect("fixed timestamp"),
+            ),
+            last_run,
+        })
+    }
+}
+
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn decode_fixed_cursor(
+    cursor: &Cursor,
+    encoded_length: usize,
+    raw_length: usize,
+) -> Result<Vec<u8>, StoreError> {
+    if cursor.as_str().len() != encoded_length {
+        return Err(invalid_selection_cursor());
+    }
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(cursor.as_str())
+        .map_err(|_| invalid_selection_cursor())?;
+    if bytes.len() != raw_length {
+        return Err(invalid_selection_cursor());
+    }
+    Ok(bytes)
+}
+
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn decode_scheme_revision(bytes: &[u8]) -> Result<CourseGradeSchemeRevision, StoreError> {
+    CourseGradeSchemeRevision::from_u64(u64::from_be_bytes(
+        bytes.try_into().expect("fixed revision"),
+    ))
+    .map_err(|_| invalid_selection_cursor())
+}
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn decode_roster_revision(bytes: &[u8]) -> Result<RosterRevision, StoreError> {
+    RosterRevision::from_stored(
+        i64::try_from(u64::from_be_bytes(
+            bytes.try_into().expect("fixed revision"),
+        ))
+        .map_err(|_| invalid_selection_cursor())?,
+    )
+    .map_err(|_| invalid_selection_cursor())
+}
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn decode_assignment_reference(bytes: &[u8]) -> Result<AssignmentReference, StoreError> {
+    AssignmentReference::new(u64::from(u32::from_be_bytes(
+        bytes.try_into().expect("fixed assignment"),
+    )))
+    .ok_or_else(invalid_selection_cursor)
+}
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn decode_membership_reference(bytes: &[u8]) -> Result<CourseMembershipReference, StoreError> {
+    CourseMembershipReference::new(u64::from(u32::from_be_bytes(
+        bytes.try_into().expect("fixed membership"),
+    )))
+    .ok_or_else(invalid_selection_cursor)
+}
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn invalid_selection_cursor() -> StoreError {
+    StoreError::InvalidRecord("invalid gradebook selection cursor".to_string())
+}
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+fn invalid_run_choices_cursor() -> StoreError {
+    StoreError::InvalidRecord("invalid submitted run choices cursor".to_string())
 }
 
 #[cfg(test)]
@@ -187,6 +383,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "test-support")]
     #[test]
     fn calculated_cursor_binds_structural_revisions_filter_and_roster_position() {
         let original = CalculatedGradebookCursor {
@@ -204,6 +401,7 @@ mod tests {
         assert_eq!(CalculatedGradebookCursor::decode(&encoded), Ok(original));
     }
 
+    #[cfg(feature = "test-support")]
     #[test]
     fn calculated_cursor_rejects_unknown_filter_and_nonpositive_membership() {
         let mut bytes = [0_u8; CALCULATED_RAW_LENGTH];

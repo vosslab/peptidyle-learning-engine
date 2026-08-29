@@ -5,4 +5,4 @@ mod fixtures;
 #[path = "external_tool/tests.rs"]
 mod tests;
 
-pub(super) use fixtures::external_tool_fixture;
+pub(super) use fixtures::{ExternalToolFixture, external_begin, external_tool_fixture};

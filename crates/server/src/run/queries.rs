@@ -1,7 +1,7 @@
 //! Run-query and learner-projection capability; this module owns its route behavior.
 
 use super::contracts::RunBackend;
-use super::submission::{apply_learner_disclosure, project_run_feedback};
+use super::submission::{apply_student_disclosure, project_run_feedback};
 use super::support::*;
 
 pub(super) async fn get_run<S, B>(
@@ -26,7 +26,7 @@ where
     match authorized_run(state.store.as_ref(), &authenticated, run_id).await {
         Ok(mut run) => {
             if let Err(response) =
-                redact_learner_run_score(state.store.as_ref(), &authenticated, &mut run).await
+                redact_student_run_score(state.store.as_ref(), &authenticated, &mut run).await
             {
                 return response.into_response();
             }
@@ -138,7 +138,7 @@ where
                 .into_response(),
             )
         }
-        Ok(RunSummaryEnrollmentAccess::Learner(enrollment)) => {
+        Ok(RunSummaryEnrollmentAccess::Student(enrollment)) => {
             if !matches!(page.scoring_status, question_model::ScoringStatus::Current) {
                 for outcome in &mut outcomes.items {
                     if let Some(feedback) = &mut outcome.feedback {
@@ -147,11 +147,11 @@ where
                     }
                 }
             }
-            let (summary, score_disclosed) = match learner_assignment_progress(
+            let (summary, score_disclosed) = match student_assignment_progress(
                 state.store.as_ref(),
                 &authenticated,
                 enrollment.assignment,
-                Some(&learning_data_access::LearnerAssignmentSummarySnapshot {
+                Some(&learning_data_access::StudentAssignmentSummarySnapshot {
                     summary: page.summary.clone(),
                     scoring_status: page.scoring_status,
                 }),
@@ -247,7 +247,7 @@ where
     };
     let mut page = match state
         .store
-        .learner_list_question_attempts(
+        .student_list_question_attempts(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run.id,
@@ -261,7 +261,7 @@ where
     };
     let run_items = match state
         .store
-        .learner_assignment_run_items(
+        .student_assignment_run_items(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run.id,
@@ -273,7 +273,7 @@ where
         Err(error) => return store_error_response(error),
     };
     let scoring_status =
-        learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
+        student_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
     for attempt in &mut page.items {
         // Browser-safe completed attempts intentionally omit the submitted
         // response. Lifecycle, rather than response presence, decides whether
@@ -299,7 +299,7 @@ where
                 Err(error) => return store_error_response(error),
             };
             *attempt = record.attempt;
-            apply_learner_disclosure(record.disclosure.decision(), scoring_status, attempt);
+            apply_student_disclosure(record.disclosure.decision(), scoring_status, attempt);
             continue;
         }
     }
@@ -308,7 +308,7 @@ where
             items: page
                 .items
                 .into_iter()
-                .map(|attempt| LearnerAttemptProjection {
+                .map(|attempt| StudentAttemptProjection {
                     pool_selection: pool_selection_for_position(
                         &run_items,
                         attempt.assignment_position,
@@ -338,7 +338,7 @@ where
     };
     let mut attempt = match state
         .store
-        .learner_get_question_attempt(
+        .student_get_question_attempt(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             attempt_id,
@@ -378,13 +378,13 @@ where
         if let Some(record) = record {
             attempt = record.attempt;
             let scoring_status =
-                learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
-            apply_learner_disclosure(record.disclosure.decision(), scoring_status, &mut attempt);
+                student_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
+            apply_student_disclosure(record.disclosure.decision(), scoring_status, &mut attempt);
         }
     }
     let pool_selection = match state
         .store
-        .learner_assignment_run_items(
+        .student_assignment_run_items(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run.id,
@@ -396,9 +396,9 @@ where
         Err(error) => return store_error_response(error),
     };
     no_store(
-        Json(LearnerAttemptProjection {
+        Json(StudentAttemptProjection {
             attempt,
-            scoring_status: learner_scoring_status(
+            scoring_status: student_scoring_status(
                 state.store.as_ref(),
                 &authenticated,
                 run.enrollment,
@@ -435,7 +435,7 @@ where
         .read_issued_attempt_evidence(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             attempt_id,
         )
         .await
@@ -521,7 +521,7 @@ where
         };
     let summary = match state
         .store
-        .learner_get_summary(
+        .student_get_summary(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             enrollment.id,
@@ -533,7 +533,7 @@ where
         Err(error) => return store_error_response(error),
     };
     if enrollment.user == authenticated.record.subject.user() {
-        let (summary, _) = match learner_assignment_progress(
+        let (summary, _) = match student_assignment_progress(
             state.store.as_ref(),
             &authenticated,
             enrollment.assignment,
@@ -586,7 +586,7 @@ where
         };
     match state
         .store
-        .learner_get_summary(
+        .student_get_summary(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             enrollment_id,
@@ -594,7 +594,7 @@ where
         .await
     {
         Ok(Some(summary)) if enrollment.user == authenticated.record.subject.user() => {
-            match learner_assignment_progress(
+            match student_assignment_progress(
                 state.store.as_ref(),
                 &authenticated,
                 enrollment.assignment,
@@ -646,7 +646,7 @@ where
     let result = if enrollment.user == actor {
         state
             .store
-            .learner_list_runs(authenticated.tenant_context, actor, enrollment_id, page)
+            .student_list_runs(authenticated.tenant_context, actor, enrollment_id, page)
             .await
     } else {
         state
@@ -659,14 +659,14 @@ where
             if enrollment.user == actor {
                 let summary = match state
                     .store
-                    .learner_get_summary(authenticated.tenant_context, actor, enrollment_id)
+                    .student_get_summary(authenticated.tenant_context, actor, enrollment_id)
                     .await
                 {
                     Ok(Some(summary)) => summary,
                     Ok(None) => return error_response(StatusCode::NOT_FOUND, "summary not found"),
                     Err(error) => return store_error_response(error),
                 };
-                let (_, score_disclosed) = match learner_assignment_progress(
+                let (_, score_disclosed) = match student_assignment_progress(
                     state.store.as_ref(),
                     &authenticated,
                     enrollment.assignment,
@@ -701,7 +701,7 @@ pub(super) async fn all_attempts<S: Store>(
     let mut attempts = Vec::new();
     loop {
         let page = store
-            .learner_list_question_attempts(
+            .student_list_question_attempts(
                 authenticated.tenant_context,
                 authenticated.record.subject.user(),
                 run,
@@ -724,7 +724,7 @@ pub(super) async fn authorized_run<S: Store>(
     run_id: RunId,
 ) -> HttpResult<AssignmentRun> {
     let run = store
-        .learner_get_run(
+        .student_get_run(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run_id,
@@ -738,26 +738,26 @@ pub(super) async fn authorized_run<S: Store>(
 
 /// Redacts a run score only when the currently authenticated actor owns the
 /// enrollment. Staff historical inspection keeps its separate raw capability.
-async fn redact_learner_run_score<S: Store + AuthoritativeTimeStore + CourseItemAnalysisStore>(
+async fn redact_student_run_score<S: Store + AuthoritativeTimeStore + CourseItemAnalysisStore>(
     store: &S,
     authenticated: &AuthenticatedSession,
     run: &mut AssignmentRun,
 ) -> HttpResult<()> {
     let actor = authenticated.record.subject.user();
     let Some(enrollment) = store
-        .learner_get_enrollment(authenticated.tenant_context, actor, run.enrollment)
+        .student_get_enrollment(authenticated.tenant_context, actor, run.enrollment)
         .await
         .map_err(store_error_response)?
     else {
         return Ok(());
     };
     let summary = store
-        .learner_get_summary(authenticated.tenant_context, actor, enrollment.id)
+        .student_get_summary(authenticated.tenant_context, actor, enrollment.id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "summary not found"))?;
     let (_, score_disclosed) =
-        learner_assignment_progress(store, authenticated, enrollment.assignment, Some(&summary))
+        student_assignment_progress(store, authenticated, enrollment.assignment, Some(&summary))
             .await?;
     if !score_disclosed {
         run.score = None;
@@ -769,7 +769,7 @@ async fn redact_learner_run_score<S: Store + AuthoritativeTimeStore + CourseItem
 /// its two retained record capabilities applies before touching learner-only
 /// accessors: instructors never traverse a learner entitlement query.
 enum RunSummaryEnrollmentAccess {
-    Learner(AssignmentEnrollment),
+    Student(AssignmentEnrollment),
     Instructor,
 }
 
@@ -788,11 +788,11 @@ async fn run_summary_enrollment_access<S: Store>(
         return Ok(RunSummaryEnrollmentAccess::Instructor);
     }
     let enrollment = store
-        .learner_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .student_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
-    Ok(RunSummaryEnrollmentAccess::Learner(enrollment))
+    Ok(RunSummaryEnrollmentAccess::Student(enrollment))
 }
 
 pub(super) async fn run_summary_course<S>(
@@ -842,7 +842,7 @@ pub(super) async fn owned_run<S: Store>(
     run_id: RunId,
 ) -> HttpResult<AssignmentRun> {
     let run = store
-        .learner_get_run(
+        .student_get_run(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             run_id,
@@ -884,7 +884,7 @@ pub(super) async fn authorized_enrollment<S: Store>(
 ) -> HttpResult<AssignmentEnrollment> {
     let actor = authenticated.record.subject.user();
     if let Some(enrollment) = store
-        .learner_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .student_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
     {

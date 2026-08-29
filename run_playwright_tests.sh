@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY"
-source "$SCRIPT_DIRECTORY/source_me.sh"
-exec python3 "$SCRIPT_DIRECTORY/tests/e2e/e2e_browser_suite_owner.py" "$@"
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory"
+source "$script_directory/source_me.sh"
+exec python3 "$script_directory/tests/e2e/e2e_browser_suite_owner.py" "$@"

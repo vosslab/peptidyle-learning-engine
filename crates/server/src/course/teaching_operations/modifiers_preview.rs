@@ -523,12 +523,12 @@ where
     };
     let prior_run_count = match state
         .store
-        .learner_get_enrollment_for_assignment(auth.tenant_context, target.user, assignment)
+        .student_get_enrollment_for_assignment(auth.tenant_context, target.user, assignment)
         .await
     {
         Ok(Some(enrollment)) => match state
             .store
-            .learner_get_summary(auth.tenant_context, target.user, enrollment.id)
+            .student_get_summary(auth.tenant_context, target.user, enrollment.id)
             .await
         {
             Ok(Some(summary)) => summary.summary.completed_run_count,

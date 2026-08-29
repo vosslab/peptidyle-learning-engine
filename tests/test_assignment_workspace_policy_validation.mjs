@@ -18,11 +18,11 @@ const assignment = "0198e000-0000-7000-8000-000000000002";
 const input = {
   audience: { kind: "courseWide" },
   disclosurePolicy: {
-    score: "afterSubmit",
-    perItemCorrectness: "afterSubmit",
-    feedbackText: "afterDue",
-    solution: "afterClose",
-    classStatistics: "never",
+    score: "after_submit",
+    per_item_correctness: "after_submit",
+    feedback_text: "after_due",
+    solution: "after_close",
+    class_statistics: "never",
   },
   policies: {
     completion: { kind: "allCorrect" },

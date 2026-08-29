@@ -7,7 +7,7 @@ use adapter_imathas::broker_provider::{
 use async_trait::async_trait;
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogSourceStore, ExternalToolActivityClaim, ExternalToolBrokerStore,
-    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, LearnerWorkRoutingBinding,
+    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, StudentWorkRoutingBinding,
     TenantContext,
 };
 use objects::ObjectStore;
@@ -36,7 +36,7 @@ where
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &LaunchStateAead,
@@ -44,7 +44,7 @@ where
         self.create_contracted_launch_session(
             context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             issued_question_snapshot,
             attempt,
             aead,
@@ -56,7 +56,7 @@ where
         &self,
         context: TenantContext,
         actor: UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
@@ -82,7 +82,7 @@ where
                 .claim_and_begin_external_tool_activity_dispatch(
                     context,
                     actor,
-                    learner_work_binding,
+                    student_work_binding,
                     attempt.id,
                     session_id,
                     token,
@@ -94,7 +94,7 @@ where
                 .claim_external_tool_activity(
                     context,
                     actor,
-                    learner_work_binding,
+                    student_work_binding,
                     attempt.id,
                     session_id,
                     token,
@@ -125,7 +125,7 @@ where
             let encrypted = lease.encrypted_provider_state.as_ref().ok_or_else(|| {
                 RunBackendError::Invalid("external-tool launch state is unavailable".into())
             })?;
-            let aad = launch_state_aad(context, actor, learner_work_binding, attempt, &expected);
+            let aad = launch_state_aad(context, actor, student_work_binding, attempt, &expected);
             let value = aead.open(encrypted, &aad)?;
             let value = std::str::from_utf8(&value).map_err(|_| {
                 RunBackendError::Invalid("external-tool launch state is invalid".into())
@@ -166,7 +166,7 @@ where
                 .complete_external_tool_activity_dispatch(
                     context,
                     actor,
-                    learner_work_binding,
+                    student_work_binding,
                     attempt.id,
                     &lease.token,
                 )
@@ -178,7 +178,7 @@ where
             .release_external_tool_activity(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 attempt.id,
                 session_id,
                 &lease.token,

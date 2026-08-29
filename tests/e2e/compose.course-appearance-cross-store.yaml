@@ -1,0 +1,53 @@
+# MinIO half of the leased course-appearance cross-store acceptance profile.
+# PostgreSQL comes from compose.database-baseline.yaml; the owner supplies one
+# private environment and removes both services before releasing the lease.
+x-ple-disposable-capability-label: &ple-disposable-capability-label
+  org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:?set by the disposable owner}"
+
+x-ple-e2e-owner-label: &ple-e2e-owner-label
+  org.peptidyle.e2e.owner: "${PLE_E2E_OWNER:?set by the cross-store runtime}"
+
+services:
+  minio:
+    labels:
+      <<: [*ple-disposable-capability-label, *ple-e2e-owner-label]
+    image: quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256:?set by the canonical stack selection}
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set by the cross-store runtime}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set by the cross-store runtime}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${PLE_MINIO_API_HOST_PORT:?set by the cross-store runtime}:9000"
+    volumes:
+      - ple_miniodata:/data
+
+  createbuckets:
+    labels:
+      <<: [*ple-disposable-capability-label, *ple-e2e-owner-label]
+    image: quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256:?set by the canonical stack selection}
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set by the cross-store runtime}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set by the cross-store runtime}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing local/public-assets
+        mc mb --ignore-existing local/private-content
+        mc mb --ignore-existing local/student-records
+        mc mb --ignore-existing local/temp-processing
+
+volumes:
+  ple_miniodata:
+    labels:
+      <<: [*ple-disposable-capability-label, *ple-e2e-owner-label]

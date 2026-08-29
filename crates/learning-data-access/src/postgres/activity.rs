@@ -186,7 +186,7 @@ impl crate::ActivityStore for PostgresStore {
             Ok(None)
         }
     }
-    async fn learner_get_enrollment_impl(
+    async fn student_get_enrollment_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -199,7 +199,7 @@ impl crate::ActivityStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
-    async fn learner_get_enrollment_for_assignment_impl(
+    async fn student_get_enrollment_for_assignment_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -216,7 +216,7 @@ impl crate::ActivityStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
-    async fn learner_get_run_impl(
+    async fn student_get_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -362,7 +362,7 @@ impl crate::ActivityStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(Some(result))
     }
-    async fn learner_list_runs_impl(
+    async fn student_list_runs_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -420,7 +420,7 @@ impl crate::ActivityStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
-    async fn learner_get_question_attempt_impl(
+    async fn student_get_question_attempt_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -483,12 +483,12 @@ impl crate::ActivityStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
-    async fn learner_get_summary_impl(
+    async fn student_get_summary_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         enrollment: EnrollmentId,
-    ) -> Result<Option<crate::LearnerAssignmentSummarySnapshot>, StoreError> {
+    ) -> Result<Option<crate::StudentAssignmentSummarySnapshot>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         if learner_enrollment_for_read(&mut transaction, context.tenant_id(), actor, enrollment)
             .await?
@@ -501,7 +501,7 @@ impl crate::ActivityStore for PostgresStore {
         let record = row
             .as_ref()
             .map(|value| {
-                Ok::<_, StoreError>(crate::LearnerAssignmentSummarySnapshot {
+                Ok::<_, StoreError>(crate::StudentAssignmentSummarySnapshot {
                     summary: decode_summary_row(value)?,
                     scoring_status: decode_scoring_status(value)?,
                 })

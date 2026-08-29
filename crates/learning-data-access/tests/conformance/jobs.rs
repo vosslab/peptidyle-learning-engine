@@ -73,7 +73,12 @@ where
         .expect("current token completes left job");
     assert_eq!(
         store
-            .fail_job(right.id, right.lease_token, JobFailureKind::Permanent)
+            .fail_job(
+                context,
+                right.id,
+                right.lease_token,
+                JobFailureKind::Permanent,
+            )
             .await
             .expect("current token can dead-letter right job"),
         JobFailureDisposition::Dead
@@ -304,7 +309,12 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     assert_eq!(retry_claim.id, retry);
     assert_eq!(
         store
-            .fail_job(retry, retry_claim.lease_token, JobFailureKind::Transient)
+            .fail_job(
+                context,
+                retry,
+                retry_claim.lease_token,
+                JobFailureKind::Transient,
+            )
             .await
             .expect("first transient failure"),
         JobFailureDisposition::Retrying
@@ -328,7 +338,12 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     assert_eq!(final_claim.id, retry);
     assert_eq!(
         store
-            .fail_job(retry, final_claim.lease_token, JobFailureKind::Transient)
+            .fail_job(
+                context,
+                retry,
+                final_claim.lease_token,
+                JobFailureKind::Transient,
+            )
             .await
             .expect("attempt exhaustion"),
         JobFailureDisposition::Dead

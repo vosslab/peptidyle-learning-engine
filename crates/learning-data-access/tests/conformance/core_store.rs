@@ -36,7 +36,7 @@ where
         audience: question_model::AssignmentAudience::CourseWide,
         items: fixed_items(vec![ProblemVersionRef { problem, version }]),
         selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: policies(),
     };
     let stored_draft = store
@@ -471,7 +471,7 @@ where
         .start_or_resume_run(
             context,
             UserId::from_uuid(uuid(14)),
-            LearnerWorkRoutingBinding::new(course_id, assignment_id),
+            StudentWorkRoutingBinding::new(course_id, assignment_id),
             run_id,
         )
         .await
@@ -543,7 +543,7 @@ where
         .start_or_resume_run(
             context,
             UserId::from_uuid(uuid(14)),
-            LearnerWorkRoutingBinding::new(course_id, assignment_id),
+            StudentWorkRoutingBinding::new(course_id, assignment_id),
             practice_run_id,
         )
         .await
@@ -588,7 +588,7 @@ where
         .start_or_resume_run(
             context,
             second_student,
-            LearnerWorkRoutingBinding::new(course_id, assignment_id),
+            StudentWorkRoutingBinding::new(course_id, assignment_id),
             RunId::from_uuid(uuid(21)),
         )
         .await

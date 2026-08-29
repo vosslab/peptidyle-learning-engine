@@ -15,7 +15,7 @@ use crate::auth::no_store;
 use crate::http_refusal::{HttpRefusal, HttpResult};
 
 mod definition_request;
-mod learner;
+mod student;
 mod workspace;
 
 pub(super) use workspace::{
@@ -23,8 +23,8 @@ pub(super) use workspace::{
     replace_assignment_content, replace_assignment_fixed_item, replace_assignment_policies,
 };
 
-pub(super) use learner::{
-    assignment_landing_presentation, get_assignment_summary, get_learner_assignment,
+pub(super) use student::{
+    assignment_landing_presentation, get_assignment_summary, get_student_assignment,
     instructor_student_view_delivery,
 };
 

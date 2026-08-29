@@ -1,0 +1,37 @@
+/* One stable spatial frame for all course-local Instructor tasks. */
+
+.course-management-frame {
+  width: 100%;
+}
+
+.course-management-header {
+  display: grid;
+  gap: var(--ple-space-2, 0.5rem);
+  margin-bottom: var(--ple-section-gap);
+}
+
+.course-management-title {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--ple-ink);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  font-weight: 760;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: pretty;
+}
+
+.course-management-header .course-management-nav {
+  margin: 0.25rem 0 0;
+}
+
+.course-management-content > .page {
+  width: 100%;
+  margin: 0;
+}
+
+@media (forced-colors: active) {
+  .course-management-header {
+    border-bottom: 1px solid CanvasText;
+  }
+}

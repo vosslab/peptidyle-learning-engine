@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::{LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt};
+use crate::{PrefetchedQuestionDescriptorV1, ReceiptNextAttempt, StudentWorkRoutingBinding};
 
 mod attempt_issuance;
 mod issued_contracts;
@@ -9,9 +9,9 @@ mod private_execution;
 pub(super) mod submission_preparation;
 
 pub(super) use attempt_issuance::effective_attempt_deadline;
-mod learner_reads;
-mod learner_submission_status;
 mod pending_submissions;
+mod student_reads;
+mod student_submission_status;
 
 pub(super) use issued_contracts::{
     load_issued_flat_grading, load_issued_presentation, load_issued_qti_grading,
@@ -25,7 +25,7 @@ impl crate::RunStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
@@ -42,19 +42,19 @@ impl crate::RunStore for MemoryStore {
         )
     }
 
-    async fn learner_assignment_run_items_impl(
+    async fn student_assignment_run_items_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
-        learner_reads::assignment_run_items(self, context, actor, run).await
+        student_reads::assignment_run_items(self, context, actor, run).await
     }
     async fn start_or_resume_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError> {
         let mut state = self.write_state()?;
@@ -244,7 +244,7 @@ impl crate::RunStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) -> Result<crate::IssuedAttemptRead, StoreError> {
         let state = self.read_state()?;
@@ -505,7 +505,7 @@ impl crate::RunStore for MemoryStore {
             .get(&(context.tenant_id(), run, predecessor, assignment_position))
             .cloned())
     }
-    async fn learner_get_prefetched_question_impl(
+    async fn student_get_prefetched_question_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -513,7 +513,7 @@ impl crate::RunStore for MemoryStore {
         predecessor: QuestionAttemptId,
         assignment_position: u32,
     ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
-        learner_reads::prefetched_question(
+        student_reads::prefetched_question(
             self,
             context,
             actor,
@@ -527,7 +527,7 @@ impl crate::RunStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError> {
         let state = self.read_state()?;
@@ -541,7 +541,7 @@ impl crate::RunStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
         let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        if LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
+        if StudentWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
             return Err(StoreError::NotFound);
         }
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
@@ -571,19 +571,19 @@ impl crate::RunStore for MemoryStore {
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
         pending_submissions::pending_submission_for_run(self, context, actor, run).await
     }
-    async fn learner_pending_submission_for_run_impl(
+    async fn student_pending_submission_for_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
-        learner_reads::pending_submission_for_run(self, context, actor, run).await
+        student_reads::pending_submission_for_run(self, context, actor, run).await
     }
     async fn finalize_submission_next_attempt_impl(
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError> {
@@ -600,7 +600,7 @@ impl crate::RunStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        if LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
+        if StudentWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
             return Err(StoreError::NotFound);
         }
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
@@ -663,14 +663,14 @@ impl crate::RunStore for MemoryStore {
             .collect();
         Ok(page_records(records, &page))
     }
-    async fn learner_list_question_attempts_impl(
+    async fn student_list_question_attempts_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
         page: PageRequest,
     ) -> Result<Option<Page<QuestionAttempt>>, StoreError> {
-        learner_reads::list_question_attempts(self, context, actor, run, page).await
+        student_reads::list_question_attempts(self, context, actor, run, page).await
     }
     async fn replay_submission_impl(
         &self,
@@ -710,7 +710,7 @@ impl crate::RunStore for MemoryStore {
         actor: UserId,
         attempt_id: QuestionAttemptId,
     ) -> Result<crate::SubmissionReceiptRead, StoreError> {
-        learner_submission_status::submission_record(self, context, actor, attempt_id)
+        student_submission_status::submission_record(self, context, actor, attempt_id)
     }
     async fn submit_question_attempt_impl(
         &self,

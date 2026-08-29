@@ -7,9 +7,9 @@ use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
     ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode,
     CompletionRequirement, ContinuedPractice, CurriculumAdoptionIdempotencyKey, GradePolicy,
-    LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, RelativeAssignmentSchedule,
-    ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput, ReusableAssignmentEntryInput,
-    ReusableFixedQuestionInput, RunPolicies, UserId, VariationPolicy,
+    LateSubmissionPolicy, PointValue, RelativeAssignmentSchedule, ReusableAssignmentDefaults,
+    ReusableAssignmentDefinitionInput, ReusableAssignmentEntryInput, ReusableFixedQuestionInput,
+    RunPolicies, StudentDisclosurePolicy, UserId, VariationPolicy,
 };
 use question_model::{
     BackendCapabilities, Capability, DraftQuestionDefinition, DraftQuestionSource,
@@ -43,7 +43,7 @@ pub(super) fn definition(
                 continued_practice: ContinuedPractice::Unlimited,
                 variation: VariationPolicy::NewSeeds,
             },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
+            student_disclosure: StudentDisclosurePolicy::default(),
         },
         schedule: RelativeAssignmentSchedule::default(),
     }

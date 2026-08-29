@@ -1,11 +1,11 @@
-//! Route-bound learner submission-status projection.
+//! Route-bound Student submission-status projection.
 
 use super::contracts::RunBackend;
 use super::submission::submission_response;
 use super::support::*;
 
 /// Returns the current answer-free automated-grading projection for one
-/// learner-owned attempt.
+/// Student-owned attempt.
 ///
 /// The store receives the full route binding with the authenticated subject,
 /// so an opaque attempt ID cannot select a record in another course or
@@ -25,20 +25,20 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    let binding = LearnerWorkRoutingBinding::new(course, assignment);
-    match learner_submission_status_projection(&state, &authenticated, binding, attempt_id).await {
+    let binding = StudentWorkRoutingBinding::new(course, assignment);
+    match student_submission_status_projection(&state, &authenticated, binding, attempt_id).await {
         Ok(response) => response,
         Err(error) => store_error_response(error),
     }
 }
 
-/// Projects the one route-bound learner submission state shared by the status
+/// Projects the one route-bound Student submission state shared by the status
 /// GET and the synchronous post-acceptance fast path. It is a status reader,
 /// never a receipt writer or grader invocation.
-pub(super) async fn learner_submission_status_projection<S, B>(
+pub(super) async fn student_submission_status_projection<S, B>(
     state: &RunRouteState<S, B>,
     authenticated: &AuthenticatedSession,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
 ) -> Result<Response, StoreError>
 where
@@ -46,8 +46,8 @@ where
     B: RunBackend,
 {
     match state
-        .learner_submission_status
-        .learner_submission_status(
+        .student_submission_status
+        .student_submission_status(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             binding,
@@ -55,12 +55,12 @@ where
         )
         .await?
     {
-        learning_data_access::LearnerSubmissionStatusRead::Completed {
+        learning_data_access::StudentSubmissionStatusRead::Completed {
             record,
             next_pending,
         } => {
             let scoring_status =
-                learner_scoring_status(state.store.as_ref(), authenticated, record.run.enrollment)
+                student_scoring_status(state.store.as_ref(), authenticated, record.run.enrollment)
                     .await;
             // A status read does not create successor work. The route-bound
             // store supplies only the immutable eligibility truth;
@@ -72,10 +72,10 @@ where
                 scoring_status,
             ))
         }
-        learning_data_access::LearnerSubmissionStatusRead::AcceptedPending(pending) => {
+        learning_data_access::StudentSubmissionStatusRead::AcceptedPending(pending) => {
             Ok(accepted_pending_response(pending.attempt()))
         }
-        learning_data_access::LearnerSubmissionStatusRead::InstructorAttention(pending) => {
+        learning_data_access::StudentSubmissionStatusRead::InstructorAttention(pending) => {
             Ok(automated_submission_status_response(
                 pending.attempt(),
                 "instructor_attention",

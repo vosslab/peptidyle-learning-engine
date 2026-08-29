@@ -318,7 +318,7 @@ where
                 delivery_state: AssignmentDeliveryState::Active,
             }],
         }],
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: policies(),
     };
     let created = store
@@ -475,7 +475,7 @@ where
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(70_211)),
         )
         .await
@@ -485,7 +485,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(70_214)),
                 run: run.id,
                 assignment_position: 0,
@@ -568,7 +568,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: old_run_attempt.id,
                 response: StudentResponse::Numeric { value: 18.0 },
                 result: AttemptResult {
@@ -588,7 +588,7 @@ where
         .start_or_resume_run(
             context,
             future_student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(70_217)),
         )
         .await
@@ -598,7 +598,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: future_student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(70_219)),
                 run: future_run.id,
                 assignment_position: 0,
@@ -756,7 +756,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![archived]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )
@@ -778,7 +778,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![hidden]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )
@@ -799,7 +799,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![published, published]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -828,7 +828,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![published]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: invalid_threshold,
                 },
             )

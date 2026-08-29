@@ -409,7 +409,7 @@ pub trait EffectivePolicyStore: Send + Sync {
 pub trait RunStore: Send + Sync {
     /// Browser learner capability for immutable items of a currently active
     /// enrollment. Historical instructor inspection uses a separate capability.
-    async fn learner_assignment_run_items_impl(
+    async fn student_assignment_run_items_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -425,7 +425,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError>;
 
@@ -453,7 +453,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) -> Result<IssuedAttemptRead, StoreError>;
 
@@ -466,7 +466,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
@@ -492,7 +492,7 @@ pub trait RunStore: Send + Sync {
     ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError>;
 
     /// Browser learner capability for a reservation in an active enrollment.
-    async fn learner_get_prefetched_question_impl(
+    async fn student_get_prefetched_question_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -506,7 +506,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError>;
 
@@ -521,7 +521,7 @@ pub trait RunStore: Send + Sync {
     ) -> Result<Option<QuestionAttemptId>, StoreError>;
 
     /// Browser learner capability for an active enrollment's recovery state.
-    async fn learner_pending_submission_for_run_impl(
+    async fn student_pending_submission_for_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -535,7 +535,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError>;
@@ -549,7 +549,7 @@ pub trait RunStore: Send + Sync {
     ) -> Result<Page<QuestionAttempt>, StoreError>;
 
     /// Browser learner capability for attempts in an active enrollment.
-    async fn learner_list_question_attempts_impl(
+    async fn student_list_question_attempts_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -597,8 +597,8 @@ pub trait RunStore: Send + Sync {
     /// Closes an active question without inventing a response or score.
     ///
     /// Only a persisted direct course instructor may perform this action.
-    /// The attempt becomes `needs_manual_grading` and exact action retries
-    /// return the original minimal audit record.
+    /// The attempt becomes `auto_submitted` without a fabricated response or
+    /// result; exact action retries return the original minimal audit record.
     async fn force_submit_attempt_impl(
         &self,
         context: TenantContext,
@@ -628,7 +628,7 @@ pub trait SealedPrivateExecutionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         intent: AuthorizedSubmissionIntent,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
@@ -643,14 +643,14 @@ pub trait SealedPrivateExecutionStore: Send + Sync {
 /// enrollment, run, and attempt witness before projecting a closed durable
 /// state (ASVS V8.2.2/V8.3.1).
 #[async_trait]
-pub trait LearnerSubmissionStatusStore: Send + Sync {
-    async fn learner_submission_status(
+pub trait StudentSubmissionStatusStore: Send + Sync {
+    async fn student_submission_status(
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<LearnerSubmissionStatusRead, StoreError>;
+    ) -> Result<StudentSubmissionStatusRead, StoreError>;
 }
 
 /// Focused persistence capability composed by [`Store`].
@@ -700,7 +700,7 @@ pub trait ActivityStore: Send + Sync {
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError>;
     /// Reads one enrollment only for its currently active learner owner.
-    async fn learner_get_enrollment_impl(
+    async fn student_get_enrollment_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -708,7 +708,7 @@ pub trait ActivityStore: Send + Sync {
     ) -> Result<Option<AssignmentEnrollment>, StoreError>;
     /// Reads one enrollment for a current learner and assignment by active
     /// membership identity, including course visibility gates.
-    async fn learner_get_enrollment_for_assignment_impl(
+    async fn student_get_enrollment_for_assignment_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -716,7 +716,7 @@ pub trait ActivityStore: Send + Sync {
     ) -> Result<Option<AssignmentEnrollment>, StoreError>;
     /// Reads one run only for its currently active learner owner. This is a
     /// distinct browser capability; historical instructor reads use separate APIs.
-    async fn learner_get_run_impl(
+    async fn student_get_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -754,7 +754,7 @@ pub trait ActivityStore: Send + Sync {
     ) -> Result<Option<Page<AssignmentRun>>, StoreError>;
 
     /// Browser learner capability for an active enrollment's run list.
-    async fn learner_list_runs_impl(
+    async fn student_list_runs_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -770,7 +770,7 @@ pub trait ActivityStore: Send + Sync {
     ) -> Result<Option<QuestionAttempt>, StoreError>;
 
     /// Browser learner capability for an active enrollment's attempt.
-    async fn learner_get_question_attempt_impl(
+    async fn student_get_question_attempt_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -785,10 +785,10 @@ pub trait ActivityStore: Send + Sync {
     ) -> Result<Option<StudentAssignmentSummary>, StoreError>;
 
     /// Browser learner capability for an active enrollment's summary.
-    async fn learner_get_summary_impl(
+    async fn student_get_summary_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         enrollment: EnrollmentId,
-    ) -> Result<Option<LearnerAssignmentSummarySnapshot>, StoreError>;
+    ) -> Result<Option<StudentAssignmentSummarySnapshot>, StoreError>;
 }

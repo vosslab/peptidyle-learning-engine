@@ -72,7 +72,7 @@ pub(super) async fn exercise_scoring_generation(
         .start_or_resume_run(
             context,
             student,
-            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(ids.course, ids.assignment),
             ids.run,
         )
         .await
@@ -112,7 +112,7 @@ pub(super) async fn exercise_scoring_generation(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                binding: learning_data_access::StudentWorkRoutingBinding::new(
                     ids.course,
                     ids.assignment,
                 ),
@@ -149,7 +149,7 @@ pub(super) async fn exercise_scoring_generation(
                 update: AssignmentUpdate {
                     title: current.record.title,
                     audience: current.record.audience,
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     items,
                     selection_groups: current.record.selection_groups,
                     policies: current.record.policies,
@@ -204,7 +204,7 @@ pub(super) async fn exercise_scoring_generation(
                 update: AssignmentUpdate {
                     title: changed.record.title,
                     audience: changed.record.audience,
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     items: superseding_items,
                     selection_groups: changed.record.selection_groups,
                     policies: changed.record.policies,
@@ -266,7 +266,7 @@ pub(super) async fn exercise_scoring_generation(
         .start_or_resume_run(
             context,
             student,
-            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(ids.course, ids.assignment),
             ids.concurrent_run,
         )
         .await
@@ -304,7 +304,7 @@ pub(super) async fn exercise_scoring_generation(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                binding: learning_data_access::StudentWorkRoutingBinding::new(
                     ids.course,
                     ids.assignment,
                 ),
@@ -411,7 +411,7 @@ pub(super) async fn exercise_attempt_support(
         .start_or_resume_run(
             context,
             student,
-            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(ids.course, ids.assignment),
             ids.support_run,
         )
         .await
@@ -465,7 +465,7 @@ pub(super) async fn exercise_attempt_support(
         .await
         .context("force-submitting active database attempt")?;
     if forced.previous_status != AttemptStatus::InProgress
-        || forced.resulting_status != AttemptStatus::NeedsManualGrading
+        || forced.resulting_status != AttemptStatus::AutoSubmitted
     {
         bail!("force-submit stored an invalid status transition");
     }
@@ -489,7 +489,7 @@ pub(super) async fn exercise_attempt_support(
         .await
         .context("reading force-submitted database attempt")?
         .ok_or_else(|| anyhow::anyhow!("force-submitted database attempt disappeared"))?;
-    if current.status != AttemptStatus::NeedsManualGrading
+    if current.status != AttemptStatus::AutoSubmitted
         || current.response.is_some()
         || current.result.is_some()
         || current.timer.submitted_at != Some(forced.occurred_at)
@@ -501,7 +501,7 @@ pub(super) async fn exercise_attempt_support(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                binding: learning_data_access::StudentWorkRoutingBinding::new(
                     ids.course,
                     ids.assignment,
                 ),
@@ -564,7 +564,7 @@ pub(super) async fn exercise_attempt_support(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                binding: learning_data_access::StudentWorkRoutingBinding::new(
                     ids.course,
                     ids.assignment,
                 ),
@@ -685,7 +685,7 @@ pub(super) async fn exercise_delete_and_regrade(
         .start_or_resume_run(
             context,
             student,
-            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(ids.course, ids.assignment),
             ids.retirement_run,
         )
         .await
@@ -746,7 +746,7 @@ pub(super) async fn exercise_delete_and_regrade(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
-                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                binding: learning_data_access::StudentWorkRoutingBinding::new(
                     ids.course,
                     ids.assignment,
                 ),
@@ -815,7 +815,7 @@ pub(super) async fn exercise_delete_and_regrade(
         .start_or_resume_run(
             context,
             student,
-            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            learning_data_access::StudentWorkRoutingBinding::new(ids.course, ids.assignment),
             ids.post_retirement_run,
         )
         .await
@@ -858,7 +858,7 @@ pub(super) async fn recalculate_seed_item(
                 update: AssignmentUpdate {
                     title: current.record.title,
                     audience: current.record.audience,
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     items,
                     selection_groups: current.record.selection_groups,
                     policies: current.record.policies,

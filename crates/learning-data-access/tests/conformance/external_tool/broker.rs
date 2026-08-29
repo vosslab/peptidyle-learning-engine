@@ -54,7 +54,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![7; 64]),
@@ -72,7 +72,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: None,
@@ -87,7 +87,7 @@ where
     for mutated in [
         {
             let mut command = begin.clone();
-            command.learner_work_binding.assignment = AssignmentId::from_uuid(uuid(10_104));
+            command.student_work_binding.assignment = AssignmentId::from_uuid(uuid(10_104));
             command
         },
         {
@@ -160,7 +160,7 @@ where
     };
     let recovery_before_stage = CommitVerifiedExternalToolSubmissionCommand {
         actor: fixture.actor,
-        learner_work_binding: fixture.learner_work_binding(),
+        student_work_binding: fixture.student_work_binding(),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: begin.idempotency_key.clone(),
@@ -183,7 +183,7 @@ where
                 fixture.context,
                 StageExternalToolVerificationCommand {
                     actor: fixture.actor,
-                    learner_work_binding: fixture.learner_work_binding(),
+                    student_work_binding: fixture.student_work_binding(),
                     attempt: fixture.attempt,
                     response: StudentResponse::Numeric { value: 1.0 },
                     idempotency_key: begin.idempotency_key.clone(),
@@ -201,7 +201,7 @@ where
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 response: StudentResponse::ExternalTool {},
                 idempotency_key: begin.idempotency_key.clone(),
@@ -225,7 +225,7 @@ where
     assert_eq!(verified.correlation, lease.correlation);
     let recovery = CommitVerifiedExternalToolSubmissionCommand {
         actor: fixture.actor,
-        learner_work_binding: fixture.learner_work_binding(),
+        student_work_binding: fixture.student_work_binding(),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: begin.idempotency_key.clone(),
@@ -251,7 +251,7 @@ where
         .revoke_external_tool_launch_session(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             copied_launch.id,
             &copied_launch.token,
@@ -327,7 +327,7 @@ where
                 .claim_external_tool_activity(
                     fixture.context,
                     fixture.actor,
-                    fixture.learner_work_binding(),
+                    fixture.student_work_binding(),
                     fixture.attempt,
                     grade_launch.id,
                     &grade_launch.token,
@@ -367,7 +367,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![7; 64]),
@@ -381,7 +381,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: None,
@@ -396,7 +396,7 @@ where
                 fixture.context,
                 CreateExternalToolLaunchSessionCommand {
                     actor: fixture.actor,
-                    learner_work_binding: fixture.learner_work_binding(),
+                    student_work_binding: fixture.student_work_binding(),
                     attempt: fixture.attempt,
                     binding: fixture.binding.clone(),
                     encrypted_provider_state: None,
@@ -412,7 +412,7 @@ where
                 fixture.context,
                 CreateExternalToolLaunchSessionCommand {
                     actor: fixture.actor,
-                    learner_work_binding: fixture.learner_work_binding(),
+                    student_work_binding: fixture.student_work_binding(),
                     attempt: fixture.attempt,
                     binding: fixture.binding.clone(),
                     encrypted_provider_state: None,
@@ -434,7 +434,7 @@ where
         .claim_external_tool_activity(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &launch.token,
@@ -450,7 +450,7 @@ where
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -464,7 +464,7 @@ where
             .revoke_external_tool_launch_session(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -477,7 +477,7 @@ where
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.stranger,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -492,7 +492,7 @@ where
                 .claim_external_tool_activity(
                     fixture.foreign_context,
                     fixture.actor,
-                    fixture.learner_work_binding(),
+                    fixture.student_work_binding(),
                     fixture.attempt,
                     launch.id,
                     &launch.token,
@@ -507,7 +507,7 @@ where
         .release_external_tool_activity(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &activity.token,
@@ -518,7 +518,7 @@ where
         .revoke_external_tool_launch_session(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &launch.token,
@@ -530,7 +530,7 @@ where
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,

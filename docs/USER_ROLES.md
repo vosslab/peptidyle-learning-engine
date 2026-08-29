@@ -56,7 +56,7 @@ This includes, at minimum:
 - roster membership, roster email, institutional student ID, and group data;
 - assignment enrollments, accommodations, runs, attempts, responses, and
   feedback;
-- grades, item analysis, manual grading state, and grade exports;
+- grades, item analysis, grading-operation evidence, and grade exports;
 - student uploads, generated student artifacts, protected-delivery grants,
   and educational audit evidence; and
 - opaque identifiers or metadata when they link a person to any of the above.

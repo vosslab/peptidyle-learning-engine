@@ -2,7 +2,7 @@
 //!
 //! The Store is the authorization boundary: it returns no report for an
 //! absent assignment or an actor who does not directly instruct its course.
-//! This HTTP projection deliberately omits tenant, learner, attempt, raw
+//! This HTTP projection deliberately omits tenant, Student, attempt, raw
 //! response, answer, and object identity fields.
 
 use std::sync::Arc;
@@ -54,7 +54,7 @@ struct CourseItemAnalysisResponse {
     analyzed_at: ActivityTimestamp,
     completed_run_count: u32,
     in_progress_run_count: u32,
-    incomplete_manual_grading: bool,
+    incomplete_scoring: bool,
     recent_rescoring: bool,
     assignment_average_score: Option<f64>,
     average_completion_time_millis: Option<u64>,
@@ -69,7 +69,7 @@ struct AssignmentItemAnalysisResponse {
     analyzed_at: ActivityTimestamp,
     graded_attempt_count: u32,
     unanswered_attempt_count: u32,
-    pending_manual_attempt_count: u32,
+    unscored_attempt_count: u32,
     difficulty: Option<f64>,
     average_credit: Option<f64>,
     credit_standard_deviation: Option<f64>,
@@ -85,7 +85,7 @@ impl From<CourseItemAnalysisReport> for CourseItemAnalysisResponse {
             analyzed_at: report.analyzed_at,
             completed_run_count: report.completed_run_count,
             in_progress_run_count: report.in_progress_run_count,
-            incomplete_manual_grading: report.incomplete_manual_grading,
+            incomplete_scoring: report.incomplete_scoring,
             recent_rescoring: report.recent_rescoring,
             assignment_average_score: report.assignment_average_score,
             average_completion_time_millis: report.average_completion_time_millis,
@@ -106,7 +106,7 @@ impl From<AssignmentItemAnalysis> for AssignmentItemAnalysisResponse {
             analyzed_at: item.analyzed_at,
             graded_attempt_count: item.graded_attempt_count,
             unanswered_attempt_count: item.unanswered_attempt_count,
-            pending_manual_attempt_count: item.pending_manual_attempt_count,
+            unscored_attempt_count: item.unscored_attempt_count,
             difficulty: item.difficulty,
             average_credit: item.average_credit,
             credit_standard_deviation: item.credit_standard_deviation,
@@ -195,7 +195,7 @@ mod tests {
             analyzed_at: ActivityTimestamp::from_unix_millis(5),
             completed_run_count: 6,
             in_progress_run_count: 7,
-            incomplete_manual_grading: true,
+            incomplete_scoring: true,
             recent_rescoring: false,
             assignment_average_score: Some(0.5),
             average_completion_time_millis: Some(8),
@@ -212,7 +212,7 @@ mod tests {
                 analyzed_at: ActivityTimestamp::from_unix_millis(5),
                 graded_attempt_count: 12,
                 unanswered_attempt_count: 13,
-                pending_manual_attempt_count: 14,
+                unscored_attempt_count: 14,
                 difficulty: Some(0.5),
                 average_credit: Some(0.4),
                 credit_standard_deviation: Some(0.3),
@@ -222,7 +222,6 @@ mod tests {
                     partial: 2,
                     incorrect: 3,
                     unanswered: 4,
-                    pending_manual: 5,
                 },
                 average_completion_time_millis: Some(15),
             }],
@@ -239,7 +238,7 @@ mod tests {
         assert!(!item.contains_key("reference"));
         assert!(!item.contains_key("response"));
         assert!(!item.contains_key("answer"));
-        assert_eq!(item["responseDistribution"]["pendingManual"], 5);
+        assert_eq!(item["unscoredAttemptCount"], 14);
     }
 
     #[tokio::test]

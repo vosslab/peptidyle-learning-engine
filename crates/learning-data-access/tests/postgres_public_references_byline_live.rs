@@ -13,9 +13,9 @@ use published_assignment::create_published_assignment;
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupManagementStore, CourseGroupRecord, CourseRecord,
-    CourseRosterStore, CreateCourseCommand, DraftRecord, LearnerWorkRoutingBinding,
-    NavigationReferenceStore, PublishDraftCommand, PutCourseGroupCommand, SessionLifetime,
-    SessionStore, SessionSubject, SessionTokenHash, Store, TenantContext, UpsertCourseMember,
+    CourseRosterStore, CreateCourseCommand, DraftRecord, NavigationReferenceStore,
+    PublishDraftCommand, PutCourseGroupCommand, SessionLifetime, SessionStore, SessionSubject,
+    SessionTokenHash, Store, StudentWorkRoutingBinding, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -372,7 +372,7 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
                 version: published.version,
             })],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         question_model::BaseAssignmentPolicy::default(),
@@ -396,7 +396,7 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await

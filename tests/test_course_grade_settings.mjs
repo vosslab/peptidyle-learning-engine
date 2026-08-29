@@ -108,7 +108,6 @@ test("course-grade decoder rejects noncanonical mappings, weights, and private t
     rounding: "fourDecimalPlacesHalfAwayFromZero",
     rows: [
       {
-        rosterId: ".student-01",
         displayName: "Student One",
         outcome: {
           status: "available",
@@ -122,9 +121,14 @@ test("course-grade decoder rejects noncanonical mappings, weights, and private t
     ],
   };
   assert.deepEqual(decodeCourseGradebookTotalsView(safeTotals), safeTotals);
-  const privateTotals = structuredClone(safeTotals);
-  privateTotals.rows[0].email = "student@example.edu";
-  assert.throws(() => decodeCourseGradebookTotalsView(privateTotals), /email.*known field/u);
+  for (const [field, value] of [
+    ["rosterId", ".student-01"],
+    ["rosterEmail", "student@example.edu"],
+  ]) {
+    const privateTotals = structuredClone(safeTotals);
+    privateTotals.rows[0][field] = value;
+    assert.throws(() => decodeCourseGradebookTotalsView(privateTotals), /known field/u);
+  }
 });
 
 test("course-grade model canonicalizes order and explains invalid weighted drafts", () => {

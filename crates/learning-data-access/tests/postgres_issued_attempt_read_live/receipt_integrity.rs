@@ -2,8 +2,8 @@
 
 use learning_data_access::postgres::PostgresStore;
 use learning_data_access::{
-    AttemptSupportActionId, ClearAttemptCommand, IssuedAttemptRead, LearnerWorkRoutingBinding,
-    Store, StoreError, TenantContext,
+    AttemptSupportActionId, ClearAttemptCommand, IssuedAttemptRead, Store, StoreError,
+    StudentWorkRoutingBinding, TenantContext,
 };
 use question_model::{QuestionAttemptId, TenantId, UserId};
 use sqlx::PgPool;
@@ -35,7 +35,7 @@ impl<'a> ReceiptIntegrityOracle<'a> {
 
     pub(super) async fn assert_active_issuance_fails_closed(
         &self,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) {
         let checksum: String = sqlx::query_scalar(
@@ -64,7 +64,7 @@ impl<'a> ReceiptIntegrityOracle<'a> {
 
     pub(super) async fn assert_clear_preserves_terminal_receipt_read(
         &self,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         instructor: UserId,
         attempt: QuestionAttemptId,
         action: AttemptSupportActionId,

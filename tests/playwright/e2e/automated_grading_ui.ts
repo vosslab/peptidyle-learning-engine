@@ -14,6 +14,10 @@ export async function waitForAutomatedFeedback(page: Page): Promise<Locator> {
   const pending = page
     .getByRole("heading", { name: "Response received", exact: true })
     .locator("..");
+  const nonCurrentFeedback = page.getByRole("heading", {
+    name: /^(Score is being updated|Score update needs attention)$/u,
+    exact: true,
+  });
 
   // Accept either a visible pending action or feedback because the worker may
   // complete between the submission click and the first browser observation.
@@ -38,15 +42,15 @@ export async function waitForAutomatedFeedback(page: Page): Promise<Locator> {
   await expect
     .poll(
       async () => {
-        if (await feedback.isVisible()) return true;
+        if ((await feedback.isVisible()) && !(await nonCurrentFeedback.isVisible())) return true;
         const checkStatus = page.getByRole("button", {
-          name: "Check grading status",
+          name: /^(Check grading status|Check for updated score)$/u,
           exact: true,
         });
         if ((await checkStatus.isVisible()) && (await checkStatus.isEnabled())) {
           await checkStatus.click();
         }
-        return feedback.isVisible();
+        return (await feedback.isVisible()) && !(await nonCurrentFeedback.isVisible());
       },
       { timeout: AUTOMATED_GRADING_DEADLINE_MS, intervals: [AUTOMATED_GRADING_POLL_MS] },
     )

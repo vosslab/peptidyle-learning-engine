@@ -200,9 +200,9 @@ async function assertDerivedResult(page: Page): Promise<void> {
 
 async function changeDisclosureInSecondSession(page: Page): Promise<void> {
   const disclosure = page.getByRole("group", { name: "What students can see" });
-  await disclosure.getByLabel("Score").selectOption("duringAttempt");
-  await disclosure.getByLabel("Per-item correctness").selectOption("afterDue");
-  await disclosure.getByLabel("Feedback text").selectOption("afterClose");
+  await disclosure.getByLabel("Score").selectOption("during_attempt");
+  await disclosure.getByLabel("Per-item correctness").selectOption("after_due");
+  await disclosure.getByLabel("Feedback text").selectOption("after_close");
   await disclosure.getByLabel("Correct answer or solution").selectOption("never");
   await disclosure.getByLabel("Class statistics").selectOption("never");
   await page.getByRole("button", { name: "Save assignment policies" }).click();

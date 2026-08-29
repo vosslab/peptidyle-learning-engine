@@ -52,7 +52,7 @@ pub(crate) fn seed_complete_issued_execution(
             scoring_mode: question_model::AssignmentScoringMode::Normal,
         }],
         selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: question_model::RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: question_model::GradePolicy::First,
@@ -635,6 +635,7 @@ async fn scoring_worker_retires_a_generation_superseded_before_preparation() {
     let claim = store
         .claim_exact_job(
             job,
+            JobKind::RecalculateAssignment,
             JobLeaseDuration::from_seconds(30).expect("valid lease"),
         )
         .await
@@ -720,6 +721,7 @@ async fn terminal_scoring_failure_reopens_the_exact_recalculation_thread() {
     let claim = store
         .claim_exact_job(
             job,
+            JobKind::RecalculateAssignment,
             JobLeaseDuration::from_seconds(30).expect("valid lease"),
         )
         .await
@@ -727,7 +729,12 @@ async fn terminal_scoring_failure_reopens_the_exact_recalculation_thread() {
         .expect("recalculation is queued");
     assert_eq!(
         store
-            .fail_job(job, claim.lease_token, crate::JobFailureKind::Permanent)
+            .fail_job(
+                TenantContext::from_authenticated_session(tenant),
+                job,
+                claim.lease_token,
+                crate::JobFailureKind::Permanent,
+            )
             .await
             .expect("terminal failure"),
         crate::JobFailureDisposition::Dead

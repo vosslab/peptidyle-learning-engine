@@ -106,7 +106,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
                     ProblemVersionRef { problem, version },
                 ]),
                 selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -116,7 +116,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
         .start_or_resume_run(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, support_assignment),
+            StudentWorkRoutingBinding::new(course, support_assignment),
             support_run_id,
         )
         .await
@@ -144,7 +144,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
     support_provenance.renderer = Some(implementation("webwork-renderer"));
     let support_issue = IssueQuestionAttemptCommand {
         actor: student_user,
-        binding: LearnerWorkRoutingBinding::new(course, support_assignment),
+        binding: StudentWorkRoutingBinding::new(course, support_assignment),
         attempt: QuestionAttemptId::from_uuid(uuid(89_976 + fixture_offset)),
         run: support_run.id,
         assignment_position: 0,
@@ -204,7 +204,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
         .read_issued_attempt_evidence(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, support_assignment),
+            StudentWorkRoutingBinding::new(course, support_assignment),
             support_attempt.id,
         )
         .await
@@ -222,7 +222,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
         .prepare_question_submission(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, support_assignment),
+            StudentWorkRoutingBinding::new(course, support_assignment),
             support_attempt.id,
             response,
             &sealed_idempotency_key,
@@ -238,7 +238,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
         .prepare_sealed_private_execution(
             context,
             student_user,
-            LearnerWorkRoutingBinding::new(course, support_assignment),
+            StudentWorkRoutingBinding::new(course, support_assignment),
             *authorized_intent,
             response,
             &sealed_idempotency_key,
@@ -265,7 +265,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             .read_issued_attempt_evidence(
                 context,
                 student_user,
-                LearnerWorkRoutingBinding::new(course, fixture.assignment),
+                StudentWorkRoutingBinding::new(course, fixture.assignment),
                 support_attempt.id,
             )
             .await,
@@ -277,7 +277,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             .read_issued_attempt_evidence(
                 context,
                 student_user,
-                LearnerWorkRoutingBinding::new(
+                StudentWorkRoutingBinding::new(
                     CourseId::from_uuid(uuid(89_980 + fixture_offset)),
                     support_assignment,
                 ),
@@ -292,7 +292,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             .read_issued_attempt_evidence(
                 context,
                 student_user,
-                LearnerWorkRoutingBinding::new(course, support_assignment),
+                StudentWorkRoutingBinding::new(course, support_assignment),
                 QuestionAttemptId::from_uuid(uuid(89_981 + fixture_offset)),
             )
             .await,
@@ -304,7 +304,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             .read_issued_attempt_evidence(
                 context,
                 publisher,
-                LearnerWorkRoutingBinding::new(course, support_assignment),
+                StudentWorkRoutingBinding::new(course, support_assignment),
                 support_attempt.id,
             )
             .await,
@@ -318,7 +318,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
                     89_978 + fixture_offset,
                 ))),
                 student_user,
-                LearnerWorkRoutingBinding::new(course, support_assignment),
+                StudentWorkRoutingBinding::new(course, support_assignment),
                 support_attempt.id,
             )
             .await,
@@ -372,7 +372,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
         (
             AttemptSupportAction::ForceSubmit,
             AttemptStatus::InProgress,
-            AttemptStatus::NeedsManualGrading,
+            AttemptStatus::AutoSubmitted,
         )
     );
     assert_eq!(
@@ -409,7 +409,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: student_user,
-                    binding: LearnerWorkRoutingBinding::new(course, support_assignment),
+                    binding: StudentWorkRoutingBinding::new(course, support_assignment),
                     attempt: support_attempt.id,
                     response: response.clone(),
                     result: AttemptResult {
@@ -433,7 +433,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
         .await
         .expect("force-submitted attempt read")
         .expect("force-submitted attempt exists");
-    assert_eq!(forced_current.status, AttemptStatus::NeedsManualGrading);
+    assert_eq!(forced_current.status, AttemptStatus::AutoSubmitted);
     assert!(forced_current.response.is_none());
     assert!(forced_current.result.is_none());
     assert_eq!(forced_current.timer.submitted_at, Some(forced.occurred_at));
@@ -443,12 +443,12 @@ pub(super) async fn exercise_attempt_support<S, P>(
                 .read_issued_attempt_evidence(
                     context,
                     student_user,
-                    LearnerWorkRoutingBinding::new(course, support_assignment),
+                    StudentWorkRoutingBinding::new(course, support_assignment),
                     support_attempt.id,
                 )
                 .await,
             Ok(learning_data_access::IssuedAttemptRead::TerminalWithoutReceipt(ref read))
-                if read.status() == AttemptStatus::NeedsManualGrading
+                if read.status() == AttemptStatus::AutoSubmitted
         ),
         "terminal support action returns no active replay authority"
     );
@@ -470,7 +470,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             cleared_forced.previous_status,
             cleared_forced.resulting_status
         ),
-        (AttemptStatus::NeedsManualGrading, AttemptStatus::Cleared)
+        (AttemptStatus::AutoSubmitted, AttemptStatus::Cleared)
     );
     assert_eq!(
         store
@@ -524,7 +524,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, support_assignment),
+                binding: StudentWorkRoutingBinding::new(course, support_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_981 + fixture_offset)),
                 run: support_run.id,
                 assignment_position: 0,
@@ -558,7 +558,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             .read_issued_attempt_evidence(
                 context,
                 student_user,
-                LearnerWorkRoutingBinding::new(course, support_assignment),
+                StudentWorkRoutingBinding::new(course, support_assignment),
                 replacement_attempt.id,
             )
             .await,
@@ -569,7 +569,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, support_assignment),
+                binding: StudentWorkRoutingBinding::new(course, support_assignment),
                 attempt: replacement_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -590,7 +590,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
                 .read_issued_attempt_evidence(
                     context,
                     student_user,
-                    LearnerWorkRoutingBinding::new(course, support_assignment),
+                    StudentWorkRoutingBinding::new(course, support_assignment),
                     replacement_attempt.id,
                 )
                 .await,
@@ -647,7 +647,7 @@ pub(super) async fn exercise_attempt_support<S, P>(
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
-                binding: LearnerWorkRoutingBinding::new(course, support_assignment),
+                binding: StudentWorkRoutingBinding::new(course, support_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_984 + fixture_offset)),
                 run: support_run.id,
                 assignment_position: 0,

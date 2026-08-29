@@ -101,9 +101,6 @@ impl std::fmt::Debug for IssuedAttemptMetadata {
 pub enum SubmissionDisposition {
     /// A normal server-only grade that the generic attempt store must commit.
     Grade(GradeReceipt),
-    /// A valid response whose trusted backend requires an instructor's
-    /// server-side evaluation before a numeric result exists.
-    NeedsManualGrading,
     /// A record already atomically committed by a backend-owned broker.
     Committed(Box<SubmissionRecord>),
 }
@@ -112,7 +109,6 @@ impl std::fmt::Debug for SubmissionDisposition {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Grade(_) => formatter.debug_tuple("Grade").field(&"[redacted]").finish(),
-            Self::NeedsManualGrading => formatter.write_str("NeedsManualGrading"),
             Self::Committed(record) => formatter.debug_tuple("Committed").field(record).finish(),
         }
     }
@@ -252,7 +248,6 @@ pub trait RunBackend: Send + Sync {
             GradeOutcome::Graded(result) => {
                 Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
             }
-            GradeOutcome::NeedsManualGrading => Ok(SubmissionDisposition::NeedsManualGrading),
             GradeOutcome::Ungraded => Err(RunBackendError::Unsupported(
                 "this run backend does not produce a server grade".to_string(),
             )),

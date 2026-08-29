@@ -8,7 +8,6 @@ import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchem
 import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
 import { CourseGradeSchemeConflictError } from "../api/http_client";
 import { useApiRuntime } from "../api/runtime";
-import { CourseManagementNav } from "../components/course_management_nav";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -323,7 +322,6 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
   });
   return (
     <section class="page course-grade-settings" data-route-surface="courseGradeSettings">
-      <CourseManagementNav courseReference={props.courseReference} active="gradeSettings" />
       <h1>Course grade settings</h1>
       <p id="grade-settings-status" role="status" aria-live="polite">
         {message()}

@@ -63,7 +63,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             })
             .collect(),
         selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: question_model::RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: question_model::GradePolicy::First,
@@ -175,7 +175,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
 
     let regressive = statistics_attempt(72_099, tenant, assigned_run, a, 0, 2_000);
     let binding =
-        LearnerWorkRoutingBinding::new(CourseId::from_uuid(Uuid::from_u128(72_006)), assignment_id);
+        StudentWorkRoutingBinding::new(CourseId::from_uuid(Uuid::from_u128(72_006)), assignment_id);
     let regressive_command = SubmitQuestionAttemptCommand {
         actor,
         binding,

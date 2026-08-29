@@ -18,9 +18,6 @@ use crate::AnswerKey;
 pub enum GradeOutcome {
     /// Server-graded correctness and points safe to disclose under policy.
     Graded(AttemptResult),
-    /// A structurally valid response was accepted and awaits an authorized
-    /// instructor's server-side evaluation. No numeric result is fabricated.
-    NeedsManualGrading,
     /// Intentionally ungraded practice with no fabricated correctness value.
     Ungraded,
 }
@@ -38,8 +35,10 @@ pub enum GradingError {
     KindMismatch,
     /// Public grading or tolerance parameters were invalid.
     InvalidDefinition(String),
-    /// Partial-credit rules remain owned by the capable backend or an explicit private rubric.
+    /// Partial-credit rules remain owned by a capable deterministic backend.
     PartialCreditRequiresBackend,
+    /// A graded file upload has no deterministic server-owned grader.
+    FileUploadRequiresDeterministicGrader,
 }
 
 impl std::fmt::Display for GradingError {
@@ -62,8 +61,11 @@ impl std::fmt::Display for GradingError {
             Self::InvalidDefinition(message) => {
                 write!(formatter, "invalid grading definition: {message}")
             }
-            Self::PartialCreditRequiresBackend => formatter
-                .write_str("partial credit requires a backend checker or explicit private rubric"),
+            Self::PartialCreditRequiresBackend => {
+                formatter.write_str("partial credit requires a deterministic backend checker")
+            }
+            Self::FileUploadRequiresDeterministicGrader => formatter
+                .write_str("graded file upload requires a deterministic server-owned grader"),
         }
     }
 }
@@ -74,7 +76,7 @@ impl std::error::Error for GradingError {}
 ///
 /// Ungraded questions return [`GradeOutcome::Ungraded`] and require no key.
 /// All-or-nothing questions use the shared checkers below. Partial credit is
-/// refused until a capable adapter or explicit private rubric supplies the
+/// refused until a capable deterministic adapter supplies the
 /// actual pedagogical rule; this module does not invent one from a boolean
 /// `partialCredit` flag.
 ///
@@ -82,10 +84,9 @@ impl std::error::Error for GradingError {}
 ///
 /// Returns [`GradingError`] for response-format violations, missing or
 /// mismatched keys, invalid public parameters, backend-owned partial credit,
-/// or other backend-owned grading behavior. File uploads instead return
-/// [`GradeOutcome::NeedsManualGrading`] after their response has passed shape
-/// validation, so the server can persist the learner evidence without
-/// fabricating a numeric grade.
+/// or other backend-owned grading behavior. A graded file upload returns a
+/// typed deterministic-capability refusal after its response has passed shape
+/// validation; this checker never fabricates a numeric grade.
 pub fn grade(
     question: &QuestionDefinition,
     response: &StudentResponse,
@@ -110,17 +111,16 @@ pub fn grade(
             return Err(GradingError::PartialCreditRequiresBackend);
         }
     };
-    let key = key.ok_or(GradingError::MissingAnswerKey)?;
     if matches!(
-        (&question.response, response, key),
+        (&question.response, response),
         (
             ResponseDefinition::FileUpload { .. },
             StudentResponse::FileUpload { .. },
-            AnswerKey::FileUpload { .. },
         )
     ) {
-        return Ok(GradeOutcome::NeedsManualGrading);
+        return Err(GradingError::FileUploadRequiresDeterministicGrader);
     }
+    let key = key.ok_or(GradingError::MissingAnswerKey)?;
     let correct = answer_is_correct(&question.response, response, key)?;
     Ok(GradeOutcome::Graded(AttemptResult {
         correct,
@@ -561,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    fn ungraded_partial_credit_and_manual_review_are_explicit_states() {
+    fn ungraded_partial_credit_and_file_upload_capabilities_are_explicit() {
         let ungraded = question(
             ResponseDefinition::ShortText {
                 match_mode: TextMatchMode::Exact,
@@ -618,11 +618,9 @@ mod tests {
                 &StudentResponse::FileUpload {
                     object_key: "tenant/object".to_string(),
                 },
-                Some(&AnswerKey::FileUpload {
-                    rubric: "Review manually".to_string(),
-                }),
+                None,
             ),
-            Ok(GradeOutcome::NeedsManualGrading)
+            Err(GradingError::FileUploadRequiresDeterministicGrader)
         );
     }
 }

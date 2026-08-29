@@ -83,8 +83,8 @@ migrations. It preserves the accepted W2-W7b scope; all closeout and final Valid
   cover Instructor success, Student/outsider/foreign-tenant/revoked concealment,
   in-transaction session recheck, stable ordering, cursor/revision bounds,
   body-free header actions, exact replay/conflict, no-store, and strict
-  answer-free serialization. Origin tests cover Instructor, definition/content, manual-grade,
-  learner-support, and accepted-completion invalidations, same-origin replay, supersession, and
+  answer-free serialization. Origin tests cover Instructor, definition/content, Student-support,
+  and accepted-completion invalidations, same-origin replay, supersession, and
   exact terminal projection. Tests use controlled IDs/revisions and no services,
   sleeps, current time, or score-bearing fixtures.
 - **Connected one-time gate:** exercise list, retry, and recalculation as Elena

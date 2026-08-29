@@ -52,6 +52,8 @@ pub(super) enum LoginContract {
     AcceptedSubmissionRecovery,
     /// Private arm used only by the sealed exact-execution pool factories.
     AcceptedSubmissionFastPath,
+    /// Host-only exact-execution identity used while installing the Base Course.
+    BaseCourseAcceptedSubmissionFastPath,
     /// Private arm used exclusively by the dedicated application-pool factories.
     BaseCourseApplication,
     /// Private arm used exclusively by the opaque installer-pool factories.
@@ -66,6 +68,7 @@ impl LoginContract {
             Self::Production(ProductionLoginProfile::Worker) => "ple_worker_login",
             Self::AcceptedSubmissionRecovery => "ple_accepted_submission_recovery_login",
             Self::AcceptedSubmissionFastPath => "ple_accepted_submission_fast_path_login",
+            Self::BaseCourseAcceptedSubmissionFastPath => "ple_base_course_fast_path_login",
             Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
                 "ple_invitation_delivery_worker_login"
             }
@@ -96,10 +99,12 @@ impl LoginContract {
                 role_name: "ple_accepted_submission_execution",
                 set_option: true,
             }],
-            Self::AcceptedSubmissionFastPath => &[ExpectedMembership {
-                role_name: "ple_accepted_submission_execution_fast_path",
-                set_option: true,
-            }],
+            Self::AcceptedSubmissionFastPath | Self::BaseCourseAcceptedSubmissionFastPath => {
+                &[ExpectedMembership {
+                    role_name: "ple_accepted_submission_execution_fast_path",
+                    set_option: true,
+                }]
+            }
             Self::BaseCourseApplication => &[ExpectedMembership {
                 role_name: "ple_app",
                 set_option: true,
@@ -141,6 +146,7 @@ mod tests {
         let worker = LoginContract::Production(ProductionLoginProfile::Worker);
         let recovery = LoginContract::AcceptedSubmissionRecovery;
         let fast_path = LoginContract::AcceptedSubmissionFastPath;
+        let base_course_fast_path = LoginContract::BaseCourseAcceptedSubmissionFastPath;
 
         assert_eq!(
             api.expected_memberships(),
@@ -175,6 +181,14 @@ mod tests {
                 role_name: "ple_accepted_submission_execution_fast_path",
                 set_option: true,
             }]
+        );
+        assert_eq!(
+            base_course_fast_path.expected_login(),
+            "ple_base_course_fast_path_login"
+        );
+        assert_eq!(
+            base_course_fast_path.expected_memberships(),
+            fast_path.expected_memberships()
         );
     }
 }

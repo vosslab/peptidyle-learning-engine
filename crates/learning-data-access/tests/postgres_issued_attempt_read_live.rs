@@ -36,13 +36,13 @@ use learning_data_access::{
     AssignmentRecord, AttemptSupportActionId, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
     IssuedAttemptRead, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
-    IssuedWebworkGradingContract, LearnerWorkRoutingBinding, NativeExecutionEnvelopeCapability,
-    PresentationCapability, PublishDraftCommand, PublishedSourceArtifact,
-    PutAssignmentTeachingSettingsCommand, QtiGradingCapability, RevokeCourseMember,
-    SealedPrivateExecutionPreparation, SealedPrivateExecutionStore, SessionLifetime, SessionStore,
-    SessionSubject, SessionTokenHash, Store, StoreError, SubmissionIdempotencyKey,
-    SubmissionPreparation, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
-    WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
+    IssuedWebworkGradingContract, NativeExecutionEnvelopeCapability, PresentationCapability,
+    PublishDraftCommand, PublishedSourceArtifact, PutAssignmentTeachingSettingsCommand,
+    QtiGradingCapability, RevokeCourseMember, SealedPrivateExecutionPreparation,
+    SealedPrivateExecutionStore, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+    Store, StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey, SubmissionPreparation,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember, WebworkGradingCapability,
+    WebworkReplayControlV1, WebworkReplayMappingV1,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::NumericTolerance;
@@ -437,7 +437,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
             audience: AssignmentAudience::CourseWide,
             items: vec![item(active_reference, 0)],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         question_model::BaseAssignmentPolicy::default(),
@@ -461,7 +461,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await
@@ -475,7 +475,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         reference: active_reference,
     };
     let active = issues.issue(&store, 0, 11).await;
-    let binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let binding = StudentWorkRoutingBinding::new(course, assignment);
     let active_read = store
         .read_issued_attempt_evidence(context, student, binding, active)
         .await;
@@ -488,7 +488,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
             .read_issued_attempt_evidence(
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(course, AssignmentId::from_uuid(id())),
+                StudentWorkRoutingBinding::new(course, AssignmentId::from_uuid(id())),
                 active
             )
             .await,
@@ -500,7 +500,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
             .read_issued_attempt_evidence(
                 context,
                 student,
-                LearnerWorkRoutingBinding::new(CourseId::from_uuid(id()), assignment),
+                StudentWorkRoutingBinding::new(CourseId::from_uuid(id()), assignment),
                 active
             )
             .await,
@@ -642,7 +642,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
             audience: AssignmentAudience::CourseWide,
             items: vec![item(webwork_reference, 0)],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         question_model::BaseAssignmentPolicy::default(),
@@ -653,7 +653,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, webwork_assignment),
+            StudentWorkRoutingBinding::new(course, webwork_assignment),
             RunId::from_uuid(id()),
         )
         .await
@@ -673,7 +673,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         webwork_provenance,
     )
     .await;
-    let webwork_binding = LearnerWorkRoutingBinding::new(course, webwork_assignment);
+    let webwork_binding = StudentWorkRoutingBinding::new(course, webwork_assignment);
     let active_webwork = store
         .read_issued_attempt_evidence(context, student, webwork_binding, webwork_attempt)
         .await
@@ -756,7 +756,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
             audience: AssignmentAudience::CourseWide,
             items: vec![item(terminal_reference, 0)],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         question_model::BaseAssignmentPolicy::default(),
@@ -767,7 +767,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, terminal_assignment),
+            StudentWorkRoutingBinding::new(course, terminal_assignment),
             RunId::from_uuid(id()),
         )
         .await
@@ -811,7 +811,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         .read_issued_attempt_evidence(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, terminal_assignment),
+            StudentWorkRoutingBinding::new(course, terminal_assignment),
             terminal_attempt,
         )
         .await

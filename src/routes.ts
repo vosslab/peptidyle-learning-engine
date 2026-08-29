@@ -12,6 +12,7 @@ import { ProblemDetailPage } from "./pages/problem_detail_page";
 import { CourseAssignmentsPage } from "./pages/course_assignments_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
+import { StudentWorkInspectionPage } from "./pages/student_work_inspection_page";
 import { CourseGradeSettingsPage } from "./pages/course_grade_settings_page";
 import { withRouteAccessBoundary } from "./route_access_boundary";
 import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
@@ -65,6 +66,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   assignmentAccess: AssignmentAccessLivePage,
   assignmentPreview: AssignmentPreviewPage,
   gradebook: GradebookPage,
+  studentWorkInspection: StudentWorkInspectionPage,
   courseGradeSettings: CourseGradeSettingsPage,
   courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,

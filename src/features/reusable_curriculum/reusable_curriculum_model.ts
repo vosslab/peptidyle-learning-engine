@@ -76,12 +76,12 @@ function defaultDefaults(): ReusableAssignmentDefaults {
       continuedPractice: { kind: "unlimited" },
       variation: "newSeeds",
     },
-    learnerDisclosure: {
-      score: "afterSubmit",
-      perItemCorrectness: "afterSubmit",
-      feedbackText: "afterSubmit",
-      solution: "afterClose",
-      classStatistics: "never",
+    student_disclosure: {
+      score: "after_submit",
+      per_item_correctness: "after_submit",
+      feedback_text: "after_submit",
+      solution: "after_close",
+      class_statistics: "never",
     },
   };
 }

@@ -439,7 +439,7 @@ mod tests {
                             scoring_mode: question_model::AssignmentScoringMode::Normal,
                         }],
                         selection_groups: Vec::new(),
-                        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                         policies: policies(),
                     },
                     base_policy: question_model::BaseAssignmentPolicy::default(),

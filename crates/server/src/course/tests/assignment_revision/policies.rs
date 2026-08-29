@@ -108,7 +108,7 @@ async fn assignment_policies_persist_public_audience_and_revisioned_disclosure()
             Some(&state.etag),
             Some(policy_body(
                 serde_json::json!({"kind": "anyOfGroups", "groups": groups}),
-                serde_json::to_value(question_model::LearnerDisclosurePolicy::default())
+                serde_json::to_value(question_model::StudentDisclosurePolicy::default())
                     .expect("default disclosure policy"),
                 teaching_settings(serde_json::json!({})),
             )),
@@ -187,12 +187,12 @@ async fn assignment_policies_persist_public_audience_and_revisioned_disclosure()
         .expect("wrong-course workspace response");
     assert_eq!(wrong_course_read.status(), StatusCode::NOT_FOUND);
 
-    let revised_policy = question_model::LearnerDisclosurePolicy {
-        score: question_model::LearnerDisclosureTiming::AfterDue,
-        per_item_correctness: question_model::LearnerDisclosureTiming::AfterDue,
-        feedback_text: question_model::LearnerDisclosureTiming::AfterClose,
-        solution: question_model::LearnerDisclosureTiming::AfterClose,
-        class_statistics: question_model::LearnerDisclosureTiming::Never,
+    let revised_policy = question_model::StudentDisclosurePolicy {
+        score: question_model::StudentDisclosureTiming::AfterDue,
+        per_item_correctness: question_model::StudentDisclosureTiming::AfterDue,
+        feedback_text: question_model::StudentDisclosureTiming::AfterClose,
+        solution: question_model::StudentDisclosureTiming::AfterClose,
+        class_statistics: question_model::StudentDisclosureTiming::Never,
     };
     let revised = fixture
         .app
@@ -261,7 +261,7 @@ async fn assignment_policies_reject_invalid_schedule_and_unknown_input_without_m
     let default_policy = |settings| {
         policy_body(
             serde_json::json!({"kind": "courseWide"}),
-            serde_json::to_value(question_model::LearnerDisclosurePolicy::default())
+            serde_json::to_value(question_model::StudentDisclosurePolicy::default())
                 .expect("default disclosure policy"),
             teaching_settings(settings),
         )

@@ -183,7 +183,7 @@ fn webwork_pilot_assignment(
         )
         .expect("WebWork pilot instructions are valid"),
         audience: question_model::AssignmentAudience::CourseWide,
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         items: vec![AssignmentItem {
             id: ids.assignment_item,
             reference,

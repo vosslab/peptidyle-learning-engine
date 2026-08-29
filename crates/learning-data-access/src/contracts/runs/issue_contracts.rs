@@ -6,7 +6,7 @@ use super::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct IssueQuestionAttemptCommand {
     pub actor: UserId,
-    pub binding: LearnerWorkRoutingBinding,
+    pub binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub run: RunId,
     pub assignment_position: u32,
@@ -256,7 +256,7 @@ impl std::fmt::Debug for PrefetchedPrivateExecutionV1 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReservePrefetchedQuestionCommand {
     pub actor: UserId,
-    pub binding: LearnerWorkRoutingBinding,
+    pub binding: StudentWorkRoutingBinding,
     pub reservation: PrefetchedQuestionDescriptorV1,
     pub private_execution: PrefetchedPrivateExecutionV1,
 }
@@ -265,7 +265,7 @@ pub struct ReservePrefetchedQuestionCommand {
 #[derive(Clone, PartialEq)]
 pub struct SubmitQuestionAttemptCommand {
     pub actor: UserId,
-    pub binding: LearnerWorkRoutingBinding,
+    pub binding: StudentWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub result: AttemptResult,
@@ -402,7 +402,7 @@ pub enum SubmissionReceiptRead {
 /// carry only the opaque route attempt, so no response, job, execution,
 /// feedback, result, reason, or score can cross this persistence boundary.
 #[derive(Debug, Clone, PartialEq)]
-pub enum LearnerSubmissionStatusRead {
+pub enum StudentSubmissionStatusRead {
     /// The immutable receipt together with whether the current completed run
     /// still has an unissued, policy-eligible successor.  This is computed by
     /// the exact route-bound read; the browser status endpoint never creates

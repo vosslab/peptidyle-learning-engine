@@ -98,7 +98,7 @@ pub(super) async fn flat_run_fixture() -> (
                         scoring_mode: question_model::AssignmentScoringMode::Normal,
                     }],
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -151,7 +151,7 @@ pub(super) async fn flat_run_fixture() -> (
                 &store,
             )),
         ),
-        Arc::clone(&store) as Arc<dyn learning_data_access::LearnerSubmissionStatusStore>,
+        Arc::clone(&store) as Arc<dyn learning_data_access::StudentSubmissionStatusStore>,
         Arc::clone(&store) as Arc<dyn learning_data_access::AutomatedGradingStore>,
     );
     (app, store, backend, cookie, course, assignment)

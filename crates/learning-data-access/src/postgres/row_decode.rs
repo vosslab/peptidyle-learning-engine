@@ -607,7 +607,6 @@ pub(super) fn attempt_status_name(status: AttemptStatus) -> &'static str {
         AttemptStatus::InProgress => "in_progress",
         AttemptStatus::Submitted => "submitted",
         AttemptStatus::AutoSubmitted => "auto_submitted",
-        AttemptStatus::NeedsManualGrading => "needs_manual_grading",
         AttemptStatus::Cleared => "cleared",
         AttemptStatus::Exempt => "exempt",
     }
@@ -619,7 +618,6 @@ pub(super) fn decode_attempt_status(value: &str) -> Result<AttemptStatus, StoreE
         "in_progress" => Ok(AttemptStatus::InProgress),
         "submitted" => Ok(AttemptStatus::Submitted),
         "auto_submitted" => Ok(AttemptStatus::AutoSubmitted),
-        "needs_manual_grading" => Ok(AttemptStatus::NeedsManualGrading),
         "cleared" => Ok(AttemptStatus::Cleared),
         "exempt" => Ok(AttemptStatus::Exempt),
         _ => Err(StoreError::Unavailable(
@@ -686,9 +684,7 @@ pub(super) fn decode_issued_attempt_with_current_lifecycle_row(
                 "in-progress attempt carries a relational submission time".to_string(),
             ))
         }
-        AttemptStatus::Submitted
-        | AttemptStatus::AutoSubmitted
-        | AttemptStatus::NeedsManualGrading
+        AttemptStatus::Submitted | AttemptStatus::AutoSubmitted
             if current.timer.submitted_at.is_none() =>
         {
             Err(StoreError::Unavailable(
@@ -724,7 +720,7 @@ pub(super) fn decode_current_attempt_with_evaluation_row_named(
         ));
     }
     match status.as_str() {
-        "automated_pending" | "automated_exception" | "needs_manual_grading" => {
+        "automated_pending" | "automated_exception" => {
             attempt.result = None;
             Ok(attempt)
         }

@@ -7,7 +7,7 @@ use super::issued_contracts::{
     load_issued_flat_grading, load_issued_qti_grading, load_issued_webwork_grading,
 };
 use super::submission_preparation;
-use crate::{LearnerWorkRoutingBinding, StoreError, SubmissionIdempotencyKey, TenantContext};
+use crate::{StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey, TenantContext};
 use question_model::StudentResponse;
 
 #[async_trait]
@@ -16,7 +16,7 @@ impl crate::SealedPrivateExecutionStore for MemorySealedPrivateExecutionStore {
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         intent: crate::AuthorizedSubmissionIntent,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,

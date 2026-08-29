@@ -3,7 +3,7 @@
 import type { AssignmentItemSummary } from "../../generated/api/AssignmentItemSummary";
 import type { AssignmentSelectionGroupSummary } from "../../generated/api/AssignmentSelectionGroupSummary";
 import type { Capability } from "../../generated/api/Capability";
-import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
+import type { StudentDisclosurePolicy } from "../../generated/api/StudentDisclosurePolicy";
 import type { RunPolicies } from "../../generated/api/RunPolicies";
 import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
@@ -52,7 +52,7 @@ export interface AssignmentEditorDraft {
   /** One ordered definition, shared by fixed questions and selection groups. */
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
   readonly policies: RunPolicies;
-  readonly disclosurePolicy: LearnerDisclosurePolicy;
+  readonly disclosurePolicy: StudentDisclosurePolicy;
   readonly revision: string;
 }
 

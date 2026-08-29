@@ -1,13 +1,13 @@
-// Strict learner delivery and focused assignment-policy transport decoders.
+// Strict Student delivery and focused assignment-policy transport decoders.
 
 import type { AssignmentTeachingSettingsValidationFailure } from "../../../generated/api/AssignmentTeachingSettingsValidationFailure";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
-import type { LearnerAssignmentDetail } from "../../../generated/api/LearnerAssignmentDetail";
-import type { LearnerAssignmentSummary } from "../../../generated/api/LearnerAssignmentSummary";
+import type { StudentAssignmentDetail } from "../../../generated/api/StudentAssignmentDetail";
+import type { StudentAssignmentLandingSummary } from "../../../generated/api/StudentAssignmentLandingSummary";
 import type { InstructorStudentView } from "../../../generated/api/InstructorStudentView";
 import type { InstructorStudentViewDelivery } from "../../../generated/api/InstructorStudentViewDelivery";
-import type { LearnerAssignmentDelivery } from "../../../generated/api/LearnerAssignmentDelivery";
+import type { StudentAssignmentDelivery } from "../../../generated/api/StudentAssignmentDelivery";
 import {
   DecodeError,
   decodeArray,
@@ -20,18 +20,18 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
-import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
+import { decodeStudentDisclosurePolicy } from "./assignment_policy";
 import {
   decodeAssignmentItem,
   decodeAssignmentReference,
   decodeAssignmentSelectionGroup,
 } from "./catalog_course";
 
-export function decodeLearnerAssignmentSummary(
+export function decodeStudentAssignmentLandingSummary(
   value: unknown,
   path = "response",
   strict = true,
-): LearnerAssignmentSummary {
+): StudentAssignmentLandingSummary {
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, ["id", "reference", "title"]);
@@ -40,13 +40,13 @@ export function decodeLearnerAssignmentSummary(
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-  } satisfies LearnerAssignmentSummary;
+  } satisfies StudentAssignmentLandingSummary;
 }
 
 const LIFECYCLES = ["draft", "published", "closed", "archived"] as const;
 const LATE_POLICIES = ["accept", "markLate", "reject"] as const;
 const DEADLINE_BEHAVIORS = ["autoSubmit"] as const;
-const LATE_STATUSES = ["onTime", "acceptedLate", "markedLate"] as const;
+const LATE_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
 const SETTINGS_FAILURE_FIELDS = [
   "teachingSettings",
   "timeZone",
@@ -198,69 +198,69 @@ export function decodeInstructorAssignmentCurrentState(
   return { state };
 }
 
-export function decodeLearnerAssignmentDetail(
+export function decodeStudentAssignmentDetail(
   value: unknown,
   path = "response",
-): LearnerAssignmentDetail {
+): StudentAssignmentDetail {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
     "reference",
     "title",
     "instructions",
-    "timeZone",
+    "time_zone",
     "delivery",
     "items",
-    "selectionGroups",
+    "selection_groups",
   ]);
   const deliveryRecord = decodeRecord(field(record, "delivery", path), `${path}.delivery`);
   requireOnlyFields(deliveryRecord, `${path}.delivery`, [
-    "availableAt",
-    "dueAt",
-    "closesAt",
-    "timeLimitSeconds",
-    "attemptLimit",
-    "lateSubmission",
-    "deadlineBehavior",
-    "lateStatus",
+    "available_at",
+    "due_at",
+    "closes_at",
+    "time_limit_seconds",
+    "attempt_limit",
+    "late_submission",
+    "deadline_behavior",
+    "late_status",
   ]);
-  const delivery: LearnerAssignmentDelivery = {
-    availableAt: decodeNullable(
-      field(deliveryRecord, "availableAt", `${path}.delivery`),
-      `${path}.delivery.availableAt`,
+  const delivery: StudentAssignmentDelivery = {
+    available_at: decodeNullable(
+      field(deliveryRecord, "available_at", `${path}.delivery`),
+      `${path}.delivery.available_at`,
       decodeTimestamp,
     ),
-    dueAt: decodeNullable(
-      field(deliveryRecord, "dueAt", `${path}.delivery`),
-      `${path}.delivery.dueAt`,
+    due_at: decodeNullable(
+      field(deliveryRecord, "due_at", `${path}.delivery`),
+      `${path}.delivery.due_at`,
       decodeTimestamp,
     ),
-    closesAt: decodeNullable(
-      field(deliveryRecord, "closesAt", `${path}.delivery`),
-      `${path}.delivery.closesAt`,
+    closes_at: decodeNullable(
+      field(deliveryRecord, "closes_at", `${path}.delivery`),
+      `${path}.delivery.closes_at`,
       decodeTimestamp,
     ),
-    timeLimitSeconds: decodePolicyLimit(
-      field(deliveryRecord, "timeLimitSeconds", `${path}.delivery`),
-      `${path}.delivery.timeLimitSeconds`,
+    time_limit_seconds: decodePolicyLimit(
+      field(deliveryRecord, "time_limit_seconds", `${path}.delivery`),
+      `${path}.delivery.time_limit_seconds`,
     ),
-    attemptLimit: decodePolicyLimit(
-      field(deliveryRecord, "attemptLimit", `${path}.delivery`),
-      `${path}.delivery.attemptLimit`,
+    attempt_limit: decodePolicyLimit(
+      field(deliveryRecord, "attempt_limit", `${path}.delivery`),
+      `${path}.delivery.attempt_limit`,
     ),
-    lateSubmission: decodeStringEnum(
-      field(deliveryRecord, "lateSubmission", `${path}.delivery`),
-      `${path}.delivery.lateSubmission`,
+    late_submission: decodeStringEnum(
+      field(deliveryRecord, "late_submission", `${path}.delivery`),
+      `${path}.delivery.late_submission`,
       LATE_POLICIES,
     ),
-    deadlineBehavior: decodeStringEnum(
-      field(deliveryRecord, "deadlineBehavior", `${path}.delivery`),
-      `${path}.delivery.deadlineBehavior`,
+    deadline_behavior: decodeStringEnum(
+      field(deliveryRecord, "deadline_behavior", `${path}.delivery`),
+      `${path}.delivery.deadline_behavior`,
       DEADLINE_BEHAVIORS,
     ),
-    lateStatus: decodeStringEnum(
-      field(deliveryRecord, "lateStatus", `${path}.delivery`),
-      `${path}.delivery.lateStatus`,
+    late_status: decodeStringEnum(
+      field(deliveryRecord, "late_status", `${path}.delivery`),
+      `${path}.delivery.late_status`,
       LATE_STATUSES,
     ),
   };
@@ -269,12 +269,12 @@ export function decodeLearnerAssignmentDetail(
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
-    timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
+    time_zone: decodeNonemptyString(field(record, "time_zone", path), `${path}.time_zone`),
     delivery,
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),
-    selectionGroups: decodeArray(
-      field(record, "selectionGroups", path),
-      `${path}.selectionGroups`,
+    selection_groups: decodeArray(
+      field(record, "selection_groups", path),
+      `${path}.selection_groups`,
       decodeAssignmentSelectionGroup,
     ),
   };
@@ -354,7 +354,7 @@ export function decodeInstructorStudentView(
       "selectedProblemVariants",
       "fullRegeneration",
     ] as const),
-    disclosurePolicy: decodeLearnerDisclosurePolicy(
+    disclosurePolicy: decodeStudentDisclosurePolicy(
       field(record, "disclosurePolicy", path),
       `${path}.disclosurePolicy`,
     ),

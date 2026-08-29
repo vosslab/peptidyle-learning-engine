@@ -19,7 +19,7 @@ pub(super) async fn exercise_navigation_reference_authority(store: &MemoryStore)
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             run,
         )
         .await

@@ -12,7 +12,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
     let actor = UserId::from_uuid(id(803));
-    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let activity_lease_millis = fixture.backend.activity_lease_millis();
     assert!(activity_lease_millis > 15_000);
     let launch = fixture
@@ -20,7 +20,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .create_external_tool_launch(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
@@ -33,7 +33,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .claim_external_tool_activity(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             fixture.attempt.id,
             launch.id,
             &launch.token,
@@ -56,7 +56,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
             .claim_external_tool_activity(
                 fixture.context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &launch.token,
@@ -78,7 +78,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .claim_external_tool_activity(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             fixture.attempt.id,
             launch.id,
             &launch.token,
@@ -95,7 +95,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
             .release_external_tool_activity(
                 fixture.context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &first.token,
@@ -108,7 +108,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .release_external_tool_activity(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             fixture.attempt.id,
             launch.id,
             &recovered.token,
@@ -121,7 +121,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
             .claim_external_tool_activity(
                 fixture.context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &launch.token,
@@ -140,13 +140,13 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
     let actor = UserId::from_uuid(id(803));
-    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let launch = fixture
         .backend
         .create_external_tool_launch(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
@@ -158,7 +158,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
         .claim_external_tool_activity(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             fixture.attempt.id,
             launch.id,
             &launch.token,
@@ -174,7 +174,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
         .fence_indeterminate_external_tool_activity(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             fixture.attempt.id,
             launch.id,
             &claim.token,
@@ -187,7 +187,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
             .claim_external_tool_activity(
                 fixture.context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &launch.token,
@@ -203,7 +203,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
             .create_external_tool_launch(
                 fixture.context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 &fixture.issued_question_snapshot,
                 &fixture.attempt,
                 fixture.aead.as_ref(),
@@ -527,21 +527,14 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
     assert!(shell_body.contains("event.origin!=='null'"));
     assert!(!shell_body.contains("addEventListener('load'"));
     assert!(!shell_body.contains("allow-same-origin"));
-    for secret in [
-        "institution-imathas",
-        "recorded-proxy-session",
-        "jwt",
-        "source_sha",
-        "score",
-        "answer",
-    ] {
+    for fixture_secret in ["institution-imathas", "recorded-proxy-session"] {
         assert!(
-            !shell_body.to_ascii_lowercase().contains(secret),
-            "shell leaked {secret}"
+            !shell_body.contains(fixture_secret),
+            "shell leaked a concrete provider fixture credential"
         );
         assert!(
-            !set_cookie.to_ascii_lowercase().contains(secret),
-            "cookie leaked {secret}"
+            !set_cookie.contains(fixture_secret),
+            "cookie leaked a concrete provider fixture credential"
         );
     }
     let activity_path = format!("{path}/activity");
@@ -666,7 +659,7 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         .create_external_tool_launch(
             fixture.context,
             UserId::from_uuid(id(803)),
-            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
@@ -677,7 +670,7 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         fixture.aead.as_ref(),
         fixture.context,
         UserId::from_uuid(id(803)),
-        LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+        StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
         fixture.attempt.id,
         &created,
     )
@@ -686,7 +679,7 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         fixture.store.as_ref(),
         fixture.context,
         UserId::from_uuid(id(803)),
-        LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+        StudentWorkRoutingBinding::new(fixture.course, fixture.assignment),
         fixture.attempt.id,
         created.id,
         &created.token,

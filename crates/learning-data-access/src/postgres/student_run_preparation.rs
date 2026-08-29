@@ -6,11 +6,11 @@ use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::entitlement::{hydrate_assignment_from_witness, hydrate_entitlement_witness_sources};
-use super::learner_work_preparation::{
+use super::student_work_preparation::{
     StudentRunPreparationWitness, prepare_student_run_work as prepare_student_run_work_witness,
 };
 use super::{decode_payload_row, load_postgres_enrollment, map_sqlx_error};
-use crate::{LearnerWorkRoutingBinding, StoreError};
+use crate::{StoreError, StudentWorkRoutingBinding};
 
 /// Broker-authorized, fully hydrated source aggregate for attempt issuance.
 ///
@@ -52,7 +52,7 @@ impl PreparedStudentRunWork {
 pub(super) async fn prepare_student_run_work(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     actor: UserId,
     run: RunId,
 ) -> Result<PreparedStudentRunWork, StoreError> {

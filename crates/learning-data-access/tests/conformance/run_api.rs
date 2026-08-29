@@ -3,7 +3,7 @@ use super::*;
 pub(super) async fn exercise_run_api_store<S, P>(
     store: &S,
     sealed_private_execution: &P,
-    disclosure_policy: LearnerDisclosurePolicy,
+    disclosure_policy: StudentDisclosurePolicy,
     fixture_offset: u128,
 ) where
     S: Store
@@ -33,12 +33,12 @@ pub(super) async fn exercise_run_api_store<S, P>(
                     audience: current.record.audience.clone(),
                     items: current.record.items.clone(),
                     selection_groups: current.record.selection_groups.clone(),
-                    disclosure_policy: LearnerDisclosurePolicy {
-                        score: LearnerDisclosureTiming::Never,
-                        per_item_correctness: LearnerDisclosureTiming::Never,
-                        feedback_text: LearnerDisclosureTiming::Never,
-                        solution: LearnerDisclosureTiming::Never,
-                        class_statistics: LearnerDisclosureTiming::Never,
+                    disclosure_policy: StudentDisclosurePolicy {
+                        score: StudentDisclosureTiming::Never,
+                        per_item_correctness: StudentDisclosureTiming::Never,
+                        feedback_text: StudentDisclosureTiming::Never,
+                        solution: StudentDisclosureTiming::Never,
+                        class_statistics: StudentDisclosureTiming::Never,
                     },
                     policies: current.record.policies,
                 },
@@ -74,7 +74,7 @@ pub(super) async fn exercise_run_api_store<S, P>(
     );
     assert_eq!(
         withheld.record.disclosure_policy.score,
-        LearnerDisclosureTiming::Never
+        StudentDisclosureTiming::Never
     );
     exercise_run_rescoring(store, &fixture).await;
     exercise_delete_and_regrade(store, &fixture).await;

@@ -37,12 +37,12 @@ function definitionInput() {
           continuedPractice: { kind: "unlimited" },
           variation: "newSeeds",
         },
-        learnerDisclosure: {
-          score: "afterSubmit",
-          perItemCorrectness: "afterSubmit",
-          feedbackText: "afterSubmit",
+        student_disclosure: {
+          score: "after_submit",
+          per_item_correctness: "after_submit",
+          feedback_text: "after_submit",
           solution: "never",
-          classStatistics: "never",
+          class_statistics: "never",
         },
       },
       schedule: { availableAt: null, dueAt: null, closesAt: null },

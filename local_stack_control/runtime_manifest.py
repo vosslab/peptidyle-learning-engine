@@ -29,6 +29,10 @@ POSTGRES_GRADER_URL = "secrets/postgres-grader.url"
 POSTGRES_FAST_PATH_URL = "secrets/postgres-fast-path.url"
 POSTGRES_RECOVERY_URL = "secrets/postgres-recovery.url"
 POSTGRES_ADMIN_PASSWORD = "secrets/postgres-admin.password"
+MINIO_ENDPOINT = "secrets/minio-endpoint.url"
+MINIO_REGION = "secrets/minio-region"
+MINIO_ACCESS_KEY_ID = "secrets/minio-access-key-id"
+MINIO_SECRET_ACCESS_KEY = "secrets/minio-secret-access-key"
 DATABASE_NAME = "ple_e2e_baseline"
 POSTGRES_USER = "ple_e2e_migrator"
 GRADER_USER = "ple_grading_reader"
@@ -72,6 +76,7 @@ MAX_DATABASE_URL_BYTES = 4_096
 ADMIN_PASSWORD_BYTES = 32
 ADMIN_PASSWORD_FILE_BYTES = ADMIN_PASSWORD_BYTES + 1
 PASSWORD_PATTERN = re.compile(r"^[A-Za-z0-9_-]{32}$")
+MINIO_CREDENTIAL_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -87,6 +92,25 @@ class DatabaseBaselineRuntime:
 	fast_path_url_path: pathlib.Path
 	recovery_url_path: pathlib.Path
 	admin_password_path: pathlib.Path
+
+
+@dataclasses.dataclass(frozen=True)
+class CourseAppearanceCrossStoreRuntime:
+	"""Validated private locators for the closed PostgreSQL and MinIO oracle."""
+
+	workspace: pathlib.Path
+	manifest_path: pathlib.Path
+	compose_environment_path: pathlib.Path
+	cleanup_capability_path: pathlib.Path
+	admin_url_path: pathlib.Path
+	grader_url_path: pathlib.Path
+	fast_path_url_path: pathlib.Path
+	recovery_url_path: pathlib.Path
+	admin_password_path: pathlib.Path
+	minio_endpoint_path: pathlib.Path
+	minio_region_path: pathlib.Path
+	minio_access_key_id_path: pathlib.Path
+	minio_secret_access_key_path: pathlib.Path
 
 
 class _StrictRuntimeLoader(yaml.SafeLoader):
@@ -341,6 +365,178 @@ def load_database_baseline_runtime(workspace: pathlib.Path) -> DatabaseBaselineR
 def require_database_baseline_compose_password(workspace: pathlib.Path) -> None:
 	"""Revalidate the exact bind-mounted administrative password immediately before Compose."""
 	load_database_baseline_runtime(workspace)
+
+
+#============================================
+def acceptance_runtime_profile(workspace: pathlib.Path) -> local_stack_control.models.LiveDemoProfile:
+	"""Read the closed profile discriminator through the private manifest boundary."""
+	# ASVS 1.5.2 and 2.2.1: parse only the private, closed manifest shape before dispatch.
+	_require_private_platform()
+	workspace = workspace.absolute()
+	workspace_descriptor = _open_private_workspace(workspace)
+	try:
+		manifest = _parse_yaml(
+			_read_private_file_at(
+				workspace_descriptor, MANIFEST_NAME, MAX_MANIFEST_BYTES, "manifest"
+			)
+		)
+		if tuple(sorted(manifest)) != ("identity", "kind", "schema_version", "secrets"):
+			raise _error("acceptance runtime manifest schema is invalid")
+		identity = _require_mapping(manifest["identity"], ("owner", "project", "profile"), "identity")
+		if identity["owner"] != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER or identity["project"] != local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT:
+			raise _error("acceptance runtime identity is invalid")
+		try:
+			return local_stack_control.models.live_demo_profile(identity["profile"])
+		except TypeError as error:
+			raise _error("acceptance runtime identity is invalid") from error
+	finally:
+		os.close(workspace_descriptor)
+
+
+#============================================
+def load_course_appearance_cross_store_runtime(
+	workspace: pathlib.Path,
+) -> CourseAppearanceCrossStoreRuntime:
+	"""Load the closed PostgreSQL and MinIO acceptance target from private state."""
+	_require_private_platform()
+	workspace = workspace.absolute()
+	workspace_descriptor = _open_private_workspace(workspace)
+	try:
+		manifest = _parse_yaml(
+			_read_private_file_at(
+				workspace_descriptor, MANIFEST_NAME, MAX_MANIFEST_BYTES, "manifest"
+			)
+		)
+		return _load_course_appearance_cross_store_runtime(
+			workspace, workspace_descriptor, manifest
+		)
+	finally:
+		os.close(workspace_descriptor)
+
+
+#============================================
+def require_course_appearance_cross_store_compose_credentials(
+	workspace: pathlib.Path,
+) -> None:
+	"""Revalidate the complete cross-store secret set immediately before Compose."""
+	load_course_appearance_cross_store_runtime(workspace)
+
+
+#============================================
+def _load_course_appearance_cross_store_runtime(
+	workspace: pathlib.Path,
+	workspace_descriptor: int,
+	manifest: Mapping[str, object],
+) -> CourseAppearanceCrossStoreRuntime:
+	"""Validate the exact cross-store schema and return only private locators."""
+	# ASVS 1.5.2 and 2.2.3: exact keys bind the profile, secret locators, and paired services.
+	if tuple(sorted(manifest)) != ("identity", "kind", "schema_version", "secrets"):
+		raise _error("acceptance runtime manifest schema is invalid")
+	if (
+		type(manifest["schema_version"]) is not int
+		or manifest["schema_version"] != 1
+		or manifest["kind"] != "ple.disposable_postgres_minio_acceptance"
+	):
+		raise _error("acceptance runtime manifest schema is invalid")
+	identity = _require_mapping(manifest["identity"], ("owner", "project", "profile"), "identity")
+	if identity != {
+		"owner": local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+		"project": local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		"profile": local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE.value,
+	}:
+		raise _error("acceptance runtime identity is invalid")
+	expected = {
+		"compose_environment": COMPOSE_ENVIRONMENT,
+		"cleanup_capability": CLEANUP_CAPABILITY,
+		"postgres_admin_url": POSTGRES_ADMIN_URL,
+		"postgres_grader_url": POSTGRES_GRADER_URL,
+		"postgres_fast_path_url": POSTGRES_FAST_PATH_URL,
+		"postgres_recovery_url": POSTGRES_RECOVERY_URL,
+		"postgres_admin_password": POSTGRES_ADMIN_PASSWORD,
+		"minio_endpoint": MINIO_ENDPOINT,
+		"minio_region": MINIO_REGION,
+		"minio_access_key_id": MINIO_ACCESS_KEY_ID,
+		"minio_secret_access_key": MINIO_SECRET_ACCESS_KEY,
+	}
+	if _require_mapping(manifest["secrets"], tuple(expected), "secrets") != expected:
+		raise _error("acceptance runtime secret paths are invalid")
+	secrets_descriptor = _open_private_directory_at(
+		workspace_descriptor, SECRETS_DIRECTORY, "secrets directory"
+	)
+	try:
+		_read_private_file_at(secrets_descriptor, "compose.env", MAX_COMPOSE_ENVIRONMENT_BYTES, "compose environment")
+		capability = _read_private_file_at(secrets_descriptor, "cleanup.capability", 32, "cleanup capability")
+		if len(capability) != 32:
+			raise _error("acceptance runtime cleanup capability is invalid")
+		admin_password = _url_secret(secrets_descriptor, "postgres-admin.url", POSTGRES_USER, "postgres admin URL")
+		_admin_password_secret(secrets_descriptor, admin_password)
+		_url_secret(secrets_descriptor, "postgres-grader.url", GRADER_USER, "postgres grader URL")
+		_url_secret(secrets_descriptor, "postgres-fast-path.url", FAST_PATH_USER, "postgres fast-path URL")
+		_url_secret(secrets_descriptor, "postgres-recovery.url", RECOVERY_USER, "postgres recovery URL")
+		_minio_endpoint_secret(secrets_descriptor)
+		_minio_text_secret(secrets_descriptor, "minio-region", "us-east-1", "minio region")
+		_minio_text_secret(secrets_descriptor, "minio-access-key-id", None, "minio access key")
+		_minio_text_secret(secrets_descriptor, "minio-secret-access-key", None, "minio secret key")
+	finally:
+		os.close(secrets_descriptor)
+	return CourseAppearanceCrossStoreRuntime(
+		workspace=workspace,
+		manifest_path=workspace / MANIFEST_NAME,
+		compose_environment_path=workspace / COMPOSE_ENVIRONMENT,
+		cleanup_capability_path=workspace / CLEANUP_CAPABILITY,
+		admin_url_path=workspace / POSTGRES_ADMIN_URL,
+		grader_url_path=workspace / POSTGRES_GRADER_URL,
+		fast_path_url_path=workspace / POSTGRES_FAST_PATH_URL,
+		recovery_url_path=workspace / POSTGRES_RECOVERY_URL,
+		admin_password_path=workspace / POSTGRES_ADMIN_PASSWORD,
+		minio_endpoint_path=workspace / MINIO_ENDPOINT,
+		minio_region_path=workspace / MINIO_REGION,
+		minio_access_key_id_path=workspace / MINIO_ACCESS_KEY_ID,
+		minio_secret_access_key_path=workspace / MINIO_SECRET_ACCESS_KEY,
+	)
+
+
+#============================================
+def _minio_endpoint_secret(secrets_descriptor: int) -> None:
+	"""Require one bounded loopback-only MinIO endpoint locator."""
+	content = _read_private_file_at(secrets_descriptor, "minio-endpoint.url", 1_024, "minio endpoint")
+	if not content.isascii() or not content.endswith(b"\n") or b"\n" in content[:-1]:
+		raise _error("acceptance runtime minio endpoint is invalid")
+	try:
+		parsed = urllib.parse.urlsplit(content[:-1].decode("ascii"))
+		valid = (
+			parsed.scheme == "http"
+			and parsed.hostname in ("127.0.0.1", "::1")
+			and parsed.port is not None
+			and 1024 <= parsed.port <= 65535
+			and parsed.path == ""
+			and parsed.query == ""
+			and parsed.fragment == ""
+		)
+	except ValueError as error:
+		raise _error("acceptance runtime minio endpoint is invalid") from error
+	if not valid:
+		raise _error("acceptance runtime minio endpoint is invalid")
+
+
+#============================================
+def _minio_text_secret(
+	secrets_descriptor: int,
+	name: str,
+	expected: str | None,
+	field: str,
+) -> None:
+	"""Require one bounded printable MinIO credential or fixed region value."""
+	content = _read_private_file_at(secrets_descriptor, name, 128, field)
+	if not content.isascii() or not content.endswith(b"\n") or b"\n" in content[:-1]:
+		raise _error(f"acceptance runtime {field} is invalid")
+	value = content[:-1].decode("ascii")
+	if expected is not None:
+		valid = hmac.compare_digest(value, expected)
+	else:
+		valid = MINIO_CREDENTIAL_PATTERN.fullmatch(value) is not None
+	if not valid:
+		raise _error(f"acceptance runtime {field} is invalid")
 
 
 #============================================
@@ -703,6 +899,98 @@ def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> Datab
 	finally:
 		os.close(workspace_descriptor)
 	return load_database_baseline_runtime(workspace)
+
+
+#============================================
+def write_course_appearance_cross_store_runtime(
+	workspace: pathlib.Path,
+	postgres_port: int,
+	minio_port: int,
+) -> CourseAppearanceCrossStoreRuntime:
+	"""Create the private two-store runtime before the lease-owned child starts."""
+	_require_private_platform()
+	workspace = workspace.absolute()
+	if (
+		not isinstance(postgres_port, int)
+		or isinstance(postgres_port, bool)
+		or not isinstance(minio_port, int)
+		or isinstance(minio_port, bool)
+		or not 1024 <= postgres_port <= 65535
+		or not 1024 <= minio_port <= 65535
+		or postgres_port == minio_port
+	):
+		raise _error("acceptance runtime port is invalid")
+	workspace_descriptor = _open_private_workspace(workspace)
+	try:
+		try:
+			os.mkdir(SECRETS_DIRECTORY, 0o700, dir_fd=workspace_descriptor)
+		except OSError as error:
+			raise _error("acceptance runtime private state is unavailable") from error
+		secrets_descriptor = _open_private_directory_at(workspace_descriptor, SECRETS_DIRECTORY, "secrets directory")
+		try:
+			postgres_password = secrets.token_urlsafe(24)
+			grader_password = secrets.token_urlsafe(24)
+			fast_path_password = secrets.token_urlsafe(24)
+			recovery_password = secrets.token_urlsafe(24)
+			# Hex remains opaque data through the shell and MinIO CLI boundary.
+			minio_access_key_id = secrets.token_hex(16)
+			minio_secret_access_key = secrets.token_hex(16)
+			capability = secrets.token_bytes(32)
+			capability_digest = hashlib.sha256(capability).hexdigest()
+			endpoint = f"@127.0.0.1:{postgres_port}/{DATABASE_NAME}\n"
+			def database_url(user: str, password: str) -> bytes:
+				value = f"postgres://{user}:{urllib.parse.quote(password, safe='')}{endpoint}"
+				return value.encode("ascii")
+			password_path = workspace / POSTGRES_ADMIN_PASSWORD
+			compose_environment = (
+				f"POSTGRES_USER={POSTGRES_USER}\n"
+				"POSTGRES_DB=postgres\n"
+				"POSTGRES_PASSWORD_FILE=/run/ple-runtime/postgres-password\n"
+				f"PLE_DATABASE_BASELINE_POSTGRES_PASSWORD_FILE={password_path}\n"
+				f"PLE_POSTGRES_HOST_PORT={postgres_port}\n"
+				f"MINIO_ROOT_USER={minio_access_key_id}\n"
+				f"MINIO_ROOT_PASSWORD={minio_secret_access_key}\n"
+				f"PLE_MINIO_API_HOST_PORT={minio_port}\n"
+				f"PLE_E2E_OWNER={local_stack_control.models.LIVE_DEMO_BROWSER_OWNER}\n"
+				f"PLE_DISPOSABLE_CAPABILITY_SHA256={capability_digest}\n"
+			).encode("ascii")
+			manifest = (
+				"schema_version: 1\n"
+				"kind: ple.disposable_postgres_minio_acceptance\n"
+				"identity:\n"
+				f"  owner: {local_stack_control.models.LIVE_DEMO_BROWSER_OWNER}\n"
+				f"  project: {local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT}\n"
+				"  profile: course_appearance_cross_store\n"
+				"secrets:\n"
+				f"  compose_environment: {COMPOSE_ENVIRONMENT}\n"
+				f"  cleanup_capability: {CLEANUP_CAPABILITY}\n"
+				f"  postgres_admin_url: {POSTGRES_ADMIN_URL}\n"
+				f"  postgres_grader_url: {POSTGRES_GRADER_URL}\n"
+				f"  postgres_fast_path_url: {POSTGRES_FAST_PATH_URL}\n"
+				f"  postgres_recovery_url: {POSTGRES_RECOVERY_URL}\n"
+				f"  postgres_admin_password: {POSTGRES_ADMIN_PASSWORD}\n"
+				f"  minio_endpoint: {MINIO_ENDPOINT}\n"
+				f"  minio_region: {MINIO_REGION}\n"
+				f"  minio_access_key_id: {MINIO_ACCESS_KEY_ID}\n"
+				f"  minio_secret_access_key: {MINIO_SECRET_ACCESS_KEY}\n"
+			).encode("ascii")
+			_write_private_file_at(secrets_descriptor, "compose.env", compose_environment)
+			_write_private_file_at(secrets_descriptor, "cleanup.capability", capability)
+			_write_private_file_at(secrets_descriptor, "postgres-admin.url", database_url(POSTGRES_USER, postgres_password))
+			_write_private_file_at(secrets_descriptor, "postgres-grader.url", database_url(GRADER_USER, grader_password))
+			_write_private_file_at(secrets_descriptor, "postgres-fast-path.url", database_url(FAST_PATH_USER, fast_path_password))
+			_write_private_file_at(secrets_descriptor, "postgres-recovery.url", database_url(RECOVERY_USER, recovery_password))
+			_write_private_file_at(secrets_descriptor, "postgres-admin.password", postgres_password.encode("ascii") + b"\n")
+			_write_private_file_at(secrets_descriptor, "minio-endpoint.url", f"http://127.0.0.1:{minio_port}\n".encode("ascii"))
+			_write_private_file_at(secrets_descriptor, "minio-region", b"us-east-1\n")
+			_write_private_file_at(secrets_descriptor, "minio-access-key-id", minio_access_key_id.encode("ascii") + b"\n")
+			_write_private_file_at(secrets_descriptor, "minio-secret-access-key", minio_secret_access_key.encode("ascii") + b"\n")
+			_write_private_file_at(workspace_descriptor, MANIFEST_NAME, manifest)
+		finally:
+			os.close(secrets_descriptor)
+	finally:
+		os.close(workspace_descriptor)
+	return load_course_appearance_cross_store_runtime(workspace)
 
 
 if __name__ == "__main__":

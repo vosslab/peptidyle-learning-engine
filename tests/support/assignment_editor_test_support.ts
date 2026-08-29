@@ -13,11 +13,11 @@ export function createMasteryAssignmentDraft(courseId: string): AssignmentEditor
       variation: "newSeeds",
     },
     disclosurePolicy: {
-      score: "afterSubmit",
-      perItemCorrectness: "afterSubmit",
-      feedbackText: "afterSubmit",
-      solution: "afterSubmit",
-      classStatistics: "never",
+      score: "after_submit",
+      per_item_correctness: "after_submit",
+      feedback_text: "after_submit",
+      solution: "after_submit",
+      class_statistics: "never",
     },
     revision: "",
   };

@@ -11,7 +11,7 @@ use super::issued_contracts::{
     load_issued_presentation, load_submission_record, validate_issued_question_snapshot,
 };
 use crate::{
-    AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, StoreError, SubmissionIdempotencyKey,
+    AuthorizedSubmissionIntent, StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
     SubmissionPreparation, SubmissionReceiptRead, TenantContext,
 };
 
@@ -19,7 +19,7 @@ pub(in crate::in_memory) fn prepare_question_submission(
     state: &State,
     context: TenantContext,
     actor: UserId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
     response: &StudentResponse,
     idempotency_key: &SubmissionIdempotencyKey,

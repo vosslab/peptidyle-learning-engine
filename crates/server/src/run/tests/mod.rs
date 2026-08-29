@@ -1,3 +1,4 @@
+mod accepted_submission_service;
 mod archive_fence;
 mod catalog_identity;
 mod external_projection;
@@ -6,7 +7,6 @@ mod feedback;
 mod imathas_launch;
 mod imathas_submission;
 mod imathas_support;
-mod manual_grading_http;
 mod pending_receipts;
 mod prefetch;
 mod start_binding;
@@ -65,9 +65,9 @@ fn sealed_memory(
     )
 }
 
-fn learner_submission_status(
+fn student_submission_status(
     store: &Arc<MemoryStore>,
-) -> Arc<dyn learning_data_access::LearnerSubmissionStatusStore> {
+) -> Arc<dyn learning_data_access::StudentSubmissionStatusStore> {
     store.clone()
 }
 
@@ -86,7 +86,7 @@ struct NumericBackend {
     issued_response: std::sync::Mutex<Option<ResponseDefinition>>,
     graded_responses: std::sync::Mutex<Vec<StudentResponse>>,
     external_tool_launch_ready: bool,
-    manual_grading_required: bool,
+    unsupported_grading: bool,
 }
 
 struct CountingNativeBackend {
@@ -113,7 +113,7 @@ impl learning_data_access::SealedPrivateExecutionStore for CountingSealedExecuti
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: learning_data_access::LearnerWorkRoutingBinding,
+        binding: learning_data_access::StudentWorkRoutingBinding,
         intent: learning_data_access::AuthorizedSubmissionIntent,
         response: &StudentResponse,
         idempotency_key: &learning_data_access::SubmissionIdempotencyKey,
@@ -397,8 +397,10 @@ impl RunBackend for NumericBackend {
             .lock()
             .expect("graded response record")
             .push(response.clone());
-        if self.manual_grading_required {
-            return Ok(GradeOutcome::NeedsManualGrading);
+        if self.unsupported_grading {
+            return Err(RunBackendError::Unsupported(
+                "test backend has no deterministic grader".to_string(),
+            ));
         }
         if self
             .issued_response
@@ -634,7 +636,7 @@ async fn fixture_with_attempt_policy(
                     instructions: question_model::AssignmentInstructions::default(),
                     items: assignment_items(vec![ProblemVersionRef { problem, version }]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -701,7 +703,7 @@ async fn fixture_with_attempt_policy(
         Arc::clone(&store),
         Arc::clone(&backend),
         sealed_memory(&store),
-        learner_submission_status(&store),
+        student_submission_status(&store),
         automated_grading(&store),
     );
     (
@@ -924,7 +926,7 @@ async fn native_feedback_fixture() -> (
                         ProblemVersionRef { problem, version },
                     ]),
                     selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AnswerAll,
                         grade: GradePolicy::Highest,
@@ -972,7 +974,7 @@ async fn native_feedback_fixture() -> (
         Arc::clone(&store),
         Arc::clone(&backend),
         sealed_memory(&store),
-        learner_submission_status(&store),
+        student_submission_status(&store),
         automated_grading(&store),
     );
     (

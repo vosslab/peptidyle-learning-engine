@@ -5,7 +5,6 @@ import { Show, createSignal, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../../api/runtime";
 import { useSessionBootstrap } from "../../auth/session_context";
-import { CourseManagementNav } from "../../components/course_management_nav";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -102,7 +101,6 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
           </section>
         }
       >
-        <CourseManagementNav courseReference={course()!.reference} active="newAssignment" />
         <header class="assignment-workspace-header">
           <p class="eyebrow">New assignment</p>
           <h1>Create an assignment draft</h1>

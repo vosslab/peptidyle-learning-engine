@@ -2,7 +2,7 @@
 
 import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
-import type { LearnerSubmissionStatus, NextIssuedAttempt, SubmissionReceipt } from "../contracts";
+import type { StudentSubmissionStatus, NextIssuedAttempt, SubmissionReceipt } from "../contracts";
 import {
   DecodeError,
   decodeBoolean,
@@ -91,10 +91,10 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
 }
 
 /** Decodes only the three answer-free learner status alternatives frozen by the wire contract. */
-export function decodeLearnerSubmissionStatus(
+export function decodeStudentSubmissionStatus(
   value: unknown,
   path = "response",
-): LearnerSubmissionStatus {
+): StudentSubmissionStatus {
   const record = decodeRecord(value, path);
   const statusKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
     "completed",

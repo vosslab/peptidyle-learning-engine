@@ -17,11 +17,11 @@ import {
 } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
 
 const disclosurePolicy = {
-  score: "afterSubmit",
-  perItemCorrectness: "afterSubmit",
-  feedbackText: "afterDue",
-  solution: "afterClose",
-  classStatistics: "never",
+  score: "after_submit",
+  per_item_correctness: "after_submit",
+  feedback_text: "after_due",
+  solution: "after_close",
+  class_statistics: "never",
 };
 
 const policies = {

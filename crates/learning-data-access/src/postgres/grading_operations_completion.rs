@@ -3,8 +3,8 @@
 use super::*;
 use question_model::{
     AssignmentAudience, AssignmentDeliveryState, AssignmentItem, AssignmentSelectionCandidate,
-    AssignmentSelectionGroup, AssignmentSelectionGroupId, CourseGroupId, LearnerDisclosurePolicy,
-    PoolDrawAlgorithm, ProblemVersionRef, RunPolicies, SelectionOrdering,
+    AssignmentSelectionGroup, AssignmentSelectionGroupId, CourseGroupId, PoolDrawAlgorithm,
+    ProblemVersionRef, RunPolicies, SelectionOrdering, StudentDisclosurePolicy,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -189,16 +189,16 @@ fn decode_locked_assignment(
             )?,
             variation: super::parse_variation_policy(&header.variation_policy)?,
         },
-        disclosure_policy: LearnerDisclosurePolicy {
-            score: super::parse_learner_disclosure_timing(&header.score_disclosure)?,
-            per_item_correctness: super::parse_learner_disclosure_timing(
+        disclosure_policy: StudentDisclosurePolicy {
+            score: super::parse_student_disclosure_timing(&header.score_disclosure)?,
+            per_item_correctness: super::parse_student_disclosure_timing(
                 &header.per_item_correctness_disclosure,
             )?,
-            feedback_text: super::parse_learner_disclosure_timing(
+            feedback_text: super::parse_student_disclosure_timing(
                 &header.feedback_text_disclosure,
             )?,
-            solution: super::parse_learner_disclosure_timing(&header.solution_disclosure)?,
-            class_statistics: super::parse_learner_disclosure_timing(
+            solution: super::parse_student_disclosure_timing(&header.solution_disclosure)?,
+            class_statistics: super::parse_student_disclosure_timing(
                 &header.class_statistics_disclosure,
             )?,
         },
@@ -480,7 +480,7 @@ fn decode_locked_run_attempts(
                 .map(ActivityTimestamp::from_unix_millis);
             match entry.evaluation_status.as_deref() {
                 None => attempt.result = None,
-                Some("automated_pending" | "automated_exception" | "needs_manual_grading") => {
+                Some("automated_pending" | "automated_exception") => {
                     attempt.result = None;
                 }
                 Some("graded" | "exempt") => {

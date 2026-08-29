@@ -1,6 +1,6 @@
 //! Generator contracts required by reusable-curriculum browser types.
 
-use super::{generate_enum, generate_struct};
+use super::model::{generate_enum, generate_struct};
 
 #[test]
 fn boxed_values_generate_as_their_wire_payload() {

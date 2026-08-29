@@ -419,7 +419,7 @@ enrollment and releases only a metric-free `insufficientEvidence` state or an
 `available` cohort count plus normalized assignment average. The Store checks
 current S5 entitlement; the server exposes that union only when the assignment
 field's current S3/time disclosure decision allows it. The default minimum
-cohort is five, and incomplete manual grading, recent rescoring, or a missing
+cohort is five, and incomplete automated scoring, recent rescoring, or a missing
 or invalid average suppress metric fields. Detailed cross-store failure/recovery
 behavior is owned by [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md); retention
 policy is in [RETENTION_POLICY.md](RETENTION_POLICY.md).

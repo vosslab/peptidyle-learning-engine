@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY"
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$script_directory"
 
 # The fixed repo-local environment owns Python dependencies for every final gate.
 ./devel/setup_python.sh

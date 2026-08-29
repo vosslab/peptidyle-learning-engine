@@ -225,24 +225,25 @@ mod structural_content_tests {
         AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentInstructions,
         AssignmentItem, AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode,
         AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentSelectionGroupId,
-        GradePolicy, LearnerDisclosurePolicy, PointValue, PoolDrawAlgorithm, ProblemId,
-        ProblemVersionRef, RunPolicies, SelectionOrdering, TenantId, VersionId,
+        GradePolicy, PointValue, PoolDrawAlgorithm, ProblemId, ProblemVersionRef, RunPolicies,
+        SelectionOrdering, StudentDisclosurePolicy, TenantId, VersionId,
     };
+    use uuid::Uuid;
 
     fn assignment() -> AssignmentRecord {
         AssignmentRecord {
-            id: AssignmentId::generate(),
-            tenant: TenantId::generate(),
-            course_id: question_model::CourseId::generate(),
+            id: AssignmentId::from_uuid(Uuid::from_u128(1)),
+            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
+            course_id: question_model::CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Structural content fixture".to_string(),
             lifecycle: AssignmentLifecycle::Draft,
             instructions: AssignmentInstructions::default(),
             audience: AssignmentAudience::CourseWide,
             items: vec![AssignmentItem {
-                id: AssignmentItemId::generate(),
+                id: AssignmentItemId::from_uuid(Uuid::from_u128(4)),
                 reference: ProblemVersionRef {
-                    problem: ProblemId::generate(),
-                    version: VersionId::generate(),
+                    problem: ProblemId::from_uuid(Uuid::from_u128(5)),
+                    version: VersionId::from_uuid(Uuid::from_u128(6)),
                 },
                 position: 0,
                 points_possible: PointValue::from_whole(1),
@@ -250,23 +251,23 @@ mod structural_content_tests {
                 scoring_mode: AssignmentScoringMode::Normal,
             }],
             selection_groups: vec![AssignmentSelectionGroup {
-                id: AssignmentSelectionGroupId::generate(),
+                id: AssignmentSelectionGroupId::from_uuid(Uuid::from_u128(7)),
                 position: 1,
                 draw_count: 1,
                 points_per_item: PointValue::from_whole(1),
                 ordering: SelectionOrdering::CandidateOrder,
                 algorithm: PoolDrawAlgorithm::V1,
                 candidates: vec![AssignmentSelectionCandidate {
-                    id: AssignmentItemId::generate(),
+                    id: AssignmentItemId::from_uuid(Uuid::from_u128(8)),
                     position: 0,
                     reference: ProblemVersionRef {
-                        problem: ProblemId::generate(),
-                        version: VersionId::generate(),
+                        problem: ProblemId::from_uuid(Uuid::from_u128(9)),
+                        version: VersionId::from_uuid(Uuid::from_u128(10)),
                     },
                     delivery_state: AssignmentDeliveryState::Active,
                 }],
             }],
-            disclosure_policy: LearnerDisclosurePolicy::default(),
+            disclosure_policy: StudentDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: GradePolicy::Highest,

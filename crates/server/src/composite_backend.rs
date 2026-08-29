@@ -276,9 +276,6 @@ where
                     grading::GradeOutcome::Graded(result) => {
                         Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
                     }
-                    grading::GradeOutcome::NeedsManualGrading => {
-                        Ok(SubmissionDisposition::NeedsManualGrading)
-                    }
                     grading::GradeOutcome::Ungraded => Err(RunBackendError::Unsupported(
                         "this run backend does not produce a server grade".to_string(),
                     )),
@@ -309,7 +306,7 @@ where
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        student_work_binding: learning_data_access::StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
@@ -318,7 +315,7 @@ where
             .create_external_tool_launch(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 issued_question_snapshot,
                 attempt,
                 aead,
@@ -330,7 +327,7 @@ where
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        student_work_binding: learning_data_access::StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
@@ -343,7 +340,7 @@ where
             .proxy_external_tool_activity(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 issued_question_snapshot,
                 attempt,
                 session_id,
@@ -367,7 +364,7 @@ where
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        student_work_binding: learning_data_access::StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey,
@@ -378,7 +375,7 @@ where
             .submit_external_tool(
                 context,
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 issued_question_snapshot,
                 attempt,
                 idempotency_key,

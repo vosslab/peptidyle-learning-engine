@@ -8,6 +8,7 @@
 //   question cards, and prompt regions.
 // - src/pages/course_list_page.tsx, src/pages/course_assignments_page.tsx, and
 //   src/pages/assignment_workspace/ own the visible course and assignment workflow.
+// - src/pages/gradebook_page.tsx:151 owns the calculated assignment-cell score observed here.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -282,11 +283,10 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(elena.locator("[data-route-surface=gradebook]")).toBeVisible();
       const learnerScore = elena
         .locator("tr.gradebook-row")
-        .filter({ has: elena.getByText(assignmentTitle, { exact: true }) })
         .filter({ has: elena.getByText("Mary Okafor", { exact: true }) });
       await expect(learnerScore).toHaveCount(1);
-      await expect(learnerScore.locator('[data-label="Best"]')).toHaveText("100%");
-      await expect(learnerScore.locator('[data-label="Latest"]')).toHaveText("100%");
+      await expect(learnerScore.locator(".gradebook-course-total")).toContainText("100%");
+      await expect(learnerScore.locator(`[data-label="${assignmentTitle}"]`)).toContainText("100%");
       await elena.getByRole("link", { name: "Students", exact: true }).click();
 
       await elena.reload();

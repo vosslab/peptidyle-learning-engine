@@ -57,9 +57,9 @@ owner, isolated project, private environment path, and runner-held cleanup
 capability. The private `python3 -m local_stack_control._consumer_cli` adapter
 then enforces a closed owner policy:
 
-- Browser-free data and security oracles, including `course-appearance` and
-  `database-baseline`, use their named isolated definitions and never launch
-  Playwright.
+- Browser-free data and security oracles use closed fixed-owner profiles and never launch
+  Playwright. `database_baseline` owns PostgreSQL schema and authority; the
+  `course_appearance_cross_store` successor owns the distinct PostgreSQL-to-MinIO cleanup seam.
 - `live-demo-browser` is the one fixed connected-browser owner. Its closed
   profiles run the production-browser suite, screenshot capture, WebWork
   service oracle, and two-API/one-PostgreSQL replica oracle serially against a

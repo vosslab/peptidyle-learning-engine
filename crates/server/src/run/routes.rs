@@ -10,8 +10,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
     AuthoritativeTimeStore, AutomatedGradingStore, CatalogStore, CourseAppearanceStore,
-    CourseItemAnalysisStore, LearnerSubmissionStatusStore, LearnerWorkRoutingBinding,
-    ManualGradingStore, SealedPrivateExecutionStore, SessionStore, Store,
+    CourseItemAnalysisStore, SealedPrivateExecutionStore, SessionStore, Store,
+    StudentSubmissionStatusStore, StudentWorkRoutingBinding,
 };
 use question_model::{AssignmentId, CourseId, RunId};
 
@@ -21,7 +21,6 @@ use crate::accepted_submission_worker::{
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::contracts::RunBackend;
-use super::manual_grading;
 use super::prefetch::{ensure_active_questions, prefetch_next_question};
 use super::queries::{
     all_attempts, get_attempt, get_attempt_question, get_enrollment, get_run, get_run_summary,
@@ -42,7 +41,7 @@ pub fn router<S, B>(
     store: Arc<S>,
     backend: Arc<B>,
     sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
-    learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
+    student_submission_status: Arc<dyn StudentSubmissionStatusStore>,
     automated_grading: Arc<dyn AutomatedGradingStore>,
 ) -> Router
 where
@@ -50,7 +49,6 @@ where
         + CatalogStore
         + CourseAppearanceStore
         + CourseItemAnalysisStore
-        + ManualGradingStore
         + SessionStore
         + AuthoritativeTimeStore
         + 'static,
@@ -60,7 +58,7 @@ where
         store,
         backend,
         sealed_execution,
-        learner_submission_status,
+        student_submission_status,
         automated_grading,
         Arc::new(UnavailableAcceptedSubmissionFastPath),
     )
@@ -75,7 +73,7 @@ pub(crate) fn router_with_accepted_submission_fast_path<S, B>(
     store: Arc<S>,
     backend: Arc<B>,
     sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
-    learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
+    student_submission_status: Arc<dyn StudentSubmissionStatusStore>,
     automated_grading: Arc<dyn AutomatedGradingStore>,
     accepted_submission_fast_path: Arc<dyn AcceptedSubmissionFastPath>,
 ) -> Router
@@ -84,7 +82,6 @@ where
         + CatalogStore
         + CourseAppearanceStore
         + CourseItemAnalysisStore
-        + ManualGradingStore
         + SessionStore
         + AuthoritativeTimeStore
         + 'static,
@@ -116,11 +113,6 @@ where
             get(get_submission_status::<S, B>),
         )
         .route(
-            "/api/attempts/{attempt}/manual-grade",
-            get(manual_grading::get_manual_grade::<S, B>)
-                .put(manual_grading::put_manual_grade::<S, B>),
-        )
-        .route(
             "/api/attempts/{attempt}/feedback-release",
             post(release_attempt_feedback::<S, B>),
         )
@@ -138,7 +130,7 @@ where
             store,
             backend,
             sealed_execution,
-            learner_submission_status,
+            student_submission_status,
             automated_grading,
             accepted_submission_fast_path,
         })
@@ -150,7 +142,7 @@ async fn start_run<S, B>(
     headers: HeaderMap,
 ) -> Response
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store + CatalogStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -163,7 +155,7 @@ where
         .start_or_resume_run(
             authenticated.tenant_context,
             actor,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::generate(),
         )
         .await
@@ -180,7 +172,7 @@ where
     } else {
         match state
             .store
-            .learner_pending_submission_for_run(authenticated.tenant_context, actor, run.id)
+            .student_pending_submission_for_run(authenticated.tenant_context, actor, run.id)
             .await
         {
             Ok(value) => value,
@@ -215,7 +207,7 @@ where
             state.store.as_ref(),
             state.backend.as_ref(),
             &authenticated,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             &run,
             predecessor,
         )

@@ -1,7 +1,7 @@
 //! Current, course-local item-analysis projections.
 //!
 //! These records deliberately contain aggregate buckets only. They never
-//! retain learner identity, raw responses, answer choices, or object keys.
+//! retain Student identity, raw responses, answer choices, or object keys.
 
 use question_model::{
     ActivityTimestamp, AssignmentId, AssignmentItemId, CourseId, ProblemVersionRef,
@@ -11,24 +11,22 @@ use serde::{Deserialize, Serialize};
 
 /// Aggregate response category safe to persist in a course-local report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum ItemAnalysisResponseBucket {
     Correct,
     Partial,
     Incorrect,
     Unanswered,
-    PendingManual,
 }
 
 /// Counts for the fixed, non-identifying item-analysis response categories.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct ItemAnalysisResponseDistribution {
     pub correct: u32,
     pub partial: u32,
     pub incorrect: u32,
     pub unanswered: u32,
-    pub pending_manual: u32,
 }
 
 impl ItemAnalysisResponseDistribution {
@@ -39,14 +37,13 @@ impl ItemAnalysisResponseDistribution {
             ItemAnalysisResponseBucket::Partial => self.partial,
             ItemAnalysisResponseBucket::Incorrect => self.incorrect,
             ItemAnalysisResponseBucket::Unanswered => self.unanswered,
-            ItemAnalysisResponseBucket::PendingManual => self.pending_manual,
         }
     }
 }
 
 /// One current aggregate row for an item delivered by an assignment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct AssignmentItemAnalysis {
     pub tenant: TenantId,
     pub course: CourseId,
@@ -57,7 +54,10 @@ pub struct AssignmentItemAnalysis {
     pub analyzed_at: ActivityTimestamp,
     pub graded_attempt_count: u32,
     pub unanswered_attempt_count: u32,
-    pub pending_manual_attempt_count: u32,
+    /// Submitted attempts whose automated evaluation has not produced a
+    /// coherent score. These attempts are intentionally outside the response
+    /// distribution: no score-derived bucket is truthful yet.
+    pub unscored_attempt_count: u32,
     /// Fraction of graded attempts with full current credit.
     pub difficulty: Option<f64>,
     /// Mean current credit fraction among graded attempts.
@@ -67,14 +67,14 @@ pub struct AssignmentItemAnalysis {
     /// Pearson correlation between item credit and rest-of-run credit.
     pub discrimination: Option<f64>,
     pub response_distribution: ItemAnalysisResponseDistribution,
-    /// Mean elapsed milliseconds for submitted runs that delivered this item.
-    /// Manual grading time is excluded; the terminal student submission is authoritative.
+    /// Mean elapsed milliseconds from the terminal Student submission for runs
+    /// that delivered this item.
     pub average_completion_time_millis: Option<u64>,
 }
 
 /// Current report header and all item rows for one course assignment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct CourseItemAnalysisReport {
     pub tenant: TenantId,
     pub course: CourseId,
@@ -83,7 +83,9 @@ pub struct CourseItemAnalysisReport {
     pub analyzed_at: ActivityTimestamp,
     pub completed_run_count: u32,
     pub in_progress_run_count: u32,
-    pub incomplete_manual_grading: bool,
+    /// A terminal submitted attempt lacks a coherent automated score.
+    /// Score-derived assignment metrics remain suppressed while this is true.
+    pub incomplete_scoring: bool,
     /// Derived at read time from the stored source generation and current scoring state.
     pub recent_rescoring: bool,
     pub assignment_average_score: Option<f64>,
@@ -91,14 +93,16 @@ pub struct CourseItemAnalysisReport {
     pub items: Vec<AssignmentItemAnalysis>,
 }
 
-/// Private aggregate inputs stripped of all learner and response identity.
+/// Private aggregate inputs stripped of all Student and response identity.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ItemAnalysisMetricInput {
     pub graded_credits: Vec<f64>,
     pub graded_correct: Vec<bool>,
     pub rest_of_run_credits: Vec<f64>,
     pub unanswered_attempt_count: u32,
-    pub pending_manual_attempt_count: u32,
+    /// Internal aggregate input for report completeness. It deliberately does
+    /// not enter a response bucket.
+    pub unscored_attempt_count: u32,
     pub completion_times_millis: Vec<u64>,
 }
 
@@ -142,7 +146,7 @@ impl std::error::Error for ItemAnalysisMetricError {}
 
 /// Calculates current-only item metrics from identity-free aggregate inputs.
 ///
-/// Credits must be finite and within the manual-credit contract; invalid
+/// Credits must be finite and within the automated scoring contract; invalid
 /// values are rejected rather than silently affecting an instructor report.
 pub fn calculate_item_analysis_metrics(
     input: &ItemAnalysisMetricInput,
@@ -218,7 +222,6 @@ pub fn calculate_item_analysis_metrics(
             partial,
             incorrect,
             unanswered: input.unanswered_attempt_count,
-            pending_manual: input.pending_manual_attempt_count,
         },
     })
 }
@@ -284,7 +287,7 @@ mod tests {
             graded_correct: vec![true, false, false],
             rest_of_run_credits: vec![1.0, 0.5, 0.0],
             unanswered_attempt_count: 2,
-            pending_manual_attempt_count: 1,
+            unscored_attempt_count: 1,
             completion_times_millis: vec![1_000, 2_001],
         })
         .expect("valid metrics");
@@ -295,7 +298,6 @@ mod tests {
         assert_eq!(metrics.response_distribution.partial, 1);
         assert_eq!(metrics.response_distribution.incorrect, 1);
         assert_eq!(metrics.response_distribution.unanswered, 2);
-        assert_eq!(metrics.response_distribution.pending_manual, 1);
         assert_eq!(metrics.average_completion_time_millis, Some(1_500));
         assert_eq!(metrics.discrimination, Some(1.0));
     }

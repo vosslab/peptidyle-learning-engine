@@ -2,14 +2,17 @@
 
 use anyhow::{Context, Result, bail};
 use base_course_installation::{
+    AcceptedSubmissionSeedExecutor, AcceptedSubmissionSeedOutcome, AcceptedSubmissionSeedRequest,
     BaseCourseInstallPhase, BaseCourseInstallRequest, BaseCourseParticipants,
 };
 use question_model::{TenantId, UserId};
+use std::sync::Arc;
+use std::time::Duration;
 use uuid::Uuid;
 
 use crate::postgres_store;
 
-const USAGE: &str = "usage: cargo tools base-course --tenant <UUID> --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID> --sysadmin <UUID> --lifecycle-phase <prepare|install> [--storage-receipt <canonical JSON>] (requires child-only PLE_BASE_COURSE_INSTALLER_DATABASE_URL and PLE_BASE_COURSE_APP_DATABASE_URL; PLE_BASE_COURSE_DEPLOYMENT_MODE defaults to production and accepts local)";
+const USAGE: &str = "usage: cargo tools base-course --tenant <UUID> --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID> --sysadmin <UUID> --lifecycle-phase <prepare|install> [--storage-receipt <canonical JSON>] (requires child-only installer, application, and accepted-submission fast-path database URLs; PLE_BASE_COURSE_DEPLOYMENT_MODE defaults to production and accepts local)";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DeploymentMode {
@@ -34,6 +37,7 @@ struct Arguments {
     deployment_mode: DeploymentMode,
     installer_database_url: String,
     application_database_url: String,
+    fast_path_database_url: String,
     participants: BaseCourseParticipants,
     phase: BaseCourseInstallPhase,
 }
@@ -44,10 +48,11 @@ pub(crate) fn run(args: &[String]) -> Result<()> {
         println!("{USAGE}");
         return Ok(());
     }
-    let arguments = parse_arguments_with_database_urls(
+    let arguments = parse_arguments_with_database_urls_and_fast_path(
         args,
         std::env::var("PLE_BASE_COURSE_INSTALLER_DATABASE_URL").ok(),
         std::env::var("PLE_BASE_COURSE_APP_DATABASE_URL").ok(),
+        std::env::var("PLE_BASE_COURSE_FAST_PATH_DATABASE_URL").ok(),
         std::env::var("PLE_BASE_COURSE_DEPLOYMENT_MODE").ok(),
     )?;
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -63,27 +68,48 @@ pub(crate) fn run(args: &[String]) -> Result<()> {
 }
 
 async fn invoke(arguments: Arguments) -> Result<base_course_installation::BaseCourseInstallOutput> {
-    let (installer_pool, application_pool) = database_pools(
+    let (installer_pool, application_pool, fast_path_pool) = database_pools(
         arguments.deployment_mode,
         &arguments.installer_database_url,
         &arguments.application_database_url,
-    )?;
+        &arguments.fast_path_database_url,
+    )
+    .await?;
     let store = postgres_store::configured_postgres_store(application_pool)?;
     let request = BaseCourseInstallRequest::new(arguments.participants, arguments.phase);
-    base_course_installation::install(&installer_pool, &store, request)
+    let executor = SeedExecutor::new(store.clone(), fast_path_pool)?;
+    base_course_installation::install(&installer_pool, &store, &executor, request)
         .await
         .context("installing the Base Course")
 }
 
 #[cfg(test)]
 fn parse_arguments(args: &[String]) -> Result<Arguments> {
-    parse_arguments_with_database_urls(args, None, None, None)
+    parse_arguments_with_database_urls(args, None, None, None, None)
 }
 
+#[cfg(test)]
 fn parse_arguments_with_database_urls(
     args: &[String],
     installer_database_url: Option<String>,
     application_database_url: Option<String>,
+    fast_path_database_url: Option<String>,
+    deployment_mode: Option<String>,
+) -> Result<Arguments> {
+    parse_arguments_with_database_urls_and_fast_path(
+        args,
+        installer_database_url,
+        application_database_url,
+        fast_path_database_url,
+        deployment_mode,
+    )
+}
+
+fn parse_arguments_with_database_urls_and_fast_path(
+    args: &[String],
+    installer_database_url: Option<String>,
+    application_database_url: Option<String>,
+    fast_path_database_url: Option<String>,
     deployment_mode: Option<String>,
 ) -> Result<Arguments> {
     let mut tenant = None;
@@ -153,18 +179,23 @@ fn parse_arguments_with_database_urls(
         application_database_url: application_database_url.ok_or_else(|| {
             anyhow::anyhow!("PLE_BASE_COURSE_APP_DATABASE_URL is required; {USAGE}")
         })?,
+        fast_path_database_url: fast_path_database_url.ok_or_else(|| {
+            anyhow::anyhow!("PLE_BASE_COURSE_FAST_PATH_DATABASE_URL is required; {USAGE}")
+        })?,
         participants,
         phase,
     })
 }
 
-fn database_pools(
+async fn database_pools(
     deployment_mode: DeploymentMode,
     installer_database_url: &str,
     application_database_url: &str,
+    fast_path_database_url: &str,
 ) -> Result<(
     learning_data_access::postgres::BaseCourseInstallerPool,
     learning_data_access::postgres::Pool,
+    learning_data_access::postgres::AcceptedSubmissionFastPathPool,
 )> {
     match deployment_mode {
         DeploymentMode::Production => Ok((
@@ -172,6 +203,11 @@ fn database_pools(
                 .context("invalid production Base Course installer database authority")?,
             learning_data_access::postgres::base_course_application_pool(application_database_url)
                 .context("invalid production Base Course application database authority")?,
+            learning_data_access::postgres::base_course_accepted_submission_fast_path_pool(
+                fast_path_database_url,
+            )
+            .await
+            .context("invalid production Base Course accepted-submission fast-path authority")?,
         )),
         DeploymentMode::Local => Ok((
             learning_data_access::postgres::local_base_course_installer_pool(
@@ -182,7 +218,119 @@ fn database_pools(
                 application_database_url,
             )
             .context("invalid local Base Course application database authority")?,
+            learning_data_access::postgres::local_base_course_accepted_submission_fast_path_pool(
+                fast_path_database_url,
+            )
+            .await
+            .context("invalid local Base Course accepted-submission fast-path authority")?,
         )),
+    }
+}
+
+struct SeedExecutor {
+    store: learning_data_access::postgres::PostgresStore,
+    automated: Arc<learning_data_access::postgres::PostgresStore>,
+    fast_path: Arc<dyn server_core::accepted_submission_worker::AcceptedSubmissionFastPath>,
+}
+
+impl SeedExecutor {
+    fn new(
+        store: learning_data_access::postgres::PostgresStore,
+        fast_path_pool: learning_data_access::postgres::AcceptedSubmissionFastPathPool,
+    ) -> Result<Self> {
+        let automated = Arc::new(store.clone());
+        let backend = server_core::native_backend::NativeBackend::new(
+            Arc::new(adapter_native::NativeAdapter::new()),
+            Arc::clone(&automated),
+        );
+        let settings = server_core::worker::WorkerSettings::new(120, Duration::from_secs(45), 1)
+            .context("constructing Base Course accepted-submission worker settings")?;
+        let worker = server_core::accepted_submission_worker::AcceptedSubmissionExecutionWorker::new(
+            learning_data_access::postgres::PostgresAcceptedSubmissionFastPathStore::from_fast_path_pool(fast_path_pool),
+            backend,
+            learning_data_access::WorkerId::from_uuid(Uuid::new_v4()),
+            settings,
+        )
+        .context("constructing Base Course accepted-submission fast path")?;
+        Ok(Self {
+            store,
+            automated,
+            fast_path: Arc::new(worker),
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl AcceptedSubmissionSeedExecutor for SeedExecutor {
+    async fn execute_seed_submission(
+        &self,
+        request: AcceptedSubmissionSeedRequest,
+    ) -> Result<AcceptedSubmissionSeedOutcome, learning_data_access::StoreError> {
+        let context = request.context;
+        let outcome = server_core::accepted_submission_service::accept_and_execute(
+            &self.store,
+            self.automated.as_ref(),
+            self.fast_path.as_ref(),
+            server_core::accepted_submission_service::AcceptedSubmissionRequest {
+                context: request.context,
+                actor: request.actor,
+                binding: request.binding,
+                attempt: request.attempt,
+                response: request.response,
+                idempotency_key: request.idempotency_key,
+            },
+        )
+        .await?;
+        match outcome {
+            server_core::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Executed {
+                result:
+                    server_core::accepted_submission_worker::AcceptedSubmissionHandlerResult::Committed,
+                scoring_recalculation: Some(job),
+                ..
+            } => {
+                let settings = server_core::worker::WorkerSettings::new(
+                    120,
+                    Duration::from_secs(45),
+                    1,
+                )?;
+                match server_core::scoring_worker::execute_exact_assignment_scoring(
+                    Arc::clone(&self.automated),
+                    context,
+                    job,
+                    settings,
+                )
+                .await?
+                {
+                    server_core::scoring_worker::ExactAssignmentScoringOutcome::Completed => {
+                        Ok(AcceptedSubmissionSeedOutcome::Completed)
+                    }
+                    server_core::scoring_worker::ExactAssignmentScoringOutcome::Pending => {
+                        Ok(AcceptedSubmissionSeedOutcome::PendingRecovery)
+                    }
+                }
+            }
+            server_core::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Replay(_) => {
+                Ok(AcceptedSubmissionSeedOutcome::Completed)
+            }
+            server_core::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Pending {
+                reason:
+                    server_core::accepted_submission_service::AcceptedSubmissionPendingReason::AlreadyAccepted,
+                ..
+            } => {
+                Ok(AcceptedSubmissionSeedOutcome::PendingRecovery)
+            }
+            server_core::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Pending {
+                reason:
+                    server_core::accepted_submission_service::AcceptedSubmissionPendingReason::FastPathFailed(error),
+                ..
+            } => Err(error),
+            server_core::accepted_submission_service::AcceptedSubmissionApplicationOutcome::Executed {
+                result,
+                ..
+            } => Err(learning_data_access::StoreError::Unavailable(format!(
+                "Base Course accepted-submission fast path returned {result:?}"
+            ))),
+        }
     }
 }
 
@@ -219,18 +367,20 @@ mod tests {
         ]
     }
 
-    fn child_urls() -> (Option<String>, Option<String>) {
+    fn child_urls() -> (Option<String>, Option<String>, Option<String>) {
         (
             Some("postgres://ple_base_course_installer_login:secret@db/ple".to_string()),
             Some("postgres://ple_base_course_app_login:secret@db/ple".to_string()),
+            Some("not-a-database-url".to_string()),
         )
     }
 
-    fn production_urls() -> (String, String) {
+    fn production_urls() -> (String, String, String) {
         (
             "postgres://ple_base_course_installer_login:secret@db/ple?sslmode=verify-full"
                 .to_string(),
             "postgres://ple_base_course_app_login:secret@db/ple?sslmode=verify-full".to_string(),
+            "not-a-database-url".to_string(),
         )
     }
 
@@ -238,9 +388,10 @@ mod tests {
     fn prepare_maps_to_the_receipt_free_typed_phase() {
         let mut args = common_args();
         args.extend(["--lifecycle-phase".into(), "prepare".into()]);
-        let (installer, application) = child_urls();
+        let (installer, application, fast_path) = child_urls();
         let parsed =
-            parse_arguments_with_database_urls(&args, installer, application, None).unwrap();
+            parse_arguments_with_database_urls(&args, installer, application, fast_path, None)
+                .unwrap();
 
         assert!(matches!(parsed.phase, BaseCourseInstallPhase::Prepare));
         assert_eq!(
@@ -266,9 +417,10 @@ mod tests {
             "--storage-receipt".into(),
             "receipt".into(),
         ]);
-        let (installer, application) = child_urls();
+        let (installer, application, fast_path) = child_urls();
         let parsed =
-            parse_arguments_with_database_urls(&args, installer, application, None).unwrap();
+            parse_arguments_with_database_urls(&args, installer, application, fast_path, None)
+                .unwrap();
         assert!(matches!(
             parsed.phase,
             BaseCourseInstallPhase::Install { storage_receipt_json } if storage_receipt_json == "receipt"
@@ -284,18 +436,25 @@ mod tests {
             "--storage-receipt".into(),
             "receipt".into(),
         ]);
-        let (installer, application) = child_urls();
+        let (installer, application, fast_path) = child_urls();
         assert!(
-            parse_arguments_with_database_urls(&prepare_with_receipt, installer, application, None)
-                .is_err()
+            parse_arguments_with_database_urls(
+                &prepare_with_receipt,
+                installer,
+                application,
+                fast_path,
+                None
+            )
+            .is_err()
         );
 
         let mut collision = common_args();
         collision[5] = "00000000-0000-0000-0000-000000000002".into();
         collision.extend(["--lifecycle-phase".into(), "prepare".into()]);
-        let (installer, application) = child_urls();
+        let (installer, application, fast_path) = child_urls();
         assert!(
-            parse_arguments_with_database_urls(&collision, installer, application, None).is_err()
+            parse_arguments_with_database_urls(&collision, installer, application, fast_path, None)
+                .is_err()
         );
     }
 
@@ -307,6 +466,7 @@ mod tests {
             &args,
             Some("postgres://installer-child-only".to_string()),
             Some("postgres://application-child-only".to_string()),
+            Some("postgres://fast-path-child-only".to_string()),
             Some("local".to_string()),
         )
         .unwrap();
@@ -318,11 +478,16 @@ mod tests {
             parsed.application_database_url,
             "postgres://application-child-only"
         );
+        assert_eq!(
+            parsed.fast_path_database_url,
+            "postgres://fast-path-child-only"
+        );
         assert!(
             parse_arguments_with_database_urls(
                 &args,
                 None,
                 Some("postgres://app".to_string()),
+                Some("postgres://fast-path".to_string()),
                 None
             )
             .is_err()
@@ -331,6 +496,17 @@ mod tests {
             parse_arguments_with_database_urls(
                 &args,
                 Some("postgres://installer".to_string()),
+                None,
+                Some("postgres://fast-path".to_string()),
+                None,
+            )
+            .is_err()
+        );
+        assert!(
+            parse_arguments_with_database_urls(
+                &args,
+                Some("postgres://installer".to_string()),
+                Some("postgres://app".to_string()),
                 None,
                 None,
             )
@@ -343,27 +519,30 @@ mod tests {
     fn deployment_mode_defaults_to_production_and_local_is_explicit() {
         let mut args = common_args();
         args.extend(["--lifecycle-phase".into(), "prepare".into()]);
-        let (installer, application) = child_urls();
-        let production = parse_arguments_with_database_urls(&args, installer, application, None)
-            .expect("production is the safe default");
+        let (installer, application, fast_path) = child_urls();
+        let production =
+            parse_arguments_with_database_urls(&args, installer, application, fast_path, None)
+                .expect("production is the safe default");
         assert_eq!(production.deployment_mode, DeploymentMode::Production);
 
-        let (installer, application) = child_urls();
+        let (installer, application, fast_path) = child_urls();
         let local = parse_arguments_with_database_urls(
             &args,
             installer,
             application,
+            fast_path,
             Some("local".to_string()),
         )
         .expect("local mode is explicit");
         assert_eq!(local.deployment_mode, DeploymentMode::Local);
 
-        let (installer, application) = child_urls();
+        let (installer, application, fast_path) = child_urls();
         assert!(
             parse_arguments_with_database_urls(
                 &args,
                 installer,
                 application,
+                fast_path,
                 Some("development".to_string()),
             )
             .is_err()
@@ -371,35 +550,49 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn database_pools_select_dedicated_application_factories_for_each_mode() {
-        let (installer, application) = child_urls();
+    async fn database_pools_require_the_three_closed_database_capabilities() {
+        let (installer, application, fast_path) = child_urls();
         assert!(
             database_pools(
                 DeploymentMode::Production,
                 installer.as_deref().expect("installer URL"),
                 application.as_deref().expect("application URL"),
+                fast_path.as_deref().expect("fast-path URL"),
             )
+            .await
             .is_err()
         );
 
-        let (installer, application) = production_urls();
-        let (_, production_application) =
-            database_pools(DeploymentMode::Production, &installer, &application).unwrap();
-        let (installer, application) = child_urls();
-        let (_, local_application) = database_pools(
-            DeploymentMode::Local,
-            installer.as_deref().expect("installer URL"),
-            application.as_deref().expect("application URL"),
-        )
-        .unwrap();
-        assert_eq!(production_application.options().get_max_connections(), 1);
-        assert_eq!(local_application.options().get_max_connections(), 1);
+        let (installer, application, fast_path) = production_urls();
+        assert!(
+            database_pools(
+                DeploymentMode::Production,
+                &installer,
+                &application,
+                &fast_path
+            )
+            .await
+            .is_err()
+        );
+        let (installer, application, fast_path) = child_urls();
+        assert!(
+            database_pools(
+                DeploymentMode::Local,
+                installer.as_deref().expect("installer URL"),
+                application.as_deref().expect("application URL"),
+                fast_path.as_deref().expect("fast-path URL"),
+            )
+            .await
+            .is_err()
+        );
         assert!(
             database_pools(
                 DeploymentMode::Local,
                 application.as_deref().expect("application URL"),
                 installer.as_deref().expect("installer URL"),
+                fast_path.as_deref().expect("fast-path URL"),
             )
+            .await
             .is_err()
         );
     }

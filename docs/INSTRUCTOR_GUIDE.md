@@ -148,9 +148,11 @@ conflict.
 The gradebook totals view is a compact server projection. It uses one scheme snapshot and maintained
 assignment summaries, and reports a score or an explicit unavailable state such as recalculating,
 failed, empty after drop, or zero possible points. The browser does not recompute totals. The course
-**Export grades CSV** action is synchronous and bounded to 500 active-student rows. Email and display
-name are used only in the ephemeral instructor download; the durable export audit stores no learner
-PII, only course, actor, revision, mode, rounding, row count, and timestamp metadata.
+**Export grades CSV** action is synchronous and bounded to 500 active-student rows. The protected
+display name appears in both Instructor views; roster ID and email remain export-only. An optional
+roster ID or email that was not collected is an empty CSV field rather than a reason to hide
+calculated totals. The durable export audit stores no Student PII, only course, actor, revision,
+mode, rounding, row count, and timestamp metadata.
 
 This is an accepted capability. Connected evidence runs under the fixed
 `ple-live-demo-browser` owner: one canonical production-browser invocation is

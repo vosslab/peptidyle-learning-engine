@@ -10,7 +10,6 @@ import type { TeachingOperationRevision } from "../../generated/api/TeachingOper
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
 import type { ApiClient } from "../api/client";
 import { ApiRequestError } from "../api/http_client/error";
-import { CourseManagementNav } from "../components/course_management_nav";
 import type { AssignmentRouteReference, CourseRouteReference } from "../navigation/public_route";
 import { ModifierDialog } from "./assignment_access/modifier_dialog";
 import {
@@ -270,7 +269,6 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     >
       <p class="eyebrow">Instructor assignment settings</p>
       <h1>Access and modifiers</h1>
-      <CourseManagementNav courseReference={props.courseReference} active="assignments" />
       <A
         class="quiet-link"
         href={`/instructor/courses/${props.courseReference}/assignments/${props.assignmentReference}/policies`}

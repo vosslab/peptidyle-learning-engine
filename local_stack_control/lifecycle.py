@@ -629,23 +629,23 @@ def prepare_installed_base_course(
 	| local_stack_control.models.DisposableComposeTarget,
 	values: dict[str, str],
 	environment: dict[str, str],
-	base_course_database_urls: tuple[str, str] | None,
+	base_course_database_urls: tuple[str, str, str] | None,
 ) -> BaseCourseLifecycleReceipt | None:
 	"""Classify the migrated Base Course state before starting object storage."""
 	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		return None
-	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
+	installer_database_url, app_database_url, fast_path_database_url = local_stack_control.base_course_logins.require_urls(
 		base_course_database_urls
 	)
 	child = local_stack_control.base_course_logins.child_environment(
-		environment, values, installer_database_url, app_database_url
+		environment, values, installer_database_url, app_database_url, fast_path_database_url
 	)
 	result = run_base_course_phase(
 		runner,
 		repo_root,
 		child,
 		"prepare",
-		private_values=(installer_database_url, app_database_url),
+		private_values=(installer_database_url, app_database_url, fast_path_database_url),
 	)
 	return result
 
@@ -659,7 +659,7 @@ def finalize_installed_base_course(
 	values: dict[str, str],
 	environment: dict[str, str],
 	preparation: BaseCourseLifecycleReceipt | None,
-	base_course_database_urls: tuple[str, str] | None,
+	base_course_database_urls: tuple[str, str, str] | None,
 ) -> None:
 	"""Finish an installing baseline after ordinary object-storage readiness."""
 	if preparation is None:
@@ -671,11 +671,11 @@ def finalize_installed_base_course(
 	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
 		selected, runner, preparation, child_environment(selected)
 	)
-	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
+	installer_database_url, app_database_url, fast_path_database_url = local_stack_control.base_course_logins.require_urls(
 		base_course_database_urls
 	)
 	child = local_stack_control.base_course_logins.child_environment(
-		environment, values, installer_database_url, app_database_url
+		environment, values, installer_database_url, app_database_url, fast_path_database_url
 	)
 	completed = run_base_course_phase(
 		runner,
@@ -683,7 +683,7 @@ def finalize_installed_base_course(
 		child,
 		"install",
 		preparation.storage_receipt_json,
-		private_values=(installer_database_url, app_database_url),
+		private_values=(installer_database_url, app_database_url, fast_path_database_url),
 	)
 	if completed.install_state != "complete":
 		raise local_stack_control.models.ControllerError(

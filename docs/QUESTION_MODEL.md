@@ -306,23 +306,25 @@ identifier, which keeps unusual terms representable as themselves.
 
 ## Wire format
 
-Serialization is JSON with camelCase field names. Enums carrying data are
-internally tagged, so a client can switch on one discriminant:
+**Current pre-WN1 behavior:** serialization is JSON with camelCase field names. WN1-A assigns each
+public serializable type to one atomic `WN1-QM` closure after C routes project route-only values to
+`browser-api-contract`. The approved target uses direct `snake_case` Rust and TypeScript data-object
+properties. Enums carrying data are internally tagged, so a client can switch on one discriminant:
 
 ```json
-{ "kind": "perAttempt", "seconds": 1800, "graceSeconds": 30 }
+{ "kind": "per_attempt", "seconds": 1800, "grace_seconds": 30 }
 ```
 
 Unit-only enums serialize as plain strings:
 
 ```json
-"caseInsensitive"
+"case_insensitive"
 ```
 
 Two serde rules are in play and are easy to confuse. On an enum, `rename_all`
 renames the _variants_, while `rename_all_fields` renames the fields _inside_
-variants. Both are set on every tagged enum here so the whole wire format is
-camelCase.
+variants. Both move with their complete type closure so fields and portable values become snake_case
+together; WN1-B does not change their effective Serde spelling.
 
 ### Flat-question authoring source
 

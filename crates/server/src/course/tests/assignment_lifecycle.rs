@@ -417,7 +417,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             UpsertCourseMember {
                 course,
                 user: student,
-                display_name: "Biochemistry Learner".to_string(),
+                display_name: "Biochemistry Student".to_string(),
                 roster_contact: None,
             },
         )
@@ -426,13 +426,13 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
 
     let gradebook = app
         .clone()
-        .oneshot(
+        .oneshot(super::gradebook_route_support::same_origin(
             Request::builder()
                 .uri(format!("/api/courses/{course}/gradebook"))
                 .header("cookie", &instructor_cookie)
                 .body(Body::empty())
                 .expect("gradebook request"),
-        )
+        ))
         .await
         .expect("gradebook response");
     assert_eq!(gradebook.status(), StatusCode::OK);
@@ -444,21 +444,19 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         Some("no-store")
     );
     let gradebook = response_json(gradebook).await;
-    let rows = gradebook["items"].as_array().expect("gradebook rows");
-    assert!(
-        rows.is_empty(),
-        "a published assignment has no gradebook row until learner activity creates a summary"
-    );
+    assert_eq!(gradebook["kind"], "page");
+    let rows = gradebook["rows"].as_array().expect("gradebook rows");
+    assert_eq!(rows[0]["displayLabel"], "Biochemistry Student");
 
     let sysadmin_gradebook = app
         .clone()
-        .oneshot(
+        .oneshot(super::gradebook_route_support::same_origin(
             Request::builder()
                 .uri(format!("/api/courses/{course}/gradebook"))
                 .header("cookie", &sysadmin_cookie)
                 .body(Body::empty())
                 .expect("sysadmin gradebook request"),
-        )
+        ))
         .await
         .expect("sysadmin gradebook response");
     assert_eq!(
@@ -469,26 +467,30 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
 
     let student_gradebook = app
         .clone()
-        .oneshot(
+        .oneshot(super::gradebook_route_support::same_origin(
             Request::builder()
                 .uri(format!("/api/courses/{course}/gradebook"))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("student gradebook request"),
-        )
+        ))
         .await
         .expect("student gradebook response");
-    assert_eq!(student_gradebook.status(), StatusCode::FORBIDDEN);
+    assert_eq!(
+        student_gradebook.status(),
+        StatusCode::NOT_FOUND,
+        "Student status must not disclose the Instructor Gradebook surface"
+    );
 
     let outsider_gradebook = app
         .clone()
-        .oneshot(
+        .oneshot(super::gradebook_route_support::same_origin(
             Request::builder()
                 .uri(format!("/api/courses/{course}/gradebook"))
                 .header("cookie", &outsider_cookie)
                 .body(Body::empty())
                 .expect("outsider gradebook request"),
-        )
+        ))
         .await
         .expect("outsider gradebook response");
     assert_eq!(outsider_gradebook.status(), StatusCode::NOT_FOUND);
@@ -905,13 +907,13 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
 
     let archived_gradebook = app
         .clone()
-        .oneshot(
+        .oneshot(super::gradebook_route_support::same_origin(
             Request::builder()
                 .uri(format!("/api/courses/{course}/gradebook"))
                 .header("cookie", &instructor_cookie)
                 .body(Body::empty())
                 .expect("archived gradebook request"),
-        )
+        ))
         .await
         .expect("archived gradebook response");
     assert_eq!(archived_gradebook.status(), StatusCode::NOT_FOUND);

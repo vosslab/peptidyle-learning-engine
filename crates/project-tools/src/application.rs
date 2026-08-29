@@ -11,7 +11,7 @@
 //! ```text
 //! cargo tools bindgen <input.wasm> <web|node> <out-dir> <out-name>
 //! cargo tools fixtures <--check|--write>
-//! cargo tools tsgen [model-dir] [out-dir]
+//! cargo tools tsgen [out-dir]
 //! cargo tools base-course --database-url <URL> --apply-migrations --tenant <UUID>
 //! --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID>
 //! --sysadmin <UUID>
@@ -29,8 +29,11 @@ use wasm_bindgen_cli_support::Bindgen;
 
 use crate::{base_course, database, e2e_seed, fixtures, pilot_content, tsgen};
 
-/// Where the Rust question model lives, relative to the repo root.
-const DEFAULT_MODEL_DIR: &str = "crates/question_model/src";
+/// Rust roots that own generated browser contract declarations, relative to the repo root.
+const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [
+    "crates/question_model/src",
+    "crates/browser-api-contract/src",
+];
 
 /// Where the generated TypeScript goes, relative to the repo root.
 ///
@@ -78,13 +81,18 @@ fn run_fixtures(args: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// Regenerates the TypeScript definitions for the question model.
+/// Regenerates the TypeScript definitions for the application-owned contract roots.
 fn run_tsgen(args: &[String]) -> Result<()> {
-    let model_dir = args.first().map_or(DEFAULT_MODEL_DIR, String::as_str);
-    let out_dir = args.get(1).map_or(DEFAULT_TS_OUT_DIR, String::as_str);
+    let out_dir = match args {
+        [] => DEFAULT_TS_OUT_DIR,
+        [out_dir] => out_dir,
+        _ => bail!("usage: cargo tools tsgen [out-dir]"),
+    };
+    let contract_roots: Vec<&Path> = DEFAULT_CONTRACT_ROOTS.iter().map(Path::new).collect();
+    let root_names = DEFAULT_CONTRACT_ROOTS.join(", ");
 
-    let count = tsgen::run(Path::new(model_dir), Path::new(out_dir))
-        .with_context(|| format!("generating TypeScript from {model_dir}"))?;
+    let count = tsgen::run(&contract_roots, Path::new(out_dir))
+        .with_context(|| format!("generating TypeScript from contract roots {root_names}"))?;
 
     println!("tsgen: wrote {count} type(s) to {out_dir}");
     Ok(())

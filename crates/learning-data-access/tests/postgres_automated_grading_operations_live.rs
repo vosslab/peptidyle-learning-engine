@@ -17,8 +17,8 @@ use broker::{InstructorBroker, app_transaction};
 mod accepted_completion;
 #[path = "postgres_automated_grading_operations_live/assignment_definition.rs"]
 mod assignment_definition;
-#[path = "postgres_automated_grading_operations_live/manual_support.rs"]
-mod manual_support;
+#[path = "postgres_automated_grading_operations_live/attempt_support.rs"]
+mod attempt_support;
 #[path = "postgres_automated_grading_operations_live/receipt_integrity.rs"]
 mod receipt_integrity;
 #[path = "postgres_automated_grading_operations_live/recovery_worker.rs"]
@@ -48,10 +48,11 @@ use learning_data_access::{
     AcceptedSubmissionCommand, AssignmentRecord, AutomatedGradingStore, CatalogStore, CourseRecord,
     CourseRosterStore, CreateCourseCommand, DraftRecord, FlatGradingCapability,
     GradingOperationGroupBy, GradingOperationStore, IssueQuestionAttemptCommand,
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, JobId, LearnerWorkRoutingBinding,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, JobId,
     ListInstructorGradingOperationsCommand, NativeExecutionEnvelopeCapability, PageRequest,
     PageSize, PresentationCapability, PublishDraftCommand, QtiGradingCapability, SessionTokenHash,
-    Store, SubmissionIdempotencyKey, TenantContext, UpsertCourseMember, WebworkGradingCapability,
+    Store, StudentWorkRoutingBinding, SubmissionIdempotencyKey, TenantContext, UpsertCourseMember,
+    WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -277,7 +278,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
                 scoring_mode: AssignmentScoringMode::Normal,
             }],
             selection_groups: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         BaseAssignmentPolicy::default(),
@@ -317,7 +318,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         .start_or_resume_run(
             context,
             student,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(fresh_uuid()),
         )
         .await
@@ -328,7 +329,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
-                binding: LearnerWorkRoutingBinding::new(course, assignment),
+                binding: StudentWorkRoutingBinding::new(course, assignment),
                 attempt,
                 run: run.id,
                 assignment_position: 0,
@@ -808,7 +809,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
     )
     .await;
     let learner_summary = store
-        .learner_get_summary(
+        .student_get_summary(
             context,
             accepted_completion_origin.student,
             accepted_completion_origin.enrollment,
@@ -831,16 +832,13 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         },
     )
     .await;
-    manual_support::prove_manual_grade_and_support_origins(manual_support::ManualSupportScenario {
+    attempt_support::prove_learner_support_origin(attempt_support::AttemptSupportScenario {
         store: &store,
         pool: &pool,
         context,
         tenant,
         instructor,
-        course,
-        assignment,
-        question,
-        snapshot,
+        attempt: accepted_completion_origin.attempt,
     })
     .await;
 

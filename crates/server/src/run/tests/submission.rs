@@ -5,23 +5,6 @@ use learning_data_access::{
     JobClaimFilter, JobPayload,
 };
 
-struct ClaimLostAcceptedSubmissionFastPath;
-
-#[async_trait::async_trait]
-impl crate::accepted_submission_worker::AcceptedSubmissionFastPath
-    for ClaimLostAcceptedSubmissionFastPath
-{
-    async fn execute_accepted_submission(
-        &self,
-        _: learning_data_access::AcceptedSubmissionExecutionTarget,
-    ) -> Result<
-        crate::accepted_submission_worker::AcceptedSubmissionHandlerResult,
-        learning_data_access::StoreError,
-    > {
-        Ok(crate::accepted_submission_worker::AcceptedSubmissionHandlerResult::ClaimNoLongerActive)
-    }
-}
-
 async fn publish_assignment_scoring(store: &MemoryStore) {
     let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(1)));
     let claim = store
@@ -56,157 +39,6 @@ async fn publish_assignment_scoring(store: &MemoryStore) {
             .expect("commit assignment scoring"),
         AssignmentScoringCommitOutcome::Committed | AssignmentScoringCommitOutcome::Superseded
     ));
-}
-
-#[tokio::test]
-async fn valid_first_submission_executes_once_and_returns_the_shared_completed_projection() {
-    let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
-    let sealed = Arc::new(CountingSealedExecution {
-        inner: sealed_memory(&store),
-        calls: AtomicUsize::new(0),
-        refuse: AtomicBool::new(false),
-    });
-    let app = router_with_accepted_submission_fast_path(
-        Arc::clone(&store),
-        Arc::clone(&backend),
-        sealed.clone(),
-        learner_submission_status(&store),
-        automated_grading(&store),
-        accepted_submission_fast_path(&store, Arc::clone(&backend)),
-    );
-    let attempt = active_attempt_for(
-        &app,
-        CourseId::from_uuid(id(5)),
-        assignment,
-        &student_cookie,
-    )
-    .await;
-    let request = || {
-        Request::builder()
-            .method("POST")
-            .uri(submission_path(
-                CourseId::from_uuid(id(5)),
-                assignment,
-                attempt.id,
-            ))
-            .header("cookie", &student_cookie)
-            .header("content-type", "application/json")
-            .header("idempotency-key", "sealed-replay")
-            .body(Body::from(
-                serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } }).to_string(),
-            ))
-            .expect("submission request")
-    };
-
-    let accepted = app
-        .clone()
-        .oneshot(request())
-        .await
-        .expect("first submission");
-    assert_eq!(accepted.status(), StatusCode::OK);
-    assert_eq!(accepted.headers()["cache-control"], "no-store");
-    let receipt = json(accepted).await;
-    assert_eq!(receipt["kind"], "completed");
-    assert_eq!(receipt["accepted"], true);
-    assert_eq!(receipt["attempt"]["id"], serde_json::json!(attempt.id));
-    assert_eq!(receipt["attempt"]["status"], "submitted");
-    assert_eq!(sealed.calls.load(Ordering::SeqCst), 0);
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
-
-    let status = app
-        .oneshot(
-            Request::builder()
-                .uri(submission_status_path(
-                    CourseId::from_uuid(id(5)),
-                    assignment,
-                    attempt.id,
-                ))
-                .header("cookie", student_cookie)
-                .body(Body::empty())
-                .expect("durable status request"),
-        )
-        .await
-        .expect("durable status response");
-    assert_eq!(status.status(), StatusCode::OK);
-    assert_eq!(json(status).await["kind"], "completed");
-}
-
-#[tokio::test]
-async fn exact_fast_path_claim_loss_returns_the_answer_free_pending_projection() {
-    let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
-    let app = router_with_accepted_submission_fast_path(
-        Arc::clone(&store),
-        Arc::clone(&backend),
-        sealed_memory(&store),
-        learner_submission_status(&store),
-        automated_grading(&store),
-        Arc::new(ClaimLostAcceptedSubmissionFastPath),
-    );
-    let course = CourseId::from_uuid(id(5));
-    let attempt = active_attempt_for(&app, course, assignment, &student_cookie).await;
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(submission_path(course, assignment, attempt.id))
-                .header("cookie", student_cookie)
-                .header("content-type", "application/json")
-                .header("idempotency-key", "exact-claim-loss")
-                .body(Body::from(
-                    serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } })
-                        .to_string(),
-                ))
-                .expect("submission request"),
-        )
-        .await
-        .expect("submission response");
-
-    assert_eq!(response.status(), StatusCode::ACCEPTED);
-    assert_eq!(response.headers()["cache-control"], "no-store");
-    assert_eq!(json(response).await["kind"], "accepted_pending");
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
-}
-
-#[tokio::test]
-async fn terminal_fast_path_execution_returns_the_shared_instructor_attention_projection() {
-    let (store, _, _app, student_cookie, _, assignment, _) = fixture().await;
-    let backend = Arc::new(NumericBackend {
-        manual_grading_required: true,
-        ..NumericBackend::default()
-    });
-    let app = router_with_accepted_submission_fast_path(
-        Arc::clone(&store),
-        Arc::clone(&backend),
-        sealed_memory(&store),
-        learner_submission_status(&store),
-        automated_grading(&store),
-        accepted_submission_fast_path(&store, Arc::clone(&backend)),
-    );
-    let course = CourseId::from_uuid(id(5));
-    let attempt = active_attempt_for(&app, course, assignment, &student_cookie).await;
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(submission_path(course, assignment, attempt.id))
-                .header("cookie", student_cookie)
-                .header("content-type", "application/json")
-                .header("idempotency-key", "terminal-fast-path")
-                .body(Body::from(
-                    serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } })
-                        .to_string(),
-                ))
-                .expect("submission request"),
-        )
-        .await
-        .expect("submission response");
-
-    assert_eq!(response.status(), StatusCode::ACCEPTED);
-    assert_eq!(response.headers()["cache-control"], "no-store");
-    let body = json(response).await;
-    assert_eq!(body["kind"], "instructor_attention");
-    assert_eq!(body["automatedGradingStatus"], "instructor_attention");
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
@@ -286,8 +118,8 @@ async fn exhausted_incorrect_all_correct_run_reports_in_progress_without_a_succe
         .await
         .expect("summary response");
     let summary = json(summary_response).await;
-    assert_eq!(summary["completedRunCount"], 0);
-    assert_eq!(summary["totalQuestionAttempts"], 1);
+    assert_eq!(summary["completed_run_count"], 0);
+    assert_eq!(summary["total_question_attempts"], 1);
 }
 
 #[tokio::test]
@@ -337,7 +169,7 @@ async fn file_upload_submission_refuses_untrusted_object_key_before_backend_or_s
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(
         json(response).await,
-        serde_json::json!({ "error": "file upload submissions are unavailable" })
+        serde_json::json!({ "error": "graded file upload requires a deterministic server-owned grader" })
     );
     assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
     assert_eq!(
@@ -897,10 +729,10 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
     let summary = json(summary_response).await;
     assert_eq!(
         (
-            summary["scoreState"].as_str(),
-            summary["completedRunCount"].as_u64(),
-            summary["totalQuestionAttempts"].as_u64(),
-            summary["currentScore"].as_f64(),
+            summary["score_state"].as_str(),
+            summary["completed_run_count"].as_u64(),
+            summary["total_question_attempts"].as_u64(),
+            summary["current_score"].as_f64(),
         ),
         (Some("available"), Some(1), Some(1), Some(1.0))
     );
@@ -940,7 +772,7 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .expect("assignment read")
         .expect("fixture assignment");
     let mut disclosure_policy = stored.record.disclosure_policy;
-    disclosure_policy.score = question_model::LearnerDisclosureTiming::Never;
+    disclosure_policy.score = question_model::StudentDisclosureTiming::Never;
     store
         .replace_assignment(
             context,
@@ -974,8 +806,8 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .await
         .expect("withheld summary response");
     let withheld_summary = json(withheld_summary_response).await;
-    assert_eq!(withheld_summary["scoreState"], "withheld");
-    assert!(withheld_summary["currentScore"].is_null());
+    assert_eq!(withheld_summary["score_state"], "withheld");
+    assert!(withheld_summary["current_score"].is_null());
 
     let withheld_run_response = app
         .oneshot(

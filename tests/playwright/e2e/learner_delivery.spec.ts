@@ -9,6 +9,8 @@
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   learner claiming and assignment entry; data-route-surface is defined at
 //   course_assignments_page.tsx:324.
+// - src/pages/gradebook_page.tsx:151 owns the calculated assignment cell and inspect link;
+//   src/pages/student_work_inspection_page.tsx:346 owns the audited detail and return focus route.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -377,6 +379,7 @@ async function observeCompletedRunInFreshSession(
 async function observeInstructorOutcomesAndAccess(
   page: Page,
   assignmentTitle: string,
+  submittedResponse: string,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   // Leave the invitation-era roster instance so the visible return performs a
@@ -399,13 +402,43 @@ async function observeInstructorOutcomesAndAccess(
   // learner work created through Mary's separate authenticated session.
   const learnerScore = page
     .locator("tr.gradebook-row")
-    .filter({ has: page.getByText(assignmentTitle, { exact: true }) })
     .filter({ has: page.getByText("Mary Okafor", { exact: true }) });
   await expect(learnerScore).toHaveCount(1);
-  await expect(learnerScore.locator('[data-label="Best"]')).toHaveText("100%");
-  await expect(learnerScore.locator('[data-label="Latest"]')).toHaveText("100%");
-  await expect(learnerScore.locator('[data-label="Completed"]')).toHaveText(/[1-9]\d*/u);
+  await expect(learnerScore.locator(".gradebook-course-total")).toContainText("100%");
+  const assignmentCell = learnerScore.locator(`[data-label="${assignmentTitle}"]`);
+  await expect(assignmentCell).toContainText("100%");
+  const inspectSubmittedWork = assignmentCell.getByRole("link", {
+    name: "Inspect submitted work",
+    exact: true,
+  });
+  await expect(inspectSubmittedWork).toHaveCount(1);
   await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_instructor_gradebook");
+
+  await inspectSubmittedWork.click();
+  const inspectedWork = page.locator("[data-route-surface=studentWorkInspection]");
+  await expect(inspectedWork).toBeVisible();
+  await expect(
+    inspectedWork.getByRole("heading", { name: assignmentTitle, exact: true }),
+  ).toBeVisible();
+  await expect(inspectedWork.locator(".page-lede")).toContainText("Mary Okafor");
+  await expect(inspectedWork.locator(".page-lede")).toContainText(/submitted run R-[1-9]\d*/u);
+  await expect(inspectedWork.getByRole("region", { name: "Student response" })).toContainText(
+    submittedResponse,
+  );
+  const automatedGrading = inspectedWork.getByRole("region", {
+    name: "Automated grading result",
+  });
+  await expect(automatedGrading).toContainText("Correct");
+  await expect(automatedGrading).toContainText("Scoring generation");
+  const immutableEvidence = inspectedWork.getByText("Immutable evidence", { exact: true });
+  await expect(immutableEvidence).toBeVisible();
+  await immutableEvidence.click();
+  await expect(inspectedWork.getByText("Presentation SHA-256", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Back to Gradebook", exact: true }).click();
+  await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
+  await expect(page).toHaveURL(/#gradebook-cell-M-[1-9]\d*-A-[1-9]\d*$/u);
+  await expect(assignmentCell).toBeFocused();
 
   await page.getByRole("link", { name: "Appearance" }).click();
   await expect(page.locator("[data-route-surface=courseAppearance]")).toBeVisible();
@@ -555,7 +588,7 @@ test("learner delivery: Mary completes and revisits an instructor-created assign
     await freshMaryContext.close();
     contexts.splice(contexts.indexOf(freshMaryContext), 1);
 
-    await observeInstructorOutcomesAndAccess(elena, assignmentTitle, scenarioInput);
+    await observeInstructorOutcomesAndAccess(elena, assignmentTitle, correctChoice, scenarioInput);
 
     expect(pageOrigins.size).toBeGreaterThan(0);
     expect(requestOrigins.size).toBeGreaterThan(0);

@@ -249,6 +249,9 @@ and a second scheduler or a browser-held answer would create competing authority
 journey is Student exception -> Instructor Retry -> ordinary worker -> current Gradebook. Retry
 reuses the accepted private response, advances the execution generation, and leaves the existing
 `1830` enqueue and `1831` current-score publication path as the sole score authority.
+Host-only installation that requires immediate convergence claims the exact typed recalculation
+job returned by accepted completion and executes it through that same scoring worker handler. It
+does not calculate or publish a score through a second path.
 
 **Owner.** `crates/server/src/accepted_submission_worker.rs`,
 `crates/learning-data-access/src/contracts/grading_operations.rs`, and the
@@ -587,6 +590,16 @@ editing; the complete current task and primary save action should fit comfortabl
 **Why.** Task-level hierarchy is easier to teach and operate than a grid of equally padded cards.
 Separating content from policy prevents unrelated fields from competing on one page.
 
+### Instructor course navigation has one spatial owner
+
+**Decision.** The authorized course-route scope owns one Instructor course frame: stable course
+identity, one eight-tab course-management ribbon, and one content origin below it. Individual route
+pages own their task heading and workflow content, not another ribbon or course header.
+
+**Why.** A persistent navigation landmark preserves spatial memory and makes a tab change feel like
+changing tasks inside one course instead of opening an unrelated page. Central ownership also keeps
+nested assignment, Gradebook inspection, and course-setting routes aligned as the product grows.
+
 ### Course appearance derives usable roles from three anchors
 
 **Decision.** A course selects one three-color biome or habitat theme and may add a centered banner
@@ -757,13 +770,20 @@ inspection uses one dedicated Store and PostgreSQL broker that validates the com
 course/membership/assignment/run composite, same-origin Fetch Metadata, and immutable issued
 evidence; writes server-owned student-record access and metadata-only audit facts atomically; then
 returns solution-free `no-store` detail with the Student's submitted response and issued
-presentation. `question_model::presentation::project_durable_response_to_rendered_v1` owns the
-pure conversion from private durable response to closed `InspectedStudentResponseV1` rendering.
+presentation. `question_model::presentation::project_rendered_response_for_inspection_v1` validates
+an accepted browser response against the reconstructed public issue and preserves its exact
+rendered identifiers. `project_durable_response_to_rendered_v1` remains the separate inverse
+projection for callers that possess the original server-private durable binding.
 
-The four G2 migrations close authority independently: `1870` establishes the owner and base ACL;
-`1871` introduces private immutable witness access; `1872` supplies the only app-executable,
-fixed-search-path inspection function with parameter-bound SQL and atomic audit writes; `1873`
-adds evidence-backed indexes while retaining that authority boundary. Generic secure failures write
+Nine focused G2 migrations close their own responsibilities: `1870` establishes the inspection
+owner and base ACL; `1871` introduces private immutable witness access; `1872` supplies the only
+app-executable, fixed-search-path inspection function with parameter-bound SQL and atomic audit
+writes; `1873` records the evidence-backed index decision; `1874` preserves tenant identity when a
+claimed grading job records terminal failure; `1875` aligns the broker's transient PostgreSQL
+rowset names with its typed SQL result; and `1876` adds bounded server-owned Student and assignment
+labels to that same broker projection. `1877` closes exact host-only Base Course scoring
+convergence, and `1878` resolves public grading-operation navigation through the established
+Instructor broker without restoring direct application-table access. Generic secure failures write
 separate server-owned security telemetry and preserve the truthfulness of student-record access
 facts.
 
@@ -772,3 +792,50 @@ one current-summary source. An Instructor needs the exact Student record to teac
 grading work, while course navigation, operation receipts, cursors, logs, and screenshots remain
 answer-free. The explicit audited detail boundary supports both needs with traceable authority and
 without creating another grading authority or record model.
+
+### Inspected work names its Student and assignment
+
+**Decision.** `InspectedStudentWorkDetailV1` includes required server-owned
+`studentDisplayLabel` and `assignmentTitle` fields. The existing audited inspection broker resolves
+the active course roster profile's validated Student display label and the current course assignment
+title after the authorized composite is valid. The one response names the ready inspected detail
+through normal navigation, reload, and direct entry.
+
+**Why.** An Instructor needs the named Student and assignment in the response-bearing detail.
+Making those presentation facts part of its authorized projection gives every entry path the same
+complete context while retaining one inspection request and one authority boundary.
+
+**Consequence.** Migration `2026081876_student_work_inspection_safe_labels.sql` extends only the
+existing broker projection. Labels remain current presentation metadata, use bounded safe display
+contracts, and stay out of audit payloads, access logs, URLs, cursors, return context, and browser
+storage. PostgreSQL and Memory require the same valid, internally consistent values before
+returning detail.
+
+**Owner.** The [audited Student-work and calculated Gradebook plan](active_plans/active/audited_student_work_gradebook_plan.md), the [implementation status registry](active_plans/implementation_status.md), and `InspectedStudentWorkDetailV1` own this contract.
+
+### PLE-owned wire names use direct Serde DTOs
+
+**Decision.** PLE-owned serialized fields and portable discriminant values use readable
+`snake_case`. **Current pre-WN1 source still transports lower-camel fields.** The approved WN1 target
+has pure `crates/browser-api-contract` own route-only DTOs alongside `crates/question_model`; `tsgen`
+emits one direct per-type `Foo` whose properties and portable values equal effective Serde. Feature
+decoders strictly validate that same direct DTO and continue to own semantic, relationship,
+disclosure, range, and opaque-ID validation.
+
+**Why.** One canonical PLE wire dialect aligns Rust, Python, PostgreSQL, durable artifacts, and
+cross-runtime values while retaining TypeScript's language and browser conventions inside the UI.
+The direct DTO makes one declared contract reviewable and keeps protocol acceptance closed.
+
+**Consequence.** HTTP bodies, PLE query parameters, Wasm JSON, and PLE-owned durable artifacts
+converge through their owning producer/consumer family. Current durable JSON, JSONB, canonical
+digest, and evidence producers receive a rebuild, named forward version/migration, or frozen
+historical disposition before change; each accepted transition owns coherence proof. DOM/framework, HTTP, WebAuthn,
+wasm-bindgen, and registered IMathAS, WeBWorK, QTI, H5P, LTI, and provider schemas retain spelling
+owned by their registered protocol at a narrow adapter boundary.
+
+**Owner.** [Wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md)
+and [implementation status registry](active_plans/implementation_status.md) own current execution and
+allocation; `NAMING_CONVENTIONS.md` owns the normative matrix.
+
+**Superseded target.** The earlier paired `Foo`/`FooWire` conversion model is historical decision
+evidence only. The direct Serde DTO is the active WN1 architecture.

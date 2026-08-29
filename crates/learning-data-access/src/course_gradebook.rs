@@ -129,7 +129,7 @@ pub struct AssignmentScoringWitness {
 }
 
 /// One answer-free calculated assignment cell in a Student roster row.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct CalculatedAssignmentCell {
     /// Public assignment locator.
     pub assignment: AssignmentReference,
@@ -150,7 +150,7 @@ pub struct CalculatedAssignmentCell {
 }
 
 /// One roster-first, answer-free calculated Gradebook row.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct CalculatedGradebookRow {
     /// Public course-membership locator for the named Student.
     pub membership: CourseMembershipReference,
@@ -158,6 +158,11 @@ pub struct CalculatedGradebookRow {
     pub display_label: String,
     /// Total derived only by `domain::course_grade::calculate_course_grade`.
     pub outcome: CourseGradeOutcome,
+    /// Public assignment locators dropped by the server-owned calculation.
+    ///
+    /// The domain outcome retains internal IDs for calculation integrity; this
+    /// explicit projection is the only dropped-work identity exposed to HTTP.
+    pub dropped_assignments: Vec<AssignmentReference>,
     /// Cells in current server-owned assignment order.
     pub assignment_cells: Vec<CalculatedAssignmentCell>,
 }
@@ -174,7 +179,7 @@ pub enum GradebookReloadReason {
 }
 
 /// Canonical response for a roster-first calculated Gradebook request.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum CalculatedGradebookResult {
     /// One structural page with its page-local live scoring witness.
     Page(CalculatedGradebookPage),
@@ -183,7 +188,7 @@ pub enum CalculatedGradebookResult {
 }
 
 /// One bounded, roster-ordered calculated Gradebook page.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct CalculatedGradebookPage {
     /// Course-grade scheme revision governing every total on this page.
     pub scheme_revision: CourseGradeSchemeRevision,
@@ -204,7 +209,7 @@ pub struct CalculatedGradebookPage {
 }
 
 /// A named Student choice produced from an operation or Gradebook context.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct StudentSelectionRow {
     /// Public course membership locator for the named Student.
     pub membership: CourseMembershipReference,
@@ -230,6 +235,130 @@ pub enum GradebookSelectionResult {
         rows: Vec<StudentSelectionRow>,
         next_cursor: Option<Cursor>,
     },
+}
+
+/// Server-resolved Gradebook scope for a public grading-operation reference.
+///
+/// The operation reference never grants the browser authority to identify a
+/// Student or assignment.  Storage resolves it inside the authenticated
+/// Instructor's tenant and course boundary before a Gradebook selection read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GradebookOperationSelection {
+    /// A submission-recovery operation identifies one Student and assignment.
+    SingleStudent {
+        membership: CourseMembershipReference,
+        assignment: AssignmentReference,
+    },
+    /// Assignment-wide work requires a bounded roster choice for one assignment.
+    Assignment { assignment: AssignmentReference },
+}
+
+/// Bounded, answer-free request for a named Student selection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GradebookSelectionRequest {
+    /// Closed filter before operation normalization.
+    pub filter: GradebookFilterRequest,
+    /// Bounded structural continuation.
+    pub page: PageRequest,
+}
+
+/// One public-reference-only submitted run choice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SubmittedRunChoice {
+    /// Exact run that the Instructor may inspect next.
+    pub run: RunReference,
+    /// Server-owned completion time for the visible submitted run.
+    pub submitted_at: ActivityTimestamp,
+    /// Whether the current score policy selects this run.
+    pub score_selected: bool,
+}
+
+/// Bounded request for submitted runs belonging to one resolved Gradebook cell.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubmittedRunChoicesRequest {
+    /// Named Student selected in the Gradebook context.
+    pub membership: CourseMembershipReference,
+    /// Named assignment selected in the Gradebook context.
+    pub assignment: AssignmentReference,
+    /// Optional normalized operation context that must remain bound to the cursor.
+    pub operation: Option<GradingOperationReference>,
+    /// Bounded structural continuation.
+    pub page: PageRequest,
+}
+
+/// One answer-free submitted-run chooser page.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubmittedRunChoicesPage {
+    /// Roster revision binding the named Student selection.
+    pub roster_revision: RosterRevision,
+    /// Opaque cursor for a following bounded page.
+    pub next_cursor: Option<Cursor>,
+    /// Submitted runs in stable server-owned order.
+    pub rows: Vec<SubmittedRunChoice>,
+}
+
+impl std::fmt::Debug for CalculatedAssignmentCell {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CalculatedAssignmentCell")
+            .field("assignment", &self.assignment)
+            .field("included", &self.included)
+            .field("category", &self.category)
+            .field("availability", &self.availability)
+            .field("scoring_status", &self.scoring_status)
+            .field("inspection_choice", &self.inspection_choice)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for CalculatedGradebookRow {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CalculatedGradebookRow")
+            .field("membership", &self.membership)
+            .field("dropped_assignment_count", &self.dropped_assignments.len())
+            .field("assignment_cell_count", &self.assignment_cells.len())
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for CalculatedGradebookPage {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CalculatedGradebookPage")
+            .field("scheme_revision", &self.scheme_revision)
+            .field("roster_revision", &self.roster_revision)
+            .field("mode", &self.mode)
+            .field("rounding", &self.rounding)
+            .field("observation_time", &self.observation_time)
+            .field("scoring_witnesses", &self.scoring_witnesses)
+            .field("has_next_cursor", &self.next_cursor.is_some())
+            .field("row_count", &self.rows.len())
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for CalculatedGradebookResult {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Page(page) => formatter.debug_tuple("Page").field(page).finish(),
+            Self::ReloadRequired { reason } => formatter
+                .debug_struct("ReloadRequired")
+                .field("reason", reason)
+                .finish(),
+        }
+    }
+}
+
+impl std::fmt::Debug for StudentSelectionRow {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("StudentSelectionRow")
+            .field("membership", &self.membership)
+            .field("assignment", &self.assignment)
+            .field("inspection_choice", &self.inspection_choice)
+            .finish()
+    }
 }
 
 /// Strong, positive compare-and-swap revision for one course scheme.
@@ -338,13 +467,22 @@ pub struct UpdateCourseGradeScheme {
     pub assignments: Vec<CourseGradeAssignmentMembership>,
 }
 
-/// One protected course-total row. Debug deliberately omits roster PII.
+/// One protected course-total row. Export-only roster identity is absent by construction.
 #[derive(Clone, PartialEq)]
 pub struct CourseGradebookTotalRow {
-    /// Course-local stable roster identifier.
-    pub roster_id: CourseRosterId,
-    /// Roster email used only for the instructor's ephemeral export.
-    pub roster_email: AuthenticationEmail,
+    /// Protected course roster display name.
+    pub display_name: String,
+    /// Calculated total or its explicit unavailable reason.
+    pub outcome: CourseGradeOutcome,
+}
+
+/// One ephemeral course-grade export row. Debug deliberately omits roster PII.
+#[derive(Clone, PartialEq)]
+pub struct CourseGradeExportRow {
+    /// Course-local stable roster identifier when the Student entered through a roster workflow.
+    pub roster_id: Option<CourseRosterId>,
+    /// Roster email when one was supplied for the instructor's ephemeral export.
+    pub roster_email: Option<AuthenticationEmail>,
     /// Course roster display name used only for the instructor's ephemeral export.
     pub display_name: String,
     /// Calculated total or its explicit unavailable reason.
@@ -380,6 +518,16 @@ impl std::fmt::Debug for CourseGradebookTotalRow {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("CourseGradebookTotalRow")
+            .field("display_name", &"[protected]")
+            .field("outcome", &self.outcome)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for CourseGradeExportRow {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CourseGradeExportRow")
             .field("roster_id", &"[protected]")
             .field("roster_email", &"[protected]")
             .field("display_name", &"[protected]")
@@ -439,7 +587,7 @@ pub struct CourseGradeExport {
     /// Audit metadata; it intentionally carries no row data.
     pub audit: CourseGradeExportAudit,
     /// Instructor-only data to be encoded by the HTTP boundary.
-    pub rows: Vec<CourseGradebookTotalRow>,
+    pub rows: Vec<CourseGradeExportRow>,
 }
 
 impl std::fmt::Debug for CourseGradeExport {
@@ -493,6 +641,47 @@ pub trait CourseGradebookStore: Send + Sync {
     ) -> Result<CalculatedGradebookResult, StoreError> {
         Err(StoreError::Unavailable(
             "calculated gradebook is not available for this store".to_string(),
+        ))
+    }
+
+    /// Resolves one public operation reference into a server-owned Gradebook
+    /// selection scope.  The default preserves fail-closed behavior for
+    /// adapters that do not implement the operation/Gradebook integration.
+    async fn resolve_gradebook_operation(
+        &self,
+        _context: TenantContext,
+        _session: SessionTokenHash,
+        _course: CourseId,
+        _operation: GradingOperationReference,
+    ) -> Result<GradebookOperationSelection, StoreError> {
+        Err(StoreError::Unavailable(
+            "gradebook operation selection is not available for this store".to_string(),
+        ))
+    }
+
+    /// Resolves a bounded, explicit named-Student selection before inspection.
+    async fn gradebook_selection(
+        &self,
+        _context: TenantContext,
+        _session: SessionTokenHash,
+        _course: CourseId,
+        _request: GradebookSelectionRequest,
+    ) -> Result<GradebookSelectionResult, StoreError> {
+        Err(StoreError::Unavailable(
+            "gradebook selection is not available for this store".to_string(),
+        ))
+    }
+
+    /// Returns one bounded, public-reference-only submitted-run chooser page.
+    async fn submitted_run_choices(
+        &self,
+        _context: TenantContext,
+        _session: SessionTokenHash,
+        _course: CourseId,
+        _request: SubmittedRunChoicesRequest,
+    ) -> Result<SubmittedRunChoicesPage, StoreError> {
+        Err(StoreError::Unavailable(
+            "submitted run choices are not available for this store".to_string(),
         ))
     }
 

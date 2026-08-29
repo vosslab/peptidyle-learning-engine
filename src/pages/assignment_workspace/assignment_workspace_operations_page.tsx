@@ -1,6 +1,17 @@
 // assignment_workspace_operations_page.tsx - visible Instructor recovery for answer-free grading metadata.
 
-import { For, Match, Show, Switch, createMemo, createSignal, onMount, type JSX } from "solid-js";
+import { A, useLocation } from "@solidjs/router";
+import {
+  For,
+  Match,
+  Show,
+  Switch,
+  createEffect,
+  createMemo,
+  createSignal,
+  onMount,
+  type JSX,
+} from "solid-js";
 
 import type {
   GradingOperationActionId,
@@ -23,6 +34,7 @@ import {
   type GradingOperationsActionIntent,
 } from "./assignment_workspace_operations_model";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
+import { gradingOperationControlFocusId, operationGradebookUrl } from "../gradebook_navigation";
 import "./assignment_workspace_operations.css";
 
 type ListState = "loading" | "ready" | "error";
@@ -47,6 +59,7 @@ function acceptedActionMessage(intent: GradingOperationsActionIntent): string {
 /** Presents one assignment's recovery work without exposing learner submissions or grading payloads. */
 export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
+  const location = useLocation();
   const [groupBy, setGroupBy] = createSignal<GradingOperationGroupBy>("question");
   const [rows, setRows] = createSignal<ReadonlyArray<InstructorGradingOperationRow>>([]);
   const [cursor, setCursor] = createSignal<string>();
@@ -59,6 +72,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   let retryListButton: HTMLButtonElement | undefined;
   let retryActionButton: HTMLButtonElement | undefined;
   let reloadButton: HTMLButtonElement | undefined;
+  const operationControlTargets = new Map<string, HTMLElement>();
 
   const hasMore = createMemo(() => cursor() !== undefined);
   const actionPending = createMemo(() => feedback()?.kind === "pending");
@@ -71,6 +85,16 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
 
   function registerStatusTarget(element: HTMLElement): void {
     statusTarget = element;
+  }
+
+  function registerOperationControl(
+    operation: InstructorGradingOperationRow,
+    element: HTMLElement,
+  ): void {
+    operationControlTargets.set(
+      gradingOperationControlFocusId(operation.operation.reference),
+      element,
+    );
   }
 
   function listFailureMessage(): string {
@@ -197,6 +221,18 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   }
 
   onMount(() => void load());
+
+  createEffect(() => {
+    const targetId = location.hash.slice(1);
+    if (targetId === "" || listState() !== "ready") return;
+    const matchedRow = rows().find(
+      (row) => gradingOperationControlFocusId(row.operation.reference) === targetId,
+    );
+    if (matchedRow === undefined) return;
+    requestAnimationFrame(() =>
+      operationControlTargets.get(targetId)?.focus({ preventScroll: true }),
+    );
+  });
 
   return (
     <section
@@ -374,16 +410,32 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
                       <dd>{gradingOperationsTrustGenerationLabel(row)}</dd>
                     </div>
                   </dl>
-                  <Show when={row.operation.nextAction === "retry"}>
-                    <button
+                  <div
+                    class="assignment-workspace-operation-actions"
+                    id={gradingOperationControlFocusId(row.operation.reference)}
+                    tabindex="-1"
+                    ref={(element) => registerOperationControl(row, element)}
+                  >
+                    <A
                       class="quiet-action"
-                      type="button"
-                      disabled={actionPending() || reloadRequired()}
-                      onClick={() => startRetry(row)}
+                      href={operationGradebookUrl(
+                        workspace.courseReference,
+                        row.operation.reference,
+                      )}
                     >
-                      {gradingOperationsRetryLabel(row)}
-                    </button>
-                  </Show>
+                      Inspect affected Student work
+                    </A>
+                    <Show when={row.operation.nextAction === "retry"}>
+                      <button
+                        class="quiet-action"
+                        type="button"
+                        disabled={actionPending() || reloadRequired()}
+                        onClick={() => startRetry(row)}
+                      >
+                        {gradingOperationsRetryLabel(row)}
+                      </button>
+                    </Show>
+                  </div>
                 </article>
               )}
             </For>

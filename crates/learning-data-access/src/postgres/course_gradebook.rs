@@ -6,8 +6,9 @@
 use async_trait::async_trait;
 use domain::course_grade::{CourseGradeAssignment, CourseGradeError, calculate_course_grade};
 use question_model::{
-    CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, GradeCategoryId,
-    GradeCategoryTitle, LetterBand, LetterBandLabel, PointValue, WeightedGradeCategory,
+    AssignmentReference, CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme,
+    CourseMembershipReference, GradeCategoryId, GradeCategoryTitle, LetterBand, LetterBandLabel,
+    PointValue, ScoringGeneration, WeightedGradeCategory,
 };
 use serde_json::{Value, json};
 use sqlx::Row;
@@ -18,12 +19,23 @@ use crate::course_gradebook::{
     course_grade_assignment_points, validate_course_grade_scheme_update_shape,
 };
 use crate::{
-    AuthenticationEmail, CourseGradeAssignmentMembership, CourseGradeAssignmentRecord,
-    CourseGradeExport, CourseGradeExportAudit, CourseGradeExportId, CourseGradeSchemeRecord,
+    AssignmentInspectionChoice, AssignmentScoringWitness, AuthenticationEmail,
+    CalculatedAssignmentCell, CalculatedAssignmentCellAvailability, CalculatedGradebookPage,
+    CalculatedGradebookRequest, CalculatedGradebookResult, CalculatedGradebookRow,
+    CourseGradeAssignmentMembership, CourseGradeAssignmentRecord, CourseGradeExport,
+    CourseGradeExportAudit, CourseGradeExportId, CourseGradeExportRow, CourseGradeSchemeRecord,
     CourseGradeSchemeRevision, CourseGradebookStore, CourseGradebookTotalRow,
-    CourseGradebookTotals, CourseRosterId, MAX_COURSE_GRADE_EXPORT_ROWS, SessionTokenHash,
-    StoreError, TenantContext, UpdateCourseGradeScheme,
+    CourseGradebookTotals, CourseRosterId, GradebookFilter, GradebookOperationSelection,
+    GradebookReloadReason, GradebookSelectionRequest, GradebookSelectionResult,
+    MAX_COURSE_GRADE_EXPORT_ROWS, RosterRevision, SessionTokenHash, StoreError,
+    SubmittedRunChoicesPage, SubmittedRunChoicesRequest, TenantContext, UpdateCourseGradeScheme,
 };
+
+#[path = "course_gradebook/calculated.rs"]
+mod calculated;
+
+#[path = "course_gradebook/selection.rs"]
+mod selection;
 
 #[async_trait]
 impl CourseGradebookStore for PostgresStore {
@@ -85,7 +97,14 @@ impl CourseGradebookStore for PostgresStore {
         let mut tx = self.begin_tenant_snapshot(context).await?;
         require_course_instructor(&mut tx, session, course).await?;
         let scheme = read_scheme(&mut tx, tenant, course).await?;
-        let rows = totals_with_scheme(&mut tx, tenant, course, &scheme).await?;
+        let rows = export_rows_with_scheme(&mut tx, tenant, course, &scheme)
+            .await?
+            .into_iter()
+            .map(|row| CourseGradebookTotalRow {
+                display_name: row.display_name,
+                outcome: row.outcome,
+            })
+            .collect();
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(CourseGradebookTotals {
             scheme_revision: scheme.revision,
@@ -93,6 +112,73 @@ impl CourseGradebookStore for PostgresStore {
             rounding: scheme.scheme.rounding,
             rows,
         })
+    }
+
+    async fn calculated_gradebook_page(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        course: CourseId,
+        request: CalculatedGradebookRequest,
+    ) -> Result<CalculatedGradebookResult, StoreError> {
+        calculated::page(self, context, session, course, request).await
+    }
+
+    async fn resolve_gradebook_operation(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        course: question_model::CourseId,
+        operation: question_model::GradingOperationReference,
+    ) -> Result<GradebookOperationSelection, StoreError> {
+        let tenant = context.tenant_id();
+        let mut tx = self.begin_tenant_session(context, session).await?;
+        let row = sqlx::query(
+            "SELECT target_kind, assignment_reference, membership_reference \
+             FROM public.ple_resolve_instructor_grading_operation_v1($1,$2,$3,$4)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(session.to_string())
+        .bind(course.as_uuid())
+        .bind(i32::try_from(operation.number()).map_err(|_| StoreError::NotFound)?)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let assignment = public_assignment_reference(&row, "assignment_reference")?;
+        let target: String = row.try_get("target_kind").map_err(map_sqlx_error)?;
+        let result = match target.as_str() {
+            "assignment_scoring_generation" => {
+                GradebookOperationSelection::Assignment { assignment }
+            }
+            "submission" => GradebookOperationSelection::SingleStudent {
+                membership: public_membership_reference(&row, "membership_reference")?,
+                assignment,
+            },
+            _ => return Err(StoreError::NotFound),
+        };
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
+
+    async fn gradebook_selection(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        course: CourseId,
+        request: GradebookSelectionRequest,
+    ) -> Result<GradebookSelectionResult, StoreError> {
+        selection::gradebook_selection(self, context, session, course, request).await
+    }
+
+    async fn submitted_run_choices(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        course: CourseId,
+        request: SubmittedRunChoicesRequest,
+    ) -> Result<SubmittedRunChoicesPage, StoreError> {
+        selection::submitted_run_choices(self, context, session, course, request).await
     }
 
     async fn create_course_grade_export(
@@ -105,7 +191,7 @@ impl CourseGradebookStore for PostgresStore {
         let mut tx = self.begin_tenant_writable_snapshot(context).await?;
         require_course_instructor(&mut tx, session, course).await?;
         let scheme = read_scheme(&mut tx, tenant, course).await?;
-        let rows = totals_with_scheme(&mut tx, tenant, course, &scheme).await?;
+        let rows = export_rows_with_scheme(&mut tx, tenant, course, &scheme).await?;
         let id = CourseGradeExportId::generate()?;
         let row = sqlx::query(
             "SELECT tenant_id,actor_id,course_id,export_id,row_count,scheme_revision,mode,rounding \
@@ -139,6 +225,46 @@ impl CourseGradebookStore for PostgresStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(CourseGradeExport { audit, rows })
     }
+}
+
+fn public_assignment_reference(
+    row: &sqlx::postgres::PgRow,
+    column: &str,
+) -> Result<AssignmentReference, StoreError> {
+    let value: i32 = row.try_get(column).map_err(map_sqlx_error)?;
+    u32::try_from(value)
+        .ok()
+        .and_then(|value| AssignmentReference::new(u64::from(value)))
+        .ok_or(StoreError::NotFound)
+}
+
+fn public_membership_reference(
+    row: &sqlx::postgres::PgRow,
+    column: &str,
+) -> Result<CourseMembershipReference, StoreError> {
+    let value: Option<i32> = row.try_get(column).map_err(map_sqlx_error)?;
+    value
+        .and_then(|value| u32::try_from(value).ok())
+        .and_then(|value| CourseMembershipReference::new(u64::from(value)))
+        .ok_or(StoreError::NotFound)
+}
+
+async fn gradebook_roster_revision(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+) -> Result<RosterRevision, StoreError> {
+    sqlx::query_scalar(
+        "SELECT revision FROM course_roster_state WHERE tenant_id=$1 AND course_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?
+    .map(RosterRevision::from_stored)
+    .transpose()?
+    .ok_or(StoreError::NotFound)
 }
 
 fn grade_scheme_replacement_payload(
@@ -505,19 +631,19 @@ fn course_grade_inputs_for_student(
         .collect()
 }
 
-async fn totals_with_scheme(
+async fn export_rows_with_scheme(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     course: CourseId,
     scheme: &CourseGradeSchemeRecord,
-) -> Result<Vec<CourseGradebookTotalRow>, StoreError> {
+) -> Result<Vec<CourseGradeExportRow>, StoreError> {
     let roster = sqlx::query(
         "SELECT m.student_id,m.roster_id,p.roster_email_normalized,p.roster_email_delivery,p.display_name \
          FROM course_member m JOIN course_roster_profile p \
            ON p.tenant_id=m.tenant_id AND p.course_id=m.course_id \
           AND p.course_membership_id=m.course_membership_id \
          WHERE m.tenant_id=$1 AND m.course_id=$2 AND m.role='student' AND m.status='active' \
-         ORDER BY m.roster_id LIMIT $3",
+         ORDER BY m.roster_id NULLS LAST,m.public_id LIMIT $3",
     )
     .bind(tenant.as_uuid())
     .bind(course.as_uuid())
@@ -615,26 +741,41 @@ async fn totals_with_scheme(
                 ),
                 other => StoreError::InvalidRecord(other.to_string()),
             })?;
-        let delivery: String = person
+        let delivery: Option<String> = person
             .try_get("roster_email_delivery")
             .map_err(map_sqlx_error)?;
-        let email = AuthenticationEmail::parse(&delivery)
-            .map_err(|_| StoreError::Unavailable("stored roster email is invalid".into()))?;
-        let normalized: String = person
+        let normalized: Option<String> = person
             .try_get("roster_email_normalized")
             .map_err(map_sqlx_error)?;
-        if email.normalized() != normalized {
-            return Err(StoreError::Unavailable(
-                "stored roster email normalization is invalid".into(),
-            ));
+        let email = match (normalized, delivery) {
+            (Some(normalized), Some(delivery)) => {
+                let email = AuthenticationEmail::parse(&delivery).map_err(|_| {
+                    StoreError::Unavailable("stored roster email is invalid".into())
+                })?;
+                if email.normalized() != normalized {
+                    return Err(StoreError::Unavailable(
+                        "stored roster email normalization is invalid".into(),
+                    ));
+                }
+                Some(email)
+            }
+            (None, None) => None,
+            _ => {
+                return Err(StoreError::Unavailable(
+                    "stored roster email is incomplete".into(),
+                ));
+            }
         };
-        rows.push(CourseGradebookTotalRow {
-            roster_id: CourseRosterId::parse(
-                &person
-                    .try_get::<String, _>("roster_id")
-                    .map_err(map_sqlx_error)?,
-            )
-            .map_err(|_| StoreError::Unavailable("stored roster ID is invalid".into()))?,
+        let roster_id = person
+            .try_get::<Option<String>, _>("roster_id")
+            .map_err(map_sqlx_error)?
+            .map(|value| {
+                CourseRosterId::parse(&value)
+                    .map_err(|_| StoreError::Unavailable("stored roster ID is invalid".into()))
+            })
+            .transpose()?;
+        rows.push(CourseGradeExportRow {
+            roster_id,
             roster_email: email,
             display_name: person.try_get("display_name").map_err(map_sqlx_error)?,
             outcome,

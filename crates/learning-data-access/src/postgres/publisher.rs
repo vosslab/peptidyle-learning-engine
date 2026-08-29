@@ -96,13 +96,15 @@ impl JobStore for PostgresPublicAssetPublisherStore {
 
     async fn fail_job(
         &self,
+        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
     ) -> Result<JobFailureDisposition, StoreError> {
         let mut transaction = self.begin().await?;
         let disposition: Option<String> =
-            sqlx::query_scalar("SELECT ple_fail_public_asset_publication_job($1, $2, $3)")
+            sqlx::query_scalar("SELECT ple_fail_public_asset_publication_job($1, $2, $3, $4)")
+                .bind(context.tenant_id().as_uuid())
                 .bind(id.as_uuid())
                 .bind(token.as_uuid())
                 .bind(failure.as_db())

@@ -21,6 +21,49 @@ use std::collections::BTreeSet;
 
 use question_model::{TenantId, UserId};
 
+/// Narrow host capability used to turn the deterministic Mary response into
+/// ordinary accepted Student work.  The installer owns the recipe, while the
+/// host owns the server application and execution composition.
+#[async_trait::async_trait]
+pub trait AcceptedSubmissionSeedExecutor: Send + Sync {
+    async fn execute_seed_submission(
+        &self,
+        request: AcceptedSubmissionSeedRequest,
+    ) -> Result<AcceptedSubmissionSeedOutcome, learning_data_access::StoreError>;
+}
+
+/// Server-private deterministic input for one installed completed attempt.
+#[derive(Clone)]
+pub struct AcceptedSubmissionSeedRequest {
+    pub context: learning_data_access::TenantContext,
+    pub actor: UserId,
+    pub binding: learning_data_access::StudentWorkRoutingBinding,
+    pub attempt: question_model::QuestionAttemptId,
+    pub response: question_model::StudentResponse,
+    pub idempotency_key: learning_data_access::SubmissionIdempotencyKey,
+}
+
+impl std::fmt::Debug for AcceptedSubmissionSeedRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("AcceptedSubmissionSeedRequest")
+            .field("context", &self.context)
+            .field("actor", &self.actor)
+            .field("binding", &self.binding)
+            .field("attempt", &self.attempt)
+            .field("response", &"[SERVER-ONLY]")
+            .field("idempotency_key", &"[REDACTED]")
+            .finish()
+    }
+}
+
+/// Answer-free result of submitting one deterministic recipe response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcceptedSubmissionSeedOutcome {
+    Completed,
+    PendingRecovery,
+}
+
 /// Validated identities used by the deterministic Base Course recipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BaseCourseParticipants {

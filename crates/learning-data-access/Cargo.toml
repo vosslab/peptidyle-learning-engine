@@ -32,11 +32,10 @@ default = []
 postgres = ["dep:sqlx"]
 # Explicit non-production in-memory backend and test seam for focused conformance
 # and server-boundary tests. Production compositions never enable this feature.
-test-support = []
+test-support = ["question_model/generate"]
 
 [dev-dependencies]
 tokio.workspace = true
 uuid.workspace = true
 acceptance-runtime = { path = "../acceptance-runtime" }
 adapter_native = { path = "../adapters/native" }
-base_course_installation.workspace = true

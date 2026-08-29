@@ -17,7 +17,6 @@ import type { ApiClient } from "../../api/client";
 import type { AssignmentEditorDetail, CourseSummary } from "../../api/contracts";
 import { useApiRuntime } from "../../api/runtime";
 import { useSessionBootstrap } from "../../auth/session_context";
-import { CourseManagementNav } from "../../components/course_management_nav";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -267,7 +266,6 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
       {(loaded) => (
         <AssignmentWorkspaceContext.Provider value={loaded}>
           <section class="page assignment-workspace" data-route-surface="assignmentWorkspace">
-            <CourseManagementNav courseReference={loaded.course.reference} active="assignments" />
             <AssignmentWorkspaceNav
               courseReference={loaded.courseReference}
               assignmentReference={loaded.assignmentReference}

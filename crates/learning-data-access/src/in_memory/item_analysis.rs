@@ -9,7 +9,8 @@ use domain::item_analysis::{
 };
 use question_model::{
     AssignmentId, AssignmentItemId, AssignmentRun, AttemptStatus, CourseId, CourseMembershipRole,
-    LearnerClassStatistics, ProblemVersionRef, ScoringGeneration, ScoringStatus, TenantId, UserId,
+    ProblemVersionRef, ScoringGeneration, ScoringStatus, StudentClassStatistics,
+    SubmissionEvaluationStatus, TenantId, UserId,
 };
 
 use super::*;
@@ -21,7 +22,7 @@ struct ItemAggregate {
     graded_correct: Vec<bool>,
     rest_of_run_credits: Vec<f64>,
     unanswered_attempt_count: u32,
-    pending_manual_attempt_count: u32,
+    unscored_attempt_count: u32,
     completion_times_millis: Vec<u64>,
 }
 
@@ -32,7 +33,7 @@ impl ItemAggregate {
             graded_correct: Vec::new(),
             rest_of_run_credits: Vec::new(),
             unanswered_attempt_count: 0,
-            pending_manual_attempt_count: 0,
+            unscored_attempt_count: 0,
             completion_times_millis: Vec::new(),
         }
     }
@@ -75,30 +76,30 @@ impl crate::CourseItemAnalysisStore for MemoryStore {
         Ok(Some(report))
     }
 
-    async fn learner_class_statistics(
+    async fn student_class_statistics(
         &self,
         context: TenantContext,
-        learner: UserId,
+        student: UserId,
         course: CourseId,
         assignment: AssignmentId,
-    ) -> Result<LearnerClassStatistics, StoreError> {
+    ) -> Result<StudentClassStatistics, StoreError> {
         let state = self.read_state()?;
         let tenant = context.tenant_id();
         super::entitlement::require_current_assignment_entitlement(
-            &state, tenant, learner, course, assignment,
+            &state, tenant, student, course, assignment,
         )?;
         require_course_records_accessible(&state, tenant, course)?;
         let Some(mut report) = state.item_analysis.get(&(tenant, assignment)).cloned() else {
-            return Ok(LearnerClassStatistics::InsufficientEvidence);
+            return Ok(StudentClassStatistics::InsufficientEvidence);
         };
         let Some((generation, status)) = state.assignment_scoring.get(&(tenant, assignment)) else {
-            return Ok(LearnerClassStatistics::InsufficientEvidence);
+            return Ok(StudentClassStatistics::InsufficientEvidence);
         };
         report.recent_rescoring =
             *generation != report.source_scoring_generation || *status != ScoringStatus::Current;
-        Ok(LearnerClassStatistics::from_current_analysis(
+        Ok(StudentClassStatistics::from_current_analysis(
             report.completed_run_count,
-            report.incomplete_manual_grading,
+            report.incomplete_scoring,
             report.recent_rescoring,
             report.assignment_average_score,
         ))
@@ -261,18 +262,18 @@ fn build_memory_course_item_analysis(
         aggregate_run(state, tenant, run, completion_millis, &mut aggregates)?;
     }
     let analyzed_at = state.authoritative_time;
-    let mut incomplete_manual_grading = false;
+    let mut incomplete_scoring = false;
     let items = aggregates
         .into_iter()
         .map(
             |((assignment_item, reference), aggregate)| -> Result<AssignmentItemAnalysis, StoreError> {
-                incomplete_manual_grading |= aggregate.pending_manual_attempt_count > 0;
+                incomplete_scoring |= aggregate.unscored_attempt_count > 0;
                 let metrics = calculate_item_analysis_metrics(&ItemAnalysisMetricInput {
                     graded_credits: aggregate.graded_credits,
                     graded_correct: aggregate.graded_correct,
                     rest_of_run_credits: aggregate.rest_of_run_credits,
                     unanswered_attempt_count: aggregate.unanswered_attempt_count,
-                    pending_manual_attempt_count: aggregate.pending_manual_attempt_count,
+                    unscored_attempt_count: aggregate.unscored_attempt_count,
                     completion_times_millis: aggregate.completion_times_millis,
                 })
                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -286,7 +287,7 @@ fn build_memory_course_item_analysis(
                     analyzed_at,
                     graded_attempt_count: metrics.graded_attempt_count,
                     unanswered_attempt_count: metrics.response_distribution.unanswered,
-                    pending_manual_attempt_count: metrics.response_distribution.pending_manual,
+                    unscored_attempt_count: aggregate.unscored_attempt_count,
                     difficulty: metrics.difficulty,
                     average_credit: metrics.average_credit,
                     credit_standard_deviation: metrics.credit_standard_deviation,
@@ -305,9 +306,11 @@ fn build_memory_course_item_analysis(
         analyzed_at,
         completed_run_count,
         in_progress_run_count,
-        incomplete_manual_grading,
+        incomplete_scoring,
         recent_rescoring: false,
-        assignment_average_score: mean(&completed_scores),
+        assignment_average_score: (!incomplete_scoring)
+            .then(|| mean(&completed_scores))
+            .flatten(),
         average_completion_time_millis: mean_u64(&completion_times),
         items,
     })
@@ -325,7 +328,7 @@ fn latest_run_for_enrollment(
         .max_by_key(|run| (run.run_number, run.id))
 }
 
-/// A terminal cohort may still contain a pending manual evaluation. Only a
+/// A terminal cohort may still contain a pending automated evaluation. Only a
 /// missing or actively open current attempt suppresses prior runs from the
 /// current-only analysis cohort.
 fn run_is_active(state: &State, tenant: TenantId, run: &AssignmentRun) -> Result<bool, StoreError> {
@@ -350,66 +353,41 @@ fn aggregate_run(
         .run_items
         .get(&(tenant, run.id))
         .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
-    let latest_attempts = items
+    let observations = items
         .iter()
         .map(|item| {
-            (
-                item.issued_position,
-                latest_current_attempt(state, tenant, run.id, item.issued_position),
-            )
+            let attempt = latest_current_attempt(state, tenant, run.id, item.issued_position);
+            classify_item_observation(state, tenant, attempt.as_ref())
+                .map(|observation| (item, observation))
         })
-        .collect::<BTreeMap<_, _>>();
-    let graded_observations = latest_attempts
-        .values()
-        .filter_map(|attempt| {
-            attempt
-                .as_ref()
-                .and_then(|attempt| graded_observation(state, tenant, attempt))
-        })
-        .collect::<Vec<_>>();
-    let total_credit = graded_observations
+        .collect::<Result<Vec<_>, _>>()?;
+    let total_credit = observations
         .iter()
-        .map(|(credit, _)| credit)
+        .filter_map(|(_, observation)| match observation {
+            ItemObservation::Graded(credit, _) => Some(credit),
+            ItemObservation::Excluded | ItemObservation::Unscored | ItemObservation::Unanswered => {
+                None
+            }
+        })
         .sum::<f64>();
-    for item in items {
+    for (item, observation) in observations {
         let aggregate = aggregates
             .entry((item.assignment_item, item.reference))
             .or_insert_with(ItemAggregate::new);
-        let attempt = latest_attempts
-            .get(&item.issued_position)
-            .expect("run item positions are unique")
-            .clone();
-        match attempt.as_ref() {
-            None => {
+        match observation {
+            ItemObservation::Excluded => {}
+            ItemObservation::Unanswered => {
                 aggregate.unanswered_attempt_count =
                     aggregate.unanswered_attempt_count.saturating_add(1)
             }
-            Some(attempt)
-                if matches!(
-                    attempt.status,
-                    AttemptStatus::Cleared | AttemptStatus::Exempt
-                ) => {}
-            Some(attempt)
-                if attempt.status == AttemptStatus::NeedsManualGrading
-                    && state
-                        .manual_evaluations
-                        .get(&(tenant, attempt.id))
-                        .is_some_and(|evaluation| {
-                            evaluation.status == crate::ManualEvaluationStatus::NeedsManualGrading
-                        }) =>
-            {
-                aggregate.pending_manual_attempt_count =
-                    aggregate.pending_manual_attempt_count.saturating_add(1);
+            ItemObservation::Unscored => {
+                aggregate.unscored_attempt_count =
+                    aggregate.unscored_attempt_count.saturating_add(1);
             }
-            Some(attempt) => {
-                if let Some((credit, correct)) = graded_observation(state, tenant, attempt) {
-                    aggregate.graded_credits.push(credit);
-                    aggregate.graded_correct.push(correct);
-                    aggregate.rest_of_run_credits.push(total_credit - credit);
-                } else {
-                    aggregate.unanswered_attempt_count =
-                        aggregate.unanswered_attempt_count.saturating_add(1);
-                }
+            ItemObservation::Graded(credit, correct) => {
+                aggregate.graded_credits.push(credit);
+                aggregate.graded_correct.push(correct);
+                aggregate.rest_of_run_credits.push(total_credit - credit);
             }
         }
         if let Some(elapsed) = completion_millis {
@@ -437,38 +415,116 @@ fn latest_current_attempt(
         .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id))
 }
 
-fn graded_observation(
+enum ItemObservation {
+    Excluded,
+    Graded(f64, bool),
+    Unscored,
+    Unanswered,
+}
+
+/// Derives one closed item-analysis observation from current attempt state,
+/// canonical automated evaluation state, and immutable result evidence.
+fn classify_item_observation(
     state: &State,
     tenant: TenantId,
-    attempt: &QuestionAttempt,
-) -> Option<(f64, bool)> {
+    attempt: Option<&QuestionAttempt>,
+) -> Result<ItemObservation, StoreError> {
+    let Some(attempt) = attempt else {
+        return Ok(ItemObservation::Unanswered);
+    };
+    if matches!(
+        attempt.status,
+        AttemptStatus::Cleared | AttemptStatus::Exempt
+    ) {
+        return Ok(ItemObservation::Excluded);
+    }
     if !matches!(
         attempt.status,
         AttemptStatus::Submitted | AttemptStatus::AutoSubmitted
     ) {
-        return None;
+        return Err(StoreError::Unavailable(
+            "non-terminal attempt entered automated item analysis".to_string(),
+        ));
     }
-    let result = attempt.result?;
-    if !result.points_earned.is_finite() || !result.points_possible.is_finite() {
-        return None;
+    // A forced terminal submission has no response to grade. It remains an
+    // intentional unanswered aggregate observation rather than a fabricated
+    // automated evaluation tuple.
+    if attempt.status == AttemptStatus::AutoSubmitted && attempt.response.is_none() {
+        return Ok(ItemObservation::Unanswered);
     }
-    let manual_credit = state
-        .manual_evaluations
+    let evaluation = state
+        .automated_grading_evaluations
         .get(&(tenant, attempt.id))
-        .filter(|evaluation| evaluation.status == crate::ManualEvaluationStatus::Graded)
-        .and_then(|evaluation| evaluation.credit.as_ref())
-        .and_then(|credit| credit.try_as_f64().ok());
-    let credit = if let Some(credit) = manual_credit {
-        credit
-    } else if result.points_possible > 0.0 {
+        .ok_or_else(|| {
+            StoreError::Unavailable(
+                "submitted attempt lacks automated evaluation state".to_string(),
+            )
+        })?;
+    let execution = state
+        .automated_grading_executions
+        .get(&(tenant, attempt.id))
+        .ok_or_else(|| {
+            StoreError::Unavailable("submitted attempt lacks automated execution state".to_string())
+        })?;
+    match (execution.state, evaluation) {
+        (
+            crate::GradingExecutionState::Ready
+            | crate::GradingExecutionState::Running
+            | crate::GradingExecutionState::RetryWait,
+            SubmissionEvaluationStatus::AutomatedPending,
+        )
+        | (
+            crate::GradingExecutionState::Exception,
+            SubmissionEvaluationStatus::AutomatedException,
+        ) => {
+            return Ok(ItemObservation::Unscored);
+        }
+        (_, SubmissionEvaluationStatus::Exempt) => {
+            return Err(StoreError::Unavailable(
+                "submitted attempt has exempt automated evaluation state".to_string(),
+            ));
+        }
+        (crate::GradingExecutionState::Completed, SubmissionEvaluationStatus::Graded) => {}
+        _ => {
+            return Err(StoreError::Unavailable(
+                "automated execution and evaluation states are inconsistent".to_string(),
+            ));
+        }
+    }
+    let evidence = state
+        .automated_grading_result_evidence
+        .get(&(tenant, attempt.id))
+        .ok_or_else(|| {
+            StoreError::Unavailable(
+                "graded automated evaluation lacks immutable result evidence".to_string(),
+            )
+        })?;
+    let result = attempt.result.ok_or_else(|| {
+        StoreError::Unavailable("graded automated evaluation lacks result projection".to_string())
+    })?;
+    if evidence.result != result {
+        return Err(StoreError::Unavailable(
+            "automated evaluation result projection is inconsistent".to_string(),
+        ));
+    }
+    if !result.points_earned.is_finite() || !result.points_possible.is_finite() {
+        return Err(StoreError::Unavailable(
+            "automated evaluation result is invalid".to_string(),
+        ));
+    }
+    let credit = if result.points_possible > 0.0 {
         result.points_earned / result.points_possible
     } else if result.correct {
         1.0
     } else {
         0.0
     };
-    (credit.is_finite() && (-1_000.0..=1_000.0).contains(&credit))
-        .then_some((credit, result.correct))
+    if !credit.is_finite() || !(-1_000.0..=1_000.0).contains(&credit) {
+        return Err(StoreError::Unavailable(
+            "automated evaluation credit is invalid".to_string(),
+        ));
+    }
+    Ok(ItemObservation::Graded(credit, result.correct))
 }
 
 fn terminal_run_elapsed_millis(
@@ -551,4 +607,81 @@ pub(super) fn enqueue_course_item_analysis_after_scoring(
         },
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::in_memory::grading_execution_worker::completion_tests::seed_complete_issued_execution;
+    use crate::{
+        CourseItemAnalysisWorkerCommand, CourseItemAnalysisWorkerStore, JobClaimFilter,
+        JobLeaseDuration,
+    };
+    use question_model::{ActivityTimestamp, AttemptResult, StudentResponse};
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn response_bearing_incoherent_automated_tuple_cannot_stage_or_publish_analysis() {
+        let store = MemoryStore::default();
+        let (tenant, _student, attempt, _) = seed_complete_issued_execution(&store);
+        let context = TenantContext::from_authenticated_session(tenant);
+        let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
+        let run = RunId::from_uuid(Uuid::from_u128(75_006));
+        let generation = ScoringGeneration::INITIAL;
+        let job = JobId::from_uuid(Uuid::from_u128(75_099));
+
+        {
+            let mut state = store
+                .write_state()
+                .expect("inject contradictory Memory state");
+            {
+                let attempt = state
+                    .attempts
+                    .get_mut(&(tenant, attempt))
+                    .expect("issued attempt");
+                attempt.status = AttemptStatus::Submitted;
+                attempt.response = Some(StudentResponse::Numeric { value: 42.0 });
+                attempt.result = Some(AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                });
+                attempt.timer.submitted_at = Some(ActivityTimestamp::from_unix_millis(1_001));
+            }
+            state
+                .runs
+                .get_mut(&(tenant, run))
+                .expect("issued run")
+                .completed_at = Some(ActivityTimestamp::from_unix_millis(1_001));
+            state
+                .automated_grading_evaluations
+                .insert((tenant, attempt), SubmissionEvaluationStatus::Graded);
+            enqueue_course_item_analysis_after_scoring(
+                &mut state, job, tenant, assignment, generation,
+            )
+            .expect("queue item-analysis rebuild");
+        }
+
+        let claim = store
+            .claim_next_job(
+                &JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("bounded test lease"),
+            )
+            .await
+            .expect("claim item-analysis job")
+            .expect("queued item-analysis job");
+        let command = CourseItemAnalysisWorkerCommand {
+            job,
+            lease: claim.lease_token,
+            assignment,
+            generation,
+        };
+        assert!(matches!(
+            store.prepare_course_item_analysis(context, command).await,
+            Err(StoreError::Unavailable(_))
+        ));
+        let state = store.read_state().expect("verify no report was published");
+        assert!(!state.item_analysis.contains_key(&(tenant, assignment)));
+        assert!(!state.item_analysis_staging.contains_key(&job));
+    }
 }

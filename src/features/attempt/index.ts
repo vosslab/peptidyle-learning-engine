@@ -16,4 +16,4 @@ export {
   type PendingSubmissionAcknowledgement,
   type ResponseValidation,
 } from "./attempt_state";
-export { projectLearnerResponse } from "./learner_response";
+export { projectStudentResponse } from "./student_response";

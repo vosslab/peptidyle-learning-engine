@@ -778,6 +778,18 @@
       "viewport": "laptop",
       "path": "docs/screenshots/instructor/automated_grading_recovery/02_instructor_gradebook_laptop.png",
       "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "audited_student_work_laptop",
+      "scenarioId": "automated_grading_recovery",
+      "stateId": "audited_student_work",
+      "role": "instructor",
+      "journey": "automated_grading_recovery",
+      "captureOrder": 64,
+      "journeyStep": 3,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/automated_grading_recovery/03_audited_student_work_laptop.png",
+      "privacyChecks": ["no_private_material"]
     }
   ],
   "corpusDirectory": "docs/screenshots"

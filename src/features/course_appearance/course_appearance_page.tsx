@@ -8,7 +8,6 @@ import type { CourseBannerAlternativeText } from "../../../generated/api/CourseB
 import type { CourseBannerCandidateId } from "../../../generated/api/CourseBannerCandidateId";
 import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
 import { useApiRuntime } from "../../api/runtime";
-import { CourseManagementNav } from "../../components/course_management_nav";
 import {
   ApiRequestError,
   CourseAppearanceConflictError,
@@ -352,8 +351,6 @@ export function CourseAppearancePage(): JSX.Element {
         Give {course.summary.title} a recognizable color theme and optional entry banner. The course
         title stays readable text, and the selected theme applies only inside this course.
       </p>
-      <CourseManagementNav courseReference={course.summary.reference} active="appearance" />
-
       <Show when={conflict()}>
         <section class="course-appearance-conflict" role="alert">
           <h2

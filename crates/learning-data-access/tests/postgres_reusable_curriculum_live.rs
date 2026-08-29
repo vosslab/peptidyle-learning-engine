@@ -27,10 +27,10 @@ use question_model::{
     AlphaCourseDefinitionInput, AlphaCourseModuleInput, AssignmentDeadlineBehavior,
     AssignmentInstructions, AssignmentScoringMode, BackendCapabilities, BlueprintDefinitionInput,
     Capability, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, ProblemId, ProblemVersionRef,
-    PublicationScope, QuestionMetadata, QuestionSource, ResponseDefinition,
-    ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput, ReusableAssignmentEntryInput,
-    ReusableFixedQuestionInput, TenantId, UserId, UserRole, VersionId, WorkspaceId,
+    LateSubmissionPolicy, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionMetadata, QuestionSource, ResponseDefinition, ReusableAssignmentDefaults,
+    ReusableAssignmentDefinitionInput, ReusableAssignmentEntryInput, ReusableFixedQuestionInput,
+    StudentDisclosurePolicy, TenantId, UserId, UserRole, VersionId, WorkspaceId,
 };
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -65,7 +65,7 @@ fn definition(question_id: question_model::QuestionId, title: &str) -> Blueprint
                     continued_practice: ContinuedPractice::Unlimited,
                     variation: VariationPolicy::NewSeeds,
                 },
-                learner_disclosure: LearnerDisclosurePolicy::default(),
+                student_disclosure: StudentDisclosurePolicy::default(),
             },
             schedule: Default::default(),
         },

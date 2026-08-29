@@ -265,7 +265,7 @@ async fn postgres_course_group_changes_keep_sealed_effective_policy_history() {
                 scoring_mode: AssignmentScoringMode::Normal,
             }],
             selection_groups: vec![],
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            disclosure_policy: question_model::StudentDisclosurePolicy::default(),
             policies: policies(),
         },
         BaseAssignmentPolicy {
@@ -280,7 +280,7 @@ async fn postgres_course_group_changes_keep_sealed_effective_policy_history() {
         .start_or_resume_run(
             context,
             learner,
-            LearnerWorkRoutingBinding::new(course, assignment),
+            StudentWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(id()),
         )
         .await

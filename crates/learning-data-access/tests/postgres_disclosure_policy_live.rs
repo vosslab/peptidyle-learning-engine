@@ -13,7 +13,7 @@ use course_creation_support::sysadmin_course_creation_authority;
 mod published_assignment;
 use published_assignment::create_published_assignment;
 
-use domain::disclosure_policy::evaluate_learner_disclosure;
+use domain::disclosure_policy::evaluate_student_disclosure;
 use domain::effective_assignment_policy::{
     AuthorizationGate, BaseAssignmentPolicy, EffectivePolicyDecision,
 };
@@ -35,9 +35,9 @@ use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentItem,
     AssignmentItemId, AssignmentScoringMode, BackendCapabilities, Capability, CourseId,
-    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, LearnerDisclosurePolicy,
-    LearnerDisclosureTiming, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId, VersionId, WorkspaceId,
+    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, PointValue, ProblemId,
+    ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource, ResponseDefinition,
+    StudentDisclosurePolicy, StudentDisclosureTiming, TenantId, UserId, VersionId, WorkspaceId,
 };
 use sqlx::Row;
 use uuid::Uuid;
@@ -59,13 +59,13 @@ fn policies() -> RunPolicies {
     }
 }
 
-fn disclosure_policy() -> LearnerDisclosurePolicy {
-    LearnerDisclosurePolicy {
-        score: LearnerDisclosureTiming::AfterDue,
-        per_item_correctness: LearnerDisclosureTiming::AfterClose,
-        feedback_text: LearnerDisclosureTiming::Never,
-        solution: LearnerDisclosureTiming::Never,
-        class_statistics: LearnerDisclosureTiming::Never,
+fn disclosure_policy() -> StudentDisclosurePolicy {
+    StudentDisclosurePolicy {
+        score: StudentDisclosureTiming::AfterDue,
+        per_item_correctness: StudentDisclosureTiming::AfterClose,
+        feedback_text: StudentDisclosureTiming::Never,
+        solution: StudentDisclosureTiming::Never,
+        class_statistics: StudentDisclosureTiming::Never,
     }
 }
 
@@ -378,7 +378,7 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
         .await
         .expect("resolve current S3 policy before due")
         .expect("assignment exists");
-    let before = evaluate_learner_disclosure(
+    let before = evaluate_student_disclosure(
         updated.record.disclosure_policy,
         &before_due.decision,
         ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 999),
@@ -401,7 +401,7 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
         .await
         .expect("resolve current S3 policy after close")
         .expect("assignment exists");
-    let after = evaluate_learner_disclosure(
+    let after = evaluate_student_disclosure(
         updated.record.disclosure_policy,
         &after_close.decision,
         ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 2_000),

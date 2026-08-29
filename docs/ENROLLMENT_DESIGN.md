@@ -1,7 +1,7 @@
 # Enrollment design
 
 PLE has implemented passwordless-account, course-roster, invitation,
-assignment-enrollment, and manual grade-export components. This document
+assignment-enrollment, and calculated roster score CSV export components. This document
 defines that boundary and distinguishes implemented production composition
 from the still-open acceptance work.
 
@@ -18,7 +18,7 @@ accounts, short-lived browser-bound email-authentication and account-session
 components, discoverable WebAuthn registration and authentication, multiple
 passkeys, verified account-email replacement, and account-to-course-context
 selection. The generic router mounts those account routes with the course
-roster, invitation, bulk import, atomic enrollment, and manual grade-export
+roster, invitation, bulk import, atomic enrollment, and calculated roster score CSV export
 routes. Memory and PostgreSQL implement the same Store contract, including
 canonical course-membership episodes, the tenant learner identity, derived
 assignment entitlement, and first-event materialization of one assignment
@@ -276,7 +276,7 @@ deliberately, purge predictably**.
 An active course roster may therefore contain:
 
 - the institutional email supplied by the instructor for invitation, roster
-  management, permitted-domain policy, and manual grade export;
+  management, permitted-domain policy, and calculated roster score CSV export;
 - the institution-issued student number supplied by the instructor for
   reliable LMS/gradebook row matching; and
 - a learner-selected display name or handle that helps the instructor manage
@@ -407,7 +407,7 @@ The following operations preserve them:
 | --- | --- |
 | Claim invitation | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
 | Create assignment | Store the assignment and its explicit audience; create no learner activity rows |
-| Read entitled pre-activity summary | Return a key-free `noActivity` projection without creating an enrollment or summary |
+| Read entitled pre-activity summary | Return a key-free `no_activity` projection without creating an enrollment or summary |
 | Start run, grade-bearing action, or instructor issue | Re-evaluate entitlement and atomically create or reuse the enrollment and summary receipt |
 | Remove student access | Remove current membership and group membership; retain existing educational records for authorized grade, audit, and retention workflows |
 | Re-add former student | Reuse learner identity and existing activity while deriving current access from the new membership episode |
@@ -433,7 +433,7 @@ payload rules are normative.
 | `DELETE /api/courses/{course}/members/{member}` | Revoke current course access without deleting records | Existing member path plus exact roster revision |
 | `POST /api/courses/{course}/roster-imports/preview` | Parse and stage bounded `email,roster_id` CSV | Exact roster revision plus direct Instructor or audited Sysadmin roster-support authorization |
 | `POST /api/courses/{course}/roster-imports/{import}/commit` | Commit the reviewed ready rows atomically | Import revision plus idempotency key |
-| `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Download the current manual grade export | Course and assignment from path plus direct Instructor authorization |
+| `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Download the calculated roster score CSV | Course and assignment from path plus direct Instructor authorization |
 
 The roster response is deliberately small:
 
@@ -441,28 +441,31 @@ The roster response is deliberately small:
 {
   "members": [
     {
-      "memberId": "opaque-member-id",
-      "displayName": "Student Name",
-      "rosterEmail": "netid@mail.roosevelt.edu",
-      "rosterId": "900123456",
+      "member_id": "opaque-member-id",
+      "display_name": "Student Name",
+      "roster_email": "netid@mail.roosevelt.edu",
+      "roster_id": "900123456",
       "role": "student",
       "status": "active"
     }
   ],
-  "pendingInvitations": [
+  "pending_invitations": [
     {
-      "invitationId": "opaque-invitation-id",
+      "invitation_id": "opaque-invitation-id",
       "email": "netid@mail.roosevelt.edu",
-      "rosterId": "900654321",
+      "roster_id": "900654321",
       "status": "pending",
-      "expiresAt": "2026-08-17T12:00:00Z"
+      "expires_at": "2026-08-17T12:00:00Z"
     }
   ],
-  "allowedEmailDomains": ["mail.roosevelt.edu"],
-  "nextCursor": null,
-  "rosterRevision": 4
+  "allowed_email_domains": ["mail.roosevelt.edu"],
+  "next_cursor": null,
+  "roster_revision": 4
 }
 ```
+
+**Current pre-WN1 note:** route payloads may retain direct lower-camel fields until their migration packages close.
+The object above is the approved direct-Serde `snake_case` contract; browser DOM and framework values retain their upstream spellings.
 
 It does not return provider subjects, passkey state, raw invitation tokens,
 tenant-selection fields, assignment enrollments, attempts, submissions, or
@@ -479,21 +482,21 @@ server log, or later roster response:
 ```json
 {
   "invitation": {
-    "invitationId": "opaque-invitation-id",
+    "invitation_id": "opaque-invitation-id",
     "email": "netid@mail.roosevelt.edu",
-    "rosterId": "900654321",
+    "roster_id": "900654321",
     "status": "pending",
-    "expiresAt": "2026-08-17T12:00:00Z"
+    "expires_at": "2026-08-17T12:00:00Z"
   },
-  "redemptionPath": "/course-invitations/redeem#token=one-time-base64url-secret",
-  "emailDelivery": "queued"
+  "redemption_path": "/course-invitations/redeem#token=one-time-base64url-secret",
+  "email_delivery": "queued"
 }
 ```
 
-`emailDelivery` is `queued` when the invitation is accepted for processing,
+`email_delivery` is `queued` when the invitation is accepted for processing,
 including pending or retryable work. It is never proof that a provider accepted
-the message or that a mailbox received it. `sentToProvider` means only that the
-configured provider accepted the submission. `needsAttention` covers an
+the message or that a mailbox received it. `sent_to_provider` means only that the
+configured provider accepted the submission. `needs_attention` covers an
 ambiguous result or a failure that remains after retry processing, including a
 permanent failure, and requires explicit operator action.
 `cancelled` is fenced, so its link must not be shared. Without SMTP, the
@@ -516,10 +519,10 @@ invitation identities. A browser never supplies them as new record identities.
 | Student tries an Instructor action | `403` after valid course membership is known |
 | Malformed email or roster identifier | Safe `422` without account-existence detail |
 | Existing or nonexistent PLE account at that email | Identical accepted invitation response |
-| SMTP absent | Accepted single invitation with `emailDelivery: queued` and the copy-link path |
-| Retryable delivery work | `emailDelivery: queued`; processing may continue without provider or mailbox evidence |
-| Ambiguous or permanent delivery failure | `emailDelivery: needsAttention`; operator action is required |
-| Cancelled invitation | `emailDelivery: cancelled`; the link is fenced and must not be shared |
+| SMTP absent | Accepted single invitation with `email_delivery: queued` and the copy-link path |
+| Retryable delivery work | `email_delivery: queued`; processing may continue without provider or mailbox evidence |
+| Ambiguous or permanent delivery failure | `email_delivery: needs_attention`; operator action is required |
+| Cancelled invitation | `email_delivery: cancelled`; the link is fenced and must not be shared |
 | Reused invitation by the same resulting member | Idempotent existing-membership result |
 | Reused invitation by another user | Safe conflict; no course or claimant detail |
 | Stale roster revision or changed import | `409` with reload guidance |
@@ -532,11 +535,11 @@ requiring 50 modal submissions. The bulk path uses a preview and commit flow,
 not a series of unrelated browser requests.
 
 1. The instructor downloads a simple CSV template or selects a configured
-   manual LMS/registrar export profile.
+   institutional LMS/registrar export profile.
 2. PLE accepts a bounded CSV body, parses it server-side, and discards the raw
    file after producing a staged normalized import.
-3. The preview reports row-numbered states such as `readyToInvite`,
-   `alreadyMember`, `alreadyPending`, `duplicate`, and `invalid` without
+3. The preview reports row-numbered states such as `ready_to_invite`,
+   `already_member`, `already_pending`, `duplicate`, and `invalid` without
    revealing whether an unrelated PLE account exists.
 4. The instructor reviews the exact accepted set.
 5. Commit uses the staged import ID, its strong revision, and an idempotency
@@ -552,7 +555,7 @@ echoing raw names, email addresses, student labels, or malformed cells into
 logs and error bodies.
 
 The generic CSV contract requires `email` and `roster_id`. `roster_id` is the
-institutional identifier needed to match a PLE result back to the manual LMS
+institutional identifier needed to match a PLE result back to the institutional LMS
 or gradebook export. For a Roosevelt roster that may be the `900xxxxxx`
 student number paired with the student's `netID@mail.roosevelt.edu` address.
 It is stored as protected course-scoped roster metadata, never as `UserId`, an
@@ -627,7 +630,7 @@ The strongest ADAPT ideas for PLE are:
   assignment instructor chore;
 - support single invite, bulk roster preview, pending status, and revocation;
 - retain the instructor-supplied student number beside the course roster so a
-  manual LMS/gradebook export can identify the correct row;
+  institutional LMS/gradebook export can identify the correct row;
 - let course instructors restrict invitation and signup addresses to allowed
   email domains;
 - let the authenticated learner claim an invitation;
@@ -755,8 +758,8 @@ learning experience.
 The institution's LMS, registrar roster, and gradebook remain authoritative
 for official institutional enrollment, legal student identity, final course
 grades, transcripts, and institutional retention. The instructor supplies the
-course-scoped `roster_id` so PLE can export a deterministic manual gradebook
-file. An instructor may transfer or later synchronize selected PLE results;
+course-scoped `roster_id` so PLE can export a deterministic calculated roster
+score CSV. An instructor may transfer or later synchronize selected PLE results;
 PLE membership does not assert official university enrollment.
 
 This boundary is why PLE does not require legal names or place institutional
@@ -778,7 +781,7 @@ hand-match 50 scores.
 | Data | Instructor convenience | Minimization control |
 | --- | --- | --- |
 | Authentication email | Register and sign in to the PLE account | Global account attribute; never the account key; not exposed as cross-course instructor data |
-| Course roster email | Invite, correct, apply allowed-domain policy, and match a manual institutional export | Course-scoped protected snapshot; direct course Instructors plus audited Sysadmin roster support; follows course learner-record retention |
+| Course roster email | Invite, correct, apply allowed-domain policy, and match an institutional export | Course-scoped protected snapshot; direct course Instructors plus audited Sysadmin roster support; follows course learner-record retention |
 | Institutional roster ID | Match PLE results to an LMS/gradebook row | Course-scoped protected record; no global lookup or authentication use |
 | Display name or handle | Let the instructor distinguish roster members | Learner-controlled account projection copied only where the course workflow needs it; no legal-name requirement |
 | Raw roster CSV | Import 50 learners at once | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation |
@@ -850,7 +853,7 @@ acceptance remains open.
 
 ### ENR5: Bulk roster - implemented
 
-- Add bounded `email` plus `roster_id` CSV template, manual LMS export profiles,
+- Add bounded `email` plus `roster_id` CSV template, institutional LMS export profiles,
   parse/preview, staged revision, and atomic invitation commit.
 - Add row status and correction guidance without raw-PII diagnostics.
 - Add exact normalized allowed-domain validation and reviewed institutional
@@ -872,7 +875,7 @@ acceptance remains open.
   roster creation, and roster addition after assignment creation.
 - Keep LTI Names and Roles roster synchronization in its separately authorized
   integration package; it must call the same Store command.
-- Prove a deterministic manual gradebook export keyed by the protected
+- Prove a deterministic calculated roster score CSV keyed by the protected
   course-scoped roster identifier; do not claim it changes the institutional
   system of record.
 
@@ -893,12 +896,12 @@ Permanent behavior and contract tests must prove:
 - allowed-domain matching uses the complete normalized domain and rejects
   substring, suffix-confusion, and malformed-IDNA cases;
 - course roster IDs are unique inside the course, absent from account lookup,
-  and present in the intended manual grade export;
+  and present in the intended calculated roster score CSV;
 - Student membership cannot create Instructor or Sysadmin authority;
 - adding a member creates the membership episode and profile without assignment
   activity rows;
 - creating an assignment stores its audience without creating learner rows;
-- pre-activity summary reads return `noActivity` without a write;
+- pre-activity summary reads return `no_activity` without a write;
 - concurrent first-event materialization creates exactly one enrollment and
   summary receipt;
 - Memory and PostgreSQL implement the same idempotent behavior;
@@ -923,7 +926,7 @@ Disposable integration evidence must prove:
 - the learner authenticates by email through the configured provider, optionally
   enrolls a passkey, enters the course, starts the
   assignment, submits, and appears in the instructor gradebook;
-- the instructor downloads a protected manual grade export whose roster IDs
+- the instructor downloads a protected calculated roster score CSV whose roster IDs
   match the imported rows and whose contents exclude account email and global
   `UserId`; and
 - the deployment-gated seeded persona selector, PLE passwordless composition,
@@ -942,7 +945,7 @@ when it meets the behavior-focused criteria in
 This enrollment slice keeps the following work in its existing owner:
 
 - automatic LMS Names and Roles roster synchronization remains integration
-  work after the core roster and manual export contract;
+  work after the core roster and calculated roster score CSV export contract;
 - optional institutional OIDC/SAML account linking remains an integration
   inside WP-RC8 and is not required for production passwordless login;
 - legal-identity verification and proctoring are not implied by email,

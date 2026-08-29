@@ -23,7 +23,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![7; 64]),
@@ -37,7 +37,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
         .claim_external_tool_activity(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &launch.token,
@@ -60,7 +60,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
         .release_external_tool_activity(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &ordinary_activity.token,
@@ -79,7 +79,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -93,7 +93,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
             fixture.context,
             learning_data_access::ClaimExternalToolFinalizationActivityCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 id: launch.id,
                 token: launch.token.clone(),
@@ -110,7 +110,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
         .release_external_tool_activity(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &activity.token,
@@ -122,7 +122,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 response: StudentResponse::ExternalTool {},
                 idempotency_key: begin.idempotency_key,
@@ -143,7 +143,7 @@ async fn finalization_fence_blocks_new_activity_but_allows_its_exact_verifier() 
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -163,7 +163,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![7; 64]),
@@ -176,7 +176,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
         .claim_external_tool_activity(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &launch.token,
@@ -197,7 +197,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -211,7 +211,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
             .begin_external_tool_activity_dispatch(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &claim.token,
@@ -225,7 +225,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
-                learner_work_binding: fixture.learner_work_binding(),
+                student_work_binding: fixture.student_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![9; 64]),
@@ -238,7 +238,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
         .claim_and_begin_external_tool_activity_dispatch(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             launch.id,
             &launch.token,
@@ -254,7 +254,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -269,7 +269,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
                 fixture.context,
                 CreateExternalToolLaunchSessionCommand {
                     actor: fixture.actor,
-                    learner_work_binding: fixture.learner_work_binding(),
+                    student_work_binding: fixture.student_work_binding(),
                     attempt: fixture.attempt,
                     binding: fixture.binding.clone(),
                     encrypted_provider_state: Some(vec![8; 64]),
@@ -283,7 +283,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
         .complete_external_tool_activity_dispatch(
             fixture.context,
             fixture.actor,
-            fixture.learner_work_binding(),
+            fixture.student_work_binding(),
             fixture.attempt,
             &claim.token,
         )
@@ -294,7 +294,7 @@ async fn indeterminate_activity_fence_blocks_reclaim_relaunch_and_submission_ret
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
-                fixture.learner_work_binding(),
+                fixture.student_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,

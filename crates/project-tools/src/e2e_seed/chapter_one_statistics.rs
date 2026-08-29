@@ -85,7 +85,7 @@ pub(super) async fn seed_chapter_one_statistics(
                 )
                 .expect("statistics seed instructions are valid"),
                 audience: question_model::AssignmentAudience::CourseWide,
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(pilot_uuid(
                         arguments.tenant,
@@ -149,7 +149,7 @@ pub(super) async fn seed_chapter_one_statistics(
             .start_or_resume_run(
                 context,
                 learner,
-                learning_data_access::LearnerWorkRoutingBinding::new(
+                learning_data_access::StudentWorkRoutingBinding::new(
                     target.course,
                     target.assignment,
                 ),
@@ -175,7 +175,7 @@ pub(super) async fn seed_chapter_one_statistics(
                 context,
                 IssueQuestionAttemptCommand {
                     actor: learner,
-                    binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    binding: learning_data_access::StudentWorkRoutingBinding::new(
                         target.course,
                         target.assignment,
                     ),
@@ -233,7 +233,7 @@ pub(super) async fn seed_chapter_one_statistics(
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: learner,
-                    binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    binding: learning_data_access::StudentWorkRoutingBinding::new(
                         target.course,
                         target.assignment,
                     ),

@@ -313,13 +313,13 @@ async fn contracted_imathas_result_outage_stays_ungraded_and_replica_does_not_re
     let fixture =
         contracted_route_fixture(RecordedContractedTransportMode::ResultUnavailable).await;
     let actor = UserId::from_uuid(id(803));
-    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let created = fixture
         .backend
         .create_contracted_launch_session(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
@@ -337,7 +337,7 @@ async fn contracted_imathas_result_outage_stays_ungraded_and_replica_does_not_re
         .submit_external_tool(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             key.clone(),
@@ -354,7 +354,7 @@ async fn contracted_imathas_result_outage_stays_ungraded_and_replica_does_not_re
         .submit_external_tool(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             key,
@@ -378,7 +378,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
     let actor = UserId::from_uuid(id(803));
-    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let QuestionSource::Imathas {
         provider,
         snapshot,
@@ -419,7 +419,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
             fixture.context,
             BeginExternalToolGradeCommand {
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 attempt: fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key.clone(),
@@ -439,7 +439,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor,
-                learner_work_binding,
+                student_work_binding,
                 attempt: fixture.attempt.id,
                 response,
                 idempotency_key: key.clone(),
@@ -460,7 +460,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
         .create_contracted_launch_session(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
@@ -472,7 +472,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
         .submit_external_tool(
             fixture.context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &fixture.issued_question_snapshot,
             &fixture.attempt,
             key,

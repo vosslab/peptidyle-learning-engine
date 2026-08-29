@@ -194,6 +194,7 @@ mod tests {
         }
         async fn fail_job(
             &self,
+            _: TenantContext,
             _: JobId,
             _: JobLeaseToken,
             _: JobFailureKind,

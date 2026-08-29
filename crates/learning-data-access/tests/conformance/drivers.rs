@@ -17,22 +17,22 @@ async fn memory_run_api_store_conforms() {
     for (fixture_offset, disclosure_policy) in [
         (
             0,
-            LearnerDisclosurePolicy {
-                score: LearnerDisclosureTiming::DuringAttempt,
-                per_item_correctness: LearnerDisclosureTiming::Never,
-                feedback_text: LearnerDisclosureTiming::AfterSubmit,
-                solution: LearnerDisclosureTiming::AfterClose,
-                class_statistics: LearnerDisclosureTiming::Never,
+            StudentDisclosurePolicy {
+                score: StudentDisclosureTiming::DuringAttempt,
+                per_item_correctness: StudentDisclosureTiming::Never,
+                feedback_text: StudentDisclosureTiming::AfterSubmit,
+                solution: StudentDisclosureTiming::AfterClose,
+                class_statistics: StudentDisclosureTiming::Never,
             },
         ),
         (
             10_000,
-            LearnerDisclosurePolicy {
-                score: LearnerDisclosureTiming::AfterDue,
-                per_item_correctness: LearnerDisclosureTiming::AfterSubmit,
-                feedback_text: LearnerDisclosureTiming::DuringAttempt,
-                solution: LearnerDisclosureTiming::AfterSubmit,
-                class_statistics: LearnerDisclosureTiming::Never,
+            StudentDisclosurePolicy {
+                score: StudentDisclosureTiming::AfterDue,
+                per_item_correctness: StudentDisclosureTiming::AfterSubmit,
+                feedback_text: StudentDisclosureTiming::DuringAttempt,
+                solution: StudentDisclosureTiming::AfterSubmit,
+                class_statistics: StudentDisclosureTiming::Never,
             },
         ),
     ] {

@@ -13,8 +13,6 @@ use sqlx::{Postgres, Row, Transaction};
 use super::map_sqlx_error;
 use crate::{JobId, StoreError};
 
-const MANUAL_GRADE_SQL: &str =
-    "SELECT * FROM public.ple_bind_manual_grade_invalidation_v1($1,$2,$3)";
 const ATTEMPT_SUPPORT_SQL: &str =
     "SELECT * FROM public.ple_bind_attempt_support_invalidation_v1($1,$2,$3)";
 const ASSIGNMENT_DEFINITION_SQL: &str =
@@ -27,22 +25,6 @@ const ACCEPTED_COMPLETION_SQL: &str =
 pub(super) struct ScoringInvalidationBinding {
     pub(super) generation: ScoringGeneration,
     pub(super) job: JobId,
-}
-
-pub(super) async fn bind_manual_grade(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    action: uuid::Uuid,
-    expected: ScoringInvalidationBinding,
-) -> Result<(), StoreError> {
-    let row = sqlx::query(MANUAL_GRADE_SQL)
-        .bind(tenant.as_uuid())
-        .bind(action)
-        .bind(expected.job.as_uuid())
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-    validate_binding(&row, expected, action, "manual-grade")
 }
 
 pub(super) async fn bind_attempt_support(

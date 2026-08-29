@@ -261,7 +261,7 @@ async fn postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_fr
             scoring_mode: AssignmentScoringMode::Normal,
         }],
         selection_groups: vec![],
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: policies(),
     };
     let created = create_published_assignment(

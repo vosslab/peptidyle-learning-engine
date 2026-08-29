@@ -1,35 +1,35 @@
-import type { LearnerDisclosurePolicy } from "../../../generated/api/LearnerDisclosurePolicy";
-import type { LearnerDisclosureTiming } from "../../../generated/api/LearnerDisclosureTiming";
+import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
+import type { StudentDisclosureTiming } from "../../../generated/api/StudentDisclosureTiming";
 import { decodeRecord, decodeStringEnum } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
-/** Decode the exact assignment-owned learner disclosure matrix. */
-export function decodeLearnerDisclosurePolicy(
+/** Decode the exact assignment-owned Student disclosure matrix. */
+export function decodeStudentDisclosurePolicy(
   value: unknown,
   path: string,
-): LearnerDisclosurePolicy {
+): StudentDisclosurePolicy {
   const record = decodeRecord(value, path);
   const fields = [
     "score",
-    "perItemCorrectness",
-    "feedbackText",
+    "per_item_correctness",
+    "feedback_text",
     "solution",
-    "classStatistics",
+    "class_statistics",
   ] as const;
   requireOnlyFields(record, path, fields);
-  const decodeTiming = (fieldName: (typeof fields)[number]): LearnerDisclosureTiming =>
+  const decodeTiming = (fieldName: (typeof fields)[number]): StudentDisclosureTiming =>
     decodeStringEnum(field(record, fieldName, path), `${path}.${fieldName}`, [
-      "duringAttempt",
-      "afterSubmit",
-      "afterDue",
-      "afterClose",
+      "during_attempt",
+      "after_submit",
+      "after_due",
+      "after_close",
       "never",
     ] as const);
   return {
     score: decodeTiming("score"),
-    perItemCorrectness: decodeTiming("perItemCorrectness"),
-    feedbackText: decodeTiming("feedbackText"),
+    per_item_correctness: decodeTiming("per_item_correctness"),
+    feedback_text: decodeTiming("feedback_text"),
     solution: decodeTiming("solution"),
-    classStatistics: decodeTiming("classStatistics"),
+    class_statistics: decodeTiming("class_statistics"),
   };
 }

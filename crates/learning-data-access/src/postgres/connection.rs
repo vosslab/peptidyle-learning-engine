@@ -56,7 +56,8 @@ mod execution_pools;
 pub use execution_pools::{
     AcceptedSubmissionFastPathPool, AcceptedSubmissionRecoveryPool,
     accepted_submission_fast_path_pool, accepted_submission_recovery_pool,
-    local_accepted_submission_fast_path_pool, local_accepted_submission_recovery_pool,
+    base_course_accepted_submission_fast_path_pool, local_accepted_submission_fast_path_pool,
+    local_accepted_submission_recovery_pool, local_base_course_accepted_submission_fast_path_pool,
 };
 
 fn pool_options(max_connections: u32) -> PgPoolOptions {
@@ -722,6 +723,14 @@ mod tests {
             )
             .is_ok()
         );
+        let base_course_fast_path = LoginContract::BaseCourseAcceptedSubmissionFastPath;
+        assert!(
+            verified_connect_options(
+                "postgres://ple_base_course_fast_path_login:secret@db.example/ple?sslmode=verify-full",
+                base_course_fast_path,
+            )
+            .is_ok()
+        );
         assert!(
             verified_connect_options(
                 "postgres://ple_worker_login:secret@db.example/ple?sslmode=verify-full",
@@ -753,6 +762,7 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::AcceptedSubmissionRecovery,
             LoginContract::AcceptedSubmissionFastPath,
+            LoginContract::BaseCourseAcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,
@@ -791,6 +801,7 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::AcceptedSubmissionRecovery,
             LoginContract::AcceptedSubmissionFastPath,
+            LoginContract::BaseCourseAcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,
@@ -867,6 +878,7 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::AcceptedSubmissionRecovery,
             LoginContract::AcceptedSubmissionFastPath,
+            LoginContract::BaseCourseAcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,
@@ -893,6 +905,7 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::AcceptedSubmissionRecovery,
             LoginContract::AcceptedSubmissionFastPath,
+            LoginContract::BaseCourseAcceptedSubmissionFastPath,
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::BaseCourseApplication,

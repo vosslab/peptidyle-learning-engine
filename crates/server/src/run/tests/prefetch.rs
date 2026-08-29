@@ -273,7 +273,7 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
         Arc::clone(&store),
         Arc::new(OpaqueRenderedHashBackend { inner: backend }),
         sealed_memory(&store),
-        learner_submission_status(&store),
+        student_submission_status(&store),
         automated_grading(&store),
     );
     let first = active_attempt_for(
@@ -339,7 +339,7 @@ async fn resumed_run_issues_successor_linked_to_durable_grade() {
             SubmitQuestionAttemptCommand {
                 actor: UserId::from_uuid(id(203)),
                 attempt: first.id,
-                binding: LearnerWorkRoutingBinding::new(CourseId::from_uuid(id(205)), assignment),
+                binding: StudentWorkRoutingBinding::new(CourseId::from_uuid(id(205)), assignment),
                 response,
                 result: AttemptResult {
                     correct: false,
@@ -469,7 +469,7 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
             fail_next_issue: AtomicBool::new(true),
         }),
         sealed_memory(&store),
-        learner_submission_status(&store),
+        student_submission_status(&store),
         automated_grading(&store),
     );
     let submit = || {

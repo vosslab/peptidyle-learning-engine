@@ -64,7 +64,7 @@ sequential counters and not browser secrets.
 | `AssetDeliveryId`                                  | Protected asset route lookup                           | Reuses an `AssetId`, `ObjectId`, or `CourseBannerId`; it does not mint a second logical object.                        |
 | `ExportId`                                         | One tenant-authorized export request                   | Browser may inspect its coarse status; workers resolve its frozen private input server-side.                           |
 | `JobId`                                            | One durable queue unit                                 | Worker-facing record identity, not proof that a worker owns its lease.                                                 |
-| `ManualGradeActionId` and `AttemptSupportActionId` | One idempotent instructor action                       | Audit identities for manual evaluation or sensitive attempt support actions.                                           |
+| `AttemptSupportActionId`                           | One idempotent Instructor support action               | Audit identity for a sensitive attempt-support action.                                                                 |
 
 The published-content newtypes are defined in
 [crates/question_model/src/identity.rs](../crates/question_model/src/identity.rs).
@@ -72,7 +72,6 @@ Tenant, course, assignment, enrollment, run, and attempt identities are in
 [crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs).
 The operational identities are owned by
 [crates/learning-data-access/src/jobs.rs](../crates/learning-data-access/src/jobs.rs),
-[crates/learning-data-access/src/manual_grading.rs](../crates/learning-data-access/src/manual_grading.rs),
 [crates/learning-data-access/src/contracts/runs.rs](../crates/learning-data-access/src/contracts/runs.rs),
 and [crates/learning-data-access/src/asset_delivery.rs](../crates/learning-data-access/src/asset_delivery.rs).
 

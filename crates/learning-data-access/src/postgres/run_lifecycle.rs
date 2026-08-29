@@ -1,12 +1,12 @@
 use super::*;
-use crate::LearnerWorkRoutingBinding;
+use crate::StudentWorkRoutingBinding;
 
 #[cfg(feature = "postgres")]
 pub(super) async fn start_or_resume_run(
     transaction: &mut Transaction<'_, Postgres>,
     context: TenantContext,
     actor: UserId,
-    binding: LearnerWorkRoutingBinding,
+    binding: StudentWorkRoutingBinding,
     proposed_run: RunId,
 ) -> Result<AssignmentRun, StoreError> {
     let tenant = context.tenant_id();

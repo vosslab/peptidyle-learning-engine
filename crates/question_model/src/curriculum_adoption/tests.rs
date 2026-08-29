@@ -8,10 +8,10 @@ use crate::AssignmentRevision;
 use crate::{
     AlphaCourseReference, AssignmentDeadlineBehavior, AssignmentReference,
     AssignmentTeachingSettingsFailureReason, BlueprintReference, CompletionRequirement,
-    ContinuedPractice, CourseReference, GradePolicy, LateSubmissionPolicy, LearnerDisclosurePolicy,
-    LearnerDisclosureTiming, LocalTimeOfDay, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, ProblemId, QuestionId,
-    RunPolicies, VariationPolicy, VersionId,
+    ContinuedPractice, CourseReference, GradePolicy, LateSubmissionPolicy, LocalTimeOfDay,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, ProblemId, QuestionId, RunPolicies, StudentDisclosurePolicy,
+    StudentDisclosureTiming, VariationPolicy, VersionId,
 };
 
 mod commands;
@@ -49,12 +49,12 @@ fn defaults() -> ReusableAssignmentDefaults {
             continued_practice: ContinuedPractice::Unlimited,
             variation: VariationPolicy::NewSeeds,
         },
-        learner_disclosure: LearnerDisclosurePolicy {
-            score: LearnerDisclosureTiming::AfterSubmit,
-            per_item_correctness: LearnerDisclosureTiming::AfterSubmit,
-            feedback_text: LearnerDisclosureTiming::AfterSubmit,
-            solution: LearnerDisclosureTiming::AfterClose,
-            class_statistics: LearnerDisclosureTiming::Never,
+        student_disclosure: StudentDisclosurePolicy {
+            score: StudentDisclosureTiming::AfterSubmit,
+            per_item_correctness: StudentDisclosureTiming::AfterSubmit,
+            feedback_text: StudentDisclosureTiming::AfterSubmit,
+            solution: StudentDisclosureTiming::AfterClose,
+            class_statistics: StudentDisclosureTiming::Never,
         },
     }
 }
@@ -177,7 +177,7 @@ fn semantic_digest_binds_every_assignment_meaning_category() {
     let mut changed = original_assignment.clone();
     changed.defaults.late_submission = LateSubmissionPolicy::MarkLate;
     changed.defaults.run_policies.variation = VariationPolicy::FullRegeneration;
-    changed.defaults.learner_disclosure.score = LearnerDisclosureTiming::AfterClose;
+    changed.defaults.student_disclosure.score = StudentDisclosureTiming::AfterClose;
     assert_changed(&original, changed);
 
     let mut changed = original_assignment;

@@ -11,20 +11,19 @@ function decodeRunReference(value: unknown, path: string): RunRouteReference {
   if (reference === null) throw new DecodeError(path, "an R- reference");
   return reference;
 }
-import type { LearnerAssignmentSummary } from "../../../generated/api/LearnerAssignmentSummary";
+import type { StudentAssignmentLandingSummary } from "../../../generated/api/StudentAssignmentLandingSummary";
 import type { AttemptProvenance } from "../../../generated/api/AttemptProvenance";
 import type { AttemptStatus } from "../../../generated/api/AttemptStatus";
 import type { AttemptTimerRecord } from "../../../generated/api/AttemptTimerRecord";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
-import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { IssuedAttemptCapabilityV1 } from "../../../generated/api/IssuedAttemptCapabilityV1";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
 import type { SourceArtifact } from "../../../generated/api/SourceArtifact";
 import type { StudentAssignmentSummary } from "../../../generated/api/StudentAssignmentSummary";
-import type { LearnerAssignmentProgress } from "../../../generated/api/LearnerAssignmentProgress";
-import type { LearnerClassStatistics } from "../../../generated/api/LearnerClassStatistics";
-import type { LearnerScoreState } from "../../../generated/api/LearnerScoreState";
+import type { StudentAssignmentProgress } from "../../../generated/api/StudentAssignmentProgress";
+import type { StudentClassStatistics } from "../../../generated/api/StudentClassStatistics";
+import type { StudentScoreState } from "../../../generated/api/StudentScoreState";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type {
@@ -32,7 +31,7 @@ import type {
   CursorPage,
   EnrollmentView,
   FeedbackReleaseResponse,
-  LearnerQuestionAttempt,
+  StudentQuestionAttempt,
   PrefetchedNextQuestion,
   PoolSelection,
   RunSummaryOutcome,
@@ -72,7 +71,7 @@ import {
   kind,
   requireOnlyFields,
 } from "./shared";
-import { decodeLearnerAssignmentSummary } from "./catalog_course";
+import { decodeStudentAssignmentLandingSummary } from "./catalog_course";
 import { decodeGeneratorReference, decodeSelectionCardinality } from "./question_model";
 import {
   decodeAttemptResult,
@@ -95,7 +94,7 @@ const ISSUED_ATTEMPT_CAPABILITIES = [
 
 // This fixed wire-contract minimum mirrors the server privacy floor. It only
 // rejects unsafe API data; release-policy evaluation remains server-owned.
-const LEARNER_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE = 5;
+const STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE = 5;
 const SCORING_STATUSES = [
   "current",
   "recalculating",
@@ -220,7 +219,6 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
       "in_progress",
       "submitted",
       "auto_submitted",
-      "needs_manual_grading",
       "cleared",
       "exempt",
     ] as const satisfies ReadonlyArray<AttemptStatus>),
@@ -236,10 +234,10 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
   return decoded;
 }
 
-export function decodeLearnerQuestionAttempt(
+export function decodeStudentQuestionAttempt(
   value: unknown,
   path = "response",
-): LearnerQuestionAttempt {
+): StudentQuestionAttempt {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [...QUESTION_ATTEMPT_FIELDS, "scoringStatus", "poolSelection"]);
   const { scoringStatus, poolSelection, ...attempt } = record;
@@ -247,7 +245,7 @@ export function decodeLearnerQuestionAttempt(
     ...decodeQuestionAttempt(attempt, path),
     scoringStatus: decodeStringEnum(scoringStatus, `${path}.scoringStatus`, SCORING_STATUSES),
     poolSelection: decodePoolSelection(poolSelection, `${path}.poolSelection`),
-  } satisfies LearnerQuestionAttempt;
+  } satisfies StudentQuestionAttempt;
   if (decoded.scoringStatus !== "current" && decoded.result !== null) {
     throw new DecodeError(`${path}.result`, "no numeric result while scoring is not current");
   }
@@ -334,42 +332,45 @@ function decodeAssignmentEnrollment(value: unknown, path: string): AssignmentEnr
   return decoded;
 }
 
-function decodeLearnerClassStatistics(value: unknown, path: string): LearnerClassStatistics {
+function decodeStudentClassStatistics(value: unknown, path: string): StudentClassStatistics {
   const record = decodeRecord(value, path);
   const statisticsState = decodeStringEnum(field(record, "state", path), `${path}.state`, [
-    "insufficientEvidence",
+    "insufficient_evidence",
     "available",
-  ] as const satisfies ReadonlyArray<LearnerClassStatistics["state"]>);
-  if (statisticsState === "insufficientEvidence") {
+  ] as const satisfies ReadonlyArray<StudentClassStatistics["state"]>);
+  if (statisticsState === "insufficient_evidence") {
     requireOnlyFields(record, path, ["state"]);
     return { state: statisticsState };
   }
   requireOnlyFields(record, path, [
     "state",
-    "completedLearnerCohortSize",
-    "assignmentAverageScore",
+    "completed_student_cohort_size",
+    "assignment_average_score",
   ]);
   const assignmentAverageScore = decodeFiniteNumber(
-    field(record, "assignmentAverageScore", path),
-    `${path}.assignmentAverageScore`,
+    field(record, "assignment_average_score", path),
+    `${path}.assignment_average_score`,
   );
   if (assignmentAverageScore < 0 || assignmentAverageScore > 1) {
-    throw new DecodeError(`${path}.assignmentAverageScore`, "a normalized score from 0 through 1");
-  }
-  const completedLearnerCohortSize = decodePositiveInteger(
-    field(record, "completedLearnerCohortSize", path),
-    `${path}.completedLearnerCohortSize`,
-  );
-  if (completedLearnerCohortSize < LEARNER_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE) {
     throw new DecodeError(
-      `${path}.completedLearnerCohortSize`,
-      `a cohort of at least ${LEARNER_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE} completed learners`,
+      `${path}.assignment_average_score`,
+      "a normalized score from 0 through 1",
+    );
+  }
+  const completedStudentCohortSize = decodePositiveInteger(
+    field(record, "completed_student_cohort_size", path),
+    `${path}.completed_student_cohort_size`,
+  );
+  if (completedStudentCohortSize < STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE) {
+    throw new DecodeError(
+      `${path}.completed_student_cohort_size`,
+      `a cohort of at least ${STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE} completed Students`,
     );
   }
   return {
     state: statisticsState,
-    completedLearnerCohortSize,
-    assignmentAverageScore,
+    completed_student_cohort_size: completedStudentCohortSize,
+    assignment_average_score: assignmentAverageScore,
   };
 }
 
@@ -414,80 +415,80 @@ export function decodeStudentAssignmentSummary(
 }
 
 /**
- * Decodes the learner-only aggregate projection.  Unlike the storage summary,
+ * Decodes the Student-only aggregate projection. Unlike the storage summary,
  * this exact wire contract has no tenant or enrollment identifiers and sends no
  * score totals unless the current assignment settings permit their disclosure.
  */
-export function decodeLearnerAssignmentProgress(
+export function decodeStudentAssignmentProgress(
   value: unknown,
   path = "response",
-): LearnerAssignmentProgress {
+): StudentAssignmentProgress {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "scoreState",
-    "scoringStatus",
-    "currentScore",
-    "bestScore",
-    "latestScore",
-    "completedRunCount",
-    "totalQuestionAttempts",
-    "lastActivityAt",
-    "classStatistics",
+    "score_state",
+    "scoring_status",
+    "current_score",
+    "best_score",
+    "latest_score",
+    "completed_run_count",
+    "total_question_attempts",
+    "last_activity_at",
+    "class_statistics",
   ]);
-  const scoreState = decodeStringEnum(field(record, "scoreState", path), `${path}.scoreState`, [
-    "noActivity",
+  const scoreState = decodeStringEnum(field(record, "score_state", path), `${path}.score_state`, [
+    "no_activity",
     "withheld",
     "available",
-  ] as const satisfies ReadonlyArray<LearnerScoreState>);
-  const classStatistics = Object.prototype.hasOwnProperty.call(record, "classStatistics")
-    ? decodeLearnerClassStatistics(record["classStatistics"], `${path}.classStatistics`)
+  ] as const satisfies ReadonlyArray<StudentScoreState>);
+  const classStatistics = Object.prototype.hasOwnProperty.call(record, "class_statistics")
+    ? decodeStudentClassStatistics(record["class_statistics"], `${path}.class_statistics`)
     : undefined;
   const decoded = {
-    scoreState,
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
+    score_state: scoreState,
+    scoring_status: decodeStringEnum(
+      field(record, "scoring_status", path),
+      `${path}.scoring_status`,
       SCORING_STATUSES,
     ),
-    currentScore: decodeNullable(
-      field(record, "currentScore", path),
-      `${path}.currentScore`,
+    current_score: decodeNullable(
+      field(record, "current_score", path),
+      `${path}.current_score`,
       decodeFiniteNumber,
     ),
-    bestScore: decodeNullable(
-      field(record, "bestScore", path),
-      `${path}.bestScore`,
+    best_score: decodeNullable(
+      field(record, "best_score", path),
+      `${path}.best_score`,
       decodeFiniteNumber,
     ),
-    latestScore: decodeNullable(
-      field(record, "latestScore", path),
-      `${path}.latestScore`,
+    latest_score: decodeNullable(
+      field(record, "latest_score", path),
+      `${path}.latest_score`,
       decodeFiniteNumber,
     ),
-    completedRunCount: decodeNonnegativeInteger(
-      field(record, "completedRunCount", path),
-      `${path}.completedRunCount`,
+    completed_run_count: decodeNonnegativeInteger(
+      field(record, "completed_run_count", path),
+      `${path}.completed_run_count`,
     ),
-    totalQuestionAttempts: decodeNonnegativeInteger(
-      field(record, "totalQuestionAttempts", path),
-      `${path}.totalQuestionAttempts`,
+    total_question_attempts: decodeNonnegativeInteger(
+      field(record, "total_question_attempts", path),
+      `${path}.total_question_attempts`,
     ),
-    lastActivityAt: decodeNullable(
-      field(record, "lastActivityAt", path),
-      `${path}.lastActivityAt`,
+    last_activity_at: decodeNullable(
+      field(record, "last_activity_at", path),
+      `${path}.last_activity_at`,
       decodeTimestamp,
     ),
-    ...(classStatistics === undefined ? {} : { classStatistics }),
-  } satisfies LearnerAssignmentProgress;
-  const scores = [decoded.currentScore, decoded.bestScore, decoded.latestScore];
-  if (decoded.scoreState !== "available" && scores.some((score) => score !== null)) {
-    throw new DecodeError(`${path}.scoreState`, "no score totals before scores are available");
+    ...(classStatistics === undefined ? {} : { class_statistics: classStatistics }),
+  } satisfies StudentAssignmentProgress;
+  const scores = [decoded.current_score, decoded.best_score, decoded.latest_score];
+  if (decoded.score_state !== "available" && scores.some((score) => score !== null)) {
+    throw new DecodeError(`${path}.score_state`, "no score totals before scores are available");
   }
   if (
-    decoded.scoreState === "noActivity" &&
-    (decoded.completedRunCount !== 0 || decoded.totalQuestionAttempts !== 0)
+    decoded.score_state === "no_activity" &&
+    (decoded.completed_run_count !== 0 || decoded.total_question_attempts !== 0)
   ) {
-    throw new DecodeError(`${path}.scoreState`, "no submitted activity counters");
+    throw new DecodeError(`${path}.score_state`, "no submitted activity counters");
   }
   return decoded;
 }
@@ -546,7 +547,7 @@ export function decodeRunSummaryResponse(value: unknown, path = "response"): Run
   const decoded = {
     course: decodeCourseRouteData(field(record, "course", path), `${path}.course`),
     run: decodeStrictAssignmentRun(field(record, "run", path), `${path}.run`),
-    summary: decodeLearnerAssignmentProgress(field(record, "summary", path), `${path}.summary`),
+    summary: decodeStudentAssignmentProgress(field(record, "summary", path), `${path}.summary`),
     practiceAllowed: decodeBoolean(
       field(record, "practiceAllowed", path),
       `${path}.practiceAllowed`,
@@ -575,70 +576,6 @@ export function decodeFeedbackReleaseResponse(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["released"]);
   return { released: decodeTrue(field(record, "released", path), `${path}.released`) };
-}
-
-/**
- * Decodes the gradebook's deliberately compact, tenant-owned projection.
- *
- * This boundary is exact because browser gradebook consumers must not silently
- * accept history, question content, or a cross-tenant record appended by a
- * future server regression.
- */
-export function decodeGradebookSummaryRow(value: unknown, path = "response"): GradebookSummaryRow {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "tenant",
-    "courseId",
-    "enrollmentId",
-    "studentId",
-    "learnerName",
-    "assignmentId",
-    "assignmentTitle",
-    "summary",
-    "scoringStatus",
-  ]);
-  const tenant = decodeIdentifier(field(record, "tenant", path), `${path}.tenant`);
-  const summary = decodeStudentAssignmentSummary(field(record, "summary", path), `${path}.summary`);
-  const summaryRecord = decodeRecord(field(record, "summary", path), `${path}.summary`);
-  requireOnlyFields(summaryRecord, `${path}.summary`, [
-    "tenant",
-    "enrollment",
-    "currentScore",
-    "bestScore",
-    "latestScore",
-    "completedRunCount",
-    "totalQuestionAttempts",
-    "lastActivityAt",
-  ]);
-  const enrollmentId = decodeIdentifier(
-    field(record, "enrollmentId", path),
-    `${path}.enrollmentId`,
-  );
-  if (summary.tenant !== tenant) {
-    throw new DecodeError(`${path}.summary.tenant`, "the row tenant");
-  }
-  if (summary.enrollment !== enrollmentId) {
-    throw new DecodeError(`${path}.summary.enrollment`, "the row enrollmentId");
-  }
-  const decoded = {
-    tenant,
-    courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
-    enrollmentId,
-    studentId: decodeIdentifier(field(record, "studentId", path), `${path}.studentId`),
-    learnerName: decodeNonemptyString(field(record, "learnerName", path), `${path}.learnerName`),
-    assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
-    assignmentTitle: decodeNonemptyString(
-      field(record, "assignmentTitle", path),
-      `${path}.assignmentTitle`,
-    ),
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
-      SCORING_STATUSES,
-    ),
-    summary,
-  } satisfies GradebookSummaryRow;
-  return decoded;
 }
 
 export function decodeAuthSession(value: unknown, path = "response"): AuthSession {
@@ -677,7 +614,7 @@ export function decodeEnrollmentView(value: unknown, path = "response"): Enrollm
   requireOnlyFields(record, path, ["enrollment", "summary"]);
   const decoded = {
     enrollment: decodeAssignmentEnrollment(field(record, "enrollment", path), `${path}.enrollment`),
-    summary: decodeLearnerAssignmentProgress(field(record, "summary", path), `${path}.summary`),
+    summary: decodeStudentAssignmentProgress(field(record, "summary", path), `${path}.summary`),
   } satisfies EnrollmentView;
   return decoded;
 }
@@ -747,12 +684,12 @@ export function decodeCoursePage(value: unknown, path = "response"): CursorPage<
   return decodeCursorPage(value, path, decodeCourseSummary);
 }
 
-export function decodeLearnerAssignmentPage(
+export function decodeStudentAssignmentPage(
   value: unknown,
   path = "response",
-): CursorPage<LearnerAssignmentSummary> {
+): CursorPage<StudentAssignmentLandingSummary> {
   return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeLearnerAssignmentSummary(item, itemPath, true),
+    decodeStudentAssignmentLandingSummary(item, itemPath, true),
   );
 }
 
@@ -763,15 +700,8 @@ export function decodeRunPage(value: unknown, path = "response"): CursorPage<Ass
 export function decodeAttemptPage(
   value: unknown,
   path = "response",
-): CursorPage<LearnerQuestionAttempt> {
-  return decodeCursorPage(value, path, decodeLearnerQuestionAttempt);
-}
-
-export function decodeGradebookPage(
-  value: unknown,
-  path = "response",
-): CursorPage<GradebookSummaryRow> {
-  return decodeCursorPage(value, path, decodeGradebookSummaryRow);
+): CursorPage<StudentQuestionAttempt> {
+  return decodeCursorPage(value, path, decodeStudentQuestionAttempt);
 }
 
 function decodeResponseFormatViolation(value: unknown, path: string): ResponseFormatViolation {

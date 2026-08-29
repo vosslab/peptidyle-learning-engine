@@ -359,8 +359,8 @@ mod tests {
     use super::*;
     use question_model::{
         AssignmentDeadlineBehavior, AssignmentTeachingSettingsField, CompletionRequirement,
-        ContinuedPractice, CourseLocalDateTime, GradePolicy, LateSubmissionPolicy,
-        LearnerDisclosurePolicy, ProblemId, RunPolicies, VariationPolicy, VersionId,
+        ContinuedPractice, CourseLocalDateTime, GradePolicy, LateSubmissionPolicy, ProblemId,
+        RunPolicies, StudentDisclosurePolicy, VariationPolicy, VersionId,
     };
 
     fn reference(value: u128) -> ProblemVersionRef {
@@ -393,7 +393,7 @@ mod tests {
                 continued_practice: ContinuedPractice::Unlimited,
                 variation: VariationPolicy::NewSeeds,
             },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
+            student_disclosure: StudentDisclosurePolicy::default(),
         }
     }
 

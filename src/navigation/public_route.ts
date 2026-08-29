@@ -3,6 +3,7 @@
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseReference } from "../../generated/api/CourseReference";
 import type { CourseGroupReference } from "../../generated/api/CourseGroupReference";
+import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { RunReference } from "../../generated/api/RunReference";
 import type { WorkspaceReference } from "../../generated/api/WorkspaceReference";
@@ -13,6 +14,8 @@ type BrandedRouteReference<Kind extends string> = string & { readonly [routeRefe
 export type CourseRouteReference = CourseReference & BrandedRouteReference<"course">;
 /** A parsed group reference has no navigation route until group-purpose work owns one. */
 export type CourseGroupRouteReference = CourseGroupReference & BrandedRouteReference<"courseGroup">;
+export type CourseMembershipRouteReference = CourseMembershipReference &
+  BrandedRouteReference<"courseMembership">;
 export type AssignmentRouteReference = AssignmentReference & BrandedRouteReference<"assignment">;
 export type RunRouteReference = RunReference & BrandedRouteReference<"run">;
 export type WorkspaceRouteReference = WorkspaceReference & BrandedRouteReference<"workspace">;
@@ -36,6 +39,11 @@ export function parseCourseReference(value: string): CourseRouteReference | null
 export function parseCourseGroupReference(value: string): CourseGroupRouteReference | null {
   return parseExact<"courseGroup">(value, "G");
 }
+export function parseCourseMembershipReference(
+  value: string,
+): CourseMembershipRouteReference | null {
+  return parseExact<"courseMembership">(value, "M");
+}
 export function parseAssignmentReference(value: string): AssignmentRouteReference | null {
   return parseExact<"assignment">(value, "A");
 }
@@ -53,6 +61,13 @@ export function courseRouteReference(value: CourseReference): CourseRouteReferen
 export function assignmentRouteReference(value: AssignmentReference): AssignmentRouteReference {
   const result = parseAssignmentReference(value);
   if (result === null) throw new Error("invalid assignment reference");
+  return result;
+}
+export function courseMembershipRouteReference(
+  value: CourseMembershipReference,
+): CourseMembershipRouteReference {
+  const result = parseCourseMembershipReference(value);
+  if (result === null) throw new Error("invalid course membership reference");
   return result;
 }
 export function runRouteReference(value: RunReference): RunRouteReference {

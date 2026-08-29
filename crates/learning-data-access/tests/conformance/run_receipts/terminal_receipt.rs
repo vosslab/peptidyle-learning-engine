@@ -7,13 +7,14 @@ pub(super) struct TerminalReceiptFixture<'a> {
     pub(super) context: TenantContext,
     pub(super) student_user: UserId,
     pub(super) publisher: UserId,
-    pub(super) binding: LearnerWorkRoutingBinding,
+    pub(super) binding: StudentWorkRoutingBinding,
     pub(super) run: &'a AssignmentRun,
     pub(super) submitted: &'a SubmissionRecord,
     pub(super) completed: &'a SubmissionRecord,
     pub(super) response: &'a StudentResponse,
     pub(super) key: &'a SubmissionIdempotencyKey,
     pub(super) fixture_offset: u128,
+    pub(super) grade_policy: GradePolicy,
     pub(super) second_attempt: &'a QuestionAttempt,
     pub(super) first_attempt: &'a QuestionAttempt,
 }
@@ -33,6 +34,7 @@ where
         response,
         key,
         fixture_offset,
+        grade_policy,
         second_attempt,
         first_attempt,
     } = fixture;
@@ -52,7 +54,11 @@ where
             completed.summary.total_question_attempts,
             completed.summary.current_score,
         ),
-        (1, 2, Some(1.0))
+        (
+            1,
+            2,
+            (grade_policy != GradePolicy::InstructorSelected).then_some(1.0),
+        )
     );
     let replay_after_completion = store
         .replay_submission(context, student_user, first_attempt.id, response, key)

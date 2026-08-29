@@ -4,15 +4,15 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
 use crate::{
-    LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt,
+    PrefetchedQuestionDescriptorV1, ReceiptNextAttempt, StudentWorkRoutingBinding,
     validate_issued_flat_grading, validate_issued_webwork_grading, validate_issued_webwork_replay,
 };
 
 pub(super) mod attempt_issuance;
 pub(super) mod authored_timing;
-pub(super) mod learner_projections;
-pub(super) mod learner_transition;
 pub(super) mod private_execution;
+pub(super) mod student_projections;
+pub(super) mod student_transition;
 pub(super) use authored_timing::add_seconds;
 
 /// Hydrates the authorized current delivery lifecycle and immutable issuance
@@ -23,7 +23,7 @@ pub(super) use authored_timing::add_seconds;
 /// sources, so delivery evidence survives mutable-source evolution.
 async fn hydrate_issued_attempt_evidence(
     transaction: &mut Transaction<'_, Postgres>,
-    witness: &super::learner_work_preparation::StudentAttemptPreparationWitness,
+    witness: &super::student_work_preparation::StudentAttemptPreparationWitness,
 ) -> Result<crate::IssuedAttemptRead, StoreError> {
     let row = sqlx::query(
         "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
@@ -121,14 +121,12 @@ impl SubmissionReceiptRequirement {
         match status {
             AttemptStatus::InProgress => Self::Absent,
             AttemptStatus::Submitted => Self::Required,
-            // A normal pending-grade submission retains a receipt, while an
-            // instructor force-submit can enter this terminal status without
-            // fabricating a learner response. Both forms remain valid; a
-            // retained receipt is still verified below.
-            AttemptStatus::NeedsManualGrading
-            | AttemptStatus::AutoSubmitted
-            | AttemptStatus::Cleared
-            | AttemptStatus::Exempt => Self::Optional,
+            // An instructor force-submit can enter this terminal status without
+            // fabricating a student response. A retained receipt is still
+            // verified below.
+            AttemptStatus::AutoSubmitted | AttemptStatus::Cleared | AttemptStatus::Exempt => {
+                Self::Optional
+            }
         }
     }
 }
@@ -140,7 +138,7 @@ impl SubmissionReceiptRequirement {
 fn validate_submission_receipt_for_issued_attempt(
     submission_receipt: Option<crate::CompletedSubmissionReceipt>,
     requirement: SubmissionReceiptRequirement,
-    witness: &super::learner_work_preparation::StudentAttemptPreparationWitness,
+    witness: &super::student_work_preparation::StudentAttemptPreparationWitness,
     issued_receipt: &crate::IssuedAttemptReceiptEvidence,
 ) -> Result<Option<crate::ReceiptPresentationSnapshot>, StoreError> {
     match submission_receipt {
@@ -229,7 +227,7 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
@@ -246,14 +244,14 @@ impl crate::RunStore for PostgresStore {
         .await
     }
 
-    async fn learner_assignment_run_items_impl(
+    async fn student_assignment_run_items_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if learner_projections::active_learner_run_for_read(
+        if student_projections::active_student_run_for_read(
             &mut transaction,
             context.tenant_id(),
             actor,
@@ -273,7 +271,7 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError> {
         retry_transaction(|| async move {
@@ -332,7 +330,7 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) -> Result<crate::IssuedAttemptRead, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
@@ -340,7 +338,7 @@ impl crate::RunStore for PostgresStore {
         // this bounded immutable-evidence hydration reads any source row
         // (ASVS 1.2.4, 1.5.2, 2.2.1-2.2.3, 2.3.3, 8.2.2/8.3.1/8.4.1,
         // 11.4.3, 14.2.6, 15.4.2, and 16.5.3).
-        let witness = super::learner_work_preparation::prepare_student_attempt_work(
+        let witness = super::student_work_preparation::prepare_student_attempt_work(
             &mut transaction,
             context.tenant_id(),
             binding,
@@ -411,7 +409,7 @@ impl crate::RunStore for PostgresStore {
         // assignment, membership, enrollment, run, predecessor, and summary
         // in the same order used by submission, preventing a prefetch race
         // from introducing a second authorization model.
-        let witness = super::learner_work_preparation::prepare_student_attempt_work(
+        let witness = super::student_work_preparation::prepare_student_attempt_work(
             &mut transaction,
             context.tenant_id(),
             command.binding,
@@ -565,7 +563,7 @@ impl crate::RunStore for PostgresStore {
         }
         Ok(Some(reservation))
     }
-    async fn learner_get_prefetched_question_impl(
+    async fn student_get_prefetched_question_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -574,7 +572,7 @@ impl crate::RunStore for PostgresStore {
         assignment_position: u32,
     ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if learner_projections::active_learner_run_for_read(
+        if student_projections::active_student_run_for_read(
             &mut transaction,
             context.tenant_id(),
             actor,
@@ -601,7 +599,7 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
@@ -669,14 +667,14 @@ impl crate::RunStore for PostgresStore {
             _ => Err(StoreError::Conflict),
         }
     }
-    async fn learner_pending_submission_for_run_impl(
+    async fn student_pending_submission_for_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if learner_projections::active_learner_run_for_read(
+        if student_projections::active_student_run_for_read(
             &mut transaction,
             context.tenant_id(),
             actor,
@@ -700,12 +698,12 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        binding: LearnerWorkRoutingBinding,
+        binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        super::learner_work_preparation::prepare_student_attempt_work(
+        super::student_work_preparation::prepare_student_attempt_work(
             &mut transaction,
             context.tenant_id(),
             binding,
@@ -826,7 +824,7 @@ impl crate::RunStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
-    async fn learner_list_question_attempts_impl(
+    async fn student_list_question_attempts_impl(
         &self,
         context: TenantContext,
         actor: UserId,
@@ -836,7 +834,7 @@ impl crate::RunStore for PostgresStore {
         let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
-        if learner_projections::active_learner_run_for_read(
+        if student_projections::active_student_run_for_read(
             &mut transaction,
             context.tenant_id(),
             actor,

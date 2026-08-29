@@ -35,7 +35,7 @@ pub trait ExternalToolLaunchBackend: Send + Sync {
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
@@ -46,7 +46,7 @@ pub trait ExternalToolLaunchBackend: Send + Sync {
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        learner_work_binding: LearnerWorkRoutingBinding,
+        student_work_binding: StudentWorkRoutingBinding,
         issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
@@ -73,12 +73,7 @@ pub fn router<S, B>(
     aead: Arc<crate::imathas_backend::LaunchStateAead>,
 ) -> Router
 where
-    S: Store
-        + CatalogStore
-        + ExternalToolLaunchSessionStore
-        + ManualGradingStore
-        + SessionStore
-        + 'static,
+    S: Store + CatalogStore + ExternalToolLaunchSessionStore + SessionStore + 'static,
     B: ExternalToolLaunchBackend
         + crate::imathas_backend::ExternalToolSubmissionBackend
         + RunBackend
@@ -135,12 +130,7 @@ async fn external_tool_shell<S, B>(
     Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
-    S: Store
-        + CatalogStore
-        + ExternalToolLaunchSessionStore
-        + ManualGradingStore
-        + SessionStore
-        + 'static,
+    S: Store + CatalogStore + ExternalToolLaunchSessionStore + SessionStore + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -148,13 +138,13 @@ where
         Err(e) => return auth_error_response(e),
     };
     let actor = authenticated.record.subject.user();
-    let learner_work_binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(course, assignment);
     let prepared = match state
         .store
         .prepare_external_tool_attempt(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt_id,
         )
         .await
@@ -172,7 +162,7 @@ where
         &headers,
         authenticated.tenant_context,
         actor,
-        learner_work_binding,
+        student_work_binding,
         attempt.id,
     )
     .is_none()
@@ -218,12 +208,7 @@ async fn begin_external_tool_launch<S, B>(
     Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
-    S: Store
-        + CatalogStore
-        + ExternalToolLaunchSessionStore
-        + ManualGradingStore
-        + SessionStore
-        + 'static,
+    S: Store + CatalogStore + ExternalToolLaunchSessionStore + SessionStore + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -231,13 +216,13 @@ where
         Err(e) => return auth_error_response(e),
     };
     let actor = authenticated.record.subject.user();
-    let learner_work_binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(course, assignment);
     let prepared = match state
         .store
         .prepare_external_tool_attempt(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt_id,
         )
         .await
@@ -261,7 +246,7 @@ where
         .create_external_tool_launch(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &issued_question_snapshot,
             &attempt,
             state.aead.as_ref(),
@@ -275,7 +260,7 @@ where
         state.aead.as_ref(),
         authenticated.tenant_context,
         actor,
-        learner_work_binding,
+        student_work_binding,
         attempt.id,
         &created,
     ) {
@@ -304,18 +289,13 @@ async fn external_tool_activity_get<S, B>(
     Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
-    S: Store
-        + CatalogStore
-        + ExternalToolLaunchSessionStore
-        + ManualGradingStore
-        + SessionStore
-        + 'static,
+    S: Store + CatalogStore + ExternalToolLaunchSessionStore + SessionStore + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     external_tool_activity(
         state,
         headers,
-        LearnerWorkRoutingBinding::new(course, assignment),
+        StudentWorkRoutingBinding::new(course, assignment),
         attempt_id,
         adapter_imathas::broker_provider::ProxyMethod::Get,
         &[],
@@ -336,7 +316,7 @@ where
     external_tool_activity(
         state,
         headers,
-        LearnerWorkRoutingBinding::new(course, assignment),
+        StudentWorkRoutingBinding::new(course, assignment),
         attempt_id,
         adapter_imathas::broker_provider::ProxyMethod::Post,
         &body,
@@ -347,7 +327,7 @@ where
 async fn external_tool_activity<S, B>(
     state: ExternalToolRouteState<S, B>,
     headers: HeaderMap,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
     method: adapter_imathas::broker_provider::ProxyMethod,
     body: &[u8],
@@ -366,7 +346,7 @@ where
         .prepare_external_tool_attempt(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt_id,
         )
         .await
@@ -384,7 +364,7 @@ where
         &crate::imathas_backend::launch_cookie_aad(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt.id,
         ),
     ) {
@@ -398,7 +378,7 @@ where
         .proxy_external_tool_activity(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &issued_question_snapshot,
             &attempt,
             session_id,
@@ -448,13 +428,13 @@ fn external_launch_proof(
     headers: &HeaderMap,
     context: TenantContext,
     actor: question_model::UserId,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
 ) -> Option<learning_data_access::ExternalToolLaunchProof> {
     let cookie = external_launch_cookie(headers)?;
     aead.open_cookie(
         &cookie,
-        &crate::imathas_backend::launch_cookie_aad(context, actor, learner_work_binding, attempt),
+        &crate::imathas_backend::launch_cookie_aad(context, actor, student_work_binding, attempt),
     )
     .map(|(session_id, token)| learning_data_access::ExternalToolLaunchProof { session_id, token })
     .ok()
@@ -509,13 +489,13 @@ where
         );
     }
     let actor = authenticated.record.subject.user();
-    let learner_work_binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let student_work_binding = StudentWorkRoutingBinding::new(course, assignment);
     let prepared = match state
         .store
         .prepare_question_submission(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             attempt_id,
             &request.response,
             &idempotency_key,
@@ -527,7 +507,7 @@ where
                 state.store.as_ref(),
                 state.backend.as_ref(),
                 &authenticated,
-                learner_work_binding,
+                student_work_binding,
                 *record,
                 SuccessorIssuance::Deferred,
             )
@@ -546,7 +526,7 @@ where
         &headers,
         authenticated.tenant_context,
         actor,
-        learner_work_binding,
+        student_work_binding,
         attempt.id,
     ) else {
         return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
@@ -562,7 +542,7 @@ where
         .submit_external_tool(
             authenticated.tenant_context,
             actor,
-            learner_work_binding,
+            student_work_binding,
             &issued_question_snapshot,
             &attempt,
             idempotency_key,
@@ -572,7 +552,7 @@ where
         .await
     {
         Ok(SubmissionDisposition::Committed(record)) => *record,
-        Ok(SubmissionDisposition::Grade(_)) | Ok(SubmissionDisposition::NeedsManualGrading) => {
+        Ok(SubmissionDisposition::Grade(_)) => {
             return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
         }
         Err(RunBackendError::Invalid(_)) => {
@@ -585,7 +565,7 @@ where
         state.store.as_ref(),
         state.backend.as_ref(),
         &authenticated,
-        learner_work_binding,
+        student_work_binding,
         record,
         SuccessorIssuance::Deferred,
     )

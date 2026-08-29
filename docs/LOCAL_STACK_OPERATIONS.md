@@ -288,9 +288,11 @@ remains singular:
 bash tests/e2e/e2e_run_all.sh
 ```
 
-It is designed to exercise the Wasm bridge, PostgreSQL migration/RLS/live
-oracle suite, and a real learner submission across two API replicas after
-stopping the replica that issued the question. The gateway image is derived from the pinned
+It exercises the Wasm bridge and export allowlist, production browser-build composition,
+PostgreSQL migration/RLS/live oracles, PostgreSQL-to-MinIO course-appearance cleanup, isolated
+WebWork rendering and grading, the complete installed-course lifecycle, and a real Student
+submission across two API replicas after stopping the replica that issued the question. The
+gateway image is derived from the pinned
 official digest and strips Caddy's unnecessary low-port file capability before
 running as UID 1000 with `cap_drop: ALL`. The replica lane builds the current
 checkout into exact nonce-scoped application and gateway tags, then removes

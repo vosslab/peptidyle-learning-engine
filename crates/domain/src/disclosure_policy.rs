@@ -1,20 +1,24 @@
-//! Pure learner disclosure evaluation (WP-INST-S4).
+//! Pure Student disclosure evaluation.
 //!
-//! S3 has already resolved the learner's effective assignment window, and S5
-//! has already determined whether the learner may access it. This module only
+//! The assignment-policy resolver has already resolved the Student's effective
+//! assignment window and access verdict. This module only
 //! consumes that verdict and an authoritative supplied timestamp. It neither
 //! reconstructs access decisions nor records a feedback-release receipt.
 
-use question_model::{ActivityTimestamp, LearnerDisclosurePolicy, LearnerDisclosureTiming};
+use question_model::{
+    ActivityTimestamp, AttemptResult, DisclosedFeedback, FeedbackContent,
+    InspectedStudentScoreFeedbackV1, ScoringStatus, StudentDisclosurePolicy,
+    StudentDisclosureTiming,
+};
 
 use crate::effective_assignment_policy::{EffectiveAssignmentPolicy, EffectivePolicyDecision};
 
-/// The five independently evaluated learner-facing disclosure fields.
+/// The five independently evaluated Student-facing disclosure fields.
 ///
 /// A caller uses these booleans to omit protected fields from a projection;
 /// this type contains no protected content itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LearnerDisclosureDecision {
+pub struct StudentDisclosureDecision {
     pub score: bool,
     pub per_item_correctness: bool,
     pub feedback_text: bool,
@@ -22,23 +26,92 @@ pub struct LearnerDisclosureDecision {
     pub class_statistics: bool,
 }
 
-/// Evaluates learner disclosure from one already-resolved S3 policy verdict.
+/// Removes score-dependent feedback fields while an assignment score is not current.
 ///
-/// A denied S3 verdict produces no learner decision. For allowed verdicts,
+/// A recalculating or failed aggregate must not expose an older numeric score or
+/// correctness verdict beside its current status.
+pub fn score_current_disclosure(
+    mut decision: StudentDisclosureDecision,
+    scoring_status: ScoringStatus,
+) -> StudentDisclosureDecision {
+    if !matches!(scoring_status, ScoringStatus::Current) {
+        decision.score = false;
+        decision.per_item_correctness = false;
+    }
+    decision
+}
+
+/// Projects exactly the independently disclosed Student feedback fields.
+///
+/// `None` means no feedback field is currently visible. Hidden fields are
+/// omitted rather than represented by null or a protected-content marker.
+pub fn project_disclosed_feedback(
+    decision: StudentDisclosureDecision,
+    result: Option<AttemptResult>,
+    content: &FeedbackContent,
+) -> Option<DisclosedFeedback> {
+    let mut disclosed = DisclosedFeedback::empty();
+    if let Some(result) = result {
+        if decision.per_item_correctness {
+            disclosed.correctness = Some(result.correct);
+        }
+        if decision.score {
+            disclosed.points_earned = Some(result.points_earned);
+            disclosed.points_possible = Some(result.points_possible);
+        }
+    }
+    if decision.feedback_text {
+        disclosed.hint = content.hint.clone();
+        disclosed.rationale = content.rationale.clone();
+    }
+    if decision.solution {
+        disclosed.correct_response = content.correct_response.clone();
+    }
+    (decision.per_item_correctness || decision.score || decision.feedback_text || decision.solution)
+        .then_some(disclosed)
+}
+
+/// Projects feedback for an Instructor inspecting one Student's submitted work.
+///
+/// Inspection can show only the current score and correctness permitted by
+/// assignment disclosure. Hint, rationale, solution, and correct-response
+/// content have no representation in this detail capability.
+pub fn project_inspected_student_score_feedback(
+    decision: StudentDisclosureDecision,
+    scoring_status: ScoringStatus,
+    result: Option<AttemptResult>,
+) -> InspectedStudentScoreFeedbackV1 {
+    let decision = score_current_disclosure(decision, scoring_status);
+    let mut feedback = InspectedStudentScoreFeedbackV1::empty();
+    if let Some(result) = result {
+        if decision.per_item_correctness {
+            feedback.correctness = Some(result.correct);
+        }
+        if decision.score {
+            feedback.points_earned = Some(result.points_earned);
+            feedback.points_possible = Some(result.points_possible);
+        }
+    }
+    feedback
+}
+
+/// Evaluates Student disclosure from one already-resolved assignment policy verdict.
+///
+/// A denied assignment-policy verdict produces no Student decision. For allowed verdicts,
 /// every field is evaluated independently using the supplied server timestamp
 /// and the resolved due/close times, if present. A submission timestamp is
-/// evidence that the current learner submitted; it is not read from storage.
-pub fn evaluate_learner_disclosure(
-    disclosure: LearnerDisclosurePolicy,
+/// evidence that the current Student submitted; it is not read from storage.
+pub fn evaluate_student_disclosure(
+    disclosure: StudentDisclosurePolicy,
     effective_policy: &EffectivePolicyDecision,
     now: ActivityTimestamp,
     submitted_at: Option<ActivityTimestamp>,
-) -> Option<LearnerDisclosureDecision> {
+) -> Option<StudentDisclosureDecision> {
     let EffectivePolicyDecision::Allowed { policy, .. } = effective_policy else {
         return None;
     };
 
-    Some(evaluate_allowed_learner_disclosure(
+    Some(evaluate_allowed_student_disclosure(
         policy,
         disclosure,
         now,
@@ -50,14 +123,14 @@ pub fn evaluate_learner_disclosure(
 ///
 /// Store receipt projections may retain the resolved policy without its S3
 /// gate verdict. Callers that still have the verdict should prefer
-/// [`evaluate_learner_disclosure`]; this helper does not authorize access.
-pub fn evaluate_allowed_learner_disclosure(
+/// [`evaluate_student_disclosure`]; this helper does not authorize access.
+pub fn evaluate_allowed_student_disclosure(
     policy: &EffectiveAssignmentPolicy,
-    disclosure: LearnerDisclosurePolicy,
+    disclosure: StudentDisclosurePolicy,
     now: ActivityTimestamp,
     submitted_at: Option<ActivityTimestamp>,
-) -> LearnerDisclosureDecision {
-    LearnerDisclosureDecision {
+) -> StudentDisclosureDecision {
+    StudentDisclosureDecision {
         score: timing_released(
             disclosure.score,
             now,
@@ -97,18 +170,18 @@ pub fn evaluate_allowed_learner_disclosure(
 }
 
 fn timing_released(
-    timing: LearnerDisclosureTiming,
+    timing: StudentDisclosureTiming,
     now: ActivityTimestamp,
     submitted_at: Option<ActivityTimestamp>,
     due_at: Option<ActivityTimestamp>,
     closes_at: Option<ActivityTimestamp>,
 ) -> bool {
     match timing {
-        LearnerDisclosureTiming::DuringAttempt => true,
-        LearnerDisclosureTiming::AfterSubmit => submitted_at.is_some(),
-        LearnerDisclosureTiming::AfterDue => due_at.is_some_and(|due_at| now >= due_at),
-        LearnerDisclosureTiming::AfterClose => closes_at.is_some_and(|closes_at| now >= closes_at),
-        LearnerDisclosureTiming::Never => false,
+        StudentDisclosureTiming::DuringAttempt => true,
+        StudentDisclosureTiming::AfterSubmit => submitted_at.is_some(),
+        StudentDisclosureTiming::AfterDue => due_at.is_some_and(|due_at| now >= due_at),
+        StudentDisclosureTiming::AfterClose => closes_at.is_some_and(|closes_at| now >= closes_at),
+        StudentDisclosureTiming::Never => false,
     }
 }
 

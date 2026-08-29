@@ -68,7 +68,7 @@ fn run_selection_is_reproducible_and_freezes_expanded_order() {
                 })
                 .collect(),
         }],
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: GradePolicy::Highest,
@@ -179,7 +179,7 @@ fn current_attempt_points_apply_every_scoring_mode_and_attempt_exclusion() {
             })
             .collect(),
         selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: GradePolicy::Highest,
@@ -307,7 +307,7 @@ fn selected_group_items_complete_from_the_immutable_delivered_order() {
                 })
                 .collect(),
         }],
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: GradePolicy::Highest,
@@ -414,7 +414,7 @@ fn immutable_assignment_fixture() -> AssignmentRecord {
                 delivery_state: AssignmentDeliveryState::Active,
             }],
         }],
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        disclosure_policy: question_model::StudentDisclosurePolicy::default(),
         policies: RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: GradePolicy::Highest,

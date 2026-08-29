@@ -91,7 +91,6 @@ use crate::{
 #[cfg(feature = "postgres")]
 mod live_demo_installation;
 #[cfg(feature = "postgres")]
-mod manual_grading;
 #[cfg(feature = "postgres")]
 use crate::{
     ClaimedJob, EnqueueJob, JobFailureDisposition, JobFailureKind, JobId, JobLeaseDuration,
@@ -152,9 +151,9 @@ use feedback_data::*;
 #[cfg(feature = "postgres")]
 mod entitlement;
 #[cfg(feature = "postgres")]
-mod learner_work_preparation;
-#[cfg(feature = "postgres")]
 mod student_run_preparation;
+#[cfg(feature = "postgres")]
+mod student_work_preparation;
 #[cfg(feature = "postgres")]
 mod submission;
 #[cfg(feature = "postgres")]
@@ -251,6 +250,8 @@ mod sessions;
 #[cfg(feature = "postgres")]
 mod statistics;
 #[cfg(feature = "postgres")]
+mod student_work_inspection;
+#[cfg(feature = "postgres")]
 mod teaching_authority;
 #[cfg(feature = "postgres")]
 mod teaching_authority_references;
@@ -258,8 +259,9 @@ mod teaching_authority_references;
 pub use connection::{
     AcceptedSubmissionFastPathPool, AcceptedSubmissionRecoveryPool, BaseCourseInstallerPool,
     ProductionLoginProfile, accepted_submission_fast_path_pool, accepted_submission_recovery_pool,
-    base_course_application_pool, base_course_installer_pool, lazy_pool,
-    local_accepted_submission_fast_path_pool, local_accepted_submission_recovery_pool,
+    base_course_accepted_submission_fast_path_pool, base_course_application_pool,
+    base_course_installer_pool, lazy_pool, local_accepted_submission_fast_path_pool,
+    local_accepted_submission_recovery_pool, local_base_course_accepted_submission_fast_path_pool,
     local_base_course_application_pool, local_base_course_installer_pool, local_development_pool,
     production_pool,
 };
@@ -292,7 +294,7 @@ struct AttemptSupportAuditPayload {
 #[cfg(feature = "postgres")]
 const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
     e.enrollment_id, e.student_id, \
-    COALESCE(profile.display_name, 'Learner') AS learner_name, \
+    COALESCE(profile.display_name, 'Student') AS student_name, \
     a.assignment_id, a.title AS assignment_title, a.scoring_status, \
     sas.tenant_id AS summary_tenant_id, sas.enrollment_id AS summary_enrollment_id, \
     sas.current_score AS summary_current_score, sas.best_score AS summary_best_score, \

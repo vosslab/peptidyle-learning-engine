@@ -6,7 +6,7 @@ use sqlx::Row;
 use sqlx::postgres::PgRow;
 
 use super::super::map_sqlx_error;
-use crate::{ExternalToolBinding, LearnerWorkRoutingBinding, StoreError};
+use crate::{ExternalToolBinding, StoreError, StudentWorkRoutingBinding};
 
 pub(super) fn postgres_validate_external_response(
     response: &StudentResponse,
@@ -48,12 +48,12 @@ pub(super) fn postgres_external_binding(row: &PgRow) -> Result<ExternalToolBindi
 
 pub(super) fn postgres_stored_course_matches(
     row: &PgRow,
-    learner_work_binding: LearnerWorkRoutingBinding,
+    student_work_binding: StudentWorkRoutingBinding,
 ) -> Result<bool, StoreError> {
     Ok(row
         .try_get::<uuid::Uuid, _>("course_id")
         .map_err(map_sqlx_error)?
-        == learner_work_binding.course.as_uuid())
+        == student_work_binding.course.as_uuid())
 }
 
 pub(super) fn postgres_binding_matches(

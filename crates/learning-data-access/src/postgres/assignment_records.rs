@@ -4,7 +4,7 @@ use question_model::PoolDrawAlgorithm;
 mod assignment_support;
 pub(crate) use assignment_support::*;
 
-mod learner_disclosure;
+mod student_disclosure;
 
 #[cfg(feature = "postgres")]
 pub(super) async fn validate_postgres_assignment_references(
@@ -150,7 +150,7 @@ pub(super) fn decode_assignment_header(
             continued_practice: parse_continued_practice(&practice_policy, practice_limit)?,
             variation: parse_variation_policy(&variation_policy)?,
         },
-        disclosure_policy: learner_disclosure::decode_learner_disclosure_policy(row)?,
+        disclosure_policy: student_disclosure::decode_student_disclosure_policy(row)?,
     })
 }
 
