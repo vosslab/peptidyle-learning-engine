@@ -40,7 +40,7 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 QTI conversion produces an answer-free draft handoff for the authoring UI. The worker separately
 retains the original archive, private answer bindings, choice maps, digests, and source provenance.
 The public runtime receives only the native question projection. See
-[qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) and
+[implementation_plan.md](active_plans/implementation_plan.md) and
 [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
 ## Private server source
@@ -84,9 +84,8 @@ no-store `text/csv; charset=utf-8` attachment data, bounded to 500 active studen
 four-decimal half-away-from-zero rule. Unavailable rows carry a status instead of a score. Durable
 audit metadata is PII-free; email and display name exist only in the response.
 
-Route authorization, response headers, and retention are defined in [API_CONTRACTS.md](API_CONTRACTS.md),
-[crates/server/src/course/roster/export.rs](../crates/server/src/course/roster/export.rs), and
-[crates/server/src/course/gradebook.rs](../crates/server/src/course/gradebook.rs).
+Route authorization, response headers, and retention are defined in
+[API_CONTRACTS.md](API_CONTRACTS.md) and [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
 ## Planned formats and routes
 

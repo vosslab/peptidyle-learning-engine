@@ -9,7 +9,6 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -91,22 +90,9 @@ function observeCurriculumWire(
   });
 }
 
-async function signInWithPasskey(
-  page: Page,
-): Promise<Awaited<ReturnType<typeof installVirtualAuthenticator>>> {
-  const authenticator = await installVirtualAuthenticator(page);
+async function enterSeededInstructorCourse(page: Page): Promise<void> {
   await chooseSeededIdentity(page, /Elena Rivera/u);
   await selectVisibleCourse(page, BIOCHEMISTRY_COURSE_TITLE);
-  await page.getByRole("link", { name: "Account", exact: true }).click();
-  const account = page.locator('[data-route-surface="accountSecurity"]');
-  await expect(account).toBeVisible();
-  await account.getByLabel("Passkey name").fill("Elena curriculum passkey");
-  await account.getByRole("button", { name: "Add passkey", exact: true }).click();
-  await expect(account.getByRole("status")).toHaveText("Passkey added.");
-  await signOutVisible(page);
-  await page.getByRole("button", { name: "Sign in with a passkey", exact: true }).click();
-  await selectVisibleCourse(page, BIOCHEMISTRY_COURSE_TITLE);
-  return authenticator;
 }
 
 async function selectQuestion(
@@ -270,7 +256,6 @@ test.describe("reusable curriculum on the production PLE stack", () => {
     const elenaContext = await browser.newContext({ ignoreHTTPSErrors: true });
     const morganContext = await browser.newContext({ ignoreHTTPSErrors: true });
     const averyContext = await browser.newContext({ ignoreHTTPSErrors: true });
-    let authenticator: Awaited<ReturnType<typeof installVirtualAuthenticator>> | undefined;
     let originEvidenceVerified = false;
     try {
       observeContextOrigins(elenaContext, elenaOrigins.pageOrigins, elenaOrigins.requestOrigins);
@@ -290,8 +275,8 @@ test.describe("reusable curriculum on the production PLE stack", () => {
       const assignmentTitle = "Peptide-bond Alpha practice";
       let publishedQuestionId = "";
 
-      await test.step("Elena completes ordinary passkey entry and creates the reusable definitions through the visible shared picker", async () => {
-        authenticator = await signInWithPasskey(page);
+      await test.step("Elena enters the seeded Instructor session and creates reusable definitions through the visible shared picker", async () => {
+        await enterSeededInstructorCourse(page);
         publishedQuestionId = await createPublicQuestion(page, questionTitle);
         await page.getByRole("link", { name: "Curriculum", exact: true }).click();
         const workspace = page.locator('[data-route-surface="curriculum"]');
@@ -582,12 +567,8 @@ test.describe("reusable curriculum on the production PLE stack", () => {
       expectObservedOrigin(elenaOrigins, new URL(scenarioInput.baseUrl).origin);
       originEvidenceVerified = true;
     } finally {
-      try {
-        if (authenticator !== undefined) await removeVirtualAuthenticator(authenticator);
-      } finally {
-        await Promise.all([elenaContext.close(), morganContext.close(), averyContext.close()]);
-        if (originEvidenceVerified) writeContextOriginReceipt(origins);
-      }
+      await Promise.all([elenaContext.close(), morganContext.close(), averyContext.close()]);
+      if (originEvidenceVerified) writeContextOriginReceipt(origins);
     }
   });
 });

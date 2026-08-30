@@ -16,9 +16,6 @@ mod scalars;
 mod server_records;
 mod source;
 
-#[cfg(test)]
-mod course_instance_record_tests;
-
 pub use adoption::*;
 pub use assignment_source::AssignmentDefinitionSourceView;
 pub use course_instance::*;

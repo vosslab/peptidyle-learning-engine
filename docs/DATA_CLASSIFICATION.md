@@ -13,6 +13,10 @@ UUID, checksum, object ID, or opaque handle can still be sensitive when it
 links a Student to a protected record. A value copied from a private object to
 a log, cache, URL, or browser field retains its original classification.
 
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) supersedes this document for
+the meaning of PLE-owned terms. This document owns classification, disclosure,
+and retention consequences for those terms.
+
 ## Decision procedure
 
 Classify a new datum before choosing its Rust type, table, object key, API
@@ -26,8 +30,8 @@ projection, or telemetry event.
    workspace source, generation or grader material, credential, or audit data.
    Do not infer delivery permission from its bucket.
 4. Give browser code only the narrowest projection needed for the visible
-   operation. The authenticated attempt and `ActorContext`, not browser-
-   provided actor, course, Student, or question information, determine grading
+   operation. The authenticated attempt and `AuthenticatedSession`, with exact
+   course and Student relationships, determine grading
    authority.
 5. State the retention owner and deletion behavior when the datum is created.
    A record without a deletion owner does not become exempt from retention.
@@ -46,7 +50,7 @@ acceptance and is not privacy evidence.
 This matrix records the SD1 target separately from current evidence. The
 checkout remains pre-SD1 and still carries legacy installation-scope types and
 related scope through current source. Those paths do not
-prove the target single-installation `ActorContext`, stable question lineage,
+prove the target single-installation `AuthenticatedSession`, stable question lineage,
 exact Student ownership, Star/Watch privacy, or thresholded statistics. SD1-B
 (domain and authorization), SD1-C (fresh PostgreSQL), SD1-D (Store), SD1-E
 (services, workers, objects, and adapters), SD1-F (browser and live demo), and
@@ -60,13 +64,13 @@ design intent rather than a privacy assurance.
 | Private workspace source and authoring assets | Draft source, question source, imported archives, editable assets, private previews, and authoring provenance. The authoring Store and workspace contracts own them. | `PrivateContent` and private database records; the creating Instructor's exact workspace ownership is required. Collaboration is a future separately designed capability, not current authority. | A separate authorized preview or export may return a deliberate projection. Source objects, source locators, object keys, and hidden identifiers never enter ordinary Student delivery. | Workspace lifecycle owns drafts and abandoned source. Published provenance is retained with the immutable published identity needed for authorized reproduction. | Planned SD1 target; exact creator/workspace ownership acceptance belongs to SD1-B through SD1-G. Current pre-SD1 source does not establish the target privacy boundary. |
 | Generation/grader keys and payloads | Answer keys, accepted values, rubrics, checker configuration, generation seeds, deterministic grading payloads, and private feedback sidecars. Grading and generation owners define correctness. | Server-only grading records and `PrivateContent` objects, with separate least-authority Store, adapter, and worker capabilities. | Never in Student responses, public catalog data, generated TypeScript, Wasm, browser storage, URLs, logs, traces, or ordinary DTOs. | Retain the material required to reproduce an authorized grade or publication. It is not removed by Student-record deletion unless its only copy is a linked record that the owning retention rule removes. | Current source-proven server-only grading and Wasm-closure boundary; SD1 typed-scope acceptance remains planned through SD1-B through SD1-G. |
 | Course records | Course settings, Instructor membership, assignment definitions, schedules, course banners, and course-management history. Course Store and server routes own authorization and lifecycle. | PostgreSQL under forced RLS and typed course scope; current direct course-Instructor membership authorizes teaching reads and writes. | Send only the exact route projection. Student assignment presentation is delivered through assignment entitlement, not general course-record access. | Course lifecycle archives or deletes course-owned records according to [RETENTION_POLICY.md](RETENTION_POLICY.md). Shared presentation assets and private workspace drafts remain outside that deletion. | Planned SD1 target; exact course ownership and forced-RLS acceptance belong to SD1-B through SD1-G. Current pre-SD1 source proves only legacy installation-scope course paths. |
-| Student work | Student enrollment and membership, assignment summaries, runs, attempts, submissions, responses, feedback, grades, exports, uploads, artifacts, and linked access evidence. `learning-data-access` and `server` own authorization and lifecycle. | PostgreSQL under forced RLS and `StudentRecords`; exact Student ownership or current course-Instructor membership is required. Narrow audited support is the only exception. | Only the exact teaching or Student-self projection, normally `Cache-Control: no-store`. Exclude it from general logs, analytics, URLs, and browser persistence. | Course lifecycle notifies, archive-fences access, then deletes the course-owned Student graph. Backup expiry and recovery objectives remain deployment work. | Planned SD1 target; exact Student ownership and ActorContext acceptance belong to SD1-B through SD1-G. Current pre-SD1 source proves only its existing course-scoped checks. |
-| Account and authentication data | Authentication email, account label, opaque `UserId`, passkey public credential/state, and authentication ceremonies. The auth capability owns them separately from course Stores. | Global account tables and authentication services; exact account/session authority is required. A course-linked copy follows Student-work classification. | Only the account owner receives the minimum account-management projection. Course routes receive no general account table. | Account and security retention own global records. Course snapshots follow course-record or Student-work retention as applicable. | Planned SD1 target for global account and ActorContext ownership; current source-proven passwordless/passkey boundary remains pre-SD1. |
-| Account and curation metadata | `Star` is the canonical favorite and a vetted-Instructor-visible endorsement. Its count and the vetted Instructor identities who starred are curation metadata. Watch membership and notification state belong to the watcher. | Global account/curation records use exact `UserId` and published-question identity. Star endorsement visibility is limited to approved Instructors; watch state is private to the watcher. | Approved Instructors may see the star count and vetted Instructor identities who starred. Students and anonymous users receive neither star identities nor watch state, and curation metadata is absent from their projections. | Account and curation lifecycle owns Star and Watch records. They remain separate from Student-record retention even when a watcher or Star owner is enrolled in a course. | Planned SD1 target; Star/Watch visibility and privacy acceptance belong to SD1-B through SD1-G. Current source does not prove this boundary. |
+| Student work | Student enrollment and membership, assignment summaries, runs, attempts, submissions, responses, feedback, grades, exports, uploads, artifacts, and linked access evidence. `learning-data-access` and `server` own authorization and lifecycle. | PostgreSQL under forced RLS and `StudentRecords`; exact Student ownership or current course-Instructor membership is required. Narrow audited support is the only exception. | Only the exact teaching or Student-self projection, normally `Cache-Control: no-store`. Exclude it from general logs, analytics, URLs, and browser persistence. | Course lifecycle notifies, archive-fences access, then deletes the course-owned Student graph. Backup expiry and recovery objectives remain deployment work. | Planned SD1 target; exact Student ownership and AuthenticatedSession acceptance belong to SD1-B through SD1-G. Current pre-SD1 source proves only its existing course-scoped checks. |
+| Account and authentication data | Authentication email, account label, opaque `AccountId`, passkey public credential/state, and authentication ceremonies. The auth capability owns them separately from course Stores. | Global account tables and authentication services; exact account/session authority is required. A course-linked copy follows Student-work classification. | Only the account owner receives the minimum account-management projection. Course routes receive no general account table. | Account and security retention own global records. Course snapshots follow course-record or Student-work retention as applicable. | Planned SD1 target for global Account and AuthenticatedSession ownership; current source-proven passwordless/passkey boundary remains pre-SD1. |
+| Account and curation metadata | `Star` is the canonical favorite and a vetted-Instructor-visible endorsement. Its count and the vetted Instructor identities who starred are curation metadata. Watch membership and notification state belong to the watcher. | Global account/curation records use exact `AccountId` and published-question identity. Star endorsement visibility is limited to approved Instructors; watch state is private to the watcher. | Approved Instructors may see the star count and vetted Instructor identities who starred. Students and anonymous users receive neither star identities nor watch state, and curation metadata is absent from their projections. | Account and curation lifecycle owns Star and Watch records. They remain separate from Student-record retention even when a watcher or Star owner is enrolled in a course. | Planned SD1 target; Star/Watch visibility and privacy acceptance belong to SD1-B through SD1-G. Current source does not prove this boundary. |
 | Credentials and secrets | Opaque session credentials, database URLs, object-store credentials, provider authentication, signing and encryption keys, and deployment secrets. Auth and deployment composition own them. | Host-only HttpOnly cookie for the raw ordinary session credential; hashed session record; deployment secret storage and process configuration for other secrets. | Raw credentials, secrets, and connection strings never enter JSON, local storage, URLs, logs, traces, generated code, images, or repository examples. | Session records expire or revoke under authentication policy. Deployment secrets follow rotation and revocation procedures, not course retention. | Current source-proven account-session and secret boundary; production secret-manager delivery is deployment work. |
 | Private provider replay and session state | WeBWorK field/value replay mapping, renderer identity, external launch correlation, provider handles, source bytes, result tokens, and launch cookies. The adapter/server boundary owns them. | Attempt-bound private persistence and server-held sessions; provider calls receive trusted server-built requests only. | A Student receives a safe attempt envelope and result projection, never upstream field names, values, source, token, credential, or provider session state. | Retain only as exact course and Student attempt evidence while needed for replay and grading. Remove it with the associated Student record unless a separate immutable source rule applies. | Current source-proven WeBWorK replay boundary for the supported path; SD1 typed-scope acceptance and other providers remain planned. |
-| Student upload candidates and final uploads | A file response bound to an exact Student, attempt, course, response definition, and presentation digest. The planned upload record, worker, and object contract own it. | Candidate bytes use non-deliverable `TempProcessing`; inspected durable submissions use `StudentRecords` and a server-computed SHA-256. | Current file-response submissions fail closed. The future flow gives the browser no object key, storage credential, presigned write URL, authoritative MIME type, or client checksum. | Candidate cleanup follows its short processing lifetime. Consumed durable submissions follow Student-record archive/delete; rejected or abandoned candidates are never deliverable. | Planned in [secure Student file-upload plan](active_plans/active/secure_student_file_upload_plan.md); it is not enabled. |
-| Anonymous aggregate statistics | Cohort-gated item difficulty, timing, and discrimination statistics associated with shared question versions. `MOD-STATS` owns the aggregate boundary. | Shared identity-free aggregate tables, separate from course records. Course-local item analysis is Student work because small cohorts can identify a Student. | Approved Instructors receive only the released projection after the deployment-wide k-anonymity threshold. It contains no Student, actor, course, raw response, or per-Student score. | It survives Student-record deletion because the released result contains no identifying record and is not reconstructed from deleted attempts. | Planned SD1 target; thresholded, version-aware statistics release and privacy acceptance belong to SD1-B through SD1-G. Current source does not prove the target disclosure boundary. |
+| Student upload candidates and final uploads | A file response bound to an exact Student, attempt, course, response definition, and presentation digest. The planned upload record, worker, and object contract own it. | Candidate bytes use non-deliverable `TempProcessing`; inspected durable submissions use `StudentRecords` and a server-computed SHA-256. | Current file-response submissions fail closed. The future flow gives the browser no object key, storage credential, presigned write URL, authoritative MIME type, or client checksum. | Candidate cleanup follows its short processing lifetime. Consumed durable submissions follow Student-record archive/delete; rejected or abandoned candidates are never deliverable. | The upload path is not enabled; its dedicated contract remains future work. |
+| Anonymous aggregate statistics | Cohort-gated item difficulty, timing, and discrimination statistics associated with shared question versions. `MOD-STATS` owns the aggregate boundary. | Shared identity-free aggregate tables, separate from course records. Course-local item analysis is Student work because small cohorts can identify a Student. | Approved Instructors receive only the released projection after the deployment-wide k-anonymity threshold. It contains no Student, Account, course, raw response, or per-Student score. | It survives Student-record deletion because the released result contains no identifying record and is not reconstructed from deleted attempts. | Planned SD1 target; thresholded, version-aware statistics release and privacy acceptance belong to SD1-B through SD1-G. Current source does not prove the target disclosure boundary. |
 | Audit data and operational diagnostics | Security audit events, protected-delivery authorization, bounded worker and job evidence, errors, and operational diagnostics. The producing server or worker owns each event shape. | Linked educational audit data uses forced RLS and the same exact course, Student, workspace, or capability scope. Deployment observability uses operations controls. | Browser errors are short and safe. Logs, traces, telemetry, and diagnostic attachments omit answers, keys, raw responses, object URLs, credentials, provider tokens, session values, and source bytes. | Audit data linked to Student work follows that record's retention. Operational logs require a documented deployment retention policy and never become an undeclared record archive. | Current source-proven application audit controls; SD1 exact-linkage acceptance and production observability retention remain separate work. |
 
 ## Boundary rules by medium
@@ -74,11 +78,11 @@ design intent rather than a privacy assurance.
 ### PostgreSQL
 
 - Shared immutable catalog content has global ownership. Course records and
-  Student work use server-derived `ActorContext` plus exact course,
+  Student work use server-derived `AuthenticatedSession` plus exact course,
   Student, or workspace relationships.
-- Forced RLS, transaction-local actor context, and narrow roles are the access
+- Forced RLS, transaction-local authenticated Account context, and narrow roles are the access
   boundary. A browser header, URL component, or JSON field never supplies
-  actor, membership, workspace, course, Student, or capability authority.
+  account, membership, workspace, course, Student, or capability authority.
 - A grading-reader connection is a separate least-privilege capability. The
   ordinary application Store does not acquire grading-read access by changing
   role inside a request.
@@ -108,7 +112,7 @@ design intent rather than a privacy assurance.
   answer-bearing values, object keys, grades, and provider state are not
   stored in `localStorage`, `sessionStorage`, or persistent browser caches.
 - Render payloads may be richer than submissions. The server derives expected
-  response family, grading backend, seed, ownership, and policy from the
+  Answer Format, grading backend, seed, ownership, and policy from the
   authenticated attempt. The browser never supplies grading authority.
 - Protected route responses use `no-store`. A signed object URL is an
   authorization result returned only by the protected delivery POST; it is not
@@ -188,7 +192,7 @@ query results, backups, replicas, and restores. Derived query results and
 persistent database copies inherit the highest classification of their inputs.
 
 An attempt ID, run ID, object-delivery ID, or upload ID is an opaque locator.
-Every use still rechecks the authenticated actor, exact course, Student,
+Every use still rechecks the authenticated Account, exact course, Student,
 creating Instructor workspace ownership, or capability relationship, lifecycle
 state, and operation binding.
 Opaque IDs reduce accidental disclosure; they do not replace authorization.
@@ -206,7 +210,7 @@ accepted would violate this classification contract.
 Removing a Student identifier is insufficient when a small cohort can identify
 that Student indirectly. Aggregate computation happens while records exist,
 publication enforces the k-anonymity threshold, and the released result holds
-no actor or Student identifier. Course-specific item analysis remains
+no Account or Student identifier. Course-specific item analysis remains
 radioactive even when it uses aggregate arithmetic.
 
 ## Change checklist
@@ -233,7 +237,7 @@ contract test:
   browser, provider, and delivery enforcement boundaries.
 - [CONTRACTS.md](CONTRACTS.md) names the public module and route contracts.
 - [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
-  defines forced RLS, actor context, roles, and exact course, Student, and
+  defines forced RLS, authenticated Account context, roles, and exact course, Student, and
   workspace ownership.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) defines typed object keys, delivery,
   publication, and reconciliation status.
@@ -241,5 +245,5 @@ contract test:
   backup limitations.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines the
   render-to-submission data boundary.
-- [active_plans/active/secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md)
-  defines the unimplemented Student upload security path.
+- The unimplemented Student-upload security path requires its own dedicated
+  contract before delivery is enabled.

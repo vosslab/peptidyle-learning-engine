@@ -9,7 +9,7 @@ import { createBrowserSessionBoundary } from "../src/auth/browser_session_bounda
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
 import { assignmentWorkspacePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
-import { rolesMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
+import { accountRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
   assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "problemDetail");
@@ -38,18 +38,24 @@ test("route contracts fail closed and reserve authoring routes for teaching role
     "assignmentWorkspaceGradingOperations",
   );
   assert.equal(routeContractForPathname("/instructor/courses/C-1/assignments/A-1/edit"), undefined);
-  assert.equal(rolesMayAccessRoute("assignmentOverview", ["student"]), true);
-  assert.equal(rolesMayAccessRoute("assignmentOverview", ["instructor"]), false);
-  assert.equal(rolesMayAccessRoute("assignmentWorkspaceOverview", ["student"]), false);
-  assert.equal(rolesMayAccessRoute("assignmentWorkspaceOverview", ["instructor"]), true);
-  assert.equal(rolesMayAccessRoute("assignmentWorkspaceGradingOperations", ["student"]), false);
-  assert.equal(rolesMayAccessRoute("assignmentWorkspaceGradingOperations", ["instructor"]), true);
-  assert.equal(rolesMayAccessRoute("assignmentWorkspaceGradingOperations", ["sysadmin"]), false);
-  assert.equal(rolesMayAccessRoute("workspaceEditor", ["student"]), false);
-  assert.equal(rolesMayAccessRoute("workspaceEditor", ["instructor"]), true);
-  assert.equal(rolesMayAccessRoute("curriculum", ["student"]), false);
-  assert.equal(rolesMayAccessRoute("curriculum", ["sysadmin"]), false);
-  assert.equal(rolesMayAccessRoute("curriculum", ["instructor"]), true);
+  assert.equal(accountRoleMayAccessRoute("assignmentOverview", "student"), true);
+  assert.equal(accountRoleMayAccessRoute("assignmentOverview", "instructor"), false);
+  assert.equal(accountRoleMayAccessRoute("assignmentWorkspaceOverview", "student"), false);
+  assert.equal(accountRoleMayAccessRoute("assignmentWorkspaceOverview", "instructor"), true);
+  assert.equal(accountRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "student"), false);
+  assert.equal(
+    accountRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "instructor"),
+    true,
+  );
+  assert.equal(
+    accountRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "sysadmin"),
+    false,
+  );
+  assert.equal(accountRoleMayAccessRoute("workspaceEditor", "student"), false);
+  assert.equal(accountRoleMayAccessRoute("workspaceEditor", "instructor"), true);
+  assert.equal(accountRoleMayAccessRoute("curriculum", "student"), false);
+  assert.equal(accountRoleMayAccessRoute("curriculum", "sysadmin"), false);
+  assert.equal(accountRoleMayAccessRoute("curriculum", "instructor"), true);
 });
 
 test("assignment workspace paths use the declared grading-operations route", () => {
@@ -62,7 +68,7 @@ test("assignment workspace paths use the declared grading-operations route", () 
 test("session bootstrap retains only safe session state with direct narrow dependencies", async () => {
   const session = {
     authenticated: true,
-    user: { id: "user-a", displayName: "Ada", roles: ["student"] },
+    account: { id: "account-a", role: "student" },
   };
   const boundaryStates = [];
   let bootstrap;
@@ -121,7 +127,7 @@ test("a stale session lookup cannot overwrite a newer authenticated generation",
   });
   const newerSession = {
     authenticated: true,
-    user: { id: "user-new", displayName: "New session", roles: ["student"] },
+    account: { id: "account-new", role: "student" },
   };
   let advances = 0;
   const bootstrap = createSessionBootstrap(
@@ -140,7 +146,7 @@ test("a stale session lookup cannot overwrite a newer authenticated generation",
   assert.deepEqual(bootstrap.state(), { kind: "authenticated", session: newerSession });
   releaseFirst({
     authenticated: true,
-    user: { id: "user-old", displayName: "Old session", roles: ["student"] },
+    account: { id: "account-old", role: "student" },
   });
   await stale;
   assert.deepEqual(bootstrap.state(), { kind: "authenticated", session: newerSession });

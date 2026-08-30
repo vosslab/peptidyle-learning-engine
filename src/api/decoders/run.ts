@@ -27,7 +27,7 @@ import type { StudentScoreState } from "../../../generated/api/StudentScoreState
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type {
-  AuthSession,
+  AuthenticatedSession,
   CursorPage,
   EnrollmentView,
   FeedbackReleaseResponse,
@@ -572,24 +572,25 @@ export function decodeFeedbackReleaseResponse(
   return { released: decodeTrue(field(record, "released", path), `${path}.released`) };
 }
 
-export function decodeAuthSession(value: unknown, path = "response"): AuthSession {
+export function decodeAuthenticatedSession(
+  value: unknown,
+  path = "response",
+): AuthenticatedSession {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["authenticated", "user"]);
-  const user = decodeRecord(field(record, "user", path), `${path}.user`);
-  requireOnlyFields(user, `${path}.user`, ["id", "displayName", "roles"]);
+  requireOnlyFields(record, path, ["authenticated", "account"]);
+  const account = decodeRecord(field(record, "account", path), `${path}.account`);
+  requireOnlyFields(account, `${path}.account`, ["id", "role"]);
   const decoded = {
     authenticated: decodeTrue(field(record, "authenticated", path), `${path}.authenticated`),
-    user: {
-      id: decodeIdentifier(field(user, "id", `${path}.user`), `${path}.user.id`),
-      displayName: decodeNonemptyString(
-        field(user, "displayName", `${path}.user`),
-        `${path}.user.displayName`,
-      ),
-      roles: decodeArray(field(user, "roles", `${path}.user`), `${path}.user.roles`, (role, p) =>
-        decodeStringEnum(role, p, ["student", "instructor", "sysadmin"]),
-      ),
+    account: {
+      id: decodeIdentifier(field(account, "id", `${path}.account`), `${path}.account.id`),
+      role: decodeStringEnum(field(account, "role", `${path}.account`), `${path}.account.role`, [
+        "student",
+        "instructor",
+        "sysadmin",
+      ]),
     },
-  } satisfies AuthSession;
+  } satisfies AuthenticatedSession;
   return decoded;
 }
 

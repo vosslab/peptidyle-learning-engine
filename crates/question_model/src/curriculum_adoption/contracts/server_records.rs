@@ -12,7 +12,7 @@ use super::{
     CurriculumAdoptionIdempotencyKey, CurriculumPinReplacements, ObservedBlueprintSource,
     RolloverCourseInstanceManifest,
 };
-use crate::{CourseTerm, ResolvedRelativeAssignmentSchedule, UserId};
+use crate::{AccountId, CourseTerm, ResolvedRelativeAssignmentSchedule};
 
 /// Exact immutable parentage and mutable destination witness for one existing
 /// CourseInstance operation. This server-only binding keeps origin evidence
@@ -50,26 +50,26 @@ impl CourseInstanceApplicationBinding {
 /// Exact authenticated request identity observed by a server apply record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CurriculumAdoptionRequestBinding {
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
 
 impl CurriculumAdoptionRequestBinding {
     pub fn new(
-        authorized_actor: UserId,
+        authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
     ) -> Self {
         Self {
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         }
     }
 
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
 
     pub fn request_digest(&self) -> [u8; 32] {
@@ -80,9 +80,9 @@ impl CurriculumAdoptionRequestBinding {
         &self.idempotency_key
     }
 
-    pub(super) fn into_parts(self) -> (UserId, [u8; 32], CurriculumAdoptionIdempotencyKey) {
+    pub(super) fn into_parts(self) -> (AccountId, [u8; 32], CurriculumAdoptionIdempotencyKey) {
         (
-            self.authorized_actor,
+            self.authorized_account,
             self.request_digest,
             self.idempotency_key,
         )
@@ -128,8 +128,8 @@ impl AdoptBlueprintAssignmentApplyRecord {
     pub fn replacements(&self) -> &CurriculumPinReplacements {
         &self.replacements
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.request.authorized_actor()
+    pub fn authorized_account(&self) -> AccountId {
+        self.request.authorized_account()
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request.request_digest()
@@ -332,8 +332,8 @@ impl ShiftCourseInstanceTermApplyRecord {
     pub fn schedules(&self) -> &BoundedResolvedScheduleSet {
         &self.schedules
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.request.authorized_actor()
+    pub fn authorized_account(&self) -> AccountId {
+        self.request.authorized_account()
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request.request_digest()
@@ -349,18 +349,18 @@ impl ShiftCourseInstanceTermApplyRecord {
         CourseInstanceBlueprintApplication,
         CourseTerm,
         BoundedResolvedScheduleSet,
-        UserId,
+        AccountId,
         [u8; 32],
         CurriculumAdoptionIdempotencyKey,
     ) {
         let (destination, blueprint_application) = self.destination.into_parts();
-        let (authorized_actor, request_digest, idempotency_key) = self.request.into_parts();
+        let (authorized_account, request_digest, idempotency_key) = self.request.into_parts();
         (
             destination,
             blueprint_application,
             self.target_term,
             self.schedules,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         )
@@ -416,8 +416,8 @@ impl ControlledUpdateBlueprintAssignmentApplyRecord {
     pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
         self.destination.blueprint_application()
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.request.authorized_actor()
+    pub fn authorized_account(&self) -> AccountId {
+        self.request.authorized_account()
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request.request_digest()
@@ -433,18 +433,18 @@ impl ControlledUpdateBlueprintAssignmentApplyRecord {
         CourseInstanceImportWitness,
         CourseInstanceWitness,
         CourseInstanceBlueprintApplication,
-        UserId,
+        AccountId,
         [u8; 32],
         CurriculumAdoptionIdempotencyKey,
     ) {
         let (destination, blueprint_application) = self.destination.into_parts();
-        let (authorized_actor, request_digest, idempotency_key) = self.request.into_parts();
+        let (authorized_account, request_digest, idempotency_key) = self.request.into_parts();
         (
             self.source,
             self.import,
             destination,
             blueprint_application,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         )
@@ -496,8 +496,8 @@ impl CreateSelectedBlueprintAssignmentApplyRecord {
     pub fn replacements(&self) -> &CurriculumPinReplacements {
         &self.replacements
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.request.authorized_actor()
+    pub fn authorized_account(&self) -> AccountId {
+        self.request.authorized_account()
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request.request_digest()
@@ -514,19 +514,19 @@ impl CreateSelectedBlueprintAssignmentApplyRecord {
         CourseInstanceBlueprintApplication,
         ResolvedRelativeAssignmentSchedule,
         CurriculumPinReplacements,
-        UserId,
+        AccountId,
         [u8; 32],
         CurriculumAdoptionIdempotencyKey,
     ) {
         let (destination, blueprint_application) = self.destination.into_parts();
-        let (authorized_actor, request_digest, idempotency_key) = self.request.into_parts();
+        let (authorized_account, request_digest, idempotency_key) = self.request.into_parts();
         (
             self.source,
             destination,
             blueprint_application,
             self.schedule,
             self.replacements,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         )
@@ -535,7 +535,7 @@ impl CreateSelectedBlueprintAssignmentApplyRecord {
 
 /// Server-only reconciliation authority bound to one retained original receipt.
 ///
-/// `receipt` identifies the immutable source evidence. `authorized_actor`,
+/// `receipt` identifies the immutable source evidence. `authorized_account`,
 /// request digest, and idempotency key identify this new repair action, so a
 /// repair has its own audit identity and never collides with the original
 /// completed operation.
@@ -543,7 +543,7 @@ impl CreateSelectedBlueprintAssignmentApplyRecord {
 pub struct ReconcileCourseInstanceAdoptionApplyRecord {
     receipt: CourseInstanceReceiptTarget,
     blueprint_application: CourseInstanceBlueprintApplication,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
@@ -553,7 +553,7 @@ impl ReconcileCourseInstanceAdoptionApplyRecord {
     pub fn new(
         receipt: CourseInstanceReceiptTarget,
         blueprint_application: CourseInstanceBlueprintApplication,
-        authorized_actor: UserId,
+        authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
         eligibility: CourseInstanceEligibility,
@@ -564,7 +564,7 @@ impl ReconcileCourseInstanceAdoptionApplyRecord {
         };
         if blueprint_application != receipt.blueprint_application()
             || original_import_target.course() != receipt.destination().course
-            || (authorized_actor == receipt.authorized_actor()
+            || (authorized_account == receipt.authorized_account()
                 && idempotency_key == *receipt.idempotency_key())
         {
             return Err(CourseInstanceCommandError::ReceiptBindingMismatch);
@@ -572,7 +572,7 @@ impl ReconcileCourseInstanceAdoptionApplyRecord {
         Ok(Self {
             receipt,
             blueprint_application,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         })
@@ -584,8 +584,8 @@ impl ReconcileCourseInstanceAdoptionApplyRecord {
     pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
         self.blueprint_application
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
@@ -599,14 +599,14 @@ impl ReconcileCourseInstanceAdoptionApplyRecord {
     ) -> (
         CourseInstanceReceiptTarget,
         CourseInstanceBlueprintApplication,
-        UserId,
+        AccountId,
         [u8; 32],
         CurriculumAdoptionIdempotencyKey,
     ) {
         (
             self.receipt,
             self.blueprint_application,
-            self.authorized_actor,
+            self.authorized_account,
             self.request_digest,
             self.idempotency_key,
         )

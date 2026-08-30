@@ -9,7 +9,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.authoring_workspace (
     workspace_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
-    owner_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     created_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
     CONSTRAINT authoring_workspace_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= created_at),
@@ -19,11 +19,11 @@ CREATE TABLE ple_private.authoring_workspace (
 );
 CREATE TABLE ple_private.authoring_workspace_collaborator (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
-    user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
-    granted_by_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    collaborator_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    granted_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     granted_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (workspace_id, user_id),
-    CONSTRAINT authoring_workspace_collaborator_is_not_owner CHECK (user_id <> granted_by_user_id)
+    PRIMARY KEY (workspace_id, collaborator_account_id),
+    CONSTRAINT authoring_workspace_collaborator_is_not_grantor CHECK (collaborator_account_id <> granted_by_account_id)
 );
 CREATE TABLE ple_private.workspace_draft_question (
     draft_id uuid PRIMARY KEY,

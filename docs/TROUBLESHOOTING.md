@@ -164,7 +164,7 @@ the renderer identity, and the available engine without mutating the stack.
 
   The preflight locks both receipt tables and refuses any existing row before
   adding provenance constraints; see
-  [2026081866_g1_receipt_provenance_schema.sql](../schemas/migrations/2026081866_g1_receipt_provenance_schema.sql#L4-L17).
+  [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
   ```bash
   source source_me.sh && .venv/bin/python local_stack.py reset --confirm-project containers

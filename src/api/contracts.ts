@@ -24,8 +24,8 @@ import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import type { UserId } from "../../generated/api/UserId";
-import type { UserRole } from "../../generated/api/UserRole";
+import type { AccountId } from "../../generated/api/AccountId";
+import type { AccountRole } from "../../generated/api/AccountRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
@@ -156,13 +156,12 @@ export interface CursorPage<T> {
   readonly nextCursor: string | null;
 }
 
-/** Signed-in identity projection. Session credentials remain in an HttpOnly cookie. */
-export interface AuthSession {
+/** Resolved browser-safe Authenticated Session. The credential remains HttpOnly. */
+export interface AuthenticatedSession {
   readonly authenticated: true;
-  readonly user: {
-    readonly id: UserId;
-    readonly displayName: string;
-    readonly roles: ReadonlyArray<UserRole>;
+  readonly account: {
+    readonly id: AccountId;
+    readonly role: AccountRole;
   };
 }
 

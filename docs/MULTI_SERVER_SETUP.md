@@ -11,15 +11,15 @@ for the fixed browser profile. The lifecycle and recovery commands are in
 ## Single installation
 
 PLE is one installation with global accounts. An authenticated session resolves
-to `ActorContext { user_id, session_id }`; a browser route, header, queue row,
-object key, or provider response cannot supply a different actor or scope.
+to `AuthenticatedSession { account_id, session_id }`; a browser route, header, queue row,
+object key, or provider response cannot supply a different Account or scope.
 Course selection is the set of exact current memberships returned for that
 session. Selecting a course supplies a route reference for the server to check,
 not a new authorization claim.
 
 | Record or capability | Exact owner or scope | Authorization |
 | --- | --- | --- |
-| Account, email, passkey, session | Global `UserId` and server session | Account/session contract |
+| Account, email, passkey, session | Global `AccountId` and Authenticated Session | Account/session contract |
 | Published question and presentation asset | Global immutable `ProblemId` and `VersionId` | Every approved Instructor |
 | Draft, Blueprint, or private curriculum | `WorkspaceId` and owner/collaborator relationship | Workspace relationship |
 | Course, roster, assignment, schedule | Exact `CourseId` and child identity | Current direct Instructor membership |
@@ -37,7 +37,7 @@ approved Instructor, while only `active` questions are ordinarily selectable.
 
 Institution names, roster identifiers, display labels, provider identifiers,
 renderer IDs, and similar fields are metadata for display, audit, provenance,
-or routing. They are never an actor, account, role, course, Student, workspace,
+or routing. They are never an Account, role, course, Student, workspace,
 catalog, or lease authority. PLE-owned account and session state remains the
 authority even when an optional institutional or external provider integration
 is enabled.

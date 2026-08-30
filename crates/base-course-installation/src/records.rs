@@ -229,7 +229,7 @@ pub(crate) fn installation_recipe(
 
 fn course_recipe(
     course: &learning_data_access::CourseRecord,
-    initial_instructor: question_model::UserId,
+    initial_instructor: question_model::AccountId,
 ) -> serde_json::Value {
     serde_json::json!({
         "id": course.id.as_uuid(),
@@ -307,17 +307,17 @@ fn choice(id: &str, text: &str) -> ChoiceOption {
 
 #[cfg(test)]
 mod tests {
-    use question_model::UserId;
+    use question_model::AccountId;
 
     use super::*;
 
     fn participants() -> BaseCourseParticipants {
         BaseCourseParticipants::try_new(
-            UserId::from_uuid(Uuid::from_u128(10)),
-            UserId::from_uuid(Uuid::from_u128(11)),
-            UserId::from_uuid(Uuid::from_u128(12)),
-            UserId::from_uuid(Uuid::from_u128(13)),
-            UserId::from_uuid(Uuid::from_u128(14)),
+            AccountId::from_uuid(Uuid::from_u128(10)),
+            AccountId::from_uuid(Uuid::from_u128(11)),
+            AccountId::from_uuid(Uuid::from_u128(12)),
+            AccountId::from_uuid(Uuid::from_u128(13)),
+            AccountId::from_uuid(Uuid::from_u128(14)),
         )
         .unwrap()
     }

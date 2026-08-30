@@ -303,9 +303,10 @@ async function assertUnauthenticatedPreviewBoundary(
   await expect(
     recovery.getByRole("heading", { name: "Your session needs to be renewed" }),
   ).toBeVisible();
-  await expect(
-    recovery.getByRole("link", { name: "Sign in with a passkey or email" }),
-  ).toHaveAttribute("href", "/sign-in");
+  await expect(recovery.getByRole("link", { name: "Open sign-in" })).toHaveAttribute(
+    "href",
+    "/sign-in",
+  );
   await expect(page.locator('[data-route-surface="assignmentPreview"]')).toHaveCount(0);
   expect(calls).toEqual([]);
 }

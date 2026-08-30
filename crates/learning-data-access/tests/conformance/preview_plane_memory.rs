@@ -125,7 +125,7 @@ pub(crate) async fn exercise_preview_plane_memory_contract(store: &MemoryStore) 
         store
             .list_instructor_preview_schedule(
                 fixture.context,
-                UserId::from_uuid(uuid(99_999)),
+                AccountId::from_uuid(uuid(99_999)),
                 fixture.course,
                 assignment,
                 revision,

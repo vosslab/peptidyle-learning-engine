@@ -11,8 +11,7 @@ canonical onboarding, J6/J7, all-family, multi-learner, or release work.
 
 ## Scope and verdict
 
-Independently reviewed WP-I4 against
-[peptidyle-walkthrough-plan.md](../peptidyle-walkthrough-plan.md). This was a
+Independently reviewed WP-I4 against the historical walkthrough plan. This was a
 read-only HCI, SolidJS-surface, and TypeScript evidence review of the J11/J12/J13
 specification, protected state, runner/configuration boundary, the relevant
 instructor pages, and focused offline gates. No implementation, plan, changelog,

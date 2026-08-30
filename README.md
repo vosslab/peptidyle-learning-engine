@@ -303,10 +303,8 @@ The full architecture and milestone plan remain in
   course. Per-page themes, multiple banners, freeform CSS, SVG/animated uploads, and learner edits are
   out of scope because the accepted version already supplies safe, accessible course identity without
   active-content or styling injection.
-- File-upload responses deliberately fail closed until the server-issued,
-  course/Student/attempt-bound capability described in the
-  [secure Student file-upload plan](docs/active_plans/active/secure_student_file_upload_plan.md)
-  is implemented and verified.
+- File-upload responses deliberately fail closed until a server-issued,
+  course/Student/attempt-bound upload capability is implemented and verified.
 - The local container topology is not a production security or deployment configuration.
 
 ## Repository layout

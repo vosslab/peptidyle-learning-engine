@@ -3,7 +3,7 @@
 ## Status
 
 **ACCEPTED.** J5 and derived J8 passed in the retained-volume M5 walkthrough.
-See [wp_w4_instructor_gradebook_review.md](../audits/wp_w4_instructor_gradebook_review.md),
+See the retained historical Gradebook review,
 [gradebook pagination review](../audits/pagination_gradebook_review.md), and
 [resolved blocker audit](../audits/m5_retained_pagination_blocker_review.md).
 

@@ -61,14 +61,14 @@ Sysadmin support authority derives from the closed registry in
 There is no institution lookup. A missing, foreign, expired, revoked,
 or wrong-family capability and a missing, foreign, archived, or revoked
 CourseInstance/Student relationship fail closed and are concealed. A request
-never supplies actor, course, Student, role, or support-capability authority.
+never supplies Account, course, Student, role, or support-capability authority.
 
 The retention API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
 revision ETag, and the fixed notification projection. It never exposes learner identities, policy
 deadlines, object IDs, object keys, queue jobs, leases, or generations.
 
 - Archive and delete require `If-Match` with the current strong revision and create a durable
-  replay receipt bound to the actor, action, requested disposition, expected generation, and
+  replay receipt bound to the authenticated Account, action, requested disposition, expected generation, and
   resulting stage. A retry reports `scheduled`, `inProgress`, or `completed`; it cannot enqueue a
   second current-stage job.
 - Extension also requires the current strong revision, but is a conditional
@@ -76,7 +76,7 @@ deadlines, object IDs, object keys, queue jobs, leases, or generations.
   registered payload-free Sysadmin support operation and supersedes
   still-scheduled prior-generation work.
 - An end-course request has an empty body. Archive and extension accept only their closed JSON
-  bodies. Delete has an empty body. Request bodies cannot name an actor, course, Student, object, job,
+  bodies. Delete has an empty body. Request bodies cannot establish Account, course, Student, object, job,
   lease, stage, or generation.
 
 These routes return `Cache-Control: no-store`. Foreign, missing, archived, and deleted learner
@@ -86,7 +86,7 @@ records are concealed at the normal record boundary rather than revealing a rete
 
 The storage lifecycle is `active -> archived -> deleted`. A deadline makes a stage eligible; it
 does not fabricate a lifecycle result. The private dispatcher alone creates a closed retention job
-payload containing only `course`, `stage`, and `generation`. The worker derives actor and exact
+payload containing only `course`, `stage`, and `generation`. The worker derives the authenticated Account and exact
 course scope from the claimed typed job and supplies the job ID and active lease only to the Store boundary.
 
 ```text
@@ -94,7 +94,7 @@ course end snapshots policy and generation
         |
         +-- due scheduler dispatches one closed stage job
         |
-        +-- worker proves actor/course/stage/generation/job/lease binding
+        +-- worker proves account/course/stage/generation/job/lease binding
                 |
                 +-- notify: persist one in-app notification
                 |
@@ -160,7 +160,7 @@ is the only explicit choice that can change that treatment.
 ## Aggregate survival and disclosure
 
 Question statistics are aggregated while the corresponding learner records exist, then survive as
-identity-free shared-content aggregates. They contain neither actor nor learner identifiers, and
+identity-free shared-content aggregates. They contain neither Account nor learner identifiers, and
 the browser suppresses a statistic below the k-anonymity disclosure threshold of five observations.
 This means deletion removes the educational evidence that created an aggregate without removing the
 non-identifying signal used to improve a published question library.
@@ -213,7 +213,7 @@ The honest guarantee until then is:
 
 On 2026-08-09, a one-time local PostgreSQL 17 restore exercise restored a role-only backup and a
 custom-format database backup into a separate empty cluster. It preserved the migration ledger,
-roles, grants, forced RLS, actor/course isolation, application writes, and broker-function execution. That
+roles, grants, forced RLS, Account/course isolation, application writes, and broker-function execution. That
 proves a small logical database restore procedure; it does not deploy managed point-in-time recovery,
 set an RPO/RTO, or prove object-store recovery.
 

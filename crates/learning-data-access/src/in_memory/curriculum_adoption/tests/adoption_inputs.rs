@@ -5,11 +5,12 @@ use question_model::generation::RandomizationDefinition;
 use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode,
-    CompletionRequirement, ContinuedPractice, CurriculumAdoptionIdempotencyKey, GradePolicy,
-    LateSubmissionPolicy, PointValue, RelativeAssignmentSchedule, ReusableAssignmentDefaults,
-    ReusableAssignmentDefinitionInput, ReusableAssignmentEntryInput, ReusableFixedQuestionInput,
-    RunPolicies, StudentDisclosurePolicy, UserId, VariationPolicy,
+    AccountId, ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentInstructions,
+    AssignmentScoringMode, CompletionRequirement, ContinuedPractice,
+    CurriculumAdoptionIdempotencyKey, GradePolicy, LateSubmissionPolicy, PointValue,
+    RelativeAssignmentSchedule, ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput,
+    ReusableAssignmentEntryInput, ReusableFixedQuestionInput, RunPolicies, StudentDisclosurePolicy,
+    VariationPolicy,
 };
 use question_model::{
     BackendCapabilities, Capability, DraftQuestionDefinition, DraftQuestionSource,
@@ -105,7 +106,7 @@ pub(super) fn published_record(number: u128) -> crate::PublishedProblemRecord {
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
         scope: PublicationScope::Public,
         lifecycle: question_model::CatalogLifecycle::Published,
-        author_ids: vec![UserId::from_uuid(Uuid::from_u128(40_000))],
+        author_ids: vec![AccountId::from_uuid(Uuid::from_u128(40_000))],
         byline: question_model::PublicByline::new(vec![
             question_model::PublicAuthorName::new("Curriculum test author".into())
                 .expect("valid test byline"),

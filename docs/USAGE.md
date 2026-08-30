@@ -47,10 +47,9 @@ server-backed accounts for the Instructor, Student, and Sysadmin roles:
   The current baseline names Elena as Instructor, Mary/Jack/Avery as Students, and Morgan as Sysadmin.
 - The selector supplies only a known seeded persona. It does not grant a browser role claim;
   account identity, session, membership, and authorization are resolved by the server.
-- To exercise passkeys, open **Account** -> **Your passkeys**, enter a passkey name, choose **Add
-  passkey**, and complete the device prompt. Use **Sign out**, then **Sign in with a passkey** and
-  choose a course again. Passwordless email remains the intended ordinary sign-in method, but email
-  delivery is not configured for this live demo; use the visible seeded-role entry for demo access.
+- Passwordless email and passkeys remain the intended ordinary sign-in methods. Their adapters are
+  not mounted in the current build, and email delivery is not configured for this live demo; use
+  the visible seeded-role entry for demo access.
 - To switch from Instructor to Student work, sign out and select a seeded Student persona. Do not
   use Instructor **Student view** as a substitute for a graded Student run.
 

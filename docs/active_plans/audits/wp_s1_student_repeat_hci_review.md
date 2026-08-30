@@ -11,8 +11,8 @@ or release work.
 ## Scope and verdict
 
 Independent read-only review of the in-progress schema-v2 J1--J4 student
-journey against the active [walkthrough plan](../peptidyle-walkthrough-plan.md)
-and the no-mouse contract. No product code, runner, Podman machine, live stack,
+journey against the historical walkthrough plan and the no-mouse contract. No
+product code, runner, Podman machine, live stack,
 or retained data was changed.
 
 **ACCEPTED TO LIVE.** The repaired path now fails closed unless J2 resumes the

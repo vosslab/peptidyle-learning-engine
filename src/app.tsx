@@ -4,8 +4,11 @@ import { A, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/ro
 import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
-import { rolesMayAccessRoute, routeContractForPathname, type RouteId } from "./route_contract";
-import { PresentationContrastProvider } from "./presentation/contrast_context";
+import {
+  accountRoleMayAccessRoute,
+  routeContractForPathname,
+  type RouteId,
+} from "./route_contract";
 
 function canUseAuthoringTools(state: SessionBootstrapState): boolean {
   return canAccessRoute(state, "workspaceList");
@@ -15,7 +18,7 @@ function canAccessRoute(state: SessionBootstrapState, routeId: RouteId): boolean
   if (state.kind !== "authenticated") {
     return false;
   }
-  return rolesMayAccessRoute(routeId, state.session.user.roles);
+  return accountRoleMayAccessRoute(routeId, state.session.account.role);
 }
 
 function canUseLibrary(state: SessionBootstrapState): boolean {
@@ -30,12 +33,7 @@ type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string }
 
 function isPublicAccountRoute(pathname: string): boolean {
   const routeId = routeContractForPathname(pathname)?.id;
-  return (
-    routeId === "signIn" ||
-    routeId === "emailAuthenticationComplete" ||
-    routeId === "emailChangeComplete" ||
-    routeId === "courseInvitation"
-  );
+  return routeId === "signIn";
 }
 
 function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
@@ -47,7 +45,7 @@ function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
       when={state().kind === "authenticated"}
       fallback={<SessionRecovery state={state()} retry={session.retry} />}
     >
-      <PresentationContrastProvider>{props.children}</PresentationContrastProvider>
+      {props.children}
     </Show>
   );
 }
@@ -96,7 +94,7 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
       <p>{description}</p>
       <Show when={needsSignIn}>
         <p>
-          <A href="/sign-in">Sign in with a passkey or email</A>
+          <A href="/sign-in">Open sign-in</A>
         </p>
       </Show>
       <div class="action-row">
@@ -174,9 +172,6 @@ export function App(props: RouteSectionProps): JSX.Element {
             </A>
           </Show>
           <Show when={session.state().kind === "authenticated"}>
-            <A href="/account/security" activeClass="active">
-              Account
-            </A>
             <A href="/account/co-instructor-invitations" activeClass="active">
               Invitations
             </A>

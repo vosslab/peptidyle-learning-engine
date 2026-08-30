@@ -2,18 +2,18 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssignmentReference, CourseId, PoolDrawPreview, PoolDrawPreviewNonce,
-    TeachingOperationRevision, UserId,
+    AccountId, AssignmentReference, CourseId, PoolDrawPreview, PoolDrawPreviewNonce,
+    TeachingOperationRevision,
 };
 
-use crate::{ActorContext, StoreError};
+use crate::StoreError;
 
 /// Executes one authorized pool sample without creating learner work or
 /// evidence. The supplied nonce is freshly minted by the trusted server and
 /// remains deliberately absent from every browser contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PoolPreviewCommand {
-    pub actor: UserId,
+    pub instructor_account: AccountId,
     pub course: CourseId,
     pub assignment: AssignmentReference,
     pub revision: TeachingOperationRevision,
@@ -25,7 +25,6 @@ pub struct PoolPreviewCommand {
 pub trait PoolPreviewStore: Send + Sync {
     async fn preview_pool_draw(
         &self,
-        context: ActorContext,
         command: PoolPreviewCommand,
     ) -> Result<PoolDrawPreview, StoreError>;
 }

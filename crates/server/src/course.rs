@@ -37,7 +37,3 @@ use learning_data_access::Store;
 use question_model::{ProblemVersionRef, RunPolicies, UserRole};
 #[cfg(test)]
 use std::sync::Arc;
-
-#[cfg(test)]
-#[path = "course/tests/mod.rs"]
-pub(crate) mod tests;

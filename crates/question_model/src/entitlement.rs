@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ActivityTimestamp, CourseGroupId, CourseMembershipId, EnrollmentId, UserId};
+use crate::{AccountId, ActivityTimestamp, CourseGroupId, CourseMembershipId, EnrollmentId};
 /// Closed meaning of a course group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -181,7 +181,7 @@ pub enum MaterializationRule {
 /// Who or what justified the immutable receipt creation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaterializationAuthority {
-    Actor(UserId),
+    Account(AccountId),
     Rule(MaterializationRule),
 }
 
@@ -198,7 +198,7 @@ impl EvaluatorVersion {
 pub struct EntitlementMaterialization {
     pub enrollment: EnrollmentId,
     pub membership: CourseMembershipId,
-    pub user: UserId,
+    pub account: AccountId,
     pub occurred_at: ActivityTimestamp,
     pub purpose: EntitlementPurpose,
     pub authority: MaterializationAuthority,

@@ -85,8 +85,8 @@ a public asset URL by the asset route.
 
 The safe render cache is global immutable content. A cache hit grants no access to a Student record
 and cannot satisfy a run, attempt, or assignment check. Protected attempt, replay, and prefetch rows
-use forced RLS and an operation-specific predicate over the server-derived actor plus exact
-`CourseId`, `StudentId`, `RunId`, `QuestionAttemptId`, `ProblemVersionRef`, and seed. Missing actor
+use forced RLS and an operation-specific predicate over the server-derived Account plus exact
+`CourseId`, `StudentId`, `RunId`, `QuestionAttemptId`, `ProblemVersionRef`, and seed. A missing authenticated Account
 context, an absent Student relationship, a revoked membership, or a mismatch in any binding returns
 no protected row. A worker obtains the same target from a locked typed lease; it never accepts a
 course, Student, attempt, or reference from queue input.
@@ -223,7 +223,7 @@ The following outcomes are intentional safety behavior:
 
 | Condition | Required behavior |
 | --- | --- |
-| Another UserId, another course, or a foreign attempt/predecessor | Return not found or conflict; do not disclose state |
+| Another AccountId, another course, or a foreign attempt/predecessor | Return not found or conflict; do not disclose state |
 | Missing or mismatched CourseId/StudentId/run/attempt/reference/seed binding | Refuse before cache, grading, or mutation |
 | Active predecessor already answered or run completed | Reject prefetch; do not start a successor |
 | Conflicting duplicate reservation | Preserve the first reservation and reject rewrite |

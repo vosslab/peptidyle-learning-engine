@@ -170,7 +170,7 @@ impl MemoryStore {
                 course,
                 assignment: AssignmentId::from_uuid(fixture_uuid(2)),
                 title: "retention test".to_string(),
-                requested_by: UserId::from_uuid(fixture_uuid(3)),
+                requested_by: AccountId::from_uuid(fixture_uuid(3)),
                 manifest,
                 problems: Vec::new(),
                 job: export_job,

@@ -4,7 +4,7 @@ PLE uses evidence that matches the claim being made. Fast checks protect narrow
 logic; the canonical browser suite proves visible product behavior; service
 oracles prove the service boundaries that a browser cannot distinguish. This
 document classifies that evidence. The active
-[real_stack_browser_suite_plan.md](active_plans/active/real_stack_browser_suite_plan.md)
+[release_completion_plan.md](active_plans/active/release_completion_plan.md)
 owns each work package's exact acceptance scope and command list.
 
 Read [PYTEST_STYLE.md](PYTEST_STYLE.md) before adding a Python test and

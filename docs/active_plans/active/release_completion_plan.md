@@ -2,11 +2,11 @@
 
 ## Status
 
-**Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible published-question corpus, private drafts, equal approved Instructors, equal co-Instructors, and exact CourseInstance/Student authorization. Active questions are ordinarily selectable; deprecated and archived questions remain resolvable for history and evidence. The [single_installation_authorization_plan.md](single_installation_authorization_plan.md) owns the pre-production cutover before release work resumes.
+**Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible published-question corpus, private drafts, equal approved Instructors, equal co-Instructors, and exact CourseInstance/Student authorization. Active questions are ordinarily selectable; deprecated and archived questions remain resolvable for history and evidence. The current SD1 registry owns the pre-production cutover before release work resumes.
 
 The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 and WP-FU1 through WP-FU6 stay open until their named gates and independent review pass.
 
-This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The detailed package ledger is [release_work_packages.md](release_work_packages.md). Update both documents when a release decision, dependency, status, or acceptance condition changes.
+This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The current package ledger is [implementation_status.md](../implementation_status.md). Update both documents when a release decision, dependency, status, or acceptance condition changes.
 
 ### Evidence classification
 
@@ -18,7 +18,7 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 
 | Topic                   | Binding decision                                                                                                                                                                                                                                                                                                                                                            | Owner                              |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Installation and roles  | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership and Student ownership. Sysadmin provisioning assigns an approved Instructor account and creates no Sysadmin membership; support is explicit and audited. | WP-SD1                             |
+| Installation and roles  | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership and Student ownership. Sysadmin Course Creation assigns an approved Instructor account and creates no Sysadmin membership; support is explicit and audited. | WP-SD1                             |
 | Reusable courses        | A revisioned `BlueprintCourse` owns reusable ordered structure. Every `CourseInstance` has one immutable Blueprint parent and applied revision; it alone owns Students, deadlines, releases, accommodations, grades, and delivery state.                                                                                                                                    | WP-SD1-B--G                        |
 | Published questions     | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionVersion` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically.                                                                                                                                                                                 | WP-R2, WP-SD1                      |
 | Question stewardship    | Moderate owner edits, validated exact-base Change Proposals, full private-draft forks, and audited Sysadmin ForcedQuestionCorrections preserve attribution, compatible CC licensing, history, and exact pins. UI label: **Suggest an improvement**.                                                                                                                         | WP-R2, WP-SD1                      |
@@ -39,7 +39,7 @@ Version 1 excludes content-addressed byte deduplication, a TypeScript API server
 
 Deliver one coherent automated-grading platform and canonical live production-stack journey. Grading, answer keys, correctness decisions, object authorization, and course selection remain server-owned. Browser contracts remain answer-free. Issued work and grading evidence are immutable, and Instructor inspection is audited.
 
-The release scope is the dependency-ordered package ledger in [release_work_packages.md](release_work_packages.md): WP-RC1--WP-RC12, WP-FU1--WP-FU6, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, controlled updates, automated grading operations, native families, adapters/export, reconciliation, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
+The release scope is the dependency-ordered package ledger in [implementation_status.md](../implementation_status.md): WP-RC1--WP-RC12, WP-FU1--WP-FU6, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, controlled updates, automated grading operations, native families, adapters/export, reconciliation, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
 
 No package may turn an unresolved product decision into an implicit compatibility path. If evidence invalidates a decision, update this ledger, every affected package entry, and acceptance evidence in one reviewed planning change before code continues.
 
@@ -55,8 +55,8 @@ it while atomically creating the bound CourseInstance and initial Instructor mem
 `2026082929` owns the only executable curriculum-adoption apply/reconciliation capability over those
 records; `2026082930` owns forced RLS for CourseInstance roots and dependent private state.
 `2026082906` owns the shared Rust
-actor-transaction installer. Curriculum adoption has exactly seven operations and never creates a
-blank CourseInstance. An apply receives scope only from session-derived `ActorContext`; adapters
+account-transaction installer. Curriculum adoption has exactly seven operations and never creates a
+blank CourseInstance. An apply receives scope only from session-derived `AuthenticatedSession`; adapters
 and brokers receive no client-supplied installation scope.
 
 No current product type, route, Store capability, PostgreSQL table/function/policy, generated contract, live-demo resource, or screenshot may use Alpha as a Peptidyle product concept. Historical migrations, changelogs, and ADAPT comparison material remain evidence rather than compatibility contracts. Fresh SD1-C allocations belong only in [implementation_status.md](../implementation_status.md).
@@ -154,6 +154,6 @@ The shared migration ledger in [implementation_status.md](../implementation_stat
 
 Working-codebase release proves reproducible repository-owned artifacts without institutional secrets. Production activation supplies operator credentials, applies deployment, runs named live gates, completes legal review, and enrolls the pilot. Neither milestone substitutes for the other.
 
-WP-RC12 closes only after every package in [release_work_packages.md](release_work_packages.md) has required PASS evidence and independent review. It updates release evidence, documentation, implementation status, changelog, and release notes with exact receipts. Source inventories, scratch probes, and temporary diagnostics remain documented one-time evidence rather than fragile permanent tests.
+WP-RC12 closes only after every package in [implementation_status.md](../implementation_status.md) has required PASS evidence and independent review. It updates release evidence, documentation, implementation status, changelog, and release notes with exact receipts. Source inventories, scratch probes, and temporary diagnostics remain documented one-time evidence rather than fragile permanent tests.
 
 Each package handoff records package ID, owner, changed files, visible/security behavior, focused/package/release checks, evidence paths, governing decisions, and independent findings.

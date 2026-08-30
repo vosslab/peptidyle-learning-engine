@@ -30,12 +30,12 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
+    AccountId, ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
     AssignmentItemId, AssignmentItemSummary, AssignmentRun, AssignmentScoringMode,
     AssignmentSummary, AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary,
     CatalogResponseFamily, CourseId, CourseMembershipRole, CourseSummary, EnrollmentId,
     GradebookSummaryRow, PointValue, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId, UserId,
+    QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -158,7 +158,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
     let assignment_id = assignment_id("0198e000-0000-7000-8000-000000000006");
     let enrollment_id = enrollment_id("0198e000-0000-7000-8000-000000000007");
     let student = student_id("0198e000-0000-7000-8000-000000000008");
-    let user = UserId::from_uuid(parsed_uuid("0198e000-0000-7000-8000-000000000016"));
+    let account = AccountId::from_uuid(parsed_uuid("0198e000-0000-7000-8000-000000000016"));
     let asset_specs = [
         (
             asset_id("0198e000-0000-7000-8000-000000000010"),
@@ -318,7 +318,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         enrollment: AssignmentEnrollment {
             id: enrollment_id,
             assignment: assignment_id,
-            user,
+            user: account,
             student,
             first_completed_at: Some(timestamp(1_786_000_001_300)),
             current_grade_run: Some(run_ids[1]),

@@ -66,22 +66,51 @@ a stronger reason.
   stylistic uniformity. Work-package keys follow their active plan namespace and may be renamed
   atomically while they remain temporary planning metadata.
 
-## Domain owner map
+## Identity and reference names
 
-PLE has one installation and no institution authority. Name each
-PLE-owned key for the domain relationship that actually authorizes the record:
+Name every identifying value for its exact boundary, representation, and role:
 
-| Owner | Names and scope |
+| Role | Canonical form | Example |
+| --- | --- | --- |
+| Complete domain aggregate or record | The domain noun | `Account`, `CourseInstance`, `Assignment` |
+| Typed internal UUID value | Complete subject plus `Uuid` | `StudentRecordUuid`, `AssignmentAttemptUuid` |
+| Human-usable locator | Its reviewed product name | `CourseReference`, `BlueprintReference` |
+| Reviewed public identifier whose product name includes ID | `Id` | `QuestionId` |
+| Physical UUID column | Complete subject plus `_uuid` | `assignment_attempt_uuid` |
+| Optimistic concurrency value | Complete subject plus `Revision` | `AssignmentRevision` |
+| Recalculation or worker fence | Complete subject plus `Generation` | `ScoringGeneration` |
+| Integrity value | Complete subject plus `Digest` | `RequestDigest` |
+| Secret or bearer value | Complete subject plus `Token` | `WorkerLeaseToken` |
+| One-time challenge value | Complete subject plus `Nonce` | `PresentationNonce` |
+| Closed human-entered value | Complete subject plus `Code` | `EmailAuthenticationCode` |
+
+Use `Uuid` and `_uuid` only when the represented value is specifically a UUID.
+Use `Reference` when **Reference** is itself the reviewed domain or product
+term. The copyable **Question ID**
+retains `QuestionId` because ID is its established product name. Registered
+external protocol identifiers retain their owner spelling inside their
+adapters.
+
+Use the complete subject and actual representation for each internal value. A
+UUID or locator identifies a candidate record; the exact stored relationship
+grants authority.
+
+## Domain relationship map
+
+PLE uses one installation-wide domain. Name each PLE-owned record and UUID for
+the domain relationship that authorizes it:
+
+| Domain | Names and scope |
 | --- | --- |
-| Account and actor | `user_id` identifies the global account; `session_id` identifies its authenticated session. |
-| Private authoring | `workspace_id` identifies a draft or curriculum workspace; owner and collaborator `user_id` values authorize it. |
-| Published catalog | The global catalog identity is `question_id`; hidden immutable `problem_id` and `version_id` values are exact server evidence. |
-| Teaching course | `BlueprintCourse` owns reusable structure; `CourseInstance` owns live teaching under its `course_id` and current direct Instructor membership. |
-| Student records | `student_id` identifies the Student relationship inside its exact `course_id`. |
-| Assignment | `assignment_id` identifies an assignment under its `course_id`; policy and Gradebook records use that parent. |
-| Activity | `run_id` identifies one pass through an assignment; `question_attempt_id` identifies one issued question within that run. |
-| Worker operations | `job_id`, its lease, and a typed target scope identify one bounded work unit; caller input cannot widen that scope. |
-| Objects | `object_id` and a typed object key identify stored bytes under catalog, workspace, or course-record scope. |
+| Account and session | `account_uuid` names the global Account record; `authenticated_session_uuid` names its server session. |
+| Private authoring | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it. |
+| Published catalog | `question_id` is the copyable lineage identifier; `question_version_uuid` is the one hidden immutable version reference. |
+| Teaching course | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership. |
+| Student records | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`. |
+| Assignment | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent. |
+| Activity | `assignment_attempt_uuid`, `issued_question_uuid`, and `question_attempt_uuid` name the exact activity spine. |
+| Worker operations | `worker_job_uuid`, its lease, and a typed target scope name one bounded work unit; the stored scope bounds every worker action. |
+| Objects | `object_record_uuid` and a typed storage reference name stored bytes under Question Corpus, workspace, or Course Instance record scope. |
 
 Every assignment question resolves to an already published question in the one
 approved-Instructor shared catalog. Published means shared within that vetted
@@ -91,17 +120,13 @@ partition the catalog.
 ## Blueprint and instance courses
 
 `BlueprintCourse` and `CourseInstance` are the canonical PLE course types.
-`BlueprintCourse` owns reusable course content and structure. It has no Students,
-live deadlines, releases, accommodations, grades, or delivery settings.
-`CourseInstance` is created from a Blueprint Course and owns enrollment,
-deadlines, releases, accommodations, grades, and delivery settings for one live
-teaching context.
+`BlueprintCourse` owns reusable answer-free course content and structure.
+`CourseInstance` is created from a Blueprint Course and owns Students,
+enrollment, deadlines, releases, accommodations, grades, and delivery settings
+for one live teaching context.
 
 A newly added Blueprint assignment propagates to its daughter Course Instances
-as unreleased. Release is an explicit instance decision; propagation does not
-silently release the assignment. ADAPT's alpha-course language is comparison
-vocabulary only. PLE defines no `AlphaCourse` product type or compatibility
-alias.
+as unreleased. Each Course Instance makes its own explicit release decision.
 
 ## Boundary distinctions
 
@@ -162,22 +187,26 @@ learning outcomes.
 ## PostgreSQL
 
 - Use unquoted lowercase `snake_case` for schemas, tables, columns, views, functions, triggers,
-  policies, constraints, indexes, and roles. PostgreSQL case folding must not create a second
-  identifier form.
-- Name entity and relationship keys for their domain object, such as `user_id`, `workspace_id`,
-  `course_id`, `student_id`, `assignment_id`, `run_id`, and `question_attempt_id`. Use the global
-  catalog identity for published questions and `public_id` only for a separately exposed public
-  locator.
+  policies, constraints, indexes, and roles so PostgreSQL case folding preserves one identifier
+  form.
+- Name an internal UUID column for its complete domain subject with a `_uuid`
+  suffix, such as `account_uuid`, `authoring_workspace_uuid`,
+  `course_instance_uuid`, `student_record_uuid`, `assignment_uuid`,
+  `assignment_attempt_uuid`, and `question_attempt_uuid`. Use `question_id`
+  only for the established copyable Question ID. Use `_reference` only when
+  Reference is the reviewed product term for that non-UUID locator.
 - Name timestamps for their event or state transition with an `_at` suffix, such as `created_at`,
   `updated_at`, `occurred_at`, `expires_at`, and `revoked_at`.
 - Name serialized documents with a `_payload` suffix and their SHA-256 companions with
   `_payload_sha256`, such as `report_payload` and `report_payload_sha256`.
 - Use `revision` for one row or aggregate's optimistic revision. Qualify other revision and
   generation counters by subject, such as `schedule_revision` and `scoring_generation`.
-- Lead primary keys, foreign keys, and important indexes with the owning domain key when the
-  relationship permits it. Composite keys use the narrowest parent chain, such as
-  `course_id`, `assignment_id`, `run_id`, and `question_attempt_id`; worker and object records use
-  their typed lease or object scope rather than a generic installation key.
+- Lead primary keys, foreign keys, and important indexes with the owning domain
+  subject when the relationship permits it. Composite constraints use the
+  narrowest parent chain, such as `course_instance_uuid`, `assignment_uuid`,
+  `assignment_attempt_uuid`, and `question_attempt_uuid`; worker and object
+  records use their exact lease or object scope rather than a generic
+  installation identifier.
 - Prefix constraint and index names with the owning relation. Use the established PostgreSQL
   suffixes `_pkey`, `_fkey`, `_key`, `_check`, and `_idx`.
 - Prefix PLE-owned functions and roles with `ple_`. Contract-versioned functions end in `_v1` or
@@ -192,7 +221,7 @@ learning outcomes.
   not authorize a record or define the fresh single-installation schema.
 - Registered external protocol fields, headers, XML/JSON names, and vendor identifiers retain their
   owner's spelling, including a historical scope field when required for interoperability.
-  External names are protocol metadata, not PLE actor, membership, course, or worker authority.
+  External names are protocol metadata, not PLE Account, membership, course, or worker authority.
 
 ## Files and operations
 

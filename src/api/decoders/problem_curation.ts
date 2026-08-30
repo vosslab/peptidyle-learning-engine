@@ -191,7 +191,7 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
     ),
     authorship: decodeStringEnum(field(record, "authorship", path), `${path}.authorship`, [
       "any",
-      "authoredByCurrentActor",
+      "authoredByCurrentAccount",
     ]),
   } satisfies CatalogSearchFilter;
   return decoded;

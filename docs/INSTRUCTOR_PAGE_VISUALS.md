@@ -21,29 +21,29 @@ and announced page text plus browser paths for UUID exposure before it writes an
 
 ## Page map
 
-| Page | Example route | What the view establishes |
-| --- | --- | --- |
-| Courses | `/` | Instructor home, choose or create a Blueprint, and create a Course Instance |
-| Course Instances | `/courses/C-1` | Course Instance identity, local navigation, and assignment scanning |
-| Blueprint Courses | `/curriculum` | Reusable Blueprint list, publication state, and owned drafts |
-| Blueprint detail | `/curriculum/:curriculumRef` | Ordered modules and assignments, revision, publication, and fork actions |
-| Assignment overview | `/instructor/courses/C-1/assignments/A-1` | Assignment home opened from the linked title |
-| Learner assignment page | `/courses/C-1/assignments/A-1` | Question count, grade policy, feedback, and practice entry |
-| New assignment | `/instructor/courses/C-1/assignments/new` | Empty assignment authoring state and catalog entry points |
-| Assignment Questions | `/instructor/courses/C-1/assignments/A-1/questions` | Title, ordered questions, pools, discovery, reuse, and server samples |
-| Assignment Policies | `/instructor/courses/C-1/assignments/A-1/policies` | Instance instructions, release, delivery, lifecycle, access, and checks |
-| Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view` | Stable-identity, answer-free learner landing with Instructor identity active |
-| Grading operations | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Assignment-local automated-grading attention and recovery actions |
-| Students | `/instructor/courses/C-1/students` | Invitation, enrollment policy, pending invitation, and roster context |
-| Gradebook | `/instructor/courses/C-1/gradebook` | Compact learner-assignment progress without expanded raw records |
-| Grade settings | `/instructor/courses/C-1/grade-settings` | Weighted categories, assignment membership, totals, and audited export |
-| Course appearance | `/instructor/courses/C-1/appearance` | Applied Course Instance palettes, banner settings, and live theme context |
-| Question library | `/library` | Full-width search, filters, Question IDs, and published results |
-| Question detail | `/library/7K3-M9QP` | Human-facing identity, source context, and learner-facing prompt |
-| Workspace | `/workspace` | Private question drafts and the currently selected draft workspace |
-| Question editor | `/workspace/W-1` | QTI import entry and native flat-question authoring |
-| Account | `/account/security` | Optional contrast preference, passkeys, and sign-in email settings |
-| Curriculum adoption | `/instructor/courses/:courseRef/curriculum` | Blueprint source selection, update proposal, rollover, term shift, and receipt evidence |
+| Page                    | Example route                                                | What the view establishes                                                               |
+| ----------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Courses                 | `/`                                                          | Instructor home, choose or create a Blueprint, and create a Course Instance             |
+| Course Instances        | `/courses/C-1`                                               | Course Instance identity, local navigation, and assignment scanning                     |
+| Blueprint Courses       | `/curriculum`                                                | Reusable Blueprint list, publication state, and owned drafts                            |
+| Blueprint detail        | `/curriculum/:curriculumRef`                                 | Ordered modules and assignments, revision, publication, and fork actions                |
+| Assignment overview     | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                            |
+| Learner assignment page | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                              |
+| New assignment          | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and catalog entry points                               |
+| Assignment Questions    | `/instructor/courses/C-1/assignments/A-1/questions`          | Title, ordered questions, pools, discovery, reuse, and server samples                   |
+| Assignment Policies     | `/instructor/courses/C-1/assignments/A-1/policies`           | Instance instructions, release, delivery, lifecycle, access, and checks                 |
+| Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free learner landing with Instructor identity active            |
+| Grading operations      | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Assignment-local automated-grading attention and recovery actions                       |
+| Students                | `/instructor/courses/C-1/students`                           | Invitation, enrollment policy, pending invitation, and roster context                   |
+| Gradebook               | `/instructor/courses/C-1/gradebook`                          | Compact learner-assignment progress without expanded raw records                        |
+| Grade settings          | `/instructor/courses/C-1/grade-settings`                     | Weighted categories, assignment membership, totals, and audited export                  |
+| Course appearance       | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context               |
+| Question library        | `/library`                                                   | Full-width search, filters, Question IDs, and published results                         |
+| Question detail         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, and learner-facing prompt                        |
+| Workspace               | `/workspace`                                                 | Private question drafts and the currently selected draft workspace                      |
+| Question editor         | `/workspace/W-1`                                             | QTI import entry and native flat-question authoring                                     |
+| Live Demo sign-in       | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                        |
+| Curriculum adoption     | `/instructor/courses/:courseRef/curriculum`                  | Blueprint source selection, update proposal, rollover, term shift, and receipt evidence |
 
 The authentication completion pages, invitation redemption, and Student run pages are outside this
 Instructor-workspace gallery. The approved end-to-end teaching loop remains in
@@ -66,8 +66,8 @@ evidence separate from public or learner evidence under `docs/screenshots/`.
 
 Course Instance pages use the Grass palette in standard presentation. This makes the gallery useful
 for evaluating normal theme character as well as density, hierarchy, navigation, and page-level
-composition. The Account view shows where increased contrast can be selected without changing the
-Course Instance theme or teaching behavior.
+composition. The mounted Live Demo entry is intentionally distinct from the planned email-code and
+passkey authentication adapters.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
@@ -86,7 +86,6 @@ Course Instance theme or teaching behavior.
 ![Instructor problem curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
 ![Instructor reusable Blueprint workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
-![Account security with passkey and presentation preference](screenshots/shared/account/01_account_security_passkey.png)
 <!-- screenshots:end -->
 
 ## Refreshing the corpus

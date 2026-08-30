@@ -65,7 +65,7 @@ lineage has a fresh immutable `VersionId`, and `ProblemVersionRef` keeps the
 exact `(ProblemId, VersionId)` evidence only in trusted delivery, grading,
 replay, audit, assignment pins, and optional non-operative provenance records.
 An allowed original-lineage correction may retain the `QuestionId` while
-archiving the replaced version. A major objective, task, or response-family
+archiving the replaced version. A major objective, task, or Question Type
 change is a fork: its creator edits a private draft and publication gives it a
 new `QuestionId`, a new version, and exact source ancestry. Every successful
 publication enters one installation-wide shared catalog for approved
@@ -95,7 +95,7 @@ The original creator or an authorized lineage steward may publish only an
 allowed same-lineage correction or compatible improvement under the existing
 Question ID. A grading-semantic correction records an impact and starts a
 controlled recalculation operation; it never silently rewrites issued evidence.
-Major objective, task, or response-family changes require a fork and new
+Major objective, task, or Question Type changes require a fork and new
 identity. Any approved Instructor may create a fork draft, but that draft is
 private to its creator until validation succeeds. The published fork is global,
 records exact Question ID and version ancestry, and preserves the improvement
@@ -177,7 +177,7 @@ course or Student records. Every approval, validation, manifest, atomic
 advance, reissue, excuse, superseding receipt, recalculation, and publication
 event is append-only audited.
 
-`Sysadmin` is a platform `UserRole`, never a course-membership value; it cannot
+`Sysadmin` is a Product Role, never a Course Membership Role; it cannot
 replace direct Instructor membership for general FERPA access or view the
 Question ID star identity list or any private watch state. `CourseSummary`
 and `AssignmentSummary` are Rust-owned browser projections. Their item and
@@ -226,19 +226,19 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 `QuestionDefinition` carries the fields the specification names:
 
-| Field           | Type                      | Purpose                                  |
-| --------------- | ------------------------- | ---------------------------------------- |
-| `version`       | `VersionId`               | Opaque half of the immutable pair        |
+| Field           | Type                      | Purpose                                   |
+| --------------- | ------------------------- | ----------------------------------------- |
+| `version`       | `VersionId`               | Opaque half of the immutable pair         |
 | `problem`       | `Option<ProblemId>`       | Other opaque half, present once published |
-| `workspace`     | `WorkspaceId`             | Authoring workspace                      |
-| `source`        | `QuestionSource`          | Which engine, and where to find it there |
-| `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order             |
-| `response`      | `ResponseDefinition`      | Expected response shape                  |
+| `workspace`     | `WorkspaceId`             | Authoring workspace                       |
+| `source`        | `QuestionSource`          | Which engine, and where to find it there  |
+| `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order              |
+| `response`      | `ResponseDefinition`      | Expected response shape                   |
 | `attemptPolicy` | `AttemptPolicy`           | Retry bound for this question             |
-| `timingPolicy`  | `TimingPolicy`            | Time limits, with grace                  |
-| `randomization` | `RandomizationDefinition` | How content varies                       |
-| `grading`       | `GradingDefinition`       | How a response is judged                 |
-| `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language |
+| `timingPolicy`  | `TimingPolicy`            | Time limits, with grace                   |
+| `randomization` | `RandomizationDefinition` | How content varies                        |
+| `grading`       | `GradingDefinition`       | How a response is judged                  |
+| `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language  |
 
 ### Response shapes
 
@@ -281,7 +281,7 @@ attempt and provides a consistency binding for that presentation.
 
 `PresentationEnvelopeV1` contains the immutable version, issued seed,
 server-minted nonce, title, prompt, and an answer-free `ResponseSchemaV1`.
-The schema currently covers the eight native flat families:
+The schema currently covers the eight native Question Types:
 
 | `ResponseSchemaV1` | Shared response definition  |
 | ------------------ | --------------------------- |
@@ -324,9 +324,9 @@ generic run route has already completed its payload cutover. The current route
 still issues `QuestionEnvelope` and accepts a tagged `StudentResponse` in
 `{ "response": ... }`; its `kind` is therefore part of today's wire shape.
 The planned compact response uses the attempt route identity, presentation
-digest, and rendered IDs, then resolves the response family and durable IDs
+digest, and rendered IDs, then resolves the Answer Format and durable IDs
 server-side. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
-[secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md)
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
 own that transition and its acceptance gates.
 
 ### Content blocks

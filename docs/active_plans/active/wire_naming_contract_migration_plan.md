@@ -10,7 +10,7 @@ Wasm/adapter PLE bridges, and current durable PLE data.
 
 The system is stable enough for this contract migration: the independent WN1-A reviews identified
 and closed allocation gaps rather than an unresolved product failure. Fresh v3 review accepted the
-revised [contract ledger](wire_naming_contract_ledger.md) on 2026-08-28. `WP-INST-WN1-B` is the
+revised [implementation_status.md](../implementation_status.md) allocation on 2026-08-28. `WP-INST-WN1-B` is the
 current implementation package.
 
 ## Objectives
@@ -123,7 +123,7 @@ disjoint. Every child has one owner; shared generator, model, and durable files 
 ### WN1-A exact Student-role allocation
 
 The binding current-name to target-name allocation is embedded in the
-[wire naming contract ledger](wire_naming_contract_ledger.md) under `WN1-SR3 exact run and Store
+[implementation status registry](../implementation_status.md) under `WN1-SR3 exact run and Store
 register`, `WN1-SR4 exact browser register`, and `WN1-SR5 exact PostgreSQL register`. These tables
 are part of WN1-A, not optional supporting material. Implementation changes every listed name in
 its one closure; it adds neither aliases nor parallel role vocabulary.
@@ -174,7 +174,8 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                             |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                  |
 
-The [ledger](wire_naming_contract_ledger.md) is the route-by-route authority. No C7 is created.
+The [implementation status registry](../implementation_status.md) is the current route-by-route
+authority. No C7 is created.
 
 For C6, `course/routing.rs` retains shared nonserializing topology, state, and body-limit support.
 `C6-CR1` owns `course/pagination.rs` with direct `CoursePageQuery`, plus

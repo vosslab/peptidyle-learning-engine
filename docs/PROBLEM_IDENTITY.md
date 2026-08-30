@@ -77,10 +77,10 @@ deduplication or rendition replacement without rewriting question content.
 | `EnrollmentId`                                   | One student's relationship to one assignment       | Keeps repeated runs on one durable educational record                         |
 | `RunId`                                          | One pass through an assignment                     | Preserves earlier completed runs while allowing continued practice            |
 | `QuestionAttemptId`                              | One issued question in one run                     | Binds an answer to the Student, exact course assignment, exact version, seed, timing, and backend |
-| `StudentId`, `UserId`                            | Pedagogical student and authenticated person       | They may map to the same provider UUID, but are not interchangeable concepts  |
+| `StudentId`, `AccountId`                         | Pedagogical student and authenticated Account      | They may map to the same provider UUID, but are not interchangeable concepts  |
 
 An ID names a record; it does not grant access to it. Authentication,
-`ActorContext`, exact course/Student/workspace relationships, forced RLS,
+`AuthenticatedSession`, exact course/Student/workspace relationships, forced RLS,
 lifecycle checks, and server-side ownership checks decide whether a caller may
 read or change the record.
 
@@ -133,7 +133,7 @@ or issued attempt. A grading-semantic correction is an impact and recalculation
 operation: it records affected exact pins, evaluates the permitted impact, and
 publishes the replacement only through that controlled workflow.
 
-Major objective, response-family, task, or other incompatible changes require
+Major objective, Question Type, task, or other incompatible changes require
 a fork. Any approved Instructor may start a fork from a published version, but
 the fork draft is private to its creator until validation succeeds. Publication
 then enters the global catalog with a new `QuestionId`, a new immutable
@@ -187,7 +187,7 @@ assignment cannot contain assignment-private question content.
 Star is one vetted-Instructor-visible endorsement per Question ID. Approved
 Instructors may see the star count and the identities of vetted Instructors who starred;
 Students and anonymous callers see neither the identity list nor star state. A
-watch is a private actor-scoped notification subscription for versions, forks,
+watch is a private Account-scoped notification subscription for versions, forks,
 improvements, and impact events; it never grants course or Student authority.
 Improvement threads are preserved as non-authoritative discussion records and
 retain their source, successor, and fork ancestry.
@@ -269,7 +269,7 @@ Rendered IDs are appropriate for selected choices, multi-blank slots, both
 sides of matching, ordering items, and hotspot surfaces or named regions. A
 single ordinary text or numeric field has no reason to carry one. The browser
 shows ordinary labels and content, not the code, then submits the compact code
-inside the family-specific answer shape.
+inside the schema-specific answer shape.
 
 | Durable semantic ID                                 | Rendered item ID                           |
 | --------------------------------------------------- | ------------------------------------------ |
@@ -280,7 +280,7 @@ inside the family-specific answer shape.
 | Never inferred from a label or position             | Derived from the full rendered context     |
 
 At issuance, PLE derives IDs for the entire presentation, requires uniqueness
-across roles as well as within a response family, retries with a fresh
+across roles as well as within a Question Type, retries with a fresh
 16-byte nonce when a collision occurs, and fails closed after the documented
 retry limit. The server either reproduces the native mapping deterministically
 from immutable version, seed, and nonce or persists the validated external
@@ -325,7 +325,7 @@ It must not silently issue a new seed or grade a stale answer.
 - A compact rendered ID is local to one presentation and never becomes a
   durable database or catalog identity.
 - CRC16 and a presentation digest add consistency evidence only; they never
-  replace authenticated server-side grading or actor-scoped forced RLS.
+  replace authenticated server-side grading or Account-scoped forced RLS.
 
 ## Related documents
 

@@ -58,7 +58,7 @@ export interface ProblemCurationClient {
   readonly getProblemCollection: (
     collection: ProblemCollectionReference,
   ) => Promise<RevisionedProblemCollection>;
-  /** Creates or returns the actor's persistent Favorites aggregate through a state transition. */
+  /** Creates or returns the Account's persistent Favorites aggregate through a state transition. */
   readonly ensureFavorites: () => Promise<RevisionedProblemCollection>;
   readonly listProblemCollectionMembers: (
     collection: ProblemCollectionReference,

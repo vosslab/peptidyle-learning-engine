@@ -7,7 +7,7 @@ RESET ROLE;
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.instructor_collection (
     collection_id uuid PRIMARY KEY,
-    owner_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     title text NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 300),
     revision integer NOT NULL CHECK (revision > 0),
     created_at timestamp with time zone NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE ple_private.instructor_collection_question (
 );
 CREATE TABLE ple_private.saved_catalog_search (
     search_id uuid PRIMARY KEY,
-    owner_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     revision integer NOT NULL CHECK (revision > 0),
     filter jsonb NOT NULL CHECK (jsonb_typeof(filter) = 'object'),
     created_at timestamp with time zone NOT NULL,

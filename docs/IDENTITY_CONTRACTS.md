@@ -3,7 +3,7 @@
 ## Binding single-installation model
 
 PLE is one installation with global accounts. The binding SD1 product contract
-requires each account to have one global `UserId` and exactly one immutable
+requires each account to have one global `AccountId` and exactly one immutable
 Student, Instructor, or Sysadmin role; a person who needs multiple roles uses
 separate accounts. A session then establishes one account and its one role, and
 an operation derives authorization from the exact course membership, Student
@@ -21,18 +21,18 @@ and contains no Student records.
 This document maps identities and their scopes. It supplements
 [USER_ROLES.md](USER_ROLES.md), [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md), and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The active
-[single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md)
-owns the migration from the former installation-scope model to these identities.
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The
+[implementation status](active_plans/implementation_status.md) owns the migration from the
+former installation-scope model to these identities.
 
 ## Rules that apply everywhere
 
 - A durable ID names one stored thing. It does not prove that its holder may
   read, change, or discover that thing.
-- The server resolves the session and constructs `ActorContext`; browser
+- The server resolves the session to a global account and session identity; browser
   requests never establish a user, approval state, course membership, Student
   ownership, workspace relationship, job target, or role by supplying an ID.
-- `UserId`, `CourseId`, `WorkspaceId`, and published `QuestionId` are
+- `AccountId`, `CourseId`, `WorkspaceId`, and published `QuestionId` are
   globally unique. Parent relationships, lifecycle state, and operation-specific
   predicates establish access.
 - Educational records are owned by their exact course and Student
@@ -46,62 +46,60 @@ owns the migration from the former installation-scope model to these identities.
 - A checksum or digest detects disagreement in otherwise valid data. It is not
   authentication, authorization, transport security, or an answer key.
 
-## Account, session, and actor identities
+## Account, session, and relationship identities
 
 | Identity or value                      | Scope                           | Intended use                                                                                                                                       |
 | -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `UserId`                               | Global, durable                 | Names one PLE account/person across courses and workspaces. It is distinct from Student membership and enrollment identity.                        |
+| `AccountId`                            | Global, durable                 | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                         |
 | Account role                            | Pending SD1 global account state | Stores exactly one closed Student, Instructor, or Sysadmin role. Target account/session storage never combines roles.                                |
 | `SessionId`                            | Global, durable session record  | Names one server-tracked login session, including expiry and revocation state.                                                                     |
 | `SessionTokenHash`                     | Server-only session record      | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record locator, or log value.                                 |
-| `ActorContext { user_id, session_id }` | Server-derived request context  | Carries the authenticated actor into domain, Store, and authorization operations. It has no ambient course, workspace, or Student grant.           |
-| Approved-Instructor state              | Global, revocable account state | `approved_instructor(user_id, now)` establishes current Instructor product capabilities and is re-evaluated for protected operations.              |
+| Approved-Instructor state              | Global, revocable account state | `approved_instructor(account_id, now)` establishes current Instructor product capabilities and is re-evaluated for protected operations.           |
 | `Sysadmin` account role                | Pending SD1 global account state | Names limited platform operations. It has no course membership; teaching and FERPA reads use direct Instructor-account authority or audited support. |
 
-The server resolves the opaque first-party session credential to
-`ActorContext`. The browser receives only its own answer-free account/session
-projection. It never receives another person's `UserId`, a raw session
+The server resolves the opaque first-party session credential to a `SessionRecord`
+with its global account and session identity. The browser receives only its own answer-free account/session
+projection. It never receives another person's `AccountId`, a raw session
 token, or an authority-bearing approval claim.
 
 ### Session authority ownership
 
 [`learning_data_access::session`](../crates/learning-data-access/src/session.rs)
-is the sole owner of server-only session and actor identities: `SessionId`,
-`SessionTokenHash`, `SessionLifetime`, `SessionRecord`, `ActorContext`, and
-`SessionStore`. `SessionId` is a separate durable record identity, not a token
-hash, token-derived value, or browser locator. `ActorContext` with `user_id` and
-`session_id` is constructed only after the session store resolves the opaque
-credential. It has no course, workspace, Student, or other operation grant and
-has no browser serialization shape.
+is the sole owner of server-only session identities: `SessionId`,
+`SessionTokenHash`, `SessionLifetime`, `SessionRecord`, and `SessionStore`.
+`SessionId` is a separate durable record identity, not a token hash,
+token-derived value, or browser locator. A resolved session identifies its
+global account and session, while the operation's exact relationship supplies
+course, workspace, Student, or other authority. It has no browser serialization shape.
 Neither type belongs in `question_model` or generated browser contracts.
 
 [`learning_data_access::rls`](../crates/learning-data-access/src/rls.rs) owns
-only the transaction adapter that installs an already-resolved `ActorContext`
+only the transaction adapter that installs already-resolved account and session facts
 in a protected database transaction. It does not mint, define, re-export, or
-authorize `SessionId`, `ActorContext`, `UserId`, course membership, workspace
+authorize `SessionId`, `AccountId`, course membership, workspace
 relationships, or Student ownership. The adapter applies transaction-local
-actor context and forced-RLS denial; domain and Store owners evaluate the exact
+resolved session facts and forced-RLS denial; domain and Store owners evaluate the exact
 relationship or typed capability.
 The current legacy installation-scope context in this module is migration input
-for SD1, not a second session or actor contract and not a global replacement identity.
+for SD1, not a second session or Account contract and not a global replacement identity.
 
 ## Course, Student, and relationship identities
 
 | Identity              | Owns or names                                        | Authority and relation                                                                                                                      |
 | --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CourseId`            | One teaching course or section                       | Global durable course identity. Course-scoped records carry this exact parent.                                                              |
-| `CourseMembershipId`  | One immutable course-membership episode              | Binds one `UserId`, one `CourseId`, a role, lifecycle, and roster revision. Revocation preserves evidence; rejoining creates a new episode. |
+| `CourseMembershipId`  | One immutable course-membership episode              | Binds one `AccountId`, one `CourseId`, a role, lifecycle, and roster revision. Revocation preserves evidence; rejoining creates a new episode. |
 | Student membership    | Current `CourseMembershipId` with Student role       | Participates in exact Student ownership checks for course work and educational records.                                                     |
-| Instructor membership | Current `CourseMembershipId` with Instructor role    | Together with current approval, establishes `current_course_instructor(user_id, course_id, now)`.                                           |
+| Instructor membership | Current `CourseMembershipId` with Instructor role    | Together with current approval, establishes `current_course_instructor(account_id, course_id, now)`.                                        |
 | `EnrollmentId`        | One assignment enrollment for one Student membership | Binds a Student's course relationship to an assignment. It supports ownership and history; it is not a session or role substitute.          |
 | `CourseGroupId`       | One typed group inside a course                      | Groups membership episodes for an explicit course purpose such as section, lab, cohort, accommodation, or work.                             |
 | `AssignmentId`        | One course assignment                                | Has one exact `CourseId` parent and owns its current policy and ordered items.                                                              |
 | `AssignmentItemId`    | One current assignment item                          | Retains item identity while a future assignment definition changes.                                                                         |
-| `RunId`               | One pass through an assignment                       | Belongs to one enrollment; later practice uses a new run.                                                                                   |
-| `QuestionAttemptId`   | One issued question instance                         | Binds a run to exact immutable content, seed, timing, status, provenance, and grading backend.                                              |
+| `AssignmentAttemptId` | One Assignment Attempt | Target identity for one pass through an Assignment; it belongs to one enrollment and later practice creates another Assignment Attempt. Current source `RunId` is legacy vocabulary pending coordinated replacement. |
+| `QuestionAttemptId`   | One issued question instance | Binds an Assignment Attempt to exact immutable content, seed, timing, status, provenance, and grading backend. |
 
 Under the binding pending SD1 product contract, the closed Sysadmin
-course-instance provisioning command binds an exact BlueprintCourse source and
+Course Instance Creation command binds an exact BlueprintCourse source and
 revision, an explicitly assigned approved Instructor account, and a
 server-reserved CourseInstance identity. One transaction creates the
 CourseInstance, that account's first ordinary Instructor membership, and an
@@ -111,7 +109,7 @@ current course Instructor may invite an approved Instructor account, and
 acceptance rechecks role agreement, approval, invitation state, and roster
 revision atomically.
 
-Student work is authorized by the authenticated `UserId` owning the active
+Student work is authorized by the authenticated `AccountId` owning the active
 Student membership and enrollment for the exact course. Direct current
 co-Instructors use the same course predicate for permitted teaching-record
 reads; neither another course nor a visible record ID extends that authority.
@@ -121,7 +119,7 @@ reads; neither another course nor a visible record ID extends that authority.
 | Identity                    | Scope                                        | Intended use                                                                                                                                                     |
 | --------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.   |
-| Workspace relationship      | Durable `UserId` to `WorkspaceId` binding    | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                      |
+| Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                      |
 | `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                |
 | `QuestionId`                | Global immutable published question identity | Human-facing catalog locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared catalog. |
 | `ProblemId` and `VersionId` | Server-only immutable content evidence       | Exact hidden identity for replay, grading, audit, provenance, and transport. It never lets a browser choose a version or resolve a latest question.              |
@@ -133,7 +131,7 @@ question or records a new immutable `QuestionVersion` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
 mint a new `QuestionId`; it preserves the lineage and creates exact new
 `ProblemId`/`VersionId` evidence. A full fork for an incompatible objective,
-task, response family, or educational purpose creates a private draft and,
+task, Question Type, or educational purpose creates a private draft and,
 after validation, a new `QuestionId` with source attribution and visible
 ancestry.
 
@@ -174,7 +172,7 @@ signed URLs, and workspace identifiers.
 
 Current `course_member` relationships provide the closed Student and
 Instructor membership model. Future least-authority relationships are separate
-records; each carries subject `UserId`, exact `CourseId`, relationship kind,
+records; each carries subject `AccountId`, exact `CourseId`, relationship kind,
 explicit capability set, issuer and issue time, lifecycle/revision, audit ID,
 and its required disclosure policy.
 
@@ -209,13 +207,13 @@ object, or provider authority.
 ## Human-facing references and browser identifiers
 
 Human-facing locators help people find a permitted record. They are not durable
-authorization facts. The server resolves each locator within `ActorContext` and
-the appropriate parent relationship before returning a record.
+authorization facts. The server resolves each locator from the authenticated
+session account and the appropriate parent relationship before returning a record.
 
 | Value                                                                                                  | Browser use                                        | Server meaning                                                                                                                                 |
 | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `QuestionId` (`AAA-BBBB`)                                                                              | Instructor catalog search, display, and selection  | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                 |
-| `CourseReference`, `AssignmentReference`, `RunReference`, `WorkspaceReference`, `CourseGroupReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, `W-`, and `G-` locators resolved only inside the authenticated actor's authorized course or workspace relationship. |
+| `CourseReference`, `AssignmentReference`, `RunReference`, `WorkspaceReference`, `CourseGroupReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, `W-`, and `G-` locators resolved only inside the authenticated Account's authorized course or workspace relationship. |
 | `QuestionAttemptId` in a route                                                                         | Names an already issued attempt                    | Server additionally verifies exact active Student ownership/enrollment or permitted current Instructor scope.                                  |
 | `SubmissionIdempotencyKey` header                                                                      | Bounded ASCII key for one retry                    | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                  |
 | `RenderedItemIdV1`                                                                                     | Compact presentation-specific selection value      | Maps only through server-held attempt presentation state to a semantic item identity.                                                          |
@@ -247,7 +245,7 @@ When adding an identifier or protocol value, document:
    stale-work fence, checksum, relationship, or capability.
 3. Which layer mints it, where it is persisted, and which server boundary may
    serialize it to a browser.
-4. Which exact `ActorContext` predicate, course/Student ownership, workspace
+4. Which exact account/session predicate, course/Student ownership, workspace
    relationship, or typed operational scope authorizes its use.
 5. Whether a browser or worker can derive it from an authenticated attempt or
    current lease instead of resending it.

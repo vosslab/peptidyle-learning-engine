@@ -419,13 +419,13 @@ pub struct CatalogUsageSummary {
     pub institution_course_count: u64,
     /// Institution-wide number of assignment uses.
     pub institution_assignment_count: u64,
-    /// Current actor's distinct courses that use this publication.
+    /// Current Account's distinct courses that use this publication.
     pub own_course_count: u64,
-    /// Current actor's assignment uses across their visible courses.
+    /// Current Account's assignment uses across their visible courses.
     pub own_assignment_count: u64,
 }
 
-/// One current actor-visible course using an exact publication.
+/// One current Account-visible course using an exact publication.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogOwnCourseUsage {
@@ -443,9 +443,9 @@ pub struct CatalogOwnCourseUsage {
 pub struct CatalogUsageDetail {
     /// Scope-explicit aggregate counts for this exact publication.
     pub summary: CatalogUsageSummary,
-    /// At most [`MAX_CATALOG_OWN_COURSE_USAGES`] actor-visible course rows.
+    /// At most [`MAX_CATALOG_OWN_COURSE_USAGES`] Account-visible course rows.
     pub own_courses: Vec<CatalogOwnCourseUsage>,
-    /// Whether additional actor-visible course rows remain beyond this bounded list.
+    /// Whether additional Account-visible course rows remain beyond this bounded list.
     pub own_courses_truncated: bool,
 }
 
@@ -493,7 +493,7 @@ pub struct CatalogProblemDetail {
     pub prompt: CatalogPromptProjection,
     /// Explainable anonymous evidence for this exact publication.
     pub evidence: CatalogDiscoveryEvidence,
-    /// Bounded current-actor usage evidence for this exact publication.
+    /// Bounded current-Account usage evidence for this exact publication.
     pub usage: CatalogUsageDetail,
 }
 

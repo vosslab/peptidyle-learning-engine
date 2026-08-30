@@ -86,14 +86,14 @@ test("only an authenticated Instructor mode enables personal curation", () => {
   assert.equal(
     mayMutatePersonalCuration({
       authenticated: true,
-      user: { id: "U-1", displayName: "Elena", roles: ["instructor"] },
+      account: { id: "A-1", role: "instructor" },
     }),
     true,
   );
   assert.equal(
     mayMutatePersonalCuration({
       authenticated: true,
-      user: { id: "U-2", displayName: "Morgan", roles: ["sysadmin"] },
+      account: { id: "A-2", role: "sysadmin" },
     }),
     false,
   );

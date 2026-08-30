@@ -6,7 +6,7 @@ use learning_data_access::{
     Cursor, PageRequest, PageSize, PaginationError, StoreError, WorkspaceDraft,
     WorkspaceDraftRevision,
 };
-use question_model::{DraftQuestionDefinition, UserRole};
+use question_model::{AccountRole, DraftQuestionDefinition};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::no_store;
@@ -21,8 +21,8 @@ pub(super) struct WorkspaceQuery {
     page_size: Option<u16>,
 }
 
-pub(super) fn may_author_workspaces(role: UserRole) -> bool {
-    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
+pub(super) fn may_author_workspaces(role: AccountRole) -> bool {
+    matches!(role, AccountRole::Instructor | AccountRole::Sysadmin)
 }
 
 pub(super) fn page_request(query: WorkspaceQuery) -> Result<PageRequest, PaginationError> {

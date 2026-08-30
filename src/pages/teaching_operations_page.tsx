@@ -85,7 +85,7 @@ export function TeachingOperationsPage(): JSX.Element {
 
   const mayExtendRetention = (): boolean => {
     const current = session.state();
-    return current.kind === "authenticated" && current.session.user.roles.includes("sysadmin");
+    return current.kind === "authenticated" && current.session.account.role === "sysadmin";
   };
 
   onMount(() => void load());

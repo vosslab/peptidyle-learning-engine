@@ -21,7 +21,7 @@ pub(super) async fn verify_application_schema_bounded(
 /// Merges every route that uses PLE-owned account authentication or no
 /// identity at all.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn compose_passwordless_router<S, O, C, B, R>(
+pub(super) fn compose_application_router<S, O, C, B, R>(
     store: Arc<S>,
     objects: Arc<O>,
     public_assets: Arc<C>,
@@ -31,11 +31,7 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     review_gate: Arc<R>,
     session_config: SessionConfig,
     invitation_issuer: crate::course::CourseInvitationIssuer,
-    passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-    passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
-    client_address_policy: crate::auth::ClientAddressPolicy,
-    live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
-    webauthn: Option<crate::auth::PasswordlessWebauthn>,
+    live_demo: Option<crate::auth::SeededDemoConfig>,
     health: Arc<HealthState>,
     accepted_submission_fast_path: Arc<
         dyn crate::accepted_submission_worker::AcceptedSubmissionFastPath,
@@ -62,8 +58,6 @@ where
         + learning_data_access::CourseGradebookStore
         + learning_data_access::StudentWorkInspectionStore
         + learning_data_access::CourseGroupManagementStore
-        + learning_data_access::AccountIdentityStore
-        + learning_data_access::AccountSessionStore
         + SessionStore
         + learning_data_access::TeachingAuthorityStore
         + learning_data_access::TeachingAuthorityReferenceStore
@@ -82,26 +76,15 @@ where
     B: BackendRegistry + RunBackend + 'static,
     R: PublicReviewGate + 'static,
 {
-    let passkey_rate_limit_issuer = passwordless_rate_limit_issuer.clone();
-    let passkey_client_address_policy = client_address_policy.clone();
-    let mut router = Router::new()
+    let router = Router::new()
         .route("/health", get(health_handler))
         .merge(crate::auth::session_router(
             Arc::clone(&store),
             session_config,
         ))
-        .merge(crate::auth::passwordless_router(
+        .merge(crate::auth::live_demo_router(
             Arc::clone(&store),
-            passwordless_email_delivery,
-            passwordless_rate_limit_issuer.clone(),
-            client_address_policy.clone(),
-            session_config,
-        ))
-        .merge(crate::auth::seeded_account_selector_router(
-            Arc::clone(&store),
-            live_demo_selector,
-            passwordless_rate_limit_issuer.clone(),
-            client_address_policy.clone(),
+            live_demo,
             session_config,
         ))
         .merge(crate::catalog::router(
@@ -167,16 +150,6 @@ where
         .merge(crate::asset::router(store.clone(), objects, public_assets))
         .merge(crate::validation::router(Arc::clone(&store)))
         .layer(Extension(health));
-
-    if let Some(webauthn) = webauthn {
-        router = router.merge(crate::auth::passkey_router(
-            Arc::clone(&store),
-            webauthn,
-            passkey_rate_limit_issuer,
-            passkey_client_address_policy,
-            session_config,
-        ));
-    }
 
     crate::route_policy::apply_route_method_policy(apply_e2e_replica_attribution(
         router,

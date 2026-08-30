@@ -1,24 +1,14 @@
-// Passwordless account, passkey, and roster transport.
+// Course roster and invitation transport.
 
-import type { CourseRosterClient, RosterImportPreview, WebauthnStart } from "../enrollment";
+import type { CourseRosterClient, RosterImportPreview } from "../enrollment";
 import {
-  decodeAccountAuthenticated,
-  decodeAccountEmailChanged,
-  decodeAccountCoursePage,
-  decodeAccountPresentationPreference,
   decodeClaimedCourseInvitation,
   decodeCourseEnrollmentPolicyResult,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
-  decodeEmailAuthenticationAccepted,
-  decodePasskeyAuthenticated,
-  decodePasskeyList,
-  decodePasskeySummary,
   decodeRosterImportCommitResult,
   decodeRosterImportPreview,
   decodeRosterRevisionResult,
-  decodeSelectedCourseSession,
-  decodeWebauthnStart,
 } from "../enrollment";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { encodedId, requestJson, requestPath, type ApiFetch } from "./request";
@@ -93,190 +83,11 @@ async function rosterMutation<T>(
   return { body: decoder(await boundedResponseJson(response, path)), response };
 }
 
-function credentialJson(
-  credential: Credential | null,
-): RegistrationResponseJSON | AuthenticationResponseJSON {
-  if (!(credential instanceof PublicKeyCredential)) {
-    throw new ApiProtocolError("The authenticator did not return a public-key credential");
-  }
-  return credential.toJSON();
-}
-
-function isRegistrationResponse(
-  value: RegistrationResponseJSON | AuthenticationResponseJSON,
-): value is RegistrationResponseJSON {
-  return "attestationObject" in value.response;
-}
-
-function isAuthenticationResponse(
-  value: RegistrationResponseJSON | AuthenticationResponseJSON,
-): value is AuthenticationResponseJSON {
-  return "signature" in value.response;
-}
-
-function webauthnPublicKeyOptions(
-  value: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> {
-  const publicKey = value.publicKey;
-  if (typeof publicKey !== "object" || publicKey === null || Array.isArray(publicKey)) {
-    throw new ApiProtocolError("WebAuthn options must contain a publicKey record");
-  }
-  return publicKey as Readonly<Record<string, unknown>>;
-}
-
-/**
- * The platform parser owns the WebAuthn JSON-to-binary conversion. The cast is
- * isolated at this browser-standard boundary; the server remains the semantic
- * validator for RP ID, origin, challenge, credential, and signature.
- */
-function registrationOptions(
-  value: Readonly<Record<string, unknown>>,
-): PublicKeyCredentialCreationOptions {
-  return PublicKeyCredential.parseCreationOptionsFromJSON(
-    webauthnPublicKeyOptions(value) as unknown as PublicKeyCredentialCreationOptionsJSON,
-  );
-}
-
-/**
- * Runs a browser registration ceremony supplied by one narrow transport owner.
- * The server remains the authority for the credential and ceremony semantics.
- */
-export async function registerWebauthnWithBrowser<T>(
-  start: () => Promise<WebauthnStart>,
-  complete: (ceremonyId: string, label: string, credential: RegistrationResponseJSON) => Promise<T>,
-  label: string,
-): Promise<T> {
-  if (!("credentials" in navigator) || !("PublicKeyCredential" in globalThis)) {
-    throw new ApiProtocolError("This browser does not support passkeys");
-  }
-  const started = await start();
-  const credential = await navigator.credentials.create({
-    publicKey: registrationOptions(started.options),
-  });
-  const json = credentialJson(credential);
-  if (!isRegistrationResponse(json)) {
-    throw new ApiProtocolError("The authenticator returned an unexpected registration response");
-  }
-  return complete(started.ceremonyId, label, json);
-}
-
-/**
- * Build an explicit button-initiated discoverable-login request.
- *
- * The server owns the challenge and relying-party policy inside `publicKey`.
- * The browser owns mediation because this interaction begins with the visible
- * sign-in button. Conditional mediation is for an autofill field and leaves a
- * button-initiated request pending until a browser UI selection occurs.
- */
-function authenticationOptions(value: Readonly<Record<string, unknown>>): CredentialRequestOptions &
-  Readonly<{
-    publicKey: PublicKeyCredentialRequestOptions;
-    mediation: "required";
-  }> {
-  const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON(
-    webauthnPublicKeyOptions(value) as unknown as PublicKeyCredentialRequestOptionsJSON,
-  );
-  return { publicKey, mediation: "required" };
-}
-
-export async function registerPasskeyWithBrowser(
-  client: CourseRosterClient,
-  label: string,
-): Promise<Awaited<ReturnType<CourseRosterClient["completePasskeyRegistration"]>>> {
-  return registerWebauthnWithBrowser(
-    () => client.startPasskeyRegistration(),
-    (ceremonyId, registrationLabel, credential) =>
-      client.completePasskeyRegistration(ceremonyId, registrationLabel, credential),
-    label,
-  );
-}
-
-export async function authenticatePasskeyWithBrowser(
-  client: CourseRosterClient,
-  signal?: AbortSignal,
-): Promise<void> {
-  if (!("credentials" in navigator) || !("PublicKeyCredential" in globalThis)) {
-    throw new ApiProtocolError("This browser does not support passkeys");
-  }
-  const started = await client.startPasskeyAuthentication();
-  const request = authenticationOptions(started.options);
-  const credential = await navigator.credentials.get(
-    signal === undefined ? request : { ...request, signal },
-  );
-  const json = credentialJson(credential);
-  if (!isAuthenticationResponse(json)) {
-    throw new ApiProtocolError("The authenticator returned an unexpected sign-in response");
-  }
-  await client.completePasskeyAuthentication(started.ceremonyId, json);
-}
-
 export function createEnrollmentClient(
   fetchImplementation: ApiFetch,
   basePath: string,
 ): CourseRosterClient {
   return {
-    getAccountPresentation: () =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/account/presentation",
-        decodeAccountPresentationPreference,
-      ),
-    saveAccountPresentation: (preference) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/account/presentation",
-        decodeAccountPresentationPreference,
-        { method: "PUT", body: preference },
-      ),
-    startEmailAuthentication: (email) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/passwordless/email/start",
-        decodeEmailAuthenticationAccepted,
-        { method: "POST", body: { email } },
-      ),
-    completeEmailAuthentication: (token, displayName) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/passwordless/email/complete",
-        decodeAccountAuthenticated,
-        { method: "POST", body: { token, displayName } },
-      ),
-    startAccountEmailChange: (email) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/account/email/start",
-        decodeEmailAuthenticationAccepted,
-        { method: "POST", body: { email } },
-      ),
-    completeAccountEmailChange: (token) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/account/email/complete",
-        decodeAccountEmailChanged,
-        { method: "POST", body: { token } },
-      ),
-    listAccountCourses: () =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/account/courses",
-        decodeAccountCoursePage,
-      ),
-    selectAccountCourse: (courseId) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/account/course-session",
-        decodeSelectedCourseSession,
-        { method: "POST", body: { courseId } },
-      ),
     redeemCourseInvitation: (invitationToken) =>
       requestJson(
         fetchImplementation,
@@ -285,42 +96,6 @@ export function createEnrollmentClient(
         decodeClaimedCourseInvitation,
         { method: "POST", body: { invitationToken } },
       ),
-    startPasskeyRegistration: () =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/passkeys/registration/start",
-        decodeWebauthnStart,
-        { method: "POST" },
-      ),
-    completePasskeyRegistration: (ceremonyId, label, credential) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/passkeys/registration/complete",
-        decodePasskeySummary,
-        { method: "POST", body: { ceremonyId, label, credential } },
-      ),
-    startPasskeyAuthentication: () =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/passkeys/authentication/start",
-        decodeWebauthnStart,
-        { method: "POST" },
-      ),
-    completePasskeyAuthentication: (ceremonyId, credential) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        "/api/auth/passkeys/authentication/complete",
-        decodePasskeyAuthenticated,
-        { method: "POST", body: { ceremonyId, credential } },
-      ),
-    listPasskeys: () =>
-      requestJson(fetchImplementation, basePath, "/api/auth/passkeys", decodePasskeyList),
-    revokePasskey: (passkeyId) =>
-      noContentRequest(fetchImplementation, basePath, `/api/auth/passkeys/${encodedId(passkeyId)}`),
     listCourseRoster: (courseId, cursor) =>
       requestJson(
         fetchImplementation,

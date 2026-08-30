@@ -1,6 +1,6 @@
 // route_contract.ts - pure data form of the frozen product route contract.
 
-import type { UserRole } from "../generated/api/UserRole";
+import type { AccountRole } from "../generated/api/AccountRole";
 
 export interface RouteContract {
   readonly id:
@@ -26,10 +26,6 @@ export interface RouteContract {
     | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
-    | "emailAuthenticationComplete"
-    | "emailChangeComplete"
-    | "courseInvitation"
-    | "accountSecurity"
     | "courseRoster"
     | "teachingOperations"
     | "curriculumAdoption"
@@ -39,7 +35,7 @@ export interface RouteContract {
   readonly path: string;
   readonly surface: string;
   /** Role gate for the route; each route declares the real roles it serves. */
-  readonly requiredRoles: ReadonlyArray<UserRole>;
+  readonly requiredRoles: ReadonlyArray<AccountRole>;
 }
 
 /** Product routes in the same order as the active implementation plan. */
@@ -54,30 +50,6 @@ export const ROUTE_CONTRACT = [
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
-    requiredRoles: [],
-  },
-  {
-    id: "emailAuthenticationComplete",
-    path: "/auth/email/complete",
-    surface: "Browser-bound one-time email completion",
-    requiredRoles: [],
-  },
-  {
-    id: "emailChangeComplete",
-    path: "/auth/account/email/complete",
-    surface: "Browser-bound account email change completion",
-    requiredRoles: [],
-  },
-  {
-    id: "courseInvitation",
-    path: "/course-invitations/redeem",
-    surface: "Authenticated learner invitation claim",
-    requiredRoles: [],
-  },
-  {
-    id: "accountSecurity",
-    path: "/account/security",
-    surface: "Multiple-passkey account management",
     requiredRoles: [],
   },
   {
@@ -269,7 +241,7 @@ export function routeContractForPathname(pathname: string): RouteContract | unde
 }
 
 /** Checks the role boundary declared by a product route without mounting its surface. */
-export function rolesMayAccessRoute(routeId: string, roles: ReadonlyArray<UserRole>): boolean {
+export function accountRoleMayAccessRoute(routeId: string, role: AccountRole): boolean {
   const route: RouteContract | undefined = ROUTE_CONTRACT.find((item) => item.id === routeId);
   if (route === undefined) {
     return false;
@@ -277,5 +249,5 @@ export function rolesMayAccessRoute(routeId: string, roles: ReadonlyArray<UserRo
   if (route.requiredRoles.length === 0) {
     return true;
   }
-  return route.requiredRoles.some((requiredRole) => roles.includes(requiredRole));
+  return route.requiredRoles.includes(role);
 }

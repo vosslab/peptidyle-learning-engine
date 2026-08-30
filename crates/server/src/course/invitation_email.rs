@@ -8,11 +8,6 @@ use lettre::transport::smtp::response::{Category, Code, Detail, Severity};
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use url::Url;
 
-use crate::auth::{
-    PasswordlessEmailAction, PasswordlessEmailDelivery, PasswordlessEmailDeliveryError,
-    PasswordlessEmailSecret,
-};
-
 use super::invitation_capability::{
     CourseInvitationDelivery, CourseInvitationDeliveryAttempt, CourseInvitationDeliveryError,
     CourseInvitationSecret,
@@ -59,8 +54,6 @@ pub struct SmtpCourseInvitationDelivery {
     transport: AsyncSmtpTransport<Tokio1Executor>,
     from: Mailbox,
     redeem_url: Url,
-    email_auth_url: Url,
-    email_change_url: Url,
 }
 
 /// The only SMTP failure classes permitted in operator telemetry.  The
@@ -173,11 +166,7 @@ impl SmtpCourseInvitationDelivery {
         {
             return Err(CourseInvitationDeliveryError::Unavailable);
         }
-        let mut email_auth_url = redeem_url.clone();
-        let mut email_change_url = redeem_url.clone();
         redeem_url.set_path("/course-invitations/redeem");
-        email_auth_url.set_path("/auth/email/complete");
-        email_change_url.set_path("/auth/account/email/complete");
         let transport = match config.tls_mode {
             SmtpTlsMode::StartTls => {
                 AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.relay)
@@ -192,8 +181,6 @@ impl SmtpCourseInvitationDelivery {
             transport,
             from,
             redeem_url,
-            email_auth_url,
-            email_change_url,
         })
     }
 
@@ -219,45 +206,6 @@ impl SmtpCourseInvitationDelivery {
             .map_err(|_| CourseInvitationDeliveryError::Unavailable)
     }
 
-    fn email_authentication_message(
-        &self,
-        email: &AuthenticationEmail,
-        secret: &PasswordlessEmailSecret,
-        action: PasswordlessEmailAction,
-    ) -> Result<Message, PasswordlessEmailDeliveryError> {
-        let to = email
-            .delivery()
-            .parse::<Mailbox>()
-            .map_err(|_| PasswordlessEmailDeliveryError::Unavailable)?;
-        let mut url = match action {
-            PasswordlessEmailAction::SignIn => self.email_auth_url.clone(),
-            PasswordlessEmailAction::ChangeEmail => self.email_change_url.clone(),
-        };
-        url.set_fragment(Some(&format!("token={}", secret.encoded())));
-        Message::builder()
-            .from(self.from.clone())
-            .to(to)
-            .subject(match action {
-                PasswordlessEmailAction::SignIn => "Sign in to PLE",
-                PasswordlessEmailAction::ChangeEmail => "Confirm your new PLE email",
-            })
-            .header(ContentType::TEXT_PLAIN)
-            .body(format!(
-                "Open this one-time link in the browser where you requested it:\n\n{url}\n\nThe link expires in ten minutes. If you did not request it, you can ignore this message."
-            ))
-            .map_err(|_| PasswordlessEmailDeliveryError::Unavailable)
-    }
-
-    async fn send_message(&self, message: Message) -> Result<(), ()> {
-        match self.transport.send(message).await {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                record_smtp_delivery_failure(&error);
-                Err(())
-            }
-        }
-    }
-
     async fn attempt_invitation_message(
         &self,
         message: Message,
@@ -278,25 +226,6 @@ impl SmtpCourseInvitationDelivery {
                 }
             }
         }
-    }
-}
-
-#[async_trait]
-impl PasswordlessEmailDelivery for SmtpCourseInvitationDelivery {
-    fn is_configured(&self) -> bool {
-        true
-    }
-
-    async fn send_email_authentication(
-        &self,
-        email: &AuthenticationEmail,
-        secret: &PasswordlessEmailSecret,
-        action: PasswordlessEmailAction,
-    ) -> Result<(), PasswordlessEmailDeliveryError> {
-        let message = self.email_authentication_message(email, secret, action)?;
-        self.send_message(message)
-            .await
-            .map_err(|_| PasswordlessEmailDeliveryError::Unavailable)
     }
 }
 

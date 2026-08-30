@@ -7,7 +7,7 @@ RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.blueprint_course (
     blueprint_id uuid PRIMARY KEY,
-    owner_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     created_at timestamp with time zone NOT NULL,
     archived_at timestamp with time zone
 );

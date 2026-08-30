@@ -19,7 +19,7 @@ pub use receipt::{
 
 use std::collections::BTreeSet;
 
-use question_model::UserId;
+use question_model::AccountId;
 
 /// Narrow host capability used to turn the deterministic Mary response into
 /// ordinary accepted Student work.  The installer owns the recipe, while the
@@ -35,8 +35,11 @@ pub trait AcceptedSubmissionSeedExecutor: Send + Sync {
 /// Server-private deterministic input for one installed completed attempt.
 #[derive(Clone)]
 pub struct AcceptedSubmissionSeedRequest {
-    pub context: learning_data_access::ActorContext,
-    pub actor: UserId,
+    /// The deterministic Student Account whose enrollment owns this work.
+    ///
+    /// The host validates the Account's exact membership and enrollment chain
+    /// before accepting the response.
+    pub student_account: AccountId,
     pub binding: learning_data_access::StudentWorkRoutingBinding,
     pub attempt: question_model::QuestionAttemptId,
     pub response: question_model::StudentResponse,
@@ -47,8 +50,7 @@ impl std::fmt::Debug for AcceptedSubmissionSeedRequest {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("AcceptedSubmissionSeedRequest")
-            .field("context", &self.context)
-            .field("actor", &self.actor)
+            .field("student_account", &self.student_account)
             .field("binding", &self.binding)
             .field("attempt", &self.attempt)
             .field("response", &"[SERVER-ONLY]")
@@ -67,11 +69,11 @@ pub enum AcceptedSubmissionSeedOutcome {
 /// Validated identities used by the deterministic Base Course recipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BaseCourseParticipants {
-    primary_instructor: UserId,
-    mary: UserId,
-    jack: UserId,
-    approval_candidate: UserId,
-    sysadmin: UserId,
+    primary_instructor: AccountId,
+    mary: AccountId,
+    jack: AccountId,
+    approval_candidate: AccountId,
+    sysadmin: AccountId,
 }
 
 impl BaseCourseParticipants {
@@ -81,11 +83,11 @@ impl BaseCourseParticipants {
     ///
     /// Returns [`BaseCourseInstallError::Request`] when any participant identity repeats.
     pub fn try_new(
-        primary_instructor: UserId,
-        mary: UserId,
-        jack: UserId,
-        approval_candidate: UserId,
-        sysadmin: UserId,
+        primary_instructor: AccountId,
+        mary: AccountId,
+        jack: AccountId,
+        approval_candidate: AccountId,
+        sysadmin: AccountId,
     ) -> Result<Self, BaseCourseInstallError> {
         let distinct = [primary_instructor, mary, jack, approval_candidate, sysadmin]
             .into_iter()
@@ -104,23 +106,23 @@ impl BaseCourseParticipants {
         })
     }
 
-    pub(crate) fn primary_instructor(self) -> UserId {
+    pub(crate) fn primary_instructor(self) -> AccountId {
         self.primary_instructor
     }
 
-    pub(crate) fn mary(self) -> UserId {
+    pub(crate) fn mary(self) -> AccountId {
         self.mary
     }
 
-    pub(crate) fn jack(self) -> UserId {
+    pub(crate) fn jack(self) -> AccountId {
         self.jack
     }
 
-    pub(crate) fn approval_candidate(self) -> UserId {
+    pub(crate) fn approval_candidate(self) -> AccountId {
         self.approval_candidate
     }
 
-    pub(crate) fn sysadmin(self) -> UserId {
+    pub(crate) fn sysadmin(self) -> AccountId {
         self.sysadmin
     }
 }
@@ -161,17 +163,17 @@ mod tests {
 
     use super::*;
 
-    fn user(value: u128) -> UserId {
-        UserId::from_uuid(Uuid::from_u128(value))
+    fn account(value: u128) -> AccountId {
+        AccountId::from_uuid(Uuid::from_u128(value))
     }
 
     #[test]
     fn participants_require_five_distinct_account_identities() {
-        let valid = BaseCourseParticipants::try_new(user(2), user(3), user(4), user(5), user(6));
+        let valid = BaseCourseParticipants::try_new(account(2), account(3), account(4), account(5), account(6));
         let duplicate_mary =
-            BaseCourseParticipants::try_new(user(2), user(2), user(4), user(5), user(6));
+            BaseCourseParticipants::try_new(account(2), account(2), account(4), account(5), account(6));
         let duplicate_sysadmin =
-            BaseCourseParticipants::try_new(user(2), user(3), user(4), user(5), user(5));
+            BaseCourseParticipants::try_new(account(2), account(3), account(4), account(5), account(5));
 
         assert!(valid.is_ok());
         assert!(duplicate_mary.is_err());
@@ -181,7 +183,7 @@ mod tests {
     #[test]
     fn install_receipt_exists_only_in_the_install_phase() {
         let participants =
-            BaseCourseParticipants::try_new(user(2), user(3), user(4), user(5), user(6)).unwrap();
+            BaseCourseParticipants::try_new(account(2), account(3), account(4), account(5), account(6)).unwrap();
         let prepare = BaseCourseInstallRequest::new(participants, BaseCourseInstallPhase::Prepare);
         let install = BaseCourseInstallRequest::new(
             participants,

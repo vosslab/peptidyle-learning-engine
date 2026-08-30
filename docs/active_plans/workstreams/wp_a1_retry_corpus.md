@@ -31,8 +31,7 @@
   mixed-case singular/plural answer-bearing aliases, staged errors,
   redaction of transport/disposal failures, no second publish, and disposal.
 - Independent offline review accepted the request contract, strict ETag handling,
-  answer-bearing detail-payload rejection, and redaction boundary. See the
-  [WP-A1 review](../audits/wp_a1_retry_corpus_review.md).
+  answer-bearing detail-payload rejection, and redaction boundary.
 - The accepted M3 runner invoked this module through the fixed arranger without
   Playwright global setup. Its two clean same-seed manager passes and independent
   live pass are recorded in [m3_arrangement_integration.md](m3_arrangement_integration.md)

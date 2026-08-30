@@ -12,7 +12,7 @@ CREATE TABLE ple_private.assignment_export_request (
     course_id uuid NOT NULL,
     assignment_id uuid NOT NULL,
     manifest_object_id uuid NOT NULL,
-    requested_by_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    requested_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     requested_at timestamp with time zone NOT NULL,
     state text NOT NULL CHECK (state IN ('queued', 'ready', 'failed', 'cancelled')),
     CONSTRAINT assignment_export_request_assignment_matches FOREIGN KEY (course_id, assignment_id)
@@ -45,7 +45,7 @@ BEGIN
     IF NEW.course_id IS DISTINCT FROM OLD.course_id
         OR NEW.assignment_id IS DISTINCT FROM OLD.assignment_id
         OR NEW.manifest_object_id IS DISTINCT FROM OLD.manifest_object_id
-        OR NEW.requested_by_user_id IS DISTINCT FROM OLD.requested_by_user_id
+        OR NEW.requested_by_account_id IS DISTINCT FROM OLD.requested_by_account_id
         OR NEW.requested_at IS DISTINCT FROM OLD.requested_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'an export request parent is immutable';
     END IF;

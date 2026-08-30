@@ -78,7 +78,7 @@ The script requires `node_modules`; run `./devel/setup_typescript.sh` first when
 checkout that has not yet run `./run_live_demo.sh`. Browser installation is optional for the
 headless live-demo start and for offline Rust, TypeScript, and Python checks.
 
-## Seeded accounts and passkeys
+## Seeded accounts
 
 After the browser opens, use the visible **Explore this live demo** panel on the PLE sign-in page:
 
@@ -87,12 +87,10 @@ After the browser opens, use the visible **Explore this live demo** panel on the
   Avery (Students), and Morgan (Sysadmin).
 - Role selection only replaces the identity-verification ceremony. The server still resolves the
   ordinary account, session, course membership, role, and authorization state.
-- To demonstrate ordinary passkey behavior, open **Account** -> **Your passkeys**, enter a passkey
-  name, choose **Add passkey**, and complete the browser's biometric, PIN, or security-key prompt.
-  Choose **Sign out**, return to **Sign in**, choose **Sign in with a passkey**, and then choose a
-  course again.
-- The seeded data and passkeys belong to this disposable installation. Relaunching the demo
-  restores the baseline and discards changes from the prior session.
+- The seeded data belongs to this disposable installation. Relaunching the demo restores the
+  baseline and discards changes from the prior session.
+- Email-code and passkey adapters are not mounted in this build. Their private schema and
+  single-session credential contracts are present; the visible selector is the current demo entry.
 
 ## Verify install
 

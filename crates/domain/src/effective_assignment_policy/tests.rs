@@ -6,7 +6,7 @@ use crate::entitlement::{
 use chrono::TimeZone;
 use question_model::{
     AssignmentAudience, AssignmentId, AssignmentLifecycle, CourseGroupPurpose, CourseId,
-    CourseMembershipId, UserId,
+    AccountId, CourseMembershipId,
 };
 use uuid::Uuid;
 
@@ -37,7 +37,7 @@ fn grant(groups: Vec<(CourseGroupId, CourseGroupPurpose)>) -> EntitlementDecisio
     evaluate_assignment_entitlement(EntitlementFacts {
         course: CourseId::from_uuid(Uuid::from_u128(2)),
         assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-        student_user: UserId::from_uuid(Uuid::from_u128(4)),
+        student_account: AccountId::from_uuid(Uuid::from_u128(4)),
         membership: Some(ActiveStudentMembership {
             id: CourseMembershipId::from_uuid(Uuid::from_u128(5)),
             student: student(6),

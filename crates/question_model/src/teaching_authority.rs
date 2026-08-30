@@ -6,18 +6,18 @@
 
 use uuid::Uuid;
 
-use crate::{ActivityTimestamp, CourseId, CourseMembershipId, UserId};
+use crate::{AccountId, ActivityTimestamp, CourseId, CourseMembershipId};
 
 /// Operator-owned global eligibility for Instructor invitations.
 ///
-/// This record is intentionally separate from both `UserRole` and direct
+/// This record is intentionally separate from both `AccountRole` and direct
 /// course membership. Possessing it grants no course authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InstructorApproval {
     /// Existing user approved by a platform operator.
-    pub user: UserId,
+    pub account: AccountId,
     /// Operator account that recorded this approval.
-    pub approved_by: UserId,
+    pub approved_by: AccountId,
     /// Authoritative operator time of approval.
     pub approved_at: ActivityTimestamp,
     /// Authoritative revocation time when eligibility is no longer active.
@@ -67,7 +67,7 @@ pub struct CoInstructorInvitation {
     /// Exact direct Instructor membership episode that initiated the invitation.
     pub invited_by: CourseMembershipId,
     /// Existing approved account invited to this exact course.
-    pub target: UserId,
+    pub target: AccountId,
     /// Authoritative creation time.
     pub created_at: ActivityTimestamp,
     /// Required authoritative expiry, exactly 30 days after creation.

@@ -22,13 +22,13 @@ private draft
   -> validate and preview
   -> publish immutable version
   -> select exact version for assignment
-  -> create or resume course-owned run
-  -> issue one server-owned attempt
-  -> render active attempt and optionally reserve next
-  -> submit compact learner response exactly once
+  -> create or resume a course-owned Assignment Attempt
+  -> issue one server-owned Question Attempt
+  -> render the active Question Attempt and optionally reserve the next
+  -> accept one Submitted Response exactly once
   -> grade only on the server
   -> project permitted feedback and summary
-  -> continue a new varied practice run when policy permits
+  -> continue a new varied practice Assignment Attempt when policy permits
   -> retain, archive, then delete student records
                          \
                           -> preserve identity-free statistics
@@ -48,19 +48,20 @@ PLE keeps four related but different things separate:
 | Draft | Instructor workspace; private and mutable | `WorkspaceId` |
 | Published question | Shared immutable catalog content | `ProblemId` and `VersionId` |
 | Assignment activity | One course's teaching configuration | Course and assignment IDs |
-| Learner activity | Course-owned educational record | Enrollment, run, and attempt IDs |
+| Learner activity | Course-owned educational record | Enrollment, Assignment Attempt, and Question Attempt IDs |
 
 Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
 `(ProblemId, VersionId)` pair; optional one-way provenance may identify its
-source. An assignment, run, or attempt retains its exact pinned pair and does
-not copy prompt, assets, source, or answer material into the course. A run is
-one pass through that assignment, and an attempt is one issued instance of one
-assignment position. Repeated use of the same exact published question does not
-merge distinct assignment positions or learner attempts.
+source. An Assignment, Assignment Attempt, or Question Attempt retains its exact
+pinned pair and does not copy prompt, assets, source, or answer material into the
+course. An Assignment Attempt is one pass through an Assignment, and a Question
+Attempt is one issued instance of one assignment position. Repeated use of the
+same exact published question does not merge distinct assignment positions or
+Question Attempts.
 
 The type-level identity and browser-safety rules are defined in
-[QUESTION_MODEL.md](QUESTION_MODEL.md). The enrollment, run, attempt, and
+[QUESTION_MODEL.md](QUESTION_MODEL.md). The enrollment, Assignment Attempt, Question Attempt, and
 summary records are defined in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 
 ## Author, validate, publish
@@ -121,7 +122,7 @@ their explicit policy values.
 The assignment belongs to one course. Enrolling a student creates a
 course-owned educational relationship, not a copy of shared question content.
 The authenticated session supplies the user identity; the server verifies that
-the enrollment owns that user rather than assuming `UserId` and `StudentId` are
+the enrollment owns that Account rather than assuming `AccountId` and `StudentId` are
 interchangeable.
 
 ### 5. Create or resume a run
@@ -194,7 +195,7 @@ advance a run.
 ### 9. Submit the minimal response
 
 At the secure-payload target boundary, the route identifies the attempt once.
-The request supplies only the presentation digest and a family-minimal answer;
+The request supplies only the presentation digest and a minimal answer;
 a bounded idempotency key is in the request header. The server loads the
 authoritative attempt and therefore derives response shape, question version,
 seed, assignment, backend, deadline, and learner ownership rather than

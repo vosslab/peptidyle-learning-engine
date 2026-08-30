@@ -32,16 +32,15 @@ discards them and recreates the same fictional baseline.
 ## Before you begin
 
 - Launch the local stack and open its HTTPS URL.
-- Sign in through the visible PLE account page. Email is the canonical passwordless path; an
-  ordinary passkey is an optional shortcut for an existing account.
-- When the deployment enables the seeded persona selector, choose the fictional live-demo Instructor
-  persona. It enters the same PLE account/session state and is unavailable when that deployment gate
-  is not configured.
+- The current local Live Demo enters through its visible seeded Instructor selector. It creates the
+  same server-owned Authenticated Session used by ordinary authentication.
+- Email-code and passkey authentication are the required product design for an existing Account;
+  their browser adapters are being reconstructed on this SessionStore foundation.
 
 ## Create a course instance
 
-1. Sign in through the visible PLE account page with email, an ordinary passkey, or the enabled
-   seeded Instructor selector.
+1. In the current Live Demo, choose the enabled seeded Instructor selector on the visible sign-in
+   page.
 2. From **Courses**, choose **Create Course Instance**.
 3. Choose an existing published **Blueprint Course**, or choose **Create Blueprint Course** to make
    the minimal new Blueprint parent first. A Course Instance cannot exist without exactly one parent.
@@ -182,7 +181,7 @@ The Gradebook totals view is a compact server projection. It reports a score or 
 state such as recalculating, failed, empty after drop, or zero possible points. The browser does not
 recompute totals. **Export grades CSV** is synchronous and bounded to 500 active-Student rows. The
 protected display name appears in Instructor views; roster ID and email remain export-only. The
-durable export audit stores no Student PII, only Course Instance, actor, revision, mode, rounding,
+durable export audit stores no Student PII, only Course Instance, authenticated Account, revision, mode, rounding,
 row count, and timestamp metadata.
 
 ## Review learning

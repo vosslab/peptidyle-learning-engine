@@ -6,7 +6,7 @@ import { createMemo, onMount, Show, type Component, type JSX } from "solid-js";
 import { useSessionBootstrap } from "./auth/session_context";
 import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 import {
-  rolesMayAccessRoute,
+  accountRoleMayAccessRoute,
   routeContractForPathname,
   type RouteContract,
 } from "./route_contract";
@@ -65,7 +65,7 @@ export function withRouteAccessBoundary(
       if (state.kind !== "authenticated") {
         return false;
       }
-      return rolesMayAccessRoute(route.id, state.session.user.roles);
+      return accountRoleMayAccessRoute(route.id, state.session.account.role);
     });
     const allowedRoute = createMemo((): RouteContract | undefined =>
       accessGranted() ? route : undefined,

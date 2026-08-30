@@ -4,7 +4,7 @@
 > WP-PY-L1 controller evidence and acceptance. Its browser ledger, including the `202` ordinary
 > mock-preview tests and seven legacy lanes, is historical evidence only and does not define the
 > supported browser architecture, catalog, commands, or lane ownership. For current truth, follow
-> the [real-stack browser suite plan](../active/real_stack_browser_suite_plan.md),
+> the [release_completion_plan.md](../active/release_completion_plan.md),
 > [implementation status](../implementation_status.md), and
 > [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
 

@@ -5,11 +5,10 @@
 **Binding single-installation architecture (2026-08-29).** PLE operates as one installation with
 global accounts, an Instructor-visible shared catalog for every published assignment question,
 private drafts, equal approved Instructors, multiple equal co-Instructors per course, and exact
-course/Student authorization for educational records. The active
-[single-installation authorization plan](active/single_installation_authorization_plan.md) owns the
-domain, schema, Store, service, browser, live-demo, and documentation correction before the
-remaining package sequence resumes. Its fresh pre-production migration epoch is the authority for
-database ownership and authorization.
+course/Student authorization for educational records. The active SD1 registry owns the domain,
+schema, Store, service, browser, live-demo, and documentation correction before the remaining
+package sequence resumes. Its fresh pre-production migration epoch is the authority for database
+ownership and authorization.
 
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
@@ -35,10 +34,9 @@ changelog. WP-PY-L1 is accepted on 2026-08-15. The Instructor roadmap records M0
 the four evidenced release-truth packages; its subsequent work follows the Instructor dependency
 queue.
 
-Current browser evidence is owned by the
-[real_stack_browser_suite_plan.md](active/real_stack_browser_suite_plan.md); the sole current-package
-handoff remains in [implementation_status.md](implementation_status.md). Production email and
-canonical onboarding remain separate release work.
+Current browser evidence is tracked through the sole current-package handoff in
+[implementation_status.md](implementation_status.md). Production email and canonical onboarding
+remain separate release work.
 
 **Current live-demo capability.** [WP-INST-LD3](active/live_delivery_convergence_plan.md) established
 ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
@@ -48,15 +46,13 @@ automatic variation, executable no-store preview, and ordinary Student delivery.
 WP-INST-D2, WP-INST-B1, and WP-INST-B2 are accepted. Reusable curricula now advance into ordinary
 teaching courses through explicit adoption, rollover, term shifting, provenance, and controlled
 updates. WP-INST-T6 is accepted: each assignment has a linked home, separate Questions and Policies
-pages, and a live answer-free Student view. WP-INST-G1 is accepted under the
-[automated-grading operations plan](active/automated_grading_operations_plan.md). It persists one
-immutable accepted learner input before grading and adds assignment-local exception recovery,
+pages, and a live answer-free Student view. WP-INST-G1 persists one immutable accepted learner
+input before grading and adds assignment-local exception recovery,
 bounded retry, generation-fenced recalculation, and immutable receipts. `WP-INST-WN1` is the current
 repository-wide corrective prerequisite under the [wire naming contract migration plan](active/wire_naming_contract_migration_plan.md).
 Current pre-WN1 transport remains lower camel where source still does so; the approved direct
 Serde-to-TypeScript snake data-object boundary lands through WN1-A/B/C1-C6/QM/WA/D/F before G2 resumes.
-`WP-INST-G2` is implemented and acceptance-open behind WN1 and its remaining visual/documentation close-out;
-its [audited Student-work and calculated Gradebook plan](active/audited_student_work_gradebook_plan.md) resumes after WN1 acceptance.
+`WP-INST-G2` is implemented and acceptance-open behind WN1 and its remaining visual/documentation close-out.
 It establishes a roster-first, server-calculated Gradebook and an explicit atomic-audit inspection
 read that is response-bearing, solution-free, and no-store. The shared status registry owns the
 current handoff and migration allocation; the Instructor capability plan retains the accepted
@@ -89,9 +85,10 @@ types, routes, schema branches, Store capabilities, generated aliases, and brows
 allocation remain solely in [implementation_status.md](implementation_status.md). `WP-R0`, `WP-R1`,
 `WP-R2`, and `WP-PY-L1` retain their registered package identities and acceptance status.
 
-**Current authority for the SD1 cutover.** The server derives `ActorContext` from the authenticated
-global session and grants access through exact typed system, catalog, workspace, course,
-course-membership, Student-ownership, and short-lived capability scopes. Published QuestionIds are
+**Current authority for the SD1 cutover.** A resolved authenticated session establishes one global
+account and its immutable role. Each protected operation receives the exact system, catalog,
+workspace, course, course-membership, Student-ownership, or short-lived capability identity it
+authorizes. Published QuestionIds are
 stable lineages with immutable QuestionVersions: moderate steward edits preserve original authorship
 and license in the lineage, while full forks give their author a private draft and, after validation,
 a separately attributed and source-compatible licensed lineage. `QuestionChangeProposal` is the
@@ -107,30 +104,30 @@ recalculation are audited operations rather than manual grading. This authority 
 without advancing the current package status.
 
 **SD1-B1 compile-coordinated session cutover (2026-08-29).** The global-session end state is one
-server-owned `SessionId`, one resolved-record `ActorContext { user_id, session_id }`, and one
-`SessionStore`. An actor is created only after the store resolves an opaque credential to its durable
-record; it carries identity rather than a role, capability, course, workspace, or Student grant.
-Exact domain scopes authorize protected work. The session record therefore owns only the durable
-session identity and global `UserId`; account and authority records supply display information and
-current roles when a response or an authorization predicate needs them.
+server-owned `SessionId` in a resolved `SessionRecord`, and one `SessionStore`. The resolved record
+establishes an account and its immutable role after the store verifies the opaque credential; it
+does not grant course, workspace, Student, or capability access. Exact domain relationships
+authorize protected work. Store contracts carry the exact `AccountId`, `CourseMembership`, `Student`,
+workspace relation, or worker lease that their operation needs, with `SessionId` retained only for
+session and audit facts.
 
 This conversion uses compile-coordinated, atomic package outcomes rather than a fabricated
 installation-wide scope or a lasting dual session API:
 
 1. `SD1-B1-P0` owns the `learning-data-access::session` public type boundary. `SessionId` is
-   server-only; `ActorContext` has private fields and no public construction path. It introduces no
-   grant. The accepted P0 receipt proves only this type boundary; it does not claim B1 acceptance
-   or that current routes resolve an actor. Its narrow evidence is
+   server-only and belongs to a resolved `SessionRecord`; it introduces no grant. The accepted P0
+   receipt proves only this type boundary; it does not claim B1 acceptance or route integration.
+   Its narrow evidence is
    `cargo check -p learning-data-access --no-default-features`.
 2. `WP-SD1-B1-P1`, after `SD1-C2` and before `SD1-D1`, persists `SessionId` on `SessionRecord` and
-   exposes only `SessionRecord::actor_context()` from a resolved record. It enables actor-aware Store
+   exposes the account and session facts required by a Store operation. It enables exact-identity
    transactions without converting routes or removing legacy session models. `SD1-D1` depends on
    `SD1-C7` and P1. `SD1-B1-F` follows accepted D1--D6 and performs the single route/model cutover:
    it removes `SessionSubject`, `AccountSession*`, and obsolete global-scope auth/session seams. `SD1-B5`
    follows B1-F and regenerates browser-safe contracts.
 3. `SD1-B2` through `SD1-B4` own course/Student, catalog/workspace, and job/object/external-tool
-   exact-scope contract definitions respectively. Each names `ActorContext` and its typed durable
-   resource input, but does not claim existing routes have switched authentication. C/D provide the
+   exact-scope contract definitions respectively. Each names the exact account and durable resource
+   input it requires, but does not claim existing routes have switched authentication. C/D provide the
    matching Store/RLS/service implementation before final route integration. Their package receipts
    record the owning focused contract lane.
 4. `SD1-C` and `SD1-D` own the fresh PostgreSQL schema, Store/RLS, and direct protected-service
@@ -139,13 +136,14 @@ installation-wide scope or a lasting dual session API:
    replacement is introduced.
 5. `SD1-B1-F` owns session record/store, account-identity session types, Memory/PostgreSQL adapters,
    server authentication, direct composition callers, and retirement of the prior global-scope auth
-   route seam. `SessionRecord` owns `SessionId` plus global `UserId`; `SessionSubject` and every
-   `AccountSession*` durable-session type/trait are removed; the server derives `ActorContext` from
-   the resolved record; and all affected consumers use their B2-B4 exact-scope path. This is the B1
+   route seam. `SessionRecord` owns `SessionId` plus global `AccountId`; `SessionSubject` and every
+   `AccountSession*` durable-session type/trait are removed; the server passes the resolved record's
+   account/session facts only where required; and all affected consumers use their B2-B4 exact-scope
+   path. This is the B1
    acceptance boundary. Evidence combines focused learning-data-access/server checks with the
    relevant C/D protected-route, Store, and RLS lanes.
 6. `SD1-B5` owns generated auth/browser contracts and direct decoders. The browser-safe account
-   projection reflects the completed auth boundary and contains no session credential, actor, or
+   projection reflects the completed auth boundary and contains no session credential, generic identity context, or
    obsolete global-scope compatibility field. Its evidence is the B5 generated-contract and TypeScript
    compilation lanes.
 
@@ -278,7 +276,7 @@ release boundary while writing code.
 - Separate draft identity from published identity so an abandoned experiment never occupies a durable
   catalog number.
 - Keep published content shared and immutable while every educational record carries exact course,
-  Student, workspace, or UserId ownership and is protected by database-enforced row-level security.
+  Student, workspace, or AccountId ownership and is protected by database-enforced row-level security.
 - Delete Student records on a privacy-by-default schedule with the configured course lifecycle policy,
   while anonymous question statistics survive so the library keeps improving.
 - Keep binary and archival content out of PostgreSQL, with every artifact carrying checksum, size,
@@ -315,18 +313,18 @@ That is a property of the format, and it sets the adapter's honest capability de
 parallelism afterward. It only works if the contracts are complete, so the contract-freeze milestone
 ships executable reference implementations and conformance suites, not just type definitions.
 
-**Single-installation actor scoping.** The product boundary is one installation with global accounts,
+**Single-installation account scoping.** The product boundary is one installation with global accounts,
 shared published content, private authoring workspaces, and exact course/Student educational records.
-Its implementation is one PostgreSQL cluster with server-derived `ActorContext { user_id, session_id }`,
-operation-specific ownership predicates, and forced row-level security. A missing actor, foreign course,
-another UserId, revoked membership, or absent workspace relationship returns no protected rows. One
+Its implementation is one PostgreSQL cluster with server-derived `AuthenticatedSession { account_id, session_id }`,
+operation-specific ownership predicates, and forced row-level security. A missing authenticated Account, foreign course,
+another AccountId, revoked membership, or absent workspace relationship returns no protected rows. One
 cluster means one connection pool, one migration run, and one backup policy; typed course, workspace,
 catalog, and system scopes preserve future adaptability without a multi-institution boundary.
 
 Cited from [REPO_STYLE.md](../REPO_STYLE.md):
 
 - **Fix the design, not the symptom.** Grading lives in a crate the WASM build cannot depend on, so
-  shipping a key to the browser is a compile error. Actor, membership, and ownership isolation is a
+  shipping a key to the browser is a compile error. Account, membership, and ownership isolation is a
   database policy, not a code-review habit.
 - **Design for adaptability.** Every engine enters through one adapter trait publishing capabilities.
   Physical storage hides behind an object service. Catalog search hides behind a repository so a
@@ -347,8 +345,8 @@ Evidence strategy for uncertain methods:
   primitive is replaced before any dependent lane starts.
 - The secret-free WASM claim is settled by WP-C5: an export allowlist plus a dependency-graph
   assertion. "We were careful" is not evidence.
-- Authorization isolation is settled by tests for missing actor context, foreign course, another
-  UserId, and revoked membership returning zero rows, run in `tests/e2e/` on every gate.
+- Authorization isolation is settled by tests for a missing authenticated session, foreign course, another
+  AccountId, and revoked membership returning zero rows, run in `tests/e2e/` on every gate.
 - Performance gates assert correctness absolutely and speed relatively. A first run establishes a
   recorded baseline; later gates compare against that baseline rather than against a number chosen in
   advance. Grading latency is split into server-side processing time, which this project controls and
@@ -443,7 +441,7 @@ Three weaknesses neither review named, each becoming a requirement here:
 - **Keys are random, not content-addressed, and filenames participate in identity.**
   `$s3_key = md5(uniqid('', true)) . '.html'`
   (`OTHER_REPOS/adapt/app/Http/Controllers/QuestionMediaController.php:242`), and `qti_imports`
-  uniquely indexes `(user_id, directory, filename)`.
+  uniquely indexes `(account_id, directory, filename)`.
 - **Signed URLs live seven days.** `temporaryUrl(..., Carbon::now()->addDays(7))`
   (`QuestionMediaController.php:279`). A leaked URL grants a week of access, which for a
   student-record artifact is a FERPA-relevant exposure. This plan uses minutes.
@@ -455,7 +453,7 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Server runtime         | Native Rust `axum`; shared crates also built for `wasm32`                                                                          | Owner-selected. Native is fastest and keeps direct database access                                                                                                                                 |
 | Web server             | No Apache, nginx, or lighttpd in the request path                                                                                  | See the LAMP mapping below; all reviews agree the load balancer replaces Apache                                                                                                                    |
 | Database               | **PostgreSQL on RDS**, one cluster                                                                                                 | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                                    |
-| Authorization boundary | **One installation: global UserId accounts, ActorContext, exact course/Student/workspace ownership, forced RLS**                   | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; missing actor, foreign course, another UserId, and revoked membership fail closed |
+| Authorization boundary | **One installation: global AccountId accounts, AuthenticatedSession, exact course/Student/workspace ownership, forced RLS**         | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; a missing authenticated session, foreign course, another AccountId, and revoked membership fail closed |
 | Grading location       | **Server only**                                                                                                                    | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                |
 | H5P grading            | Native H5P is ungraded practice; `serverGrading: false`                                                                            | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                    |
 | WASM contents          | Parameter generation, answer-format validation, timer display, state transitions                                                   | Non-secret work only, enforced by the dependency graph                                                                                                                                             |
@@ -608,10 +606,10 @@ Runs and Attempts (A)     Runs and Attempts (B)
 ```
 
 RLS is enforced, not advisory: every protected table declares `FORCE ROW LEVEL SECURITY`, the
-application connects as a non-superuser role that cannot bypass it, and transaction-local actor
+application connects as a non-superuser role that cannot bypass it, and transaction-local authenticated Account
 context comes from the authenticated session -- never from a client-supplied parameter. Operation
 predicates enforce exact course membership, Student ownership, workspace relationship, or leased
-capability. Tests in `tests/e2e/` cover missing actor, foreign course, another UserId, and revoked
+capability. Tests in `tests/e2e/` cover a missing authenticated session, foreign course, another AccountId, and revoked
 membership denial.
 
 ### Reusable source and teaching delivery boundary
@@ -650,7 +648,7 @@ CourseInstance entry pins an exact version. Presentation/metadata, learner-conte
 semantic changes use the closed semantic classes: the last class is a major change and mints a new
 QuestionId. Forks show lineage and remain creator-private drafts until complete publication
 validation. Active versions are ordinarily selectable; deprecated/archived versions remain
-discoverable and resolvable for evidence and existing pins. One UserId-owned Star concept replaces
+discoverable and resolvable for evidence and existing pins. One AccountId-owned Star concept replaces
 favorites; vetted Instructors may see aggregate Star count and Star identities, while Students and
 anonymous users see neither identities nor private Watch state. Durable improvement events remain
 separate from publication authority. Grading corrections record affected
@@ -931,7 +929,7 @@ Requests resolve assets from a known object record and read pre-parsed models, s
 archive parsing stay in the worker at import time. Public catalog assets are served from CloudFront by
 an immutable URL only after the publisher activates a precisely tagged `public-assets` record.
 Restricted content and student records require `POST /api/assets/{id}`; the server authenticates and
-authorizes the actor, logs the grant, and returns a bounded short-lived signed URL. There is no
+authorizes the authenticated Account, logs the grant, and returns a bounded short-lived signed URL. There is no
 protected GET route whose browser navigation, history, or speculative fetch can mint authority.
 
 The `renders/{seed}` prefix is what makes the WeBWorK renderer affordable: rendering is deterministic
@@ -1000,8 +998,7 @@ refused; version 2 is the sole native reader. Remaining acceptance is recorded i
 future adapter concern. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
 WP-RC2 is accepted; the shipped upstream WeBWorK implementation is historical WP-RC3 evidence. The dependency order and exact
 profiles, refusal semantics, provenance
-boundary, author workflow, and acceptance gates are frozen in
-[qti_profile_mapping_plan.md](decisions/qti_profile_mapping_plan.md).
+boundary, author workflow, and acceptance gates are tracked in the current status registry.
 
 Deduplication is designed for but not built: the logical `asset_id` is stable and the physical key is
 chosen inside MOD-OBJ, so a later move to `objects/sha256/ab/cd/...` changes no caller.
@@ -1203,7 +1200,7 @@ governs palette contrast.
 ### Route map
 
 Human-facing route parameters are typed public references. The server resolves them inside the
-authenticated `ActorContext` and exact course/membership boundary before loading the existing internal
+authenticated `AuthenticatedSession` and exact course/membership boundary before loading the existing internal
 UUID model. Public
 references are locators, never authorization. Internal UUIDs may remain in background API and asset
 requests, but they do not appear in the address bar or user-copyable navigation links.
@@ -1504,7 +1501,7 @@ substitution for a required production path.
 | MOD-GRD          | Grading (server-only)                                                    | `grade(question, response, key)` and typed flat private integrity                 | MOD-QM, MOD-STATE                                                     | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                  |
 | MOD-OBJ          | Object store                                                             | `ObjectStore` trait                                                               | MOD-ID                                                                | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                 |
 | MOD-STO          | Persistence and RLS context                                              | `Store` trait                                                                     | MOD-QM, MOD-ID, MOD-RUN, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                    |
-| MOD-SCHEMA       | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                  | MOD-ID, MOD-RUN                                                       | n/a                                  | Fresh apply; missing actor, foreign course, another UserId, and revoked membership return zero rows                                                                                                                                    |
+| MOD-SCHEMA       | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                  | MOD-ID, MOD-RUN                                                       | n/a                                  | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                            |
 | MOD-ADP-NAT      | Native adapter                                                           | Algorithmic families and strict PLE flat-question compiler                        | MOD-QM, MOD-GEN, MOD-GRD                                              | n/a                                  | End-to-end generated family; flat JSON public/private split and reproducible hash                                                                                                                                                      |
 | MOD-ADP-WW       | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                       | MOD-QM, MOD-OBJ                                                       | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL corpus compatibility is out of scope |
 | MOD-ADP-QTI      | QTI adapter                                                              | Import pipeline, export                                                           | MOD-QM, MOD-OBJ                                                       | `MemoryObjectStore`                  | Hostile-ZIP corpus rejected; unsupported features recorded                                                                                                                                                                             |
@@ -1601,8 +1598,8 @@ widget exist to build against.
   MOD-WASM; (4) MOD-OBJ; (5) MOD-SCHEMA, MOD-STO; (6) the five API modules; (7) MOD-CLIENT.
 - Entry criteria: M1 exit criteria met.
 - Exit criteria: seed parity green on both targets; WASM allowlist and dependency assertion green;
-  conformance suites green against PostgreSQL and MinIO; missing actor, foreign course, another
-  UserId, and revoked membership return zero rows;
+  conformance suites green against PostgreSQL and MinIO; a missing authenticated session, foreign course, another
+  AccountId, and revoked membership return zero rows;
   the student-facing role cannot read any answer-key table; an in-progress run resumes across restart
   and across replicas; a replayed submission returns the first result; every list endpoint uses a
   cursor; flat JSON publication preserves the non-signable canonical source and binds grader-only
@@ -1880,7 +1877,7 @@ or implementer-authored specification is required.
 - Touch points: `crates/learning-data-access/src/{lib,in_memory}.rs`, `crates/objects/src/{lib,in_memory}.rs`, both
   conformance suites.
 - Acceptance criteria: `Store` covers every entity, exposes cursor pagination only with no `OFFSET`
-  parameter anywhere in the trait, and carries explicit `ActorContext` plus typed target scopes that
+  parameter anywhere in the trait, and carries explicit `AuthenticatedSession` plus typed target scopes that
   cannot be defaulted; `ObjectStore` exposes `put`, `get`, `delete`, `signed_url` with keys built only from IDs
   and versions and no caller-supplied key; checksums computed on write and verified on read; both
   memory backends pass conformance suites the PostgreSQL and S3 backends will later run unchanged; no
@@ -1970,7 +1967,7 @@ or implementer-authored specification is required.
   `docs/active_plans/decisions/course_appearance_plan.md`. Depends on: WP-QTI-12 plus the
   existing course, auth, object, Store, schema, client, and frontend contracts. WP-QTI-12 and
   WP-CA1 through WP-CA7/WP-RC1 are accepted. The current owner decision uses PLE flat JSON v2 for
-  native all-family source; external QTI-JSONL is a separate future adapter concern.
+  native all-Question-Type source; external QTI-JSONL is a separate future adapter concern.
 - Touch points: focused `course_appearance` modules in `question_model`, `learning-data-access`,
   `server_core`, and Solid; typed course-banner object/delivery owners; one forward migration; route,
   generated client, Playwright, and durable documentation owners.
@@ -2001,20 +1998,20 @@ or implementer-authored specification is required.
   architecture, file structure, contracts, frontend/route docs, retention/object docs, and changelog
   boundary.
 
-### M3 flat-question family evolution package
+### M3 flat Question Type evolution package
 
-#### Work package: WP-M3-FLAT-FAMILIES complete all flat families
+#### Work package: WP-M3-FLAT-FAMILIES complete all native Question Types
 
-- Owner: `architect` coordinates the family closeout in
+- Owner: `architect` coordinates the Question Type closeout in
   `docs/active_plans/active/flat_question_family_evolution_plan.md`.
   Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure learner-payload package, and
   the existing native flat, grading, object, Store, schema, server, client, and frontend contracts.
 - Touch points: closed PLE flat JSON v2 source/compiler; public/private
-  compilation; family response/checker types; source-to-object bindings; persistence, author
+  compilation; Answer Format and checker types; source-to-object bindings; persistence, author
   editors, learner widgets, live evidence, and durable documentation.
 - Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
   MATCH, ORDER, and HOTSPOT.
-- Acceptance criteria: keep answers and optional feedback protected; complete family-specific visual
+- Acceptance criteria: keep answers and optional feedback protected; complete Question-Type-specific visual
   authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/learner flows,
   immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup, and no
   browser/Wasm answer association.
@@ -2034,7 +2031,7 @@ or implementer-authored specification is required.
 - Determinism gate: WP-C5 parity green on both targets. Blocks every generation-dependent lane.
 - Secrecy gate: WP-C6 allowlist and dependency assertions green, plus the M3 network trace. A red
   secrecy gate is a release blocker with no workaround.
-- Authorization isolation gate: from M2, missing actor context, a foreign course, another UserId, or
+- Authorization isolation gate: from M2, a missing authenticated session, a foreign course, another AccountId, or
   revoked membership returns zero rows and the Student-facing role cannot read any answer-key table.
 - Scale gate: typed bounded-page Store contracts and behavior tests remain green. A one-time source and
   query-plan review verifies that new query paths use stable cursor predicates; a repository-wide
@@ -2079,7 +2076,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Risk                                                | Impact                                                                       | Trigger                                                                                                                      | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                            |
 | --------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | An answer or key reaches the browser                | Assessment integrity lost, silent until exploited                            | A new WASM export, or grading code moved into `domain`                                                                       | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                           |
-| RLS is bypassed, unset, or outlives membership      | Cross-course, cross-user, or revoked-Student exposure of educational records | Application connects as a bypassing role, actor context comes from client input, or a revoked learner uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; actor-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-UserId, and revocation-race tests on every gate                                                                                                                                                       |
+| RLS is bypassed, unset, or outlives membership      | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked learner uses stale identifiers | `expert_coder` | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate |
 | A frozen contract turns out incomplete              | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                                                               | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                     |
 | Native and wasm32 generation diverge                | Historical attempts not reproducible; render cache serves wrong content      | Parity mismatch                                                                                                              | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                  |
 | Attempt tables outgrow the design                   | Slow gradebook, painful migrations                                           | Observed workload approaches a configured storage or query budget                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                                |

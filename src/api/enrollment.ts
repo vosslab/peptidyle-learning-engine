@@ -31,64 +31,10 @@ export type RosterImportRowStatus =
 export type RosterImportRowReason =
   "ready" | "alreadyOnRoster" | "invitationPending" | "duplicateInFile" | "correctEmailOrRosterId";
 
-export interface EmailAuthenticationAccepted {
-  readonly accepted: true;
-}
-
-export interface AccountAuthenticated {
-  readonly authenticated: true;
-  readonly passkeyEnrollmentSuggested: boolean;
-}
-
-export interface AccountEmailChanged {
-  readonly changed: true;
-}
-
-export type PresentationContrast = "standard" | "increased";
-
-export interface AccountPresentationPreference {
-  readonly contrast: PresentationContrast;
-}
-
-export interface AccountCourse {
-  readonly courseId: CourseId;
-  readonly courseReference: CourseReference;
-  readonly title: string;
-  readonly role: "student" | "instructor";
-}
-
-export interface AccountCoursePage {
-  readonly courses: ReadonlyArray<AccountCourse>;
-  readonly nextCursor: string | null;
-}
-
-export interface SelectedCourseSession {
-  readonly authenticated: true;
-  readonly courseId: CourseId;
-  readonly role: AccountCourse["role"];
-}
-
 export interface ClaimedCourseInvitation {
   readonly courseId: CourseId;
   readonly courseReference: CourseReference;
   readonly membershipStatus: "active";
-}
-
-export interface PasskeySummary {
-  readonly id: string;
-  readonly label: string;
-  readonly createdAtMillis: number;
-  readonly lastUsedAtMillis: number | null;
-}
-
-export interface WebauthnStart {
-  readonly ceremonyId: string;
-  /** webauthn-rs owns this JSON; the browser adapter validates its binary members. */
-  readonly options: Readonly<Record<string, unknown>>;
-}
-
-export interface PasskeyAuthenticated {
-  readonly authenticated: true;
 }
 
 export interface AllowedEmailDomain {
@@ -177,33 +123,7 @@ export interface RosterImportDelivery {
 }
 
 export interface CourseRosterClient {
-  readonly getAccountPresentation: () => Promise<AccountPresentationPreference>;
-  readonly saveAccountPresentation: (
-    preference: AccountPresentationPreference,
-  ) => Promise<AccountPresentationPreference>;
-  readonly startEmailAuthentication: (email: string) => Promise<EmailAuthenticationAccepted>;
-  readonly completeEmailAuthentication: (
-    token: string,
-    displayName: string,
-  ) => Promise<AccountAuthenticated>;
-  readonly startAccountEmailChange: (email: string) => Promise<EmailAuthenticationAccepted>;
-  readonly completeAccountEmailChange: (token: string) => Promise<AccountEmailChanged>;
-  readonly listAccountCourses: () => Promise<AccountCoursePage>;
-  readonly selectAccountCourse: (courseId: CourseId) => Promise<SelectedCourseSession>;
   readonly redeemCourseInvitation: (token: string) => Promise<ClaimedCourseInvitation>;
-  readonly startPasskeyRegistration: () => Promise<WebauthnStart>;
-  readonly completePasskeyRegistration: (
-    ceremonyId: string,
-    label: string,
-    credential: RegistrationResponseJSON,
-  ) => Promise<PasskeySummary>;
-  readonly startPasskeyAuthentication: () => Promise<WebauthnStart>;
-  readonly completePasskeyAuthentication: (
-    ceremonyId: string,
-    credential: AuthenticationResponseJSON,
-  ) => Promise<PasskeyAuthenticated>;
-  readonly listPasskeys: () => Promise<ReadonlyArray<PasskeySummary>>;
-  readonly revokePasskey: (passkeyId: string) => Promise<void>;
   readonly listCourseRoster: (courseId: CourseId, cursor?: string) => Promise<CourseRosterPage>;
   readonly inviteCourseMember: (
     courseId: CourseId,
@@ -256,105 +176,6 @@ function decodeTrueField(record: Record<string, unknown>, key: string, path: str
   return true;
 }
 
-export function decodeEmailAuthenticationAccepted(
-  value: unknown,
-  path = "response",
-): EmailAuthenticationAccepted {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["accepted"]);
-  return { accepted: decodeTrueField(record, "accepted", path) };
-}
-
-export function decodeAccountAuthenticated(
-  value: unknown,
-  path = "response",
-): AccountAuthenticated {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["authenticated", "passkeyEnrollmentSuggested"]);
-  return {
-    authenticated: decodeTrueField(record, "authenticated", path),
-    passkeyEnrollmentSuggested: decodeBoolean(
-      field(record, "passkeyEnrollmentSuggested", path),
-      `${path}.passkeyEnrollmentSuggested`,
-    ),
-  };
-}
-
-export function decodeAccountEmailChanged(value: unknown, path = "response"): AccountEmailChanged {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["changed"]);
-  if (!decodeBoolean(field(record, "changed", path), `${path}.changed`)) {
-    throw new DecodeError(`${path}.changed`, "true");
-  }
-  return { changed: true };
-}
-
-export function decodeAccountPresentationPreference(
-  value: unknown,
-  path = "response",
-): AccountPresentationPreference {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["contrast"]);
-  return {
-    contrast: decodeStringEnum(field(record, "contrast", path), `${path}.contrast`, [
-      "standard",
-      "increased",
-    ]),
-  };
-}
-
-function decodeAccountRole(value: unknown, path: string): AccountCourse["role"] {
-  return decodeStringEnum(value, path, ["student", "instructor"]);
-}
-
-function decodeAccountCourse(value: unknown, path: string): AccountCourse {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseId", "courseReference", "title", "role"]);
-  const reference = field(record, "courseReference", path);
-  if (typeof reference !== "string")
-    throw new DecodeError(`${path}.courseReference`, "a C- reference");
-  const courseReference = parseCourseReference(reference);
-  if (courseReference === null) throw new DecodeError(`${path}.courseReference`, "a C- reference");
-  return {
-    courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),
-    courseReference,
-    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    role: decodeAccountRole(field(record, "role", path), `${path}.role`),
-  };
-}
-
-export function decodeAccountCoursePage(value: unknown, path = "response"): AccountCoursePage {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courses", "nextCursor"]);
-  const courses = decodeArray(
-    field(record, "courses", path),
-    `${path}.courses`,
-    decodeAccountCourse,
-  );
-  if (courses.length > 100) throw new DecodeError(`${path}.courses`, "at most 100 courses");
-  return {
-    courses,
-    nextCursor: decodeNullable(
-      field(record, "nextCursor", path),
-      `${path}.nextCursor`,
-      decodeCursor,
-    ),
-  };
-}
-
-export function decodeSelectedCourseSession(
-  value: unknown,
-  path = "response",
-): SelectedCourseSession {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["authenticated", "courseId", "role"]);
-  return {
-    authenticated: decodeTrueField(record, "authenticated", path),
-    courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),
-    role: decodeAccountRole(field(record, "role", path), `${path}.role`),
-  };
-}
-
 export function decodeClaimedCourseInvitation(
   value: unknown,
   path = "response",
@@ -375,51 +196,6 @@ export function decodeClaimedCourseInvitation(
       ["active"],
     ),
   };
-}
-
-export function decodeWebauthnStart(value: unknown, path = "response"): WebauthnStart {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["ceremonyId", "options"]);
-  return {
-    ceremonyId: decodeUuid(field(record, "ceremonyId", path), `${path}.ceremonyId`),
-    options: decodeRecord(field(record, "options", path), `${path}.options`),
-  };
-}
-
-export function decodePasskeySummary(value: unknown, path = "response"): PasskeySummary {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "label", "createdAtMillis", "lastUsedAtMillis"]);
-  return {
-    id: decodeUuid(field(record, "id", path), `${path}.id`),
-    label: decodeNonemptyString(field(record, "label", path), `${path}.label`),
-    createdAtMillis: decodeSafeInteger(
-      field(record, "createdAtMillis", path),
-      `${path}.createdAtMillis`,
-    ),
-    lastUsedAtMillis: decodeNullable(
-      field(record, "lastUsedAtMillis", path),
-      `${path}.lastUsedAtMillis`,
-      decodeSafeInteger,
-    ),
-  };
-}
-
-export function decodePasskeyList(
-  value: unknown,
-  path = "response",
-): ReadonlyArray<PasskeySummary> {
-  const list = decodeArray(value, path, decodePasskeySummary);
-  if (list.length > 100) throw new DecodeError(path, "at most 100 passkeys");
-  return list;
-}
-
-export function decodePasskeyAuthenticated(
-  value: unknown,
-  path = "response",
-): PasskeyAuthenticated {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["authenticated"]);
-  return { authenticated: decodeTrueField(record, "authenticated", path) };
 }
 
 function decodeAllowedDomain(value: unknown, path: string): AllowedEmailDomain {

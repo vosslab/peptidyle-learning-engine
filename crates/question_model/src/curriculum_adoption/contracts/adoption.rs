@@ -9,8 +9,8 @@ use super::{
     UnavailableCurriculumPinRecovery,
 };
 use crate::{
-    ActivityTimestamp, AssignmentReference, BlueprintReference, BlueprintRevision, CourseReference,
-    CourseTerm, UserId,
+    AccountId, ActivityTimestamp, AssignmentReference, BlueprintReference, BlueprintRevision,
+    CourseReference, CourseTerm,
 };
 
 /// One server-reserved BlueprintCourse creation bound to an authenticated Instructor operation.
@@ -20,7 +20,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintCourseCreationWitness {
     source: ObservedBlueprintSource,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
     reserved_blueprint: BlueprintReference,
@@ -30,14 +30,14 @@ impl BlueprintCourseCreationWitness {
     /// Reserves a BlueprintCourse identity after the server has authorized the fork intent.
     pub fn new(
         source: ObservedBlueprintSource,
-        authorized_actor: UserId,
+        authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
         reserved_blueprint: BlueprintReference,
     ) -> Self {
         Self {
             source,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
             reserved_blueprint,
@@ -49,9 +49,9 @@ impl BlueprintCourseCreationWitness {
         &self.source
     }
 
-    /// Returns the authenticated actor whose current authority must be revalidated at apply.
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    /// Returns the authenticated account whose current authority is revalidated at apply.
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
 
     /// Returns the canonical request binding used for idempotent receipt persistence.
@@ -188,7 +188,7 @@ pub struct AdoptBlueprintAssignmentCommand {
     destination: CourseInstanceWitness,
     blueprint_application: CourseInstanceBlueprintApplication,
     replacements: CurriculumPinReplacements,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
@@ -211,7 +211,7 @@ impl AdoptBlueprintAssignmentCommand {
             destination: record.destination().clone(),
             blueprint_application: record.blueprint_application(),
             replacements: record.replacements().clone(),
-            authorized_actor: record.authorized_actor(),
+            authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
@@ -229,8 +229,8 @@ impl AdoptBlueprintAssignmentCommand {
     pub fn replacements(&self) -> &CurriculumPinReplacements {
         &self.replacements
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
@@ -450,9 +450,9 @@ pub struct InstantiateBlueprintCourseCompleted {
 mod tests {
     use super::*;
     use crate::{
-        BlueprintAssignmentId, BlueprintReference, BlueprintRevision,
+        AccountId, BlueprintAssignmentId, BlueprintReference, BlueprintRevision,
         CourseInstanceApplicationBinding, CourseScheduleRevision, CurriculumAdoptionRequestBinding,
-        ProblemId, ProblemVersionRef, QuestionId, UserId, VersionId,
+        ProblemId, ProblemVersionRef, QuestionId, VersionId,
     };
     use uuid::Uuid;
 
@@ -480,15 +480,15 @@ mod tests {
     }
 
     fn request_binding(
-        authorized_actor: UserId,
+        authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
     ) -> CurriculumAdoptionRequestBinding {
-        CurriculumAdoptionRequestBinding::new(authorized_actor, request_digest, idempotency_key)
+        CurriculumAdoptionRequestBinding::new(authorized_account, request_digest, idempotency_key)
     }
 
-    fn actor() -> UserId {
-        UserId::from_uuid(Uuid::from_u128(1))
+    fn authorized_account() -> AccountId {
+        AccountId::from_uuid(Uuid::from_u128(1))
     }
 
     fn destination() -> CourseInstanceWitness {
@@ -530,7 +530,7 @@ mod tests {
                 fork.replacements.clone(),
                 BlueprintCourseCreationWitness::new(
                     source,
-                    actor(),
+                    authorized_account(),
                     [4; 32],
                     key.clone(),
                     BlueprintReference::new(8).expect("reserved blueprint"),
@@ -561,7 +561,7 @@ mod tests {
                 adopt.source,
                 application_binding(adopt.destination),
                 adopt.replacements,
-                request_binding(actor(), [3; 32], key),
+                request_binding(authorized_account(), [3; 32], key),
                 adopt.eligibility,
             ),
             Err(CurriculumAdoptionCommandError::Refused(
@@ -588,7 +588,7 @@ mod tests {
                 adoption.source,
                 application_binding(adoption.destination),
                 adoption.replacements,
-                request_binding(actor(), [4; 32], key.clone()),
+                request_binding(authorized_account(), [4; 32], key.clone()),
                 adoption.eligibility,
             )
             .expect("server-held record"),
@@ -615,7 +615,7 @@ mod tests {
                 CourseInstanceCreationWitness::for_blueprint(
                     source,
                     term.clone(),
-                    actor(),
+                    authorized_account(),
                     [5; 32],
                     key.clone(),
                     CourseReference::new(4).expect("reserved course"),
@@ -691,7 +691,7 @@ mod tests {
         for refusal in refusals {
             let creation = BlueprintCourseCreationWitness::new(
                 source(),
-                actor(),
+                authorized_account(),
                 [9; 32],
                 key.clone(),
                 BlueprintReference::new(9).expect("reserved blueprint"),
@@ -720,7 +720,7 @@ mod tests {
         };
         let creation = BlueprintCourseCreationWitness::new(
             source(),
-            actor(),
+            authorized_account(),
             [6; 32],
             key.clone(),
             BlueprintReference::new(10).expect("reserved blueprint"),
@@ -742,7 +742,7 @@ mod tests {
                 reference: BlueprintReference::new(11).expect("other source"),
                 revision: BlueprintRevision::new(1).expect("revision"),
             },
-            actor(),
+            authorized_account(),
             [7; 32],
             key.clone(),
             BlueprintReference::new(12).expect("reserved blueprint"),
@@ -770,7 +770,7 @@ mod tests {
         let instance_creation = CourseInstanceCreationWitness::for_blueprint(
             source(),
             term.clone(),
-            actor(),
+            authorized_account(),
             [8; 32],
             instance_key.clone(),
             CourseReference::new(13).expect("reserved course"),
@@ -793,7 +793,7 @@ mod tests {
         let key = CurriculumAdoptionIdempotencyKey::parse("server-record").expect("key");
         let creation = BlueprintCourseCreationWitness::new(
             source(),
-            actor(),
+            authorized_account(),
             [3; 32],
             key,
             BlueprintReference::new(14).expect("reserved BlueprintCourse"),

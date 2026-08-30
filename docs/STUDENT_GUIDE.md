@@ -25,9 +25,9 @@ discards them and recreates the same fictional baseline.
 ## Before you begin
 
 - Open the local stack's HTTPS URL and use the visible PLE account page.
-- Sign in with the canonical passwordless email path, or use an ordinary passkey after the account
-  has one. When the deployment enables it, the fictional live-demo persona selector enters the
-  seeded learner account through the same PLE account/session path.
+- The current live-demo build uses its visible seeded-persona selector to enter a fictional learner
+  Account through the ordinary Authenticated Session. Email-code and passkey sign-in remain the
+  required product paths and are being reconstructed on that same session foundation.
 - If you are not using the seeded selector, ask the instructor to create an invitation and share its
   one-time copy link through the trusted course channel. Claim it after authenticating your PLE
   account, then open the course and assignment through their visible cards.

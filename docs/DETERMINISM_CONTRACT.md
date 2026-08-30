@@ -211,7 +211,7 @@ The following remain planned integration and acceptance work:
   browser's authoritative active-attempt route.
 
 The approved integration sequence and acceptance criteria live in
-[`docs/active_plans/decisions/secure_question_grading_payload_plan.md`](active_plans/decisions/secure_question_grading_payload_plan.md).
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 Until the compact learner wire cuts over, submission is still the tagged
 `StudentResponse` body. Server-side response-shape validation uses the
 checksummed issued snapshot and translates through its server-only grading

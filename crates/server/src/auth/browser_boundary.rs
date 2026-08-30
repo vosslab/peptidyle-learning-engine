@@ -1,279 +1,116 @@
-//! Production browser host, cookie, and same-origin enforcement.
-//!
-//! This module is deliberately separate from credential issuance so browser
-//! presentation checks remain a small, auditable trust boundary.
+//! First-party HTTPS boundary for cookie-authenticated requests.
 
-use std::collections::HashSet;
 use std::sync::Arc;
 
-use axum::Json;
-use axum::extract::{Request, State};
-use axum::http::header::COOKIE;
-use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
+use axum::extract::Request;
+use axum::http::header::{COOKIE, HOST, ORIGIN};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use cookie::Cookie;
+use url::Url;
 
-use super::{SESSION_COOKIE_NAME, no_store, passwordless, webauthn};
+use super::no_store;
 
-/// Exact public browser identity trusted by the production cookie boundary.
-#[derive(Debug, Clone)]
-pub(crate) struct ProductionBrowserBoundary {
-    pub(super) origin: Arc<str>,
-    pub(super) authority: Arc<str>,
+/// One validated first-party HTTPS browser origin.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductionBrowserBoundary {
+    pub(crate) origin: Arc<str>,
+    pub(crate) authority: Arc<str>,
 }
 
 impl ProductionBrowserBoundary {
-    pub(crate) fn new(origin: Arc<str>) -> Result<Self, String> {
-        let parsed = url::Url::parse(&origin)
-            .map_err(|_| "production browser origin is invalid".to_string())?;
+    /// Validates one root HTTPS origin for the cookie-authenticated application.
+    pub fn new(value: Arc<str>) -> Result<Self, String> {
+        let parsed = Url::parse(&value).map_err(|_| "browser origin must be a URL".to_string())?;
         if parsed.scheme() != "https"
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
             || parsed.path() != "/"
             || parsed.query().is_some()
             || parsed.fragment().is_some()
-            || !parsed.username().is_empty()
-            || parsed.password().is_some()
         {
-            return Err("production browser origin must be an HTTPS origin without a path".into());
+            return Err("browser origin must be a root HTTPS origin".to_string());
         }
-        // Browser Origin values are serialized origins, not arbitrary URL
-        // spellings. Normalize the deployment value once so a harmless
-        // trailing slash or explicit default port cannot disable CSRF checks.
         let origin = parsed.origin().ascii_serialization();
-        let Some(authority) = origin.strip_prefix("https://") else {
-            return Err("production browser origin has no authority".into());
-        };
-        let authority = Arc::<str>::from(authority);
+        let authority = parsed
+            .host_str()
+            .map(|host| match parsed.port() {
+                Some(port) => format!("{host}:{port}"),
+                None => host.to_string(),
+            })
+            .expect("validated host");
         Ok(Self {
             origin: Arc::from(origin),
-            authority,
+            authority: Arc::from(authority),
         })
     }
 }
 
-fn internal_cookie_name(name: &str) -> Option<&'static str> {
-    match name {
-        "__Host-ple_session" => Some(SESSION_COOKIE_NAME),
-        "__Host-ple_account_session" => Some(passwordless::ACCOUNT_SESSION_COOKIE),
-        "__Host-ple_email_binding" => Some(passwordless::EMAIL_BINDING_COOKIE),
-        "__Host-ple_webauthn_binding" => Some(webauthn::WEBAUTHN_BINDING_COOKIE),
-        _ => None,
+/// Accepts exactly one Origin header with the configured first-party value.
+/// ASVS 3.5.1: state-changing cookie requests originate at the application.
+pub(crate) fn origin_matches(headers: &HeaderMap, expected: &str) -> bool {
+    one_header_value(headers, ORIGIN).is_some_and(|value| value == expected)
+}
+
+/// Drops unprefixed sensitive-cookie aliases and rejects duplicate host cookies.
+/// ASVS 3.3.1, 3.3.3, 3.3.4: only the host-only HttpOnly credential reaches
+/// the session resolver.
+pub(crate) fn normalize_production_cookies(headers: &mut HeaderMap) -> bool {
+    let Some(raw) = one_header_value(headers, COOKIE) else {
+        return true;
+    };
+    let mut normalized = Vec::new();
+    let mut session = None;
+    for cookie in Cookie::split_parse(raw).filter_map(Result::ok) {
+        match cookie.name() {
+            "__Host-ple_session" => {
+                if session.replace(cookie.value().to_string()).is_some() {
+                    return false;
+                }
+            }
+            "ple_session" | "__Secure-ple_session" | "__Host-ple_account_session" => {}
+            _ => normalized.push(format!("{}={}", cookie.name(), cookie.value())),
+        }
     }
+    if let Some(value) = session {
+        normalized.insert(0, format!("ple_session={value}"));
+    }
+    let value = normalized.join("; ");
+    if value.is_empty() {
+        headers.remove(COOKIE);
+    } else if let Ok(value) = HeaderValue::from_str(&value) {
+        headers.insert(COOKIE, value);
+    } else {
+        return false;
+    }
+    true
 }
 
-fn is_internal_sensitive_cookie(name: &str) -> bool {
-    matches!(
-        name,
-        SESSION_COOKIE_NAME
-            | passwordless::ACCOUNT_SESSION_COOKIE
-            | passwordless::EMAIL_BINDING_COOKIE
-            | webauthn::WEBAUTHN_BINDING_COOKIE
-    )
-}
-
-/// Enforces production host-only cookie names and exact same-origin mutation.
-///
-/// The browser-visible `__Host-` names are normalized to internal names only
-/// after the prefix and CSRF checks. Unprefixed sensitive cookies are ignored,
-/// so a sibling subdomain cannot inject authority or force a logout loop.
+/// Enforces the first-party browser boundary before a cookie-authenticated route.
 pub(crate) async fn production_cookie_boundary(
-    State(boundary): State<ProductionBrowserBoundary>,
+    axum::extract::State(boundary): axum::extract::State<ProductionBrowserBoundary>,
     mut request: Request,
     next: Next,
 ) -> Response {
-    if request.uri().path() != "/health" && !host_matches(request.headers(), &boundary.authority) {
-        return no_store(
-            (
-                StatusCode::MISDIRECTED_REQUEST,
-                Json(serde_json::json!({ "error": "request host is not served" })),
-            )
-                .into_response(),
-        );
-    }
-    let has_sensitive_cookie = request
-        .headers()
-        .get_all(COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(Cookie::split_parse)
-        .filter_map(Result::ok)
-        .any(|cookie| internal_cookie_name(cookie.name()).is_some());
-    if has_sensitive_cookie
-        && is_mutating(request.method())
-        && !origin_matches(request.headers(), &boundary.origin)
-        && !is_sandboxed_external_activity_post(&request)
-    {
-        return no_store(
-            (
-                StatusCode::FORBIDDEN,
-                Json(serde_json::json!({ "error": "same-origin request required" })),
-            )
-                .into_response(),
-        );
-    }
     if !normalize_production_cookies(request.headers_mut()) {
+        return no_store((StatusCode::BAD_REQUEST, "invalid cookie header").into_response());
+    }
+    let is_write = !request.method().is_safe();
+    if is_write && !origin_matches(request.headers(), &boundary.origin) {
+        return no_store((StatusCode::FORBIDDEN, "first-party origin required").into_response());
+    }
+    if !one_header_value(request.headers(), HOST).is_some_and(|host| host == boundary.authority) {
         return no_store(
-            (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": "ambiguous browser cookies" })),
-            )
-                .into_response(),
+            (StatusCode::MISDIRECTED_REQUEST, "canonical host required").into_response(),
         );
     }
-    // HSTS is deliberately owned by the HTTPS browser edge.  This middleware
-    // cannot see static documents, CDN-generated errors, redirects, or prove
-    // that the request reached the browser over HTTPS; emitting it here would
-    // make the application an incomplete and potentially misleading owner.
     next.run(request).await
 }
 
-/// A sandboxed provider document has an opaque origin by design.  Its form
-/// submission is therefore the sole unsafe request that can legitimately
-/// carry `Origin: null`.  Do not generalize this exception: the destination
-/// is an exact route shape, it must have one host-only application session and
-/// one path-scoped launch capability, and the activity handler subsequently
-/// authenticates the encrypted capability against that exact session, tenant,
-/// actor, course, assignment, and attempt before it contacts the provider.
-///
-/// This pre-routing check deliberately validates only the browser presentation
-/// shape.  `LaunchStateAead` and the tenant store belong to the external-tool
-/// route owner, which performs the cryptographic and durable authorization
-/// check after this boundary has admitted the request.
-fn is_sandboxed_external_activity_post(request: &Request) -> bool {
-    request.method() == Method::POST
-        && is_external_activity_path(request.uri().path())
-        && origin_is_sandbox_null(request.headers())
-        && has_one_unambiguous_sandbox_activity_capability(request.headers())
-}
-
-fn is_external_activity_path(path: &str) -> bool {
-    let mut segments = path.split('/');
-    matches!(
-        (
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-            segments.next(),
-        ),
-        (
-            Some(""),
-            Some("api"),
-            Some("courses"),
-            Some(course),
-            Some("assignments"),
-            Some(assignment),
-            Some("attempts"),
-            Some(attempt),
-            Some("external-tool"),
-            Some("launch"),
-            Some("activity"),
-            None,
-        ) if uuid::Uuid::parse_str(course).is_ok()
-            && uuid::Uuid::parse_str(assignment).is_ok()
-            && uuid::Uuid::parse_str(attempt).is_ok()
-    )
-}
-
-fn origin_is_sandbox_null(headers: &HeaderMap) -> bool {
-    let mut origins = headers.get_all("origin").iter();
-    origins
-        .next()
-        .filter(|_| origins.next().is_none())
-        .and_then(|value| value.to_str().ok())
-        == Some("null")
-}
-
-fn has_one_unambiguous_sandbox_activity_capability(headers: &HeaderMap) -> bool {
-    let mut session_count = 0;
-    let mut launch_count = 0;
-
-    for header in headers.get_all(COOKIE).iter() {
-        let Ok(header) = header.to_str() else {
-            return false;
-        };
-        for parsed in Cookie::split_parse(header) {
-            let Ok(cookie) = parsed else {
-                return false;
-            };
-            match cookie.name() {
-                "__Host-ple_session" => session_count += 1,
-                // This cookie is intentionally host-only (no Domain attribute),
-                // Secure, HttpOnly, Strict, and scoped to this launch path.
-                // A duplicate is unsafe because cookie ordering is not an
-                // authorization decision.
-                crate::run::EXTERNAL_LAUNCH_COOKIE => launch_count += 1,
-                // Do not allow legacy aliases or a second session class to
-                // influence the exception.  Normal requests continue to
-                // discard legacy cookies harmlessly during normalization.
-                name if is_internal_sensitive_cookie(name)
-                    || internal_cookie_name(name).is_some() =>
-                {
-                    return false;
-                }
-                _ => {}
-            }
-        }
-    }
-    session_count == 1 && launch_count == 1
-}
-
-fn is_mutating(method: &Method) -> bool {
-    !matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS)
-}
-
-pub(super) fn origin_matches(headers: &HeaderMap, expected: &str) -> bool {
-    let mut origins = headers.get_all("origin").iter();
-    origins
-        .next()
-        .filter(|_| origins.next().is_none())
-        .and_then(|value| value.to_str().ok())
-        == Some(expected)
-}
-
-fn host_matches(headers: &HeaderMap, expected: &str) -> bool {
-    let mut hosts = headers.get_all("host").iter();
-    hosts
-        .next()
-        .filter(|_| hosts.next().is_none())
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.eq_ignore_ascii_case(expected))
-}
-
-pub(super) fn normalize_production_cookies(headers: &mut HeaderMap) -> bool {
-    let mut normalized_sensitive_names = HashSet::new();
-    let mut cookies = Vec::new();
-    for cookie in headers
-        .get_all(COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(Cookie::split_parse)
-        .filter_map(Result::ok)
-    {
-        let name = match internal_cookie_name(cookie.name()) {
-            Some(name) => {
-                if !normalized_sensitive_names.insert(name) {
-                    return false;
-                }
-                name
-            }
-            None if !is_internal_sensitive_cookie(cookie.name()) => cookie.name(),
-            None => continue,
-        };
-        cookies.push(Cookie::new(name.to_string(), cookie.value().to_string()).to_string());
-    }
-    headers.remove(COOKIE);
-    if !cookies.is_empty()
-        && let Ok(value) = HeaderValue::from_str(&cookies.join("; "))
-    {
-        headers.insert(COOKIE, value);
-    }
-    true
+fn one_header_value(headers: &HeaderMap, name: axum::http::header::HeaderName) -> Option<&str> {
+    let mut values = headers.get_all(name).iter();
+    let value = values.next()?.to_str().ok()?;
+    values.next().is_none().then_some(value)
 }

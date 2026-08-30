@@ -13,8 +13,8 @@ committed screenshot corpus, with `OTHER_REPOS/adapt` as comparison evidence.
 
 Review date: 2026-08-18. Tree identity: `bfdbdd7f5d597adf0aa5c2108785ca9a22cfb7b3`.
 Every finding, citation, and disposition is in
-[codebase_and_interaction_review_evidence.md](codebase_and_interaction_review_evidence.md); this
-document carries the decisions.
+[implementation_status.md](../implementation_status.md); this document carries the historical
+decisions.
 
 This review recommends. It accepts no work package and completes none of the work it proposes.
 

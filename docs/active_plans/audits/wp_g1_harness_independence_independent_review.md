@@ -8,13 +8,12 @@ unwalked journeys, scoring, or final M7 closeout.
 
 ## Contract evidence
 
-- [peptidyle-walkthrough-plan.md](../peptidyle-walkthrough-plan.md) requires
+- The historical walkthrough plan required
   denial of product imports, SQL, local-account substitution, private score
   calls, pointer actions, answer-bearing assertions, and hidden pass
   conversion.
-- [wp_g1_harness_independence.md](../workstreams/wp_g1_harness_independence.md)
-  owns only the simulator, runner, arranger/reporter, live configuration, and
-  keyboard-journey source surface.
+- The historical workstream owned only the simulator, runner, arranger/reporter,
+  live configuration, and keyboard-journey source surface.
 - The scanner rejects direct and aliased browser-control members after a narrow
   allowlist: only literal root `page.goto("/")`, literal platform keys, and
   the shared active-element observation survive. It also rejects dynamic

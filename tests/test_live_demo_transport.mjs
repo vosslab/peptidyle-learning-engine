@@ -6,7 +6,6 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeSeededDemoAccounts } from "../src/api/live_demo.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { authenticatePasskeyWithBrowser } from "../src/api/http_client/enrollment.ts";
 
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -54,71 +53,6 @@ test("live-demo decoders accept the closed five-persona projection", () => {
       }),
     DecodeError,
   );
-});
-
-test("ordinary passkey sign-in converts browser WebAuthn JSON before completing", async () => {
-  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-  const credentialDescriptor = Object.getOwnPropertyDescriptor(globalThis, "PublicKeyCredential");
-  const calls = [];
-  class FakePublicKeyCredential {
-    static parseRequestOptionsFromJSON(options) {
-      calls.push(options);
-      return { challenge: new Uint8Array([1]) };
-    }
-    constructor(response) {
-      this.response = response;
-    }
-    toJSON() {
-      return { id: "credential", rawId: "credential", response: this.response, type: "public-key" };
-    }
-  }
-  Object.defineProperty(globalThis, "PublicKeyCredential", {
-    configurable: true,
-    value: FakePublicKeyCredential,
-  });
-  Object.defineProperty(globalThis, "navigator", {
-    configurable: true,
-    value: {
-      credentials: {
-        get: async (options) => {
-          calls.push(options);
-          return new FakePublicKeyCredential({ signature: "signature" });
-        },
-      },
-    },
-  });
-  try {
-    let completed;
-    await authenticatePasskeyWithBrowser({
-      startPasskeyAuthentication: async () => ({
-        ceremonyId: "0198e000-0000-7000-8000-000000000701",
-        options: { publicKey: { challenge: "wire" } },
-      }),
-      completePasskeyAuthentication: async (ceremonyId, credential) => {
-        completed = { ceremonyId, credential };
-        return { authenticated: true };
-      },
-    });
-    assert.deepEqual(calls[0], { challenge: "wire" });
-    assert.deepEqual(calls[1], {
-      publicKey: { challenge: new Uint8Array([1]) },
-      mediation: "required",
-    });
-    assert.deepEqual(completed, {
-      ceremonyId: "0198e000-0000-7000-8000-000000000701",
-      credential: {
-        id: "credential",
-        rawId: "credential",
-        response: { signature: "signature" },
-        type: "public-key",
-      },
-    });
-  } finally {
-    if (navigatorDescriptor === undefined) delete globalThis.navigator;
-    else Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
-    if (credentialDescriptor === undefined) delete globalThis.PublicKeyCredential;
-    else Object.defineProperty(globalThis, "PublicKeyCredential", credentialDescriptor);
-  }
 });
 
 test("direct-role requests stay same-origin, no-store, and carry only persona", async () => {

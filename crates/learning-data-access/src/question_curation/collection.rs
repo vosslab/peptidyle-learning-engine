@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 
 use question_model::{
-    MAX_PROBLEM_COLLECTION_MEMBERS, ProblemVersionRef, UserId, validate_problem_curation_title,
+    AccountId, MAX_PROBLEM_COLLECTION_MEMBERS, ProblemVersionRef, validate_problem_curation_title,
 };
 use uuid::Uuid;
 
@@ -106,7 +106,7 @@ impl NamedQuestionCollectionReplacementOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedQuestionCollection {
     id: NamedQuestionCollectionId,
-    owner: UserId,
+    owner: AccountId,
     title: String,
     revision: NamedQuestionCollectionRevision,
     members: Vec<ProblemVersionRef>,
@@ -115,7 +115,7 @@ pub struct NamedQuestionCollection {
 impl NamedQuestionCollection {
     /// Creates a validated collection at its initial revision.
     pub fn new(
-        owner: UserId,
+        owner: AccountId,
         title: String,
         members: Vec<ProblemVersionRef>,
     ) -> Result<Self, NamedQuestionCollectionError> {
@@ -135,7 +135,7 @@ impl NamedQuestionCollection {
     }
 
     /// Returns the immutable global account that owns this collection.
-    pub fn owner(&self) -> UserId {
+    pub fn owner(&self) -> AccountId {
         self.owner
     }
 
@@ -211,8 +211,8 @@ mod tests {
 
     use super::*;
 
-    fn user(value: u128) -> UserId {
-        UserId::from_uuid(Uuid::from_u128(value))
+    fn account(value: u128) -> AccountId {
+        AccountId::from_uuid(Uuid::from_u128(value))
     }
 
     fn reference(problem: u128, version: u128) -> ProblemVersionRef {
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn creation_retains_owner_initial_revision_and_ordered_exact_pins() {
-        let owner = user(1);
+        let owner = account(1);
         let members = vec![reference(2, 3), reference(4, 5)];
         let collection = NamedQuestionCollection::new(owner, "Exam review".to_string(), members)
             .expect("valid collection");
@@ -240,13 +240,13 @@ mod tests {
     #[test]
     fn creation_rejects_invalid_titles() {
         for title in [" Exam review", "Exam review ", ""] {
-            let result = NamedQuestionCollection::new(user(1), title.to_string(), vec![]);
+            let result = NamedQuestionCollection::new(account(1), title.to_string(), vec![]);
 
             assert_eq!(result, Err(NamedQuestionCollectionError::InvalidTitle));
         }
         let over_bound = "x".repeat(201);
         assert_eq!(
-            NamedQuestionCollection::new(user(1), over_bound, vec![]),
+            NamedQuestionCollection::new(account(1), over_bound, vec![]),
             Err(NamedQuestionCollectionError::InvalidTitle)
         );
     }
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn replacement_rejects_over_bound_and_separated_duplicate_exact_pins() {
         let mut collection =
-            NamedQuestionCollection::new(user(1), "Exam review".to_string(), vec![])
+            NamedQuestionCollection::new(account(1), "Exam review".to_string(), vec![])
                 .expect("valid collection");
         let over_bound = vec![reference(1, 1); MAX_PROBLEM_COLLECTION_MEMBERS + 1];
         assert_eq!(
@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn replacement_accepts_exactly_the_bounded_number_of_unique_pins() {
         let mut collection =
-            NamedQuestionCollection::new(user(1), "Exam review".to_string(), vec![])
+            NamedQuestionCollection::new(account(1), "Exam review".to_string(), vec![])
                 .expect("valid collection");
         let members = (1..=MAX_PROBLEM_COLLECTION_MEMBERS)
             .map(|value| reference(value as u128, (value + 1) as u128))
@@ -291,9 +291,12 @@ mod tests {
 
     #[test]
     fn stale_replacement_reports_both_revisions_and_retains_state() {
-        let mut collection =
-            NamedQuestionCollection::new(user(1), "Exam review".to_string(), vec![reference(2, 3)])
-                .expect("valid collection");
+        let mut collection = NamedQuestionCollection::new(
+            account(1),
+            "Exam review".to_string(),
+            vec![reference(2, 3)],
+        )
+        .expect("valid collection");
         let initial = collection.revision();
         collection
             .replace(initial, "Final review".to_string(), vec![reference(4, 5)])
@@ -312,9 +315,12 @@ mod tests {
 
     #[test]
     fn valid_replacement_advances_revision_and_replaces_whole_state() {
-        let mut collection =
-            NamedQuestionCollection::new(user(1), "Exam review".to_string(), vec![reference(2, 3)])
-                .expect("valid collection");
+        let mut collection = NamedQuestionCollection::new(
+            account(1),
+            "Exam review".to_string(),
+            vec![reference(2, 3)],
+        )
+        .expect("valid collection");
         let outcome = collection
             .replace(
                 collection.revision(),
@@ -335,9 +341,12 @@ mod tests {
 
     #[test]
     fn equal_valid_replacement_retains_its_revision() {
-        let mut collection =
-            NamedQuestionCollection::new(user(1), "Exam review".to_string(), vec![reference(2, 3)])
-                .expect("valid collection");
+        let mut collection = NamedQuestionCollection::new(
+            account(1),
+            "Exam review".to_string(),
+            vec![reference(2, 3)],
+        )
+        .expect("valid collection");
         let revision = collection.revision();
 
         assert_eq!(
@@ -352,7 +361,7 @@ mod tests {
     #[test]
     fn revision_exhaustion_refuses_an_otherwise_valid_replacement() {
         let mut collection =
-            NamedQuestionCollection::new(user(1), "Exam review".to_string(), vec![])
+            NamedQuestionCollection::new(account(1), "Exam review".to_string(), vec![])
                 .expect("valid collection");
         collection.revision = NamedQuestionCollectionRevision::new(i64::MAX as u64)
             .expect("maximum storage-safe revision");

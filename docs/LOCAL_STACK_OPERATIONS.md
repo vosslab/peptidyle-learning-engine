@@ -16,14 +16,14 @@ acceptance evidence.
 ## Authority model
 
 PLE is one installation with global accounts. The authenticated server session
-derives `ActorContext { user_id, session_id }`. It then authorizes the exact
+derives `AuthenticatedSession { account_id, session_id }`. It then authorizes the exact
 course selected by the user from current membership rows. A route course ID,
 workspace ID, catalog ID, object key, queue payload, or external-provider field
 is only a lookup/input value; it cannot establish authority.
 
 | Data | Exact owner | Local enforcement |
 | --- | --- | --- |
-| Account, session, and passkey | Global `UserId` | Server session and PostgreSQL |
+| Account, session, and passkey | Global `AccountId` | Server session and PostgreSQL |
 | Published question | Global immutable `ProblemId`/`VersionId` | Approved-Instructor catalog |
 | Draft or curriculum | `WorkspaceId` plus owner/collaborators | Workspace relationship |
 | Course and assignment | `CourseId` and child records | Current direct Instructor membership |
@@ -39,7 +39,7 @@ selection. Draft source and answer-bearing material remain private.
 
 Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
 similar fields are metadata for presentation, audit, provenance, or routing.
-They are never account, actor, role, membership, course, Student, workspace,
+They are never an Account, role, membership, course, Student, workspace,
 catalog, or lease authority. The PLE account/session and exact relationship are
 always authoritative.
 

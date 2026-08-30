@@ -1,6 +1,6 @@
 //! Concrete production storage and grading backend assembly.
 
-use super::router::{HealthState, compose_passwordless_router, verify_application_schema_bounded};
+use super::router::{HealthState, compose_application_router, verify_application_schema_bounded};
 use super::settings::{
     GradingBackendSettings, LazyStorageDependencies, ProductionSettings, StorageRuntime,
     StorageTopology,
@@ -21,12 +21,8 @@ pub(super) struct PersistentDependencies {
     grading: GradingBackendSettings,
     imathas: Option<ConfiguredImathas>,
     invitation_issuer: crate::course::CourseInvitationIssuer,
-    passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-    passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
-    webauthn: crate::auth::PasswordlessWebauthn,
     browser_boundary: crate::auth::ProductionBrowserBoundary,
-    client_address_policy: crate::auth::ClientAddressPolicy,
-    live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
+    live_demo: Option<crate::auth::SeededDemoConfig>,
     health: Arc<HealthState>,
 }
 
@@ -197,29 +193,10 @@ impl PersistentDependencies {
         } = LazyStorageDependencies::from_settings(&settings.storage).await?;
         let public_assets = Arc::new(settings.public_asset_base_url.clone());
         let imathas = settings.imathas(&store, &objects)?;
-        let (invitation_issuer, passwordless_rate_limit_issuer): (
-            crate::course::CourseInvitationIssuer,
-            crate::auth::PasswordlessRateLimitIssuer,
-        ) = match &settings.enrollment_secret {
-            Some(settings) => settings.issuers()?,
-            None => (
-                crate::course::CourseInvitationIssuer::unavailable(),
-                crate::auth::PasswordlessRateLimitIssuer::unavailable(),
-            ),
+        let invitation_issuer = match &settings.enrollment_secret {
+            Some(settings) => settings.invitation_issuer()?,
+            None => crate::course::CourseInvitationIssuer::unavailable(),
         };
-        let passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery> =
-            match &settings.enrollment_email {
-                Some(email_settings) => {
-                    if settings.enrollment_secret.is_none() {
-                        bail!(
-                            "PLE_INVITATION_TOKEN_SECRET_FILE must be set when PLE SMTP is configured"
-                        );
-                    }
-                    email_settings.delivery()? as Arc<dyn crate::auth::PasswordlessEmailDelivery>
-                }
-                None => Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery)
-                    as Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-            };
         let grader =
             connect_production_grader(&settings.grading, settings.storage.runtime.topology).await?;
         #[cfg(not(feature = "e2e-grader-fault"))]
@@ -281,12 +258,8 @@ impl PersistentDependencies {
             grading: settings.grading.clone(),
             imathas,
             invitation_issuer,
-            passwordless_email_delivery,
-            passwordless_rate_limit_issuer,
-            webauthn: settings.webauthn.clone(),
             browser_boundary: settings.browser_boundary.clone(),
-            client_address_policy: settings.client_address_policy.clone(),
-            live_demo_selector: settings.live_demo_selector.clone(),
+            live_demo: settings.live_demo.clone(),
             health: Arc::new(HealthState {
                 postgres: pool,
                 object_client,
@@ -299,13 +272,9 @@ impl PersistentDependencies {
     }
 
     /// Composes the production route graph with PLE-owned account identity.
-    ///
-    /// The direct passwordless routes own account sessions and course-session
-    /// selection. The optional deployment-gated selector enters that same
-    /// account/session graph.
     pub(super) fn production_router(&self) -> Result<Router> {
         Ok(complete_production_router(
-            self.passwordless_router(
+            self.application_router(
                 Arc::new(crate::catalog::ReviewNotRequired),
                 production_session_config(),
             ),
@@ -313,7 +282,7 @@ impl PersistentDependencies {
         ))
     }
 
-    fn passwordless_router<R>(&self, review_gate: Arc<R>, session_config: SessionConfig) -> Router
+    fn application_router<R>(&self, review_gate: Arc<R>, session_config: SessionConfig) -> Router
     where
         R: PublicReviewGate + 'static,
     {
@@ -332,7 +301,7 @@ impl PersistentDependencies {
         let backends = Arc::new(backends);
         let sealed_execution: Arc<dyn learning_data_access::SealedPrivateExecutionStore> =
             self.grader.clone();
-        let mut router = compose_passwordless_router(
+        let mut router = compose_application_router(
             Arc::clone(&self.store),
             Arc::clone(&self.objects),
             Arc::clone(&self.public_assets),
@@ -342,11 +311,7 @@ impl PersistentDependencies {
             review_gate,
             session_config,
             self.invitation_issuer.clone(),
-            Arc::clone(&self.passwordless_email_delivery),
-            self.passwordless_rate_limit_issuer.clone(),
-            self.client_address_policy.clone(),
-            self.live_demo_selector.clone(),
-            Some(self.webauthn.clone()),
+            self.live_demo.clone(),
             Arc::clone(&self.health),
             Arc::clone(&self.accepted_submission_fast_path),
         );

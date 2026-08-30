@@ -173,7 +173,7 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
   }
   const authorship = catalogEnum(
     query.authorship,
-    ["any", "authoredByCurrentActor"],
+    ["any", "authoredByCurrentAccount"],
     "catalog authorship scope",
   );
   // Keep the current visible source explicit in every cursor-bound request.

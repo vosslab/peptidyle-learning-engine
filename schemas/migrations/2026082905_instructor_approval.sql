@@ -13,15 +13,15 @@ $$;
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.instructor_approval (
-    user_id uuid PRIMARY KEY,
-    approved_by_user_id uuid NOT NULL,
+    instructor_account_id uuid PRIMARY KEY,
+    approved_by_account_id uuid NOT NULL,
     approved_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
     CONSTRAINT instructor_approval_subject_is_instructor
-        FOREIGN KEY (user_id, role) REFERENCES ple_private.account (user_id, role),
+        FOREIGN KEY (instructor_account_id, role) REFERENCES ple_private.account (account_id, role),
     CONSTRAINT instructor_approval_operator_is_sysadmin
-        FOREIGN KEY (approved_by_user_id, approved_by_role)
-        REFERENCES ple_private.account (user_id, role),
+        FOREIGN KEY (approved_by_account_id, approved_by_role)
+        REFERENCES ple_private.account (account_id, role),
     role text NOT NULL DEFAULT 'instructor' CHECK (role = 'instructor'),
     approved_by_role text NOT NULL DEFAULT 'sysadmin' CHECK (approved_by_role = 'sysadmin'),
     CONSTRAINT instructor_approval_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= approved_at)

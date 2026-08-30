@@ -1,9 +1,9 @@
 //! Provider-neutral authentication and replica-safe sessions (MOD-API-AUTH).
 //!
-//! A credential provider establishes [`SessionSubject`]. This module then
+//! A credential provider establishes an Account and immutable AccountRole. This module then
 //! mints a 256-bit opaque cookie credential, persists only its SHA-256 hash,
-//! and resolves an actor from the database row. Request parameters, headers,
-//! and bodies never construct [`ActorContext`].
+//! and resolves an authenticated account session from the database row. Request
+//! parameters, headers, and bodies never construct authenticated identity.
 
 use std::sync::Arc;
 
@@ -14,38 +14,24 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
-use learning_data_access::{
-    AccountSessionStore, ActorContext, SessionLifetime, SessionRecord, SessionStore,
-    SessionSubject, StoreError,
-};
-use question_model::{UserId, UserRole};
+use learning_data_access::{SessionLifetime, SessionRecord, SessionStore, StoreError};
+use question_model::{AccountId, AccountRole};
 use serde::Serialize;
 
 #[path = "auth/browser_boundary.rs"]
 mod browser_boundary;
 #[path = "auth/client_address.rs"]
 mod client_address;
-#[path = "auth/passwordless.rs"]
-mod passwordless;
-#[path = "auth/seeded_account_selector.rs"]
-mod seeded_account_selector;
+#[path = "auth/live_demo.rs"]
+mod live_demo;
 #[path = "auth/session_cookie.rs"]
 mod session_cookie;
-#[path = "auth/webauthn.rs"]
-mod webauthn;
 
 pub(crate) use browser_boundary::{ProductionBrowserBoundary, production_cookie_boundary};
 #[cfg(test)]
 use browser_boundary::{normalize_production_cookies, origin_matches};
-pub use client_address::ClientAddressPolicy;
-pub use passwordless::{
-    PasswordlessEmailAction, PasswordlessEmailDelivery, PasswordlessEmailDeliveryError,
-    PasswordlessEmailSecret, PasswordlessRateLimitIssuer, UnavailablePasswordlessEmailDelivery,
-    passwordless_router,
-};
-pub use seeded_account_selector::{SeededAccountSelectorConfig, seeded_account_selector_router};
+pub use live_demo::{SeededDemoAccount, SeededDemoConfig, SeededDemoPersona, live_demo_router};
 use session_cookie::{SessionToken, presented_token, session_cookie, wire_cookie_name};
-pub use webauthn::{PasswordlessWebauthn, passkey_router};
 
 const SESSION_COOKIE_NAME: &str = "ple_session";
 const SESSION_TOKEN_BYTES: usize = 32;
@@ -111,13 +97,11 @@ impl std::fmt::Debug for IssuedSession {
     }
 }
 
-/// Authenticated principal and its server-derived actor identity.
+/// Authenticated account session resolved from server-side session storage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedSession {
     /// Active session metadata resolved from shared storage.
     pub record: SessionRecord,
-    /// Actor identity derived only from the resolved record.
-    pub actor: ActorContext,
     /// Request-derived private session capability carried by trusted server
     /// operations. It never enters a browser DTO.
     pub(crate) session_hash: learning_data_access::SessionTokenHash,
@@ -130,19 +114,17 @@ pub struct AuthSessionResponse {
     /// Literal true for this authenticated response shape.
     pub authenticated: bool,
     /// Browser-safe identity with one immutable role and no credential.
-    pub user: AuthUserResponse,
+    pub account: AuthAccountResponse,
 }
 
-/// Browser-safe user projection nested in [`AuthSessionResponse`].
+/// Browser-safe Account projection nested in [`AuthSessionResponse`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AuthUserResponse {
-    /// Authenticated person, not an assignment enrollment identifier.
-    pub id: UserId,
-    /// Provider-established display label.
-    pub display_name: String,
+pub struct AuthAccountResponse {
+    /// Authenticated Account, not an assignment enrollment identifier.
+    pub id: AccountId,
     /// Immutable account role.
-    pub role: UserRole,
+    pub role: AccountRole,
 }
 
 impl AuthenticatedSession {
@@ -187,7 +169,7 @@ impl std::error::Error for AuthError {}
 /// Builds the provider-neutral session resolution and complete sign-out routes.
 pub fn session_router<S>(sessions: Arc<S>, config: SessionConfig) -> Router
 where
-    S: SessionStore + AccountSessionStore + 'static,
+    S: SessionStore + 'static,
 {
     let state = SessionRouteState { sessions, config };
     Router::new()
@@ -196,17 +178,18 @@ where
         .with_state(state)
 }
 
-/// Issues a session after a trusted provider has established the subject.
+/// Issues a session after a trusted provider has established the Account and role.
 pub async fn issue_session(
     sessions: &dyn SessionStore,
-    subject: SessionSubject,
+    account: AccountId,
+    role: AccountRole,
     config: SessionConfig,
 ) -> Result<IssuedSession, AuthError> {
     for _ in 0..TOKEN_GENERATION_ATTEMPTS {
         let token = SessionToken::generate().map_err(AuthError::Randomness)?;
         let token_hash = token.hash();
         match sessions
-            .create_session(token_hash, subject.clone(), config.lifetime())
+            .create_session(token_hash, account, role, config.lifetime())
             .await
         {
             Ok(record) => {
@@ -224,7 +207,7 @@ pub async fn issue_session(
     ))
 }
 
-/// Resolves a cookie against shared storage and derives actor identity.
+/// Resolves a cookie against shared storage and derives the authenticated account session.
 pub async fn resolve_session(
     sessions: &dyn SessionStore,
     cookie_header: Option<&str>,
@@ -235,10 +218,8 @@ pub async fn resolve_session(
         .await
         .map_err(|error| AuthError::Unavailable(error.to_string()))?
         .ok_or(AuthError::Unauthenticated)?;
-    let actor = ActorContext::from_session_record(&record);
     Ok(AuthenticatedSession {
         record,
-        actor,
         session_hash: token.hash(),
     })
 }
@@ -297,7 +278,7 @@ async fn session_handler<S>(
     headers: HeaderMap,
 ) -> Response
 where
-    S: SessionStore + AccountSessionStore + 'static,
+    S: SessionStore + 'static,
 {
     let cookie_header = joined_cookie_header(&headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
@@ -311,32 +292,22 @@ async fn logout_handler<S>(
     headers: HeaderMap,
 ) -> Response
 where
-    S: SessionStore + AccountSessionStore + 'static,
+    S: SessionStore + 'static,
 {
     let cookie_header = joined_cookie_header(&headers);
     let session_result = revoke_session(state.sessions.as_ref(), cookie_header.as_deref()).await;
-    let account_result =
-        passwordless::revoke_presented_account_session(state.sessions.as_ref(), &headers).await;
-    let (mut response, revoked) = match (session_result, account_result) {
-        (Ok(()), Ok(())) => (
+    let (mut response, revoked) = match session_result {
+        Ok(()) => (
             Json(SignedOutResponse {
                 authenticated: false,
             })
             .into_response(),
             true,
         ),
-        (Err(error), _) | (_, Err(error)) => (auth_error_response(error), false),
+        Err(error) => (auth_error_response(error), false),
     };
     if revoked {
         if let Ok(value) = HeaderValue::from_str(&clear_session_cookie(state.config)) {
-            response.headers_mut().append(SET_COOKIE, value);
-        }
-        for cookie in passwordless::clear_account_authentication_cookies(state.config) {
-            if let Ok(value) = HeaderValue::from_str(&cookie) {
-                response.headers_mut().append(SET_COOKIE, value);
-            }
-        }
-        if let Ok(value) = HeaderValue::from_str(&webauthn::clear_binding_cookie(state.config)) {
             response.headers_mut().append(SET_COOKIE, value);
         }
     }
@@ -344,13 +315,11 @@ where
 }
 
 fn session_response(record: &SessionRecord) -> AuthSessionResponse {
-    let subject = &record.subject;
     AuthSessionResponse {
         authenticated: true,
-        user: AuthUserResponse {
-            id: subject.user(),
-            display_name: subject.display_name().to_string(),
-            role: subject.role(),
+        account: AuthAccountResponse {
+            id: record.account,
+            role: record.role,
         },
     }
 }

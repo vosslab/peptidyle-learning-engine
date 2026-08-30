@@ -4,6 +4,198 @@
 
 ### Changes
 
+- Reduced the mounted browser sign-in surface to its executable seeded-demo
+  Account selector. Retired email-completion and email-change pages/routes no
+  longer promise missing endpoints; the rebuilt email-code and passkey adapters
+  remain the explicit follow-on for the canonical Authenticated Session.
+
+- Reconnected durable documentation and retained historical records after the
+  clean schema and planning-corpus deletion. Current material now links to its
+  implementation-status, release, schema, security, and payload authorities;
+  historical entries name retired evidence without dead links.
+
+- Replaced the browser's stale multi-role user session DTO with the server's
+  exact Authenticated Session projection: one `account` with one immutable
+  Product Role. The strict decoder rejects the retired user/role-list shape,
+  and route guards now consume that single Account role.
+
+- Removed the unreferenced account-presentation PostgreSQL oracle. It asserted
+  deleted account, session, preference, and broker relations from the retired
+  schema epoch; the fresh baseline has no corresponding product capability.
+
+- Replaced the remaining `UserId` ownership types in personal question
+  collections, saved searches, and Instructor pool previews with the exact
+  global `AccountId`. These private curation relationships now name their
+  actual owner rather than retaining generic-user vocabulary.
+
+- Added `2026082934_sysadmin_account_provisioning_broker.sql`, establishing a
+  current-session Sysadmin-only path to create one global Account with its
+  immutable Product Role. Passwordless authentication remains unable to create
+  Accounts or assign roles.
+
+- Replaced retired account-authentication table and index names in the database
+  map with the fresh private Account, Authentication Email, challenge, Passkey,
+  and Authenticated Session relations. The authorization and role documents now
+  include the `2026082933` atomic credential-completion capability.
+
+- Corrected the student, install, usage, cookbook, security, and Live Demo
+  documentation to distinguish the required email-code/passkey product design
+  from the currently executable seeded-demo entry. The removed adapters are no
+  longer represented as a completed live-demo reauthentication journey.
+
+- Added `2026082933_authentication_ceremony_brokers.sql` to the fresh baseline.
+  Its execute-only `ple_auth` brokers atomically consume browser-bound
+  email-code or validated-passkey ceremonies and return only the existing
+  Account and immutable Product Role for canonical session creation.
+
+- Added the single-session passwordless credential contract in
+  `learning-data-access`: bounded, browser-bound email challenges and private
+  passkeys can return only an existing Account plus immutable Product Role.
+  Raw credential proofs stay hashed and redacted; the route layer alone then
+  creates the canonical Authenticated Session.
+
+- Converged the mounted authentication route inventory on the one current
+  Authenticated Session surface: session lookup, sign-out, and the
+  deployment-gated seeded Live Demo entry. The route policy, composition test,
+  API contract, and database-structure narrative no longer advertise retired
+  passwordless/passkey adapters or their obsolete auxiliary cookies. The fresh
+  email-code and passkey schema roots remain the explicit next reconstruction
+  package.
+
+- Removed the stale browser account-security/passkey/email-change surface and
+  its obsolete tests. The mounted Live Demo now truthfully provides only the
+  seeded Account selector; the navigation, client contract, browser evidence,
+  and Instructor documentation no longer advertise authentication adapters
+  that are not mounted by the current server.
+
+- Aligned the central identity, role, database-authorization, and security
+  contracts with the terminology authority: a global `AccountId` authenticates
+  through one Authenticated Session, and exact relationships authorize protected
+  work. The documents now point to current implementation ownership rather than
+  deleted migration-era planning files.
+
+- Replaced the curriculum-adoption receipt contract's remaining generic identity
+  labels with `authorized_account`. Its immutable receipt authority now names
+  the exact Account that authorized the operation.
+
+- Updated live enrollment, security, authorization, lifecycle, storage, cache,
+  and browser-contract documentation from the retired `UserId` vocabulary to
+  `AccountId`. Repaired their deleted planning links with their current durable
+  contract or implementation-status authority.
+
+- Removed the detached `AccountSession*` account-identity and account-presentation
+  persistence models. `learning-data-access` now exposes the single canonical
+  `SessionStore` foundation for all future email-code and passkey routes.
+
+- Retired the server's unreachable dual-session passwordless, passkey, and
+  seeded-selector route implementation. The retained session route resolves
+  and revokes only `SessionRecord`; the next authentication package will rebuild
+  email-code, passkey, and seeded-demo entry directly on that contract.
+
+- Added the replacement disposable Live Demo entry contract: five validated,
+  display-safe persona keys map only to configured Accounts, then issue the
+  ordinary host-only Authenticated Session. The database's immutable
+  account-role foreign key rejects a mismatched role at session creation.
+
+- Restored `AuthenticationEmail` as a focused private credential value object,
+  with strict IDNA lookup normalization, delivery spelling, and redacted
+  diagnostics. It no longer shares a module with obsolete account-session or
+  authorization models.
+
+- Made Account Creation explicit and separate from authentication. Email
+  challenges now bind an existing Account and have only `sign_in` or
+  `change_email` purposes; Account creation and Product Role assignment remain
+  Sysadmin-owned lifecycle operations.
+
+- Added the private one-to-one `account_authentication_email` relation to the
+  fresh passwordless schema. A verified mutable Authentication Email now
+  identifies an existing global Account for email-code sign-in without becoming
+  Account identity, a role grant, course authority, or a browser DTO.
+
+- Removed obsolete SQL line-length overrides for four migrations retired by the
+  fresh schema baseline; the source-style registry now contains only live files.
+
+- Kept the browser-session cookie helper focused on the canonical
+  `__Host-ple_session` credential. Passwordless ceremony and passkey binding
+  cookies now await their reconstructed single-session route, rather than
+  retaining a second account-session cookie vocabulary.
+
+- Replaced the database-structure document's deleted pre-SD1 migration ledger
+  with the fresh `2026082901`-`2026082906` foundation and its actual Account,
+  Authentication Email, session, approval, and passwordless ownership.
+
+- Rebuilt the current-package registry's retired plan pointers around the
+  release plan and changelog evidence. Its migration allocation and dependency
+  queue now remain navigable in the fresh SD1 documentation set.
+
+- Repointed the implementation and release plans to the active SD1 status and
+  release authorities, removing deleted auxiliary planning documents from their
+  current dependency, browser, grading, and QTI narratives.
+
+- Replaced the Base Course accepted-submission seed identity with its exact
+  `student_account`. The privileged deterministic installer now supplies the
+  Student Account whose membership and enrollment chain owns the seeded work;
+  ordinary browser submission continues to begin with an Authenticated Session.
+  The disconnected legacy issue helper was removed with its obsolete generic
+  identity shape.
+
+- Recast the course-contract authority and membership types around `AccountId`.
+  Course creation, Instructor edits, listing, and Student-record authorization
+  now name their exact Account input, while `CourseMembershipRecord` exposes
+  the owning `account` rather than a generic identity field.
+
+- Aligned the live-demo Account selector with the global Account contract. Its
+  configuration, selected value, and tests now use `AccountId` and preserve
+  the closed five-Account deployment mapping.
+
+- Rebuilt the PostgreSQL session adapter around the clean authenticated-session
+  brokers and `SessionRecord { account, role, ... }`. It now reads and writes
+  the global Account and immutable AccountRole fields defined by the new schema;
+  `cargo check -p learning-data-access` passes.
+
+- Recast the central server authentication contract around the resolved
+  Authenticated Session. Session issuance and browser-safe identity now use an
+  Account plus its immutable role, and sign-out revokes that one session record.
+
+- Restored the first-party HTTPS browser boundary for cookie-authenticated
+  routes. It normalizes host-only session cookies and enforces exact canonical
+  Host and Origin checks for state-changing requests (ASVS V3.3 and V3.5).
+
+- Retired disconnected iMathAS publication and issued-snapshot resolution
+  methods that depended on removed LDA contracts. The adapter now compiles
+  around its current immutable `SourceArtifact` input surface.
+
+- Established `TERMINOLOGY_CONTRACT.md` as the documentation-wide PLE semantic
+  authority below Human Guidance and Naming Conventions. The positive,
+  Instructor-facing vocabulary now covers identity and authority, Question
+  stewardship and discovery, Blueprint reuse, Assignment policy, grading,
+  analysis, object storage, and operational evidence.
+
+- Separated the question model into independent terms: Question Type for the
+  assessment interaction, Question Format for the authored or exchanged
+  representation, Question Backend for the server adapter, Answer Format for
+  exact Student Answer validation, and Answer Control for the browser interaction.
+  The native Question Types use the Human Guidance and qti-package-maker labels
+  MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
+
+- Defined the complete Student-work relationship: an Assignment Attempt binds
+  one Student Record and Assignment directly; each Issued Question freezes its
+  source Assignment Entry, exact Question Version, order, and scoring facts; a
+  Question Attempt accepts Question Submissions and Student Answers; and an optional
+  Assignment Submission finalizes the whole Assignment Attempt. Assignment
+  Grade owns cross-attempt grade selection.
+
+- Made identity spelling an implementation concern rather than a glossary
+  concept. Internal UUID values and columns use their complete domain subject
+  and UUID representation, while Question ID retains its established public
+  product name.
+
+- Separated how identity and access begin: Account Creation creates an
+  Account and fixes its Product Role, Instructor Approval supplies revocable
+  global eligibility, Course Enrollment and Instructor Course Membership
+  establish course relationships, and authentication opens a session for an
+  existing Account.
+
 - Bound course-grade export audit records and leased queue claims to their
   exact course, requester, job, payload, and lease identities.
 
@@ -13,19 +205,19 @@
 - Simplified course-invitation delivery rows to their exact course,
   invitation, delivery, lease, and lifecycle identities.
 
-- Simplified Student-work inspection access and audit facts to their actor,
+- Simplified Student-work inspection access and audit facts to their Account,
   course, membership, assignment, run, evidence, and scoring identities.
 
 - Bound account-course projections and their opaque page cursor to the global
   course identity. The account, course, title, and membership role fully
   identify the relationship they present.
 
-- Simplified protected-asset access audit events to the actor, delivery,
+- Simplified protected-asset access audit events to the Account, delivery,
   object, bucket, optional course, and authorization time that identify the
   actual access decision.
 
 - Recast the course-store contract around the server-derived authenticated
-  actor. Course listing no longer accepts a caller-selected member scope;
+  Account. Course listing no longer accepts a caller-selected member scope;
   implementations and routes now converge on direct membership authorization.
 
 - Removed the generic scope-equality helper from activity-policy validation.
@@ -62,7 +254,7 @@
   scope parameter or compare object-key fields that no longer exist.
 
 - Simplified accepted-submission records to their exact course, assignment,
-  attempt, submission, and actor identities. Execution paths now use the
+  attempt, submission, and Account identities. Execution paths now use the
   verified request or worker claim authority already at their boundary.
 
 - Kept rollover and term-shift tests bound to their exact course references,
@@ -83,7 +275,7 @@
 - Updated flat-question object-key fixtures to use their canonical workspace
   and object identities without obsolete scope fields.
 
-- Simplified feedback-release records to their exact attempt, releasing actor,
+- Simplified feedback-release records to their exact attempt, releasing Account,
   and release time; authorization continues to derive through the assignment's
   course membership.
 
@@ -105,16 +297,16 @@
 - Corrected project-tools command help so the Base Course and E2E seed
   examples name their actual account and lifecycle inputs only.
 
-- Made authenticated actor identity complete and self-checking. `ActorContext`
-  now carries the immutable role resolved from its durable session, and the
-  in-memory session guard requires the exact user, session, and role before
-  returning a subject. The focused test remains blocked by unrelated active
-  cutover errors in the data-access crate; Rust 2024 formatting passes.
+- Made authenticated Account identity complete and self-checking. The resolved
+  session carries the immutable role, and the in-memory session guard requires
+  the exact Account, session, and role before returning the resolved record.
+  The focused test remains blocked by unrelated active cutover errors in the
+  data-access crate; Rust 2024 formatting passes.
 
 - Aligned PostgreSQL session persistence with the clean global-account schema.
   Primary sessions now use a server-owned create/revoke broker, opaque hashes,
   generated `SessionId`, and one immutable role; active resolution installs
-  the corresponding actor identity. The adapter and migration are clear of the
+  the corresponding Account identity. The adapter and migration are clear of the
   retired vocabulary, and the changed Rust source passes Rust 2024 formatting.
 
 - Removed seven unreferenced legacy PostgreSQL oracles for course appearance,
@@ -212,9 +404,9 @@
   retired vocabulary. No OpenTofu or Terraform formatter is installed in this
   environment, while the focused sweep and diff check are clean.
 
-- Made gradebook-summary paging an authenticated actor and course-bound Store
+- Made gradebook-summary paging an authenticated Account and course-bound Store
   read. Memory and PostgreSQL each resolve the persisted course owner and
-  require that actor's active Instructor membership before reading its
+  require that Account's active Instructor membership before reading its
   maintained enrollment-summary projection. Gradebook fixtures now exercise
   that FERPA predicate directly. Rust 2024 formatting and the call-site sweep
   are clean; the focused crate check remains blocked at the earlier root
@@ -384,9 +576,9 @@
 
 - Removed the redundant installation-scope argument from the Memory reusable-Blueprint snapshot
   helpers and every direct caller. Immutable source locators now resolve against their globally
-  unique reference and revision keys, while actor and course authorization stays at the calling
+  unique reference and revision keys, while Account and course authorization stays at the calling
   Store boundary. Reusable-Blueprint pagination likewise binds its stored continuation only to the
-  authenticated actor. Formatting passes and the focused compiler diagnostic scan is clean.
+  authenticated Account. Formatting passes and the focused compiler diagnostic scan is clean.
 
 - Corrected the Memory reusable-Blueprint aggregate and immutable-snapshot accessors to match their
   globally unique state-map keys. Reference, aggregate, and revision reads and writes now use their
@@ -398,7 +590,7 @@
   call sites use the same contract, and the changed Rust files pass `rustfmt`. The focused Cargo
   test remains behind the existing data-access cutover frontier (578 unresolved upstream errors).
 
-- Rewrote the concluded Rust/SQLx/PostgreSQL review around server-derived actor and exact-resource
+- Rewrote the concluded Rust/SQLx/PostgreSQL review around server-derived Account and exact-resource
   authorization. Its historical RLS, foreign-key, catalog, worker, and denial-matrix findings no
   longer preserve retired scope names or identifiers; the review is formatter-clean.
 
@@ -407,7 +599,7 @@
   authority rather than a redundant installation scope. The plan is formatter-clean.
 
 - Reconciled the security architecture audit with the single-installation authorization model.
-  Session-derived actors, exact course membership, Student ownership, and leased capabilities now
+  Session-derived Accounts, exact course membership, Student ownership, and leased capabilities now
   define protected-resource access; its grading evidence describes automated evaluation and
   recalculation. The audit is formatter-clean.
 
@@ -419,7 +611,7 @@
   and 720 unresolved cutover errors currently prevent compilation; this is upstream integration
   status, not a passing fixture-test result.
 
-- Converted Chapter One’s deterministic course, assignment, item, statistics learner, run, and
+- Converted Chapter One's deterministic course, assignment, item, statistics learner, run, and
   attempt identifiers to a fixed domain-separated single-installation namespace. Resume-manifest
   selection and validation no longer accept a redundant scope input, so they protect the stable
   corpus shape directly. The affected Rust files pass formatter checks; their package test remains
@@ -444,50 +636,50 @@
   describe retired global-scope seams and exact resource ownership rather than preserving obsolete
   compatibility vocabulary. The plan is formatter-clean.
 
-- Aligned the August 9 status snapshot with the current actor, account, Course, Student, and
+- Aligned the August 9 status snapshot with the current Account, Course, Student, and
   exact-problem ownership model. Its historical retention, catalog, analysis, and upload statements
   now describe the protected resource they concern; the snapshot is formatter-clean.
 
-- Corrected the accepted Instructor-to-Student walkthrough plan’s local-roster and Question-ID
-  language. Server-derived account and Student identity, exact course authority, and actor-bound
-  catalog resolution now define the visible journey’s inputs and denied cases; the plan is
+- Corrected the accepted Instructor-to-Student walkthrough plan's local-roster and Question-ID
+  language. Server-derived Account and Student identity, exact course authority, and Account-bound
+  catalog resolution now define the visible journey's inputs and denied cases; the plan is
   formatter-clean.
 
-- Rewrote the active single-installation authorization plan’s historical inventory and closure
+- Rewrote the active single-installation authorization plan's historical inventory and closure
   language around exact domain ownership. It now records retired global-scope context, keys, RLS,
   routes, and contracts without retaining obsolete type or field spellings; the plan is
   formatter-clean.
 
-- Updated the sole current-package registry’s preparatory receipts and handoff order to describe
+- Updated the sole current-package registry's preparatory receipts and handoff order to describe
   retired global-scope seams without retaining obsolete vocabulary. The account, session, Course,
   Student, workspace, catalog, and capability boundaries remain explicit; the registry is
   formatter-clean.
 
 - Reconciled the historical partial-status record with the current ownership model. Its retention,
   appearance, analytics, QTI, RLS, and publication receipts now name their exact Course, Student,
-  account, object, actor, or resource boundary; the document is formatter-clean.
+  Account, object, or resource boundary; the document is formatter-clean.
 
-- Aligned the secure question-grading payload plan with exact attempt, actor, Course, and
+- Aligned the secure question-grading payload plan with exact attempt, Account, Course, and
   exact-record RLS boundaries. Browser disclosure, durable reservations, replay-state keys, and
   foreign-access refusal now describe their actual resource binding without obsolete scope fields;
   the plan is formatter-clean.
 
-- Aligned the accepted QTI profile-mapping plan’s provenance and RLS language with exact workspace,
-  publisher-account, published-record, and foreign-actor ownership. Its archive secrecy and
+- Aligned the accepted QTI profile-mapping plan's provenance and RLS language with exact workspace,
+  publisher Account, published record, and another Account's ownership. Its archive secrecy and
   profile-import guarantees remain unchanged; the plan is formatter-clean.
 
 - Reconciled the schema-evolution plan with the active clean-baseline model. Its migration history,
   RLS, keys, placement, and command authority now describe exact resource ownership and obsolete
   global-scope evidence without retaining retired fields or types; the plan is formatter-clean.
 
-- Replaced the wire-naming ledger’s obsolete SQL-name table with its durable outcome: globally
+- Replaced the wire-naming ledger's obsolete SQL-name table with its durable outcome: globally
   unique account, Student, Course, assignment, run, attempt, workspace, catalog, and capability
   identities, with exact-resource policy and function ownership. The ledger is formatter-clean.
 
 - Converted host-only native and WeBWorK E2E replay identities to fixed,
   domain-separated single-installation constructors. Seed callers no longer contribute an
   installation scope to deterministic course, assignment, run, attempt, action, or provider
-  baseline identities; their actor contexts remain responsible for Store authorization.
+  baseline identities; their resolved Account records remain responsible for Store authorization.
 
 - Removed obsolete global-scope wording from the local-roster backend review and historical
   learner-work broker names from the wire-naming migration plan. Both records now state the
@@ -499,21 +691,21 @@
   authorization behavior.
 
 - Removed historical global-scope spellings from the single-installation ownership register while
-  retaining its exact canonical mapping to actor, user, workspace, course, and leased-capability
+  retaining its exact canonical mapping to Account, workspace, course, and leased-capability
   boundaries. The active `schemas/migrations/` baseline is independently clear of that vocabulary.
 
 - Rewrote six release, authorization, pagination, provenance, and walkthrough planning records to
-  name exact actor, course, and retained-evidence boundaries. Their stale installation-scope
+  name exact Account, course, and retained-evidence boundaries. Their stale installation-scope
   terminology and compatibility allowance language are now absent.
 
 - Removed obsolete global-scope fields from the test-owned published-problem fixture and shared
   public corpus, and replaced neutral decoder-rejection markers across the frontend and local-stack
-  tests. The strict feedback decoder suite now accepts the fixture’s compact browser shape (7
+  tests. The strict feedback decoder suite now accepts the fixture's compact browser shape (7
   passing cases), the focused combined Node gate passes 47 cases, and the WebWork child suite passes
   all 11 cases.
 
 - Removed obsolete global-scope vocabulary from ten planning and audit records and a live PostgreSQL
-  pagination assertion. Those records now name concrete ownership, account, course, or actor
+  pagination assertion. Those records now name concrete ownership, Account, course, or resource
   boundaries, and the pagination assertion describes the cursor behavior it actually protects.
 
 - Advanced the IMathAS portion of the single-installation cutover. Protected grade correlations and
@@ -527,7 +719,7 @@
 
 - Completed the local Base Course host-contract cutover. Its CLI, lifecycle controller, and direct
   test callers now accept only the five actual account identities; deterministic Base Course IDs use
-  a fixed single-installation namespace; and Chapter One’s host seed request likewise carries only
+  a fixed single-installation namespace; and Chapter One's host seed request likewise carries only
   its instructor and Student identities. The local controller source is clear of the retired
   vocabulary. Twenty-five focused Chapter One and Base Course lifecycle tests pass, both changed
   Python modules compile, and the changed Rust files pass formatting. The corresponding Rust
@@ -540,13 +732,13 @@
   sweep finds no residual old error variant or diagnostic label.
 
 - Converted the curriculum-adoption and reusable-BlueprintCourse contract roots to
-  `ActorContext`. The shared in-memory session resolver now validates the resolved session subject
-  against that actor’s exact user identity, preserving active-session and role checks without a
+  `SessionRecord`. The shared in-memory session resolver now validates the resolved Account
+  identity, preserving active-session and role checks without a
   separate installation-wide authorization value. Their implementation storage conversions remain
   in the ongoing data-access family.
 
 - Converted the catalog, preview-plane, pool-preview, and entitlement persistence contracts to
-  `ActorContext`. Preview audit provenance now records the exact actor, course, assignment, and
+  `SessionRecord`. Preview audit provenance now records the exact Account, course, assignment, and
   membership target rather than a redundant installation-wide scope. Implementations and database
   predicates remain explicitly allocated to the corresponding data-access family.
 
@@ -557,8 +749,8 @@
 - Implemented `WP-SD1-C/M5` Memory curriculum-adoption dispatcher cutover. The Memory Store now
   exposes only the five current lifecycle methods and directly dispatches the seven closed
   BlueprintCourse/CourseInstance preview and apply variants. Apply and reconciliation each hold one
-  writer transition: current Instructor authorization, canonical actor-bound intent/digest,
-  actor/key replay-or-conflict, server record-to-command consumption, exact immutable receipt
+  writer transition: current Instructor authorization, canonical Account-bound intent/digest,
+  Account/key replay-or-conflict, server record-to-command consumption, exact immutable receipt
   validation/storage, and full-State rollback on every post-replay failure. Reconciliation now has
   its own non-Serde intent with a caller-provided retry key, so retries replay one repair while a
   later repair can carry a new identity. Rollover and term-shift cores return post-state facts;
@@ -607,10 +799,10 @@
   `SysadminSupportCapability` remains exact-course support after bootstrap; it does not provision a
   course or grant the Sysadmin membership.
 
-- Recorded the SD1 curriculum and actor authority repair in the planning authorities. Minimal
+- Recorded the SD1 curriculum and Account-authority repair in the planning authorities. Minimal
   Blueprint construction, immutable CourseInstance adoption evidence, execute-only adoption brokers,
   and CourseInstance forced RLS now have their assigned migration ownership; `WP-SD1-B1-P1` is the
-  required resolved-record actor-factory prerequisite for D1. This documentation-only change leaves
+  required resolved-record Account-factory prerequisite for D1. This documentation-only change leaves
   implementation, PostgreSQL, runtime, browser, and human acceptance open.
 
 - Implemented preparatory `WP-SD1-C/M1` private Memory curriculum-adoption state. The
@@ -645,7 +837,7 @@
 - Implemented the `WP-SD1-C/M3` Memory CourseInstance lifecycle seam. Rollover now has a
   dedicated current-contract operation module, Blueprint-backed ordered source locations, exact
   target-term schedule evidence, reserved CourseInstance creation binding, immutable answer-free
-  receipt targets, global actor/key replay conflict checks, and one rollback transition. Term
+  receipt targets, global Account/key replay conflict checks, and one rollback transition. Term
   shift consumes only the server-resolved schedule set, rechecks the exact witness and instructor,
   advances assignment and course schedule revisions together, and refuses issued work. The
   Alpha-era rollover and term-shift bodies are retired from their former modules. The current
@@ -689,7 +881,7 @@
   projection intact. Receipt replay/reconciliation validation now resolves canonical CourseInstance
   and assignment records under the explicit course context, checks the exact immutable evidence-map key,
   application, outer outcome, original completed receipt, and operation-specific import history.
-  Repair actions retain a narrowed original locator while using an independent actor/key/digest;
+  Repair actions retain a narrowed original locator while using an independent Account/key/digest;
   their receipts remain non-targetable. Question-model format, 169 deterministic unit tests, and
   strict Clippy pass;
   no-default learning-data-access compilation passes with the established warning baseline. M5
@@ -806,7 +998,7 @@
   `capabilities`, `licenses`, `evidence`, `used_in_my_courses`, and `authorship`), and one positive
   storage-safe revision. It has no global scope, course, saved-owner identity, cursor, page size, route,
   DTO, browser, or Serde boundary; reruns execute a fresh current-catalog query for the rerunning
-  actor. Revision CAS rejects stale expected revisions with expected/actual evidence before candidate
+  Account. Revision CAS rejects stale expected revisions with expected/actual evidence before candidate
   work, treats normalization-equivalent state as unchanged, increments changed state once, and
   refuses checked exhaustion without mutation. Eight deterministic full-target behavior tests pass.
   C/D still own Store/PostgreSQL persistence, owner/reference mapping, canonical bytes/digest/schema,
@@ -833,13 +1025,13 @@
 ### Fixes and Maintenance
 
 - Strengthened the preparatory `BlueprintCourse`/`CourseInstance` adoption value contract.
-  CourseInstance receipt bindings now retain the authorized actor supplied by the consumed
+  CourseInstance receipt bindings now retain the authorized Account supplied by the consumed
   server-held record (or rollover creation witness), alongside the existing operation,
   destination, idempotency, digest, and time evidence. Course-instance witnesses and reusable
   rollover manifests now use private checked bounded collections for both browser decoding and
   direct Rust construction. Five strict answer-free CourseInstance completion DTOs and a
   receipt-targeted non-Serde reconciliation projection provide the exact Store-facing result
-  shapes without serializing immutable receipt evidence. Focused actor, bounds, closed-decoding,
+  shapes without serializing immutable receipt evidence. Focused Account, bounds, closed-decoding,
   answer-free, and reconciliation behavior tests pass, as do question-model format/check/test/
   strict-Clippy and the repository codebase gate. Store, PostgreSQL, service, browser, and
   real-stack acceptance remain downstream SD1-C/D work.
@@ -861,9 +1053,9 @@
   feature-enabled full conformance lifecycle failure remains with `WP-SD1-B3-B6`.
 
 - Accepted preparatory `WP-SD1-B1-P0` with the server-only `SessionId` and
-  `ActorContext { user_id, session_id }` root in `learning-data-access`. The durable session-record
-  ID remains separate from the hashed browser credential, while `ActorContext` carries no course,
-  workspace, Student, role, or capability grant. It is presently unconstructible until
+  `SessionRecord { account, role, session_id }` root in `learning-data-access`. The durable session-record
+  ID remains separate from the hashed browser credential, while the resolved session carries no course,
+  workspace, Student, or capability grant. It is presently unconstructible until
   `SessionRecord` owns `SessionId` and exposes the resolved-record factory in `SD1-B1-F`.
   Focused format, crate-check, and session-contract tests pass; independent recheck accepts this
   preparatory boundary only, and `WP-SD1-B1` remains incomplete pending exact-scope consumer
@@ -878,10 +1070,8 @@
   remains in Design Decisions while Human Guidance retains the owner's higher-level direction and
   open correction question.
 
-- Split the `WP-INST-G1 / G1-W4` accepted-submission contract into the semantic
-  [automated_grading_execution_contract.md](active_plans/active/automated_grading_execution_contract.md)
-  and its PostgreSQL companion
-  [automated_grading_execution_database_contract.md](active_plans/active/automated_grading_execution_database_contract.md).
+- Split the `WP-INST-G1 / G1-W4` accepted-submission contract into semantic
+  and PostgreSQL companion documents in the retired planning corpus.
   Graphify at commit `dc227871d18d` and direct source inspection assigned the
   ten W4 migrations, roles/functions, RLS/ACLs, transaction-held recovery, and
   connected database oracle to the companion while retaining immutable
@@ -895,7 +1085,7 @@
   registry; `single_installation_authorization_plan.md` owns product/privacy and
   concise C/D handoffs; and the new
   `single_installation_database_authorization_plan.md` owns principals, ACLs,
-  actor installation, forced RLS, Store parity, staging/promotion, and connected
+  Account installation, forced RLS, Store parity, staging/promotion, and connected
   acceptance. `release_completion_plan.md` remains release authority. The
   main/companion/status documents are 786/142/825 lines; source-size and
   ASCII/whitespace gates pass, the B6 digest is unchanged, and independent review
@@ -1267,7 +1457,7 @@
   privacy test from an unrelated fixture, and clarified the response-redaction and selector-owner
   contracts found during audit.
 - Updated the connected PostgreSQL G1 oracle to exercise the five-UUID retry V2 denial with SQLSTATE
-  `42501` and to verify Instructor retry receipt category, actor provenance, and worker exclusivity.
+  `42501` and to verify Instructor retry receipt category, Account provenance, and worker exclusivity.
 
 ### Decisions and Failures
 
@@ -1314,7 +1504,7 @@
   records now exclusively construct fork, assignment-adoption, instantiation, rollover, term-shift,
   controlled-update, selected-copy, and receipt-targeted reconciliation commands. Each record
   retains its exact source/destination, import or schedule evidence where applicable, authenticated
-  actor, canonical request digest, idempotency key, and creation reservation where applicable.
+  Account, canonical request digest, idempotency key, and creation reservation where applicable.
   Immutable controlled-update, selected-copy, and reconciliation receipts now provide checked
   construction and read-only evidence access. Browser previews remain answer-free explanation;
   deterministic mutation-resistance tests prove later preview changes cannot affect a record-built

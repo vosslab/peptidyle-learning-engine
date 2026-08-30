@@ -1,7 +1,7 @@
 # PortSwigger security review reference
 
 This is a reusable, architecture-first companion to the
-[active security audit](active_plans/peptidyle-security-audit.md). It turns current
+[SECURITY_MODEL.md](SECURITY_MODEL.md). It turns current
 [PortSwigger Web Security Academy](https://portswigger.net/web-security) material into review
 oracles for Peptidyle-like systems. It is not a penetration-test recipe and does not replace a
 threat model, code review, or deployment validation.
@@ -15,7 +15,7 @@ relevant, deployment evidence are recorded in the active audit.
 ## How to use it
 
 For every boundary, start with the protected asset and the authority allowed to act on it. Then
-choose a different actor, course, Student relationship, browser origin, request parser, credential, or timing window and
+choose a different Account, course, Student relationship, browser origin, request parser, credential, or timing window and
 make the system prove denial. A green happy-path test is not evidence of an authorization boundary.
 
 Each topic supplies five reusable prompts:
@@ -41,16 +41,16 @@ unguessable identifier does not authorize its holder. See
 
 - **Preconditions:** A request names a course, learner, attempt, publication, object, or action;
   two courses or roles can exercise the same route.
-- **Review questions:** Does every read and mutation derive actor, exact course/Student or workspace relationship, and capability from a
+- **Review questions:** Does every read and mutation derive the authenticated Account, exact course/Student or workspace relationship, and capability from a
   server credential? Is authorization repeated after an ID is resolved? Can an alternate HTTP
   method, trailing path, step, or signed URL bypass the normal route?
-- **Evidence:** **Code and integration evidence required.** Trace `ActorContext` from the opaque
+- **Evidence:** **Code and integration evidence required.** Trace `AuthenticatedSession` from the opaque
   session, PostgreSQL RLS and broker enforcement, typed object-key grants, and re-resolution of
   submissions and immutable presentations. Record the exact tests in the active audit before
   calling this a current guarantee.
 - **Negative oracle:** A Student from another course, an Instructor without the exact course role, and a stale
   session each receive no protected record, signed URL, state transition, or distinguishable leak.
-- **False confidence:** UUIDs, hidden UI controls, client role fields, an actor or course ID in JSON, or a
+- **False confidence:** UUIDs, hidden UI controls, client role fields, an Account or course ID in JSON, or a
   first-step-only authorization check are not authorization.
 - **Applicability:** Always applicable. Test route, store, broker-function, object-signing, and
   background-worker paths as one matrix; do not treat RLS as a substitute for route authorization.
@@ -71,7 +71,7 @@ review lens is
   session-revocation tests, and uniform email-start responses. **Deployment evidence:** configured
   secret-store use rather than source configuration.
 - **Negative oracle:** Replaying a consumed or expired link, mixing two browser bindings, injecting
-  a duplicate cookie, or using a revoked account/session cannot mint a new actor session.
+  a duplicate cookie, or using a revoked account/session cannot mint a new authenticated session.
 - **False confidence:** `HttpOnly` alone, a random-looking token stored raw, passkey presence
   without user verification, or returning a different email-enumeration response is insufficient.
 - **Applicability:** **Current code-evidence target** for the passwordless surface. OAuth and JWT
@@ -236,7 +236,7 @@ testing; undocumented endpoints and different content types are part of the surf
 
 - **Preconditions:** Browser API, worker API, PostgreSQL role, S3 bucket, KMS key, or cloud workload
   identity can read, write, sign, decrypt, or call another service.
-- **Review questions:** Is a request's actor context transaction-local and impossible for a browser
+- **Review questions:** Is a request's authenticated Account context transaction-local and impossible for a browser
   to set? Does each PostgreSQL login have only the necessary non-inheriting memberships and verified
   TLS? Does each workload receive an independent IAM role, exact bucket prefix/actions, and KMS key?
   Is object authorization checked before a short-lived URL is issued and after object metadata is
@@ -260,7 +260,7 @@ for a single job.
 
 - **Preconditions:** A worker invokes an external engine, pulls an image, accepts a provider result,
   installs a dependency, or passes user/learner material to a service.
-- **Review questions:** What actor and typed job target call the service? What exact course, Student, or workspace scope binds the response? What
+- **Review questions:** What authenticated Account and typed job target call the service? What exact course, Student, or workspace scope binds the response? What
   secrets, network routes, database roles, object prefixes, and egress does it receive? Is image
   provenance pinned and verified? Is every reply size-bounded, schema-validated, correlated, timed
   out, and safe to retry?
@@ -278,7 +278,7 @@ for a single job.
 
 ## Future skill seed
 
-Suggested trigger phrases are: `security architecture audit`, `PortSwigger review`, `actor
+Suggested trigger phrases are: `security architecture audit`, `PortSwigger review`, `account
 isolation review`, `CSRF/session review`, `external-service threat model`, and `pre-release security
 gate`.
 

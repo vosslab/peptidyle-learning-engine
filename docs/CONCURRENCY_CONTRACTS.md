@@ -23,7 +23,7 @@ this document means:
 
 ## Authority status
 
-**Current authority.** PostgreSQL transactions, server-derived `ActorContext`,
+**Current authority.** PostgreSQL transactions, server-derived `AuthenticatedSession`,
 revision checks, attempt receipts, job leases, and generation checks decide
 whether concurrent work becomes durable. The specific implemented owners are
 listed below.
@@ -42,13 +42,13 @@ document does not claim either is implemented.
 No API replica, browser tab, worker process, or object-store listing is a
 correctness authority. PostgreSQL records are authoritative for exact course,
 Student, workspace, and operation state; typed object records and checksums bind
-PostgreSQL metadata to bytes. The browser can retry an authenticated request, but cannot select its actor,
+PostgreSQL metadata to bytes. The browser can retry an authenticated request, while the server resolves its Account,
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
 | State or decision                      | Authoritative owner                                         | Status          | Main implementation owner                                                                                                                              |
 | -------------------------------------- | ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Actor identity and row access         | `ActorContext`, transaction-local forced PostgreSQL RLS    | Implemented     | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
+| Account identity and row access       | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
 | Mutable authoring and assignment state | Revisioned PostgreSQL rows                                  | Implemented     | [catalog.rs](../crates/learning-data-access/src/postgres/catalog.rs), [course_policy.rs](../crates/learning-data-access/src/postgres/course_policy.rs) |
 | Learner submission outcome             | Attempt-scoped idempotency and append-only evidence         | Implemented     | [runs.rs](../crates/learning-data-access/src/postgres/runs.rs)                                                                                         |
 | Background work ownership              | PostgreSQL job row plus opaque lease token                  | Implemented     | [jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs)                                                                                         |
@@ -56,23 +56,22 @@ operation final.
 | Published catalog version              | Immutable version rows created from an exact draft revision | Implemented     | [catalog.rs](../crates/learning-data-access/src/postgres/catalog.rs)                                                                                   |
 | Cross-system object inventory repair   | Database/object-store reconciliation job                    | Planned, WP-RC7 | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                           |
 
-## Actor-scoped transactions and retries
+## Account-scoped transactions and retries
 
 ### Transaction boundary
 
 Every PostgreSQL operation on protected data begins a new transaction from a
-server-derived `ActorContext`. The store sets `LOCAL ROLE` and the actor setting
+server-derived `AuthenticatedSession`. The store sets `LOCAL ROLE` and the session Account setting
 before querying, and commits or rolls back before returning the connection to the
-pool. A pooled connection therefore carries neither a prior actor nor a prior
-request's authority. The browser never supplies this context. The complete
+pool. A pooled connection carries authority only for its current request. The complete
 forced-RLS and role rule is in
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security).
 
 Required rules for a new Store mutation:
 
-- Bind every protected read and write to the trusted actor context and preserve
+- Bind every protected read and write to the trusted authenticated Account context and preserve
   exact course, Student, workspace, and typed operation relationships.
-- Authorize the actor within the same transaction as the protected mutation.
+- Authorize the exact Account relationship within the same transaction as the protected mutation.
 - Commit all relational effects that define one outcome together, or leave no
   final relational effect. Do not split one receipt, revision update, and
   queue insertion across independently committed transactions.
@@ -144,11 +143,11 @@ immutable publication, never as changed historical question content.
 
 ### Attempt identity
 
-An issued `QuestionAttemptId` binds the authenticated Student actor, exact course,
+An issued `QuestionAttemptId` binds the authenticated Student Account, exact course,
 assignment/run item, immutable question version, seed, timing state, and
 grading backend. It is the primary response authority. The browser sends the
 minimal Student response plus an `Idempotency-Key`; it does not choose an
-actor, course, key, seed, grading backend, or question kind. The exact browser
+Account, course, key, seed, grading backend, or question kind. The exact browser
 boundary is [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
 ### Submission idempotency
@@ -199,9 +198,8 @@ making its result current:
 
 A stale worker cannot complete or publish after another worker reclaims the
 job. Crash recovery occurs by bounded lease expiry and retry/backoff, not by a
-replica remembering what another process did. The queue state machine and
-constraints live in [2026080805_operations_analytics.sql](../schemas/migrations/2026080805_operations_analytics.sql);
-the Store calls are in [jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs).
+replica remembering what another process did. The fresh baseline's queue
+ownership is recorded in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
 ### Generation fences
 
@@ -278,14 +276,14 @@ above, but retry is a safety net, not an excuse for arbitrary lock order.
 
 Required ordering for a new multi-row mutation:
 
-1. Establish `ActorContext` and authorize the exact course, Student, workspace,
+1. Establish `AuthenticatedSession` and authorize the exact course, Student, workspace,
    or leased operation target.
 2. Lock the highest shared owner first: course/assignment or run, as applicable.
 3. Lock its direct child next: enrollment or assignment item.
 4. Lock attempt, receipt, candidate, or projection rows last, in stable ID or
    assignment-position order when there is more than one.
 5. Acquire an external lease before preparation; re-check it inside the final
-   actor-scoped transaction before publishing an effect.
+   account-and-relationship-scoped transaction before publishing an effect.
 
 Existing run/prefetch paths follow run, enrollment, predecessor attempt, then
 prefetch/receipt order. Existing scoring paths lock the assignment owner before
@@ -299,7 +297,7 @@ network call.
 Before accepting a new mutating API, Store method, worker, or object workflow,
 verify all applicable points:
 
-- [ ] Actor and exact relationship authority is reconstructed server-side inside its database
+- [ ] Account and exact relationship authority is reconstructed server-side inside its database
       transaction.
 - [ ] The mutation has one durable authority and a clear conflict result.
 - [ ] Retries cover only a complete replayable transaction; external effects

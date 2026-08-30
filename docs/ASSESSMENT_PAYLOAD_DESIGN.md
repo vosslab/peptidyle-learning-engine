@@ -11,10 +11,9 @@ The canonical browser path is the single production-shaped live-demo application
 and one-time wire fixtures in this document describe bounded codec evidence only; they are not a
 second browser application or a source of seeded learner records.
 
-The exact codec and cutover requirements remain normative in the
-[secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md).
-The single-installation ownership and authorization target is normative in the
-[single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md).
+The exact codec and cutover requirements are owned by this contract and its
+focused tests. The single-installation ownership and authorization target is
+normative in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
 The [release_completion_plan.md](active_plans/active/release_completion_plan.md) owns dependency
 order. This durable guide explains why those decisions exist and how the boundaries fit together.
 
@@ -73,7 +72,7 @@ grading envelope, presentation snapshot, and (for WeBWorK) replay state are requ
 `NotApplicable`; a missing or mismatched required capability is unavailable. Worker execution uses
 the same exact target from a locked typed lease. Provider metadata remains external protocol data
 only: renderer identity, provider profile, upstream field/value names, and source-artifact details
-may support one server-to-provider exchange but never act as an actor, course, Student, attempt, or
+may support one server-to-provider exchange but never act as an Account, course, Student, attempt, or
 authorization selector.
 
 ## Current PLE boundary
@@ -148,10 +147,10 @@ the response against the checksummed issued public snapshot, and atomically reco
 accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
 matching server-only grading envelope, grades under server authority, and commits the completed
 aggregate. Neither path reproduces a mutable issued envelope. Therefore the submitted `kind` is
-redundant. The attempt already determines the expected response family.
+redundant. The attempt already determines the expected Answer Format.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
-and its issued public snapshot response schema, then select a closed, family-specific decoder for `answer`.
+and its issued public snapshot Answer Format, then select a closed, format-specific decoder for `answer`.
 Unknown fields and shapes must continue to fail closed. Rich tagged Rust and TypeScript draft types
 may remain internal even though the public answer wire is type-free.
 
@@ -180,12 +179,12 @@ An issued attempt already binds the facts required to grade safely:
 - course and assignment context;
 - exact immutable ProblemVersionRef and assignment position;
 - generated seed and immutable provenance;
-- expected response family and grading backend;
+- expected Answer Format and grading backend;
 - issue time, effective deadline, and submission state; and
 - feedback, retry, grading, and continued-practice policies.
 
 The browser therefore does not need to resend a question ID, course ID, assignment ID, version,
-seed, backend, response family, points, or grading mode. Treating browser copies of those values as
+seed, backend, Answer Format, points, or grading mode. Treating browser copies of those values as
 authority would create disagreement cases without adding information.
 
 ### UUID cost
@@ -332,8 +331,7 @@ CRC-16/CCITT-FALSE:
 
 The checksum input is domain-separated and includes the presentation nonce, immutable version, seed,
 item role, ordinal, durable internal item ID, and SHA-256 of the canonical public rendered content.
-The normative byte framing is defined in the
-[secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md).
+This contract defines the normative byte framing.
 Rust owns this codec; the browser calls the Rust/Wasm implementation and does not reimplement it in
 TypeScript.
 
@@ -655,7 +653,7 @@ easy to navigate without duplicating its exact migration and codec specification
   prefetch promotion, retention, backup/restore, and conformance tests.
 - Behavior: persist the presentation version, nonce, digest, request-contract version, prefetch
   binding, and bounded private WeBWorK replay state under forced RLS.
-- Success: constraints reject malformed data; another UserId, another course, and a foreign attempt
+- Success: constraints reject malformed data; another AccountId, another course, and a foreign attempt
   cannot read or write it; Memory and PostgreSQL agree; retention and restore preserve or remove
   bindings correctly.
 - Validation: fresh/no-op migration, malformed-version tests, forced-RLS tests, Store parity,
@@ -668,7 +666,7 @@ easy to navigate without duplicating its exact migration and codec specification
   and generated client contracts.
 - Behavior: serve one minimal learner screen, decode type-free answers after attempt load, verify
   digest and idempotency before grading, and return compact receipts.
-- Success: every family accepts its exact shape and rejects extras; exact replay returns the first
+- Success: every Answer Format accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
   provenance crosses the active learner route.
 - Validation: focused Axum and security tests, family wire vectors, native regression, and independent
@@ -715,7 +713,7 @@ Permanent tests protect stable behavior:
 
 - attempt-selected strict answer decoding;
 - response `kind` absent from the public submission wire;
-- missing actor, another UserId, another course, and a foreign attempt are concealed before protected
+- a missing authenticated session, another AccountId, another course, and a foreign attempt are concealed before protected
   payload access;
 - every issued and replayed record matches its exact CourseId, StudentId, RunId, QuestionAttemptId,
   ProblemVersionRef, and seed;
@@ -742,9 +740,9 @@ remove rebuild-only evidence once the maintained gate proves the final contract.
 
 ## Rollout decision
 
-The public contract changes atomically before WP-RC5 adds new flat families. PLE must not maintain a
-long-lived mixed endpoint where some active attempts use tagged responses and others use type-free
-answers without an explicit contract version.
+The public contract changes atomically before WP-RC5 adds new native Question Types. Every active
+attempt uses one explicit contract version, so tagged responses and minimal answers have a closed
+version boundary.
 
 The pre-production cutover:
 

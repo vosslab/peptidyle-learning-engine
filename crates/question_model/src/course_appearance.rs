@@ -219,7 +219,7 @@ impl_banner_route_id!(CourseBannerId);
 
 /// Opaque identity returned after an authorized candidate upload.
 ///
-/// The server binds it to the course, actor, and expiry before accepting
+/// The server binds it to the course, Account, and expiry before accepting
 /// it in an appearance update. It reveals no physical storage identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseBannerCandidateId(Uuid);
@@ -324,7 +324,7 @@ pub enum CourseBannerMutation {
     },
     /// Make the course have no current banner.
     Remove,
-    /// Promote one actor-bound candidate and use it as the current banner.
+    /// Promote one Account-bound candidate and use it as the current banner.
     Replace {
         /// Opaque candidate returned by the authorized upload operation.
         candidate: CourseBannerCandidateId,

@@ -66,7 +66,7 @@ signature, MAC, authorization check, or encryption mechanism.
 | Concern | Question | Enforced by |
 | --- | --- | --- |
 | Integrity | Are these the exact immutable bytes and record? | SHA-256, typed immutable keys, `ObjectRecord`, and immutable-write checks |
-| Authorization | May this actor or worker use this exact object now? | Exact course/Student or workspace relationship, approved-Instructor predicate, or registered typed capability/lease |
+| Authorization | May this Account or worker use this exact object now? | Exact course/Student or workspace relationship, approved-Instructor predicate, or registered typed capability/lease |
 
 The corresponding confidentiality and history controls are:
 

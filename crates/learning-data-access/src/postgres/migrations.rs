@@ -13,12 +13,6 @@ use sqlx::postgres::{PgAdvisoryLock, PgAdvisoryLockKey, PgPool};
 
 use super::connection::is_connection_error;
 
-mod base_course_freshness;
-use base_course_freshness::{
-    RECONCILIATION_SQL as BASE_COURSE_FRESHNESS_RECONCILIATION_SQL,
-    is_compatible as base_course_freshness_is_compatible,
-};
-
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../schemas/migrations");
 
 // ASCII `PLE_SCHM` in PostgreSQL's signed 64-bit advisory-lock keyspace. This
@@ -276,47 +270,6 @@ pub async fn verify_application_schema(pool: &PgPool) -> Result<(), SchemaCompat
     verify_schema_as(pool, SchemaVerificationProfile::Application).await
 }
 
-/// Verifies the current public relation catalog has the exact sealed Base Course freshness graph.
-///
-/// This administrative verifier is read-only. It is distinct from application startup because it
-/// inspects capability metadata unavailable to the restricted application principal.
-///
-/// # Errors
-///
-/// Returns [`SchemaCompatibilityError::Unavailable`] when PostgreSQL cannot be reached and
-/// [`SchemaCompatibilityError::Incompatible`] when the capability graph has drifted.
-pub async fn verify_base_course_freshness_capability(
-    pool: &PgPool,
-) -> Result<(), SchemaCompatibilityError> {
-    let mut transaction = pool
-        .begin()
-        .await
-        .map_err(|_| SchemaCompatibilityError::Unavailable)?;
-    sqlx::query("SET TRANSACTION READ ONLY")
-        .execute(&mut *transaction)
-        .await
-        .map_err(|_| SchemaCompatibilityError::Unavailable)?;
-    acquire_schema_epoch_shared_lock(&mut transaction).await?;
-    let compatible = base_course_freshness_is_compatible(&mut *transaction)
-        .await
-        .map_err(|error| {
-            verify_step_error(
-                &error,
-                "the Base Course freshness capability is unavailable",
-            )
-        })?;
-    if !compatible {
-        return Err(SchemaCompatibilityError::Incompatible(
-            "the Base Course freshness capability is incompatible".to_string(),
-        ));
-    }
-    transaction
-        .commit()
-        .await
-        .map_err(|_| SchemaCompatibilityError::Unavailable)?;
-    Ok(())
-}
-
 /// Verifies the exact embedded schema through the publisher's metadata-only
 /// capability. The publisher cannot assume `ple_app` merely to run a startup
 /// check.
@@ -459,17 +412,6 @@ pub async fn apply_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
     let mut guard = lock.acquire(connection).await?;
     let application_result = async {
         MIGRATOR.run(&mut *guard).await?;
-        if !base_course_freshness_is_compatible(&mut *guard).await? {
-            sqlx::raw_sql(BASE_COURSE_FRESHNESS_RECONCILIATION_SQL)
-                .execute(&mut *guard)
-                .await?;
-            if !base_course_freshness_is_compatible(&mut *guard).await? {
-                return Err(sqlx::Error::Protocol(
-                    "Base Course freshness reconciliation did not restore the required catalog graph"
-                        .to_string(),
-                ));
-            }
-        }
         Ok::<(), sqlx::Error>(())
     }
     .await;
@@ -506,31 +448,6 @@ mod tests {
             profile.migration_state_sql(),
             "SELECT version, success, checksum \
                  FROM public.ple_invitation_delivery_worker_migration_state() ORDER BY version"
-        );
-    }
-
-    #[test]
-    fn base_course_freshness_registration_is_catalog_derived_and_repeated() {
-        let migration = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026081835)
-            .expect("Base Course freshness registration migration is embedded")
-            .sql
-            .as_ref();
-        assert!(
-            migration.contains("FROM pg_catalog.pg_class AS table_row")
-                && migration.contains("table_row.relkind IN ('r', 'p')")
-                && migration.contains("GRANT SELECT, MAINTAIN ON TABLE")
-                && migration.contains("CREATE POLICY ple_base_course_freshness_select")
-                && migration.contains("NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS")
-                && migration.contains("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public"),
-            "freshness registration derives its complete relation graph from the live catalog"
-        );
-        assert!(
-            BASE_COURSE_FRESHNESS_RECONCILIATION_SQL.contains("DROP POLICY %I ON %I.%I")
-                && base_course_freshness::VERIFICATION_SQL.contains("expected_relation_privileges")
-                && base_course_freshness::VERIFICATION_SQL.contains("expected_policies"),
-            "reconciliation and administrative verification share one exact catalog graph"
         );
     }
 
@@ -625,112 +542,6 @@ mod tests {
                 .iter()
                 .any(|entry| entry.disposition() == MigrationDisposition::Dirty)
         );
-    }
-
-    #[test]
-    fn draft_qti_cleanup_locks_authority_before_narrow_job_deletion() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026080805)
-            .expect("operations migration is embedded")
-            .sql
-            .as_ref();
-        let start = sql
-            .find("CREATE FUNCTION public.ple_delete_draft_qti_jobs(")
-            .expect("draft QTI cleanup capability is present");
-        let end = sql[start..]
-            .find("CREATE FUNCTION public.ple_commit_export_job(")
-            .map(|offset| start + offset)
-            .expect("cleanup capability has a bounded definition");
-        let capability = &sql[start..end];
-
-        assert!(
-            capability
-                .find("FOR UPDATE OF draft")
-                .is_some_and(|lock| capability
-                    .find("DELETE FROM public.worker_job AS job")
-                    .is_some_and(|delete| lock < delete))
-                && capability.contains("p_tenant <> public.ple_current_tenant()")
-                && capability.contains("draft.revision = p_expected_revision")
-                && capability.contains("access.user_id = p_actor")
-                && capability.contains("access.role = 'owner'"),
-            "tenant, owner, and revision authority must lock before job deletion"
-        );
-        assert!(
-            capability.contains("job.tenant_id = p_tenant")
-                && capability.contains("job.payload ->> 'kind' = 'qtiImport'")
-                && capability.contains("job.payload ->> 'workspace' = p_workspace::text"),
-            "cleanup must delete only the exact tenant/workspace QTI job family"
-        );
-        let staged_deletes = [
-            "DELETE FROM public.workspace_qti_profile_item_evidence AS evidence",
-            "DELETE FROM public.workspace_qti_profile_import_evidence AS evidence",
-            "DELETE FROM public.workspace_qti_import_grading AS grading",
-            "DELETE FROM public.workspace_qti_import_asset AS asset",
-            "DELETE FROM public.workspace_qti_import_result AS result",
-            "DELETE FROM public.workspace_qti_import_unsupported AS unsupported",
-            "DELETE FROM public.workspace_qti_import_item AS item",
-            "DELETE FROM public.workspace_qti_import AS import_row",
-            "DELETE FROM public.worker_job AS job",
-        ];
-        assert!(
-            staged_deletes.windows(2).all(|pair| {
-                capability
-                    .find(pair[0])
-                    .zip(capability.find(pair[1]))
-                    .is_some_and(|(before, after)| before < after)
-            }) && capability.contains("import_row.state = 'prepared'"),
-            "draft cleanup must remove the prepared QTI graph in FK order before its jobs"
-        );
-    }
-
-    #[test]
-    fn draft_qti_cleanup_is_a_least_privilege_execute_only_capability() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026080805)
-            .expect("operations migration is embedded")
-            .sql
-            .as_ref();
-
-        assert!(
-            sql.contains("LANGUAGE plpgsql SECURITY DEFINER\n    SET search_path TO 'pg_catalog', 'public'")
-                && sql.contains(
-                "ALTER FUNCTION public.ple_delete_draft_qti_jobs(uuid, uuid, uuid, bigint)\n    OWNER TO ple_qti_provenance_broker;"
-            ) && sql.contains(
-                "REVOKE ALL ON FUNCTION public.ple_delete_draft_qti_jobs(\n    p_tenant uuid,\n    p_workspace uuid,\n    p_actor uuid,\n    p_expected_revision bigint\n) FROM PUBLIC;"
-            ) && sql.contains(
-                "GRANT EXECUTE ON FUNCTION public.ple_delete_draft_qti_jobs(\n    p_tenant uuid,\n    p_workspace uuid,\n    p_actor uuid,\n    p_expected_revision bigint\n) TO ple_app;"
-            ),
-            "only the application capability may invoke the NOLOGIN provenance broker"
-        );
-        assert!(
-            sql.contains(
-                "GRANT SELECT,DELETE ON TABLE public.worker_job TO ple_qti_provenance_broker;"
-            ) && sql.contains(
-                "CREATE POLICY worker_job_qti_provenance_select ON public.worker_job FOR SELECT\n    TO ple_qti_provenance_broker\n    USING ((tenant_id = public.ple_current_tenant()) AND (payload ->> 'kind' = 'qtiImport'));"
-            ) && sql.contains(
-                "CREATE POLICY worker_job_qti_provenance_delete ON public.worker_job FOR DELETE\n    TO ple_qti_provenance_broker\n    USING ((tenant_id = public.ple_current_tenant()) AND (payload ->> 'kind' = 'qtiImport'));"
-            ) && !sql.contains("GRANT SELECT,INSERT,DELETE ON TABLE public.worker_job TO ple_app;"),
-            "ple_app must not receive direct worker-job deletion"
-        );
-        for table in [
-            "workspace_qti_import",
-            "workspace_qti_import_asset",
-            "workspace_qti_import_grading",
-            "workspace_qti_import_item",
-            "workspace_qti_import_result",
-            "workspace_qti_profile_import_evidence",
-            "workspace_qti_profile_item_evidence",
-            "workspace_qti_import_unsupported",
-        ] {
-            assert!(
-                sql.contains(&format!(
-                    "GRANT DELETE ON TABLE public.{table} TO ple_qti_provenance_broker;"
-                )) && sql.contains(&format!("CREATE POLICY {table}_prepared_delete")),
-                "prepared QTI cleanup must have a narrow broker-only delete path for {table}"
-            );
-        }
     }
 
     #[test]

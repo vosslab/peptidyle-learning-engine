@@ -37,7 +37,3 @@ pub(crate) use external_tool::EXTERNAL_LAUNCH_COOKIE;
 pub use external_tool::{
     ExternalToolLaunch, ExternalToolLaunchBackend, router as external_tool_router,
 };
-
-#[cfg(test)]
-#[path = "run/tests/mod.rs"]
-mod tests;

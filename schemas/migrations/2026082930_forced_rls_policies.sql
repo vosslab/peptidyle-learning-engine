@@ -13,33 +13,33 @@ CREATE POLICY support_lookup_api_owner ON ple_private.sysadmin_support_capabilit
 CREATE POLICY worker_job_lookup_api_owner ON ple_private.worker_job FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY workspace_owner_access ON ple_private.authoring_workspace
     FOR ALL TO ple_app
-    USING (ple_api.current_actor_owns_workspace(workspace_id))
+    USING (ple_api.current_session_account_owns_workspace(workspace_id))
     WITH CHECK (
-        owner_user_id = ple_api.current_actor_user_id()
+        owner_account_id = ple_api.current_session_account_id()
         AND revoked_at IS NULL
     );
 CREATE POLICY workspace_collaborator_owner_access ON ple_private.authoring_workspace_collaborator
     FOR ALL TO ple_app
-    USING (ple_api.current_actor_owns_workspace(workspace_id))
-    WITH CHECK (ple_api.current_actor_owns_workspace(workspace_id));
+    USING (ple_api.current_session_account_owns_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_owns_workspace(workspace_id));
 CREATE POLICY workspace_draft_owner_access ON ple_private.workspace_draft_question
     FOR ALL TO ple_app
-    USING (ple_api.current_actor_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_flat_question_source_access ON ple_private.workspace_flat_question_source
     FOR ALL TO ple_app
-    USING (ple_api.current_actor_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_flat_question_grading_write_access ON ple_private.workspace_flat_question_grading
     FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_flat_question_grading_update_access ON ple_private.workspace_flat_question_grading
     FOR UPDATE TO ple_app
-    USING (ple_api.current_actor_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_flat_question_grading_delete_access ON ple_private.workspace_flat_question_grading
     FOR DELETE TO ple_app
-    USING (ple_api.current_actor_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY published_flat_question_grading_reader_access
     ON ple_private.published_flat_question_grading
     FOR SELECT TO ple_grader
@@ -50,15 +50,15 @@ CREATE POLICY published_qti_question_grading_reader_access
     USING (true);
 CREATE POLICY workspace_qti_import_access ON ple_private.workspace_qti_import
     FOR ALL TO ple_app
-    USING (ple_api.current_actor_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_qti_import_grading_write_access ON ple_private.workspace_qti_import_grading
     FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_qti_import_grading_update_access ON ple_private.workspace_qti_import_grading
     FOR UPDATE TO ple_app
-    USING (ple_api.current_actor_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_actor_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
@@ -68,35 +68,35 @@ CREATE POLICY enrollment_lookup_api_owner ON ple_data.assignment_enrollment FOR 
 CREATE POLICY course_instance_member_read ON ple_data.course_instance
     FOR SELECT TO ple_app
     USING (
-        ple_api.current_actor_is_course_instructor(course_id)
+        ple_api.current_session_account_is_course_instructor(course_id)
         OR EXISTS (
             SELECT 1 FROM ple_data.course_membership AS membership
             WHERE membership.course_id = course_instance.course_id
-              AND membership.user_id = ple_api.current_actor_user_id()
+              AND membership.account_id = ple_api.current_session_account_id()
               AND membership.revoked_at IS NULL
         )
-        OR ple_api.current_actor_has_course_observer_grant(course_id)
+        OR ple_api.current_session_account_has_course_observer_grant(course_id)
     );
 CREATE POLICY course_membership_instructor_or_self_read ON ple_data.course_membership
     FOR SELECT TO ple_app
     USING (
-        ple_api.current_actor_is_course_instructor(course_id)
-        OR user_id = ple_api.current_actor_user_id()
+        ple_api.current_session_account_is_course_instructor(course_id)
+        OR account_id = ple_api.current_session_account_id()
     );
 CREATE POLICY course_student_instructor_or_self_read ON ple_data.course_student
     FOR SELECT TO ple_app
     USING (
-        ple_api.current_actor_is_course_instructor(course_id)
-        OR ple_api.current_actor_is_course_student(course_id, student_id)
-        OR ple_api.current_actor_has_student_observer_grant(course_id, student_id)
+        ple_api.current_session_account_is_course_instructor(course_id)
+        OR ple_api.current_session_account_is_course_student(course_id, student_id)
+        OR ple_api.current_session_account_has_student_observer_grant(course_id, student_id)
     );
 CREATE POLICY assignment_enrollment_authorized_read ON ple_data.assignment_enrollment
     FOR SELECT TO ple_app
     USING (
-        ple_api.current_actor_is_course_instructor(course_id)
-        OR ple_api.current_actor_is_course_student(course_id, student_id)
-        OR ple_api.current_actor_has_student_observer_grant(course_id, student_id)
-        OR ple_api.current_actor_has_course_observer_grant(course_id)
+        ple_api.current_session_account_is_course_instructor(course_id)
+        OR ple_api.current_session_account_is_course_student(course_id, student_id)
+        OR ple_api.current_session_account_has_student_observer_grant(course_id, student_id)
+        OR ple_api.current_session_account_has_course_observer_grant(course_id)
     );
 RESET ROLE;
 
@@ -148,19 +148,19 @@ CREATE POLICY workspace_qti_job_enqueue_access ON ple_private.worker_job
     FOR INSERT TO ple_app
     WITH CHECK (
         target_kind = 'qti_import'
-        AND ple_api.current_actor_can_access_workspace(workspace_id)
+        AND ple_api.current_session_account_can_access_workspace(workspace_id)
     );
 CREATE POLICY workspace_qti_job_view_access ON ple_private.worker_job
     FOR SELECT TO ple_app
     USING (
         target_kind = 'qti_import'
-        AND ple_api.current_actor_can_access_workspace(workspace_id)
+        AND ple_api.current_session_account_can_access_workspace(workspace_id)
     );
 CREATE POLICY workspace_qti_job_delete_access ON ple_private.worker_job
     FOR DELETE TO ple_app
     USING (
         target_kind = 'qti_import'
-        AND ple_api.current_actor_owns_workspace(workspace_id)
+        AND ple_api.current_session_account_owns_workspace(workspace_id)
     );
 CREATE POLICY workspace_qti_import_worker_commit_access ON ple_private.workspace_qti_import
     FOR UPDATE TO ple_worker

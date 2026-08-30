@@ -2,10 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use learning_data_access::{
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, PublishedSourceArtifact,
-};
-use objects::{ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError, PutObject};
+use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::generation::Seed;
 use question_model::{
@@ -16,8 +13,7 @@ use sha2::{Digest, Sha256};
 
 use crate::broker_provider;
 use crate::cache::{
-    CachedRender, decode_cache, implementation, parameter_hash, render_key, valid_item_ref,
-    valid_opaque_key, validate_cache,
+    CachedRender, decode_cache, implementation, parameter_hash, render_key, validate_cache,
 };
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, DraftLocator, GRADING_ID, GRADING_VERSION, GradeBinding,
@@ -48,143 +44,6 @@ impl std::fmt::Debug for ImathasSource {
 }
 
 impl ImathasSource {
-    /// Resolves immutable iMathAS source bytes from attempt-owned issuance
-    /// evidence.  Unlike [`Self::resolve`], this never consults the mutable
-    /// publication relation: the snapshot names the exact object and profile
-    /// selected when the attempt was issued.
-    pub async fn resolve_issued<S: ObjectStore>(
-        store: &S,
-        issued_snapshot: &IssuedQuestionSnapshotV1,
-    ) -> Result<Self, ImathasAdapterError> {
-        let question = issued_snapshot.question();
-        let (
-            QuestionSource::Imathas {
-                provider,
-                item_ref,
-                snapshot,
-                snapshot_sha256,
-                integration_profile,
-            },
-            IssuedQuestionFamilyWitnessV1::External {
-                source_artifact,
-                integration_profile_identity,
-            },
-        ) = (&question.source, issued_snapshot.family_witness())
-        else {
-            return Err(ImathasAdapterError::UnsupportedSource);
-        };
-        if !valid_opaque_key(provider)
-            || !valid_item_ref(item_ref)
-            || !valid_opaque_key(integration_profile)
-            || source_artifact.object != *snapshot
-            || source_artifact.sha256 != *snapshot_sha256
-            || integration_profile_identity != integration_profile
-        {
-            return Err(ImathasAdapterError::UntrustedSource);
-        }
-        let key = ObjectKey::ProblemSource {
-            problem: question.problem,
-            version: question.version,
-            object: *snapshot,
-        };
-        let stored = store
-            .get(&key)
-            .await
-            .map_err(ImathasAdapterError::ObjectStore)?;
-        if stored.record.id != *snapshot
-            || stored.record.key != key
-            || stored.record.category != ObjectCategory::Source
-            || stored.record.version != Some(question.version)
-            || stored.record.sha256.to_string() != *snapshot_sha256
-            || hex(Sha256::digest(&stored.bytes).as_slice()) != *snapshot_sha256
-        {
-            return Err(ImathasAdapterError::UntrustedSource);
-        }
-        Ok(Self {
-            problem: question.problem,
-            version: question.version,
-            artifact: source_artifact.clone(),
-            provider: provider.clone(),
-            item_ref: item_ref.clone(),
-            profile: integration_profile.clone(),
-            bytes: stored.bytes,
-        })
-    }
-
-    /// Resolves a published iMathAS source only from its exact object key.
-    pub async fn resolve<S: ObjectStore>(
-        store: &S,
-        question: &QuestionDefinition,
-        published_artifact: &PublishedSourceArtifact,
-    ) -> Result<Self, ImathasAdapterError> {
-        let QuestionSource::Imathas {
-            provider,
-            item_ref,
-            snapshot,
-            snapshot_sha256,
-            integration_profile,
-        } = &question.source
-        else {
-            return Err(ImathasAdapterError::UnsupportedSource);
-        };
-        if !valid_opaque_key(provider)
-            || !valid_item_ref(item_ref)
-            || !valid_opaque_key(integration_profile)
-        {
-            return Err(ImathasAdapterError::UnsupportedProfile);
-        }
-        if published_artifact.reference.problem != question.problem
-            || published_artifact.reference.version != question.version
-            || published_artifact.backend != question_model::QuestionBackend::Imathas
-            || published_artifact.object.id != *snapshot
-            || published_artifact.object.key
-                != (ObjectKey::ProblemSource {
-                    problem: question.problem,
-                    version: question.version,
-                    object: *snapshot,
-                })
-            || published_artifact.object.category != ObjectCategory::Source
-            || published_artifact.object.version != Some(question.version)
-            || published_artifact.object.sha256.to_string() != *snapshot_sha256
-        {
-            return Err(ImathasAdapterError::UntrustedSource);
-        }
-        let artifact = SourceArtifact {
-            object: *snapshot,
-            sha256: snapshot_sha256.clone(),
-        };
-        let key = ObjectKey::ProblemSource {
-            problem: question.problem,
-            version: question.version,
-            object: *snapshot,
-        };
-        let stored = store
-            .get(&key)
-            .await
-            .map_err(ImathasAdapterError::ObjectStore)?;
-        if stored.record != published_artifact.object
-            || stored.record.id != *snapshot
-            || stored.record.key != key
-            || stored.record.category != ObjectCategory::Source
-            || stored.record.version != Some(question.version)
-            || stored.record.sha256.to_string() != *snapshot_sha256
-        {
-            return Err(ImathasAdapterError::UntrustedSource);
-        }
-        if hex(Sha256::digest(&stored.bytes).as_slice()) != *snapshot_sha256 {
-            return Err(ImathasAdapterError::SourceChecksumMismatch);
-        }
-        Ok(Self {
-            problem: question.problem,
-            version: question.version,
-            artifact,
-            provider: provider.clone(),
-            item_ref: item_ref.clone(),
-            profile: integration_profile.clone(),
-            bytes: stored.bytes,
-        })
-    }
-
     pub fn artifact(&self) -> &SourceArtifact {
         &self.artifact
     }

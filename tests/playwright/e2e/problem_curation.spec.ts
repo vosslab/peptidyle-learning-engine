@@ -10,7 +10,6 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -139,27 +138,9 @@ function observeCurationWire(
   });
 }
 
-async function signInWithPasskey(
-  page: Page,
-  name: RegExp,
-  course: string,
-  label: string,
-): Promise<{
-  readonly authenticator: Awaited<ReturnType<typeof installVirtualAuthenticator>>;
-}> {
-  const authenticator = await installVirtualAuthenticator(page);
+async function enterSeededCourse(page: Page, name: RegExp, course: string): Promise<void> {
   await chooseSeededIdentity(page, name);
   await selectVisibleCourse(page, course);
-  await page.getByRole("link", { name: "Account", exact: true }).click();
-  const account = page.locator('[data-route-surface="accountSecurity"]');
-  await expect(account).toBeVisible();
-  await account.getByLabel("Passkey name").fill(label);
-  await account.getByRole("button", { name: "Add passkey", exact: true }).click();
-  await expect(account.getByRole("status")).toHaveText("Passkey added.");
-  await signOutVisible(page);
-  await page.getByRole("button", { name: "Sign in with a passkey", exact: true }).click();
-  await selectVisibleCourse(page, course);
-  return { authenticator };
 }
 
 async function openLibrary(page: Page, personalCuration = true): Promise<Locator> {
@@ -291,8 +272,6 @@ test.describe("problem curation on the production PLE stack", () => {
     const curationWire: CurationWireValue[] = [];
     const pendingCurationResponses: Promise<void>[] = [];
     const options = { ignoreHTTPSErrors: true, viewport: CORPUS_VIEWPORT_SIZES.laptop };
-    let elenaAuthenticator: Awaited<ReturnType<typeof installVirtualAuthenticator>> | undefined;
-    let morganAuthenticator: Awaited<ReturnType<typeof installVirtualAuthenticator>> | undefined;
     let originEvidenceVerified = false;
     try {
       const elenaContext = await browser.newContext(options);
@@ -329,14 +308,8 @@ test.describe("problem curation on the production PLE stack", () => {
       const courseTitle = "Biochemistry: Question Reuse Workshop";
       const assignmentTitle = "Peptide Bond Reuse Practice";
 
-      await test.step("Elena enters through the live Instructor and passkey path, then curates the current Library", async () => {
-        const passkey = await signInWithPasskey(
-          elena,
-          /Elena Rivera/u,
-          BIOCHEMISTRY_COURSE_TITLE,
-          "Elena curation passkey",
-        );
-        elenaAuthenticator = passkey.authenticator;
+      await test.step("Elena enters the seeded Instructor session, then curates the current Library", async () => {
+        await enterSeededCourse(elena, /Elena Rivera/u, BIOCHEMISTRY_COURSE_TITLE);
         await expect(
           elena.getByRole("link", { name: "Teaching operations", exact: true }),
         ).toBeVisible();
@@ -529,14 +502,8 @@ test.describe("problem curation on the production PLE stack", () => {
         ).toBeVisible();
       });
 
-      await test.step("Morgan uses the ordinary Sysadmin passkey path to browse and reuse an institution collection", async () => {
-        const passkey = await signInWithPasskey(
-          morgan,
-          /Morgan Reyes/u,
-          sysadminCourseTitle,
-          "Morgan curation passkey",
-        );
-        morganAuthenticator = passkey.authenticator;
+      await test.step("Morgan uses the seeded Sysadmin session to browse and reuse an institution collection", async () => {
+        await enterSeededCourse(morgan, /Morgan Reyes/u, sysadminCourseTitle);
         const panel = await openLibrary(morgan, false);
         const institutionItem = collectionItem(panel, remoteInstitutionTitle);
         await expect(institutionItem).toContainText("Institution collection");
@@ -567,14 +534,8 @@ test.describe("problem curation on the production PLE stack", () => {
       }
       originEvidenceVerified = true;
     } finally {
-      try {
-        if (elenaAuthenticator !== undefined) await removeVirtualAuthenticator(elenaAuthenticator);
-        if (morganAuthenticator !== undefined)
-          await removeVirtualAuthenticator(morganAuthenticator);
-      } finally {
-        await Promise.all(contexts.map(async (context) => await context.close()));
-        if (originEvidenceVerified) writeContextOriginReceipt(origins);
-      }
+      await Promise.all(contexts.map(async (context) => await context.close()));
+      if (originEvidenceVerified) writeContextOriginReceipt(origins);
     }
   });
 });

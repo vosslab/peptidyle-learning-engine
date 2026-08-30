@@ -1,9 +1,9 @@
 # Live Demo Specification
 
-The demo is the real PLE system: one installation with global accounts and server-issued account sessions. The
-baseline is seeded data. Any visitor may directly select one of five seeded-account personas representing Student,
-Instructor, or Sysadmin. The selection replaces only identity verification; the server resolves the global `UserId`,
-issues the ordinary account session, and derives `ActorContext { user_id, session_id }`. Visible course selection is
+The demo is the real PLE system: one installation with global Accounts and server-issued Authenticated Sessions. The
+baseline is seeded data. Any visitor may directly select one of five seeded Account personas representing Student,
+Instructor, or Sysadmin. The selection replaces only identity verification; the server resolves the configured
+global Account and issues the ordinary Authenticated Session. Visible course selection is
 limited by exact current course membership, Student records by Student ownership, and the shared tagged
 published-question catalog by approved-Instructor authority. All resulting data is ordinary live data. The data is
 disposable because the entire installation can be regenerated, not because accounts, records, or roles behave
@@ -177,9 +177,9 @@ not contain the answer, feedback internals, grading source, or score values.
 Instructors invite already-approved colleagues into their own teaching course. Sysadmins own global
 Instructor approval; an invitation grants only the accepted course membership.
 
-Live acceptance uses the seeded Elena Instructor. After direct role entry, Elena visibly enrolls a passkey, signs
-out, and signs back in through the ordinary passkey path. Her Instructor authorization remains available throughout
-that acceptance flow.
+The current live-demo acceptance uses the seeded Elena Instructor through direct role entry. Passkey
+enrollment and reauthentication remain required follow-on acceptance once their fresh adapters are
+mounted; they are not claimed by the current executable demo flow.
 
 ### Blueprint Course workflow
 
@@ -217,12 +217,12 @@ in any other PLE installation. PLE continues to have only the normal Student, In
 roles. See [USER_ROLES.md](USER_ROLES.md) for the role authority.
 
 Any visitor may select the seeded Sysadmin directly. Direct entry preserves the full ordinary Sysadmin capability
-set and the normal account security surfaces, including passkey enrollment and passkey sign-in. Regenerating the
-demo restores the seeded baseline and its ordinary live state.
+set. Passkey enrollment and sign-in are required follow-on account-security surfaces, not current
+live-demo behavior. Regenerating the demo restores the seeded baseline and its ordinary live state.
 
-Live acceptance uses the seeded Morgan Sysadmin. After direct role entry, Morgan visibly enrolls a passkey, signs
-out, and signs back in through the ordinary passkey path while retaining ordinary Sysadmin authorization and the
-full capability set.
+The current live-demo acceptance uses the seeded Morgan Sysadmin through direct role entry. Passkey
+enrollment and reauthentication remain required follow-on acceptance once their fresh adapters are
+mounted; they are not claimed by the current executable demo flow.
 
 ### Forced question correction workflow
 
@@ -248,9 +248,9 @@ Every seeded demo persona can be entered directly through the public selector. T
 global account identities; they are not PLE roles, course memberships, or authorization claims.
 
 Selecting a seeded persona replaces only the normal identity-verification ceremony. The selector supplies only a
-known closed persona key. The server resolves the configured global account, creates the ordinary account session,
-derives `ActorContext { user_id, session_id }`, and applies exact course-membership, Student-ownership,
-approved-Instructor, and other authorization predicates from live PLE state. The selector does not supply or grant a
+known closed persona key. The server resolves the configured global Account, creates the ordinary Authenticated Session,
+and applies exact Course Membership, Student Record, Approved Instructor, and other authorization predicates from live
+PLE state. The selector does not supply or grant a
 browser-controlled role, course, membership, or account claim.
 
 The browser selects only a known demo persona. Account identity, Instructor approval, exact course membership,
@@ -269,7 +269,7 @@ Conceptually:
     Server resolves seeded PLE account
                 |
                 v
-       Ordinary account session
+       Ordinary Authenticated Session
                 |
                 v
     Ordinary course/role authorization
@@ -283,11 +283,10 @@ catalog, or browser authority.
 
 ## Passkey enrollment and sign-in
 
-Direct persona entry leaves the normal account-security workflow available. Vetted Instructors use ordinary
-passkey/email-code login. Live acceptance explicitly covers Elena (Instructor) and Morgan (Sysadmin): after selecting
-each seeded persona, the visitor visibly enrolls a passkey, signs out, and signs back in through the ordinary passkey
-path. Elena retains Instructor authorization and Morgan retains ordinary Sysadmin authorization and the full
-capability set throughout the flow.
+Direct persona entry establishes the ordinary Authenticated Session. Vetted Instructors use ordinary
+passkey/email-code login once the fresh adapters are mounted. Passkey enrollment and reauthentication
+for Elena (Instructor) and Morgan (Sysadmin) are required follow-on acceptance, rather than claimed
+current demo behavior.
 
 Direct persona entry has no first-claim, password, or setup-code step. It replaces only identity verification; account
 ownership, session issuance, exact course membership, Student ownership, and authorization continue to use normal PLE
@@ -301,13 +300,7 @@ Conceptually:
     Select seeded Morgan Sysadmin role
             |
             v
-    Ordinary Sysadmin account session
-            |
-            v
-    Passkey enrollment
-            |
-            v
-    Sign out and passkey sign-in
+    Ordinary Sysadmin Authenticated Session
             |
             v
     Ordinary Sysadmin session
@@ -339,7 +332,8 @@ The distinction between a live demo and another PLE installation is primarily:
 1. The installation begins with a known seeded baseline.
 2. Public seeded-role entry provides a convenient entry into normal account, session, course, and role handling for
    Student, Instructor, and Sysadmin.
-3. Direct entry keeps ordinary passkey enrollment and sign-in demonstrable, including for Sysadmin.
+3. Email-code and passkey adapters are reconstructed separately on the same
+   Authenticated Session contract before ordinary production sign-in is enabled.
 4. The database, storage, and disposable process-isolation credentials may be discarded and regenerated from the
    seeded baseline.
 

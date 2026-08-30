@@ -79,7 +79,7 @@ import type {
   StudentAssignmentDetail,
   StudentQuestionAttempt,
   StudentSubmissionStatus,
-  AuthSession,
+  AuthenticatedSession,
   CourseCreateInput,
   CourseSummary,
   CursorPage,
@@ -382,7 +382,7 @@ export interface ApiClient
   readonly createCourseGradeExport: (
     courseId: CourseId,
   ) => Promise<{ readonly exportId: string; readonly filename: string; readonly csv: Blob }>;
-  readonly getSession: () => Promise<AuthSession>;
+  readonly getSession: () => Promise<AuthenticatedSession>;
   /** Resolves a compact visible reference inside the current authorization boundary. */
   readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
   /** Revokes the account credential for this browser. */

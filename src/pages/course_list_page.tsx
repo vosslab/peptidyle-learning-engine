@@ -248,7 +248,7 @@ export function CourseListPage(): JSX.Element {
     const state = session.state();
     return (
       state.kind === "authenticated" &&
-      state.session.user.roles.some((role) => role === "instructor" || role === "sysadmin")
+      (state.session.account.role === "instructor" || state.session.account.role === "sysadmin")
     );
   });
 

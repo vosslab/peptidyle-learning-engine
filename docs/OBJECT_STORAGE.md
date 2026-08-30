@@ -98,7 +98,7 @@ through the exact assignment entitlement and does not receive catalog
 authority.
 
 `POST /api/assets/{id}/delivery` is the separate protected path. It requires a
-same-origin authenticated session, reauthorizes the exact actor, course,
+same-origin authenticated session, reauthorizes the exact Account, course,
 Student, workspace, and object relationship required by the selected typed
 scope, records a minimized access event, and returns a short-lived URL in
 JSON. It refuses published presentation assets so there is no second,

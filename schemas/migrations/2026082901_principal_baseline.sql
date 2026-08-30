@@ -444,11 +444,11 @@ COMMENT ON ROLE ple_audit_owner IS
 COMMENT ON ROLE ple_api_owner IS
     'Owns safe API projections and ordinary invoker objects.';
 COMMENT ON ROLE ple_app IS
-    'Invokes ordinary actor-aware API and Store operations.';
+    'Invokes ordinary session-authorized API operations.';
 COMMENT ON ROLE ple_auth IS
     'Invokes authentication and session-resolution operations.';
 COMMENT ON ROLE ple_student IS
-    'Invokes Student-safe actor-aware projections.';
+    'Invokes Student-safe session-authorized projections.';
 COMMENT ON ROLE ple_grader IS
     'Invokes deterministic automated-grading execution and commit operations.';
 COMMENT ON ROLE ple_grading_reader IS

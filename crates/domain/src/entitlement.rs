@@ -1,8 +1,8 @@
 //! Pure entitlement evaluation over normalized facts.
 
 use question_model::{
-    AssignmentAudience, AssignmentId, CourseGroupId, CourseGroupPurpose, CourseId,
-    CourseMembershipId, GroupPurposeCapabilities, MaterializationBasis, StudentId, UserId,
+    AccountId, AssignmentAudience, AssignmentId, CourseGroupId, CourseGroupPurpose, CourseId,
+    CourseMembershipId, GroupPurposeCapabilities, MaterializationBasis, StudentId,
 };
 
 /// Evaluator-approved policy scopes. Only this module can create one from
@@ -46,7 +46,7 @@ pub enum EntitlementDenial {
 pub struct EntitlementGrant {
     course: CourseId,
     assignment: AssignmentId,
-    student_user: UserId,
+    student_account: AccountId,
     student: StudentId,
     membership: CourseMembershipId,
     basis: MaterializationBasis,
@@ -60,8 +60,8 @@ impl EntitlementGrant {
     pub fn assignment(&self) -> AssignmentId {
         self.assignment
     }
-    pub fn student_user(&self) -> UserId {
-        self.student_user
+    pub fn student_account(&self) -> AccountId {
+        self.student_account
     }
     pub fn student(&self) -> StudentId {
         self.student
@@ -148,7 +148,7 @@ pub enum SyntheticPreviewEntitlementDecision {
 pub struct EntitlementFacts {
     pub course: CourseId,
     pub assignment: AssignmentId,
-    pub student_user: UserId,
+    pub student_account: AccountId,
     pub membership: Option<ActiveStudentMembership>,
     pub audience: AssignmentAudience,
     pub current_groups: Vec<(CourseGroupId, CourseGroupPurpose)>,
@@ -172,7 +172,7 @@ pub fn evaluate_assignment_entitlement(facts: EntitlementFacts) -> EntitlementDe
         Some(basis) => EntitlementDecision::Granted(EntitlementGrant {
             course: facts.course,
             assignment: facts.assignment,
-            student_user: facts.student_user,
+            student_account: facts.student_account,
             student: membership.student,
             membership: membership.id,
             basis,
@@ -240,7 +240,7 @@ mod tests {
         let decision = evaluate_assignment_entitlement(EntitlementFacts {
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
-            student_user: UserId::from_uuid(id(4)),
+            student_account: AccountId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student: StudentId::from_uuid(id(6)),
@@ -261,7 +261,7 @@ mod tests {
         let decision = evaluate_assignment_entitlement(EntitlementFacts {
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
-            student_user: UserId::from_uuid(id(4)),
+            student_account: AccountId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student: StudentId::from_uuid(id(6)),

@@ -22,7 +22,7 @@ CREATE TABLE ple_private.external_tool_launch_session (
     course_id uuid NOT NULL,
     assignment_id uuid NOT NULL,
     attempt_id uuid NOT NULL REFERENCES ple_private.question_attempt (attempt_id),
-    actor_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     provider_key text NOT NULL CHECK (provider_key ~ '^[A-Za-z0-9._-]{1,160}$'),
     problem_id uuid NOT NULL,
     version_id uuid NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE ple_private.external_tool_exchange (
     attempt_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt (attempt_id),
     course_id uuid NOT NULL,
     assignment_id uuid NOT NULL,
-    actor_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     provider_key text NOT NULL CHECK (provider_key ~ '^[A-Za-z0-9._-]{1,160}$'),
     problem_id uuid NOT NULL,
     version_id uuid NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE ple_private.external_tool_passback_state (
     CONSTRAINT external_tool_passback_delivery_is_ordered CHECK (delivered_at IS NULL OR delivered_at >= created_at)
 );
 CREATE INDEX external_tool_launch_active_idx
-    ON ple_private.external_tool_launch_session (attempt_id, actor_user_id, expires_at)
+    ON ple_private.external_tool_launch_session (attempt_id, account_id, expires_at)
     WHERE revoked_at IS NULL;
 CREATE INDEX external_tool_exchange_active_lease_idx
     ON ple_private.external_tool_exchange (lease_expires_at) WHERE state = 'verifying';

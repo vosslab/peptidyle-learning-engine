@@ -322,8 +322,7 @@ export function CourseAssignmentsPage(): JSX.Element {
   const canManageCourse = (): boolean => {
     const current = session.state();
     const hasInstructorRole =
-      current.kind === "authenticated" &&
-      current.session.user.roles.some((role) => role === "instructor");
+      current.kind === "authenticated" && current.session.account.role === "instructor";
     if (!hasInstructorRole || courseScope?.kind !== "course") return false;
     const role = courseRouteData(courseScope).summary.role;
     return role === "instructor";

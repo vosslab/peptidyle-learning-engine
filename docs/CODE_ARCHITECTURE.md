@@ -54,7 +54,7 @@ The browser and Wasm facade format values, validate non-secret response shape,
 and display server decisions. They never receive answer keys, grading payloads,
 private source, or authority to create a course record. The API authenticates
 and preflights the active session before decoding protected path, query, or body
-values. PostgreSQL rechecks actor, workspace, course, Student, and worker lease
+values. PostgreSQL rechecks Account, workspace, course, Student, and worker lease
 scope under forced row-level security.
 
 ## Course boundaries

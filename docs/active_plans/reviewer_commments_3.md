@@ -1,7 +1,7 @@
 > **Historical review input, not current instructions.** Current authority is
 > [implementation_plan.md](implementation_plan.md),
 > [release_completion_plan.md](active/release_completion_plan.md), and
-> [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). [m0-results.md](m0-results.md) is concluded evidence.
+> [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). The M0 result is concluded evidence.
 
 human: evaluate plan for 10 million problems, 1,000 instructors, and 50,000 students; it is flexible for that load? even if we start with 500 problems, 2 instructors and 100 students.
 

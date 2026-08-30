@@ -65,7 +65,7 @@ separate capability owners.
 ## Historical successor
 
 The immediate successor was the Q3 pure native flat bridge in
-[qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It translated only trusted
+[implementation_status.md](../implementation_status.md). It translated only trusted
 mapped items through native-owned flat-question validation and proved canonical public/private
 equivalence with hand-authored source, without Store or HTTP mutation.
 

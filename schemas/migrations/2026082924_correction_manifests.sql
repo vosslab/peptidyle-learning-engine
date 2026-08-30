@@ -10,15 +10,15 @@ CREATE TABLE ple_data.forced_question_correction (
     correction_id uuid PRIMARY KEY,
     flawed_problem_id uuid NOT NULL REFERENCES ple_data.published_question_version (problem_id),
     replacement_problem_id uuid NOT NULL REFERENCES ple_data.published_question_version (problem_id),
-    approved_by uuid NOT NULL,
+    approved_by_account_id uuid NOT NULL,
     approver_role text NOT NULL DEFAULT 'sysadmin' CHECK (approver_role = 'sysadmin'),
     approved_at timestamp with time zone NOT NULL,
     generation integer NOT NULL CHECK (generation > 0),
     reason text NOT NULL CHECK (reason IN ('security_flaw', 'critical_correctness_flaw')),
     remediation jsonb NOT NULL CHECK (jsonb_typeof(remediation) = 'object'),
     CONSTRAINT forced_question_correction_versions_differ CHECK (flawed_problem_id <> replacement_problem_id),
-    CONSTRAINT forced_question_correction_approver_role_matches FOREIGN KEY (approved_by, approver_role)
-        REFERENCES ple_private.account (user_id, role),
+    CONSTRAINT forced_question_correction_approver_role_matches FOREIGN KEY (approved_by_account_id, approver_role)
+        REFERENCES ple_private.account (account_id, role),
     CONSTRAINT forced_question_correction_flawed_generation_is_unique UNIQUE (flawed_problem_id, generation)
 );
 CREATE FUNCTION ple_data.reject_forced_question_correction_change()

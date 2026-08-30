@@ -24,7 +24,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.webauthn_ceremony (
     ceremony_id uuid PRIMARY KEY,
     kind text NOT NULL,
-    target_user_id uuid,
+    target_account_id uuid,
     browser_binding_hash bytea NOT NULL,
     state bytea NOT NULL,
     created_at timestamp with time zone NOT NULL,
@@ -32,11 +32,11 @@ CREATE TABLE ple_private.webauthn_ceremony (
     consumed_at timestamp with time zone,
     CONSTRAINT webauthn_ceremony_kind_is_closed CHECK (kind IN ('registration', 'authentication')),
     CONSTRAINT webauthn_ceremony_target_is_valid CHECK (
-        (kind = 'registration' AND target_user_id IS NOT NULL)
+        (kind = 'registration' AND target_account_id IS NOT NULL)
         OR kind = 'authentication'
     ),
-    CONSTRAINT webauthn_ceremony_target_exists FOREIGN KEY (target_user_id)
-        REFERENCES ple_private.account (user_id),
+    CONSTRAINT webauthn_ceremony_target_exists FOREIGN KEY (target_account_id)
+        REFERENCES ple_private.account (account_id),
     CONSTRAINT webauthn_ceremony_binding_is_sha256 CHECK (pg_catalog.octet_length(browser_binding_hash) = 32),
     CONSTRAINT webauthn_ceremony_state_is_present CHECK (pg_catalog.octet_length(state) > 0),
     CONSTRAINT webauthn_ceremony_lifetime_is_bounded CHECK (
@@ -47,7 +47,7 @@ CREATE TABLE ple_private.webauthn_ceremony (
 
 CREATE TABLE ple_private.passkey (
     passkey_id uuid PRIMARY KEY,
-    user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     credential_id_hash bytea NOT NULL UNIQUE,
     label text NOT NULL,
     credential_state bytea NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE ple_private.passkey (
     CONSTRAINT passkey_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= created_at)
 );
 
-CREATE INDEX passkey_active_user_idx ON ple_private.passkey (user_id, created_at) WHERE revoked_at IS NULL;
+CREATE INDEX passkey_active_account_idx ON ple_private.passkey (account_id, created_at) WHERE revoked_at IS NULL;
 ALTER TABLE ple_private.webauthn_ceremony ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.webauthn_ceremony FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.passkey ENABLE ROW LEVEL SECURITY;

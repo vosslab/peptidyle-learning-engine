@@ -28,16 +28,9 @@ fn production_session_config_uses_first_party_https() {
 }
 
 #[tokio::test]
-async fn production_composition_has_passwordless_routes_without_provider_login() {
+async fn production_composition_exposes_only_current_session_routes() {
     let app = composed_memory_router();
-    for (method, uri) in [
-        ("POST", "/api/auth/passwordless/email/start"),
-        ("POST", "/api/course-invitations/redeem"),
-        ("POST", "/api/auth/account/course-session"),
-        ("POST", "/api/auth/passkeys/authentication/start"),
-        ("GET", "/api/auth/session"),
-        ("POST", "/api/auth/logout"),
-    ] {
+    for (method, uri) in [("GET", "/api/auth/session"), ("POST", "/api/auth/logout")] {
         let response = app
             .clone()
             .oneshot(
@@ -51,17 +44,25 @@ async fn production_composition_has_passwordless_routes_without_provider_login()
             .expect("production-style route response");
         assert_ne!(response.status(), StatusCode::NOT_FOUND, "{uri}");
     }
-    let provider_login = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/login")
-                .body(Body::from("{}"))
-                .expect("provider login request"),
-        )
-        .await
-        .expect("provider login response");
-    assert_eq!(provider_login.status(), StatusCode::NOT_FOUND);
+    for uri in [
+        "/api/auth/passwordless/email/start",
+        "/api/auth/account/email/start",
+        "/api/auth/passkeys/authentication/start",
+        "/api/auth/login",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(uri)
+                    .body(Body::from("{}"))
+                    .expect("retired authentication route request"),
+            )
+            .await
+            .expect("retired authentication route response");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+    }
 }
 
 #[tokio::test]
@@ -89,21 +90,13 @@ async fn injected_production_router_enforces_browser_cookie_contract_without_pro
         .iter()
         .map(|value| value.to_str().expect("ASCII Set-Cookie value"))
         .collect::<Vec<_>>();
-    for name in [
-        "__Host-ple_session=",
-        "__Host-ple_account_session=",
-        "__Host-ple_email_binding=",
-        "__Host-ple_webauthn_binding=",
-    ] {
-        let cookie = cookies
-            .iter()
-            .find(|value| value.starts_with(name))
-            .unwrap_or_else(|| panic!("missing {name} deletion cookie"));
-        assert!(cookie.contains("Path=/"), "{cookie}");
-        assert!(cookie.contains("HttpOnly"), "{cookie}");
-        assert!(cookie.contains("Secure"), "{cookie}");
-        assert!(cookie.contains("SameSite=Lax"), "{cookie}");
-    }
+    assert_eq!(cookies.len(), 1);
+    let cookie = cookies[0];
+    assert!(cookie.starts_with("__Host-ple_session="), "{cookie}");
+    assert!(cookie.contains("Path=/"), "{cookie}");
+    assert!(cookie.contains("HttpOnly"), "{cookie}");
+    assert!(cookie.contains("Secure"), "{cookie}");
+    assert!(cookie.contains("SameSite=Lax"), "{cookie}");
 
     for (host, origin, expected_status) in [
         (

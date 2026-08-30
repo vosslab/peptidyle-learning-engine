@@ -25,13 +25,13 @@ impl crate::StatisticsStore for MemoryStore {
     }
     async fn list_gradebook_rows_impl(
         &self,
-        actor: ActorContext,
+        instructor_account: question_model::AccountId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<question_model::GradebookSummaryRow>, StoreError> {
         let state = self.read_state()?;
         require_course_records_accessible(&state, course)?;
-        match super::entitlement::current_course_role(&state, course, actor.user_id()) {
+        match super::entitlement::current_course_role(&state, course, instructor_account) {
             Some(question_model::CourseMembershipRole::Instructor) => {}
             Some(question_model::CourseMembershipRole::Student) => {
                 return Err(StoreError::Forbidden);

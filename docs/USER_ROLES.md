@@ -32,10 +32,10 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 ### Sysadmin
 
-- A Sysadmin account is manually provisioned as a platform operator account.
+- A Sysadmin account is manually created as a platform operator account.
 - A Sysadmin operates the platform, bootstraps CourseInstances through the closed pre-course
-  provisioning authority, and completes support work through an exact-course capability.
-- The pending SD1 provisioning command binds the exact Blueprint source, approved assigned
+  Course Creation authority, and completes support work through an exact-course capability.
+- The pending SD1 Course Creation command binds the exact Blueprint source, approved assigned
   Instructor account, and server-reserved CourseInstance identity. One transaction creates the
   CourseInstance, that Instructor's initial direct membership, and an append-only audit event;
   the Sysadmin account receives no course membership.
@@ -44,7 +44,7 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
   not ambient course-record authority.
 
 Dr. Voss may use separate Instructor and Sysadmin accounts. Instructors are
-approved only after real-person validation. Manual account provisioning assigns
+approved only after real-person validation. Manual Account Creation assigns
 each role.
 
 ## Binding SD1 course membership
@@ -82,15 +82,15 @@ Support uses the closed `SysadminSupportCapability` registry in
 becoming ambient access to grades, responses, attempts, or other Student data.
 
 PLE uses one installation. Pending SD1 initial course bootstrap uses the closed
-Sysadmin platform provisioning authority; after it creates the direct course
+Sysadmin platform Course Creation authority; after it creates the direct course
 relationship, ordinary account flows derive authority from the authenticated
 account and current course membership.
 
-The pending SD1 passwordless target, owned by migrations `2026082902` and
-`2026082905`, issues one immutable account and session role. It confirms that
+The pending SD1 passwordless target, owned by migrations `2026082902` through
+`2026082905` and `2026082933`, issues one immutable account and session role. It confirms that
 every selected Student or Instructor membership matches that role, and a
 Sysadmin account cannot select a course membership. The operator assigns the
-role at provisioning; the application does not change it.
+role at Account Creation; the application does not change it.
 
 ## FERPA and student data
 
@@ -124,19 +124,19 @@ how the label follows query results, backups, replicas, and restores.
 The public-asset publisher, API, worker, grader, renderer, database roles, and
 cloud task roles are service identities. The word `publisher` may describe the
 dedicated publication service or the act of publishing, but it is never a
-human `UserRole`. An Instructor publishes reviewed content through the
+human `AccountRole`. An Instructor publishes reviewed content through the
 application; the dedicated publisher service materializes immutable public
 asset bytes after the committed outbox decision.
 
 ## Authorization rules
 
-- Authenticate the PLE account first; derive the actor only on the server.
+- Authenticate the PLE Account first; resolve exact authorization on the server.
 - Check direct course membership at the Store/database boundary for every
   FERPA-bearing operation unless its contract defines a narrower audited
   Sysadmin support or lifecycle capability.
 - Issue a Sysadmin support capability only through the closed registry, bound
   to one exact course, a stated purpose, an issuer, an operation family, an
-  expiry, and a minimum projection. Record issuance, use, revocation, actor,
+  expiry, and a minimum projection. Record issuance, use, revocation, authenticated account,
   course, action, and time; keep roster PII and invitation secrets out of audit
   payloads.
 - Route roster, schedule/accommodation, assignment-content, deterministic
@@ -152,7 +152,7 @@ asset bytes after the committed outbox decision.
 - Serialize Instructor membership revocation with response disclosure,
   roster mutation, grading, exports, and other protected operations.
 - Accept browser requests through server-issued references and derive role,
-  actor, membership, and approval from server-owned records.
+  Account, membership, and approval from server-owned records.
 
 ## Canonical terms
 
@@ -176,17 +176,15 @@ Current titles, prose, code, APIs, and schemas use **Instructor** directly.
 ## Enforcement owners
 
 - [question-model auth](../crates/question_model/src/auth.rs) owns the closed
-  human `UserRole` enum.
+  human `AccountRole` enum.
 - [question-model course](../crates/question_model/src/course.rs) owns the one
   closed `CourseMembershipRole` relationship enum; it does not define more
   human roles.
 - [learning-data-access](../crates/learning-data-access/) owns direct
-  membership, revocation serialization, actor-scoped RLS, and Store
+  membership, revocation serialization, account-and-relationship-scoped RLS, and Store
   capabilities.
-- [the retained pre-SD1 role and FERPA authorization migration](../schemas/migrations/2026080928_user_roles.sql)
-  owns the plural-role PostgreSQL input, operator-only Sysadmin approval, and
-  the rule that Sysadmin is not general FERPA course authority and that its
-  roster-help exception is closed and audited.
-- Pending SD1 migration `2026082902` owns fixed singular immutable account and
-  primary-session role storage. Pending SD1 migration `2026082905` owns
-  Instructor vetting, current approval predicates, and role predicates.
+- The removed pre-SD1 role schema is historical evidence only. The fresh
+  [global Account and session migration](../schemas/migrations/2026082902_global_account_authenticated_session.sql)
+  owns fixed singular immutable Account and Authenticated Session role storage.
+  The [Instructor approval migration](../schemas/migrations/2026082905_instructor_approval.sql)
+  owns vetting, current approval predicates, and role agreement.

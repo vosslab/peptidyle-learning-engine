@@ -8,6 +8,9 @@ active implementation order, architecture, and acceptance gates remain in
 
 - Read the relevant contract in [CONTRACTS.md](CONTRACTS.md) before changing a frozen module
   boundary.
+- For database, identity, authorization, or generated-contract work, read
+  [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) with the
+  [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#glossary) glossary before selecting a model.
 - Make the smallest change in the module that owns the behavior. The component map in
   [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and path map in
   [FILE_STRUCTURE.md](FILE_STRUCTURE.md) identify those owners.

@@ -222,7 +222,7 @@ mod tests {
     use question_model::{
         AssignmentAudience, AssignmentDeadlineBehavior, AssignmentId, CourseGroupId,
         CourseGroupPurpose, CourseId, CourseMembershipId, CourseTerm, LateSubmissionPolicy,
-        StudentDisclosureTiming, StudentId, UserId,
+        AccountId, StudentDisclosureTiming, StudentId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -235,7 +235,7 @@ mod tests {
         let facts = EntitlementFacts {
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
-            student_user: UserId::from_uuid(id(4)),
+            student_account: AccountId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student: StudentId::from_uuid(id(6)),

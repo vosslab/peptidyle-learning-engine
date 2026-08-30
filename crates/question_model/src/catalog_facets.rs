@@ -84,18 +84,18 @@ impl From<&ResponseDefinition> for CatalogResponseFamily {
     }
 }
 
-/// Actor-bound course-use filter for catalog discovery.
+/// Account-bound course-use filter for catalog discovery.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CatalogUsedInMyCourses {
-    /// Include every published item regardless of current actor use.
+    /// Include every published item regardless of current Account use.
     #[default]
     Any,
-    /// Include only publications used in at least one course visible to the actor.
+    /// Include only publications used in at least one course visible to the Account.
     Used,
 }
 
-/// Actor-bound authorship scope for catalog discovery.
+/// Account-bound authorship scope for catalog discovery.
 ///
 /// The browser selects only this closed meaning. The active authenticated
 /// session supplies the actual account identity at the trusted store boundary.
@@ -105,8 +105,8 @@ pub enum CatalogAuthorship {
     /// Include every published item regardless of authorship.
     #[default]
     Any,
-    /// Include publications whose immutable author list contains the current actor.
-    AuthoredByCurrentActor,
+    /// Include publications whose immutable author list contains the current Account.
+    AuthoredByCurrentAccount,
 }
 
 /// Server-computed count for one exact reviewed public author display name.
@@ -149,11 +149,11 @@ pub struct CatalogResponseFamilyFacet {
     pub count: u64,
 }
 
-/// Actor-specific reverse-index count from the same catalog query snapshot.
+/// Account-specific reverse-index count from the same catalog query snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogUsedInMyCoursesFacet {
-    /// Publications used in one or more courses visible to the current actor.
+    /// Publications used in one or more courses visible to the current Account.
     pub used: u64,
 }
 
@@ -257,13 +257,13 @@ pub struct CatalogSearchQuery {
     pub licenses: Vec<CatalogLicenseValue>,
     /// Whether disclosed independent learner observations must be available.
     pub evidence: CatalogEvidenceAvailability,
-    /// Whether a current actor-visible course use is required.
+    /// Whether a current Account-visible course use is required.
     ///
     /// This closed filter carries no course reference, title, or identity.
     pub used_in_my_courses: CatalogUsedInMyCourses,
-    /// Whether immutable publication authorship by the current actor is required.
+    /// Whether immutable publication authorship by the current Account is required.
     ///
-    /// This closed filter carries no browser-provided actor identity.
+    /// This closed filter carries no browser-provided Account identity.
     pub authorship: CatalogAuthorship,
     /// Opaque continuation cursor from this exact normalized query.
     pub cursor: Option<String>,
@@ -394,7 +394,7 @@ impl CatalogSearchQuery {
     ///
     /// Text, public bylines, and tags use lowercased, whitespace-collapsed
     /// Unicode text. Controlled terms retain durable case after trimming.
-    /// Text, every active metadata filter family, actor-bound filters, and
+    /// Text, every active metadata filter family, Account-bound filters, and
     /// `authorship`
     /// combine with every other active filter using AND. Within bylines,
     /// backends, tags, response families, and licenses, values combine using
@@ -536,7 +536,7 @@ pub struct CatalogSearchFacets {
     pub licenses: Vec<CatalogLicenseFacet>,
     /// Validity-governed evidence availability counts.
     pub evidence: CatalogEvidenceFacet,
-    /// Actor-specific current-course-use count.
+    /// Account-specific current-course-use count.
     pub used_in_my_courses: CatalogUsedInMyCoursesFacet,
 }
 
@@ -571,20 +571,23 @@ mod tests {
     }
 
     #[test]
-    fn authored_scope_is_a_closed_actor_bound_filter_and_survives_saved_search_conversion() {
+    fn authored_scope_is_a_closed_account_bound_filter_and_survives_saved_search_conversion() {
         let query = CatalogSearchQuery {
-            authorship: CatalogAuthorship::AuthoredByCurrentActor,
+            authorship: CatalogAuthorship::AuthoredByCurrentAccount,
             ..CatalogSearchQuery::default()
         };
         assert_eq!(
             serde_json::to_value(&query).expect("query serializes")["authorship"],
-            serde_json::json!("authoredByCurrentActor")
+            serde_json::json!("authoredByCurrentAccount")
         );
         let filter = CatalogSearchFilter::from_query(query).expect("filter normalizes");
-        assert_eq!(filter.authorship, CatalogAuthorship::AuthoredByCurrentActor);
+        assert_eq!(
+            filter.authorship,
+            CatalogAuthorship::AuthoredByCurrentAccount
+        );
         assert_eq!(
             filter.fresh_query().authorship,
-            CatalogAuthorship::AuthoredByCurrentActor
+            CatalogAuthorship::AuthoredByCurrentAccount
         );
     }
 

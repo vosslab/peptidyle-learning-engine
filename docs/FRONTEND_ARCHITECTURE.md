@@ -14,7 +14,7 @@ and [SECURITY_MODEL.md](SECURITY_MODEL.md).
 
 ## Primary flow
 
-~~~text
+```text
 authenticated course context
   -> BlueprintCourse workspace or CourseInstance teaching route
   -> strict API decoder
@@ -22,7 +22,7 @@ authenticated course context
   -> visible edit, preview, or delivery action
   -> typed server command
   -> authoritative response and revision
-~~~
+```
 
 BlueprintCourse is the reusable source surface. A published BlueprintCourse
 projection is visible and reusable to every vetted Instructor; a draft is
@@ -33,27 +33,31 @@ immutable Blueprint parent and applied revision are server-owned.
 
 ## Route map
 
-| Route | Surface | Authority |
-| --- | --- | --- |
-| / | Signed-in course list | Account and course summaries |
-| /sign-in | Passwordless account entry | Session/authentication contract |
-| /courses/:courseId | CourseInstance assignments | Current course relationship |
-| /courses/:courseId/assignments/:assignmentId | Assignment overview | Exact CourseId and assignment relationship |
-| /runs/:runId | Student attempt loop | Issued run and Student entitlement |
-| /runs/:runId/summary | Run result and practice entry | Disclosed server projection |
-| /library | Shared question catalog | Vetted Instructor catalog authority |
-| /curriculum | BlueprintCourse workspace | Owner/collaborator drafts and published projections |
-| /curriculum/:blueprintRef | BlueprintCourse detail/editor | Blueprint reference plus active session |
-| /workspace | Private question workspace | Workspace relationship |
-| /workspace/:workspaceRef | Draft editor and preview | Workspace relationship |
-| /instructor/courses/:courseRef/assignments/new | New assignment draft | Current course Instructor |
-| /instructor/courses/:courseRef/assignments/:assignmentRef | Assignment home | Exact CourseId and assignment |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/questions | Questions | Assignment revision |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/policies | Policies | Assignment revision |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view | Course Instructor, answer-free |
-| /instructor/courses/:courseId/gradebook | Gradebook | Current course Instructor |
-| /instructor/courses/:courseId/students | Roster and enrollment | Current course Instructor |
-| /instructor/courses/:courseRef/curriculum | Adoption and imports | CourseInstance destination authority |
+| Route                                                                  | Surface                                            | Authority                                           |
+| ---------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| /                                                                      | Signed-in course list                              | Account and course summaries                        |
+| /sign-in                                                               | Deployment-gated seeded Live Demo Account selector | Authenticated Session contract                      |
+| /courses/:courseId                                                     | CourseInstance assignments                         | Current course relationship                         |
+| /courses/:courseId/assignments/:assignmentId                           | Assignment overview                                | Exact CourseId and assignment relationship          |
+| `/assignment-attempts/:assignmentAttemptId` (target)                   | Student Assignment Attempt                         | Issued Assignment Attempt and Student entitlement   |
+| `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed server projection                         |
+| /library                                                               | Shared question catalog                            | Vetted Instructor catalog authority                 |
+| /curriculum                                                            | BlueprintCourse workspace                          | Owner/collaborator drafts and published projections |
+| /curriculum/:blueprintRef                                              | BlueprintCourse detail/editor                      | Blueprint reference plus active session             |
+| /workspace                                                             | Private question workspace                         | Workspace relationship                              |
+| /workspace/:workspaceRef                                               | Draft editor and preview                           | Workspace relationship                              |
+| /instructor/courses/:courseRef/assignments/new                         | New assignment draft                               | Current course Instructor                           |
+| /instructor/courses/:courseRef/assignments/:assignmentRef              | Assignment home                                    | Exact CourseId and assignment                       |
+| /instructor/courses/:courseRef/assignments/:assignmentRef/questions    | Questions                                          | Assignment revision                                 |
+| /instructor/courses/:courseRef/assignments/:assignmentRef/policies     | Policies                                           | Assignment revision                                 |
+| /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view                            | Course Instructor, answer-free                      |
+| /instructor/courses/:courseId/gradebook                                | Gradebook                                          | Current course Instructor                           |
+| /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                           |
+| /instructor/courses/:courseRef/curriculum                              | Adoption and imports                               | CourseInstance destination authority                |
+
+The current source still exposes legacy `/runs/:runId` routes. They are pending
+replacement by the target routes above; new routes and documentation must use
+the canonical Assignment Attempt terms in [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 src/routes.ts is the executable route map. Route preflight and response
 decoding remain server/API responsibilities; a URL reference never grants
@@ -61,7 +65,7 @@ authority.
 
 ## Component ownership
 
-~~~text
+```text
 API runtime provider
 - Wasm facade and runtime status
 - Router
@@ -69,7 +73,7 @@ API runtime provider
     - Route resource
       - Feature/page state
         - Answer-free presentation or response widget
-~~~
+```
 
 src/api/runtime.tsx creates one typed API runtime. src/api/http_client/
 contains same-origin transport. src/api/decoders/ converts unknown JSON into
@@ -120,13 +124,13 @@ The adoption client and feature are separate from the reusable source client:
 The page loads one BlueprintCourse source and asks the Instructor to choose the
 destination operation:
 
-| Operation | Result |
-| --- | --- |
-| Fork BlueprintCourse | Independent UserId-owned BlueprintCourse with source lineage |
-| Instantiate assignment | Selected nested assignment in an exact existing CourseInstance |
-| Instantiate BlueprintCourse | New CourseInstance with one immutable Blueprint parent/revision |
-| Rollover CourseInstance | New teaching instance without learner or issued state |
-| Shift CourseInstance term | Atomic date resolution when no issued work makes it ineligible |
+| Operation                     | Result                                                            |
+| ----------------------------- | ----------------------------------------------------------------- |
+| Fork BlueprintCourse          | Independent AccountId-owned BlueprintCourse with source lineage   |
+| Instantiate assignment        | Selected nested assignment in an exact existing CourseInstance    |
+| Instantiate BlueprintCourse   | New CourseInstance with one immutable Blueprint parent/revision   |
+| Rollover CourseInstance       | New teaching instance without learner or issued state             |
+| Shift CourseInstance term     | Atomic date resolution when no issued work makes it ineligible    |
 | Fast-forward or selected copy | Update untouched import or create a new assignment when divergent |
 
 Every preview binds source reference, observed revision, target CourseId where
@@ -142,16 +146,16 @@ only. They are not accepted route aliases, decoder variants, or UI branches.
 
 ## Client contract
 
-| Concern | Frontend rule |
-| --- | --- |
-| API access | Every route uses the typed API runtime and same-origin client. |
-| Decoding | Decode from unknown with closed, bounded, field-by-field decoders. |
-| Mutation | Send strong revision evidence and operation-specific idempotency keys. |
-| Pagination | Use cursor contracts; never create an offset-based fallback. |
-| Cache | Use no-store for private projections and previews; do not cache authority. |
-| Generated types | Consume generated/api/ output derived from Rust; do not hand-edit it. |
-| Errors | Preserve entered draft/response where the contract permits recovery. |
-| Authority | Treat server authorization, revision, schedule, release, and grading as final. |
+| Concern         | Frontend rule                                                                  |
+| --------------- | ------------------------------------------------------------------------------ |
+| API access      | Every route uses the typed API runtime and same-origin client.                 |
+| Decoding        | Decode from unknown with closed, bounded, field-by-field decoders.             |
+| Mutation        | Send strong revision evidence and operation-specific idempotency keys.         |
+| Pagination      | Use cursor contracts; never create an offset-based fallback.                   |
+| Cache           | Use no-store for private projections and previews; do not cache authority.     |
+| Generated types | Consume generated/api/ output derived from Rust; do not hand-edit it.          |
+| Errors          | Preserve entered draft/response where the contract permits recovery.           |
+| Authority       | Treat server authorization, revision, schedule, release, and grading as final. |
 
 Rust Serde owns serialized spelling. The generated TypeScript projection is a
 derivative of Rust contract roots through
@@ -187,11 +191,11 @@ is used only for non-authoritative format/timing help.
 
 ## Browser persistence
 
-| Storage | Allowed data | Clear boundary |
-| --- | --- | --- |
-| localStorage | Nonessential preferences after applicable consent | Reset or consent withdrawal |
-| sessionStorage | Explicitly requested in-progress response recovery | Submit success, run exit, or sign-out |
-| neither | Session tokens, keys, grades, undisclosed feedback, CourseInstance authority | Never stored |
+| Storage        | Allowed data                                                                 | Clear boundary                        |
+| -------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
+| localStorage   | Nonessential preferences after applicable consent                            | Reset or consent withdrawal           |
+| sessionStorage | Explicitly requested in-progress response recovery                           | Submit success, run exit, or sign-out |
+| neither        | Session tokens, keys, grades, undisclosed feedback, CourseInstance authority | Never stored                          |
 
 A BlueprintCourse draft remains in component/page state until the typed
 repository reports success or a recoverable conflict. It is not a hidden

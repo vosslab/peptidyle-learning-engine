@@ -48,7 +48,7 @@ export function createProblemCurationRepository(
   readonly curation: ProblemCurationRepository;
   readonly picker: ProblemPickerSourceRepository;
 } {
-  const authoredCatalog = createCatalogRepository(client, "authoredByCurrentActor");
+  const authoredCatalog = createCatalogRepository(client, "authoredByCurrentAccount");
   const sharedCatalog = createCatalogRepository(client, "any");
   const curation: ProblemCurationRepository = {
     async ensureFavorites() {

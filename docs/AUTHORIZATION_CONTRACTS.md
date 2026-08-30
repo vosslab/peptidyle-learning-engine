@@ -15,25 +15,26 @@ authority.
 This document is the binding authorization contract. It defines the authority
 that routes, Store methods, PostgreSQL policies and brokers, workers, object
 delivery, browser DTOs, and audits must use. Product scope and dependency order
-remain in the [single-installation authorization plan](active_plans/active/single_installation_authorization_plan.md).
+remain in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and the
+[implementation status](active_plans/implementation_status.md).
 
 Authorization is distinct from authentication, structural validation, revision
 and lifecycle checks, and grading. An identifier, a request field, a browser
 projection, a coarse role label, or a valid response shape does not establish
 authority.
 
-## Actor and request boundary
+## Account and request boundary
 
-The authenticated-session boundary derives the complete server-only actor:
+The authenticated-session boundary derives the complete server-only account context:
 
 ```text
-ActorContext {
-    user_id: UserId,
+AuthenticatedSession {
+    account_id: AccountId,
     session_id: SessionId,
 }
 ```
 
-`ActorContext` has no caller-controlled constructor. The server resolves its
+`AuthenticatedSession` has no caller-controlled constructor. The server resolves its
 opaque first-party session before it reads a protected resource, opens a Store
 transaction, or performs expensive work. The session credential is HttpOnly;
 only its database-authoritative hash, expiry, and revocation state are stored.
@@ -43,14 +44,14 @@ unauthenticated result.
 Every protected operation follows this sequence:
 
 ```text
-resolve session -> derive ActorContext -> load and authorize exact durable scope
+resolve session -> derive AuthenticatedSession -> load and authorize exact durable scope
 -> validate request/revision/lifecycle -> perform operation in one transaction
 ```
 
 The protected transaction reevaluates every current authority predicate that it
 uses. Authorization therefore precedes a revision conflict, request validation
 where feasible, publication work, object signing, provider dispatch, and other
-observable work. PostgreSQL receives transaction-local actor context; forced
+observable work. PostgreSQL receives transaction-local authenticated-account context; forced
 RLS and narrow broker functions enforce the same durable scope. Application,
 worker, and grader roles are least-privilege roles and do not bypass RLS.
 
@@ -59,7 +60,7 @@ worker, and grader roles are least-privilege roles and do not bypass RLS.
 All global Instructor capability checks use one canonical predicate:
 
 ```text
-approved_instructor(actor, now)
+approved_instructor(account_id, now)
 ```
 
 It is true only for a current, manually approved Instructor account. It
@@ -67,7 +68,7 @@ authorizes global catalog discovery, collections, Stars, saved searches,
 course creation, publication, reuse, and improvement. Every approved
 Instructor has the same global product capabilities.
 
-Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin provisions
+Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin creates
 a course only for an explicitly assigned approved Instructor account; it receives no
 course membership. A person who needs teaching authority uses an approved Instructor
 account.
@@ -75,9 +76,9 @@ account.
 Every course-teaching operation uses one canonical predicate:
 
 ```text
-current_course_instructor(actor, course, now) =
-    approved_instructor(actor, now)
-    AND current direct Instructor membership(actor, course, now)
+current_course_instructor(account_id, course, now) =
+    approved_instructor(account_id, now)
+    AND current direct Instructor membership(account_id, course, now)
 ```
 
 The predicate authorizes the complete registered course-Instructor operation
@@ -98,7 +99,7 @@ active authority.
 
 The course creator and every accepted co-Instructor have equal authority. They
 receive identical allow/deny results for the same current course state; audit
-entries retain the acting `UserId` and distinguish who performed the action.
+entries retain the acting `AccountId` and distinguish who performed the action.
 
 | Course operation                                                | Creator                                   | Current accepted co-Instructor            | Student                                        | Sysadmin without membership                                 |
 | --------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
@@ -115,7 +116,7 @@ the durable membership history. A Sysadmin receives course-record access only
 through a separately defined, narrow audited support
 operation; platform status is not ambient FERPA authority.
 
-## Course-instance provisioning authority
+## Course Instance Creation authority
 
 Pending SD1 implementation defines `CourseInstanceProvisioningAuthority` as a
 closed Sysadmin platform authority that exists before a CourseInstance. Its
@@ -149,7 +150,7 @@ An active capability has one exact CourseId, one closed operation family, and
 one stated support purpose. It is issued by a current CourseInstance Instructor
 for support requested by that course. The platform retention scheduler is the
 registered issuer for its payload-free lifecycle operation. The capability
-registry begins after provisioning has committed an exact CourseInstance and
+registry begins after Course Creation has committed an exact CourseInstance and
 its first direct Instructor membership.
 
 ### Registered operation families
@@ -205,7 +206,7 @@ does not issue a course support capability or widen course access.
 
 ## Student self ownership and FERPA records
 
-Current Student membership is an explicit relationship between `UserId` and an
+Current Student membership is an explicit relationship between `AccountId` and an
 exact `CourseId`. A Student record, run, attempt, response, grade, artifact,
 or Student-record asset is bound to that exact course, the current Student
 membership/owner, and its child identity. A Student may list and work only the
@@ -243,7 +244,7 @@ QuestionVersions, visible to every approved Instructor through exactly one share
 catalog state. A publication mints a new Question ID only for a new lineage,
 after the private workspace material validates. A same-lineage semantic change
 publishes a new immutable QuestionVersion under the existing Question ID. An
-incompatible objective, task, response-family, or educational-purpose change is
+incompatible objective, task, Question Type, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
 Question ID and visible source ancestry. Existing assignments and issued runs
 retain their exact reference until a current course Instructor performs an
@@ -273,9 +274,9 @@ assignments, but are excluded from ordinary new selection.
 
 Same-lineage publication is limited to the closed semantic classes: presentation,
 accessibility, or metadata work that preserves grading meaning; compatible
-learner-content improvement that preserves the objective, task, and response
-family; and a grading-semantic correction with an impact and recalculation record.
-An incompatible objective, task, response-family, or educational-purpose change
+learner-content improvement that preserves the objective, task, and Question
+Type; and a grading-semantic correction with an impact and recalculation record.
+An incompatible objective, task, Question Type, or educational-purpose change
 is a fork. `ModerateEdit` is available only to the question owner or original
 lineage steward; it publishes a new immutable QuestionVersion in the same
 Question ID lineage, preserves original authorship, and retains the existing CC
@@ -391,7 +392,7 @@ privacy/disclosure rules, and denial tests before activation.
 An issued attempt is the sole learner grading authority. It binds the exact
 Student owner, course assignment, immutable question version, seed, timing
 state, and grading backend. The server checks that binding, current Student
-authority, timing, idempotency, response family, presentation consistency, and
+authority, timing, idempotency, Answer Format, presentation consistency, and
 lifecycle before it loads answer-bearing material through a separately injected
 restricted grader capability. Correctness, partial credit, feedback, and score
 persistence are deterministic server decisions.
@@ -413,7 +414,7 @@ revision, lifecycle, or typed conflict result. A Student may receive a clear
 forbidden result for a known action category, such as assignment creation in
 that Student's own course.
 
-Audit records capture the actor, action, durable scope, result, and time for
+Audit records capture the authenticated account, action, durable scope, result, and time for
 authentication events, authorization denials, Instructor approval changes,
 membership and relationship changes, sensitive course-record reads, export,
 retention, protected delivery, and broker/lease transitions. They exclude
@@ -422,7 +423,7 @@ reference suffices, answer keys, private grader material, and browser-supplied
 authority. Auditing records who acted; it never grants a capability.
 
 Each protected route, Store method, broker, worker action, and object delivery
-must document the exact actor predicate, durable target, field projection,
+must document the exact account predicate, durable target, field projection,
 concealment result, audit event, and revocation point. Permanent tests cover
 stable authorization behavior. Fresh PostgreSQL/RLS, provider, worker-lease,
 and multi-replica exercises remain named disposable acceptance evidence under

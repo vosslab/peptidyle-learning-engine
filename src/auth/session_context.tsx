@@ -9,7 +9,7 @@ import {
   type JSX,
 } from "solid-js";
 
-import type { AuthSession } from "../api/contracts";
+import type { AuthenticatedSession } from "../api/contracts";
 
 /**
  * Browser-visible session state deliberately contains identity and roles only.
@@ -17,7 +17,7 @@ import type { AuthSession } from "../api/contracts";
  */
 export type SessionBootstrapState =
   | { readonly kind: "loading" }
-  | { readonly kind: "authenticated"; readonly session: AuthSession }
+  | { readonly kind: "authenticated"; readonly session: AuthenticatedSession }
   | { readonly kind: "signedOut" }
   | { readonly kind: "expired" }
   | { readonly kind: "error" };
@@ -30,7 +30,7 @@ export interface SessionBootstrap {
 
 /** Creates a retryable, injected session bootstrap without coupling it to HTTP. */
 export function createSessionBootstrap(
-  getSession: () => Promise<AuthSession>,
+  getSession: () => Promise<AuthenticatedSession>,
   logout: () => Promise<void>,
   advanceSessionBoundary: () => void,
 ): SessionBootstrap {
@@ -93,7 +93,7 @@ function hasHttpStatus(error: unknown, expectedStatus: number): boolean {
 const SessionContext = createContext<SessionBootstrap>();
 
 export interface SessionProviderProps {
-  readonly getSession: () => Promise<AuthSession>;
+  readonly getSession: () => Promise<AuthenticatedSession>;
   readonly logout: () => Promise<void>;
   readonly advanceSessionBoundary: () => void;
   readonly children: JSX.Element;

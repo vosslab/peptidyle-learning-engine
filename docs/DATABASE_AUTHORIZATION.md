@@ -2,24 +2,27 @@
 
 ## Intended database model
 
-PLE is one installation. Global accounts use `UserId`; there is no institution selector, installation
+PLE is one installation. Global accounts use `AccountId`; there is no institution selector, installation
 identity, leading scope key, or client-selected database context. This reference is the sole durable
 PostgreSQL authorization authority and the canonical database authorization target for the fresh SD1
 epoch. [SECURITY_MODEL.md](SECURITY_MODEL.md) provides the cross-cutting security model and points
-here for all durable PostgreSQL authorization detail. The active
-[single-installation authorization plan](active_plans/active/single_installation_authorization_plan.md)
-and [scope register](active_plans/active/single_installation_scope_register.md) allocate its
-implementation; existing pre-epoch schema documents are migration input, not an alternate model.
+here for all durable PostgreSQL authorization detail. The
+[implementation status](active_plans/implementation_status.md) allocates its implementation;
+existing pre-epoch schema documents are migration input, not an alternate model.
 
-The server derives `ActorContext { user_id, session_id }` from a valid global account session. Each
-protected database transaction sets only the trusted, transaction-local `ple.actor_user_id` value.
-An absent or malformed actor value is not a fallback identity: forced RLS refuses the operation.
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) supersedes this document for
+the meaning of PLE-owned terms. This document owns PostgreSQL authorization
+implementation only.
+
+The server derives `AuthenticatedSession { account_id, session_id }` from a valid global Authenticated Session. Each
+protected database transaction sets only the trusted, transaction-local `ple.session_account_id` value.
+Forced RLS accepts the resolved authenticated Account value for the operation.
 Routes, browser fields, queue payloads, object keys, and provider responses are evidence or input;
-they never establish actor, membership, workspace, course, or worker authority.
+they establish only their exact membership, workspace, course, or worker authority.
 
 ## Authority relationships
 
-`approved_instructor(user_id, now)` is the one current, manually approved Instructor predicate. It
+`approved_instructor(account_id, now)` is the one current, manually approved Instructor predicate. It
 authorizes global Instructor capabilities: course creation, publication, shared-catalog discovery,
 collections, favorites, saved searches, reuse, and improvement. Approval withdrawal closes each of
 those capabilities in the protected transaction.
@@ -29,11 +32,11 @@ must complete the explicit operator-led Instructor approval path before creating
 or teaching a course. Course creation then atomically creates the first ordinary
 Instructor membership; Sysadmin status does not add creator authority.
 
-`current_course_instructor(user_id, course_id, now)` requires both current `approved_instructor`
+`current_course_instructor(account_id, course_id, now)` requires both current `approved_instructor`
 and a current direct Instructor membership for that exact course. Course creation atomically creates
 the first ordinary Instructor membership. It does not create a creator, owner, or privileged
 course-authority row. Every current co-Instructor receives the same teaching mutation and FERPA-read
-decision for equivalent state; audit rows identify the actor without changing authority.
+decision for equivalent state; audit rows identify the authenticated account without changing authority.
 
 Student work requires the exact course relationship and Student ownership of the durable child
 record. A private draft, curriculum, or authoring input requires its current workspace owner or
@@ -70,7 +73,7 @@ in one transaction. Revocation serializes with protected reads and writes, so it
 immediately. Approval withdrawal likewise closes course-Instructor operations immediately.
 
 Future Grader, Course Observer, and Student Observer access uses a distinct
-`course_relationship` plus `course_capability_grant`. Each grant records a subject `UserId`, exact
+`course_relationship` plus `course_capability_grant`. Each grant records a subject `AccountId`, exact
 `CourseId`, relationship kind, bounded capability set, issuer, lifecycle/revocation state, revision,
 audit identity, and required consent or disclosure policy. It is not a `course_member` row and does
 not satisfy current Student-owner, Instructor, roster, Gradebook, response, export, artifact,
@@ -86,18 +89,18 @@ Fabricated, expired, and revoked future grants fail all current FERPA predicates
 
 ## Row-level security
 
-Every protected table enables and forces PostgreSQL RLS. Policies use the transaction-local actor
+Every protected table enables and forces PostgreSQL RLS. Policies use the transaction-local authenticated Account
 and operation-specific predicates for current Instructor membership, Student ownership, workspace
 relationship, or a leased capability. A policy must deny when required context or relationship is
 missing. The protected Store/PostgreSQL operation performs the predicate and data operation in the
 same transaction, preventing a route-level check from outliving revocation.
 
 The application uses least-privilege roles. Runtime logins are `NOINHERIT`, `NOSUPERUSER`, and do
-not have `BYPASSRLS`; table owners, superusers, and broad broker membership are not runtime actor
+use no `BYPASSRLS`; table owners, superusers, and broad broker membership are not runtime account
 identities. The public schema is private by default, and grants are explicit per table, view, and
 function.
 
-Security-definer brokers implement only a registered capability whose arguments, actor, durable
+Security-definer brokers implement only a registered capability whose arguments, authenticated Account, durable
 target, and audit effect they verify. Broker owners may have the limited privilege necessary for
 that one operation, while ordinary application roles receive no direct shortcut to private grading,
 retention, queue, object, or provider data. Session lookup, migration tooling, API Store work,
@@ -125,7 +128,7 @@ remain server-only.
 
 `Radioactive` is the operational label for a relation that can contain or directly locate a
 Student's course record. It is not a human or PostgreSQL role. The following exact table families
-receive the same actor-scoped RLS, minimum-field, audit, retention, incident-response, and backup
+receive the same account-and-relationship-scoped RLS, minimum-field, audit, retention, incident-response, and backup
 handling. Partition children, views, staging relations, query results, exports, diagnostics, and
 restores inherit the highest label of their inputs.
 
@@ -161,14 +164,14 @@ number in these ranges:
 | Range                     | Capability family                                                     |
 | ------------------------- | --------------------------------------------------------------------- |
 | `2026082901`              | Principal baseline, schemas, capability roles, and default ACLs       |
-| `2026082902`-`2026082906` | Accounts, passwordless identity, Instructor vetting, actor resolution |
+| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation |
 | `2026082907`-`2026082909` | Global immutable catalog, publication, discovery, and stewardship     |
 | `2026082910`-`2026082912` | Private authoring, Blueprints, collections, and saved searches         |
 | `2026082913`-`2026082916` | Courses, equal co-Instructors, Students, invitations, curricula       |
 | `2026082917`-`2026082920` | Assignments, schedules, runs, attempts, submissions, artifacts        |
 | `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, improvement threads           |
 | `2026082925`-`2026082928` | Typed jobs, exports, objects, retention, external-tool state          |
-| `2026082929`-`2026082932` | Capability brokers, forced RLS, grants, schema acceptance helpers     |
+| `2026082929`-`2026082934` | Capability brokers, forced RLS, grants, schema acceptance helpers, and Account Creation |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,
@@ -181,7 +184,7 @@ immutable evidence, grading, idempotency, revocation, and concealment. A data-dr
 matrix proves identical creator/co-Instructor allow and deny decisions in Memory and Store
 conformance.
 
-Recurring service acceptance proves fresh migration convergence; missing-actor RLS refusal; Student
+Recurring service acceptance proves fresh migration convergence; RLS refusal without a resolved Account; Student
 self versus other-Student and other-course denial; co-Instructor mutation and Gradebook read;
 immediate membership revocation and approval-withdrawal denial; narrow audited Sysadmin support;
 observer non-escalation; typed worker confused-deputy refusal; object delivery; external adapter;

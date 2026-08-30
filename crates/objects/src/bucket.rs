@@ -165,7 +165,7 @@ pub enum ObjectKey {
     /// Normalized banner bytes awaiting one authorized appearance save.
     ///
     /// Candidate bytes are short-lived, non-signable, and scoped to one
-    /// course before persistence adds actor and expiry ownership.
+    /// course before persistence adds Account and expiry ownership.
     CourseBannerCandidate {
         /// Course whose authorized appearance flow created the candidate.
         course: CourseId,

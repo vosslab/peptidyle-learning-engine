@@ -37,12 +37,12 @@ pub struct CreateCourseCommand {
 pub enum CourseCreationAuthority {
     /// A currently approved instructor with the exact authenticated session.
     ApprovedInstructor {
-        actor: UserId,
+        instructor_account: question_model::AccountId,
         session: SessionTokenHash,
     },
     /// A currently authenticated platform Sysadmin.
     Sysadmin {
-        actor: UserId,
+        sysadmin_account: question_model::AccountId,
         session: SessionTokenHash,
     },
 }
@@ -50,24 +50,28 @@ pub enum CourseCreationAuthority {
 /// Intended initial direct-Instructor membership for a future course creation.
 ///
 /// This is the SD1 target contract, not accepted runtime authority. The
-/// request boundary supplies the authenticated `ActorContext` separately; the
-/// later Store transaction verifies that actor for the selected mode and
+/// request boundary supplies the authenticated account and session separately; the
+/// later Store transaction verifies that account for the selected mode and
 /// verifies the target's current Instructor approval before creating exactly
 /// this ordinary direct membership.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CourseCreationIntent {
     /// An approved Instructor creates a course for their own direct membership.
-    DirectApprovedInstructor { initial_instructor: UserId },
+    DirectApprovedInstructor {
+        initial_instructor: question_model::AccountId,
+    },
     /// A Sysadmin provisions a course for an explicitly approved Instructor.
     ///
-    /// The Sysadmin is an audit and authorization actor only; this intent
+    /// The Sysadmin is an audit and authorization account only; this intent
     /// grants the initial membership exclusively to `initial_instructor`.
-    SysadminOnBehalfOfApprovedInstructor { initial_instructor: UserId },
+    SysadminOnBehalfOfApprovedInstructor {
+        initial_instructor: question_model::AccountId,
+    },
 }
 
 impl CourseCreationIntent {
     /// Returns the sole account that receives the first direct membership.
-    pub const fn initial_instructor(self) -> UserId {
+    pub const fn initial_instructor(self) -> question_model::AccountId {
         match self {
             Self::DirectApprovedInstructor { initial_instructor }
             | Self::SysadminOnBehalfOfApprovedInstructor { initial_instructor } => {
@@ -77,7 +81,7 @@ impl CourseCreationIntent {
     }
 }
 
-/// Exact course-and-actor input for a future Store authorization lookup.
+/// Exact course-and-Instructor-account input for a future Store authorization lookup.
 ///
 /// This names a lookup target rather than an authorization result. A Store
 /// transaction resolves current approval and direct membership before it
@@ -85,10 +89,10 @@ impl CourseCreationIntent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CourseInstructorAuthorizationScope {
     pub course: CourseId,
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
 }
 
-/// Exact course, actor, and Student-record input for a future Store ownership
+/// Exact course, requester account, and Student-record input for a future Store ownership
 /// lookup.
 ///
 /// The `student` identity stays distinct from the account identity. The Store
@@ -96,7 +100,7 @@ pub struct CourseInstructorAuthorizationScope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StudentCourseRecordAuthorizationScope {
     pub course: CourseId,
-    pub actor: UserId,
+    pub requester_account: question_model::AccountId,
     pub membership: question_model::CourseMembershipId,
     pub student: StudentId,
 }
@@ -108,7 +112,7 @@ pub struct StudentCourseRecordAuthorizationScope {
 pub struct CourseMembershipRecord {
     pub id: question_model::CourseMembershipId,
     pub course: CourseId,
-    pub user: UserId,
+    pub account: question_model::AccountId,
     /// Learner identity for student episodes; instructors deliberately have
     /// no synthetic learner identity.
     pub student: Option<StudentId>,
@@ -141,8 +145,8 @@ impl CourseRecord {
 /// Explicit scope for course-list authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CourseListScope {
-    /// Return only courses carrying a direct membership for this user.
-    Member(UserId),
+    /// Return only courses carrying a direct membership for this Account.
+    Member(question_model::AccountId),
 }
 
 /// Course-owned assignment that references shared immutable content.
@@ -261,11 +265,11 @@ pub struct AssignmentUpdate {
 /// its base policy in the same persistence transaction.
 ///
 /// Authority deliberately belongs to the command rather than a caller-supplied
-/// scope: the Store derives its authorization from the actor and exact course
+/// scope: the Store derives its authorization from the Instructor account and exact course
 /// relationship.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CreateAssignmentCommand {
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     pub assignment: AssignmentRecord,
     pub base_policy: question_model::BaseAssignmentPolicy,
 }
@@ -273,7 +277,7 @@ pub struct CreateAssignmentCommand {
 /// Authenticated instructor command that creates a persisted incomplete Draft.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateAssignmentDraftCommand {
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub title: String,
@@ -282,7 +286,7 @@ pub struct CreateAssignmentDraftCommand {
 /// Revision-checked update of exactly the Questions-owned assignment slice.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplaceAssignmentContentCommand {
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub expected_revision: AssignmentRevision,
@@ -303,7 +307,7 @@ pub enum ReplaceAssignmentContentOutcome {
 /// Revision-checked update of exactly the Policies-owned assignment slice.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplaceAssignmentPoliciesCommand {
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub expected_revision: AssignmentRevision,
@@ -323,7 +327,7 @@ pub enum ReplaceAssignmentPoliciesOutcome {
 /// editable definition fields.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplaceAssignmentCommand {
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub expected_revision: AssignmentRevision,
@@ -334,7 +338,7 @@ pub struct ReplaceAssignmentCommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DeleteAndRegradeAssignmentItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub item: AssignmentItemId,
@@ -351,7 +355,7 @@ pub struct DeleteAndRegradeAssignmentItemCommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReplaceAssignmentFixedItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     /// Course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition will change.
@@ -373,7 +377,7 @@ pub struct ReplaceAssignmentFixedItemCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AddAssignmentFixedItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     /// Course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition gains an item.
@@ -393,7 +397,7 @@ pub struct AddAssignmentFixedItemCommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RemoveAssignmentFixedItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
-    pub actor: UserId,
+    pub instructor_account: question_model::AccountId,
     /// Course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition loses an item.

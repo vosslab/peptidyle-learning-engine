@@ -1,18 +1,16 @@
 // UI-first independent seeded-role sessions and authorization-boundary proof.
 //
 // Selector contract:
-// - src/pages/sign_in_page.tsx:157 owns passkey sign-in and course-choice headings.
+// - src/pages/sign_in_page.tsx owns seeded-demo entry and course-choice headings.
 // - src/pages/teaching_operations_page.tsx:95 and
 //   src/pages/teaching_operations/course_groups_panel.tsx:340 own teaching-team, approval, and
 //   group controls.
-// - src/pages/account_pending_invitations_page.tsx:121 and src/pages/account_security_page.tsx
-//   own invitation acceptance plus the account-security route surface, passkey status, and card.
+// - src/pages/account_pending_invitations_page.tsx owns current invitation acceptance.
 // - src/pages/course_list_page.tsx:330 owns the course heading and return-to-courses controls.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -59,33 +57,10 @@ test("authentication and authorization: sessions, approval, and course boundarie
     const mary = await maryContext.newPage();
     const morgan = await morganContext.newPage();
     const avery = await averyContext.newPage();
-    await test.step("Elena retains Instructor authorization after generic passkey sign-in", async () => {
-      const authenticator = await installVirtualAuthenticator(elena);
-      try {
-        await chooseSeededIdentity(elena, /Elena Rivera/u);
-        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
-        await elena.getByRole("link", { name: "Account", exact: true }).click();
-        const accountSecurity = elena
-          .getByRole("main")
-          .locator('[data-route-surface="accountSecurity"]');
-        const passkeyLabel = "Elena's biology laptop";
-        await accountSecurity.getByLabel("Passkey name").fill(passkeyLabel);
-        await accountSecurity.getByRole("button", { name: "Add passkey" }).click();
-        await expect(accountSecurity.getByRole("status")).toHaveText("Passkey added.");
-        const passkeyCard = accountSecurity
-          .locator(".passkey-card")
-          .filter({ hasText: passkeyLabel });
-        await expect(passkeyCard).toBeVisible();
-        await expect(
-          passkeyCard.getByRole("heading", { name: passkeyLabel, exact: true }),
-        ).toBeVisible();
-        await signOutVisible(elena);
-        await elena.getByRole("button", { name: "Sign in with a passkey" }).click();
-        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
-        await expect(elena.getByRole("link", { name: "Teaching operations" })).toBeVisible();
-      } finally {
-        await removeVirtualAuthenticator(authenticator);
-      }
+    await test.step("Elena enters her seeded Instructor session", async () => {
+      await chooseSeededIdentity(elena, /Elena Rivera/u);
+      await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
+      await expect(elena.getByRole("link", { name: "Teaching operations" })).toBeVisible();
     });
     await test.step("Mary enters and reenters her installed Biochemistry course session", async () => {
       await enterThenReenter(mary, /Mary Okafor/u, BIOCHEMISTRY_COURSE_TITLE);

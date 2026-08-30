@@ -8,7 +8,7 @@ import type { SavedProblemSearchReference } from "../../../generated/api/SavedPr
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { CatalogSearchFilter } from "../../../generated/api/CatalogSearchFilter";
 import type { ProblemCurationEtag } from "../../api/problem_curation";
-import type { AuthSession } from "../../api/contracts";
+import type { AuthenticatedSession } from "../../api/contracts";
 import { normalizeQuestionIdSyntax } from "../../question_id";
 import type { ProblemPickerSource } from "../problem_picker/problem_picker_model";
 import {
@@ -240,8 +240,8 @@ export function problemCurationConfirmationPresentation(
 }
 
 /** The current authenticated Instructor authority unlocks personal curation. */
-export function mayMutatePersonalCuration(session: AuthSession | undefined): boolean {
-  return session?.user.roles.includes("instructor") ?? false;
+export function mayMutatePersonalCuration(session: AuthenticatedSession | undefined): boolean {
+  return session?.account.role === "instructor";
 }
 
 /** Institution-reader access is deliberately a browse/reuse projection. */

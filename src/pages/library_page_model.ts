@@ -62,7 +62,7 @@ export interface CatalogBrowseQuery {
   readonly license: string | null;
   readonly evidence: string | null;
   readonly usedInMyCourses: string | null;
-  /** Closed server-resolved authorship scope; browser rows never carry actor identity. */
+  /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
   readonly authorship: CatalogAuthorship;
 }
 

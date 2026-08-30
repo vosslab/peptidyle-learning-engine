@@ -95,7 +95,8 @@ No. PLE flat-question JSON is the small, versioned, answer-bearing authoring for
 static questions. The native adapter compiles it into an answer-free public question model and
 separate grader-only material. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the [flat question family evolution plan](active_plans/active/flat_question_family_evolution_plan.md).
+[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the current
+[implementation_plan.md](active_plans/implementation_plan.md).
 
 ## Can a Student browser contact WeBWorK?
 
@@ -117,11 +118,15 @@ assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_S
 
 ## How do learners sign in?
 
-PLE accounts use a stable opaque account ID. Email authentication is the canonical sign-in and
-account-bootstrap path; passkeys are optional convenience credentials, and multiple passkeys may be
-registered. An Instructor gives a learner a one-time Course Instance invitation link, which can be
-copied into an existing trusted course channel or sent through configured SMTP. The current status
-report is the source for what has been verified in a deployment. See [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
+PLE Accounts use stable opaque Account IDs and one immutable Product Role. Sysadmin provisioning
+creates an Account; email-code authentication restores an existing Account, and passkeys are
+optional additional credentials for that same Account. The ordinary email-code and passkey browser
+adapters are being reconstructed on the canonical Authenticated Session foundation. The current
+Live Demo uses its visible seeded Account selector. An Instructor can create a one-time Course
+Invitation link for an existing Account through a trusted course channel or configured SMTP. The
+implementation-status registry is the source for what has been verified in a deployment. See
+[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) and
+[implementation status](active_plans/implementation_status.md).
 
 ## Is PLE ready for production?
 
@@ -206,7 +211,7 @@ authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_P
 Not yet. The current browser widget and submission route fail closed because a browser-supplied object
 key cannot prove course, learner, attempt, storage, or inspection ownership. The planned capability
 creates one server-issued, attempt-bound upload record and later accepts only that opaque upload ID.
-See [secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md).
+See [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 ## Where should a contributor record a durable decision?
 

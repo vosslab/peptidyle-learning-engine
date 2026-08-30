@@ -4,14 +4,13 @@
 
 PLE uses global accounts and exact course membership. One course may have multiple equal
 co-Instructors, and every Student educational record binds that Student's current course
-relationship. The active
-[single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md)
-owns the schema and contract correction.
+relationship. [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) owns the
+durable schema and authorization contract.
 
 This document defines the durable identity, authorization, Store, HTTP, privacy,
 and user-experience contract for that boundary. Delivery status, implementation
-packages, acceptance gates, and the maintainer checklist live in the focused
-[enrollment_delivery_plan.md](active_plans/active/enrollment_delivery_plan.md).
+packages, acceptance gates, and maintainer checklist live in the current
+[implementation status](active_plans/implementation_status.md).
 
 The primary audience is a contributor implementing course membership,
 assignment enrollment, roster management, identity resolution, or the
@@ -23,8 +22,8 @@ instructor and learner enrollment journeys. The release plan remains in
 This document is the durable enrollment contract. Current route truth remains in
 [API_CONTRACTS.md](API_CONTRACTS.md) and
 [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs).
-Current delivery status and the implementation evidence for those routes remain
-in [enrollment_delivery_plan.md](active_plans/active/enrollment_delivery_plan.md).
+Current delivery status and implementation evidence for those routes remain in
+[implementation status](active_plans/implementation_status.md).
 
 ## Product decision
 
@@ -34,7 +33,7 @@ course membership and assignment enrollment as separate internal concepts.
 An instructor invites a student to the course once. After that student
 authenticates and claims the invitation, the same Store-owned transaction:
 
-1. resolves the authenticated PLE `UserId`;
+1. resolves the authenticated PLE `AccountId`;
 2. creates or reuses that user's pedagogical `StudentId` for the exact course;
 3. creates a fresh active `course_member` episode; and
 4. stores course-local display/contact evidence in the subordinate roster
@@ -45,7 +44,7 @@ its explicit audience only. The sole entitlement evaluator derives current
 access from active membership, audience, and typed group membership. The first
 run start, grade-bearing action, or explicit instructor issue atomically
 creates the assignment receipt, typed empty summary, grant basis, applicable
-policy scopes, and immutable actor-or-rule provenance.
+policy scopes, and immutable account-or-rule provenance.
 
 This gives instructors the simple course-enrollment model used successfully by
 LibreTexts ADAPT without weakening PLE's more precise activity model:
@@ -136,9 +135,9 @@ roster revision.
 
 ## Identity prerequisite
 
-PLE owns its user accounts. A `UserId` is the stable opaque identity of one PLE
+PLE owns its Accounts. An `AccountId` is the stable opaque identity of one PLE
 account across courses and institutions; it is not issued by an instructor,
-course, university, or email provider. Course membership and actor-scoped forced
+course, university, or email provider. Course membership and account-and-relationship-scoped forced
 RLS control access to educational records.
 
 The direct passwordless email/passkey route family owns the account-session
@@ -152,7 +151,7 @@ direction is:
 - the existing opaque, hashed server-side session and host-only HttpOnly
   `__Host-` cookie remain the browser credential; and
 - optional institutional SSO may link a verified external identity to an
-  existing PLE account, but it does not own `UserId`, select a course, or block
+  existing PLE account, but it does not own `AccountId`, select a course, or block
   institution-independent deployment.
 
 PLE uses an established WebAuthn implementation rather than implementing the
@@ -167,28 +166,28 @@ The minimum identity contract is:
 
 | Value | Owner | Rule |
 | --- | --- | --- |
-| `UserId` | PLE identity system | Stable opaque PLE account identity across courses and institutions |
+| `AccountId` | PLE identity system | Stable opaque PLE Account identity across courses and institutions |
 | Email | PLE identity system | Verified, mutable authentication attribute and canonical sign-in address; never the primary key |
 | Passkey credentials | PLE identity system | Optional convenience credentials; multiple credentials are allowed per account |
 | Display name or handle | User account profile | User-controlled safe label; no legal-name requirement |
 | `StudentId` | PLE learner-identity store | Stable pedagogical identity associated with the PLE user inside an exact course-record relationship |
-| Optional SSO binding | PLE identity system | Verified external issuer/subject linked to an existing `UserId`; server-only and never roster authority |
+| Optional SSO binding | PLE identity system | Verified external issuer/subject linked to an existing `AccountId`; server-only and never roster authority |
 
 The account-to-Student mapping remains course-scoped because `StudentId` belongs
 to the educational-record and retention boundary, not because the PLE account
 belongs to a separate installation:
 
 ```text
-user_id                         -> one PLE account
-(course_id, user_id)            -> student_id
-(course_id, student_id)         -> user_id
+account_id                      -> one PLE account
+(course_id, account_id)         -> student_id
+(course_id, student_id)         -> account_id
 ```
 
 Both course mapping directions are unique. The same account can therefore
 participate in courses owned by different institutions while each institution
 retains an independently scoped pedagogical record. The current
-`ActorContext` carries the authenticated account and session; it is used with
-the exact course relationship and is never derived from browser-supplied actor
+`AuthenticatedSession` carries the authenticated account and session; it is used with
+the exact course relationship and is resolved by the server
 or course fields.
 
 ### Account and local browser session boundary
@@ -197,10 +196,9 @@ The local browser and deployed product use the same PLE-owned account contract:
 
 | Session | Issuer and purpose | What it establishes |
 | --- | --- | --- |
-| `__Host-ple_session` | PLE account course selection or invitation claim after email, passkey, or deployment-gated seeded-persona entry | One actor session used with exact course, assignment, run, and roster relationships |
-| `__Host-ple_account_session` | Passwordless email, an already registered passkey, or the deployment-gated seeded selector | One global PLE account backed by persisted account and account-session records |
+| `__Host-ple_session` | Email code, passkey, or deployment-gated seeded-persona entry | One Authenticated Session used with exact course, assignment, run, and roster relationships |
 
-Invitation redemption requires the account session before the actor session.
+Invitation redemption uses the authenticated Account session before exact course relationship resolution.
 Passkey registration begins from an authenticated PLE account, so a passkey can
 shorten later sign-in but cannot bootstrap the first account by itself. The
 seeded selector is disabled when its deployment settings are absent. Email
@@ -208,8 +206,8 @@ start fails closed unless both the invitation-token secret and a complete
 external SMTP configuration are present; mounting a route is not evidence of a
 live email-authentication ceremony.
 
-ENR6 therefore uses canonical email authentication to create or restore the PLE
-account before invitation redemption. Copy-link delivery removes SMTP from the
+ENR6 therefore uses canonical email authentication to restore an existing PLE
+Account before invitation redemption. Copy-link delivery removes SMTP from the
 invitation handoff, but it does not replace account authentication. The local
 browser exercises the real account and account-session records; the seeded
 selector is a deployment convenience for connected evidence, not a parallel
@@ -221,7 +219,7 @@ The account belongs to the learner:
 
 ```text
 PLE account
-  UserId 42
+  AccountId 42
   authentication email: verified and changeable
   passkeys: laptop, phone
   Biochemistry course Student identity: StudentId 91
@@ -231,7 +229,7 @@ PLE account
 ```
 
 The two instructors see only records in courses they are authorized to manage.
-Neither instructor receives the learner's global `UserId`, passkey metadata, or
+Neither Instructor receives the learner's global `AccountId`, passkey metadata, or
 activity from another course. Course authorization, learner ownership, query
 scope, and RLS remain the disclosure controls.
 
@@ -266,7 +264,7 @@ An active course roster may therefore contain:
   the class.
 
 These are protected course operational metadata. They do not establish
-the PLE account identity. `UserId` remains the opaque account identifier, while
+the PLE Account identity. `AccountId` remains the opaque Account identifier, while
 the roster email and student number must not become credentials, primary keys,
 or cross-course search fields. The course roster email is a retained snapshot
 of the instructor's mapping and may differ later from the learner's mutable
@@ -306,16 +304,16 @@ instructor enters email and roster ID
     -> PLE returns one copyable invitation link in the no-store create response
     -> instructor shares it through an LMS, or configured SMTP sends it
     -> learner completes short-lived, single-use email authentication
-    -> PLE resolves or creates the learner's opaque UserId
+    -> PLE resolves the learner's existing opaque AccountId
     -> learner claims the invitation
     -> PLE creates course membership and its roster profile atomically
     -> learner enrolls one or more passkeys
 ```
 
-An existing PLE user and a new user follow the same outward flow. Only after
-successful email authentication may the server match the verified email to an
-existing account or create a new `UserId`. The instructor cannot query whether
-an address already has an account, and existing and nonexistent addresses
+An existing PLE Account and a newly created Account follow the same outward
+flow. The server matches the verified email to its existing Account; it never
+creates an Account during authentication. The Instructor cannot query whether
+an address already has an Account, and existing and nonexistent addresses
 receive the same outward invitation result.
 
 The invitation link is a bearer secret. PLE returns it only in the Instructor's
@@ -334,7 +332,7 @@ course instructors so mistyped, expired, and unresolved addresses can be
 corrected or revoked.
 
 Optional OIDC, SAML, or LTI integrations converge on the same authenticated
-`UserId` and Store claim command. They are account-linking and course-launch
+`AccountId` and Store claim command. They are account-linking and course-launch
 integrations, not prerequisites for PLE registration or enrollment.
 
 ## Authorization contract
@@ -342,7 +340,7 @@ integrations, not prerequisites for PLE registration or enrollment.
 Roster reads and mutations use the existing course authorization order:
 
 ```text
-session -> ActorContext -> exact course lookup -> direct Instructor membership
+session -> AuthenticatedSession -> exact course lookup -> direct Instructor membership
 ```
 
 The rules are:
@@ -350,7 +348,7 @@ The rules are:
 - A direct course Instructor may view and manage the student roster.
 - A Sysadmin may help an Instructor through the closed roster list, invitation,
   policy, revoke, preview, and commit operations. The Store records
-  actor/course/action/time for each Sysadmin support access; this capability
+  authenticated account/course/action/time for each Sysadmin support access; this capability
   does not include grade export, responses, runs, item analysis, or general
   course access.
 - A student member may view the course but cannot enumerate or mutate the
@@ -369,7 +367,7 @@ The rules are:
 
 These rules extend, rather than replace, the course boundary in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#course-and-educational-records).
-PostgreSQL still establishes the trusted role and actor context before any
+PostgreSQL still establishes the trusted role and authenticated Account context before any
 membership or educational-record access described in
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security).
 
@@ -540,7 +538,7 @@ The generic CSV contract requires `email` and `roster_id`. `roster_id` is the
 institutional identifier needed to match a PLE result back to the institutional LMS
 or gradebook export. For a Roosevelt roster that may be the `900xxxxxx`
 student number paired with the student's `netID@mail.roosevelt.edu` address.
-It is stored as protected course-scoped roster metadata, never as `UserId`, an
+It is stored as protected course-scoped roster metadata, never as `AccountId`, an
 authentication claim, or a globally searchable account attribute. It is
 unique within that course and follows the course's educational-record
 retention policy.
@@ -593,7 +591,7 @@ then creates per-assignment assignment-to-user records.
 
 ADAPT also uses one account across courses rather than one identity per
 enrollment. Its `users` table has one numeric primary key and a unique email,
-while `enrollments` has a unique `(user_id, course_id)` relationship. A student
+while `enrollments` has a unique `(account_id, course_id)` relationship. A student
 therefore keeps the same ADAPT user account in courses taught by different
 instructors. Newer migrations add a central identity identifier, but the
 invitation path still finds or creates users by email and stores the
@@ -601,7 +599,7 @@ institutional student label on the user record.
 
 PLE adopts ADAPT's one-person/many-course-memberships shape and its practical
 single, list, CSV, pending, and revocation workflow. It improves the identity
-key by using a PLE-owned opaque `UserId`, mutable verified email, and multiple
+key by using a PLE-owned opaque `AccountId`, mutable verified email, and multiple
 passkeys rather than making email the account primary key. PLE also keeps the
 pedagogical `StudentId` distinct from both the account identity and the
 course-scoped institutional roster identifier.
@@ -625,9 +623,9 @@ PLE intentionally improves several implementation details:
 
 | ADAPT behavior observed in `OTHER_REPOS/adapt` | PLE decision |
 | --- | --- |
-| Controllers combine identity provisioning, email, LMS checks, enrollment, analytics, and assignment distribution. | Separate account authentication, invitation delivery, authorization, and Store-owned roster reconciliation. |
+| Controllers combine Account Creation, email, LMS checks, enrollment, analytics, and assignment distribution. | Separate account authentication, invitation delivery, authorization, and Store-owned roster updates. |
 | A roster upload is parsed, then the browser sends one invitation request per row. | Stage one bounded import and commit the reviewed set idempotently. |
-| An instructor invitation may create a user row by email before that learner authenticates. | Create only a pending invitation; resolve or create `UserId` after the learner authenticates the address. |
+| An Instructor invitation may create an Account row by email before that learner authenticates. | Create only a pending invitation; Sysadmin-owned Account Creation creates the Account before its first email authentication. |
 | `student_id` is stored on the global ADAPT user. | Store an institution-provided roster identifier only on the protected course roster/export mapping. |
 | Domain whitelist validation uses substring matching. | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary. |
 | Access codes are visible, reusable course/invitation values. | Use random, expiring, single-purpose invitation secrets stored only as hashes. |
@@ -698,8 +696,8 @@ separate recovery mode:
 - a signed-in learner may replace the authentication email only after
   verification of the new address in the bound browser;
 - an instructor may re-invite a learner at a corrected or replacement address;
-  this creates or reaches the account proven by that email and never merges
-  accounts or transfers records based on email alone; and
+  this reaches the existing Account proven by that email and never merges
+  Accounts or transfers records based on email alone; and
 - if the learner no longer controls the current account email, version 1 has
   no identity-recovery or record-transfer workflow. The instructor may revoke
   the old course membership and invite a new address, while the institutional
@@ -726,7 +724,7 @@ Roster removal is an access transition, not record destruction.
   their original membership provenance.
 - Archive/delete jobs remain the only path that disposes learner records and
   associated protected objects.
-- Every roster mutation records actor, course, target member, source
+- Every roster mutation records the authenticated account, course, target member, source
   (`single`, `bulk`, `invitation`, or future `lti`), time, and coarse outcome.
   Audit records exclude raw invitation secrets and roster PII.
 
@@ -762,13 +760,13 @@ hand-match 50 scores.
 
 | Data | Instructor convenience | Minimization control |
 | --- | --- | --- |
-| Authentication email | Register and sign in to the PLE account | Global account attribute; never the account key; not exposed as cross-course instructor data |
+| Authentication email | Sign in to the existing PLE Account | Global Account credential; never the account key; not exposed as cross-course instructor data |
 | Course roster email | Invite, correct, apply allowed-domain policy, and match an institutional export | Course-scoped protected snapshot; direct course Instructors plus audited Sysadmin roster support; follows course learner-record retention |
 | Institutional roster ID | Match PLE results to an LMS/gradebook row | Course-scoped protected record; no global lookup or authentication use |
 | Display name or handle | Let the instructor distinguish roster members | Learner-controlled account projection copied only where the course workflow needs it; no legal-name requirement |
 | Raw roster CSV | Import 50 learners at once | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation |
 | Normalized import preview | Review errors before sending invitations | Expires after one hour; direct-Instructor access; no account-existence signal |
-| Grade export | Upload results to the institutional system | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `UserId`, passkey state, or unrelated activity; protected, audited, and short-lived |
+| Grade export | Upload results to the institutional system | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `AccountId`, passkey state, or unrelated activity; protected, audited, and short-lived |
 
 The current implementation expires a course invitation after seven days and an
 email-authentication challenge after ten minutes. Resending creates new
@@ -780,7 +778,7 @@ the existing direct-Instructor authorization boundary. It uses the course roster
 ID as the join key and the server-calculated assignment summary as the value.
 The response is `Cache-Control: no-store`, is not persisted as an export
 object, and carries a server-issued opaque export ID. The database retains only
-a PII-free audit row with the export identity, actor, course, assignment, row
+a PII-free audit row with the export identity, authenticated account, course, assignment, row
 count, and time.
 
 ## Related documents
@@ -789,10 +787,10 @@ count, and time.
   mastery, and grade-selection semantics.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines course and
   learner-record authority.
-- [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) distinguishes `UserId`,
+- [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) distinguishes `AccountId`,
   `StudentId`, course, enrollment, and browser identities.
 - [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
-  defines forced RLS and trusted actor context.
+  defines forced RLS and trusted authenticated Account context.
 - [API_CONTRACTS.md](API_CONTRACTS.md) records the routes that currently ship.
 - [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) defines the
   primary teaching activity the enrolled learner experiences.

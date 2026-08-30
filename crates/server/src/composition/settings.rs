@@ -348,11 +348,8 @@ pub(super) struct ProductionSettings {
     pub(super) grading: GradingBackendSettings,
     pub(super) imathas_provider_key: Option<String>,
     pub(super) enrollment_secret: Option<EnrollmentSecretSettings>,
-    pub(super) enrollment_email: Option<EnrollmentEmailSettings>,
-    pub(super) webauthn: crate::auth::PasswordlessWebauthn,
     pub(super) browser_boundary: crate::auth::ProductionBrowserBoundary,
-    pub(super) client_address_policy: crate::auth::ClientAddressPolicy,
-    pub(super) live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
+    pub(super) live_demo: Option<crate::auth::SeededDemoConfig>,
 }
 
 pub(super) struct EnrollmentEmailSettings {
@@ -457,13 +454,9 @@ impl ProductionSettings {
         let public_asset_base_url =
             PublicAssetBaseUrl::new(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
                 .map_err(|_| anyhow::anyhow!("PLE_PUBLIC_ASSET_BASE_URL is invalid"))?;
-        let client_address_policy = crate::auth::ClientAddressPolicy::behind_trusted_proxies(
-            &required_env("PLE_TRUSTED_PROXY_CIDRS")?,
-        )
-        .map_err(anyhow::Error::msg)?;
-        let webauthn_origin = required_env("PLE_WEBAUTHN_ORIGIN")?;
-        let browser_boundary = browser_boundary_for(&webauthn_origin)?;
-        let live_demo_selector = live_demo_selector_from_env(&webauthn_origin)?;
+        let browser_origin = required_env("PLE_BROWSER_ORIGIN")?;
+        let browser_boundary = browser_boundary_for(&browser_origin)?;
+        let live_demo = live_demo_config_from_env()?;
         Ok(Self {
             storage: StorageSettings::from_env(runtime)?,
             #[cfg(any(not(feature = "e2e-grader-fault"), test))]
@@ -476,16 +469,8 @@ impl ProductionSettings {
             grading: GradingBackendSettings::from_env()?,
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
             enrollment_secret: EnrollmentSecretSettings::from_env()?,
-            enrollment_email: EnrollmentEmailSettings::from_env()?,
-            webauthn: crate::auth::PasswordlessWebauthn::new(
-                &required_env("PLE_WEBAUTHN_RP_ID")?,
-                &webauthn_origin,
-                &required_env("PLE_WEBAUTHN_RP_NAME")?,
-            )
-            .map_err(anyhow::Error::msg)?,
             browser_boundary,
-            client_address_policy,
-            live_demo_selector,
+            live_demo,
         })
     }
 
@@ -578,18 +563,16 @@ pub(super) fn browser_boundary_for(origin: &str) -> Result<crate::auth::Producti
         .map_err(anyhow::Error::msg)
 }
 
-const LIVE_DEMO_SELECTOR_USER_ID_ENV: [&str; 5] = [
-    "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID",
-    "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
-    "PLE_LIVE_DEMO_JACK_STUDENT_USER_ID",
-    "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
-    "PLE_LIVE_DEMO_SYSADMIN_USER_ID",
+const LIVE_DEMO_ACCOUNT_ID_ENV: [&str; 5] = [
+    "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
 ];
 
-pub(super) fn live_demo_selector_from_env(
-    origin: &str,
-) -> Result<Option<crate::auth::SeededAccountSelectorConfig>> {
-    let values = LIVE_DEMO_SELECTOR_USER_ID_ENV.map(std::env::var);
+pub(super) fn live_demo_config_from_env() -> Result<Option<crate::auth::SeededDemoConfig>> {
+    let values = LIVE_DEMO_ACCOUNT_ID_ENV.map(std::env::var);
     if values.iter().all(Result::is_err) {
         return Ok(None);
     }
@@ -601,14 +584,41 @@ pub(super) fn live_demo_selector_from_env(
             })?;
             let uuid = uuid::Uuid::parse_str(&value)
                 .map_err(|_| anyhow::anyhow!("live-demo selector account ID must be a UUID"))?;
-            Ok(question_model::UserId::from_uuid(uuid))
+            Ok(question_model::AccountId::from_uuid(uuid))
         })
         .collect::<Result<Vec<_>>>()?
         .try_into()
         .expect("five configured live-demo account IDs");
-    crate::auth::SeededAccountSelectorConfig::new(Arc::from(origin.to_string()), users)
-        .map(Some)
-        .map_err(anyhow::Error::msg)
+    let [elena, mary, jack, avery, morgan] = users;
+    crate::auth::SeededDemoConfig::new([
+        crate::auth::SeededDemoAccount::new(
+            crate::auth::SeededDemoPersona::ElenaInstructor,
+            elena,
+            "Elena Instructor",
+        )?,
+        crate::auth::SeededDemoAccount::new(
+            crate::auth::SeededDemoPersona::MaryStudent,
+            mary,
+            "Mary Student",
+        )?,
+        crate::auth::SeededDemoAccount::new(
+            crate::auth::SeededDemoPersona::JackStudent,
+            jack,
+            "Jack Student",
+        )?,
+        crate::auth::SeededDemoAccount::new(
+            crate::auth::SeededDemoPersona::AveryStudent,
+            avery,
+            "Avery Student",
+        )?,
+        crate::auth::SeededDemoAccount::new(
+            crate::auth::SeededDemoPersona::MorganSysadmin,
+            morgan,
+            "Morgan Sysadmin",
+        )?,
+    ])
+    .map(Some)
+    .map_err(anyhow::Error::msg)
 }
 
 impl EnrollmentEmailSettings {
@@ -725,12 +735,7 @@ impl EnrollmentSecretSettings {
         }))
     }
 
-    pub(super) fn issuers(
-        &self,
-    ) -> Result<(
-        crate::course::CourseInvitationIssuer,
-        crate::auth::PasswordlessRateLimitIssuer,
-    )> {
+    pub(super) fn invitation_issuer(&self) -> Result<crate::course::CourseInvitationIssuer> {
         let issuer_secret = parse_secret32(
             "PLE_INVITATION_TOKEN_SECRET_FILE",
             &read_secret_file(
@@ -738,9 +743,8 @@ impl EnrollmentSecretSettings {
                 "PLE_INVITATION_TOKEN_SECRET_FILE",
             )?,
         )?;
-        Ok((
-            crate::course::CourseInvitationIssuer::from_server_secret(issuer_secret),
-            crate::auth::PasswordlessRateLimitIssuer::from_server_secret(issuer_secret),
+        Ok(crate::course::CourseInvitationIssuer::from_server_secret(
+            issuer_secret,
         ))
     }
 }

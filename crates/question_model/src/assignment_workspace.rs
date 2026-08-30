@@ -33,7 +33,7 @@ pub struct ReplaceAssignmentContentRequest {
 }
 
 /// Browser request to replace the immutable publication of one existing fixed
-/// assignment slot. The server derives the slot, assignment, course, actor,
+/// assignment slot. The server derives the slot, assignment, course, Account,
 /// and publication version; this request names only the public Question ID.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

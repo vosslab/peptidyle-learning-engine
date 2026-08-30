@@ -1,6 +1,6 @@
 //! Non-Serde CourseInstance apply commands built only from server-held records.
 
-use crate::{CourseTerm, ResolvedRelativeAssignmentSchedule, UserId};
+use crate::{AccountId, CourseTerm, ResolvedRelativeAssignmentSchedule};
 
 use super::{
     AssignmentDefinitionSourceView, BoundedResolvedScheduleSet, CourseInstanceBlueprintApplication,
@@ -58,7 +58,7 @@ pub struct ShiftCourseInstanceTermCommand {
     blueprint_application: CourseInstanceBlueprintApplication,
     target_term: CourseTerm,
     schedules: BoundedResolvedScheduleSet,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
@@ -70,7 +70,7 @@ impl ShiftCourseInstanceTermCommand {
             blueprint_application: record.blueprint_application(),
             target_term: record.target_term().clone(),
             schedules: record.schedules().clone(),
-            authorized_actor: record.authorized_actor(),
+            authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
@@ -88,8 +88,8 @@ impl ShiftCourseInstanceTermCommand {
     pub fn schedules(&self) -> &[ResolvedRelativeAssignmentSchedule] {
         self.schedules.as_slice()
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
@@ -105,7 +105,7 @@ pub struct ControlledUpdateBlueprintAssignmentCommand {
     import: CourseInstanceImportWitness,
     destination: CourseInstanceWitness,
     blueprint_application: CourseInstanceBlueprintApplication,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
@@ -119,7 +119,7 @@ impl ControlledUpdateBlueprintAssignmentCommand {
             import: record.import().clone(),
             destination: record.destination().clone(),
             blueprint_application: record.blueprint_application(),
-            authorized_actor: record.authorized_actor(),
+            authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
@@ -137,8 +137,8 @@ impl ControlledUpdateBlueprintAssignmentCommand {
     pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
         self.blueprint_application
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
@@ -155,7 +155,7 @@ pub struct CreateSelectedBlueprintAssignmentCommand {
     blueprint_application: CourseInstanceBlueprintApplication,
     schedule: ResolvedRelativeAssignmentSchedule,
     replacements: CurriculumPinReplacements,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
@@ -168,7 +168,7 @@ impl CreateSelectedBlueprintAssignmentCommand {
             blueprint_application: record.blueprint_application(),
             schedule: record.schedule().clone(),
             replacements: record.replacements().clone(),
-            authorized_actor: record.authorized_actor(),
+            authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
@@ -189,8 +189,8 @@ impl CreateSelectedBlueprintAssignmentCommand {
     pub fn replacements(&self) -> &CurriculumPinReplacements {
         &self.replacements
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
@@ -204,7 +204,7 @@ impl CreateSelectedBlueprintAssignmentCommand {
 pub struct ReconcileCourseInstanceAdoptionCommand {
     receipt: CourseInstanceReceiptTarget,
     blueprint_application: CourseInstanceBlueprintApplication,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
@@ -214,7 +214,7 @@ impl ReconcileCourseInstanceAdoptionCommand {
         Self {
             receipt: record.receipt().clone(),
             blueprint_application: record.blueprint_application(),
-            authorized_actor: record.authorized_actor(),
+            authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
@@ -226,8 +226,8 @@ impl ReconcileCourseInstanceAdoptionCommand {
     pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
         self.blueprint_application
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest

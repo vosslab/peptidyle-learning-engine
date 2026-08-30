@@ -12,9 +12,9 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::AccountId;
 use crate::ProblemVersionRef;
 use crate::RunReference;
-use crate::UserId;
 use crate::generation::GeneratorReference;
 use crate::identity::{ObjectId, ProblemId, VersionId};
 use crate::response::StudentResponse;
@@ -153,7 +153,7 @@ pub struct AssignmentEnrollment {
     /// Assignment the student may run repeatedly.
     pub assignment: AssignmentId,
     /// Authenticated person authorized to act on this enrollment.
-    pub user: UserId,
+    pub account: AccountId,
     /// Student who owns the activity.
     ///
     /// This is the institution's pedagogical record identity. It remains
@@ -551,7 +551,7 @@ mod tests {
         let enrollment = AssignmentEnrollment {
             id: EnrollmentId::from_uuid(Uuid::from_u128(1)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-            user: UserId::from_uuid(Uuid::from_u128(5)),
+            account: AccountId::from_uuid(Uuid::from_u128(5)),
             student: StudentId::from_uuid(Uuid::from_u128(4)),
             first_completed_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
             current_grade_run: None,
@@ -577,7 +577,8 @@ mod tests {
                 class_statistics: None,
             }
         );
-        let mut summary = StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
+        let mut summary =
+            StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
         assert_eq!(
             StudentAssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current)
                 .score_state,
@@ -609,7 +610,8 @@ mod tests {
 
     #[test]
     fn student_progress_hides_scores_while_scoring_is_not_current() {
-        let mut summary = StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
+        let mut summary =
+            StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
         summary.total_question_attempts = 1;
         summary.current_score = Some(0.5);
         for scoring_status in [

@@ -90,82 +90,84 @@ enforced independently of the larger encoded namespace.
 
 ## Lineage and versions
 
-One Question ID names one stable published lineage. A `QuestionVersion` names
-one immutable published meaning within that lineage and has hidden exact
-`ProblemId` and `VersionId` evidence. A draft has a private workspace identity,
-but no published Question ID or published version.
+One Question ID names one stable published lineage. A **Question Version** names
+one immutable published meaning within that lineage and has one hidden internal
+UUID. A draft has a private workspace identity, but no published
+Question ID or published version.
 
 The closed semantic change classes are:
 
 - Presentation, accessibility, or metadata work that preserves grading meaning
   publishes a new immutable version in the same lineage.
 - A compatible learner-content improvement that preserves the objective, task,
-  and response family publishes a new immutable version in the same lineage.
+  and Question Type publishes a new immutable version in the same lineage.
 - A grading-semantic correction publishes a new immutable version in the same
   lineage, records its impact, and starts the required recalculation workflow.
-- An incompatible objective, response family, task, or educational purpose is a
+- An incompatible objective, Question Type, task, or educational purpose is a
   fork. Publication of the fork creates a new Question ID and a new version.
 
-`ModerateEdit` is available only to the question owner or original-lineage
-steward. It publishes a new immutable `QuestionVersion` in the same Question ID
+**Moderate Edit** is available only to the Question Owner or original-lineage
+steward. It publishes a new immutable Question Version in the same Question ID
 lineage, preserves the original authorship, and retains the existing CC license.
-Any approved (vetted) Instructor may use `FullFork` on a published
-version. `FullFork` creates a private Draft Question with the Instructor's own
+Any approved (vetted) Instructor may use **Full Fork** on a published
+version. Full Fork creates a private Draft Question with the Instructor's own
 authorship, source attribution, and a source-compatible CC license. The draft
 remains private to its creator's workspace until validation succeeds. Its
 successful publication enters the one shared catalog with a new Question ID and
-visible source/version ancestry; the fork author has no write access to the
-source.
+visible source/version ancestry. The fork author writes the independent fork.
 
-`QuestionChangeProposal` is a separate contribution path. Any approved (vetted)
+**Question Change Proposal** is a separate contribution path. Any approved (vetted)
 Instructor may submit a validated patch and rationale against one exact base
-`QuestionVersion`. The lineage owner accepts or rejects it. Acceptance creates a
+Question Version. The Question Owner accepts or rejects it. Acceptance creates a
 new immutable version in the original Question ID lineage, preserves canonical
 authorship and the existing CC license, and records contributor credit and
-proposal ancestry. It never moves assignment or evidence pins. A stale base
-requires rebase and resubmission.
+source history. Assignment and evidence pins remain fixed. A stale base requires
+rebase and resubmission.
 
 Semantic class is determined by meaning, not a byte-size threshold. Transport
 limits protect request handling and do not decide whether a change is compatible.
 
 ## Exact pins and evidence
 
-Every assignment item stores the visible Question ID together with the hidden
-exact `ProblemVersionRef { problem, version }` for the selected
-`QuestionVersion`. An explicit, revision-checked assignment update may choose a
-new available version. Publication, lifecycle changes, correction processing,
-and background work never advance an assignment automatically.
+Every fixed Assignment Entry and Question Pool candidate pins one exact
+Question Version by its internal UUID. The Question Version's parent
+relationship relates that pin to its visible Question ID lineage; a browser-safe
+projection may include the Question ID without creating a second exact-version
+identity. An explicit, revision-checked
+Assignment update may choose a new Available version. Publication, availability
+changes, correction processing, and background work preserve the Assignment's
+selected version.
 
-Every issued run and attempt retains that exact Question ID/version pair, the
-server-generated seed, and the provenance needed for deterministic replay and
-grading. Grading evidence and audit records resolve the same exact pair rather
-than a mutable latest pointer. A Student receives content only through the
-server-authorized assignment entitlement for that exact pin.
+Every Issued Question retains that exact Question Version pin and
+selection evidence. Every Question Attempt retains its server-generated seed
+and reproduction evidence. Grading evidence and audit records resolve the
+same Question Version UUID rather than a mutable latest pointer. A Student
+receives content only through server-authorized Assignment Access for that
+exact pin.
 
 Catalog metrics are keyed to the exact QuestionVersion. The version-specific
 evidence family may contain accepted graded-attempt count, correct count, and
-eligible choice-selection counts for supported flat-question families. The
+eligible choice-selection counts for supported Question Types. The
 formula version and disclosure threshold travel with the safe rollup. Below the
-threshold the projection reports insufficient evidence; it never exposes raw
-responses, small cells, linkable cohorts, or Student identities. Preview traffic
-and Instructor Student view do not contribute to catalog metrics.
+threshold the projection reports insufficient evidence and contains only the
+safe aggregate. Catalog metrics count accepted Student work; preview traffic and
+Instructor Student View remain separate.
 
-## Stars and Watch
+## Question Star and Question Watch
 
-Star is one `UserId`-owned endorsement per Question ID. Approved (vetted)
+Star is one Account-owned endorsement per Question ID. Approved (vetted)
 Instructors may see the Star count and the identities of approved Instructors
-who starred. Students and anonymous callers see neither Star state nor the
-identity list.
+who starred. This is an Approved-Instructor projection.
 
-Watch is a private actor-scoped in-app subscription for version, fork,
-improvement, and impact notices. No other actor sees a watcher's list or watch
-state. Neither Star nor Watch grants course, Student, workspace, publication,
-or grading authority.
+Watch is a private Account-scoped in-app subscription for version, fork,
+improvement, and impact notices. Each Account sees only its own watch list and watch
+state. Exact stored relationships continue to supply course, Student,
+workspace, publication, and grading authority.
 
-## ForcedQuestionCorrection
+## Forced Question Correction
 
 Every published `QuestionVersion` remains immutable, including during an
-emergency. A Sysadmin alone may approve a closed `ForcedQuestionCorrection`
+emergency. A Sysadmin alone may approve a closed **Forced Question Correction**
 after a validated replacement and privacy-safe impact manifest exist. The
 manifest binds the flawed exact version, replacement exact version, reason
 (`security_flaw` or `critical_correctness_flaw`), affected bindings, generation,
@@ -180,7 +182,7 @@ edited or deleted.
 
 Bounded, idempotent, generation-fenced workers materialize the mapping across
 active reusable courses, course instances, assignments, pools, and future
-issuance references. A deterministic compatibility check classifies in-progress
+issuance references. A deterministic work-impact check classifies in-progress
 work for reissue or excuse. Issued and graded work keeps its original exact
 pin; completed work receives an immutable superseding receipt and deterministic
 recalculation when required. There is no per-course approval step.
@@ -211,7 +213,8 @@ canonical display form.
 The implementation is complete when:
 
 - one visible `AAA-BBBB` ID names each stable published lineage;
-- each publication has an immutable `QuestionVersion` and hidden exact evidence;
+- each publication has an immutable Question Version and one hidden internal
+  UUID;
 - same-lineage and fork classes follow the semantic rules above;
 - assignments, attempts, and evidence retain exact version pins;
 - fork drafts remain private until validated publication and published forks are
@@ -229,6 +232,6 @@ The implementation is complete when:
   lifecycle, attempts, and presentation-scoped IDs.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines the answer-free question model,
   catalog projections, semantic changes, and correction boundary.
-- [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines actor,
+- [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines Account,
   membership, projection, and Sysadmin support authority.
 - [API_CONTRACTS.md](API_CONTRACTS.md) maps these rules to routes and payloads.

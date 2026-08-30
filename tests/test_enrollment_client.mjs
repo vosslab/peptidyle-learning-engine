@@ -4,9 +4,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  decodeAccountAuthenticated,
-  decodeAccountEmailChanged,
-  decodeAccountCoursePage,
   decodeAccountPresentationPreference,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
@@ -33,18 +30,7 @@ function json(value, status = 200, headers = {}) {
   });
 }
 
-test("passwordless and roster decoders reject authority and secret fields", () => {
-  assert.deepEqual(
-    decodeAccountAuthenticated({ authenticated: true, passkeyEnrollmentSuggested: true }),
-    { authenticated: true, passkeyEnrollmentSuggested: true },
-  );
-  assert.throws(
-    () => decodeAccountAuthenticated({ authenticated: true, passkeyEnrollmentRequired: true }),
-    /field allowed by this response contract/u,
-  );
-
-  assert.deepEqual(decodeAccountEmailChanged({ changed: true }), { changed: true });
-  assert.throws(() => decodeAccountEmailChanged({ changed: false }), /true/u);
+test("course and roster decoders reject authority and secret fields", () => {
   assert.deepEqual(decodeAccountPresentationPreference({ contrast: "standard" }), {
     contrast: "standard",
   });
@@ -56,37 +42,6 @@ test("passwordless and roster decoders reject authority and secret fields", () =
     () => decodeAccountPresentationPreference({ contrast: "increased", course: COURSE }),
     /field allowed by this response contract/u,
   );
-  assert.deepEqual(
-    decodeAccountCoursePage({
-      courses: [
-        { courseId: COURSE, courseReference: "C-1", title: "Biochemistry", role: "student" },
-      ],
-      nextCursor: null,
-    }),
-    {
-      courses: [
-        { courseId: COURSE, courseReference: "C-1", title: "Biochemistry", role: "student" },
-      ],
-      nextCursor: null,
-    },
-  );
-  assert.throws(
-    () =>
-      decodeAccountCoursePage({
-        courses: [
-          {
-            courseId: COURSE,
-            courseReference: "C-1",
-            title: "Biochemistry",
-            role: "student",
-            privateScope: "hidden",
-          },
-        ],
-        nextCursor: null,
-      }),
-    /field allowed by this response contract/u,
-  );
-
   const roster = {
     rosterMode: "emailEnrollment",
     members: [
@@ -135,62 +90,12 @@ test("passwordless and roster decoders reject authority and secret fields", () =
   );
 });
 
-test("account contrast preference uses one strict account-owned read and update route", async () => {
-  const requests = [];
-  let saved = { contrast: "standard" };
-  const client = createHttpApiClient({
-    fetch: (input, init = {}) => {
-      const url = new URL(String(input), "https://ple.example");
-      requests.push({ path: url.pathname, init });
-      if (url.pathname !== "/api/auth/account/presentation") {
-        throw new Error(`unexpected request ${url.pathname}`);
-      }
-      if (init.method === "PUT") {
-        saved = JSON.parse(String(init.body));
-      }
-      return Promise.resolve(json(saved));
-    },
-  });
-
-  assert.deepEqual(await client.getAccountPresentation(), { contrast: "standard" });
-  assert.deepEqual(await client.saveAccountPresentation({ contrast: "increased" }), {
-    contrast: "increased",
-  });
-  assert.deepEqual(
-    requests.map((request) => ({
-      path: request.path,
-      method: request.init.method ?? "GET",
-      cache: request.init.cache,
-      body: request.init.body,
-    })),
-    [
-      {
-        path: "/api/auth/account/presentation",
-        method: "GET",
-        cache: "no-store",
-        body: undefined,
-      },
-      {
-        path: "/api/auth/account/presentation",
-        method: "PUT",
-        cache: "no-store",
-        body: JSON.stringify({ contrast: "increased" }),
-      },
-    ],
-  );
-});
-
-test("account email change stays browser-bound and roster pagination uses the opaque cursor", async () => {
+test("roster pagination preserves the opaque cursor", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: (input, init = {}) => {
       const url = new URL(String(input), "https://ple.example");
       requests.push({ url, init });
-      if (url.pathname.endsWith("/email/start"))
-        return Promise.resolve(json({ accepted: true }, 202));
-      if (url.pathname.endsWith("/email/complete")) {
-        return Promise.resolve(json({ changed: true }));
-      }
       if (url.pathname.endsWith("/roster")) {
         return Promise.resolve(
           json({
@@ -208,15 +113,11 @@ test("account email change stays browser-bound and roster pagination uses the op
     },
   });
 
-  await client.startAccountEmailChange("new.student@example.edu");
-  await client.completeAccountEmailChange("A".repeat(43));
   await client.listCourseRoster(COURSE, "opaque+cursor/value");
 
-  assert.deepEqual(JSON.parse(requests[0]?.init.body), { email: "new.student@example.edu" });
-  assert.deepEqual(JSON.parse(requests[1]?.init.body), { token: "A".repeat(43) });
-  assert.equal(requests[2]?.url.searchParams.get("cursor"), "opaque+cursor/value");
+  assert.equal(requests[0]?.url.searchParams.get("cursor"), "opaque+cursor/value");
   assert.equal(requests[0]?.init.credentials, "same-origin");
-  assert.equal(requests[1]?.init.cache, "no-store");
+  assert.equal(requests[0]?.init.cache, "no-store");
 });
 
 test("roster import preview withholds invalid cells and keeps row selection explicit", () => {

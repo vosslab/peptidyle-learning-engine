@@ -16,8 +16,6 @@ mod problem_curation;
 mod reusable_curriculum;
 mod runs;
 mod scoring_invalidation;
-mod store;
-mod store_capabilities;
 mod store_error;
 mod workers;
 
@@ -47,13 +45,5 @@ pub use reusable_curriculum::{
 };
 pub use runs::*;
 pub use scoring_invalidation::*;
-pub use store::Store;
-pub(crate) use store_capabilities::{
-    ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,
-    FeedbackStore, RunStore, StatisticsStore,
-};
-pub use store_capabilities::{
-    CourseGroupManagementStore, SealedPrivateExecutionStore, StudentSubmissionStatusStore,
-};
 pub use store_error::StoreError;
 pub use workers::*;

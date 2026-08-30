@@ -6,9 +6,9 @@
 //! a direct membership.
 
 use question_model::{
-    ActivityTimestamp, CoInstructorInvitation, CoInstructorInvitationState,
+    AccountId, ActivityTimestamp, CoInstructorInvitation, CoInstructorInvitationState,
     CourseGroupPurposePolicy, CourseId, CourseMembershipId, CourseMembershipRole,
-    InstructorApproval, MultipleMembershipDisposition, StudentId, UserId,
+    InstructorApproval, MultipleMembershipDisposition, StudentId,
 };
 
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
@@ -39,7 +39,7 @@ pub const fn evaluate_multiple_membership(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DirectInstructorMembership {
     pub course: CourseId,
-    pub user: UserId,
+    pub instructor_account: AccountId,
     pub active: bool,
 }
 
@@ -51,25 +51,27 @@ pub enum InstructorAuthority {
     NoDirectCourseMembership,
 }
 
-/// Returns whether `actor` currently has global Instructor capability.
+/// Returns whether an account currently has global Instructor capability.
 ///
 /// A supplied timestamp keeps the predicate deterministic and lets the
 /// transaction owner provide its authoritative clock. A malformed, future, or
 /// revoked approval fails closed.
 pub fn approved_instructor(
     approval: Option<InstructorApproval>,
-    actor: UserId,
+    instructor_account: AccountId,
     now: ActivityTimestamp,
 ) -> bool {
     match approval {
         Some(approval) => {
-            approval.user == actor && approval.approved_at <= now && approval.revoked_at.is_none()
+            approval.account == instructor_account
+                && approval.approved_at <= now
+                && approval.revoked_at.is_none()
         }
         None => false,
     }
 }
 
-/// Returns whether `actor` is a current Instructor for exactly `course`.
+/// Returns whether an account is a current Instructor for exactly `course`.
 ///
 /// This is the canonical pure predicate for all course-Instructor operations:
 /// current global approval and an active direct Instructor membership are both
@@ -77,15 +79,17 @@ pub fn approved_instructor(
 pub fn current_course_instructor(
     approval: Option<InstructorApproval>,
     membership: Option<DirectInstructorMembership>,
-    actor: UserId,
+    instructor_account: AccountId,
     course: CourseId,
     now: ActivityTimestamp,
 ) -> bool {
-    approved_instructor(approval, actor, now)
+    approved_instructor(approval, instructor_account, now)
         && matches!(
             membership,
             Some(membership)
-                if membership.active && membership.course == course && membership.user == actor
+                if membership.active
+                    && membership.course == course
+                    && membership.instructor_account == instructor_account
         )
 }
 
@@ -99,7 +103,7 @@ pub fn current_course_instructor(
 pub struct StudentCourseMembership {
     pub membership: CourseMembershipId,
     pub course: CourseId,
-    pub user: UserId,
+    pub student_account: AccountId,
     pub student: StudentId,
     pub role: CourseMembershipRole,
     pub active: bool,
@@ -114,7 +118,7 @@ pub struct StudentCourseMembership {
 /// fails closed.
 pub fn student_owns_course_record(
     membership: Option<StudentCourseMembership>,
-    actor: UserId,
+    student_account: AccountId,
     course: CourseId,
     record_membership: CourseMembershipId,
     student: StudentId,
@@ -125,7 +129,7 @@ pub fn student_owns_course_record(
             if membership.active
                 && membership.role == CourseMembershipRole::Student
                 && membership.course == course
-                && membership.user == actor
+                && membership.student_account == student_account
                 && membership.membership == record_membership
                 && membership.student == student
     )
@@ -137,12 +141,12 @@ pub fn evaluate_course_instructor_authority(
     approval: Option<InstructorApproval>,
     membership: Option<DirectInstructorMembership>,
     course: CourseId,
-    user: UserId,
+    instructor_account: AccountId,
     now: ActivityTimestamp,
 ) -> InstructorAuthority {
-    if !approved_instructor(approval, user, now) {
+    if !approved_instructor(approval, instructor_account, now) {
         InstructorAuthority::ApprovalRequired
-    } else if current_course_instructor(approval, membership, user, course, now) {
+    } else if current_course_instructor(approval, membership, instructor_account, course, now) {
         InstructorAuthority::CurrentCourseInstructor
     } else {
         InstructorAuthority::NoDirectCourseMembership
@@ -168,7 +172,7 @@ pub enum CoInstructorInvitationError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CoInstructorInvitationAcceptance {
     pub course: CourseId,
-    pub target: UserId,
+    pub target: AccountId,
     pub accepted_at: ActivityTimestamp,
 }
 
@@ -198,7 +202,7 @@ pub fn invitation_state(
 /// Rechecks approval and produces the required ordinary direct-membership write.
 pub fn accept_co_instructor_invitation(
     invitation: &CoInstructorInvitation,
-    accepting_user: UserId,
+    accepting_account: AccountId,
     current_approval: Option<InstructorApproval>,
     now: ActivityTimestamp,
 ) -> Result<CoInstructorInvitationAcceptance, CoInstructorInvitationError> {
@@ -217,14 +221,14 @@ pub fn accept_co_instructor_invitation(
             return Err(CoInstructorInvitationError::InvitationRevoked);
         }
     }
-    if accepting_user != invitation.target {
+    if accepting_account != invitation.target {
         return Err(CoInstructorInvitationError::WrongTarget);
     }
     let Some(approval) = current_approval else {
         return Err(CoInstructorInvitationError::TargetApprovalRequired);
     };
     validate_instructor_approval(&approval, now)?;
-    if approval.user != invitation.target || approval.revoked_at.is_some() {
+    if approval.account != invitation.target || approval.revoked_at.is_some() {
         return Err(CoInstructorInvitationError::TargetApprovalRequired);
     }
     Ok(CoInstructorInvitationAcceptance {
@@ -334,7 +338,7 @@ mod tests {
             id: CoInstructorInvitationId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             invited_by: CourseMembershipId::from_uuid(id(4)),
-            target: UserId::from_uuid(id(3)),
+            target: AccountId::from_uuid(id(3)),
             created_at: stamp(1_000),
             expires_at: stamp(1_000 + CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS),
             accepted_at: None,
@@ -382,17 +386,17 @@ mod tests {
 
     #[test]
     fn current_course_instructor_requires_active_approval_and_membership() {
-        let actor = UserId::from_uuid(id(3));
+        let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         let approval = InstructorApproval {
-            user: actor,
-            approved_by: UserId::from_uuid(id(9)),
+            account: instructor_account,
+            approved_by: AccountId::from_uuid(id(9)),
             approved_at: stamp(10),
             revoked_at: None,
         };
         let membership = DirectInstructorMembership {
             course,
-            user: actor,
+            instructor_account,
             active: true,
         };
         assert_eq!(
@@ -400,7 +404,7 @@ mod tests {
                 Some(approval),
                 Some(membership),
                 course,
-                actor,
+                instructor_account,
                 stamp(11),
             ),
             InstructorAuthority::CurrentCourseInstructor
@@ -409,9 +413,9 @@ mod tests {
 
     #[test]
     fn approval_withdrawal_revokes_course_instructor_authority() {
-        let actor = UserId::from_uuid(id(3));
+        let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let approval = approval(actor);
+        let approval = approval(instructor_account);
         assert!(!current_course_instructor(
             Some(InstructorApproval {
                 revoked_at: Some(stamp(1_001)),
@@ -419,10 +423,10 @@ mod tests {
             }),
             Some(DirectInstructorMembership {
                 course,
-                user: actor,
+                instructor_account,
                 active: true,
             }),
-            actor,
+            instructor_account,
             course,
             stamp(1_001),
         ));
@@ -430,33 +434,33 @@ mod tests {
 
     #[test]
     fn foreign_course_membership_cannot_authorize_an_instructor() {
-        let actor = UserId::from_uuid(id(3));
+        let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         assert!(!current_course_instructor(
-            Some(approval(actor)),
+            Some(approval(instructor_account)),
             Some(DirectInstructorMembership {
                 course: CourseId::from_uuid(id(4)),
-                user: actor,
+                instructor_account,
                 active: true,
             }),
-            actor,
+            instructor_account,
             course,
             stamp(1_001),
         ));
     }
 
     #[test]
-    fn foreign_actor_membership_cannot_authorize_an_instructor() {
-        let actor = UserId::from_uuid(id(3));
+    fn foreign_account_membership_cannot_authorize_an_instructor() {
+        let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         assert!(!current_course_instructor(
-            Some(approval(actor)),
+            Some(approval(instructor_account)),
             Some(DirectInstructorMembership {
                 course,
-                user: UserId::from_uuid(id(4)),
+                instructor_account: AccountId::from_uuid(id(4)),
                 active: true,
             }),
-            actor,
+            instructor_account,
             course,
             stamp(1_001),
         ));
@@ -464,16 +468,16 @@ mod tests {
 
     #[test]
     fn revoked_membership_cannot_authorize_an_instructor() {
-        let actor = UserId::from_uuid(id(3));
+        let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         assert!(!current_course_instructor(
-            Some(approval(actor)),
+            Some(approval(instructor_account)),
             Some(DirectInstructorMembership {
                 course,
-                user: actor,
+                instructor_account,
                 active: false,
             }),
-            actor,
+            instructor_account,
             course,
             stamp(1_001),
         ));
@@ -481,19 +485,19 @@ mod tests {
 
     #[test]
     fn exact_student_record_is_permitted_and_other_student_is_denied() {
-        let actor = UserId::from_uuid(id(3));
+        let student_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let membership = student_membership(actor, course);
+        let membership = student_membership(student_account, course);
         assert!(student_owns_course_record(
             Some(membership),
-            actor,
+            student_account,
             course,
             membership.membership,
             membership.student,
         ));
         assert!(!student_owns_course_record(
             Some(membership),
-            actor,
+            student_account,
             course,
             membership.membership,
             StudentId::from_uuid(id(7)),
@@ -502,12 +506,12 @@ mod tests {
 
     #[test]
     fn mismatched_student_membership_episode_cannot_authorize_course_record_access() {
-        let actor = UserId::from_uuid(id(3));
+        let student_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let membership = student_membership(actor, course);
+        let membership = student_membership(student_account, course);
         assert!(!student_owns_course_record(
             Some(membership),
-            actor,
+            student_account,
             course,
             CourseMembershipId::from_uuid(id(7)),
             membership.student,
@@ -516,15 +520,15 @@ mod tests {
 
     #[test]
     fn inactive_student_membership_cannot_authorize_course_record_access() {
-        let actor = UserId::from_uuid(id(3));
+        let student_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let membership = student_membership(actor, course);
+        let membership = student_membership(student_account, course);
         assert!(!student_owns_course_record(
             Some(StudentCourseMembership {
                 active: false,
                 ..membership
             }),
-            actor,
+            student_account,
             course,
             membership.membership,
             membership.student,
@@ -533,15 +537,15 @@ mod tests {
 
     #[test]
     fn non_student_membership_cannot_authorize_course_record_access() {
-        let actor = UserId::from_uuid(id(3));
+        let student_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let membership = student_membership(actor, course);
+        let membership = student_membership(student_account, course);
         assert!(!student_owns_course_record(
             Some(StudentCourseMembership {
                 role: CourseMembershipRole::Instructor,
                 ..membership
             }),
-            actor,
+            student_account,
             course,
             membership.membership,
             membership.student,
@@ -661,7 +665,7 @@ mod tests {
     #[test]
     fn approval_record_chronology_is_checked_at_caller_time() {
         let now = stamp(1_001);
-        let active = approval(UserId::from_uuid(id(3)));
+        let active = approval(AccountId::from_uuid(id(3)));
         assert_eq!(validate_instructor_approval(&active, now), Ok(()));
 
         let revoked = InstructorApproval {
@@ -702,7 +706,7 @@ mod tests {
         assert_eq!(
             accept_co_instructor_invitation(
                 &invitation,
-                UserId::from_uuid(id(4)),
+                AccountId::from_uuid(id(4)),
                 Some(approval(invitation.target)),
                 now,
             ),
@@ -775,20 +779,20 @@ mod tests {
         assert_eq!(refuse_final_instructor_removal(2), Ok(()));
     }
 
-    fn approval(user: UserId) -> InstructorApproval {
+    fn approval(account: AccountId) -> InstructorApproval {
         InstructorApproval {
-            user,
-            approved_by: UserId::from_uuid(id(9)),
+            account,
+            approved_by: AccountId::from_uuid(id(9)),
             approved_at: stamp(900),
             revoked_at: None,
         }
     }
 
-    fn student_membership(actor: UserId, course: CourseId) -> StudentCourseMembership {
+    fn student_membership(student_account: AccountId, course: CourseId) -> StudentCourseMembership {
         StudentCourseMembership {
             membership: CourseMembershipId::from_uuid(id(6)),
             course,
-            user: actor,
+            student_account,
             student: StudentId::from_uuid(id(5)),
             role: CourseMembershipRole::Student,
             active: true,

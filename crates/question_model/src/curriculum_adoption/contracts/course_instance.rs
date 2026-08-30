@@ -12,8 +12,8 @@ use super::{
     CurriculumReplayStatus, ObservedBlueprintSource, ReplacementQuestionChoices,
 };
 use crate::{
-    AssignmentReference, AssignmentRevision, CourseReference, CourseScheduleRevision, CourseTerm,
-    ProblemVersionRef, ResolvedRelativeAssignmentSchedule, UserId,
+    AccountId, AssignmentReference, AssignmentRevision, CourseReference, CourseScheduleRevision,
+    CourseTerm, ProblemVersionRef, ResolvedRelativeAssignmentSchedule,
 };
 
 use super::bounded::{
@@ -92,7 +92,7 @@ pub enum CourseInstanceCreationOrigin {
 pub struct CourseInstanceCreationWitness {
     origin: CourseInstanceCreationOrigin,
     target_term: CourseTerm,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
     reserved_course: CourseReference,
@@ -102,7 +102,7 @@ impl CourseInstanceCreationWitness {
     pub fn for_blueprint(
         source: ObservedBlueprintSource,
         target_term: CourseTerm,
-        authorized_actor: UserId,
+        authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
         reserved_course: CourseReference,
@@ -110,7 +110,7 @@ impl CourseInstanceCreationWitness {
         Self {
             origin: CourseInstanceCreationOrigin::Blueprint(source),
             target_term,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
             reserved_course,
@@ -120,7 +120,7 @@ impl CourseInstanceCreationWitness {
     pub fn for_rollover(
         source: CourseInstanceWitness,
         target_term: CourseTerm,
-        authorized_actor: UserId,
+        authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
         reserved_course: CourseReference,
@@ -128,7 +128,7 @@ impl CourseInstanceCreationWitness {
         Self {
             origin: CourseInstanceCreationOrigin::Rollover(source),
             target_term,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
             reserved_course,
@@ -147,8 +147,8 @@ impl CourseInstanceCreationWitness {
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
@@ -225,7 +225,7 @@ pub enum ControlledUpdateEffect {
 /// Exact server-only locator for an immutable assignment-import receipt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssignmentImportReceiptTarget {
-    receipt_actor: UserId,
+    receipt_account: AccountId,
     receipt_key: CurriculumAdoptionIdempotencyKey,
     course: CourseReference,
     assignment: AssignmentReference,
@@ -234,22 +234,22 @@ pub struct AssignmentImportReceiptTarget {
 
 impl AssignmentImportReceiptTarget {
     pub fn new(
-        receipt_actor: UserId,
+        receipt_account: AccountId,
         receipt_key: CurriculumAdoptionIdempotencyKey,
         course: CourseReference,
         assignment: AssignmentReference,
         import_revision: CurriculumImportRevision,
     ) -> Self {
         Self {
-            receipt_actor,
+            receipt_account,
             receipt_key,
             course,
             assignment,
             import_revision,
         }
     }
-    pub fn receipt_actor(&self) -> UserId {
-        self.receipt_actor
+    pub fn receipt_account(&self) -> AccountId {
+        self.receipt_account
     }
     pub fn receipt_key(&self) -> &CurriculumAdoptionIdempotencyKey {
         &self.receipt_key

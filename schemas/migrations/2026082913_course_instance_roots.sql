@@ -9,13 +9,13 @@ CREATE TABLE ple_data.course_instance (
     course_id uuid PRIMARY KEY,
     blueprint_id uuid NOT NULL REFERENCES ple_data.blueprint_course (blueprint_id),
     blueprint_revision_id uuid NOT NULL REFERENCES ple_data.blueprint_course_revision (blueprint_revision_id),
-    assigned_instructor_user_id uuid NOT NULL,
+    assigned_instructor_account_id uuid NOT NULL,
     assigned_instructor_role text NOT NULL DEFAULT 'instructor' CHECK (assigned_instructor_role = 'instructor'),
     created_at timestamp with time zone NOT NULL,
     delivery_time_zone text NOT NULL CHECK (char_length(btrim(delivery_time_zone)) BETWEEN 1 AND 100),
     CONSTRAINT course_instance_assigned_instructor_role_matches FOREIGN KEY (
-        assigned_instructor_user_id, assigned_instructor_role
-    ) REFERENCES ple_private.account (user_id, role),
+        assigned_instructor_account_id, assigned_instructor_role
+    ) REFERENCES ple_private.account (account_id, role),
     CONSTRAINT course_instance_blueprint_revision_is_unique UNIQUE (course_id, blueprint_revision_id)
 );
 CREATE TABLE ple_data.course_instance_blueprint_adoption (

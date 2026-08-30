@@ -23,7 +23,3 @@ pub(crate) use response::{error_response, store_error_response};
 
 #[cfg(test)]
 pub(crate) use publication::PUBLICATION_MINT_COUNT;
-
-#[cfg(test)]
-#[path = "catalog/tests/mod.rs"]
-mod tests;

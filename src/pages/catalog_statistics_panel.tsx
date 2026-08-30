@@ -106,7 +106,7 @@ function AvailableEvidence(props: { readonly evidence: AvailableCatalogEvidence 
   );
 }
 
-/** Shows institution-wide counts and actor-authorized course links. */
+/** Shows installation-wide counts and Account-authorized course links. */
 export function CatalogUsagePanel(props: CatalogUsagePanelProps): JSX.Element {
   const summary = (): CatalogUsageDetail["summary"] => props.usage.summary;
   return (

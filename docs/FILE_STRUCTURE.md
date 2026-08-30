@@ -1,8 +1,10 @@
 # File structure
 
 This map points contributors to the owner of a behavior. [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md)
-describes the boundaries; [CONTRACTS.md](CONTRACTS.md) indexes durable contracts; and
-[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) owns cross-language spelling.
+describes the boundaries; [CONTRACTS.md](CONTRACTS.md) indexes durable contracts;
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns PLE concept meaning and
+authority relationships; [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) owns cross-language
+spelling.
 
 ## Top-level layout
 

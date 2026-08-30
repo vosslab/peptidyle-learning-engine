@@ -60,7 +60,7 @@ authorize exposing its attached diagnostic text.
 | ------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `NotFound`                      | No visible record exists in the active scope.                           | Treat as absent; routes may also use it to conceal a foreign record.                                  |
 | `AlreadyExists`                 | Immutable identity or first-writer boundary already exists.             | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload. |
-| `Forbidden` | Caller context lacks the required actor, course/Student ownership, workspace relationship, capability, or role. | Stop. Do not reveal whether a foreign actor owns the record. |
+| `Forbidden` | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record. |
 | `Conflict`                      | A compare-and-swap, lifecycle, or immutable-state precondition changed. | Reload the authoritative projection and ask the user to review before retrying.                       |
 | `RetryableTransaction`          | PostgreSQL aborted the whole serializable/deadlock transaction.         | Retry only at the owner-defined transaction or idempotent command boundary.                           |
 | `TimedOut`                      | The database-authoritative attempt deadline already passed.             | Stop the submission path and reload the current attempt or summary.                                   |
@@ -77,7 +77,7 @@ relevant boundary's concealment rule instead of exposing a raw `StoreError` or m
 status mapping.
 
 Browser errors contain a stable short message only. They never contain SQL, object keys, bucket
-names, signed URLs, checksums not already public, actor or course identities, leases, renderer/provider
+names, signed URLs, checksums not already public, Account or course identities, leases, renderer/provider
 state, source archives, answer keys, or raw backend errors.
 
 ## Submission and attempt recovery
@@ -115,7 +115,7 @@ must not treat current provenance fields as client authority.
 ## Replica and cache recovery
 
 API replicas have no correctness-bearing process memory. The shared PostgreSQL session store,
-actor context, attempts, submissions, idempotency receipts, and shared S3-compatible object store
+authenticated Account context, attempts, submissions, idempotency receipts, and shared S3-compatible object store
 allow a surviving replica to resume an authorized attempt. The exact topology and evidence are in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 
@@ -149,7 +149,7 @@ lease and generation rules are owned by
 perspective, a transient or timed-out job receives its bounded retry/backoff;
 a permanent or exhausted job becomes `Dead`; and an unavailable or unknown
 finalization remains recoverable rather than being immediately repeated.
-Actor-visible inspection exposes only coarse state and count, not lease tokens
+Account-visible inspection exposes only coarse state and count, not lease tokens
 or failure text. Operators use the authorized job boundary to investigate a
 dead job and choose a documented repair; they do not make a stale worker's
 output current.
@@ -248,9 +248,9 @@ browser-facing data channel.
 - Browser responses may contain a status, a short stable message, and a route-safe identifier
   already visible to the caller. They never contain object keys, buckets, manifests, signed URLs,
   leases, provider payloads, source bytes, answer keys, raw responses, SQL, credentials, or a
-  foreign actor's course, Student, workspace, or record existence.
+  foreign Account's course, Student, workspace, or record existence.
 - Durable audit and access records remain course/Student-owned and retention-bound. Store the minimum
-  operation identity, actor, exact target scope, reason category, and time needed for investigation.
+  operation identity, authenticated Account, exact target scope, reason category, and time needed for investigation.
 - Worker and server logs use stable error categories such as `unavailable` or `conflict`; attach
   protected correlation data only in the authorized operator boundary and never copy it into an
   HTTP response.

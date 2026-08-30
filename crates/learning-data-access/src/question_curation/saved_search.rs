@@ -6,7 +6,7 @@
 
 use std::num::NonZeroU64;
 
-use question_model::{CatalogSearchFilter, UserId, validate_problem_curation_title};
+use question_model::{AccountId, CatalogSearchFilter, validate_problem_curation_title};
 use uuid::Uuid;
 
 /// Opaque server-only identity for one named question saved search.
@@ -100,7 +100,7 @@ impl NamedQuestionSavedSearchReplacementOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedQuestionSavedSearch {
     id: NamedQuestionSavedSearchId,
-    owner: UserId,
+    owner: AccountId,
     title: String,
     filter: CatalogSearchFilter,
     revision: NamedQuestionSavedSearchRevision,
@@ -109,7 +109,7 @@ pub struct NamedQuestionSavedSearch {
 impl NamedQuestionSavedSearch {
     /// Creates a validated saved search at its initial revision.
     pub fn new(
-        owner: UserId,
+        owner: AccountId,
         title: String,
         filter: CatalogSearchFilter,
     ) -> Result<Self, NamedQuestionSavedSearchError> {
@@ -129,7 +129,7 @@ impl NamedQuestionSavedSearch {
     }
 
     /// Returns the immutable global account that owns this saved search.
-    pub fn owner(&self) -> UserId {
+    pub fn owner(&self) -> AccountId {
         self.owner
     }
 
@@ -198,8 +198,8 @@ mod tests {
 
     use super::*;
 
-    fn user(value: u128) -> UserId {
-        UserId::from_uuid(Uuid::from_u128(value))
+    fn account(value: u128) -> AccountId {
+        AccountId::from_uuid(Uuid::from_u128(value))
     }
 
     fn filter(text: &str) -> CatalogSearchFilter {
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn creation_retains_global_owner_and_opaque_server_identity() {
-        let owner = user(1);
+        let owner = account(1);
         let saved_search =
             NamedQuestionSavedSearch::new(owner, "Exam review".to_string(), filter("protein"))
                 .expect("valid saved search");
@@ -233,12 +233,12 @@ mod tests {
     fn creation_rejects_invalid_titles() {
         for title in [" Exam review", "Exam review ", ""] {
             assert_eq!(
-                NamedQuestionSavedSearch::new(user(1), title.to_string(), filter("protein")),
+                NamedQuestionSavedSearch::new(account(1), title.to_string(), filter("protein")),
                 Err(NamedQuestionSavedSearchError::InvalidTitle)
             );
         }
         assert_eq!(
-            NamedQuestionSavedSearch::new(user(1), "x".repeat(201), filter("protein")),
+            NamedQuestionSavedSearch::new(account(1), "x".repeat(201), filter("protein")),
             Err(NamedQuestionSavedSearchError::InvalidTitle)
         );
     }
@@ -249,7 +249,7 @@ mod tests {
         invalid.tags = vec![" ".to_string()];
 
         assert_eq!(
-            NamedQuestionSavedSearch::new(user(1), "Exam review".to_string(), invalid),
+            NamedQuestionSavedSearch::new(account(1), "Exam review".to_string(), invalid),
             Err(NamedQuestionSavedSearchError::InvalidFilter)
         );
     }
@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn creation_starts_at_initial_revision_and_retains_canonical_fresh_filter() {
         let saved_search = NamedQuestionSavedSearch::new(
-            user(1),
+            account(1),
             "Exam review".to_string(),
             filter("  Protein   FOLDING "),
         )
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn normalization_equivalent_replacement_is_unchanged() {
         let mut saved_search = NamedQuestionSavedSearch::new(
-            user(1),
+            account(1),
             "Exam review".to_string(),
             filter("protein folding"),
         )
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn changed_title_and_filter_replace_whole_state_once() {
         let mut saved_search =
-            NamedQuestionSavedSearch::new(user(1), "Exam review".to_string(), filter("protein"))
+            NamedQuestionSavedSearch::new(account(1), "Exam review".to_string(), filter("protein"))
                 .expect("valid saved search");
 
         assert_eq!(
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn stale_replacement_reports_both_revisions_without_mutation() {
         let mut saved_search =
-            NamedQuestionSavedSearch::new(user(1), "Exam review".to_string(), filter("protein"))
+            NamedQuestionSavedSearch::new(account(1), "Exam review".to_string(), filter("protein"))
                 .expect("valid saved search");
         let initial = saved_search.revision();
         saved_search
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn revision_exhaustion_refuses_an_otherwise_valid_replacement() {
         let mut saved_search =
-            NamedQuestionSavedSearch::new(user(1), "Exam review".to_string(), filter("protein"))
+            NamedQuestionSavedSearch::new(account(1), "Exam review".to_string(), filter("protein"))
                 .expect("valid saved search");
         saved_search.revision = NamedQuestionSavedSearchRevision::new(i64::MAX as u64)
             .expect("maximum storage-safe revision");

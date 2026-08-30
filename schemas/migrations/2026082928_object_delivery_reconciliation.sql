@@ -101,7 +101,7 @@ SET LOCAL ROLE ple_audit_owner;
 CREATE TABLE ple_audit.object_delivery_access_event (
     event_id uuid PRIMARY KEY,
     delivery_id uuid NOT NULL REFERENCES ple_data.object_delivery_record (delivery_id),
-    actor_user_id uuid NOT NULL REFERENCES ple_private.account (user_id),
+    account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     course_id uuid,
     authorized_at timestamp with time zone NOT NULL,
     UNIQUE (event_id, delivery_id)

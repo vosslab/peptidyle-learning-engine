@@ -43,9 +43,8 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     const reference = courseReference();
     return (
       currentSession.kind === "authenticated" &&
-      currentSession.session.user.roles.some(
-        (role) => role === "instructor" || role === "sysadmin",
-      ) &&
+      (currentSession.session.account.role === "instructor" ||
+        currentSession.session.account.role === "sysadmin") &&
       currentCourse?.role === "instructor" &&
       reference !== null &&
       currentCourse.reference === reference

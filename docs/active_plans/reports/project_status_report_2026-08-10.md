@@ -5,7 +5,7 @@ Plan authority: [implementation_plan.md](../implementation_plan.md)
 Release completion: [release_completion_plan.md](../active/release_completion_plan.md)
 Owner decisions: [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md)
 Execution handoff: [implementation_status.md](../implementation_status.md)
-Previous snapshot: [project_status_report_2026-08-09.md](../project_status_report_2026-08-09.md)
+Previous snapshot: retired 2026-08-09 report
 
 ## Status language
 
@@ -244,7 +244,7 @@ production deployment.
   small without weakening authoritative identity.
 - Course and learner records are course-owned. Shared published versions are immutable and reusable
   without copying content into every course.
-- A PLE account is keyed by one opaque global `UserId`; verified email is the mutable canonical
+- A PLE Account is keyed by one opaque global `AccountId`; verified email is the mutable canonical
   sign-in attribute, while course authorization and course-bound `StudentId` mappings isolate
   educational records. Course-scoped roster email and roster ID exist only for instruction and
   manual grade export.

@@ -63,7 +63,3 @@ mod access;
 mod parsing;
 mod projection;
 mod routes;
-
-#[cfg(test)]
-#[path = "retention/route_tests/mod.rs"]
-mod route_tests;

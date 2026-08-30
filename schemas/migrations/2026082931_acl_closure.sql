@@ -38,15 +38,15 @@ REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ple_api FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ple_api FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ple_api FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_api TO ple_auth, ple_app, ple_student, ple_grader, ple_worker;
-GRANT EXECUTE ON FUNCTION ple_api.resolve_and_install_actor(bytea) TO ple_auth;
-GRANT EXECUTE ON FUNCTION ple_api.current_actor_user_id(),
-    ple_api.current_actor_is_course_instructor(uuid),
-    ple_api.current_actor_is_course_student(uuid, uuid),
-    ple_api.current_actor_owns_workspace(uuid),
-    ple_api.current_actor_can_access_workspace(uuid),
-    ple_api.current_actor_has_course_observer_grant(uuid),
-    ple_api.current_actor_has_student_observer_grant(uuid, uuid),
-    ple_api.current_actor_has_support_capability(uuid, uuid, uuid, text)
+GRANT EXECUTE ON FUNCTION ple_api.resolve_and_install_session(bytea) TO ple_auth;
+GRANT EXECUTE ON FUNCTION ple_api.current_session_account_id(),
+    ple_api.current_session_account_is_course_instructor(uuid),
+    ple_api.current_session_account_is_course_student(uuid, uuid),
+    ple_api.current_session_account_owns_workspace(uuid),
+    ple_api.current_session_account_can_access_workspace(uuid),
+    ple_api.current_session_account_has_course_observer_grant(uuid),
+    ple_api.current_session_account_has_student_observer_grant(uuid, uuid),
+    ple_api.current_session_account_has_support_capability(uuid, uuid, uuid, text)
     TO ple_app, ple_auth, ple_student, ple_grader, ple_worker;
 GRANT EXECUTE ON FUNCTION ple_api.current_worker_has_job_lease(uuid) TO ple_worker;
 GRANT EXECUTE ON FUNCTION ple_api.qti_import_is_committed(uuid, uuid) TO ple_grader;

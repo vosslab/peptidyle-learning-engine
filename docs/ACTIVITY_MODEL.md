@@ -1,8 +1,10 @@
 # Activity model
 
 Peptidyle treats completion as a milestone, not the end of activity. A student
-may complete an assignment and keep starting new runs to learn from algorithmic
-variation. The model therefore separates enrollment, run, and question attempt.
+may complete an assignment and keep starting new Assignment Attempts to learn
+from algorithmic variation. The model therefore separates enrollment,
+Assignment Attempt, and Question Attempt. The terminology and hierarchy are
+owned by [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 This is the durable record and policy contract. It complements the end-to-end
 ownership map in [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), the
@@ -13,16 +15,17 @@ server-only learner boundary in
 release plan remains the source of truth for package status and acceptance
 evidence.
 
-## The three levels
+## Assignment hierarchy
 
 | Record                 | Meaning                                        | Cardinality                    |
 | ---------------------- | ---------------------------------------------- | ------------------------------ |
 | `AssignmentEnrollment` | One student's relationship with one assignment | One per student and assignment |
-| `AssignmentRun`        | One pass through the assignment                | Many per enrollment            |
-| `QuestionAttempt`      | One issued question and submitted response     | Many per run                   |
+| Assignment Attempt | One pass through the Assignment | Many per enrollment |
+| Question Attempt | One issued question within one Assignment Attempt | Many per Assignment Attempt |
+| Submission | One accepted answer for one Question Attempt | Per submission policy |
 
-The owner has observed students voluntarily run a completed assignment 30 or
-more times. The dedicated WP-C3 acceptance test therefore completes 31 runs and
+The owner has observed Students voluntarily complete a finished assignment 30 or
+more times. The dedicated WP-C3 acceptance test therefore completes 31 Assignment Attempts and
 checks the compact summary rather than treating the first completion as terminal.
 
 ## Single-installation authorization
@@ -42,18 +45,18 @@ name their exact `StudentId` owner. Child identities must agree with the
 enrollment, assignment, and course chain; a direct child identifier never widens
 that scope.
 
-The server derives `ActorContext { user_id, session_id }` from the authenticated
+The server resolves an authenticated session record to its global account and session identity from the authenticated
 global account session. A browser field, request path, header, queue payload,
 object key, or provider response can identify a candidate record, but cannot
-establish actor authority or select a course. The Store and PostgreSQL boundary
+establish Account authority or select a course. The Store and PostgreSQL boundary
 re-evaluate the exact relationship in the same transaction as each protected
 operation.
 
 | Activity record | Durable ownership scope | Allowed human authority |
 | --- | --- | --- |
 | `AssignmentEnrollment` | `CourseId`, `AssignmentId`, and exact `StudentId` | That Student, or a current course Instructor |
-| `AssignmentRun` | `CourseId`, `EnrollmentId`, and its Student owner | That Student, or a current course Instructor |
-| `QuestionAttempt` | `CourseId`, `RunId`, and its Student owner | That Student, or a current course Instructor |
+| Assignment Attempt | `CourseId`, `EnrollmentId`, and its Student owner | That Student, or a current course Instructor |
+| Question Attempt | `CourseId`, Assignment Attempt, and its Student owner | That Student, or a current course Instructor |
 | `StudentAssignmentSummary` | `CourseId`, `EnrollmentId`, and its Student owner | That Student projection, or a current course Instructor |
 
 Student access requires current active Student membership for the exact course
@@ -72,34 +75,36 @@ authorization checks do not rewrite historical activity evidence.
 
 ## Enrollment
 
-`AssignmentEnrollment` owns cross-run state:
+`AssignmentEnrollment` owns cross-Assignment-Attempt state:
 
 - `student` is the exact Student record owner for this course and is not
-  inferred to be the same identifier as the authenticated `UserId`;
-- the request actor is the server-derived `ActorContext`, not a browser-supplied
+  inferred to be the same identifier as the authenticated `AccountId`;
+- the requesting account and session are server-derived, not browser-supplied
   enrollment field;
-- `first_completed_at` records the first server time a run met completion.
-- `current_grade_run` points to the run selected by grade policy.
-- `best_grade_run` points to the highest-scoring completed run.
+- `first_completed_at` records the first server time an Assignment Attempt met completion.
+- `current_grade_run` points to the Assignment Attempt selected by grade policy.
+- `best_grade_run` points to the highest-scoring completed Assignment Attempt.
 
 `EnrollmentStatus` is derived from `first_completed_at`. It is not stored as a
 second value that can disagree with the first-completion record.
 
-## Run
+## Assignment Attempt
 
-`AssignmentRun` records its one-based run number, server timestamps, score,
-mode, and the variation policy that was actually applied. `RunMode` distinguishes
-initial assigned work from post-completion practice.
+An Assignment Attempt records its one-based attempt number, server timestamps,
+score, mode, and the variation policy that was actually applied. It distinguishes
+initial assigned work from post-completion practice. Current source calls this
+aggregate `AssignmentRun`; that legacy implementation name is pending the
+coordinated terminology cutover and is not canonical documentation vocabulary.
 
-There is no stored within-run `complete` boolean. MOD-RUN derives completion
+There is no stored within-Assignment-Attempt `complete` boolean. MOD-RUN derives completion
 from the current state of every required question. Once the policy is satisfied,
 the server records the completion timestamp and score as a transition.
 
 ## Question attempt
 
-`QuestionAttempt` belongs to one run and records:
+`QuestionAttempt` belongs to one Assignment Attempt and records:
 
-- its exact course, run, and Student-owner scope, resolved through the parent
+- its exact course, Assignment Attempt, and Student-owner scope, resolved through the parent
   enrollment and assignment;
 - its zero-based assignment position, which distinguishes repeated references
   to the same published problem version and groups retries correctly;

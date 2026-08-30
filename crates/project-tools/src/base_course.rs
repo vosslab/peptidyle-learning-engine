@@ -5,7 +5,7 @@ use base_course_installation::{
     AcceptedSubmissionSeedExecutor, AcceptedSubmissionSeedOutcome, AcceptedSubmissionSeedRequest,
     BaseCourseInstallPhase, BaseCourseInstallRequest, BaseCourseParticipants,
 };
-use question_model::UserId;
+use question_model::AccountId;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
@@ -129,14 +129,16 @@ fn parse_arguments_with_database_urls_and_fast_path(
         index += 1;
         match flag.as_str() {
             "--instructor" if instructor.is_none() => {
-                instructor = Some(parse_user(value, "instructor")?);
+                instructor = Some(parse_account(value, "instructor")?);
             }
-            "--mary" if mary.is_none() => mary = Some(parse_user(value, "Mary")?),
-            "--jack" if jack.is_none() => jack = Some(parse_user(value, "Jack")?),
+            "--mary" if mary.is_none() => mary = Some(parse_account(value, "Mary")?),
+            "--jack" if jack.is_none() => jack = Some(parse_account(value, "Jack")?),
             "--approval-candidate" if approval_candidate.is_none() => {
-                approval_candidate = Some(parse_user(value, "approval candidate")?);
+                approval_candidate = Some(parse_account(value, "approval candidate")?);
             }
-            "--sysadmin" if sysadmin.is_none() => sysadmin = Some(parse_user(value, "Sysadmin")?),
+            "--sysadmin" if sysadmin.is_none() => {
+                sysadmin = Some(parse_account(value, "Sysadmin")?)
+            }
             "--lifecycle-phase" if lifecycle_phase.is_none() => {
                 lifecycle_phase = Some(value.as_str());
             }
@@ -263,14 +265,12 @@ impl AcceptedSubmissionSeedExecutor for SeedExecutor {
         &self,
         request: AcceptedSubmissionSeedRequest,
     ) -> Result<AcceptedSubmissionSeedOutcome, learning_data_access::StoreError> {
-        let context = request.context;
         let outcome = server_core::accepted_submission_service::accept_and_execute(
             &self.store,
             self.automated.as_ref(),
             self.fast_path.as_ref(),
             server_core::accepted_submission_service::AcceptedSubmissionRequest {
-                context: request.context,
-                actor: request.actor,
+                student_account: request.student_account,
                 binding: request.binding,
                 attempt: request.attempt,
                 response: request.response,
@@ -330,8 +330,8 @@ impl AcceptedSubmissionSeedExecutor for SeedExecutor {
     }
 }
 
-fn parse_user(value: &str, name: &str) -> Result<UserId> {
-    Ok(UserId::from_uuid(
+fn parse_account(value: &str, name: &str) -> Result<AccountId> {
+    Ok(AccountId::from_uuid(
         Uuid::parse_str(value).with_context(|| format!("{name} must be a UUID"))?,
     ))
 }
@@ -385,11 +385,11 @@ mod tests {
         assert_eq!(
             parsed.participants,
             BaseCourseParticipants::try_new(
-                UserId::from_uuid(Uuid::from_u128(2)),
-                UserId::from_uuid(Uuid::from_u128(3)),
-                UserId::from_uuid(Uuid::from_u128(4)),
-                UserId::from_uuid(Uuid::from_u128(5)),
-                UserId::from_uuid(Uuid::from_u128(6)),
+                AccountId::from_uuid(Uuid::from_u128(2)),
+                AccountId::from_uuid(Uuid::from_u128(3)),
+                AccountId::from_uuid(Uuid::from_u128(4)),
+                AccountId::from_uuid(Uuid::from_u128(5)),
+                AccountId::from_uuid(Uuid::from_u128(6)),
             )
             .unwrap()
         );

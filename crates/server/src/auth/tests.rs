@@ -4,17 +4,12 @@ use axum::http::Request;
 use axum::middleware;
 use axum::routing::post;
 use learning_data_access::in_memory::MemoryStore;
-use question_model::{UserId, UserRole};
+use question_model::{AccountId, AccountRole};
 use tower::ServiceExt;
 use uuid::Uuid;
 
-fn subject() -> SessionSubject {
-    SessionSubject::new(
-        UserId::from_uuid(Uuid::from_u128(2)),
-        "Fixture Student",
-        UserRole::Student,
-    )
-    .expect("fixture subject")
+fn account() -> AccountId {
+    AccountId::from_uuid(Uuid::from_u128(2))
 }
 
 fn config(transport: CookieTransport) -> SessionConfig {
@@ -35,9 +30,14 @@ fn cookie_request_header(set_cookie: &str) -> &str {
 async fn revocation_on_one_replica_takes_effect_on_another() {
     let issuer = MemoryStore::default();
     let next_replica = issuer.clone();
-    let issued = issue_session(&issuer, subject(), config(CookieTransport::FirstPartyHttps))
-        .await
-        .expect("session should issue");
+    let issued = issue_session(
+        &issuer,
+        account(),
+        AccountRole::Student,
+        config(CookieTransport::FirstPartyHttps),
+    )
+    .await
+    .expect("session should issue");
     let header = cookie_request_header(&issued.set_cookie);
 
     revoke_session(&next_replica, Some(header))
@@ -53,7 +53,8 @@ async fn revocation_on_one_replica_takes_effect_on_another() {
 async fn issued_session_debug_redacts_the_set_cookie_credential() {
     let issued = issue_session(
         &MemoryStore::default(),
-        subject(),
+        account(),
+        AccountRole::Student,
         config(CookieTransport::FirstPartyHttps),
     )
     .await
@@ -220,7 +221,7 @@ async fn production_boundary_drops_legacy_sensitive_cookie_aliases() {
 }
 
 #[tokio::test]
-async fn production_boundary_normalizes_each_host_cookie_once_and_rejects_duplicates() {
+async fn production_boundary_normalizes_the_session_cookie_and_rejects_duplicates() {
     let app = production_boundary_test_router();
     let normalized = app
         .clone()
@@ -230,11 +231,7 @@ async fn production_boundary_normalizes_each_host_cookie_once_and_rejects_duplic
                 .uri("/write")
                 .header("host", "learn.example.edu")
                 .header("origin", "https://learn.example.edu")
-                .header(
-                    COOKIE,
-                    "__Host-ple_session=principal; __Host-ple_account_session=account; \
-                     __Host-ple_email_binding=email; __Host-ple_webauthn_binding=webauthn",
-                )
+                .header(COOKIE, "__Host-ple_session=principal")
                 .body(Body::empty())
                 .expect("host-only cookie request"),
         )
@@ -245,7 +242,7 @@ async fn production_boundary_normalizes_each_host_cookie_once_and_rejects_duplic
         to_bytes(normalized.into_body(), 1024)
             .await
             .expect("normalized body"),
-        "ple_session=principal; ple_account_session=account; ple_email_binding=email; ple_webauthn_binding=webauthn"
+        "ple_session=principal"
     );
 
     let duplicate = app
@@ -257,7 +254,7 @@ async fn production_boundary_normalizes_each_host_cookie_once_and_rejects_duplic
                 .header("origin", "https://learn.example.edu")
                 .header(
                     COOKIE,
-                    "__Host-ple_account_session=first; __Host-ple_account_session=second",
+                    "__Host-ple_session=first; __Host-ple_session=second",
                 )
                 .body(Body::empty())
                 .expect("duplicate host-only cookie request"),

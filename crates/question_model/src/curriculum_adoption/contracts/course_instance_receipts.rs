@@ -1,6 +1,6 @@
 //! Immutable server receipt evidence for CourseInstance operations.
 
-use crate::{ActivityTimestamp, CourseTerm, ResolvedRelativeAssignmentSchedule, UserId};
+use crate::{AccountId, ActivityTimestamp, CourseTerm, ResolvedRelativeAssignmentSchedule};
 
 use super::{
     AppliedAssignmentImportEvidence, AssignmentImportReceiptTarget, BoundedResolvedScheduleSet,
@@ -25,7 +25,7 @@ pub struct CourseInstanceReceiptBinding {
     precondition: CourseInstanceWitness,
     outcome: CourseInstanceWitness,
     blueprint_application: CourseInstanceBlueprintApplication,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     idempotency_key: CurriculumAdoptionIdempotencyKey,
     request_digest: [u8; 32],
     server_time: ActivityTimestamp,
@@ -34,7 +34,7 @@ pub struct CourseInstanceReceiptBinding {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CourseInstanceReceiptAuthority {
     blueprint_application: CourseInstanceBlueprintApplication,
-    authorized_actor: UserId,
+    authorized_account: AccountId,
     idempotency_key: CurriculumAdoptionIdempotencyKey,
     request_digest: [u8; 32],
     server_time: ActivityTimestamp,
@@ -52,7 +52,7 @@ impl CourseInstanceReceiptBinding {
             precondition,
             outcome,
             blueprint_application: authority.blueprint_application,
-            authorized_actor: authority.authorized_actor,
+            authorized_account: authority.authorized_account,
             idempotency_key: authority.idempotency_key,
             request_digest: authority.request_digest,
             server_time: authority.server_time,
@@ -77,9 +77,9 @@ impl CourseInstanceReceiptBinding {
     pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
         self.blueprint_application
     }
-    /// Returns the authenticated actor bound by the consumed server apply record.
-    pub fn authorized_actor(&self) -> UserId {
-        self.authorized_actor
+    /// Returns the authenticated account bound by the consumed server apply record.
+    pub fn authorized_account(&self) -> AccountId {
+        self.authorized_account
     }
     pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
         &self.idempotency_key
@@ -227,9 +227,9 @@ impl RolloverCourseInstanceReceipt {
     pub fn server_time(&self) -> ActivityTimestamp {
         self.server_time
     }
-    /// Returns the authenticated actor bound by the rollover creation witness.
-    pub fn authorized_actor(&self) -> UserId {
-        self.created_from.authorized_actor()
+    /// Returns the authenticated account bound by the rollover creation witness.
+    pub fn authorized_account(&self) -> AccountId {
+        self.created_from.authorized_account()
     }
 }
 
@@ -245,7 +245,7 @@ impl ShiftCourseInstanceTermReceipt {
             blueprint_application,
             target_term,
             schedules,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         ) = record.into_receipt_parts();
@@ -279,7 +279,7 @@ impl ShiftCourseInstanceTermReceipt {
                 outcome,
                 CourseInstanceReceiptAuthority {
                     blueprint_application,
-                    authorized_actor,
+                    authorized_account,
                     idempotency_key,
                     request_digest,
                     server_time,
@@ -315,7 +315,7 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
             import,
             destination,
             blueprint_application,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         ) = record.into_receipt_parts();
@@ -361,7 +361,7 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
                 outcome,
                 CourseInstanceReceiptAuthority {
                     blueprint_application,
-                    authorized_actor,
+                    authorized_account,
                     idempotency_key,
                     request_digest,
                     server_time,
@@ -401,7 +401,7 @@ impl CreateSelectedBlueprintAssignmentReceipt {
             blueprint_application,
             schedule,
             replacements,
-            authorized_actor,
+            authorized_account,
             request_digest,
             idempotency_key,
         ) = record.into_receipt_parts();
@@ -436,7 +436,7 @@ impl CreateSelectedBlueprintAssignmentReceipt {
                 outcome,
                 CourseInstanceReceiptAuthority {
                     blueprint_application,
-                    authorized_actor,
+                    authorized_account,
                     idempotency_key,
                     request_digest,
                     server_time,
@@ -507,7 +507,7 @@ impl ReconcileCourseInstanceAdoptionReceipt {
         record: super::ReconcileCourseInstanceAdoptionApplyRecord,
         server_time: ActivityTimestamp,
     ) -> Result<Self, AssignmentReceiptError> {
-        let (receipt, blueprint_application, authorized_actor, request_digest, idempotency_key) =
+        let (receipt, blueprint_application, authorized_account, request_digest, idempotency_key) =
             record.into_receipt_parts();
         let original_import_target = receipt
             .assignment_import_target()
@@ -519,7 +519,7 @@ impl ReconcileCourseInstanceAdoptionReceipt {
                 receipt.destination().clone(),
                 CourseInstanceReceiptAuthority {
                     blueprint_application,
-                    authorized_actor,
+                    authorized_account,
                     idempotency_key,
                     request_digest,
                     server_time,
@@ -604,14 +604,14 @@ impl CourseInstanceReceiptTarget {
         }
     }
 
-    /// Returns the authenticated actor retained by every receipt target.
-    pub fn authorized_actor(&self) -> UserId {
+    /// Returns the authenticated account retained by every receipt target.
+    pub fn authorized_account(&self) -> AccountId {
         match self {
-            Self::Rollover(receipt) => receipt.authorized_actor(),
-            Self::ShiftTerm(receipt) => receipt.binding().authorized_actor(),
-            Self::ControlledUpdate(receipt) => receipt.binding().authorized_actor(),
-            Self::SelectedCopy(receipt) => receipt.binding().authorized_actor(),
-            Self::Reconcile(receipt) => receipt.binding().authorized_actor(),
+            Self::Rollover(receipt) => receipt.authorized_account(),
+            Self::ShiftTerm(receipt) => receipt.binding().authorized_account(),
+            Self::ControlledUpdate(receipt) => receipt.binding().authorized_account(),
+            Self::SelectedCopy(receipt) => receipt.binding().authorized_account(),
+            Self::Reconcile(receipt) => receipt.binding().authorized_account(),
         }
     }
 
@@ -620,14 +620,14 @@ impl CourseInstanceReceiptTarget {
     pub fn assignment_import_target(&self) -> Option<AssignmentImportReceiptTarget> {
         match self {
             Self::ControlledUpdate(receipt) => Some(AssignmentImportReceiptTarget::new(
-                receipt.binding().authorized_actor(),
+                receipt.binding().authorized_account(),
                 receipt.binding().idempotency_key().clone(),
                 receipt.binding().outcome().course,
                 receipt.applied().assignment().assignment,
                 receipt.applied().import_revision(),
             )),
             Self::SelectedCopy(receipt) => Some(AssignmentImportReceiptTarget::new(
-                receipt.binding().authorized_actor(),
+                receipt.binding().authorized_account(),
                 receipt.binding().idempotency_key().clone(),
                 receipt.binding().outcome().course,
                 receipt.applied().assignment().assignment,

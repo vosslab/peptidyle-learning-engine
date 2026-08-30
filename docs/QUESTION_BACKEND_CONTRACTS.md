@@ -6,7 +6,7 @@ The plan and its active release plan remain authoritative for dependency order a
 
 PLE is question agnostic at the learning-engine boundary. An assignment run uses one persisted
 published problem version, one server-issued attempt, and the common `RunBackend` contract. A
-backend safely issues, reproduces, and grades its own material; PLE owns actor and exact
+backend safely issues, reproduces, and grades its own material; PLE owns Account and exact
 course/Student authorization, assignment policy, attempt identity, timing, idempotency,
 gradebook persistence, retention, and the
 browser API.
@@ -30,7 +30,7 @@ All installed backends enter the server through `crates/server/src/run/contracts
 | Concern          | Common PLE rule                                                                                                                                                                                                  |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source authority | A published `QuestionDefinition` and immutable `ProblemVersionRef` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                              |
-| Issuance         | `RunBackend::issue` receives trusted `ActorContext`, exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance. |
+| Issuance         | `RunBackend::issue` receives trusted `AuthenticatedSession`, exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance. |
 | Reproduction     | `RunBackend::reproduce` is limited to issue-time work and explicit envelope-less active families. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead. |
 | Response         | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                |
 | Grade            | `RunBackend::grade` returns a server-side outcome. The common route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                      |
@@ -47,7 +47,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 | Backend              | Current authority                                                   | Browser response                                           | Server grading authority                            | Current scope                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 families; protected visual author editor; end-to-end all-family and hotspot lifecycle acceptance remains open |
+| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight native Question Types; protected visual author editor; end-to-end all-Question-Type and HOTSPOT lifecycle acceptance remains open |
 | QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                              |
 | WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                    |
 | iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                              |
@@ -65,12 +65,12 @@ response shape; it does not return source bytes, a private key, asset-object bin
 version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
-multi-blank, numerical, matching, ordering, and hotspot questions. The native adapter dispatches by
-registered family rather than making the run model family-specific. The protected visual author
-editor exposes all eight v2 families. Its instructor route is a convenience surface only: the server
+MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT questions. The native adapter dispatches by
+registered Question Type while the run model remains type-independent. The protected visual author
+editor exposes all eight Question Types. Its instructor route is a convenience surface only: the server
 re-resolves source and asset bindings at save and publication, and the learner contract remains
-answer-free. Integrated author-to-publication-to-learner acceptance for every family, including the
-hotspot lifecycle, remains open.
+answer-free. Integrated author-to-publication-to-learner acceptance for every Question Type,
+including the HOTSPOT lifecycle, remains open.
 
 ### Grade, replay, and cache
 
@@ -194,7 +194,7 @@ The corresponding GET is an inert same-origin shell: it cannot create or renew a
 a provider URL. The shell uses a sandboxed iframe and constrained message bridge. Provider state is
 AEAD-wrapped before protected store persistence and is never a JSON field.
 
-The server creates a broker binding over actor, exact course/Student attempt, problem, version, seed, immutable source,
+The server creates a broker binding over the authenticated Account, exact course/Student attempt, problem, version, seed, immutable source,
 profile, and canonical marker response. Before an effectful provider POST it durably records an
 indeterminate-dispatch marker under the active, unexpired lease and exact launch-token hash. A
 crash or ambiguous transport result leaves the attempt fenced rather than retrying an action that
@@ -230,7 +230,7 @@ iMathAS. It allows an external activity UI without handing it PLE grading author
 | Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit. |
 | Proxy     | Browser calls same-origin PLE activity route. Only the sandboxed activity POST may carry `Origin: null`, and it must also present the launch cookie and AEAD-bound context. PLE alone contacts the provider using encrypted server-held state. |
 | Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading. |
-| Verify    | Backend accepts only a server-verified result matching actor, exact course/Student attempt, problem, version, seed, and correlation. |
+| Verify    | Backend accepts only a server-verified result matching the authenticated Account, exact course/Student attempt, problem, version, seed, and correlation. |
 | Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                         |
 
 The marker does not mean "trust the external tool." It means the current attempt requires the

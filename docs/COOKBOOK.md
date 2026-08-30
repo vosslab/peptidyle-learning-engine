@@ -72,10 +72,12 @@ creates a new revision and does not silently mutate existing Course Instances.
 ## Exercise Sysadmin operations
 
 1. Start the disposable stack and select the seeded **Sysadmin** persona.
-2. Open **Account** -> **Your passkeys**, add a passkey, sign out, and choose **Sign in with a
-   passkey**. Select the Course Instance again after authentication.
-3. Use the ordinary teaching-operations surfaces to review pending Instructor approval, course
+2. Use the ordinary teaching-operations surfaces to review pending Instructor approval, course
    groups, or institution-level collection views when the seeded state exposes them.
+
+The fresh email-code and passkey adapters are not mounted in this build. The visible seeded
+Sysadmin selector provides the current disposable-demo entry while those ordinary authentication
+paths are reconstructed on the single Authenticated Session foundation.
 
 The seeded Sysadmin is Morgan. Direct entry resolves an ordinary server-owned account and role; it
 does not grant a browser-controlled role claim. Sysadmin work can change disposable data, and

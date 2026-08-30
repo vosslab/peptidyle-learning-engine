@@ -108,7 +108,7 @@ pub use crate::assignment_workspace::{
     InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
     ReplaceAssignmentFixedItemRequest, ReplaceAssignmentPoliciesRequest,
 };
-pub use crate::auth::{UserId, UserRole};
+pub use crate::auth::{AccountId, AccountRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
 pub use crate::capability::{BackendCapabilities, Capability};
 pub use crate::catalog::{
