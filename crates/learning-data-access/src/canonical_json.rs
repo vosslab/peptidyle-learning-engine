@@ -78,6 +78,7 @@ pub(crate) fn canonical_json_bytes_v1<T: Serialize>(
 /// This accepts only the exact source bytes and parsed projection already
 /// carried by storage; callers deserialize `source` into their closed typed
 /// value only after this function succeeds.
+#[cfg(any(test, feature = "postgres"))]
 pub(crate) fn verify_canonical_json_v1(
     artifact: &'static str,
     source: &str,

@@ -54,7 +54,7 @@ mod queue;
 mod retention;
 mod reusable_curriculum;
 #[cfg(test)]
-mod reusable_curriculum_tests;
+mod reusable_curriculum_revision_tests;
 mod runs;
 mod scoring_invalidation;
 mod sessions;
@@ -542,6 +542,16 @@ struct State {
     blueprint_courses: BTreeMap<
         (TenantId, reusable_curriculum::BlueprintCourseId),
         reusable_curriculum::StoredBlueprintCourse,
+    >,
+    /// Complete immutable BlueprintCourse snapshots keyed by their aggregate revision.
+    /// The mutable head record selects one of these snapshots; replacement never mutates one.
+    blueprint_course_revisions: BTreeMap<
+        (
+            TenantId,
+            reusable_curriculum::BlueprintCourseId,
+            question_model::BlueprintRevision,
+        ),
+        reusable_curriculum::StoredBlueprintCourseRevision,
     >,
     course_schedule_revisions:
         BTreeMap<(TenantId, CourseId), question_model::CourseScheduleRevision>,

@@ -20,7 +20,7 @@ mod source;
 mod course_instance_record_tests;
 
 pub use adoption::*;
-pub use assignment_source::{AssignmentDefinitionSourceView, AssignmentDefinitionSourceViewError};
+pub use assignment_source::AssignmentDefinitionSourceView;
 pub use course_instance::*;
 pub use course_instance_commands::*;
 pub use course_instance_receipts::*;
@@ -39,7 +39,8 @@ pub use scalars::{
 };
 pub use server_records::{
     AdoptBlueprintAssignmentApplyRecord, ControlledUpdateBlueprintAssignmentApplyRecord,
-    CreateSelectedBlueprintAssignmentApplyRecord, ForkBlueprintCourseApplyRecord,
+    CourseInstanceApplicationBinding, CreateSelectedBlueprintAssignmentApplyRecord,
+    CurriculumAdoptionRequestBinding, ForkBlueprintCourseApplyRecord,
     InstantiateBlueprintCourseApplyRecord, ReconcileCourseInstanceAdoptionApplyRecord,
     RolloverCourseInstanceApplyRecord, ShiftCourseInstanceTermApplyRecord,
 };

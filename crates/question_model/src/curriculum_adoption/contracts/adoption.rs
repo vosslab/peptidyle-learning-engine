@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDefinitionSourceView, CourseInstanceCreationWitness,
-    CourseInstanceScheduleCorrection, CourseInstanceWitness, CurriculumAdoptionIdempotencyKey,
-    CurriculumPinReplacements, ObservedBlueprintSource, UnavailableCurriculumPinRecovery,
+    AssignmentDefinitionSourceView, CourseInstanceBlueprintApplication,
+    CourseInstanceCreationWitness, CourseInstanceScheduleCorrection, CourseInstanceWitness,
+    CurriculumAdoptionIdempotencyKey, CurriculumPinReplacements, ObservedBlueprintSource,
+    UnavailableCurriculumPinRecovery,
 };
 use crate::{
     ActivityTimestamp, AssignmentReference, BlueprintReference, BlueprintRevision, CourseReference,
@@ -185,6 +186,7 @@ pub struct ForkBlueprintCourseCommand {
 pub struct AdoptBlueprintAssignmentCommand {
     source: AssignmentDefinitionSourceView,
     destination: CourseInstanceWitness,
+    blueprint_application: CourseInstanceBlueprintApplication,
     replacements: CurriculumPinReplacements,
     authorized_actor: UserId,
     request_digest: [u8; 32],
@@ -207,6 +209,7 @@ impl AdoptBlueprintAssignmentCommand {
         Self {
             source: record.source(),
             destination: record.destination().clone(),
+            blueprint_application: record.blueprint_application(),
             replacements: record.replacements().clone(),
             authorized_actor: record.authorized_actor(),
             request_digest: record.request_digest(),
@@ -219,6 +222,9 @@ impl AdoptBlueprintAssignmentCommand {
     }
     pub fn destination(&self) -> &CourseInstanceWitness {
         &self.destination
+    }
+    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
+        self.blueprint_application
     }
     pub fn replacements(&self) -> &CurriculumPinReplacements {
         &self.replacements
@@ -444,8 +450,9 @@ pub struct InstantiateBlueprintCourseCompleted {
 mod tests {
     use super::*;
     use crate::{
-        BlueprintReference, BlueprintRevision, CourseScheduleRevision, ProblemId,
-        ProblemVersionRef, QuestionId, UserId, VersionId,
+        BlueprintAssignmentId, BlueprintReference, BlueprintRevision,
+        CourseInstanceApplicationBinding, CourseScheduleRevision, CurriculumAdoptionRequestBinding,
+        ProblemId, ProblemVersionRef, QuestionId, UserId, VersionId,
     };
     use uuid::Uuid;
 
@@ -454,6 +461,30 @@ mod tests {
             reference: BlueprintReference::new(7).expect("BP reference"),
             revision: BlueprintRevision::new(2).expect("revision"),
         }
+    }
+
+    fn assignment_id() -> BlueprintAssignmentId {
+        BlueprintAssignmentId::from_uuid(Uuid::from_u128(9))
+    }
+
+    fn other_assignment_id() -> BlueprintAssignmentId {
+        BlueprintAssignmentId::from_uuid(Uuid::from_u128(10))
+    }
+
+    fn blueprint_application() -> CourseInstanceBlueprintApplication {
+        CourseInstanceBlueprintApplication { source: source() }
+    }
+
+    fn application_binding(destination: CourseInstanceWitness) -> CourseInstanceApplicationBinding {
+        CourseInstanceApplicationBinding::new(destination, blueprint_application())
+    }
+
+    fn request_binding(
+        authorized_actor: UserId,
+        request_digest: [u8; 32],
+        idempotency_key: CurriculumAdoptionIdempotencyKey,
+    ) -> CurriculumAdoptionRequestBinding {
+        CurriculumAdoptionRequestBinding::new(authorized_actor, request_digest, idempotency_key)
     }
 
     fn actor() -> UserId {
@@ -471,7 +502,7 @@ mod tests {
 
     fn unavailable_recovery() -> UnavailableCurriculumPinRecovery {
         UnavailableCurriculumPinRecovery {
-            source: AssignmentDefinitionSourceView::new(source(), 0, 0).expect("source"),
+            source: AssignmentDefinitionSourceView::new(source(), assignment_id()),
             position: super::super::CurriculumPinPosition::new(None, 0, 0, None).expect("position"),
             unavailable: ProblemVersionRef {
                 problem: ProblemId::from_uuid(Uuid::from_u128(2)),
@@ -514,7 +545,7 @@ mod tests {
         assert!(wire.get("eligibility").is_some());
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(wire).is_ok());
 
-        let location = AssignmentDefinitionSourceView::new(source, 1, 2).expect("location");
+        let location = AssignmentDefinitionSourceView::new(source, assignment_id());
         let adopt = AdoptBlueprintAssignmentPreviewView {
             source: location,
             destination: destination(),
@@ -528,11 +559,9 @@ mod tests {
         assert_eq!(
             super::super::AdoptBlueprintAssignmentApplyRecord::new(
                 adopt.source,
-                adopt.destination,
+                application_binding(adopt.destination),
                 adopt.replacements,
-                actor(),
-                [3; 32],
-                key,
+                request_binding(actor(), [3; 32], key),
                 adopt.eligibility,
             ),
             Err(CurriculumAdoptionCommandError::Refused(
@@ -546,7 +575,7 @@ mod tests {
     #[test]
     fn adoption_and_instantiation_bind_exact_source_location_and_idempotency() {
         let source = source();
-        let location = AssignmentDefinitionSourceView::new(source, 1, 2).expect("location");
+        let location = AssignmentDefinitionSourceView::new(source, assignment_id());
         let key = CurriculumAdoptionIdempotencyKey::parse("adopt-blueprint-1").expect("key");
         let adoption = AdoptBlueprintAssignmentPreviewView {
             source: location,
@@ -557,18 +586,15 @@ mod tests {
         let command = AdoptBlueprintAssignmentCommand::from_server_record(
             super::super::AdoptBlueprintAssignmentApplyRecord::new(
                 adoption.source,
-                adoption.destination,
+                application_binding(adoption.destination),
                 adoption.replacements,
-                actor(),
-                [4; 32],
-                key.clone(),
+                request_binding(actor(), [4; 32], key.clone()),
                 adoption.eligibility,
             )
             .expect("server-held record"),
         );
         assert_eq!(command.source().source(), source);
-        assert_eq!(command.source().module_index(), 1);
-        assert_eq!(command.source().assignment_index(), 2);
+        assert_eq!(command.source().assignment_id(), assignment_id());
         assert_eq!(command.idempotency_key(), &key);
         assert_eq!(command.destination(), &destination());
         assert_eq!(command.course(), CourseReference::new(3).expect("course"));
@@ -607,7 +633,7 @@ mod tests {
     }
 
     #[test]
-    fn previews_are_snake_case_and_refuse_unknown_or_unbounded_locations() {
+    fn previews_are_snake_case_and_refuse_unknown_source_fields() {
         let source = source();
         let preview = ForkBlueprintCoursePreviewView {
             source,
@@ -620,9 +646,14 @@ mod tests {
         let mut forged = wire;
         forged["authority"] = serde_json::json!("instructor");
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(forged).is_err());
-        let bound = u16::try_from(crate::MAX_ASSIGNMENT_ORDERED_ENTRIES).expect("bound");
-        assert!(AssignmentDefinitionSourceView::new(source, bound, 0).is_err());
-        assert!(AssignmentDefinitionSourceView::new(source, 0, bound).is_err());
+        let source = AssignmentDefinitionSourceView::new(source, assignment_id());
+        let mut source_wire = serde_json::to_value(source).expect("source serializes");
+        source_wire["module_index"] = serde_json::json!(0);
+        assert!(serde_json::from_value::<AssignmentDefinitionSourceView>(source_wire).is_err());
+        assert!(
+            !AssignmentDefinitionSourceView::new(source.source(), other_assignment_id())
+                .same_assignment_lineage(source)
+        );
 
         let refusal = serde_json::json!({
             "kind": "unavailable_pin",

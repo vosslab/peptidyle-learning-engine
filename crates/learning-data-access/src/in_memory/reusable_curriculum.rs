@@ -2,27 +2,31 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssignmentInstructions, AssignmentScoringMode, BlueprintCourseAccess,
-    BlueprintCourseDefinitionInput, BlueprintCourseModuleView, BlueprintCourseSummaryView,
-    BlueprintCourseView, BlueprintReference, BlueprintRevision, CatalogDiscoveryItem, PointValue,
-    PoolDrawAlgorithm, ProblemVersionRef, PublicationScope, RelativeAssignmentSchedule,
-    ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput,
-    ReusableAssignmentDefinitionView, ReusableAssignmentEntryInput, ReusableAssignmentEntryView,
-    ReusablePoolCandidateView, ReusablePoolView, ReusableQuestionView,
-    ReusableSelectionAvailability, SelectionOrdering,
+    AssignmentInstructions, AssignmentScoringMode, BlueprintAssignmentEditHandle,
+    BlueprintAssignmentId, BlueprintCourseAccess, BlueprintCourseAssignmentDefinitionView,
+    BlueprintCourseModuleView, BlueprintCourseSummaryView, BlueprintCourseView,
+    BlueprintModuleEditHandle, BlueprintModuleId, BlueprintReference, BlueprintRevision,
+    CatalogDiscoveryItem, CreateBlueprintCourseDefinitionInput, PointValue, PoolDrawAlgorithm,
+    ProblemVersionRef, PublicationScope, RelativeAssignmentSchedule,
+    ReplaceBlueprintCourseDefinitionInput, ReusableAssignmentDefaults,
+    ReusableAssignmentDefinitionInput, ReusableAssignmentDefinitionView,
+    ReusableAssignmentEntryInput, ReusableAssignmentEntryView, ReusablePoolCandidateView,
+    ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability, SelectionOrdering,
 };
 use uuid::Uuid;
 
 use super::{MemoryStore, State, catalog_record_visible};
 use crate::{
-    Cursor, Page, PageRequest, ReplaceBlueprintCourseCommand, ReusableCurriculumCapability,
-    ReusableCurriculumStore, SessionTokenHash, StoreError, TenantContext, UserId,
+    CreateBlueprintCourseCommand, Cursor, Page, PageRequest, ReplaceBlueprintCourseCommand,
+    ReusableCurriculumCapability, ReusableCurriculumStore, SessionTokenHash, StoreError,
+    TenantContext, UserId,
 };
 
 mod source_snapshot;
 pub(super) use source_snapshot::{
-    ReusableSourceSnapshot, create_blueprint_course_from_semantic_locked,
-    current_assignment_source, curriculum_assignment_source_snapshot, curriculum_source_snapshot,
+    ReusableSourceSnapshot, course_assignment_source_at_position, course_assignment_sources,
+    create_blueprint_course_from_semantic_locked, current_assignment_source,
+    curriculum_assignment_source_snapshot, curriculum_source_snapshot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -44,6 +48,21 @@ pub(super) struct StoredDefinition {
     entries: Vec<StoredEntry>,
 }
 
+/// Immutable module node in one complete BlueprintCourse revision snapshot.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct StoredBlueprintModule {
+    pub(super) id: BlueprintModuleId,
+    pub(super) label: String,
+    pub(super) definitions: Vec<StoredBlueprintAssignment>,
+}
+
+/// Immutable assignment node in one complete BlueprintCourse revision snapshot.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct StoredBlueprintAssignment {
+    pub(super) id: BlueprintAssignmentId,
+    pub(super) definition: StoredDefinition,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum StoredEntry {
     Fixed {
@@ -63,9 +82,14 @@ enum StoredEntry {
 #[derive(Debug, Clone)]
 pub(super) struct StoredBlueprintCourse {
     pub(super) creator: UserId,
-    pub(super) revision: BlueprintRevision,
+    pub(super) head_revision: BlueprintRevision,
+}
+
+/// Append-only complete ordered BlueprintCourse revision snapshot.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct StoredBlueprintCourseRevision {
     pub(super) title: String,
-    pub(super) modules: Vec<(String, Vec<StoredDefinition>)>,
+    pub(super) modules: Vec<StoredBlueprintModule>,
 }
 
 #[async_trait]
@@ -129,6 +153,51 @@ impl ReusableCurriculumStore for MemoryStore {
         blueprint_course_view(&state, context.tenant_id(), *id, row, actor).map(Some)
     }
 
+    async fn create_blueprint_course(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        command: CreateBlueprintCourseCommand,
+    ) -> Result<BlueprintCourseView, StoreError> {
+        command.definition.validate().map_err(validation_error)?;
+        let mut state = self.write_state()?;
+        let actor = require_approved_instructor(&state, context, session)?;
+        let tenant = context.tenant_id();
+        let snapshot = resolve_create_snapshot(&state, self, tenant, &command.definition)?;
+        assert_fresh_snapshot_handles(&state, &snapshot)?;
+        let id = fresh_blueprint_course_id(&state)?;
+        let _reference = allocate_blueprint_course_reference(&mut state, tenant, id)?;
+        if state
+            .blueprint_courses
+            .insert(
+                (tenant, id),
+                StoredBlueprintCourse {
+                    creator: actor,
+                    head_revision: BlueprintRevision::INITIAL,
+                },
+            )
+            .is_some()
+        {
+            return Err(StoreError::Unavailable(
+                "BlueprintCourse identity collision".into(),
+            ));
+        }
+        if state
+            .blueprint_course_revisions
+            .insert((tenant, id, BlueprintRevision::INITIAL), snapshot)
+            .is_some()
+        {
+            return Err(StoreError::Unavailable(
+                "BlueprintCourse initial revision collision".into(),
+            ));
+        }
+        let row = state
+            .blueprint_courses
+            .get(&(tenant, id))
+            .ok_or(StoreError::NotFound)?;
+        blueprint_course_view(&state, tenant, id, row, actor)
+    }
+
     async fn replace_blueprint_course(
         &self,
         context: TenantContext,
@@ -139,57 +208,49 @@ impl ReusableCurriculumStore for MemoryStore {
         let mut state = self.write_state()?;
         let actor = require_approved_instructor(&state, context, session)?;
         let tenant = context.tenant_id();
-        let (title, modules) = resolve_modules(&state, self, tenant, &command.definition)?;
-        let id = match command.reference {
-            None => {
-                if command.expected_revision.is_some() {
-                    return Err(StoreError::InvalidRecord(
-                        "new BlueprintCourse cannot carry a revision".into(),
-                    ));
-                }
-                let id = BlueprintCourseId(random_uuid("BlueprintCourse")?);
-                allocate_blueprint_course_reference(&mut state, tenant, id)?;
-                state.blueprint_courses.insert(
-                    (tenant, id),
-                    StoredBlueprintCourse {
-                        creator: actor,
-                        revision: BlueprintRevision::INITIAL,
-                        title,
-                        modules,
-                    },
-                );
-                id
+        let id = *state
+            .blueprint_courses_by_reference
+            .get(&(tenant, command.reference))
+            .ok_or(StoreError::NotFound)?;
+        let row = state
+            .blueprint_courses
+            .get(&(tenant, id))
+            .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
+        // ASVS 8.2.1-8.3.1: only the authenticated aggregate owner may advance its head.
+        if row.creator != actor {
+            return Err(StoreError::Forbidden);
+        }
+        // ASVS 2.3.1/2.3.3: replacement consumes one observed head and creates one next snapshot.
+        if row.head_revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let expected = state
+            .blueprint_course_revisions
+            .get(&(tenant, id, command.expected_revision))
+            .ok_or_else(|| reconciliation_error("BlueprintCourse revision"))?;
+        let replacement =
+            resolve_replacement_snapshot(&state, self, tenant, expected, &command.definition)?;
+        assert_replacement_handles(&replacement)?;
+        if replacement != *expected {
+            let next = command.expected_revision.checked_next().ok_or_else(|| {
+                StoreError::Unavailable("BlueprintCourse revision exhausted".into())
+            })?;
+            // ASVS 2.3.3: append the immutable snapshot before moving the only mutable head.
+            if state
+                .blueprint_course_revisions
+                .insert((tenant, id, next), replacement)
+                .is_some()
+            {
+                return Err(StoreError::Unavailable(
+                    "BlueprintCourse revision collision".into(),
+                ));
             }
-            Some(reference) => {
-                let expected = command.expected_revision.ok_or_else(|| {
-                    StoreError::InvalidRecord(
-                        "BlueprintCourse replacement requires its observed revision".into(),
-                    )
-                })?;
-                let id = *state
-                    .blueprint_courses_by_reference
-                    .get(&(tenant, reference))
-                    .ok_or(StoreError::NotFound)?;
-                let row = state
-                    .blueprint_courses
-                    .get_mut(&(tenant, id))
-                    .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
-                if row.creator != actor {
-                    return Err(StoreError::Forbidden);
-                }
-                if row.revision != expected {
-                    return Err(StoreError::Conflict);
-                }
-                if row.title != title || row.modules != modules {
-                    row.title = title;
-                    row.modules = modules;
-                    row.revision = row.revision.checked_next().ok_or_else(|| {
-                        StoreError::Unavailable("BlueprintCourse revision exhausted".into())
-                    })?;
-                }
-                id
-            }
-        };
+            state
+                .blueprint_courses
+                .get_mut(&(tenant, id))
+                .ok_or_else(|| reconciliation_error("BlueprintCourse"))?
+                .head_revision = next;
+        }
         let row = state
             .blueprint_courses
             .get(&(tenant, id))
@@ -228,27 +289,224 @@ pub(super) fn require_approved_instructor(
         .ok_or(StoreError::Forbidden)
 }
 
-fn resolve_modules(
+fn resolve_create_snapshot(
     state: &State,
     store: &MemoryStore,
     tenant: question_model::TenantId,
-    input: &BlueprintCourseDefinitionInput,
-) -> Result<(String, Vec<(String, Vec<StoredDefinition>)>), StoreError> {
+    input: &CreateBlueprintCourseDefinitionInput,
+) -> Result<StoredBlueprintCourseRevision, StoreError> {
     let modules = input
         .modules
         .iter()
         .map(|module| {
-            Ok((
-                module.label.clone(),
-                module
+            Ok::<_, StoreError>(StoredBlueprintModule {
+                // ASVS 2.2.1-2.2.3: creation accepts only validated tree meaning;
+                // stable identities are allocated after trusted validation.
+                id: new_module_id(state)?,
+                label: module.label.clone(),
+                definitions: module
                     .definitions
                     .iter()
-                    .map(|definition| resolve_definition(state, store, tenant, definition))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ))
+                    .map(|definition| {
+                        Ok::<_, StoreError>(StoredBlueprintAssignment {
+                            id: new_assignment_id(state)?,
+                            definition: resolve_definition(state, store, tenant, definition)?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, StoreError>>()?,
+            })
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
-    Ok((input.title.clone(), modules))
+    Ok(StoredBlueprintCourseRevision {
+        title: input.title.clone(),
+        modules,
+    })
+}
+
+fn resolve_replacement_snapshot(
+    state: &State,
+    store: &MemoryStore,
+    tenant: question_model::TenantId,
+    expected: &StoredBlueprintCourseRevision,
+    input: &ReplaceBlueprintCourseDefinitionInput,
+) -> Result<StoredBlueprintCourseRevision, StoreError> {
+    let expected_modules = expected
+        .modules
+        .iter()
+        .map(|module| module.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let expected_assignments = expected
+        .modules
+        .iter()
+        .flat_map(|module| module.definitions.iter().map(|definition| definition.id))
+        .collect::<std::collections::BTreeSet<_>>();
+    let modules = input
+        .modules
+        .iter()
+        .map(|module| {
+            let id = retained_or_new_module_id(state, module.handle, &expected_modules)?;
+            let definitions = module
+                .definitions
+                .iter()
+                .map(|assignment| {
+                    Ok(StoredBlueprintAssignment {
+                        id: retained_or_new_assignment_id(
+                            state,
+                            assignment.handle,
+                            &expected_assignments,
+                        )?,
+                        definition: resolve_definition(
+                            state,
+                            store,
+                            tenant,
+                            &assignment.definition,
+                        )?,
+                    })
+                })
+                .collect::<Result<Vec<_>, StoreError>>()?;
+            Ok(StoredBlueprintModule {
+                id,
+                label: module.label.clone(),
+                definitions,
+            })
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    Ok(StoredBlueprintCourseRevision {
+        title: input.title.clone(),
+        modules,
+    })
+}
+
+fn retained_or_new_module_id(
+    state: &State,
+    handle: BlueprintModuleEditHandle,
+    expected: &std::collections::BTreeSet<BlueprintModuleId>,
+) -> Result<BlueprintModuleId, StoreError> {
+    match handle {
+        BlueprintModuleEditHandle::Retained { module_id } if expected.contains(&module_id) => {
+            Ok(module_id)
+        }
+        BlueprintModuleEditHandle::Retained { .. } => Err(StoreError::Conflict),
+        BlueprintModuleEditHandle::New => new_module_id(state),
+    }
+}
+
+fn retained_or_new_assignment_id(
+    state: &State,
+    handle: BlueprintAssignmentEditHandle,
+    expected: &std::collections::BTreeSet<BlueprintAssignmentId>,
+) -> Result<BlueprintAssignmentId, StoreError> {
+    match handle {
+        BlueprintAssignmentEditHandle::Retained { assignment_id }
+            if expected.contains(&assignment_id) =>
+        {
+            Ok(assignment_id)
+        }
+        BlueprintAssignmentEditHandle::Retained { .. } => Err(StoreError::Conflict),
+        BlueprintAssignmentEditHandle::New => new_assignment_id(state),
+    }
+}
+
+pub(super) fn new_module_id(state: &State) -> Result<BlueprintModuleId, StoreError> {
+    // ASVS 1.5.2: opaque handles are server allocated, never deserialized as authority.
+    let id = BlueprintModuleId::from_uuid(random_uuid("BlueprintCourse module")?);
+    (!state
+        .blueprint_course_revisions
+        .values()
+        .flat_map(|revision| revision.modules.iter())
+        .any(|module| module.id == id))
+    .then_some(id)
+    .ok_or_else(|| StoreError::Unavailable("BlueprintCourse module identity collision".into()))
+}
+
+pub(super) fn new_assignment_id(state: &State) -> Result<BlueprintAssignmentId, StoreError> {
+    // ASVS 1.5.2: opaque handles are server allocated, never deserialized as authority.
+    let id = BlueprintAssignmentId::from_uuid(random_uuid("BlueprintCourse assignment")?);
+    (!state
+        .blueprint_course_revisions
+        .values()
+        .flat_map(|revision| revision.modules.iter())
+        .flat_map(|module| module.definitions.iter())
+        .any(|assignment| assignment.id == id))
+    .then_some(id)
+    .ok_or_else(|| StoreError::Unavailable("BlueprintCourse assignment identity collision".into()))
+}
+
+pub(super) fn fresh_blueprint_course_id(state: &State) -> Result<BlueprintCourseId, StoreError> {
+    let id = BlueprintCourseId(random_uuid("BlueprintCourse")?);
+    (!state
+        .blueprint_courses
+        .keys()
+        .any(|(_, existing)| *existing == id))
+    .then_some(id)
+    .ok_or_else(|| StoreError::Unavailable("BlueprintCourse identity collision".into()))
+}
+
+pub(super) fn assert_fresh_snapshot_handles(
+    state: &State,
+    snapshot: &StoredBlueprintCourseRevision,
+) -> Result<(), StoreError> {
+    let modules = snapshot
+        .modules
+        .iter()
+        .map(|module| module.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let assignments = snapshot
+        .modules
+        .iter()
+        .flat_map(|module| module.definitions.iter().map(|assignment| assignment.id))
+        .collect::<std::collections::BTreeSet<_>>();
+    (modules.len() == snapshot.modules.len()
+        && assignments.len()
+            == snapshot
+                .modules
+                .iter()
+                .map(|module| module.definitions.len())
+                .sum::<usize>())
+    .then_some(())
+    .ok_or_else(|| StoreError::Unavailable("BlueprintCourse child identity collision".into()))?;
+    let modules_are_fresh = modules.iter().all(|id| {
+        state
+            .blueprint_course_revisions
+            .values()
+            .flat_map(|revision| revision.modules.iter())
+            .all(|module| module.id != *id)
+    });
+    let assignments_are_fresh = assignments.iter().all(|id| {
+        state
+            .blueprint_course_revisions
+            .values()
+            .flat_map(|revision| revision.modules.iter())
+            .flat_map(|module| module.definitions.iter())
+            .all(|assignment| assignment.id != *id)
+    });
+    (modules_are_fresh && assignments_are_fresh)
+        .then_some(())
+        .ok_or_else(|| StoreError::Unavailable("BlueprintCourse child identity collision".into()))
+}
+
+fn assert_replacement_handles(
+    replacement: &StoredBlueprintCourseRevision,
+) -> Result<(), StoreError> {
+    let replacement_modules = replacement
+        .modules
+        .iter()
+        .map(|module| module.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let replacement_assignments = replacement
+        .modules
+        .iter()
+        .flat_map(|module| module.definitions.iter().map(|assignment| assignment.id))
+        .collect::<std::collections::BTreeSet<_>>();
+    (replacement_modules.len() == replacement.modules.len()
+        && replacement_assignments.len()
+            == replacement
+                .modules
+                .iter()
+                .map(|module| module.definitions.len())
+                .sum::<usize>())
+    .then_some(())
+    .ok_or_else(|| StoreError::Unavailable("BlueprintCourse child identity collision".into()))
 }
 
 fn resolve_definition(
@@ -428,13 +686,14 @@ fn blueprint_course_summary(
     row: &StoredBlueprintCourse,
     actor: UserId,
 ) -> Result<BlueprintCourseSummaryView, StoreError> {
+    let revision = blueprint_course_head_snapshot(state, tenant, id, row)?;
     Ok(BlueprintCourseSummaryView {
         reference: *state
             .blueprint_course_references
             .get(&(tenant, id))
             .ok_or_else(|| reconciliation_error("BlueprintCourse"))?,
-        title: row.title.clone(),
-        revision: row.revision,
+        title: revision.title.clone(),
+        revision: row.head_revision,
         access: access(row, actor),
     })
 }
@@ -446,28 +705,48 @@ fn blueprint_course_view(
     row: &StoredBlueprintCourse,
     actor: UserId,
 ) -> Result<BlueprintCourseView, StoreError> {
+    let revision = blueprint_course_head_snapshot(state, tenant, id, row)?;
     Ok(BlueprintCourseView {
         reference: *state
             .blueprint_course_references
             .get(&(tenant, id))
             .ok_or_else(|| reconciliation_error("BlueprintCourse"))?,
-        title: row.title.clone(),
-        revision: row.revision,
+        title: revision.title.clone(),
+        revision: row.head_revision,
         access: access(row, actor),
-        modules: row
+        modules: revision
             .modules
             .iter()
-            .map(|(label, definitions)| {
+            .map(|module| {
                 Ok(BlueprintCourseModuleView {
-                    label: label.clone(),
-                    definitions: definitions
+                    module_id: module.id,
+                    label: module.label.clone(),
+                    definitions: module
+                        .definitions
                         .iter()
-                        .map(|definition| definition_view(state, tenant, definition))
-                        .collect::<Result<Vec<_>, _>>()?,
+                        .map(|assignment| {
+                            Ok::<_, StoreError>(BlueprintCourseAssignmentDefinitionView {
+                                assignment_id: assignment.id,
+                                definition: definition_view(state, tenant, &assignment.definition)?,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, StoreError>>()?,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?,
     })
+}
+
+fn blueprint_course_head_snapshot<'a>(
+    state: &'a State,
+    tenant: question_model::TenantId,
+    id: BlueprintCourseId,
+    row: &StoredBlueprintCourse,
+) -> Result<&'a StoredBlueprintCourseRevision, StoreError> {
+    state
+        .blueprint_course_revisions
+        .get(&(tenant, id, row.head_revision))
+        .ok_or_else(|| reconciliation_error("BlueprintCourse head revision"))
 }
 
 fn access(row: &StoredBlueprintCourse, actor: UserId) -> BlueprintCourseAccess {
@@ -542,18 +821,46 @@ fn allocate_blueprint_course_reference(
     tenant: question_model::TenantId,
     id: BlueprintCourseId,
 ) -> Result<BlueprintReference, StoreError> {
+    if state
+        .blueprint_course_references
+        .contains_key(&(tenant, id))
+    {
+        return Err(StoreError::Unavailable(
+            "BlueprintCourse reference identity collision".into(),
+        ));
+    }
     state.next_blueprint_course_reference = state
         .next_blueprint_course_reference
         .checked_add(1)
         .ok_or_else(|| StoreError::Unavailable("BlueprintCourse reference exhausted".into()))?;
     let reference = BlueprintReference::new(u64::from(state.next_blueprint_course_reference))
         .ok_or_else(|| StoreError::Unavailable("BlueprintCourse reference exhausted".into()))?;
-    state
-        .blueprint_course_references
-        .insert((tenant, id), reference);
-    state
+    if state
         .blueprint_courses_by_reference
-        .insert((tenant, reference), id);
+        .contains_key(&(tenant, reference))
+    {
+        return Err(StoreError::Unavailable(
+            "BlueprintCourse reference collision".into(),
+        ));
+    }
+    if state
+        .blueprint_course_references
+        .insert((tenant, id), reference)
+        .is_some()
+    {
+        return Err(StoreError::Unavailable(
+            "BlueprintCourse reference identity collision".into(),
+        ));
+    }
+    if state
+        .blueprint_courses_by_reference
+        .insert((tenant, reference), id)
+        .is_some()
+    {
+        return Err(StoreError::Unavailable(
+            "BlueprintCourse reference collision".into(),
+        ));
+    }
     Ok(reference)
 }
 

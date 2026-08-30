@@ -25,6 +25,9 @@ use crate::{
 pub const MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS: usize =
     MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS;
 
+mod blueprint_children;
+pub use blueprint_children::*;
+
 /// Failure to validate a reusable title or module label.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReusableCurriculumTitleError {
@@ -287,50 +290,6 @@ impl ReusableAssignmentDefinitionInput {
     }
 }
 
-/// One labelled BlueprintCourse module submitted in authored order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintCourseModuleInput {
-    /// Week or module label visible to approved Instructor readers.
-    pub label: String,
-    /// Reusable definitions in authored order.
-    pub definitions: Vec<ReusableAssignmentDefinitionInput>,
-}
-
-/// Complete submitted BlueprintCourse meaning.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintCourseDefinitionInput {
-    /// Instructor-visible course title.
-    pub title: String,
-    /// Ordered labelled curriculum modules.
-    pub modules: Vec<BlueprintCourseModuleInput>,
-}
-
-impl BlueprintCourseDefinitionInput {
-    /// Validates the complete ordered BlueprintCourse tree.
-    pub fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
-        validate_reusable_curriculum_title(&self.title)
-            .map_err(|_| ReusableCurriculumValidationError::InvalidBlueprintTitle)?;
-        if self.modules.is_empty() || self.modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
-            return Err(ReusableCurriculumValidationError::InvalidModuleCount);
-        }
-        for module in &self.modules {
-            validate_reusable_curriculum_title(&module.label)
-                .map_err(|_| ReusableCurriculumValidationError::InvalidModuleLabel)?;
-            if module.definitions.is_empty()
-                || module.definitions.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
-            {
-                return Err(ReusableCurriculumValidationError::InvalidModuleDefinitionCount);
-            }
-            for definition in &module.definitions {
-                definition.validate()?;
-            }
-        }
-        Ok(())
-    }
-}
-
 /// Current selection status for an exact retained reusable question member.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -506,16 +465,6 @@ pub struct BlueprintCourseSummaryView {
     pub access: BlueprintCourseAccess,
 }
 
-/// One answer-free BlueprintCourse module in retained aggregate-owned order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintCourseModuleView {
-    /// Week or module label visible to approved Instructor readers.
-    pub label: String,
-    /// Reusable definitions in retained aggregate-owned order.
-    pub definitions: Vec<ReusableAssignmentDefinitionView>,
-}
-
 /// Safe current projection of one complete BlueprintCourse tree.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -561,6 +510,10 @@ pub enum ReusableCurriculumValidationError {
     TimeLimitOutOfRange,
     /// A reusable attempt limit exceeds the ordinary assignment bound.
     AttemptLimitOutOfRange,
+    /// A replacement submitted the same retained module handle more than once.
+    DuplicateRetainedModuleHandle,
+    /// A replacement submitted the same retained assignment handle more than once.
+    DuplicateRetainedAssignmentHandle,
 }
 
 impl std::fmt::Display for ReusableCurriculumValidationError {
@@ -583,6 +536,12 @@ impl std::fmt::Display for ReusableCurriculumValidationError {
             }
             Self::TimeLimitOutOfRange => "reusable time limit exceeds the supported range",
             Self::AttemptLimitOutOfRange => "reusable attempt limit exceeds the supported range",
+            Self::DuplicateRetainedModuleHandle => {
+                "BlueprintCourse replacement repeats a retained module handle"
+            }
+            Self::DuplicateRetainedAssignmentHandle => {
+                "BlueprintCourse replacement repeats a retained assignment handle"
+            }
         })
     }
 }
@@ -598,6 +557,15 @@ mod tests {
         CatalogProblemSummary, CatalogResponseFamily, PublicAuthorName, PublicByline,
         PublicationScope, QuestionBackend, QuestionMetadata,
     };
+    use uuid::Uuid;
+
+    fn module_id() -> BlueprintModuleId {
+        BlueprintModuleId::from_uuid(Uuid::from_u128(1))
+    }
+
+    fn assignment_id() -> BlueprintAssignmentId {
+        BlueprintAssignmentId::from_uuid(Uuid::from_u128(2))
+    }
 
     fn question_id() -> QuestionId {
         "7K3-M9QX".parse().expect("valid question ID")
@@ -760,9 +728,9 @@ mod tests {
             duplicate_pool.validate(),
             Err(ReusableCurriculumValidationError::DuplicatePoolCandidate)
         );
-        let blueprint = BlueprintCourseDefinitionInput {
+        let blueprint = CreateBlueprintCourseDefinitionInput {
             title: "Biochemistry Blueprint".to_string(),
-            modules: vec![BlueprintCourseModuleInput {
+            modules: vec![CreateBlueprintCourseModuleInput {
                 label: "Week 1".to_string(),
                 definitions: vec![input(RelativeAssignmentSchedule::default())],
             }],
@@ -771,47 +739,51 @@ mod tests {
     }
 
     #[test]
-    fn safe_projection_serializes_catalog_rows_without_internal_child_identity() {
+    fn blueprint_projection_serializes_answer_free_catalog_rows_and_edit_handles() {
         let view = BlueprintCourseView {
             reference: "BP-12".parse().expect("valid reference"),
             title: "Biochemistry Blueprint".to_string(),
             revision: BlueprintRevision::new(4).expect("valid revision"),
             access: BlueprintCourseAccess::ApprovedInstructor,
             modules: vec![BlueprintCourseModuleView {
+                module_id: module_id(),
                 label: "Week 1".to_string(),
-                definitions: vec![ReusableAssignmentDefinitionView {
-                    title: "Protein structure practice".to_string(),
-                    instructions: AssignmentInstructions::default(),
-                    entries: vec![ReusableAssignmentEntryView::Fixed {
-                        question: ReusableQuestionView {
-                            catalog: discovery(),
-                            selection_availability: ReusableSelectionAvailability::Available,
-                        }
-                        .into(),
-                        points_possible: PointValue::from_whole(3),
-                        scoring_mode: AssignmentScoringMode::Normal,
-                    }],
-                    defaults: defaults(),
-                    schedule: RelativeAssignmentSchedule::default(),
+                definitions: vec![BlueprintCourseAssignmentDefinitionView {
+                    assignment_id: assignment_id(),
+                    definition: ReusableAssignmentDefinitionView {
+                        title: "Protein structure practice".to_string(),
+                        instructions: AssignmentInstructions::default(),
+                        entries: vec![ReusableAssignmentEntryView::Fixed {
+                            question: ReusableQuestionView {
+                                catalog: discovery(),
+                                selection_availability: ReusableSelectionAvailability::Available,
+                            }
+                            .into(),
+                            points_possible: PointValue::from_whole(3),
+                            scoring_mode: AssignmentScoringMode::Normal,
+                        }],
+                        defaults: defaults(),
+                        schedule: RelativeAssignmentSchedule::default(),
+                    },
                 }],
             }],
         };
         let wire = serde_json::to_value(view).expect("safe projection serializes");
         assert_eq!(wire["reference"], "BP-12");
         assert_eq!(
-            wire["modules"][0]["definitions"][0]["entries"][0]["kind"],
+            wire["modules"][0]["definitions"][0]["definition"]["entries"][0]["kind"],
             "fixed"
         );
         assert!(
-            wire.pointer("/modules/0/definitions/0/entries/0/question/catalog")
+            wire.pointer("/modules/0/definitions/0/definition/entries/0/question/catalog")
                 .is_some()
         );
-        assert!(
-            wire.pointer("/modules/0/definitions/0/entries/0/id")
-                .is_none()
+        assert_eq!(
+            wire.pointer("/modules/0/definitions/0/assignment_id"),
+            Some(&serde_json::Value::String(assignment_id().to_string()))
         );
         assert!(
-            wire.pointer("/modules/0/definitions/0/entries/0/revision")
+            wire.pointer("/modules/0/definitions/0/definition/entries/0/revision")
                 .is_none()
         );
     }
@@ -820,12 +792,13 @@ mod tests {
 #[cfg(test)]
 mod blueprint_course_tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn blueprint_course_input_is_one_nested_question_id_tree() {
-        let input = BlueprintCourseDefinitionInput {
+        let input = CreateBlueprintCourseDefinitionInput {
             title: "Biochemistry".to_owned(),
-            modules: vec![BlueprintCourseModuleInput {
+            modules: vec![CreateBlueprintCourseModuleInput {
                 label: "Week 1".to_owned(),
                 definitions: vec![ReusableAssignmentDefinitionInput {
                     title: "Protein folding".to_owned(),
@@ -861,6 +834,100 @@ mod blueprint_course_tests {
         assert!(!wire.to_string().contains("ProblemVersionRef"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
-        assert!(serde_json::from_value::<BlueprintCourseDefinitionInput>(forged).is_err());
+        assert!(serde_json::from_value::<CreateBlueprintCourseDefinitionInput>(forged).is_err());
+    }
+
+    #[test]
+    fn replacement_handles_are_explicit_strict_and_unique() {
+        let module_id = BlueprintModuleId::from_uuid(Uuid::from_u128(1));
+        let assignment_id = BlueprintAssignmentId::from_uuid(Uuid::from_u128(2));
+        assert!(
+            "00000000000000000000000000000001"
+                .parse::<BlueprintModuleId>()
+                .is_err()
+        );
+        assert!(
+            "00000000-0000-0000-0000-00000000000A"
+                .parse::<BlueprintAssignmentId>()
+                .is_err()
+        );
+        let definition = ReusableAssignmentDefinitionInput {
+            title: "Protein folding".to_owned(),
+            instructions: AssignmentInstructions::default(),
+            entries: vec![ReusableAssignmentEntryInput::Fixed(
+                ReusableFixedQuestionInput {
+                    question_id: "7K3-M9QX".parse().expect("QuestionId"),
+                    points_possible: PointValue::from_whole(1),
+                    scoring_mode: AssignmentScoringMode::Normal,
+                },
+            )],
+            defaults: ReusableAssignmentDefaults {
+                time_limit_seconds: None,
+                attempt_limit: None,
+                late_submission: LateSubmissionPolicy::Accept,
+                deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+                run_policies: RunPolicies {
+                    completion: crate::CompletionRequirement::AnswerAll,
+                    grade: crate::GradePolicy::Highest,
+                    continued_practice: crate::ContinuedPractice::Unlimited,
+                    variation: crate::VariationPolicy::NewSeeds,
+                },
+                student_disclosure: StudentDisclosurePolicy::default(),
+            },
+            schedule: RelativeAssignmentSchedule::default(),
+        };
+        let replacement = ReplaceBlueprintCourseDefinitionInput {
+            title: "Biochemistry".to_owned(),
+            modules: vec![BlueprintCourseModuleReplacementInput {
+                handle: BlueprintModuleEditHandle::Retained { module_id },
+                label: "Week 1".to_owned(),
+                definitions: vec![
+                    BlueprintCourseAssignmentReplacementInput {
+                        handle: BlueprintAssignmentEditHandle::Retained { assignment_id },
+                        definition: definition.clone(),
+                    },
+                    BlueprintCourseAssignmentReplacementInput {
+                        handle: BlueprintAssignmentEditHandle::New,
+                        definition: definition.clone(),
+                    },
+                ],
+            }],
+        };
+        replacement.validate().expect("valid retained/new tree");
+        let wire = serde_json::to_value(&replacement).expect("serializes");
+        assert_eq!(wire["modules"][0]["handle"]["kind"], "retained");
+        assert_eq!(
+            wire["modules"][0]["definitions"][1]["handle"]["kind"],
+            "new"
+        );
+        let mut forged = wire;
+        forged["modules"][0]["handle"]["unexpected"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<ReplaceBlueprintCourseDefinitionInput>(forged).is_err());
+
+        let duplicated = ReplaceBlueprintCourseDefinitionInput {
+            modules: vec![
+                BlueprintCourseModuleReplacementInput {
+                    handle: BlueprintModuleEditHandle::Retained { module_id },
+                    label: "Week 1".to_owned(),
+                    definitions: vec![BlueprintCourseAssignmentReplacementInput {
+                        handle: BlueprintAssignmentEditHandle::Retained { assignment_id },
+                        definition: definition.clone(),
+                    }],
+                },
+                BlueprintCourseModuleReplacementInput {
+                    handle: BlueprintModuleEditHandle::Retained { module_id },
+                    label: "Week 2".to_owned(),
+                    definitions: vec![BlueprintCourseAssignmentReplacementInput {
+                        handle: BlueprintAssignmentEditHandle::New,
+                        definition,
+                    }],
+                },
+            ],
+            ..replacement
+        };
+        assert_eq!(
+            duplicated.validate(),
+            Err(ReusableCurriculumValidationError::DuplicateRetainedModuleHandle)
+        );
     }
 }

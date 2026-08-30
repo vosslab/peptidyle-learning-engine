@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    BlueprintCourseDefinitionInput, BlueprintCourseSummaryView, BlueprintCourseView,
-    BlueprintReference, BlueprintRevision,
+    BlueprintCourseSummaryView, BlueprintCourseView, BlueprintReference, BlueprintRevision,
+    CreateBlueprintCourseDefinitionInput, ReplaceBlueprintCourseDefinitionInput,
 };
 
 use super::{Page, PageRequest, SessionTokenHash, StoreError, TenantContext};
@@ -17,15 +17,22 @@ pub enum ReusableCurriculumCapability {
     BlueprintCourseWrite,
 }
 
-/// Atomically create or replace one complete reusable BlueprintCourse tree.
+/// Creates one complete reusable BlueprintCourse tree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateBlueprintCourseCommand {
+    /// Ordered modules and reusable definitions. Child identities are server-owned.
+    pub definition: CreateBlueprintCourseDefinitionInput,
+}
+
+/// Replaces one complete reusable BlueprintCourse tree under optimistic revision control.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplaceBlueprintCourseCommand {
-    /// `None` creates an aggregate; a reference replaces that complete tree.
-    pub reference: Option<BlueprintReference>,
-    /// Required for replacement and absent for creation.
-    pub expected_revision: Option<BlueprintRevision>,
-    /// Ordered modules and reusable definitions owned by the aggregate.
-    pub definition: BlueprintCourseDefinitionInput,
+    /// Stable aggregate locator selected from the current answer-free view.
+    pub reference: BlueprintReference,
+    /// Exact head revision observed by the editor.
+    pub expected_revision: BlueprintRevision,
+    /// Ordered replacement tree with explicit retained/new child handles.
+    pub definition: ReplaceBlueprintCourseDefinitionInput,
 }
 
 /// Reusable-curriculum persistence separate from the general teaching Store.
@@ -53,6 +60,13 @@ pub trait ReusableCurriculumStore: Send + Sync {
         session: SessionTokenHash,
         reference: BlueprintReference,
     ) -> Result<Option<BlueprintCourseView>, StoreError>;
+    /// Creates a complete BlueprintCourse tree and allocates every child identity server-side.
+    async fn create_blueprint_course(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        command: CreateBlueprintCourseCommand,
+    ) -> Result<BlueprintCourseView, StoreError>;
     /// Atomically replaces the complete course tree under optimistic revision control.
     async fn replace_blueprint_course(
         &self,

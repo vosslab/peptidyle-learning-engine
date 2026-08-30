@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 
 use question_model::{
     ActivityTimestamp, AssignmentDefinitionSourceView, AssignmentId, AssignmentReference,
-    CourseInstanceReceiptTarget, CourseInstanceWitness, CourseReference,
-    CurriculumAdoptionCompleted, CurriculumAdoptionIdempotencyKey, CurriculumImportRevision,
-    CurriculumReplayStatus, ForkBlueprintCourseCompleted, ObservedBlueprintSource, UserId,
+    CourseInstanceBlueprintApplication, CourseInstanceReceiptTarget, CourseInstanceWitness,
+    CourseReference, CurriculumAdoptionCompleted, CurriculumAdoptionIdempotencyKey,
+    CurriculumImportRevision, CurriculumPinReplacements, CurriculumReplayStatus,
+    CurriculumSemanticDigest, ForkBlueprintCourseCompleted, ObservedBlueprintSource, UserId,
 };
 
 use crate::curriculum_adoption::{CurriculumAdoptionOperation, CurriculumAdoptionRequestDigest};
@@ -19,6 +20,11 @@ pub(in crate::in_memory) struct CurriculumAdoptionState {
     pub(super) import_records: BTreeMap<AssignmentId, StoredAssignmentImport>,
     pub(super) whole_course_adoptions:
         BTreeMap<question_model::CourseId, StoredWholeCourseAdoption>,
+    /// Canonical immutable parent binding for every CourseInstance.
+    pub(super) course_instance_blueprint_applications: BTreeMap<
+        (question_model::TenantId, question_model::CourseId),
+        CourseInstanceBlueprintApplication,
+    >,
     pub(super) receipt_targets:
         BTreeMap<(UserId, CurriculumAdoptionIdempotencyKey), CourseInstanceReceiptTarget>,
 }
@@ -188,14 +194,17 @@ pub(crate) enum MemoryCurriculumAdoptionEvidence {
     },
     AdoptBlueprintAssignment {
         source: AssignmentDefinitionSourceView,
-        destination: CourseInstanceWitness,
+        precondition: CourseInstanceWitness,
+        outcome: CourseInstanceWitness,
+        applied_assignment: question_model::ObservedCourseInstanceAssignment,
         import_revision: CurriculumImportRevision,
     },
     InstantiateBlueprintCourse {
         source: ObservedBlueprintSource,
         destination: CourseInstanceWitness,
+        blueprint_application: CourseInstanceBlueprintApplication,
     },
-    CourseInstanceReceipt(CourseInstanceReceiptTarget),
+    CourseInstanceReceipt(Box<CourseInstanceReceiptTarget>),
 }
 
 /// Immutable assignment evidence indexed by its exact destination and import revision.
@@ -204,8 +213,72 @@ pub(crate) struct StoredAssignmentAdoptionEvidence {
     pub(super) receipt_actor: UserId,
     pub(super) receipt_key: CurriculumAdoptionIdempotencyKey,
     pub(super) source: AssignmentDefinitionSourceView,
-    pub(super) destination: CourseInstanceWitness,
-    pub(super) import_revision: CurriculumImportRevision,
+    pub(super) detail: AssignmentAdoptionEvidenceDetail,
+}
+
+/// Closed operation-specific immutable facts for one assignment import.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AssignmentAdoptionEvidenceDetail {
+    AdoptBlueprintAssignment {
+        precondition: CourseInstanceWitness,
+        outcome: CourseInstanceWitness,
+        applied_assignment: question_model::ObservedCourseInstanceAssignment,
+        import_revision: CurriculumImportRevision,
+    },
+    ControlledUpdate {
+        precondition: CourseInstanceWitness,
+        outcome: CourseInstanceWitness,
+        effect: question_model::ControlledUpdateEffect,
+        replacements: CurriculumPinReplacements,
+        semantic_digest: CurriculumSemanticDigest,
+        applied_assignment: question_model::ObservedCourseInstanceAssignment,
+        import_revision: CurriculumImportRevision,
+    },
+    SelectedCopy {
+        precondition: CourseInstanceWitness,
+        outcome: CourseInstanceWitness,
+        replacements: CurriculumPinReplacements,
+        semantic_digest: CurriculumSemanticDigest,
+        applied_assignment: question_model::ObservedCourseInstanceAssignment,
+        import_revision: CurriculumImportRevision,
+    },
+}
+
+impl StoredAssignmentAdoptionEvidence {
+    pub(super) fn outcome(&self) -> &CourseInstanceWitness {
+        match &self.detail {
+            AssignmentAdoptionEvidenceDetail::AdoptBlueprintAssignment { outcome, .. }
+            | AssignmentAdoptionEvidenceDetail::ControlledUpdate { outcome, .. }
+            | AssignmentAdoptionEvidenceDetail::SelectedCopy { outcome, .. } => outcome,
+        }
+    }
+    pub(super) fn assignment(&self) -> AssignmentReference {
+        match &self.detail {
+            AssignmentAdoptionEvidenceDetail::AdoptBlueprintAssignment {
+                applied_assignment,
+                ..
+            } => applied_assignment.assignment,
+            AssignmentAdoptionEvidenceDetail::ControlledUpdate {
+                applied_assignment, ..
+            }
+            | AssignmentAdoptionEvidenceDetail::SelectedCopy {
+                applied_assignment, ..
+            } => applied_assignment.assignment,
+        }
+    }
+    pub(super) fn import_revision(&self) -> CurriculumImportRevision {
+        match self.detail {
+            AssignmentAdoptionEvidenceDetail::AdoptBlueprintAssignment {
+                import_revision, ..
+            }
+            | AssignmentAdoptionEvidenceDetail::ControlledUpdate {
+                import_revision, ..
+            }
+            | AssignmentAdoptionEvidenceDetail::SelectedCopy {
+                import_revision, ..
+            } => import_revision,
+        }
+    }
 }
 
 /// Repairable current projection rebuilt only from immutable assignment evidence.
@@ -222,4 +295,6 @@ pub(crate) struct StoredWholeCourseAdoption {
     pub(super) receipt_actor: UserId,
     pub(super) receipt_key: CurriculumAdoptionIdempotencyKey,
     pub(super) destination: CourseInstanceWitness,
+    /// Receipt lineage cross-check only; canonical parentage is stored separately.
+    pub(super) blueprint_application: CourseInstanceBlueprintApplication,
 }

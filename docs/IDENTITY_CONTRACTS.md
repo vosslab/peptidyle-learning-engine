@@ -2,11 +2,15 @@
 
 ## Binding single-installation model
 
-PLE is one installation with global accounts. An authenticated person has one
-global `UserId`; a session establishes that person, and an operation derives
-authorization from the exact course membership, Student ownership, workspace
-relationship, approved-Instructor state, or narrowly typed platform capability
-that applies to that operation.
+PLE is one installation with global accounts. The binding SD1 product contract
+requires each account to have one global `UserId` and exactly one immutable
+Student, Instructor, or Sysadmin role; a person who needs multiple roles uses
+separate accounts. A session then establishes one account and its one role, and
+an operation derives authorization from the exact course membership, Student
+ownership, workspace relationship, approved-Instructor state, or narrowly typed
+platform capability that applies to that operation. This target remains pending
+implementation and acceptance; pre-SD1 plural account/session role source is
+cutover input.
 
 Every published assignment question is shared Instructor-visible catalog
 content. A private draft has no catalog identity and remains visible only
@@ -47,11 +51,12 @@ owns the migration from the former tenant model to these identities.
 | Identity or value                      | Scope                           | Intended use                                                                                                                                       |
 | -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `UserId`                               | Global, durable                 | Names one PLE account/person across courses and workspaces. It is distinct from Student membership and enrollment identity.                        |
+| Account role                            | Pending SD1 global account state | Stores exactly one closed Student, Instructor, or Sysadmin role. Target account/session storage never combines roles.                                |
 | `SessionId`                            | Global, durable session record  | Names one server-tracked login session, including expiry and revocation state.                                                                     |
 | `SessionTokenHash`                     | Server-only session record      | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record locator, or log value.                                 |
 | `ActorContext { user_id, session_id }` | Server-derived request context  | Carries the authenticated actor into domain, Store, and authorization operations. It has no ambient course, workspace, or Student grant.           |
 | Approved-Instructor state              | Global, revocable account state | `approved_instructor(user_id, now)` establishes current Instructor product capabilities and is re-evaluated for protected operations.              |
-| `Sysadmin` platform role               | Global, explicit platform role  | Names limited platform operations. Course teaching and FERPA reads use direct course authority except for an explicitly audited narrow capability. |
+| `Sysadmin` account role                | Pending SD1 global account state | Names limited platform operations. It has no course membership; teaching and FERPA reads use direct Instructor-account authority or audited support. |
 
 The server resolves the opaque first-party session credential to
 `ActorContext`. The browser receives only its own answer-free account/session
@@ -96,11 +101,16 @@ identity.
 | `RunId`               | One pass through an assignment                       | Belongs to one enrollment; later practice uses a new run.                                                                                   |
 | `QuestionAttemptId`   | One issued question instance                         | Binds a run to exact immutable content, seed, timing, status, provenance, and grading backend.                                              |
 
-Course creation creates the creator's first ordinary Instructor membership in
-the same transaction. Every current co-Instructor has the same teaching and
-FERPA-read predicates; the creator has no enduring privileged identity. A
-current course Instructor may invite an approved Instructor, and acceptance
-rechecks approval, invitation state, and roster revision atomically.
+Under the binding pending SD1 product contract, the closed Sysadmin
+course-instance provisioning command binds an exact BlueprintCourse source and
+revision, an explicitly assigned approved Instructor account, and a
+server-reserved CourseInstance identity. One transaction creates the
+CourseInstance, that account's first ordinary Instructor membership, and an
+append-only audit event; it gives the Sysadmin account no membership. Every
+current co-Instructor has the same teaching and FERPA-read predicates. A
+current course Instructor may invite an approved Instructor account, and
+acceptance rechecks role agreement, approval, invitation state, and roster
+revision atomically.
 
 Student work is authorized by the authenticated `UserId` owning the active
 Student membership and enrollment for the exact course. Direct current

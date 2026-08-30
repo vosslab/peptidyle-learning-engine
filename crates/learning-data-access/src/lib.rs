@@ -139,13 +139,14 @@ pub use crate::asset_delivery::{
 };
 pub use crate::contracts::{CourseGroupManagementStore, StudentSubmissionStatusStore};
 pub use crate::contracts::{
+    CreateBlueprintCourseCommand, ReplaceBlueprintCourseCommand, ReusableCurriculumCapability,
+    ReusableCurriculumStore,
+};
+pub use crate::contracts::{
     CurriculumAdoptionStore, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
     IssuedQuestionSnapshotV1, PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit,
     ProblemCollectionMembersPage, ProblemCollectionReplacementTarget, ProblemCurationCapability,
     ProblemCurationStore, ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
-};
-pub use crate::contracts::{
-    ReplaceBlueprintCourseCommand, ReusableCurriculumCapability, ReusableCurriculumStore,
 };
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,

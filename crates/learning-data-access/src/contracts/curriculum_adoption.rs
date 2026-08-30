@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    CourseInstanceBlueprintInspectionView, CourseInstanceReceiptTarget, CourseReference,
-    CurriculumAdoptionApplyIntent, CurriculumAdoptionCompleted, CurriculumAdoptionPreview,
-    CurriculumAdoptionPreviewRequest, ReconcileCourseInstanceAdoptionCompleted,
+    CourseInstanceBlueprintInspectionView, CourseReference, CurriculumAdoptionApplyIntent,
+    CurriculumAdoptionCompleted, CurriculumAdoptionPreview, CurriculumAdoptionPreviewRequest,
+    ReconcileCourseInstanceAdoptionCompleted, ReconcileCourseInstanceAdoptionIntent,
 };
 
 use super::{SessionTokenHash, StoreError, TenantContext};
@@ -65,6 +65,6 @@ pub trait CurriculumAdoptionStore: Send + Sync {
         &self,
         context: TenantContext,
         session: SessionTokenHash,
-        target: CourseInstanceReceiptTarget,
+        intent: ReconcileCourseInstanceAdoptionIntent,
     ) -> Result<ReconcileCourseInstanceAdoptionCompleted, StoreError>;
 }

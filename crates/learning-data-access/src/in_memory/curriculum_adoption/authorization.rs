@@ -1,8 +1,8 @@
 //! Active-session and current-course authority for curriculum adoption.
 
 use question_model::{
-    AssignmentId, CourseId, CourseReference, CourseScheduleRevision, CourseScheduleWitness,
-    ObservedAssignmentRevision,
+    AssignmentId, CourseId, CourseInstanceBlueprintApplication, CourseInstanceWitness,
+    CourseReference, CourseScheduleRevision, ObservedCourseInstanceAssignment,
 };
 
 use super::destination;
@@ -60,7 +60,7 @@ pub(crate) fn course_witness(
     state: &State,
     tenant: TenantId,
     course: CourseId,
-) -> Result<CourseScheduleWitness, StoreError> {
+) -> Result<CourseInstanceWitness, StoreError> {
     let course_reference = *state
         .course_references
         .get(&(tenant, course))
@@ -72,7 +72,7 @@ pub(crate) fn course_witness(
     let assignments = super::course_assignment_ids(state, tenant, course)
         .into_iter()
         .map(|assignment| {
-            Ok(ObservedAssignmentRevision {
+            Ok(ObservedCourseInstanceAssignment {
                 assignment: *state
                     .assignment_references
                     .get(&(tenant, assignment))
@@ -84,14 +84,14 @@ pub(crate) fn course_witness(
             })
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
-    CourseScheduleWitness::new(course_reference, schedule_revision, assignments)
+    CourseInstanceWitness::new(course_reference, schedule_revision, assignments)
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))
 }
 
 pub(crate) fn require_exact_witness(
     state: &State,
     tenant: TenantId,
-    expected: &CourseScheduleWitness,
+    expected: &CourseInstanceWitness,
 ) -> Result<CourseId, StoreError> {
     let course = resolve_course(state, tenant, expected.course)?;
     let current = course_witness(state, tenant, course)?;
@@ -99,6 +99,28 @@ pub(crate) fn require_exact_witness(
         return Err(StoreError::Conflict);
     }
     Ok(course)
+}
+
+/// Resolves the one immutable Blueprint application for an existing CourseInstance.
+///
+/// ASVS 2.3.1/2.3.3: callers use this canonical binding inside their locked
+/// transition so parentage cannot be inferred from mutable import projections.
+pub(crate) fn course_instance_blueprint_application(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+) -> Result<CourseInstanceBlueprintApplication, StoreError> {
+    let application = *state
+        .curriculum_adoption
+        .course_instance_blueprint_applications
+        .get(&(tenant, course))
+        .ok_or_else(|| destination::integrity("CourseInstance Blueprint application"))?;
+    if !state.courses.contains_key(&(tenant, course)) {
+        return Err(destination::integrity(
+            "CourseInstance Blueprint application course",
+        ));
+    }
+    Ok(application)
 }
 
 pub(crate) fn course_has_any_run(state: &State, tenant: TenantId, course: CourseId) -> bool {

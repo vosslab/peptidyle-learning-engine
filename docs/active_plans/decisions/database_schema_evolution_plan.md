@@ -511,9 +511,10 @@ register. The range is `2026082901` through `2026082932`, with these capability 
 
 | Range | Capability family |
 | --- | --- |
-| `2026082901`-`2026082904` | Principals, global accounts, sessions, passkeys, roles, and actor context |
-| `2026082905`-`2026082908` | Global immutable catalog, publication, and safe discovery evidence |
-| `2026082909`-`2026082912` | Private authoring, collections, Stars, and saved searches |
+| `2026082901` | Principal baseline, schemas, capability roles, and default ACLs |
+| `2026082902`-`2026082906` | Accounts, passwordless identity, Instructor vetting, and actor resolution |
+| `2026082907`-`2026082909` | Global immutable catalog, publication, discovery, and stewardship |
+| `2026082910`-`2026082912` | Private authoring, Blueprints, collections, and saved searches |
 | `2026082913`-`2026082916` | Courses, equal co-Instructors, Students, invitations, and reusable curricula |
 | `2026082917`-`2026082920` | Assignments, schedules, runs, attempts, submissions, and artifacts |
 | `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, and improvement threads |

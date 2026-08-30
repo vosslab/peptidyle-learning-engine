@@ -5,11 +5,13 @@ use question_model::curriculum_adoption::{
     CurriculumSemanticModule, CurriculumSemanticPayload, CurriculumSemanticPool,
 };
 use question_model::{
-    AssignmentInstructions, AssignmentScoringMode, BaseAssignmentPolicy, CourseTerm, PointValue,
-    PoolDrawAlgorithm, ProblemVersionRef, RelativeAssignmentSchedule, ReusableAssignmentDefaults,
-    SelectionOrdering,
+    AssignmentInstructions, AssignmentScoringMode, PointValue, PoolDrawAlgorithm,
+    ProblemVersionRef, RelativeAssignmentSchedule, ReusableAssignmentDefaults, SelectionOrdering,
 };
 use serde::{Deserialize, Serialize};
+
+#[cfg(any(test, feature = "postgres"))]
+use question_model::{BaseAssignmentPolicy, CourseTerm};
 
 /// Closed server-side representation of one semantic payload read from adapter storage.
 ///
@@ -48,6 +50,7 @@ pub(crate) struct SemanticAssignmentInputV1 {
 /// The adapter supplies stored teaching policy and the source term separately;
 /// qmodel remains the sole authority for projecting absolute teaching times into
 /// reusable calendar-relative meaning.
+#[cfg(any(test, feature = "postgres"))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct TeachingAssignmentInputV1 {
@@ -120,10 +123,10 @@ pub(crate) enum SemanticPlannerError {
     InvalidMeaning(String),
     InvalidPosition(String),
     InvalidReplacement(String),
+    #[cfg(feature = "postgres")]
     InvalidEvidence(SemanticEvidenceMismatch),
+    #[cfg(feature = "postgres")]
     InvalidInspection(String),
-    #[cfg(any(test, feature = "test-support"))]
-    RolloverTopology(String),
     Schedule(String),
 }
 
@@ -145,23 +148,18 @@ impl std::fmt::Display for SemanticPlannerError {
             Self::InvalidReplacement(reason) => {
                 write!(formatter, "curriculum pin replacement is invalid: {reason}")
             }
+            #[cfg(feature = "postgres")]
             Self::InvalidEvidence(mismatch) => {
                 write!(
                     formatter,
                     "curriculum semantic evidence is invalid: {mismatch}"
                 )
             }
+            #[cfg(feature = "postgres")]
             Self::InvalidInspection(reason) => {
                 write!(
                     formatter,
                     "curriculum import inspection is invalid: {reason}"
-                )
-            }
-            #[cfg(any(test, feature = "test-support"))]
-            Self::RolloverTopology(reason) => {
-                write!(
-                    formatter,
-                    "curriculum rollover topology is invalid: {reason}"
                 )
             }
             Self::Schedule(reason) => {
@@ -174,6 +172,7 @@ impl std::fmt::Display for SemanticPlannerError {
 impl std::error::Error for SemanticPlannerError {}
 
 /// Exact canonical envelope field that disagreed with normalized meaning.
+#[cfg(feature = "postgres")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SemanticEvidenceMismatch {
     CanonicalVersion,
@@ -181,6 +180,7 @@ pub(crate) enum SemanticEvidenceMismatch {
     Digest,
 }
 
+#[cfg(feature = "postgres")]
 impl std::fmt::Display for SemanticEvidenceMismatch {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
@@ -212,6 +212,7 @@ pub(crate) fn normalize_payload(
 }
 
 /// Projects one adapter-owned teaching assignment into validated reusable meaning.
+#[cfg(any(test, feature = "postgres"))]
 pub(crate) fn normalize_teaching_assignment(
     input: TeachingAssignmentInputV1,
     source_term: &CourseTerm,

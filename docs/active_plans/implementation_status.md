@@ -29,6 +29,11 @@ data use domain identifiers.
   WN1-SR5 PostgreSQL vocabulary work is input to SD1-C rather than an acceptance boundary.
   WN1-OPS1 through WN1-OPS10, WN1-B1 through B5, WN1-GO1, WN1-MG, and WN1-SR1 through SR4A
   remain accepted behavior evidence.
+  `WP-SD1-A` now also records the pending fixed-role account clarification: each account and session
+  carries one immutable Student, Instructor, or Sysadmin role; Student/Instructor membership must
+  match it; Sysadmin course provisioning assigns an approved Instructor account without Sysadmin
+  membership; and course help remains explicit audited support. No implementation or acceptance
+  evidence is claimed by this clarification.
   **Current pre-WN1:** lower-camel transport remains in
   material source. **Approved target:** Rust Serde owns PLE `snake_case` data-object properties,
   query keys, and portable discriminants while TypeScript functions/locals and registered
@@ -227,6 +232,11 @@ checks pass, while tracked-inventory Markdown-link failures remain open for untr
 slice. The supplied independent architecture/privacy review remains `REVISE`, and the handoff
 review remains `BLOCKED`; no independent `ACCEPT` is recorded. Runtime, PostgreSQL/RLS, browser,
 and full-suite acceptance remain later SD1 gates.
+
+`WP-SD1-A` fixed-role account clarification is documented and remains pending implementation.
+Migration `2026082902` retains ownership of singular immutable account/session role storage;
+`2026082905` retains ownership of Instructor vetting and current approval predicates. Source,
+PostgreSQL/RLS, service, browser, migration, and human-acceptance evidence remain pending.
 
 ## WN1-A review receipt
 
@@ -736,10 +746,10 @@ SD1-C records the exact replacement ledger.
 | `2026081887`              | `WP-INST-WN1 / WN1-D` | Curriculum-adoption request, inspection, and reconciliation payload contracts                                                                                                                       |
 | `2026081888`              | `WP-INST-WN1 / WN1-D` | Operational worker, retention, delivery, roster/account, provider-cache, and export payload contracts                                                                                               |
 | `2026082901` | `WP-SD1-C` | Migration-principal baseline, NOLOGIN capability roles, schemas, default ACLs |
-| `2026082902` | `WP-SD1-C` | Accounts and primary sessions |
+| `2026082902` | `WP-SD1-C` | Accounts and primary sessions, including singular immutable account/session role storage |
 | `2026082903` | `WP-SD1-C` | Email challenges and rate limits |
 | `2026082904` | `WP-SD1-C` | WebAuthn ceremonies and passkeys |
-| `2026082905` | `WP-SD1-C` | Instructor approval and role predicates |
+| `2026082905` | `WP-SD1-C` | Instructor vetting, current approval predicates, and role predicates |
 | `2026082906` | `WP-SD1-C` | Actor resolver, installer, and session RLS broker |
 | `2026082907` | `WP-SD1-C` | Shared catalog roots and immutable versions |
 | `2026082908` | `WP-SD1-C` | Publication lifecycle and catalog discovery evidence |

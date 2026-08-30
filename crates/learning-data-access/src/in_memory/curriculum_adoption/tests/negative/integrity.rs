@@ -1,111 +1,130 @@
+//! Integrity failures preserve the exact Memory transaction boundary.
+
+use crate::{CurriculumAdoptionStore, StoreError};
 use question_model::{
-    CourseTerm, CourseTermShiftIneligibility, CourseTermShiftPreviewOutcome,
-    CourseTermShiftPreviewRequest, CourseTermShiftRecoveryAction,
+    CourseTerm, CurriculumAdoptionApplyIntent, CurriculumAdoptionPreviewRequest,
+    ShiftCourseInstanceTermPreviewRequest,
 };
 
-use super::*;
+use super::super::super::resolve_course;
+use super::super::adoption_inputs::key;
+use super::super::scenario::CurriculumAdoptionScenario;
 
 #[tokio::test]
-async fn missing_course_schedule_revision_fails_closed_without_repairing_state() {
-    let fixture = Fixture::new().await;
-    let applied = fixture.instantiate("missing-schedule").await;
-    let intact_witness = witness(&fixture, applied.course);
-    let before = b2_snapshot(&fixture);
+async fn missing_course_schedule_witness_fails_closed_without_repairing_state() {
+    let scenario = CurriculumAdoptionScenario::new().await;
     {
-        let mut state = fixture.store.write_state().expect("state");
-        let course = resolve_course(&state, fixture.tenant, applied.course).expect("course");
+        let mut state = scenario.store.write_state().expect("state");
+        let course = resolve_course(&state, scenario.tenant, scenario.course).expect("course");
         state
             .course_schedule_revisions
-            .remove(&(fixture.tenant, course));
+            .remove(&(scenario.tenant, course))
+            .expect("course schedule witness");
     }
-    let corrupted = b2_snapshot(&fixture);
+    let before = lifecycle_state(&scenario);
+
     assert!(matches!(
-        fixture
+        scenario
             .store
-            .preview_course_term_shift(
-                fixture.context,
-                fixture.session,
-                CourseTermShiftPreviewRequest {
-                    witness: intact_witness,
-                    target_term: CourseTerm::from_parts(
-                        "2027-01-11",
-                        "2027-05-08",
-                        "America/Chicago"
-                    )
-                    .expect("term"),
-                },
+            .preview_curriculum_adoption(
+                scenario.context,
+                scenario.session,
+                shift_request(&scenario, spring_term()),
             )
-            .await,
-        Err(StoreError::Unavailable(_)) | Err(StoreError::InvalidRecord(_))
-    ));
-    assert_eq!(b2_snapshot(&fixture), corrupted);
-    assert_ne!(
-        before, corrupted,
-        "fault injection is the only state mutation"
-    );
-}
-
-/// Issued learner work changes the visible preview into an explicit recovery
-/// path before a term-shift command can exist.  Apply retains its separate
-/// optimistic fence for work issued after an eligible preview.
-#[tokio::test]
-async fn issued_course_term_shift_preview_requires_rollover_recovery() {
-    let fixture = Fixture::new().await;
-    let applied = fixture.instantiate("issued-before-preview").await;
-    issue_run(&fixture, applied.course);
-
-    let outcome = fixture
-        .store
-        .preview_course_term_shift(
-            fixture.context,
-            fixture.session,
-            CourseTermShiftPreviewRequest {
-                witness: witness(&fixture, applied.course),
-                target_term: CourseTerm::from_parts("2027-01-11", "2027-05-08", "America/Chicago")
-                    .expect("term"),
-            },
-        )
-        .await
-        .expect("issued work returns a typed preview outcome");
-
-    assert!(matches!(
-        outcome,
-        CourseTermShiftPreviewOutcome::Ineligible {
-            course,
-            reason: CourseTermShiftIneligibility::IssuedWork,
-            recovery: CourseTermShiftRecoveryAction::RolloverCourse,
-        } if course == applied.course
-    ));
-}
-
-/// A course created by an Alpha adoption has no ordinary-origin fallback when
-/// its immutable whole-course record is detached from otherwise current
-/// assignment projections.
-#[tokio::test]
-async fn detached_whole_course_adoption_refuses_inspection_without_mutation() {
-    let fixture = Fixture::new().await;
-    let applied = fixture.instantiate("detached-whole-course").await;
-    let before = b2_snapshot(&fixture);
-    {
-        let mut state = fixture.store.write_state().expect("state");
-        let course = resolve_course(&state, fixture.tenant, applied.course).expect("course");
-        state
-            .curriculum_adoption
-            .whole_course_adoptions
-            .remove(&(fixture.tenant, course));
-    }
-    let corrupted = b2_snapshot(&fixture);
-
-    assert!(matches!(
-        fixture
-            .store
-            .inspect_curriculum_imports(fixture.context, fixture.session, applied.course)
             .await,
         Err(StoreError::Unavailable(_))
     ));
-    assert_eq!(b2_snapshot(&fixture), corrupted);
-    assert_ne!(
-        before, corrupted,
-        "fault injection is the only state mutation"
+    assert_eq!(lifecycle_state(&scenario), before);
+}
+
+#[tokio::test]
+async fn late_receipt_identity_collision_restores_the_complete_memory_state() {
+    let scenario = CurriculumAdoptionScenario::new().await;
+    let seed_key = key("rollback-seed");
+    scenario
+        .store
+        .apply_curriculum_adoption(
+            scenario.context,
+            scenario.session,
+            CurriculumAdoptionApplyIntent {
+                request: shift_request(&scenario, spring_term()),
+                idempotency_key: seed_key.clone(),
+            },
+        )
+        .await
+        .expect("seed shift receipt");
+    let collision_key = key("rollback-collision");
+    {
+        let mut state = scenario.store.write_state().expect("state");
+        let retained =
+            state.curriculum_adoption.receipt_targets[&(scenario.actor, seed_key)].clone();
+        state
+            .curriculum_adoption
+            .receipt_targets
+            .insert((scenario.actor, collision_key.clone()), retained);
+    }
+    let before = debug_state(&scenario);
+    let later_term =
+        CourseTerm::from_parts("2027-08-23", "2027-12-17", "America/Chicago").expect("later term");
+
+    assert_eq!(
+        scenario
+            .store
+            .apply_curriculum_adoption(
+                scenario.context,
+                scenario.session,
+                CurriculumAdoptionApplyIntent {
+                    request: shift_request(&scenario, later_term),
+                    idempotency_key: collision_key,
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
     );
+    assert_eq!(
+        debug_state(&scenario),
+        before,
+        "a failure after lifecycle mutation restores every private Memory collection",
+    );
+}
+
+fn shift_request(
+    scenario: &CurriculumAdoptionScenario,
+    target_term: CourseTerm,
+) -> CurriculumAdoptionPreviewRequest {
+    CurriculumAdoptionPreviewRequest::ShiftCourseInstanceTerm {
+        request: ShiftCourseInstanceTermPreviewRequest {
+            course: scenario.course,
+            target_term,
+        },
+    }
+}
+
+fn spring_term() -> CourseTerm {
+    CourseTerm::from_parts("2027-01-11", "2027-05-08", "America/Chicago").expect("spring term")
+}
+
+fn debug_state(scenario: &CurriculumAdoptionScenario) -> String {
+    format!(
+        "{:#?}",
+        scenario
+            .store
+            .read_state()
+            .expect("Memory state is available")
+    )
+}
+
+fn lifecycle_state(scenario: &CurriculumAdoptionScenario) -> impl PartialEq + std::fmt::Debug {
+    let state = scenario
+        .store
+        .read_state()
+        .expect("Memory state is available");
+    (
+        state.curriculum_adoption.clone(),
+        state.courses.clone(),
+        state.course_schedule_revisions.clone(),
+        state.assignments.clone(),
+        state.assignment_revisions.clone(),
+        state.assignment_base_policy.clone(),
+    )
 }

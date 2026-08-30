@@ -75,12 +75,14 @@ impl CanonicalCurriculumAdoptionIntentV1 {
         })
     }
 
-    /// Returns the closed operation bound into the canonical request source.
+    /// Exposes the closed operation to the unit-level canonical binding check.
+    #[cfg(test)]
     pub(crate) fn operation(&self) -> CurriculumAdoptionOperation {
         self.operation
     }
 
-    /// Returns the retained canonical source, projection, version, and digest.
+    /// Exposes the retained canonical source to the unit-level canonical binding check.
+    #[cfg(test)]
     pub(crate) fn canonical_json(&self) -> &CanonicalJsonV1 {
         &self.canonical_json
     }
@@ -123,10 +125,12 @@ fn reconciliation_operation_name(target: &CourseInstanceReceiptTarget) -> &'stat
 mod tests {
     use super::*;
     use question_model::{
-        ActivityTimestamp, BlueprintReference, BlueprintRevision, CourseInstanceEligibility,
-        CourseInstanceReceiptTarget, CourseInstanceWitness, CourseReference,
-        CourseScheduleRevision, CurriculumPinReplacements, ObservedBlueprintSource,
-        ShiftCourseInstanceTermApplyRecord, ShiftCourseInstanceTermReceipt,
+        ActivityTimestamp, BlueprintReference, BlueprintRevision, CourseInstanceApplicationBinding,
+        CourseInstanceBlueprintApplication, CourseInstanceEligibility, CourseInstanceReceiptTarget,
+        CourseInstanceWitness, CourseReference, CourseScheduleRevision,
+        CurriculumAdoptionIdempotencyKey, CurriculumAdoptionRequestBinding,
+        CurriculumPinReplacements, ObservedBlueprintSource, ShiftCourseInstanceTermApplyRecord,
+        ShiftCourseInstanceTermReceipt,
     };
     use uuid::Uuid;
 
@@ -153,9 +157,15 @@ mod tests {
             vec![],
         )
         .expect("course instance witness");
+        let application = CourseInstanceBlueprintApplication {
+            source: ObservedBlueprintSource {
+                reference: BlueprintReference::new(7).expect("blueprint reference"),
+                revision: BlueprintRevision::new(2).expect("blueprint revision"),
+            },
+        };
         let receipt = ShiftCourseInstanceTermReceipt::from_server_record(
             ShiftCourseInstanceTermApplyRecord::new(
-                destination,
+                CourseInstanceApplicationBinding::new(destination, application),
                 question_model::CourseTerm::from_parts(
                     "2026-08-24",
                     "2026-12-12",
@@ -163,15 +173,24 @@ mod tests {
                 )
                 .expect("course term"),
                 vec![],
-                actor(1),
-                [7; 32],
-                question_model::CurriculumAdoptionIdempotencyKey::parse("reconcile-target")
-                    .expect("idempotency key"),
+                CurriculumAdoptionRequestBinding::new(
+                    actor(1),
+                    [7; 32],
+                    CurriculumAdoptionIdempotencyKey::parse("reconcile-target")
+                        .expect("idempotency key"),
+                ),
                 CourseInstanceEligibility::Eligible,
             )
             .expect("shift record"),
+            CourseInstanceWitness::new(
+                CourseReference::new(3).expect("course reference"),
+                CourseScheduleRevision::new(2).expect("post-shift schedule revision"),
+                vec![],
+            )
+            .expect("post-shift witness"),
             ActivityTimestamp::from_unix_millis(1),
-        );
+        )
+        .expect("shift receipt");
         CourseInstanceReceiptTarget::ShiftTerm(receipt)
     }
 

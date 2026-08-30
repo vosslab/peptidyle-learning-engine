@@ -523,30 +523,30 @@ closeout.
 
 ### Current personas are Student, Instructor, and Sysadmin
 
-**Decision.** PLE's current live product has three human personas. Instructor approval requires
-real-person validation; teaching requires direct course membership. Sysadmin is a separate
-operator-approved platform role and never substitutes for direct Instructor membership for general
-FERPA course access. Helping an Instructor with a named course or Student requires an explicit,
-audited, time-bounded support capability with a stated purpose; Sysadmin has no ambient FERPA
-browsing. Publishing content is an Instructor action; the public-asset publisher is a service
-identity, not a person. Every approved Instructor has the same product capabilities, including
-shared-problem discovery, collections, publication, reuse, and improvement workflows.
+**Decision.** Each PLE account has exactly one immutable current Student, Instructor, or Sysadmin
+role. A person needing multiple roles uses separate accounts; Dr. Voss may use separate Instructor
+and Sysadmin accounts. Instructor approval requires real-person validation, and teaching requires
+direct Instructor membership. A Sysadmin provisions a course only for an explicitly assigned
+approved Instructor account, which receives the initial membership; the Sysadmin receives none.
+Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
+Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the
+public-asset publisher is a service identity, not a person. Every approved Instructor has the same
+product capabilities, including shared-problem discovery, collections, publication, reuse, and
+improvement workflows.
 
 **Why.** Ambient administrator or manager roles turn one compromised platform
 credential into access to every student's educational record. A publisher
 human role also confuses author approval with the least-authority service that
 materializes immutable public bytes.
 
-**Consequence.** `UserRole` is the closed Student/Instructor/Sysadmin set; the current course
-membership relation is the smaller Student/Instructor set. Sysadmin status alone does not create or
-teach a course. A Sysadmin must complete the explicit Instructor approval path before creating a
-course; creation then establishes that person's first direct Instructor membership. A course may
-have multiple current co-Instructors; each has equal teaching authority for that course, and
-revocation removes that authority transactionally. Sysadmin status cannot enumerate or read another
-course's teaching records by itself. A support capability names the exact course and, when needed,
-Student, expires on a recorded deadline, and records actor, purpose, action, and time for every
-boundary crossing. All course-linked Student data receives the FERPA radioactive handling
-discipline.
+**Consequence.** `UserRole` is the closed Student/Instructor/Sysadmin set, and account/session
+storage carries one role, never a collection. Course membership is the smaller Student/Instructor
+relation and must match the account role. Sysadmin accounts cannot hold course membership. A course
+may have multiple current co-Instructor accounts with equal teaching authority. A support capability
+names the exact course and, when needed, Student; it expires on a recorded deadline and records
+actor, purpose, action, and time for every boundary crossing. All course-linked Student data
+receives the FERPA radioactive handling discipline. Implementation and acceptance evidence remain
+pending under SD1.
 
 The authorization boundary remains capability-oriented so a later package can add bounded Grader,
 Course Observer, or Student Observer relationships without widening the current personas. A Course

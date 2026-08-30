@@ -210,10 +210,14 @@ pub use crate::public_route::{
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::reusable_curriculum::{
-    BlueprintCourseAccess, BlueprintCourseDefinitionInput, BlueprintCourseModuleInput,
-    BlueprintCourseModuleView, BlueprintCourseSummaryView, BlueprintCourseView, BlueprintRevision,
-    LocalTimeOfDay, LocalTimeOfDayError, MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS,
-    RelativeAssignmentSchedule, RelativeScheduleMoment, ReusableAssignmentDefaults,
+    BlueprintAssignmentEditHandle, BlueprintAssignmentId, BlueprintChildIdError,
+    BlueprintCourseAccess, BlueprintCourseAssignmentDefinitionView,
+    BlueprintCourseAssignmentReplacementInput, BlueprintCourseModuleReplacementInput,
+    BlueprintCourseModuleView, BlueprintCourseSummaryView, BlueprintCourseView,
+    BlueprintModuleEditHandle, BlueprintModuleId, BlueprintRevision,
+    CreateBlueprintCourseDefinitionInput, CreateBlueprintCourseModuleInput, LocalTimeOfDay,
+    LocalTimeOfDayError, MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS, RelativeAssignmentSchedule,
+    RelativeScheduleMoment, ReplaceBlueprintCourseDefinitionInput, ReusableAssignmentDefaults,
     ReusableAssignmentDefinitionInput, ReusableAssignmentDefinitionView,
     ReusableAssignmentEntryInput, ReusableAssignmentEntryView, ReusableCurriculumTitleError,
     ReusableCurriculumValidationError, ReusableFixedQuestionInput, ReusablePoolCandidateView,

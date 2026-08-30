@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use question_model::curriculum_adoption::CurriculumSemanticPayload;
 use question_model::{
     AssignmentDefinitionSourceView, CurriculumPinPosition, CurriculumPinReplacements,
-    CurriculumSourceView, ReplacementQuestionChoices, UnavailablePinRecoveryAction,
+    ObservedBlueprintSource, ReplacementQuestionChoices, UnavailableCurriculumPinRecovery,
 };
 
 use crate::curriculum_adoption::{
@@ -42,7 +42,7 @@ pub(crate) fn source_snapshot_with_replacements(
     store: &MemoryStore,
     tenant: TenantId,
     actor: UserId,
-    source: CurriculumSourceView,
+    source: ObservedBlueprintSource,
     replacements: &CurriculumPinReplacements,
 ) -> Result<super::super::reusable_curriculum::ReusableSourceSnapshot, StoreError> {
     let snapshot = super::super::reusable_curriculum::curriculum_source_snapshot(
@@ -127,18 +127,19 @@ fn pin_eligible_for_destination(
 pub(crate) fn pin_correction(
     state: &State,
     tenant: TenantId,
+    source: AssignmentDefinitionSourceView,
     payload: &CurriculumSemanticPayload,
-) -> Result<Option<UnavailablePinRecoveryAction>, StoreError> {
-    let Err(position) = validate_destination_pins(state, tenant, payload) else {
+) -> Result<Option<UnavailableCurriculumPinRecovery>, StoreError> {
+    let Some(unavailable) = unavailable_destination_pin(state, tenant, payload)? else {
         return Ok(None);
     };
     let candidates = replacement_question_choices(state, tenant)?;
-    Ok(Some(
-        UnavailablePinRecoveryAction::SelectReplacementQuestion {
-            position,
-            candidates,
-        },
-    ))
+    Ok(Some(UnavailableCurriculumPinRecovery {
+        source,
+        position: unavailable.position(),
+        unavailable: unavailable.reference,
+        choices: candidates,
+    }))
 }
 
 pub(crate) fn replacement_question_choices(
@@ -149,11 +150,12 @@ pub(crate) fn replacement_question_choices(
         .published
         .values()
         .filter(|record| {
-            super::super::reusable_curriculum::replacement_candidate_selectable(
-                state, tenant, record,
-            )
+            record.lifecycle.is_eligible_for_ordinary_new_selection()
+                && catalog_record_visible(state, tenant, record)
         })
         .map(|record| record.question_id.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .take(question_model::MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP)
         .collect::<Vec<_>>();
     let candidates = ReplacementQuestionChoices::new(candidates)

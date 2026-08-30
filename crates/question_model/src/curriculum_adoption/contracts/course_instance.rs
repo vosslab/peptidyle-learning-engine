@@ -7,9 +7,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDefinitionSourceView, CurriculumAdoptionIdempotencyKey, CurriculumImportRevision,
-    CurriculumPinPosition, CurriculumPinReplacements, CurriculumReplayStatus,
-    ObservedBlueprintSource, ReplacementQuestionChoices,
+    AssignmentDefinitionSourceView, CourseInstanceReceiptTarget, CurriculumAdoptionIdempotencyKey,
+    CurriculumImportRevision, CurriculumPinPosition, CurriculumPinReplacements,
+    CurriculumReplayStatus, ObservedBlueprintSource, ReplacementQuestionChoices,
 };
 use crate::{
     AssignmentReference, AssignmentRevision, CourseReference, CourseScheduleRevision, CourseTerm,
@@ -34,6 +34,18 @@ pub struct CourseInstanceWitness {
     pub course: CourseReference,
     pub schedule_revision: CourseScheduleRevision,
     assignments: BoundedCourseInstanceAssignments,
+}
+
+/// Immutable Blueprint application that established a CourseInstance.
+///
+/// This is the CourseInstance's parent and initial applied revision.  It is
+/// deliberately separate from assignment-level provenance: later controlled
+/// updates and selected copies may have different source revisions without
+/// changing the instance's origin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct CourseInstanceBlueprintApplication {
+    pub source: ObservedBlueprintSource,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,6 +169,102 @@ pub struct CourseInstanceImportWitness {
     pub import_revision: CurriculumImportRevision,
 }
 
+/// Server-only immutable evidence for one applied assignment import.
+///
+/// No Serde implementation is provided: a browser may request an update, but
+/// cannot manufacture the post-mutation evidence that proves its result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppliedAssignmentImportEvidence {
+    source: AssignmentDefinitionSourceView,
+    replacements: CurriculumPinReplacements,
+    semantic_digest: super::super::CurriculumSemanticDigest,
+    assignment: ObservedCourseInstanceAssignment,
+    import_revision: CurriculumImportRevision,
+}
+
+impl AppliedAssignmentImportEvidence {
+    pub fn new(
+        source: AssignmentDefinitionSourceView,
+        replacements: CurriculumPinReplacements,
+        semantic_digest: super::super::CurriculumSemanticDigest,
+        assignment: ObservedCourseInstanceAssignment,
+        import_revision: CurriculumImportRevision,
+    ) -> Self {
+        Self {
+            source,
+            replacements,
+            semantic_digest,
+            assignment,
+            import_revision,
+        }
+    }
+    pub fn source(&self) -> AssignmentDefinitionSourceView {
+        self.source
+    }
+    pub fn replacements(&self) -> &CurriculumPinReplacements {
+        &self.replacements
+    }
+    pub fn semantic_digest(&self) -> super::super::CurriculumSemanticDigest {
+        self.semantic_digest
+    }
+    pub fn assignment(&self) -> ObservedCourseInstanceAssignment {
+        self.assignment
+    }
+    pub fn import_revision(&self) -> CurriculumImportRevision {
+        self.import_revision
+    }
+}
+
+/// Delivery effect of one controlled update.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlledUpdateEffect {
+    MeaningChanged,
+    SourceRevisionOnly,
+}
+
+/// Exact server-only locator for an immutable assignment-import receipt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssignmentImportReceiptTarget {
+    receipt_actor: UserId,
+    receipt_key: CurriculumAdoptionIdempotencyKey,
+    course: CourseReference,
+    assignment: AssignmentReference,
+    import_revision: CurriculumImportRevision,
+}
+
+impl AssignmentImportReceiptTarget {
+    pub fn new(
+        receipt_actor: UserId,
+        receipt_key: CurriculumAdoptionIdempotencyKey,
+        course: CourseReference,
+        assignment: AssignmentReference,
+        import_revision: CurriculumImportRevision,
+    ) -> Self {
+        Self {
+            receipt_actor,
+            receipt_key,
+            course,
+            assignment,
+            import_revision,
+        }
+    }
+    pub fn receipt_actor(&self) -> UserId {
+        self.receipt_actor
+    }
+    pub fn receipt_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+        &self.receipt_key
+    }
+    pub fn course(&self) -> CourseReference {
+        self.course
+    }
+    pub fn assignment(&self) -> AssignmentReference {
+        self.assignment
+    }
+    pub fn import_revision(&self) -> CurriculumImportRevision {
+        self.import_revision
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CourseInstanceScheduleField {
@@ -203,8 +311,7 @@ pub struct BlueprintAssignmentProvenance {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CourseInstanceBlueprintInspectionView {
-    pub source: ObservedBlueprintSource,
-    pub applied_source_revision: crate::BlueprintRevision,
+    pub initial_blueprint_application: CourseInstanceBlueprintApplication,
     pub witness: CourseInstanceWitness,
     #[serde(deserialize_with = "deserialize_course_instance_provenance")]
     pub assignments: Vec<BlueprintAssignmentProvenance>,
@@ -267,6 +374,16 @@ pub struct CreateSelectedBlueprintAssignmentPreviewRequest {
     pub course: CourseReference,
     pub source: AssignmentDefinitionSourceView,
     pub replacements: CurriculumPinReplacements,
+}
+
+/// Server-only repair intent for one retained CourseInstance receipt.
+///
+/// A repair has an independent audit and retry identity. Callers reuse the
+/// key for a retry and issue a new key for a later repair action.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReconcileCourseInstanceAdoptionIntent {
+    pub target: CourseInstanceReceiptTarget,
+    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -451,7 +568,7 @@ pub enum CourseInstanceCommandError {
     Refused(CourseInstanceRefusal),
     CreationWitnessMismatch,
     ScheduleEvidence(BoundedResolvedScheduleSetError),
-    ImportSourceMismatch,
+    ControlledUpdateLineageMismatch,
     DestinationAssignmentMissing,
     ReceiptBindingMismatch,
 }
@@ -532,9 +649,16 @@ impl BoundedCourseInstanceAssignments {
     pub fn new(
         assignments: Vec<ObservedCourseInstanceAssignment>,
     ) -> Result<Self, BoundedCourseInstanceAssignmentsError> {
-        (assignments.len() <= crate::MAX_ASSIGNMENT_ORDERED_ENTRIES)
-            .then_some(Self(assignments))
-            .ok_or(BoundedCourseInstanceAssignmentsError)
+        if assignments.len() > crate::MAX_ASSIGNMENT_ORDERED_ENTRIES
+            || assignments.iter().enumerate().any(|(index, assignment)| {
+                assignments[..index]
+                    .iter()
+                    .any(|prior| prior.assignment == assignment.assignment)
+            })
+        {
+            return Err(BoundedCourseInstanceAssignmentsError);
+        }
+        Ok(Self(assignments))
     }
 
     pub fn as_slice(&self) -> &[ObservedCourseInstanceAssignment] {
@@ -567,7 +691,7 @@ impl<'de> Deserialize<'de> for BoundedCourseInstanceAssignments {
         super::bounded::deserialize_bounded_vec::<D, _, { crate::MAX_ASSIGNMENT_ORDERED_ENTRIES }>(
             deserializer,
         )
-        .map(Self)
+        .and_then(|assignments| Self::new(assignments).map_err(serde::de::Error::custom))
     }
 }
 

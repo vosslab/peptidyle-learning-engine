@@ -3,19 +3,18 @@
 use serde::{Deserialize, Serialize};
 
 use super::ObservedBlueprintSource;
-use crate::{BlueprintReference, BlueprintRevision, MAX_ASSIGNMENT_ORDERED_ENTRIES};
+use crate::{BlueprintAssignmentId, BlueprintReference, BlueprintRevision};
 
-/// One exact assignment selected from a revision-bound BlueprintCourse location.
+/// One exact stable assignment selected from a revision-bound BlueprintCourse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     rename_all = "snake_case",
-    try_from = "ObservedBlueprintAssignmentSourceParts"
+    from = "ObservedBlueprintAssignmentSourceParts"
 )]
 pub struct AssignmentDefinitionSourceView {
     reference: BlueprintReference,
     revision: BlueprintRevision,
-    module_index: u16,
-    assignment_index: u16,
+    assignment_id: BlueprintAssignmentId,
 }
 
 #[derive(Deserialize)]
@@ -23,44 +22,29 @@ pub struct AssignmentDefinitionSourceView {
 struct ObservedBlueprintAssignmentSourceParts {
     reference: BlueprintReference,
     revision: BlueprintRevision,
-    module_index: u16,
-    assignment_index: u16,
+    assignment_id: BlueprintAssignmentId,
 }
 
-impl TryFrom<ObservedBlueprintAssignmentSourceParts> for AssignmentDefinitionSourceView {
-    type Error = AssignmentDefinitionSourceViewError;
-
-    fn try_from(value: ObservedBlueprintAssignmentSourceParts) -> Result<Self, Self::Error> {
+impl From<ObservedBlueprintAssignmentSourceParts> for AssignmentDefinitionSourceView {
+    fn from(value: ObservedBlueprintAssignmentSourceParts) -> Self {
         Self::new(
             ObservedBlueprintSource {
                 reference: value.reference,
                 revision: value.revision,
             },
-            value.module_index,
-            value.assignment_index,
+            value.assignment_id,
         )
     }
 }
 
 impl AssignmentDefinitionSourceView {
-    /// Binds an observed BlueprintCourse revision to one bounded assignment location.
-    pub fn new(
-        source: ObservedBlueprintSource,
-        module_index: u16,
-        assignment_index: u16,
-    ) -> Result<Self, AssignmentDefinitionSourceViewError> {
-        // ASVS 1.5.2, 2.2.1: deserialize through this allowlisted bounded constructor.
-        let bound = u16::try_from(MAX_ASSIGNMENT_ORDERED_ENTRIES)
-            .expect("assignment source position bound fits u16");
-        if module_index >= bound || assignment_index >= bound {
-            return Err(AssignmentDefinitionSourceViewError);
-        }
-        Ok(Self {
+    /// Binds an observed BlueprintCourse revision to one stable assignment lineage.
+    pub fn new(source: ObservedBlueprintSource, assignment_id: BlueprintAssignmentId) -> Self {
+        Self {
             reference: source.reference,
             revision: source.revision,
-            module_index,
-            assignment_index,
-        })
+            assignment_id,
+        }
     }
 
     /// Returns the revision-bound BlueprintCourse that contains this assignment.
@@ -71,27 +55,18 @@ impl AssignmentDefinitionSourceView {
         }
     }
 
-    /// Returns the zero-based authored module position in the observed BlueprintCourse.
-    pub fn module_index(self) -> u16 {
-        self.module_index
+    /// Returns the stable assignment identity inside this exact Blueprint revision.
+    pub fn assignment_id(self) -> BlueprintAssignmentId {
+        self.assignment_id
     }
 
-    /// Returns the zero-based authored assignment position inside the selected module.
-    pub fn assignment_index(self) -> u16 {
-        self.assignment_index
+    /// Returns whether both sources name the same retained assignment lineage.
+    pub fn same_assignment_lineage(self, other: Self) -> bool {
+        self.reference == other.reference && self.assignment_id == other.assignment_id
     }
-}
 
-/// A BlueprintCourse assignment source position exceeded the reusable ordering bound.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AssignmentDefinitionSourceViewError;
-
-impl std::fmt::Display for AssignmentDefinitionSourceViewError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(
-            "BlueprintCourse assignment source position is outside the reusable ordering bound",
-        )
+    /// Returns whether this is a later revision of the exact same assignment lineage.
+    pub fn is_strictly_newer_revision_of(self, earlier: Self) -> bool {
+        self.same_assignment_lineage(earlier) && self.revision > earlier.revision
     }
 }
-
-impl std::error::Error for AssignmentDefinitionSourceViewError {}

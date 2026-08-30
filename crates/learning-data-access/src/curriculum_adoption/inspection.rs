@@ -1,17 +1,19 @@
-//! Canonical evidence validation and answer-free import inspection projection.
+//! Canonical evidence validation and answer-free CourseInstance inspection.
 
-use question_model::curriculum_adoption::{
-    CurriculumSemanticComparison, CurriculumSemanticPayload,
-};
 use question_model::{
-    AssignmentReference, CourseScheduleWitness, CourseTerm, CurriculumAdoptionTitle,
-    CurriculumAssignmentImportSourceView, CurriculumCourseImportOriginView,
-    CurriculumCourseImportView, CurriculumImportRevision, CurriculumImportView,
+    BlueprintAssignmentProvenance, CourseInstanceBlueprintApplication,
+    CourseInstanceBlueprintInspectionView, CourseInstanceWitness,
 };
 
-use super::semantic_snapshot::{SemanticEvidenceMismatch, SemanticPlannerError};
+use super::semantic_snapshot::SemanticPlannerError;
+
+#[cfg(feature = "postgres")]
+use super::semantic_snapshot::SemanticEvidenceMismatch;
+#[cfg(feature = "postgres")]
+use question_model::curriculum_adoption::CurriculumSemanticPayload;
 
 /// Persisted canonical facts observed by an adapter alongside normalized meaning.
+#[cfg(feature = "postgres")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ObservedSemanticEnvelope<'a> {
     pub(crate) canonical_version: u8,
@@ -20,6 +22,7 @@ pub(crate) struct ObservedSemanticEnvelope<'a> {
 }
 
 /// Validates every persisted canonical fact against qmodel-owned normalized meaning.
+#[cfg(feature = "postgres")]
 pub(crate) fn validate_semantic_evidence(
     payload: &CurriculumSemanticPayload,
     observed: ObservedSemanticEnvelope<'_>,
@@ -43,222 +46,75 @@ pub(crate) fn validate_semantic_evidence(
     Ok(())
 }
 
-/// Adapter-resolved facts for one destination assignment's current teaching projection.
-pub(crate) struct CurrentTeachingImportInput<'a> {
-    pub(crate) assignment: AssignmentReference,
-    pub(crate) source: CurriculumAssignmentImportSourceView,
-    pub(crate) revision: CurriculumImportRevision,
-    pub(crate) baseline: &'a CurriculumSemanticPayload,
-    pub(crate) baseline_evidence: ObservedSemanticEnvelope<'a>,
-    pub(crate) current: &'a CurriculumSemanticPayload,
+/// Adapter-resolved, answer-free evidence for the current CourseInstance inspection.
+pub(crate) struct CourseInstanceInspectionInput {
+    pub(crate) initial_blueprint_application: CourseInstanceBlueprintApplication,
+    pub(crate) witness: CourseInstanceWitness,
+    pub(crate) assignments: Vec<BlueprintAssignmentProvenance>,
 }
 
-/// Validates immutable evidence and compares current reusable meaning without exposing answers.
-pub(crate) fn project_current_teaching_import(
-    input: CurrentTeachingImportInput<'_>,
-) -> Result<CurriculumImportView, SemanticPlannerError> {
-    let CurriculumSemanticPayload::Assignment(current_assignment) = input.current else {
-        return Err(SemanticPlannerError::InvalidInspection(
-            "assignment inspection requires assignment semantic payloads".into(),
-        ));
-    };
-    if !matches!(input.baseline, CurriculumSemanticPayload::Assignment(_)) {
-        return Err(SemanticPlannerError::InvalidInspection(
-            "assignment inspection requires assignment semantic payloads".into(),
-        ));
-    }
-    validate_semantic_evidence(input.baseline, input.baseline_evidence)?;
-    Ok(CurriculumImportView {
-        assignment: input.assignment,
-        title: CurriculumAdoptionTitle::parse(current_assignment.title()).map_err(|_| {
-            SemanticPlannerError::InvalidInspection(
-                "current assignment title violates the shared curriculum title contract".into(),
-            )
-        })?,
-        source: input.source,
-        revision: input.revision,
-        reusable_meaning_matches_baseline: matches!(
-            input.baseline.compare(input.current),
-            CurriculumSemanticComparison::Equivalent { .. }
-        ),
+/// Assembles the bounded current inspection projection without reviving import DTOs.
+pub(crate) fn project_course_instance_blueprint_inspection(
+    input: CourseInstanceInspectionInput,
+) -> Result<CourseInstanceBlueprintInspectionView, SemanticPlannerError> {
+    Ok(CourseInstanceBlueprintInspectionView {
+        initial_blueprint_application: input.initial_blueprint_application,
+        witness: input.witness,
+        assignments: input.assignments,
     })
-}
-
-/// Adapter-resolved course facts and deterministic assignment projections.
-pub(crate) struct CurriculumImportInspectionInput {
-    pub(crate) witness: CourseScheduleWitness,
-    pub(crate) origin: CurriculumCourseImportOriginView,
-    pub(crate) term: CourseTerm,
-    pub(crate) assignments: Vec<CurriculumImportView>,
-}
-
-/// Assembles the bounded public course inspection under qmodel provenance checks.
-pub(crate) fn project_curriculum_import_inspection(
-    input: CurriculumImportInspectionInput,
-) -> Result<CurriculumCourseImportView, SemanticPlannerError> {
-    CurriculumCourseImportView::new(input.witness, input.origin, input.term, input.assignments)
-        .map_err(|error| SemanticPlannerError::InvalidInspection(error.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::curriculum_adoption::{
-        CurriculumSemanticAssignment, CurriculumSemanticAssignmentEntry,
-    };
     use question_model::{
-        AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode,
-        BlueprintReference, BlueprintRevision, CompletionRequirement, ContinuedPractice,
-        CourseReference, CourseScheduleRevision, CourseScheduleWitness, GradePolicy,
-        LateSubmissionPolicy, ObservedAssignmentRevision, ObservedBlueprintSource, PointValue,
-        ProblemId, ProblemVersionRef, RelativeAssignmentSchedule, ReusableAssignmentDefaults,
-        RunPolicies, StudentDisclosurePolicy, VariationPolicy, VersionId,
+        AssignmentDefinitionSourceView, AssignmentReference, AssignmentRevision,
+        BlueprintAssignmentId, BlueprintReference, BlueprintRevision, CourseReference,
+        CourseScheduleRevision, CurriculumImportRevision, ObservedBlueprintSource,
+        ObservedCourseInstanceAssignment,
     };
+    use uuid::Uuid;
 
-    fn payload(title: &str) -> CurriculumSemanticPayload {
-        CurriculumSemanticPayload::assignment(
-            CurriculumSemanticAssignment::new(
-                title.into(),
-                AssignmentInstructions::default(),
-                vec![CurriculumSemanticAssignmentEntry::Fixed {
-                    reference: ProblemVersionRef {
-                        problem: ProblemId::from_uuid(uuid::Uuid::from_u128(1)),
-                        version: VersionId::from_uuid(uuid::Uuid::from_u128(2)),
-                    },
-                    points_possible: PointValue::from_whole(1),
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                ReusableAssignmentDefaults {
-                    time_limit_seconds: None,
-                    attempt_limit: None,
-                    late_submission: LateSubmissionPolicy::Accept,
-                    deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-                    run_policies: RunPolicies {
-                        completion: CompletionRequirement::AnswerAll,
-                        grade: GradePolicy::Highest,
-                        continued_practice: ContinuedPractice::Unlimited,
-                        variation: VariationPolicy::NewSeeds,
-                    },
-                    student_disclosure: StudentDisclosurePolicy::default(),
-                },
-                RelativeAssignmentSchedule::default(),
-            )
-            .expect("semantic assignment"),
-        )
-    }
-
-    fn source() -> CurriculumAssignmentImportSourceView {
-        CurriculumAssignmentImportSourceView::Reusable {
-            definition: question_model::AssignmentDefinitionSourceView::Blueprint(
-                ObservedBlueprintSource {
-                    reference: BlueprintReference::new(1).expect("blueprint"),
-                    revision: BlueprintRevision::new(2).expect("revision"),
-                },
-            ),
+    fn source() -> ObservedBlueprintSource {
+        ObservedBlueprintSource {
+            reference: BlueprintReference::new(7).expect("blueprint reference"),
+            revision: BlueprintRevision::new(2).expect("blueprint revision"),
         }
     }
 
     #[test]
-    fn canonical_evidence_rejects_each_tampered_envelope_field() {
-        let payload = payload("Baseline");
-        let envelope = payload.canonical_envelope();
-        let valid = ObservedSemanticEnvelope {
-            canonical_version: envelope.version(),
-            canonical_bytes: envelope.canonical_bytes(),
-            digest: envelope.digest().as_bytes(),
+    fn inspection_keeps_initial_application_separate_from_assignment_provenance() {
+        let source = source();
+        let other = ObservedBlueprintSource {
+            revision: BlueprintRevision::new(3).expect("other revision"),
+            ..source
         };
-        assert_eq!(validate_semantic_evidence(&payload, valid), Ok(()));
-        let mut tampered_digest = envelope.digest().as_bytes();
-        tampered_digest[0] ^= 1;
-        let mismatches = [
-            (
-                ObservedSemanticEnvelope {
-                    canonical_version: envelope.version().wrapping_add(1),
-                    ..valid
-                },
-                SemanticEvidenceMismatch::CanonicalVersion,
-            ),
-            (
-                ObservedSemanticEnvelope {
-                    canonical_bytes: b"not canonical",
-                    ..valid
-                },
-                SemanticEvidenceMismatch::CanonicalBytes,
-            ),
-            (
-                ObservedSemanticEnvelope {
-                    digest: tampered_digest,
-                    ..valid
-                },
-                SemanticEvidenceMismatch::Digest,
-            ),
-        ];
-        for (observed, mismatch) in mismatches {
-            assert_eq!(
-                validate_semantic_evidence(&payload, observed),
-                Err(SemanticPlannerError::InvalidEvidence(mismatch))
-            );
-        }
-    }
-
-    #[test]
-    fn current_teaching_projection_reports_equivalent_and_changed_meaning() {
-        let baseline = payload("Baseline");
-        let changed = payload("Changed");
-        let envelope = baseline.canonical_envelope();
-        let evidence = ObservedSemanticEnvelope {
-            canonical_version: envelope.version(),
-            canonical_bytes: envelope.canonical_bytes(),
-            digest: envelope.digest().as_bytes(),
-        };
-        let project = |current| {
-            project_current_teaching_import(CurrentTeachingImportInput {
-                assignment: AssignmentReference::new(3).expect("assignment"),
-                source: source(),
-                revision: "4".parse().expect("import revision"),
-                baseline: &baseline,
-                baseline_evidence: evidence,
-                current,
-            })
-            .expect("inspection projection")
-        };
-        assert!(project(&baseline).reusable_meaning_matches_baseline);
-        assert!(!project(&changed).reusable_meaning_matches_baseline);
-    }
-
-    #[test]
-    fn course_projection_preserves_qmodel_bounds_and_order() {
-        let baseline = payload("Baseline");
-        let envelope = baseline.canonical_envelope();
-        let assignment = project_current_teaching_import(CurrentTeachingImportInput {
-            assignment: AssignmentReference::new(3).expect("assignment"),
-            source: source(),
-            revision: "4".parse().expect("import revision"),
-            baseline: &baseline,
-            baseline_evidence: ObservedSemanticEnvelope {
-                canonical_version: envelope.version(),
-                canonical_bytes: envelope.canonical_bytes(),
-                digest: envelope.digest().as_bytes(),
-            },
-            current: &baseline,
-        })
-        .expect("assignment projection");
-        let view = project_curriculum_import_inspection(CurriculumImportInspectionInput {
-            witness: CourseScheduleWitness::new(
-                CourseReference::new(5).expect("course"),
-                CourseScheduleRevision::new(6).expect("schedule revision"),
-                vec![ObservedAssignmentRevision {
-                    assignment: assignment.assignment,
-                    revision: "7".parse().expect("assignment revision"),
+        let input = CourseInstanceInspectionInput {
+            initial_blueprint_application: CourseInstanceBlueprintApplication { source },
+            witness: CourseInstanceWitness::new(
+                CourseReference::new(8).expect("course"),
+                CourseScheduleRevision::new(1).expect("schedule revision"),
+                vec![ObservedCourseInstanceAssignment {
+                    assignment: AssignmentReference::new(9).expect("assignment"),
+                    revision: AssignmentRevision::new(1).expect("assignment revision"),
                 }],
             )
-            .expect("course witness"),
-            origin: CurriculumCourseImportOriginView::Ordinary,
-            term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
-                .expect("term"),
-            assignments: vec![assignment.clone()],
-        })
-        .expect("course projection");
-        assert_eq!(view.assignments(), [assignment]);
+            .expect("bounded witness"),
+            assignments: vec![BlueprintAssignmentProvenance {
+                source: AssignmentDefinitionSourceView::new(
+                    other,
+                    BlueprintAssignmentId::from_uuid(Uuid::from_u128(10)),
+                ),
+                import_revision: "1".parse::<CurriculumImportRevision>().expect("import"),
+            }],
+        };
+
+        let view = project_course_instance_blueprint_inspection(input).expect("inspection");
+        assert_eq!(view.initial_blueprint_application.source, source);
+        assert_eq!(view.assignments[0].source.source(), other);
+        assert_eq!(
+            view.assignments[0].source.assignment_id(),
+            BlueprintAssignmentId::from_uuid(Uuid::from_u128(10))
+        );
     }
 }

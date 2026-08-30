@@ -18,7 +18,7 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 
 | Topic | Binding decision | Owner |
 | --- | --- | --- |
-| Installation and roles | One PLE installation has global accounts; Instructor, Student, and Sysadmin are the major roles. Course authority is exact membership/Student ownership, not an institution or tenant boundary. | WP-SD1 |
+| Installation and roles | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership/Student ownership, not an institution or tenant boundary. Sysadmin provisioning assigns an approved Instructor account and creates no Sysadmin membership; support is explicit and audited. | WP-SD1 |
 | Reusable courses | A revisioned `BlueprintCourse` owns reusable ordered structure. Every `CourseInstance` has one immutable Blueprint parent and applied revision; it alone owns Students, deadlines, releases, accommodations, grades, and delivery state. | WP-SD1-B--G |
 | Published questions | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionVersion` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically. | WP-R2, WP-SD1 |
 | Question stewardship | Moderate owner edits, validated exact-base Change Proposals, full private-draft forks, and audited Sysadmin ForcedQuestionCorrections preserve attribution, compatible CC licensing, history, and exact pins. UI label: **Suggest an improvement**. | WP-R2, WP-SD1 |
@@ -143,7 +143,7 @@ The shared migration ledger in [implementation_status.md](../implementation_stat
 | Adapter output leaks answers or unsafe markup | Adapter owner | Strict translation, sanitization, private network, browser trace. |
 | New family exposes answer material | Family owner | Public/private compilation, DTO scans, server-only grading. |
 | Reconciliation deletes valid concurrent bytes | Object owner | Two observations, quarantine, reference recheck, idempotency. |
-| Identity input selects course authority | Auth owner | Global account plus exact membership/Student checks and origin validation. |
+| Role/membership disagreement selects course authority | Auth owner | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
 | Published bytes escape before commit | Object owner | Transactional pending registry and dedicated publisher. |
 | External dispatch outcome is unknown | External-tool owner | Durable lease-bound marker and explicit operator resolution. |
 | Deployment exposes secrets or broad destroy | Deployment owner | Secret references, unique tags, reviewed plan, bounded destroy. |

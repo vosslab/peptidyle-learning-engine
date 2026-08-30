@@ -1,19 +1,21 @@
 # User roles
 
-PLE's current live product has three human personas: **Student**, **Instructor**, and
-**Sysadmin**. A person may hold more than one current persona. Course authorization is represented
-separately so future bounded Grader, Course Observer, or Student Observer relationships can be
-added without weakening the current personas.
+PLE's current pre-SD1 product has three human personas: **Student**, **Instructor**, and
+**Sysadmin**. Its plural account-role source remains cutover input. The binding SD1 product
+contract requires each account and session to carry one immutable Student, Instructor, or Sysadmin
+role; a person who needs more than one role uses separate accounts. That target remains pending
+implementation and acceptance. Course authorization remains separate so future bounded Grader,
+Course Observer, or Student Observer relationships can be added without weakening the personas.
 
 This document owns the role vocabulary. The operation-specific rules remain
 in [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and the data
 handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
-## Human roles
+## Binding SD1 roles
 
 ### Student
 
-- A verified PLE account claims an Instructor-issued course invitation.
+- A Student account claims an Instructor-issued course invitation.
 - A Student works assigned activities and views only that Student's currently accessible educational
   records.
 - A Student cannot enumerate classmates, author content, manage a course, inspect grading material,
@@ -21,31 +23,35 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 ### Instructor
 
-- A real person is manually approved and receives direct Instructor membership in a course.
-- Current approval grants the same global Instructor capabilities as every other approved Instructor.
+- An Instructor account belongs to a real person manually approved by a Sysadmin.
+- Current approval grants the same global Instructor capabilities as every
+  other approved Instructor.
 - Current approval plus direct course membership grants teaching authority for that course.
 - A course may have multiple equal co-Instructors. Approval withdrawal closes global and
   course-Instructor capabilities; membership revocation closes that course's authority.
 
 ### Sysadmin
 
-- An operator manually adds the `sysadmin` platform role to the verified PLE account.
-- A Sysadmin operates the platform and completes registered support work through an exact-course
-  capability.
-- A Sysadmin may create or teach a course after completing the explicit Instructor approval path;
-  course creation then creates direct Instructor membership in that course.
+- A Sysadmin account is manually provisioned as a platform operator account.
+- A Sysadmin operates the platform, bootstraps CourseInstances through the closed pre-course
+  provisioning authority, and completes support work through an exact-course capability.
+- The pending SD1 provisioning command binds the exact Blueprint source, approved assigned
+  Instructor account, and server-reserved CourseInstance identity. One transaction creates the
+  CourseInstance, that Instructor's initial direct membership, and an append-only audit event;
+  the Sysadmin account receives no course membership.
 - A support capability is purpose-bound, time-bounded, revocable, audited, and limited to its
   registered operation family and minimum projection. Sysadmin status supplies platform operations,
   not ambient course-record authority.
 
-The repository owner is both a Sysadmin and an Instructor. Other instructors
-are approved only after real-person validation. There is no self-service
-promotion to Instructor or Sysadmin.
+Dr. Voss may use separate Instructor and Sysadmin accounts. Instructors are
+approved only after real-person validation. Manual account provisioning assigns
+each role.
 
-## Course membership
+## Binding SD1 course membership
 
-Course membership does not add more types of users. It records which of the
-same human roles relates a person to one exact course:
+The binding SD1 product contract keeps course membership from adding more types
+of users. It records how an account with the matching role relates to one exact
+course:
 
 - `Student` means the person may use only their own active Student paths.
 - `Instructor` means the person may teach and administer that exact course.
@@ -68,21 +74,23 @@ explicit, least-authority capabilities:
 These are roadmap relationships rather than current live-demo personas. Their schemas and APIs land
 with their complete visible workflow, revocation behavior, audit evidence, and privacy validation.
 
-`Sysadmin` is not a course-membership value. A sysadmin who needs
-teaching records must also have a current direct Instructor membership.
+`Sysadmin` is not a course-membership value. Sysadmin accounts receive no
+course membership. A person who needs teaching authority uses an approved
+Instructor account with a current direct Instructor membership.
 Support uses the closed `SysadminSupportCapability` registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md). This keeps a platform credential from
 becoming ambient access to grades, responses, attempts, or other Student data.
 
-PLE uses one installation. Initial course bootstrap is an operator-owned
-provisioning step; after a direct course relationship exists, ordinary account
-flows derive authority from the authenticated account and current course
-membership.
+PLE uses one installation. Pending SD1 initial course bootstrap uses the closed
+Sysadmin platform provisioning authority; after it creates the direct course
+relationship, ordinary account flows derive authority from the authenticated
+account and current course membership.
 
-The production passwordless flow derives Student or Instructor from the
-persisted course membership selected by the account. The separately stored
-`sysadmin` account attribute is operator-controlled: application database
-credentials may read it to mint a session but cannot grant it.
+The pending SD1 passwordless target, owned by migrations `2026082902` and
+`2026082905`, issues one immutable account and session role. It confirms that
+every selected Student or Instructor membership matches that role, and a
+Sysadmin account cannot select a course membership. The operator assigns the
+role at provisioning; the application does not change it.
 
 ## FERPA and student data
 
@@ -133,7 +141,8 @@ asset bytes after the committed outbox decision.
   payloads.
 - Route roster, schedule/accommodation, assignment-content, deterministic
   reissue/recalculation, and payload-free retention lifecycle support through
-  that capability.
+  that capability. Route initial CourseInstance bootstrap through the separate
+  pre-course Sysadmin platform authority.
 - Provide support results at the minimum useful detail and keep grades,
   responses, runs, exports, and item analysis behind direct Instructor
   membership or a separately approved narrow operation.
@@ -174,7 +183,10 @@ Current titles, prose, code, APIs, and schemas use **Instructor** directly.
 - [learning-data-access](../crates/learning-data-access/) owns direct
   membership, revocation serialization, actor-scoped RLS, and Store
   capabilities.
-- [the canonical role migration](../schemas/migrations/2026080928_user_roles.sql)
-  owns PostgreSQL wire values, operator-only sysadmin approval, and the rule
-  that sysadmin is not general FERPA course authority and that its roster-help
-  exception is closed and audited.
+- [the retained pre-SD1 role and FERPA authorization migration](../schemas/migrations/2026080928_user_roles.sql)
+  owns the plural-role PostgreSQL input, operator-only Sysadmin approval, and
+  the rule that Sysadmin is not general FERPA course authority and that its
+  roster-help exception is closed and audited.
+- Pending SD1 migration `2026082902` owns fixed singular immutable account and
+  primary-session role storage. Pending SD1 migration `2026082905` owns
+  Instructor vetting, current approval predicates, and role predicates.

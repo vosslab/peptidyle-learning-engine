@@ -133,27 +133,29 @@ or silent Alpha translation is permitted.
 
 ### Human relationships
 
-- **Student:** an authenticated account with current Student membership in an exact course. Student
+- **Fixed account role:** every account has exactly one immutable current Student, Instructor, or
+  Sysadmin role. A person needing multiple roles uses separate accounts.
+- **Student:** a Student account with current Student membership in an exact course. Student
   access is limited to that Student's own active educational records.
-- **Instructor:** a manually approved account. Every approved Instructor has the same global product
+- **Instructor:** a manually approved Instructor account. Every approved Instructor has the same global product
   capabilities. One canonical `approved_instructor` predicate authorizes course creation,
   publication, catalog discovery, collections, reuse, and improvement. Current Instructor
   membership grants the complete teaching capability set for an exact course.
 - **Co-Instructor:** another current Instructor member of the same course. All co-Instructors have
   equal course authority. Membership invitation, acceptance, and revocation are audited.
-- **Sysadmin:** an operator account with platform lifecycle capabilities. A Sysadmin may create a
+- **Sysadmin:** a Sysadmin account with platform lifecycle capabilities. A Sysadmin may create a
   CourseInstance on behalf of an explicitly assigned approved Instructor; the operation establishes
   that Instructor's first ordinary membership and gives the Sysadmin neither teaching nor FERPA
   authority. Publication, catalog discovery, and ordinary teaching authority use the same current
   `approved_instructor` predicate as any other account. FERPA access uses narrow, audited support
-  operations or an ordinary current Instructor membership.
+  operations. A person who needs teaching authority uses an approved Instructor account.
 - **Future relationships:** Grader, Course Observer, and Student Observer use explicit bounded
   capability sets. A Course Observer has an exact-course audited relationship that can show named
   assignment completion, never individual scores, alongside privacy-safe anonymous aggregate grades.
 
 Instructor approval remains an operator-owned account decision. Co-Instructor invitation and
 acceptance verify the target account through `approved_instructor`; acceptance creates an ordinary
-course membership and leaves account approval unchanged.
+course membership only when its role is Instructor and leaves account approval unchanged.
 
 An approved Instructor may create a CourseInstance directly. A Sysadmin may create one for an
 explicitly assigned approved Instructor; the created course begins with that assigned Instructor as
@@ -421,6 +423,9 @@ and one narrow verification command. Independent review follows implementation.
 
 - Make `HUMAN_GUIDANCE.md`, `DESIGN_DECISIONS.md`, `USER_ROLES.md`, this plan, and
   `implementation_status.md` agree on the single-installation model.
+- Record the fixed-role account clarification: account/session storage has one immutable role;
+  Student/Instructor membership matches that role; Sysadmin provisioning assigns an approved
+  Instructor account without creating Sysadmin membership; and support remains explicit and audited.
 - Publish the ownership-complete
   [single_installation_scope_register.md](single_installation_scope_register.md) for domain,
   PostgreSQL, browser, object, seed, and documentation boundaries.
@@ -444,7 +449,7 @@ and one narrow verification command. Independent review follows implementation.
 
 **Workstreams:**
 
-- `SD1-A1` decisions and role/capability vocabulary.
+- `SD1-A1` decisions and fixed-role account/capability vocabulary.
 - `SD1-A2` Graphify-assisted Rust/API/worker/object impact register.
 - `SD1-A3` PostgreSQL table/key/policy/grant/broker register.
 - `SD1-A4` browser, local-stack, live-demo, and binding authority-document replacement.

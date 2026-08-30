@@ -1,463 +1,329 @@
-//! Receipt-led repair behavior for the current import projection.
+//! Exact, derived-projection-only CourseInstance reconciliation behavior.
 
 use crate::{
-    CurriculumAdoptionStore, ReplaceAlphaCourseCommand, ReusableCurriculumStore, StoreError,
+    CurriculumAdoptionStore, ReplaceBlueprintCourseCommand, ReusableCurriculumStore, StoreError,
 };
 use question_model::{
-    AlphaCourseDefinitionInput, AlphaCourseModuleInput, AlphaInstantiationCommand,
-    AlphaInstantiationPreviewRequest, CurriculumAdoptionReconciliationResult,
-    CurriculumAdoptionTitle, CurriculumPinReplacements, ObservedAlphaSource,
-    ReconcileCurriculumAdoptionCommand,
+    AssignmentDefinitionSourceView, AssignmentReference, BlueprintAssignmentEditHandle,
+    BlueprintCourseAssignmentReplacementInput, BlueprintCourseModuleReplacementInput,
+    BlueprintModuleEditHandle, ControlledUpdateBlueprintAssignmentPreviewRequest,
+    CourseInstanceReceiptTarget, CreateSelectedBlueprintAssignmentPreviewRequest,
+    CurriculumAdoptionApplyIntent, CurriculumAdoptionCompleted, CurriculumAdoptionPreviewRequest,
+    CurriculumPinReplacements, CurriculumReplayStatus, ObservedBlueprintSource,
+    ReconcileCourseInstanceAdoptionIntent, ReplaceBlueprintCourseDefinitionInput,
 };
-use std::collections::BTreeSet;
 
-use super::super::resolve_course;
 use super::adoption_inputs::{definition, key};
-use super::scenario::AdoptionScenario;
+use super::scenario::CurriculumAdoptionScenario;
 
-/// Intact receipt-keyed evidence leaves reconciliation as an explicit no-op.
-#[tokio::test]
-async fn reconciliation_reports_already_consistent_without_state_change() {
-    let fixture = AdoptionScenario::new().await;
-    let applied = fixture.instantiate("reconcile-intact").await;
-    let before = {
-        let state = fixture.store.read_state().expect("state");
-        (
-            authoritative_snapshot(&state),
-            state.curriculum_adoption.clone(),
-        )
+async fn create_selected_copy(
+    scenario: &CurriculumAdoptionScenario,
+    key_suffix: &str,
+) -> (AssignmentReference, CourseInstanceReceiptTarget) {
+    let operation_key = key(key_suffix);
+    let request = CurriculumAdoptionPreviewRequest::CreateSelectedBlueprintAssignment {
+        request: CreateSelectedBlueprintAssignmentPreviewRequest {
+            course: scenario.course,
+            source: scenario.assignment_source(),
+            replacements: CurriculumPinReplacements::default(),
+        },
     };
-
-    let result = fixture
+    scenario
         .store
-        .reconcile_curriculum_adoption(
-            fixture.context,
-            fixture.session,
-            ReconcileCurriculumAdoptionCommand {
-                receipt: applied.receipt.clone(),
+        .preview_curriculum_adoption(scenario.context, scenario.session, request.clone())
+        .await
+        .expect("selected-copy preview");
+    let completed = scenario
+        .store
+        .apply_curriculum_adoption(
+            scenario.context,
+            scenario.session,
+            CurriculumAdoptionApplyIntent {
+                request,
+                idempotency_key: operation_key.clone(),
             },
         )
         .await
-        .expect("reconciliation");
-
-    assert!(matches!(
-        result,
-        CurriculumAdoptionReconciliationResult::AlreadyConsistent { receipt }
-            if receipt == applied.receipt
-    ));
-    let state = fixture.store.read_state().expect("state");
-    assert_eq!(
-        (
-            authoritative_snapshot(&state),
-            state.curriculum_adoption.clone()
-        ),
-        before,
-        "intact reconciliation preserves teaching authority and every B2 record"
-    );
+        .expect("selected-copy apply");
+    let CurriculumAdoptionCompleted::CreateSelectedBlueprintAssignment { completed } = completed
+    else {
+        panic!("selected-copy operation must return its completion variant");
+    };
+    let target = scenario
+        .store
+        .read_state()
+        .expect("fixture state")
+        .curriculum_adoption
+        .receipt_targets[&(scenario.actor, operation_key)]
+        .clone();
+    (completed.assignment, target)
 }
 
-/// Reconciliation restores the current projection from immutable evidence and
-/// leaves the authoritative course, learner, schedule, and evidence records
-/// intact.
-#[tokio::test]
-async fn reconciliation_repairs_one_current_import_without_mutating_authority() {
-    let fixture = AdoptionScenario::new().await;
-    let applied = fixture.instantiate("reconcile-one").await;
-    let (assignment, assignment_reference) = {
-        let state = fixture.store.read_state().expect("state");
-        let assignment = state.curriculum_adoption.whole_course_adoptions[&(
-            fixture.tenant,
-            state.courses_by_reference[&(fixture.tenant, applied.course)],
-        )]
-            .destination_assignments[0];
-        (
+async fn update_selected_copy(
+    scenario: &CurriculumAdoptionScenario,
+    assignment: AssignmentReference,
+    key_suffix: &str,
+) -> CourseInstanceReceiptTarget {
+    let mut revised_definition = definition(scenario.source_question.clone());
+    revised_definition.title = "Revised protein structure practice".into();
+    let revised = scenario
+        .store
+        .replace_blueprint_course(
+            scenario.context,
+            scenario.session,
+            ReplaceBlueprintCourseCommand {
+                reference: scenario.blueprint.reference,
+                expected_revision: scenario.blueprint.revision,
+                definition: ReplaceBlueprintCourseDefinitionInput {
+                    title: "Current curriculum source".into(),
+                    modules: vec![BlueprintCourseModuleReplacementInput {
+                        handle: BlueprintModuleEditHandle::Retained {
+                            module_id: scenario.blueprint_module,
+                        },
+                        label: "Exact module".into(),
+                        definitions: vec![BlueprintCourseAssignmentReplacementInput {
+                            handle: BlueprintAssignmentEditHandle::Retained {
+                                assignment_id: scenario.blueprint_assignment,
+                            },
+                            definition: revised_definition,
+                        }],
+                    }],
+                },
+            },
+        )
+        .await
+        .expect("BlueprintCourse revision");
+    let source = AssignmentDefinitionSourceView::new(
+        ObservedBlueprintSource {
+            reference: revised.reference,
+            revision: revised.revision,
+        },
+        scenario.blueprint_assignment,
+    );
+    let operation_key = key(key_suffix);
+    let request = CurriculumAdoptionPreviewRequest::ControlledUpdateBlueprintAssignment {
+        request: ControlledUpdateBlueprintAssignmentPreviewRequest {
+            course: scenario.course,
+            source,
             assignment,
-            state.assignment_references[&(fixture.tenant, assignment)],
-        )
+        },
     };
-    let authoritative_before = {
-        let mut state = fixture.store.write_state().expect("state");
-        state
-            .curriculum_adoption
-            .import_records
-            .remove(&(fixture.tenant, assignment));
-        authoritative_snapshot(&state)
-    };
-
-    let result = fixture
+    scenario
         .store
-        .reconcile_curriculum_adoption(
-            fixture.context,
-            fixture.session,
-            ReconcileCurriculumAdoptionCommand {
-                receipt: applied.receipt.clone(),
+        .preview_curriculum_adoption(scenario.context, scenario.session, request.clone())
+        .await
+        .expect("controlled-update preview");
+    let completed = scenario
+        .store
+        .apply_curriculum_adoption(
+            scenario.context,
+            scenario.session,
+            CurriculumAdoptionApplyIntent {
+                request,
+                idempotency_key: operation_key.clone(),
             },
         )
         .await
-        .expect("reconciliation");
-
+        .expect("controlled-update apply");
     assert!(matches!(
-        result,
-        CurriculumAdoptionReconciliationResult::Repaired { receipt, projections }
-            if receipt == applied.receipt && projections.as_slice().iter().any(|projection| matches!(
-                projection,
-                question_model::CurriculumAdoptionRepairedProjection::AssignmentImportCurrent { assignment: reference }
-                    if *reference == assignment_reference
-            ))
+        completed,
+        CurriculumAdoptionCompleted::ControlledUpdateBlueprintAssignment { .. }
     ));
-    let state = fixture.store.read_state().expect("state");
-    assert_eq!(
-        authoritative_snapshot(&state),
-        authoritative_before,
-        "reconciliation changes only the repairable current import projection"
-    );
+    scenario
+        .store
+        .read_state()
+        .expect("fixture state")
+        .curriculum_adoption
+        .receipt_targets[&(scenario.actor, operation_key)]
+        .clone()
 }
 
-/// An adopted course remains integrity-closed when exactly one original
-/// projection is absent.  Reconciliation restores it from the receipt-keyed
-/// evidence, then inspection again exposes both the original module subset
-/// and the course origin.
 #[tokio::test]
-async fn reconciliation_restores_one_missing_original_whole_course_import() {
-    let scenario = AdoptionScenario::new().await;
-    let two_module_alpha = scenario
+async fn already_consistent_reconciliation_is_audited_without_changing_the_projection() {
+    let scenario = CurriculumAdoptionScenario::new().await;
+    let (assignment_reference, target) =
+        create_selected_copy(&scenario, "reconcile-consistent-source").await;
+    let assignment = scenario
         .store
-        .replace_alpha_course(
-            scenario.context,
-            scenario.session,
-            ReplaceAlphaCourseCommand {
-                reference: Some(scenario.alpha.reference),
-                expected_revision: Some(scenario.alpha.revision),
-                definition: AlphaCourseDefinitionInput {
-                    title: "Two-module adoption source".into(),
-                    modules: vec![
-                        AlphaCourseModuleInput {
-                            label: "Protein structure".into(),
-                            definitions: vec![definition(scenario.source_question.clone())],
-                        },
-                        AlphaCourseModuleInput {
-                            label: "Molecular recognition".into(),
-                            definitions: vec![definition(scenario.replacement_question.clone())],
-                        },
-                    ],
-                },
-            },
-        )
-        .await
-        .expect("two-module Alpha source");
-    let source = ObservedAlphaSource {
-        reference: two_module_alpha.reference,
-        revision: two_module_alpha.revision,
-    };
-    let preview = scenario
+        .read_state()
+        .expect("fixture state")
+        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let before = scenario
         .store
-        .preview_alpha_instantiation(
-            scenario.context,
-            scenario.session,
-            AlphaInstantiationPreviewRequest {
-                source,
-                title: CurriculumAdoptionTitle::parse("Two-module course").expect("title"),
-                target_term: scenario.term.clone(),
-                replacements: CurriculumPinReplacements::default(),
-            },
-        )
-        .await
-        .expect("two-module preview");
-    let applied = scenario
-        .store
-        .apply_alpha_instantiation(
-            scenario.context,
-            scenario.session,
-            AlphaInstantiationCommand::from_preview(&preview, key("reconcile-whole-course"))
-                .expect("two-module command"),
-        )
-        .await
-        .expect("two-module apply");
-    let (missing, retained, original_references) = {
-        let mut state = scenario.store.write_state().expect("state");
-        let course = resolve_course(&state, scenario.tenant, applied.course).expect("course");
-        let assignments = &state.curriculum_adoption.whole_course_adoptions
-            [&(scenario.tenant, course)]
-            .destination_assignments;
-        let missing = assignments[0];
-        let retained = assignments[1];
-        let original_references = assignments
-            .iter()
-            .map(|assignment| state.assignment_references[&(scenario.tenant, *assignment)])
-            .collect::<BTreeSet<_>>();
-        state
-            .curriculum_adoption
-            .import_records
-            .remove(&(scenario.tenant, missing));
-        (missing, retained, original_references)
+        .read_state()
+        .expect("fixture state")
+        .curriculum_adoption
+        .import_records[&assignment]
+        .clone();
+    let intent = ReconcileCourseInstanceAdoptionIntent {
+        target,
+        idempotency_key: key("reconcile-consistent-action"),
     };
 
-    assert!(matches!(
-        scenario
-            .store
-            .inspect_curriculum_imports(scenario.context, scenario.session, applied.course)
-            .await,
-        Err(StoreError::Unavailable(_))
-    ));
-    assert!(
+    let first = scenario
+        .store
+        .reconcile_course_instance_adoption(scenario.context, scenario.session, intent.clone())
+        .await
+        .expect("consistent reconciliation");
+    let second = scenario
+        .store
+        .reconcile_course_instance_adoption(scenario.context, scenario.session, intent)
+        .await
+        .expect("exact reconciliation replay");
+
+    assert_eq!(
         scenario
             .store
             .read_state()
-            .expect("state")
+            .expect("fixture state")
             .curriculum_adoption
-            .import_records
-            .contains_key(&(scenario.tenant, retained))
+            .import_records[&assignment],
+        before
     );
+    assert!(
+        first.replay == CurriculumReplayStatus::Applied
+            && second.replay == CurriculumReplayStatus::Replayed
+    );
+}
 
-    let repaired = scenario
+#[tokio::test]
+async fn reconciliation_restores_the_missing_exact_derived_projection() {
+    let scenario = CurriculumAdoptionScenario::new().await;
+    let (assignment_reference, target) =
+        create_selected_copy(&scenario, "reconcile-restore-source").await;
+    let assignment = scenario
         .store
-        .reconcile_curriculum_adoption(
+        .read_state()
+        .expect("fixture state")
+        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let expected = scenario
+        .store
+        .write_state()
+        .expect("fixture state")
+        .curriculum_adoption
+        .import_records
+        .remove(&assignment)
+        .expect("derived import projection");
+
+    scenario
+        .store
+        .reconcile_course_instance_adoption(
             scenario.context,
             scenario.session,
-            ReconcileCurriculumAdoptionCommand {
-                receipt: applied.receipt.clone(),
+            ReconcileCourseInstanceAdoptionIntent {
+                target,
+                idempotency_key: key("reconcile-restore-action"),
             },
         )
         .await
-        .expect("whole-course reconciliation");
-    assert!(matches!(
-        repaired,
-        CurriculumAdoptionReconciliationResult::Repaired { receipt, .. }
-            if receipt == applied.receipt
-    ));
-    let inspection = scenario
-        .store
-        .inspect_curriculum_imports(scenario.context, scenario.session, applied.course)
-        .await
-        .expect("repaired inspection")
-        .expect("whole-course imports");
+        .expect("missing projection repair");
+
     assert_eq!(
-        inspection
-            .assignments
-            .iter()
-            .map(|import| import.assignment)
-            .collect::<BTreeSet<_>>(),
-        original_references
-    );
-    assert!(
         scenario
             .store
             .read_state()
-            .expect("state")
+            .expect("fixture state")
             .curriculum_adoption
-            .import_records
-            .contains_key(&(scenario.tenant, missing))
+            .import_records[&assignment],
+        expected
     );
 }
 
-/// One whole-course receipt repairs its entire original projection as an
-/// atomic unit.  Missing immutable evidence refuses before either row is
-/// reconstructed.
 #[tokio::test]
-async fn reconciliation_repairs_multiple_current_imports_atomically() {
-    let scenario = AdoptionScenario::new().await;
-    let source_revision = scenario
-        .store
-        .replace_alpha_course(
-            scenario.context,
-            scenario.session,
-            ReplaceAlphaCourseCommand {
-                reference: Some(scenario.alpha.reference),
-                expected_revision: Some(scenario.alpha.revision),
-                definition: AlphaCourseDefinitionInput {
-                    title: "Atomic repair source".into(),
-                    modules: vec![
-                        AlphaCourseModuleInput {
-                            label: "Protein structure".into(),
-                            definitions: vec![definition(scenario.source_question.clone())],
-                        },
-                        AlphaCourseModuleInput {
-                            label: "Molecular recognition".into(),
-                            definitions: vec![definition(scenario.replacement_question.clone())],
-                        },
-                    ],
-                },
-            },
-        )
-        .await
-        .expect("two-module source");
-    let preview = scenario
-        .store
-        .preview_alpha_instantiation(
-            scenario.context,
-            scenario.session,
-            AlphaInstantiationPreviewRequest {
-                source: ObservedAlphaSource {
-                    reference: source_revision.reference,
-                    revision: source_revision.revision,
-                },
-                title: CurriculumAdoptionTitle::parse("Atomic repair course").expect("title"),
-                target_term: scenario.term.clone(),
-                replacements: CurriculumPinReplacements::default(),
-            },
-        )
-        .await
-        .expect("two-module preview");
-    let applied = scenario
-        .store
-        .apply_alpha_instantiation(
-            scenario.context,
-            scenario.session,
-            AlphaInstantiationCommand::from_preview(&preview, key("atomic-repair"))
-                .expect("two-module command"),
-        )
-        .await
-        .expect("two-module apply");
-    let (assignments, references, authoritative_before) = {
-        let mut state = scenario.store.write_state().expect("state");
-        let course = resolve_course(&state, scenario.tenant, applied.course).expect("course");
-        let assignments = state.curriculum_adoption.whole_course_adoptions
-            [&(scenario.tenant, course)]
-            .destination_assignments
-            .clone();
-        let references = assignments
-            .iter()
-            .map(|assignment| state.assignment_references[&(scenario.tenant, *assignment)])
-            .collect::<BTreeSet<_>>();
-        for assignment in &assignments {
-            state
-                .curriculum_adoption
-                .import_records
-                .remove(&(scenario.tenant, *assignment));
-        }
-        (assignments, references, authoritative_snapshot(&state))
-    };
-
-    let repaired = scenario
-        .store
-        .reconcile_curriculum_adoption(
-            scenario.context,
-            scenario.session,
-            ReconcileCurriculumAdoptionCommand {
-                receipt: applied.receipt.clone(),
-            },
-        )
-        .await
-        .expect("atomic repair");
-    assert!(matches!(
-        repaired,
-        CurriculumAdoptionReconciliationResult::Repaired { receipt, projections }
-            if receipt == applied.receipt
-                && projections.as_slice().iter().map(|projection| match projection {
-                    question_model::CurriculumAdoptionRepairedProjection::AssignmentImportCurrent { assignment } => *assignment,
-                }).collect::<BTreeSet<_>>() == references
-    ));
-    {
-        let state = scenario.store.read_state().expect("state");
-        assert_eq!(authoritative_snapshot(&state), authoritative_before);
-        assert!(assignments.iter().all(|assignment| {
-            let current =
-                &state.curriculum_adoption.import_records[&(scenario.tenant, *assignment)];
-            state.curriculum_adoption.assignment_evidence.iter().any(
-                |((tenant, receipt, evidence_assignment), evidence)| {
-                    *tenant == scenario.tenant
-                        && receipt == &applied.receipt.idempotency_key
-                        && evidence_assignment == assignment
-                        && current.baseline == evidence.baseline
-                        && current.provenance == evidence.provenance
-                },
-            )
-        }));
-    }
-
-    let refused_snapshot = {
-        let mut state = scenario.store.write_state().expect("state");
-        for assignment in &assignments {
-            state
-                .curriculum_adoption
-                .import_records
-                .remove(&(scenario.tenant, *assignment));
-        }
-        state.curriculum_adoption.assignment_evidence.remove(&(
-            scenario.tenant,
-            applied.receipt.idempotency_key.clone(),
-            assignments[0],
-        ));
-        authoritative_snapshot(&state)
-    };
-    assert!(matches!(
-        scenario
-            .store
-            .reconcile_curriculum_adoption(
-                scenario.context,
-                scenario.session,
-                ReconcileCurriculumAdoptionCommand {
-                    receipt: applied.receipt,
-                },
-            )
-            .await,
-        Err(StoreError::Unavailable(_))
-    ));
-    let state = scenario.store.read_state().expect("state");
-    assert_eq!(authoritative_snapshot(&state), refused_snapshot);
-    assert!(assignments.iter().all(|assignment| {
-        !state
-            .curriculum_adoption
-            .import_records
-            .contains_key(&(scenario.tenant, *assignment))
-    }));
-}
-
-/// Reconciliation never manufactures authority from mutable current rows when
-/// the immutable completed receipt is absent.
-#[tokio::test]
-async fn reconciliation_refuses_missing_immutable_receipt_without_mutating_state() {
-    let scenario = AdoptionScenario::new().await;
-    let applied = scenario.instantiate("reconcile-missing-receipt").await;
-    {
-        let mut state = scenario.store.write_state().expect("state");
-        state
-            .curriculum_adoption
-            .receipts
-            .remove(&(scenario.tenant, applied.receipt.idempotency_key.clone()));
-    }
-    let corrupted = authoritative_snapshot(&scenario.store.read_state().expect("state"));
-
-    assert!(matches!(
-        scenario
-            .store
-            .reconcile_curriculum_adoption(
-                scenario.context,
-                scenario.session,
-                ReconcileCurriculumAdoptionCommand {
-                    receipt: applied.receipt,
-                },
-            )
-            .await,
-        Err(StoreError::Unavailable(_))
-    ));
-    assert_eq!(
-        authoritative_snapshot(&scenario.store.read_state().expect("state")),
-        corrupted,
-        "a missing immutable receipt leaves every authoritative record unchanged"
-    );
-}
-
-fn authoritative_snapshot(
-    state: &crate::in_memory::State,
-) -> impl PartialEq + std::fmt::Debug + use<> {
-    (
-        (
-            state.courses.clone(),
-            state.course_references.clone(),
-            state.courses_by_reference.clone(),
-            state.assignments.clone(),
-            state.assignment_references.clone(),
-            state.assignments_by_reference.clone(),
-        ),
-        (
-            state.course_memberships.clone(),
-            state.enrollments.clone(),
-            state.runs.clone(),
-            state.course_schedule_revisions.clone(),
-            state.curriculum_adoption.assignment_evidence.clone(),
-            state.curriculum_adoption.whole_course_adoptions.clone(),
-            state.curriculum_adoption.receipts.clone(),
-        ),
+async fn reconciliation_preserves_a_newer_superseding_projection() {
+    let scenario = CurriculumAdoptionScenario::new().await;
+    let (assignment_reference, original_target) =
+        create_selected_copy(&scenario, "reconcile-superseded-source").await;
+    update_selected_copy(
+        &scenario,
+        assignment_reference,
+        "reconcile-superseding-update",
     )
+    .await;
+    let assignment = scenario
+        .store
+        .read_state()
+        .expect("fixture state")
+        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let newer = scenario
+        .store
+        .read_state()
+        .expect("fixture state")
+        .curriculum_adoption
+        .import_records[&assignment]
+        .clone();
+
+    scenario
+        .store
+        .reconcile_course_instance_adoption(
+            scenario.context,
+            scenario.session,
+            ReconcileCourseInstanceAdoptionIntent {
+                target: original_target,
+                idempotency_key: key("reconcile-superseded-action"),
+            },
+        )
+        .await
+        .expect("superseded receipt reconciliation");
+
+    assert_eq!(
+        scenario
+            .store
+            .read_state()
+            .expect("fixture state")
+            .curriculum_adoption
+            .import_records[&assignment],
+        newer
+    );
+}
+
+#[tokio::test]
+async fn reconciliation_refuses_a_contradictory_older_projection_atomically() {
+    let scenario = CurriculumAdoptionScenario::new().await;
+    let (assignment_reference, original_target) =
+        create_selected_copy(&scenario, "reconcile-older-source").await;
+    let updated_target =
+        update_selected_copy(&scenario, assignment_reference, "reconcile-older-update").await;
+    let assignment = scenario
+        .store
+        .read_state()
+        .expect("fixture state")
+        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let original_revision = original_target
+        .assignment_import_target()
+        .expect("selected-copy import target")
+        .import_revision();
+    let older = {
+        let mut state = scenario.store.write_state().expect("fixture state");
+        let mut older = state.curriculum_adoption.import_records[&assignment].clone();
+        older.import_revision = original_revision;
+        state
+            .curriculum_adoption
+            .import_records
+            .insert(assignment, older.clone());
+        older
+    };
+
+    let result = scenario
+        .store
+        .reconcile_course_instance_adoption(
+            scenario.context,
+            scenario.session,
+            ReconcileCourseInstanceAdoptionIntent {
+                target: updated_target,
+                idempotency_key: key("reconcile-older-action"),
+            },
+        )
+        .await;
+
+    assert!(matches!(result, Err(StoreError::Unavailable(_))));
+    assert_eq!(
+        scenario
+            .store
+            .read_state()
+            .expect("fixture state")
+            .curriculum_adoption
+            .import_records[&assignment],
+        older
+    );
 }

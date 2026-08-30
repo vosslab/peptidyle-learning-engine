@@ -2,10 +2,15 @@
 
 ## Binding single-installation model
 
-PLE is one installation with global accounts. It has one immutable shared catalog
-of published assignment questions, private Instructor authoring workspaces, and
-course-scoped Student educational records. It has no institution selector,
-publication-visibility tier, or creator-owned course authority.
+PLE is one installation with global accounts. The binding SD1 product contract
+requires each account and session to carry exactly one immutable Student,
+Instructor, or Sysadmin role; a person needing multiple roles uses separate
+accounts. This target remains pending implementation and acceptance; pre-SD1
+plural account/session role source is cutover input. The installation has one
+immutable shared catalog of published assignment questions, private Instructor
+authoring workspaces, and course-scoped Student educational records. It has no
+institution selector, publication-visibility tier, or creator-owned course
+authority.
 
 This document is the binding authorization contract. It defines the authority
 that routes, Store methods, PostgreSQL policies and brokers, workers, object
@@ -62,9 +67,10 @@ authorizes global catalog discovery, collections, Stars, saved searches,
 course creation, publication, reuse, and improvement. Every approved
 Instructor has the same global product capabilities.
 
-Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin who
-needs to create or teach a course must complete the same explicit, operator-led
-Instructor approval path as any other person before course creation or teaching.
+Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin provisions
+a course only for an explicitly assigned approved Instructor account; it receives no
+course membership. A person who needs teaching authority uses an approved Instructor
+account.
 
 Every course-teaching operation uses one canonical predicate:
 
@@ -102,12 +108,32 @@ entries retain the acting `UserId` and distinguish who performed the action.
 | Create or publish a question                                    | Allow if `approved_instructor`            | Allow if `approved_instructor`            | No                                             | Platform operation only when separately authorized          |
 
 Co-Instructor invitation, acceptance, update, and revocation are atomic,
-audited course-membership transitions. Invitation acceptance verifies the
-target's current `approved_instructor` status. Approval withdrawal closes a
-co-Instructor's course authority without changing the durable membership
-history. A Sysadmin receives course-record access only through an ordinary
-current Instructor membership or a separately defined, narrow audited support
+audited course-membership operations. Invitation acceptance verifies the target
+Instructor account's matching role and current `approved_instructor` status.
+Approval withdrawal closes a co-Instructor's course authority without changing
+the durable membership history. A Sysadmin receives course-record access only
+through a separately defined, narrow audited support
 operation; platform status is not ambient FERPA authority.
+
+## Course-instance provisioning authority
+
+Pending SD1 implementation defines `CourseInstanceProvisioningAuthority` as a
+closed Sysadmin platform authority that exists before a CourseInstance. Its
+command binds one exact `BlueprintCourse` source and revision, one exact
+currently approved assigned Instructor account, and one server-reserved
+`CourseInstanceId`. The authenticated Sysadmin receives no course membership
+and cannot select a different source, Instructor, or resulting course after
+the authority is evaluated.
+
+One Store transaction creates the CourseInstance, its first direct Instructor
+membership for the assigned account, and an append-only
+`course_instance_provisioned` audit event. The event identifies the acting
+Sysadmin, exact Blueprint source and revision, assigned Instructor, reserved
+CourseInstance identity, result, and time without copying Student records.
+The new CourseInstance has no Students or delivery records at bootstrap. This
+platform authority is the pre-course bootstrap boundary; it is not a
+`SysadminSupportCapability`, and it does not create a Sysadmin membership or
+general course authority.
 
 ## Sysadmin support capability registry
 
@@ -122,11 +148,9 @@ browser cannot create, widen, renew, or select it.
 An active capability has one exact CourseId, one closed operation family, and
 one stated support purpose. It is issued by a current CourseInstance Instructor
 for support requested by that course. The platform retention scheduler is the
-registered issuer for its payload-free lifecycle operation. CourseInstance
-provisioning atomically creates the exact CourseId, capability record, direct
-Instructor membership for an explicitly assigned approved Instructor, and
-issuance audit event. This preserves the same exact-course boundary before any
-delivery records can exist.
+registered issuer for its payload-free lifecycle operation. The capability
+registry begins after provisioning has committed an exact CourseInstance and
+its first direct Instructor membership.
 
 ### Registered operation families
 
@@ -162,13 +186,6 @@ delivery records can exist.
 - Projects lifecycle state, strong revision, disposition, and resulting receipt only.
 - Appends `sysadmin_support.retention`.
 
-#### `course_instance_provisioning`
-
-- Creates one CourseInstance from an exact BlueprintCourse on behalf of an explicitly assigned,
-  approved Instructor.
-- Projects Blueprint identity, initial CourseInstance identity, and assigned Instructor identity.
-- Appends `sysadmin_support.course_provisioning`.
-
 Every capability use verifies the acting Sysadmin, exact CourseId, current
 operation family, purpose, expiry, and absence of revocation inside the same
 Store transaction as the command. Missing, foreign, expired, revoked,
@@ -180,9 +197,9 @@ invitation secrets, raw Student responses, answer keys, or scores.
 
 The registry gives no Gradebook browsing, general Student-record browsing,
 course-teaching authority, export authority, or ambient FERPA access. A
-Sysadmin receives those only through direct current Instructor membership or a
-separately registered capability that specifies an equally narrow target and
-projection. `ForcedQuestionCorrection` remains a platform-level closed
+Sysadmin receives course-record access only through a separately registered
+capability that specifies an equally narrow target and projection.
+`ForcedQuestionCorrection` remains a platform-level closed
 operation that produces privacy-safe impact and deterministic remediation; it
 does not issue a course support capability or widen course access.
 

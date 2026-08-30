@@ -4,6 +4,53 @@
 
 ### Additions and New Features
 
+- Implemented `WP-SD1-C/M5` Memory curriculum-adoption dispatcher cutover. The Memory Store now
+  exposes only the five current lifecycle methods and directly dispatches the seven closed
+  BlueprintCourse/CourseInstance preview and apply variants. Apply and reconciliation each hold one
+  writer transition: current Instructor authorization, canonical actor-bound intent/digest,
+  actor/key replay-or-conflict, server record-to-command consumption, exact immutable receipt
+  validation/storage, and full-State rollback on every post-replay failure. Reconciliation now has
+  its own non-Serde intent with a caller-provided retry key, so retries replay one repair while a
+  later repair can carry a new identity. Rollover and term-shift cores return post-state facts;
+  their receipt is constructed by the outer transaction from the retained apply record. Term-shift
+  receipts validate their committed delivery delta, and whole-course instantiation/rollover receipt
+  validation proves the exact immutable whole-course row and canonical Blueprint parentage. The
+  feature-enabled LDA library check and question-model test suite pass; current public Memory
+  behavior tests, PostgreSQL, services, browser, and live acceptance remain downstream work.
+
+- Implemented preparatory `WP-SD1-C` immutable BlueprintCourse revision storage in Memory. The
+  reusable-curriculum Store now separates handle-free creation from expected-head replacement;
+  keeps a small owner/head record plus append-only complete revision snapshots; allocates opaque
+  stable module and assignment identities only in trusted Memory code; and validates every
+  retained child handle against the expected head. Exact historical source snapshots resolve by
+  immutable revision and stable assignment identity, current-source resolution refuses a removed
+  lineage rather than selecting a positional neighbor, and whole-course instantiation reads stable
+  assignment locators from the exact source snapshot. Owner-only edits and approved-Instructor
+  reads remain distinct. No-op complete-tree replacements preserve the observed revision. Focused
+  deterministic Memory behavior tests cover retained reorder/insert identity, historical source
+  resolution, approved-Instructor read, no-op replacement, foreign/stale refusal, and removed-node
+  refusal; their feature-enabled test build remains blocked by the separately-owned legacy M5
+  dispatch/test corpus. No-default LDA and question-model checks pass with the established warning
+  baseline. PostgreSQL, browser, M5 dispatch/receipt/rollback, and end-to-end acceptance remain
+  downstream work.
+
+- Recorded `WP-SD1-A` fixed-role account clarification in the technical authorities. The binding
+  SD1 product contract requires one immutable Student, Instructor, or Sysadmin role per account and
+  session; people needing multiple roles use separate accounts; Student/Instructor membership must
+  match the account role; and Sysadmin provisioning assigns an approved Instructor account without
+  course membership for the Sysadmin. Pre-SD1 plural source remains cutover input. Course help
+  remains explicit audited support. `2026082902` retains singular role-storage ownership and
+  `2026082905` retains Instructor-vetting/current-approval ownership. Source, migration,
+  PostgreSQL/RLS, service, browser, runtime, and human-acceptance evidence remain pending. The
+  database authorization and schema-evolution range summaries now match the status-owned exact
+  migration ledger.
+
+- Clarified the pending SD1 bootstrap boundary: closed Sysadmin platform provisioning binds an
+  exact Blueprint source, approved assigned Instructor, and server-reserved CourseInstance identity,
+  then atomically creates the CourseInstance, first Instructor membership, and audit event. Ordinary
+  `SysadminSupportCapability` remains exact-course support after bootstrap; it does not provision a
+  course or grant the Sysadmin membership.
+
 - Recorded the SD1 curriculum and actor authority repair in the planning authorities. Minimal
   Blueprint construction, immutable CourseInstance adoption evidence, execute-only adoption brokers,
   and CourseInstance forced RLS now have their assigned migration ownership; `WP-SD1-B1-P1` is the
@@ -26,6 +73,86 @@
   pass. Existing downstream Memory operation/dispatch code remains intentionally unconverted for
   M2-M5, so the feature-enabled LDA compilation baseline is still red; this is not Store,
   PostgreSQL/RLS, service, browser, or release acceptance.
+
+- Implemented `WP-SD1-C/M2b` Memory source-adoption operations for current BlueprintCourse and
+  CourseInstance contracts. Fork, one-assignment adoption, and whole-course instantiation now
+  re-read the exact Blueprint source and destination witness under one rollback-capable Memory
+  transition; validate Published-only destination pins and deterministic replacement choices; and
+  retain immutable answer-free M1 completion evidence for replay/conflict handling. Assignment
+  receipts bind the exact created assignment and its immutable import evidence, rejecting a
+  same-course assignment swap before replay. The new seam consumes BlueprintCourse and
+  CourseInstance creation reservations, records bounded assignment imports, and removes the
+  retired Alpha source-instantiation helper from the source slice.
+  Current Store dispatch, CourseInstance lifecycle, controlled update/reconciliation,
+  PostgreSQL/RLS, service, browser, and release acceptance remain downstream M3-M5 work.
+
+- Implemented the `WP-SD1-C/M3` Memory CourseInstance lifecycle seam. Rollover now has a
+  dedicated current-contract operation module, Blueprint-backed ordered source locations, exact
+  target-term schedule evidence, reserved CourseInstance creation binding, immutable answer-free
+  receipt targets, global actor/key replay conflict checks, and one rollback transition. Term
+  shift consumes only the server-resolved schedule set, rechecks the exact witness and instructor,
+  advances assignment and course schedule revisions together, and refuses issued work. The
+  Alpha-era rollover and term-shift bodies are retired from their former modules. The current
+  feature-enabled Memory compile remains blocked by unconverted M4/M5 legacy dispatch,
+  reconciliation, and update families; no PostgreSQL/RLS, service, browser, or release acceptance
+  is claimed.
+
+- Revised the preparatory `WP-SD1-C/M3` acceptance after the foundation review found that
+  assignment-import provenance was incorrectly serving as CourseInstance parentage. Every
+  CourseInstance now has a canonical immutable `CourseInstanceBlueprintApplication`, including
+  a zero-assignment minimal-Blueprint instance. Rollover resolves and inherits that application
+  instead of deriving its parent from imports; inspection presents the immutable initial
+  Blueprint application separately from independently versioned assignment provenance. Existing
+  destination records, commands, and immutable receipt targets retain the resolved application,
+  and unbound hand-built course rows refuse lifecycle/adoption preview and apply paths as an
+  integrity failure. The M2 source snapshot boundary now relies on the approved-Instructor
+  authorization established by its caller, so every vetted Instructor can reuse a visible
+  Blueprint while owner-only replacement remains unchanged. This is preparatory M3/M4 work:
+  M5 still owns the closed single-writer envelope and its public-path rollback/replay tests.
+
+- Implemented the `WP-SD1-C/M4` locked Memory cores for controlled Blueprint assignment updates,
+  selected Blueprint assignment copies, answer-free CourseInstance provenance inspection, and
+  receipt-targeted derived-import reconciliation. The cores re-authorize the current Instructor and
+  exact CourseInstance witness, bind the immutable Blueprint application, preserve exact
+  per-assignment source/import evidence, refuse issued or divergent work, and materialize selected
+  schedules only after server resolution. Selected-copy server records now retain the validated
+  replacement set needed to reproduce their source meaning at apply. M5 remains responsible for
+  the one outer write transition, replay/conflict handling, server-record issuance, immutable
+  receipt insertion, rollback, and completion response. Retired M4's duplicate legacy update,
+  reconciliation, and shared helper modules. Question-model no-default compilation passes; the
+  feature-enabled Memory suite remains a downstream M5 cutover gate.
+
+- Strengthened preparatory `WP-SD1-C/M4` receipt integrity. Assignment-derived receipts now name
+  both their consumed precondition and exact post-mutation outcome; retain the exact applied
+  assignment/import evidence, semantic digest, and selected-copy replacements; and are built only
+  after structural validation of source, lineage, replacement, import-revision, and witness facts.
+  Controlled updates explicitly distinguish changed reusable meaning from a newer source revision
+  whose delivered meaning is already equivalent. Immutable Memory evidence is a closed operation
+  detail enum, so adoption, controlled-update, and selected-copy facts cannot be partially mixed.
+  Reconciliation resolves one receipt-derived assignment/import locator and leaves a newer current
+  projection intact. Receipt replay/reconciliation validation now resolves canonical CourseInstance
+  and assignment records under the explicit tenant, checks the exact immutable evidence-map key,
+  application, outer outcome, original completed receipt, and operation-specific import history.
+  Repair actions retain a narrowed original locator while using an independent actor/key/digest;
+  their receipts remain non-targetable. Question-model format, 169 deterministic unit tests, and
+  strict Clippy pass;
+  no-default learning-data-access compilation passes with the established warning baseline. M5
+  remains the owner of its closed write transaction, receipt construction/insertion, and public
+  behavioral acceptance; the legacy feature-enabled dispatch/test corpus remains its downstream
+  cutover work.
+
+- Repaired preparatory `WP-SD1-C/M2-M3` transaction ownership for current BlueprintCourse
+  source adoption and CourseInstance lifecycle mutations. Fork, assignment adoption, whole-course
+  instantiation, rollover, and term shift now expose synchronous lock-held domain cores that
+  revalidate their consumed server-derived command against current state and return exact outcome
+  plus immutable evidence material. The forthcoming M5 dispatcher remains the sole owner of
+  session authorization, canonical-intent/digest validation, replay/conflict resolution, receipt
+  persistence, completion projection, and full-state rollback. Current stable Blueprint child-ID
+  history work owns the remaining replacement of transitional source-location construction;
+  source adoption deliberately has no positional fallback. The focused question-model no-default
+  compile passes. Feature-disabled learning-data-access compilation is presently blocked by the
+  in-progress shared qmodel contract rename, so this receipt does not claim M5, Store, PostgreSQL,
+  service, browser, or release acceptance.
 
 - Implemented the preparatory `WP-SD1-B2` CurriculumAdoptionStore lifecycle contract.
   One closed, direct-`snake_case` operation envelope now covers exactly fork,
@@ -191,7 +318,9 @@
   forced corrections are distinct paths. The UI says **Suggest an improvement**, while
   Change Proposal remains the domain term and `QuestionChangeProposal` the code type. Authorship,
   contribution, licensing, history, and exact immutable assignment and grading pins remain explicit;
-  ordinary later revisions never rewrite those pins automatically.
+  ordinary later revisions never rewrite those pins automatically. The detailed four-path model
+  remains in Design Decisions while Human Guidance retains the owner's higher-level direction and
+  open correction question.
 
 - Split the `WP-INST-G1 / G1-W4` accepted-submission contract into the semantic
   [automated_grading_execution_contract.md](active_plans/active/automated_grading_execution_contract.md)
@@ -617,6 +746,13 @@
   owns audited learner-work inspection and the grade-scheme-aware calculated Gradebook.
 
 ### Developer Tests and Notes
+
+- Rebased the Memory M2a source primitives on the current BlueprintCourse/CourseInstance
+  contracts. Exact source snapshots now consume `ObservedBlueprintSource`; destination witnesses
+  use bounded `CourseInstanceWitness` assignment revisions; pin recovery carries its exact source
+  and permits only deterministic, visible Published replacements. The former Alpha source enum,
+  retired schedule witness, import-inspection DTOs, and fast-forward projection are removed from
+  this helper seam. M2b-M5 retain operation dispatch, lifecycle, update, and integration work.
 
 - Repaired the BlueprintCourse/CourseInstance server-authority contract: non-Serde server-held
   records now exclusively construct fork, assignment-adoption, instantiation, rollover, term-shift,
