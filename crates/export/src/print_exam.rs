@@ -2,7 +2,7 @@
 //!
 //! The worker resolves immutable, published assets before it calls this crate.
 //! This crate receives verified bytes only: it never receives an object key,
-//! a URL, tenant information, or an answer key.
+//! a URL, account-ownership information, or an answer key.
 
 use std::collections::BTreeMap;
 
@@ -32,7 +32,7 @@ impl PrintLayout {
 }
 
 /// A rendered export artifact.  The caller persists it; this type has no path,
-/// URL, object key, tenant, or answer-bearing field.
+/// URL, object key, account-ownership, or answer-bearing field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportArtifact {
     pub filename: String,

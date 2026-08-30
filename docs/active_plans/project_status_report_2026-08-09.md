@@ -31,7 +31,7 @@ PLE already demonstrates its central architecture:
 
 - grading, answer keys, and correctness decisions remain server-only;
 - drafts have workspace identity while publication creates immutable reusable problem versions;
-- educational records are tenant-owned and protected by forced PostgreSQL row-level security;
+- educational records are Course- and Student-owned and protected by forced PostgreSQL row-level security;
 - shared published content is not copied into each course;
 - canonical source and binary artifacts use typed object keys and checksums;
 - API replicas are stateless over PostgreSQL, object storage, and private capabilities; and
@@ -72,24 +72,24 @@ WP-RC8 through WP-RC12.
 
 ## Status dashboard
 
-| Dimension                       | Status                                      | Current evidence and boundary                                                                                                                                                                                                                                                                                 |
-| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architectural invariants        | Verified code-first                         | Crate boundaries, answer-free browser contracts, immutable publication types, tenant context, forced RLS, typed object keys, and conformance tests are present.                                                                                                                                               |
-| Core learning flow              | Implemented, acceptance assigned            | Draft, publish, assign, issue, submit, automatic/manual grade, summary, repeat practice, feedback, prefetch, and item analysis exist; WP-RC7 owns the combined M2-M5 exit matrix.                                                                                                                             |
-| Native flat-question authoring  | v1 visual editor; v2 source/runtime implemented | Canonical author GET/PUT, ETag/CAS, split public/private compilation, publication, and private runtime grading exist. The Solid author editor remains v1 single choice.                                                                                                                                    |
-| Required flat-question families | Runtime core implemented; acceptance open  | PLE flat JSON v2 strictly compiles, renders, validates, and server-grades MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. WP-RC5 retains visual authoring, all-family integrated storage/object acceptance, and pilot content.                                                                     |
-| QTI profile import              | WP-QTI-1 through WP-QTI-12 verified         | Bounded parsing, exact Canvas/Blackboard profiles, safe reports, mapping, native conversion, provenance, Memory/PostgreSQL persistence, routes, author UI, live grading, RLS, cleanup, and independent close-out are accepted.                                                                                |
-| QTI instructor workflow         | Implemented and independently accepted      | Upload/report/convert routes and the existing-route author UI passed the disposable profile-to-native PostgreSQL gate and six-pass independent review.                                                                                                                                                        |
-| WeBWorK                         | Bounded RC3 path accepted                   | WP-RC3 replaces the invented `/v1` dialect with the pinned upstream authenticated `/render_rpc` form protocol, server-only radio projection, private MariaDB profile, and launcher path. The live PLE E2E, keyboard browser proof, WP-ARCH1 boundary, and final review pass. Broad OPL compatibility and MATCH remain separate scope. |
-| iMathAS                         | Implemented contracted boundary             | Server-brokered, immutable-source, verified-result flow exists behind explicit configuration; generic hosted execution remains refused.                                                                                                                                                                       |
-| H5P                             | Honest limited capability                   | Native H5P is ungraded practice; WP-RC6 closes lossless import into protected native families. Scored native H5P is explicitly out of scope because browser evaluation cannot satisfy server-only grading.                                                                                                    |
-| PostgreSQL and data access      | Verified code-first                         | Six SQLx baseline migrations plus the course-appearance forward migration, exact ledger verification, forced RLS, broker roles, Memory/PostgreSQL conformance, retry/CAS behavior, exact current-pointer ownership, and the disposable real-role pass.                                                        |
-| Object storage                  | Implemented core, WP-RC7 assigned           | Typed three-bucket keys, checksums, access classes, signed-delivery limits, and private-source restrictions exist. WP-RC7 owns inventory, twice-observed orphan quarantine, broken-reference alerts, and the combined M5 gate.                                                                                |
-| Retention and privacy           | Substantially implemented                   | Notify/archive/delete policy, manager API, worker cleanup, write fences, tenant purge, and anonymous-statistics survival are implemented and reviewed. WP-RC7 owns M5 closure; WP-RC10/WP-RC12 own managed recovery evidence.                                                                                 |
-| Browser experience              | Substantially implemented                   | Current student routes and response families passed a focused no-mouse audit. All seven course-owned routes use the measured 15-theme scope with Grass as default; instructor banner/theme settings and entry-only learner identity passed WP-RC1.                                                            |
-| Exports                         | Implemented core                            | Deterministic DOCX/PDF student and answer-key artifacts exist; PNG decoding is now allocation-bounded and hostile-input tested.                                                                                                                                                                               |
-| Containers and operations       | Local development; RC3 live path passed     | The root launcher bootstraps credentials, migrates, seeds, starts, health-checks, and opens the browser. Its optional private WeBWorK profile now passes the full local Podman 6 build and PLE/browser acceptance. WP-RC10 owns production credential separation/deployment; WP-RC12 owns release acceptance. |
-| Production deployment           | Planned and owned                           | WP-RC8 owns OIDC, WP-RC9 LTI, WP-RC10 OpenTofu/AWS/backup/PITR/secrets/scale, WP-RC11 edge cost controls, and WP-RC12 release evidence. Institutional credentials and legal sign-off are external activation gates.                                                                                           |
+| Dimension                       | Status                                          | Current evidence and boundary                                                                                                                                                                                                                                                                                                         |
+| ------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architectural invariants        | Verified code-first                             | Crate boundaries, answer-free browser contracts, immutable publication types, actor context, forced RLS, typed object keys, and conformance tests are present.                                                                                                                                                                        |
+| Core learning flow              | Implemented, acceptance assigned                | Draft, publish, assign, issue, submit, automatic/manual grade, summary, repeat practice, feedback, prefetch, and item analysis exist; WP-RC7 owns the combined M2-M5 exit matrix.                                                                                                                                                     |
+| Native flat-question authoring  | v1 visual editor; v2 source/runtime implemented | Canonical author GET/PUT, ETag/CAS, split public/private compilation, publication, and private runtime grading exist. The Solid author editor remains v1 single choice.                                                                                                                                                               |
+| Required flat-question families | Runtime core implemented; acceptance open       | PLE flat JSON v2 strictly compiles, renders, validates, and server-grades MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. WP-RC5 retains visual authoring, all-family integrated storage/object acceptance, and pilot content.                                                                                                |
+| QTI profile import              | WP-QTI-1 through WP-QTI-12 verified             | Bounded parsing, exact Canvas/Blackboard profiles, safe reports, mapping, native conversion, provenance, Memory/PostgreSQL persistence, routes, author UI, live grading, RLS, cleanup, and independent close-out are accepted.                                                                                                        |
+| QTI instructor workflow         | Implemented and independently accepted          | Upload/report/convert routes and the existing-route author UI passed the disposable profile-to-native PostgreSQL gate and six-pass independent review.                                                                                                                                                                                |
+| WeBWorK                         | Bounded RC3 path accepted                       | WP-RC3 replaces the invented `/v1` dialect with the pinned upstream authenticated `/render_rpc` form protocol, server-only radio projection, private MariaDB profile, and launcher path. The live PLE E2E, keyboard browser proof, WP-ARCH1 boundary, and final review pass. Broad OPL compatibility and MATCH remain separate scope. |
+| iMathAS                         | Implemented contracted boundary                 | Server-brokered, immutable-source, verified-result flow exists behind explicit configuration; generic hosted execution remains refused.                                                                                                                                                                                               |
+| H5P                             | Honest limited capability                       | Native H5P is ungraded practice; WP-RC6 closes lossless import into protected native families. Scored native H5P is explicitly out of scope because browser evaluation cannot satisfy server-only grading.                                                                                                                            |
+| PostgreSQL and data access      | Verified code-first                             | Six SQLx baseline migrations plus the course-appearance forward migration, exact ledger verification, forced RLS, broker roles, Memory/PostgreSQL conformance, retry/CAS behavior, exact current-pointer ownership, and the disposable real-role pass.                                                                                |
+| Object storage                  | Implemented core, WP-RC7 assigned               | Typed three-bucket keys, checksums, access classes, signed-delivery limits, and private-source restrictions exist. WP-RC7 owns inventory, twice-observed orphan quarantine, broken-reference alerts, and the combined M5 gate.                                                                                                        |
+| Retention and privacy           | Substantially implemented                       | Notify/archive/delete policy, manager API, worker cleanup, write fences, Course-record purge, and anonymous-statistics survival are implemented and reviewed. WP-RC7 owns M5 closure; WP-RC10/WP-RC12 own managed recovery evidence.                                                                                                  |
+| Browser experience              | Substantially implemented                       | Current student routes and response families passed a focused no-mouse audit. All seven course-owned routes use the measured 15-theme scope with Grass as default; instructor banner/theme settings and entry-only learner identity passed WP-RC1.                                                                                    |
+| Exports                         | Implemented core                                | Deterministic DOCX/PDF student and answer-key artifacts exist; PNG decoding is now allocation-bounded and hostile-input tested.                                                                                                                                                                                                       |
+| Containers and operations       | Local development; RC3 live path passed         | The root launcher bootstraps credentials, migrates, seeds, starts, health-checks, and opens the browser. Its optional private WeBWorK profile now passes the full local Podman 6 build and PLE/browser acceptance. WP-RC10 owns production credential separation/deployment; WP-RC12 owns release acceptance.                         |
+| Production deployment           | Planned and owned                               | WP-RC8 owns OIDC, WP-RC9 LTI, WP-RC10 OpenTofu/AWS/backup/PITR/secrets/scale, WP-RC11 edge cost controls, and WP-RC12 release evidence. Institutional credentials and legal sign-off are external activation gates.                                                                                                                   |
 
 ## Milestone posture
 
@@ -116,17 +116,17 @@ are proven, not whether individual modules exist.
 - Automatic and response-bearing manual grading publish through generation fences.
 - Completion, score policy, continued practice, variation, and feedback disclosure remain separate
   controls.
-- Current course item analysis is instructor-only, tenant-owned, aggregate, and identity-free.
+- Current course item analysis is Instructor-only, Course-owned, aggregate, and identity-free.
 
-### Identity, tenancy, and publication
+### Identity, accounts, and publication
 
 - A private draft has a workspace identity and no catalog identity.
 - Successful publication creates an immutable `ProblemId`/`VersionId`; revisions retain the problem
   and create a new version.
-- Shared published versions can be reused across tenants without copying content.
-- Course and learner records remain tenant-owned. The 2026-08-09 security pass closed a
-  same-`UserId` cross-tenant catalog lifecycle edge by requiring tenant-qualified problem ownership
-  in Memory, SQLx, and PostgreSQL RLS.
+- Shared published versions can be reused across all approved Instructors without copying content.
+- Course and learner records remain Course- and Student-owned. The 2026-08-09 security pass closed a
+  same-`UserId` cross-account catalog lifecycle edge by requiring exact problem ownership in Memory,
+  SQLx, and PostgreSQL RLS.
 
 ### Source, objects, and provenance
 
@@ -146,7 +146,7 @@ are proven, not whether individual modules exist.
   token.
 - Learner response recovery uses `sessionStorage`, not `localStorage`, and clears the active buffer
   on run exit.
-- File-upload submissions fail closed until a server-issued, tenant/learner/attempt-bound upload
+- File-upload submissions fail closed until a server-issued, Student/attempt-bound upload
   capability exists.
 - API health reruns exact migration/checksum compatibility rather than treating database reachability
   as readiness.
@@ -172,8 +172,6 @@ boundary fixtures now use ASCII-only Rust and PostgreSQL escapes, and the feedba
 fixture submits a native multiple-choice response instead of violating the strict external-tool
 boundary. Six WP-QTI-12 review passes then corrected stale README and ownership-map documentation;
 focused documentation gates and original-reviewer rechecks passed with no remaining P0/P1 issue.
-Detailed evidence is in
-`docs/active_plans/workstreams/qti_live_acceptance_implementation.md`.
 
 WP-CA3 then passed its Memory conformance, strict PostgreSQL-feature Clippy, and complete disposable
 PostgreSQL 17 gate. The seventh migration applied and replayed cleanly; the live oracle proved

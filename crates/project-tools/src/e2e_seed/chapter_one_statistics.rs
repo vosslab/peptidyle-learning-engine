@@ -65,18 +65,14 @@ pub(super) async fn seed_chapter_one_statistics(
     }
     let mut assignments = Vec::with_capacity(chapters.len());
     for chapter in chapters {
-        let assignment = AssignmentId::from_uuid(pilot_uuid(
-            arguments.tenant,
-            &chapter.slug,
-            "statistics-assignment",
-        ));
+        let assignment =
+            AssignmentId::from_uuid(pilot_uuid(&chapter.slug, "statistics-assignment"));
         ensure_webwork_pilot_assignment(
             store,
             context,
             arguments.instructor,
             AssignmentRecord {
                 id: assignment,
-                tenant: arguments.tenant,
                 course_id: chapter.course_id,
                 title: STATISTICS_ASSIGNMENT_TITLE.to_string(),
                 lifecycle: question_model::AssignmentLifecycle::Published,
@@ -88,7 +84,6 @@ pub(super) async fn seed_chapter_one_statistics(
                 disclosure_policy: question_model::StudentDisclosurePolicy::default(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(pilot_uuid(
-                        arguments.tenant,
                         &chapter.slug,
                         "statistics-assignment-item",
                     )),
@@ -117,11 +112,7 @@ pub(super) async fn seed_chapter_one_statistics(
         let target = assignments
             .get(index % assignments.len())
             .expect("two Chapter 1 statistics assignments exist");
-        let learner = UserId::from_uuid(pilot_uuid(
-            arguments.tenant,
-            STATISTICS_SEED_SLUG,
-            learner_slug,
-        ));
+        let learner = UserId::from_uuid(pilot_uuid(STATISTICS_SEED_SLUG, learner_slug));
         upsert_chapter_one_student(
             store,
             context,
@@ -133,7 +124,6 @@ pub(super) async fn seed_chapter_one_statistics(
         )
         .await?;
         let run_id = RunId::from_uuid(pilot_uuid(
-            arguments.tenant,
             STATISTICS_SEED_SLUG,
             &format!("{learner_slug}-run"),
         ));
@@ -180,7 +170,6 @@ pub(super) async fn seed_chapter_one_statistics(
                         target.assignment,
                     ),
                     attempt: QuestionAttemptId::from_uuid(pilot_uuid(
-                        arguments.tenant,
                         STATISTICS_SEED_SLUG,
                         &format!("{learner_slug}-attempt"),
                     )),

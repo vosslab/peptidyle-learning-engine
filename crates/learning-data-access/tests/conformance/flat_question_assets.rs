@@ -2,20 +2,17 @@ use super::*;
 use learning_data_access::{FlatQuestionAssetStore, WorkspaceFlatQuestionAsset};
 
 fn workspace_image(
-    tenant: TenantId,
     workspace: WorkspaceId,
     asset: AssetId,
     object: ObjectId,
     bytes: &[u8],
 ) -> WorkspaceFlatQuestionAsset {
     let key = ObjectKey::WorkspaceQuestionAsset {
-        tenant,
         workspace,
         asset,
         object,
     };
     WorkspaceFlatQuestionAsset::new(
-        tenant,
         workspace,
         asset,
         ObjectRecord {
@@ -43,19 +40,16 @@ where
     S: FlatQuestionAssetStore,
 {
     let tenant = TenantId::from_uuid(uuid(81_001));
-    let foreign_tenant = TenantId::from_uuid(uuid(81_002));
     let workspace = WorkspaceId::from_uuid(uuid(81_003));
     let foreign_workspace = WorkspaceId::from_uuid(uuid(81_004));
     let asset = AssetId::from_uuid(uuid(81_005));
     let descriptor = workspace_image(
-        tenant,
         workspace,
         asset,
         ObjectId::from_uuid(uuid(81_006)),
         b"first immutable image",
     );
     let context = TenantContext::from_authenticated_session(tenant);
-    let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
 
     assert_eq!(
         store
@@ -72,7 +66,6 @@ where
         "an exact immutable registration retry is idempotent"
     );
     let conflicting = workspace_image(
-        tenant,
         workspace,
         asset,
         ObjectId::from_uuid(uuid(81_007)),
@@ -120,25 +113,6 @@ where
     );
     assert_eq!(
         store
-            .list_workspace_flat_question_assets(foreign_context, workspace)
-            .await,
-        Ok(Vec::new()),
-        "a foreign tenant cannot enumerate private workspace images"
-    );
-    assert_eq!(
-        store
-            .resolve_workspace_flat_question_asset(
-                foreign_context,
-                workspace,
-                asset,
-                descriptor.checksum(),
-            )
-            .await,
-        Ok(None),
-        "a foreign tenant cannot resolve a private image even with its checksum"
-    );
-    assert_eq!(
-        store
             .list_workspace_flat_question_assets(context, foreign_workspace)
             .await,
         Ok(Vec::new()),
@@ -170,7 +144,7 @@ async fn memory_flat_question_asset_lists_are_deterministic() {
         store
             .register_workspace_flat_question_asset(
                 context,
-                workspace_image(tenant, workspace, asset, object, asset.as_uuid().as_bytes()),
+                workspace_image(workspace, asset, object, asset.as_uuid().as_bytes()),
             )
             .await
             .expect("image registration");
@@ -195,19 +169,19 @@ fn flat_question_asset_descriptor_refuses_untrusted_metadata() {
     let workspace = WorkspaceId::from_uuid(uuid(81_202));
     let asset = AssetId::from_uuid(uuid(81_203));
     let object = ObjectId::from_uuid(uuid(81_204));
-    let mut invalid = workspace_image(tenant, workspace, asset, object, b"valid bytes");
+    let mut invalid = workspace_image(workspace, asset, object, b"valid bytes");
     invalid.object.media_type = "image/svg+xml".to_string();
     assert!(
         invalid.validate().is_err(),
         "active SVG is not a hotspot surface"
     );
-    let mut invalid_dimensions = workspace_image(tenant, workspace, asset, object, b"valid bytes");
+    let mut invalid_dimensions = workspace_image(workspace, asset, object, b"valid bytes");
     invalid_dimensions.intrinsic_width = 0;
     assert!(
         invalid_dimensions.validate().is_err(),
         "zero dimensions are refused"
     );
-    let mut invalid_provenance = workspace_image(tenant, workspace, asset, object, b"valid bytes");
+    let mut invalid_provenance = workspace_image(workspace, asset, object, b"valid bytes");
     invalid_provenance.object.provenance = "untrusted\nline break".to_string();
     assert!(
         invalid_provenance.validate().is_err(),

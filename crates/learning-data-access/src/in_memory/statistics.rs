@@ -6,14 +6,13 @@ use super::*;
 impl crate::StatisticsStore for MemoryStore {
     async fn question_statistics_impl(
         &self,
-        context: TenantContext,
         reference: ProblemVersionRef,
     ) -> Result<QuestionStatisticsDisclosure, StoreError> {
         let state = self.read_state()?;
         let visible = state
             .published
             .get(&(reference.problem, reference.version))
-            .is_some_and(|record| catalog_record_visible(&state, context.tenant_id(), record));
+            .is_some_and(|record| record.scope == question_model::PublicationScope::Public);
         if !visible {
             return Ok(QuestionStatisticsDisclosure::Suppressed);
         }
@@ -26,36 +25,36 @@ impl crate::StatisticsStore for MemoryStore {
     }
     async fn list_gradebook_rows_impl(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<question_model::GradebookSummaryRow>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_course_records_accessible(&state, tenant, course)?;
+        require_course_records_accessible(&state, course)?;
+        match super::entitlement::current_course_role(&state, course, actor.user_id()) {
+            Some(question_model::CourseMembershipRole::Instructor) => {}
+            Some(question_model::CourseMembershipRole::Student) => {
+                return Err(StoreError::Forbidden);
+            }
+            None => return Err(StoreError::NotFound),
+        }
         let mut records = state
             .enrollments
             .iter()
-            .filter_map(|((row_tenant, enrollment_id), enrollment)| {
-                if *row_tenant != tenant {
-                    return None;
-                }
-                let assignment = state.assignments.get(&(tenant, enrollment.assignment))?;
+            .filter_map(|(enrollment_id, enrollment)| {
+                let assignment = state.assignments.get(&enrollment.assignment)?;
                 if assignment.course_id != course {
                     return None;
                 }
-                let summary = state.summaries.get(&(tenant, *enrollment_id))?.clone();
+                let summary = state.summaries.get(enrollment_id)?.clone();
                 let student_name = state
                     .course_memberships
                     .values()
                     .find(|membership| {
-                        membership.tenant == tenant
-                            && membership.course == course
+                        membership.course == course
                             && membership.student == Some(enrollment.student)
                     })
-                    .and_then(|membership| {
-                        state.roster_profiles.get(&(tenant, course, membership.id))
-                    })
+                    .and_then(|membership| state.roster_profiles.get(&(course, membership.id)))
                     .map(|profile| profile.display_name.clone())
                     .unwrap_or_else(|| "Learner".to_string());
                 Some((
@@ -64,7 +63,6 @@ impl crate::StatisticsStore for MemoryStore {
                         enrollment: enrollment.id.as_uuid(),
                     },
                     question_model::GradebookSummaryRow {
-                        tenant,
                         course_id: course,
                         enrollment_id: enrollment.id,
                         student_id: enrollment.student,
@@ -72,7 +70,7 @@ impl crate::StatisticsStore for MemoryStore {
                         assignment_id: assignment.id,
                         assignment_title: assignment.title.clone(),
                         summary,
-                        scoring_status: state.assignment_scoring.get(&(tenant, assignment.id))?.1,
+                        scoring_status: state.assignment_scoring.get(&assignment.id)?.1,
                     },
                 ))
             })
@@ -110,28 +108,26 @@ impl crate::StatisticsStore for MemoryStore {
 /// transition unchanged.
 pub(super) fn stage_statistics_contributions(
     state: &mut State,
-    tenant: TenantId,
     enrollment: EnrollmentId,
     first_completed_run: RunId,
     contributions: &[StatisticsContribution],
 ) -> Result<(), StoreError> {
     let enrollment_record = state
         .enrollments
-        .get(&(tenant, enrollment))
+        .get(&enrollment)
         .ok_or(StoreError::NotFound)?;
     let course = state
         .assignments
-        .get(&(tenant, enrollment_record.assignment))
+        .get(&enrollment_record.assignment)
         .map(|assignment| assignment.course_id)
         .ok_or(StoreError::NotFound)?;
-    let student_fingerprint = discovery_student_fingerprint(tenant, enrollment_record.student);
+    let student_fingerprint = discovery_student_fingerprint(enrollment_record.student);
     let mut aggregate_updates = BTreeMap::new();
     let mut receipt_updates = BTreeMap::new();
     let mut observed_course_updates = BTreeSet::new();
     let mut student_updates = BTreeSet::new();
     for contribution in contributions {
         let receipt_key = (
-            tenant,
             enrollment,
             contribution.reference.problem,
             contribution.reference.version,
@@ -203,10 +199,9 @@ pub(super) fn stage_statistics_contributions(
     Ok(())
 }
 
-pub(super) fn discovery_student_fingerprint(tenant: TenantId, student: StudentId) -> [u8; 32] {
-    let mut bytes = Vec::with_capacity(80);
+pub(super) fn discovery_student_fingerprint(student: StudentId) -> [u8; 32] {
+    let mut bytes = Vec::with_capacity(64);
     bytes.extend_from_slice(b"ple-discovery-student-v1");
-    bytes.extend_from_slice(tenant.as_uuid().as_bytes());
     bytes.extend_from_slice(student.as_uuid().as_bytes());
     *objects::Sha256Digest::compute(&bytes).as_bytes()
 }

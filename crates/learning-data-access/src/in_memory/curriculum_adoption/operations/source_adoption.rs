@@ -28,14 +28,14 @@ use super::super::{
 use crate::curriculum_adoption::{preview_assignment, preview_course};
 use crate::in_memory::curriculum_adoption::destination;
 use crate::in_memory::{MemoryStore, State};
-use crate::{CourseRecord, SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, CourseRecord, SessionTokenHash, StoreError};
 
 use super::AppliedCurriculumAdoption;
 
 /// Resolves one fork request without granting mutation authority.
 pub(super) async fn preview_fork_blueprint_course(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: ForkBlueprintCoursePreviewRequest,
 ) -> Result<ForkBlueprintCoursePreviewView, StoreError> {
@@ -44,7 +44,6 @@ pub(super) async fn preview_fork_blueprint_course(
     let source = source_snapshot_with_replacements(
         &state,
         store,
-        context.tenant_id(),
         actor,
         request.source,
         &request.replacements,
@@ -52,47 +51,35 @@ pub(super) async fn preview_fork_blueprint_course(
     Ok(ForkBlueprintCoursePreviewView {
         source: request.source,
         replacements: request.replacements,
-        eligibility: blueprint_eligibility(
-            &state,
-            context.tenant_id(),
-            request.source,
-            &source.payload,
-        )?,
+        eligibility: blueprint_eligibility(&state, request.source, &source.payload)?,
     })
 }
 
 /// Resolves one existing-CourseInstance assignment adoption without mutation.
 pub(super) async fn preview_adopt_blueprint_assignment(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: AdoptBlueprintAssignmentPreviewRequest,
 ) -> Result<AdoptBlueprintAssignmentPreviewView, StoreError> {
-    let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
-    let course = super::super::resolve_course(&state, tenant, request.course)?;
-    require_course_instructor(&state, tenant, course, actor)?;
-    course_instance_blueprint_application(&state, tenant, course)?;
-    let destination = course_witness(&state, tenant, course)?;
+    let course = super::super::resolve_course(&state, request.course)?;
+    require_course_instructor(&state, course, actor)?;
+    course_instance_blueprint_application(&state, course)?;
+    let destination = course_witness(&state, course)?;
     let source = assignment_source_snapshot_with_replacements(
         &state,
         store,
-        tenant,
         actor,
         request.source,
         &request.replacements,
     )?;
     let eligibility = assignment_eligibility(
         &state,
-        tenant,
         request.source,
         &source.payload,
-        &state
-            .courses
-            .get(&(tenant, course))
-            .ok_or(StoreError::NotFound)?
-            .term,
+        &state.courses.get(&course).ok_or(StoreError::NotFound)?.term,
     )?;
     Ok(AdoptBlueprintAssignmentPreviewView {
         source: request.source,
@@ -105,7 +92,7 @@ pub(super) async fn preview_adopt_blueprint_assignment(
 /// Resolves a whole BlueprintCourse instantiation without mutation.
 pub(super) async fn preview_instantiate_blueprint_course(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: InstantiateBlueprintCoursePreviewRequest,
 ) -> Result<InstantiateBlueprintCoursePreviewView, StoreError> {
@@ -114,13 +101,11 @@ pub(super) async fn preview_instantiate_blueprint_course(
     let source = source_snapshot_with_replacements(
         &state,
         store,
-        context.tenant_id(),
         actor,
         request.source,
         &request.replacements,
     )?;
-    let eligibility =
-        blueprint_eligibility(&state, context.tenant_id(), request.source, &source.payload)?;
+    let eligibility = blueprint_eligibility(&state, request.source, &source.payload)?;
     let eligibility = match eligibility {
         BlueprintAdoptionEligibility::Eligible => {
             let CurriculumSemanticPayload::Course(course) = source.payload else {
@@ -153,11 +138,10 @@ pub(super) async fn preview_instantiate_blueprint_course(
 pub(super) fn apply_fork_blueprint_course_locked(
     state: &mut State,
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: question_model::UserId,
     command: &ForkBlueprintCourseCommand,
 ) -> Result<AppliedCurriculumAdoption, StoreError> {
-    let tenant = context.tenant_id();
     let creation = command.creation();
     if actor != creation.authorized_actor()
         || command.idempotency_key() != creation.idempotency_key()
@@ -167,18 +151,17 @@ pub(super) fn apply_fork_blueprint_course_locked(
     let source = source_snapshot_with_replacements(
         state,
         store,
-        tenant,
         actor,
         *command.source(),
         command.replacements(),
     )?;
-    validate_destination_pins(state, tenant, &source.payload).map_err(|_| StoreError::Conflict)?;
+    validate_destination_pins(state, &source.payload).map_err(|_| StoreError::Conflict)?;
     let CurriculumSemanticPayload::Course(course) = source.payload else {
         return Err(StoreError::Conflict);
     };
     let created_reference =
         super::super::super::reusable_curriculum::create_blueprint_course_from_semantic_locked(
-            state, tenant, actor, &course,
+            state, actor, &course,
         )?;
     if created_reference != creation.reserved_blueprint() {
         return Err(StoreError::Conflict);
@@ -203,33 +186,29 @@ pub(super) fn apply_fork_blueprint_course_locked(
 pub(super) fn apply_adopt_blueprint_assignment_locked(
     state: &mut State,
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: question_model::UserId,
     command: &AdoptBlueprintAssignmentCommand,
 ) -> Result<AppliedCurriculumAdoption, StoreError> {
-    let tenant = context.tenant_id();
     if actor != command.authorized_actor() {
         return Err(StoreError::Conflict);
     }
-    let course = require_exact_witness(state, tenant, command.destination())?;
-    require_course_instructor(state, tenant, course, actor)?;
-    if course_instance_blueprint_application(state, tenant, course)?
-        != command.blueprint_application()
-    {
+    let course = require_exact_witness(state, command.destination())?;
+    require_course_instructor(state, course, actor)?;
+    if course_instance_blueprint_application(state, course)? != command.blueprint_application() {
         return Err(StoreError::Conflict);
     }
     let source = assignment_source_snapshot_with_replacements(
         state,
         store,
-        tenant,
         actor,
         *command.source(),
         command.replacements(),
     )?;
-    validate_destination_pins(state, tenant, &source.payload).map_err(|_| StoreError::Conflict)?;
+    validate_destination_pins(state, &source.payload).map_err(|_| StoreError::Conflict)?;
     let assignment = only_assignment(&source.payload)?.clone();
     let (assignment_id, reference) =
-        destination::materialize_semantic_assignment(state, context, course, &assignment)?;
+        destination::materialize_semantic_assignment(state, course, &assignment)?;
     let import_revision = question_model::CurriculumImportRevision::new(1)
         .expect("initial import revision is bounded");
     let import = CourseInstanceImportWitness {
@@ -238,12 +217,12 @@ pub(super) fn apply_adopt_blueprint_assignment_locked(
             assignment: reference,
             revision: *state
                 .assignment_revisions
-                .get(&(tenant, assignment_id))
+                .get(&assignment_id)
                 .ok_or(StoreError::Conflict)?,
         },
         import_revision,
     };
-    let outcome = course_witness(state, tenant, course)?;
+    let outcome = course_witness(state, course)?;
     let applied_assignment = import.destination;
     store_assignment_import(
         state,
@@ -273,11 +252,10 @@ pub(super) fn apply_adopt_blueprint_assignment_locked(
 pub(super) fn apply_instantiate_blueprint_course_locked(
     state: &mut State,
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: question_model::UserId,
     command: &InstantiateBlueprintCourseCommand,
 ) -> Result<AppliedCurriculumAdoption, StoreError> {
-    let tenant = context.tenant_id();
     let creation = command.creation();
     if actor != creation.authorized_actor()
         || !creation.matches_blueprint_source(command.source())
@@ -289,12 +267,11 @@ pub(super) fn apply_instantiate_blueprint_course_locked(
     let source = source_snapshot_with_replacements(
         state,
         store,
-        tenant,
         actor,
         *command.source(),
         command.replacements(),
     )?;
-    validate_destination_pins(state, tenant, &source.payload).map_err(|_| StoreError::Conflict)?;
+    validate_destination_pins(state, &source.payload).map_err(|_| StoreError::Conflict)?;
     let CurriculumSemanticPayload::Course(course_semantic) = source.payload else {
         return Err(StoreError::Conflict);
     };
@@ -303,7 +280,6 @@ pub(super) fn apply_instantiate_blueprint_course_locked(
         state,
         CourseRecord {
             id: course_id,
-            tenant,
             title: course_semantic.title().to_owned(),
             term: command.target_term().clone(),
         },
@@ -318,15 +294,14 @@ pub(super) fn apply_instantiate_blueprint_course_locked(
     if state
         .curriculum_adoption
         .course_instance_blueprint_applications
-        .insert((tenant, course_id), blueprint_application)
+        .insert(course_id, blueprint_application)
         .is_some()
     {
         return Err(StoreError::Conflict);
     }
-    let precondition = course_witness(state, tenant, course_id)?;
+    let precondition = course_witness(state, course_id)?;
     let source_assignments = super::super::super::reusable_curriculum::course_assignment_sources(
         state,
-        tenant,
         *command.source(),
     )?;
     let assignments = course_semantic
@@ -340,7 +315,7 @@ pub(super) fn apply_instantiate_blueprint_course_locked(
     let mut imports = Vec::new();
     for (assignment, source_view) in assignments.into_iter().zip(source_assignments) {
         let (assignment_id, reference) =
-            destination::materialize_semantic_assignment(state, context, course_id, assignment)?;
+            destination::materialize_semantic_assignment(state, course_id, assignment)?;
         let import_revision = question_model::CurriculumImportRevision::new(1)
             .expect("initial import revision is bounded");
         imports.push((
@@ -351,14 +326,14 @@ pub(super) fn apply_instantiate_blueprint_course_locked(
                     assignment: reference,
                     revision: *state
                         .assignment_revisions
-                        .get(&(tenant, assignment_id))
+                        .get(&assignment_id)
                         .ok_or(StoreError::Conflict)?,
                 },
                 import_revision,
             },
         ));
     }
-    let destination = course_witness(state, tenant, course_id)?;
+    let destination = course_witness(state, course_id)?;
     for (assignment_id, import) in imports {
         store_assignment_import(
             state,
@@ -393,15 +368,14 @@ pub(super) fn apply_instantiate_blueprint_course_locked(
 
 fn blueprint_eligibility(
     state: &State,
-    tenant: question_model::TenantId,
     source: ObservedBlueprintSource,
     payload: &CurriculumSemanticPayload,
 ) -> Result<BlueprintAdoptionEligibility, StoreError> {
-    match validate_destination_pins(state, tenant, payload) {
+    match validate_destination_pins(state, payload) {
         Ok(()) => Ok(BlueprintAdoptionEligibility::Eligible),
         Err(_) => Ok(BlueprintAdoptionEligibility::Refused {
             refusal: BlueprintAdoptionRefusal::UnavailablePin {
-                recovery: pin_correction_for_payload(state, tenant, source, payload)?,
+                recovery: pin_correction_for_payload(state, source, payload)?,
             },
         }),
     }
@@ -409,16 +383,14 @@ fn blueprint_eligibility(
 
 fn assignment_eligibility(
     state: &State,
-    tenant: question_model::TenantId,
     source: AssignmentDefinitionSourceView,
     payload: &CurriculumSemanticPayload,
     term: &question_model::CourseTerm,
 ) -> Result<BlueprintAdoptionEligibility, StoreError> {
-    if validate_destination_pins(state, tenant, payload).is_err() {
+    if validate_destination_pins(state, payload).is_err() {
         return Ok(BlueprintAdoptionEligibility::Refused {
             refusal: BlueprintAdoptionRefusal::UnavailablePin {
-                recovery: pin_correction(state, tenant, source, payload)?
-                    .ok_or(StoreError::Conflict)?,
+                recovery: pin_correction(state, source, payload)?.ok_or(StoreError::Conflict)?,
             },
         });
     }
@@ -435,23 +407,21 @@ fn assignment_eligibility(
 
 fn pin_correction_for_payload(
     state: &State,
-    tenant: question_model::TenantId,
     source: ObservedBlueprintSource,
     payload: &CurriculumSemanticPayload,
 ) -> Result<question_model::UnavailableCurriculumPinRecovery, StoreError> {
-    let position = super::super::unavailable_destination_pin(state, tenant, payload)?
+    let position = super::super::unavailable_destination_pin(state, payload)?
         .ok_or(StoreError::Conflict)?
         .position();
     let module = position.module_index().ok_or(StoreError::Conflict)?;
     let assignment_source =
         super::super::super::reusable_curriculum::course_assignment_source_at_position(
             state,
-            tenant,
             source,
             module,
             position.assignment_index(),
         )?;
-    pin_correction(state, tenant, assignment_source, payload)?.ok_or(StoreError::Conflict)
+    pin_correction(state, assignment_source, payload)?.ok_or(StoreError::Conflict)
 }
 
 fn only_assignment(

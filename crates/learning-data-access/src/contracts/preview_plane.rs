@@ -1,12 +1,12 @@
 //! Focused persistence boundary for the non-mutating WP-INST-T3 preview plane.
 
-use crate::{PageRequest, StoreError, TenantContext};
+use crate::{ActorContext, PageRequest, StoreError};
 use async_trait::async_trait;
 use objects::Sha256Digest;
 use question_model::{
     AssignmentReference, CourseId, DerivedPreviewSubjectRequest, InstructorPreviewSchedulePage,
     PreviewAccommodationComparison, PreviewEvaluation, SyntheticPreviewSubjectRequest,
-    TeachingOperationRevision, TenantId, UserId,
+    TeachingOperationRevision, UserId,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,8 +18,7 @@ pub struct PreviewPlaneResult {
 pub struct PreviewSubjectAudit {
     /// Private persistence provenance. This is deliberately not part of the
     /// T3 browser contract; it fences an audit that happens to contain
-    /// colliding IDs in another tenant.
-    pub tenant: TenantId,
+    /// colliding IDs in another course.
     pub actor: UserId,
     pub course: CourseId,
     pub assignment: AssignmentReference,
@@ -32,7 +31,7 @@ pub struct PreviewSubjectAudit {
 pub trait PreviewPlaneStore: Send + Sync {
     async fn list_instructor_preview_schedule(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         assignment: AssignmentReference,
@@ -41,14 +40,14 @@ pub trait PreviewPlaneStore: Send + Sync {
     ) -> Result<InstructorPreviewSchedulePage, StoreError>;
     async fn construct_synthetic_preview(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         request: SyntheticPreviewSubjectRequest,
     ) -> Result<PreviewPlaneResult, StoreError>;
     async fn construct_derived_preview(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         request: DerivedPreviewSubjectRequest,

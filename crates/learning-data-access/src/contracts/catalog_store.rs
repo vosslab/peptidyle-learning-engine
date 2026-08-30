@@ -6,7 +6,7 @@ pub trait CatalogStore: Send + Sync {
     /// Validates the stored draft expectation and atomically publishes it.
     async fn publish_draft(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         command: PublishDraftCommand,
     ) -> Result<PublishedProblemRecord, StoreError>;
@@ -14,7 +14,7 @@ pub trait CatalogStore: Send + Sync {
     /// Resolves an exact visible version, including deprecated or archived ones.
     async fn get_catalog_problem(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError>;
 
@@ -25,21 +25,21 @@ pub trait CatalogStore: Send + Sync {
     /// a successor nor selects a latest version.
     async fn resolve_catalog_problem(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         reference: question_model::ProblemDisplayRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError>;
 
     /// Lists discoverable hot metadata in stable cursor order.
     async fn list_catalog(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         page: PageRequest,
     ) -> Result<Page<CatalogProblemSummary>, StoreError>;
 
     /// Lists distinct controlled taxonomy terms in stable cursor order.
     async fn list_catalog_taxonomy(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         page: PageRequest,
     ) -> Result<Page<TaxonomyTerm>, StoreError>;
 
@@ -49,7 +49,7 @@ pub trait CatalogStore: Send + Sync {
     /// `problem_version_payload` merely to browse or aggregate.
     async fn search_catalog(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError>;
@@ -59,7 +59,7 @@ pub trait CatalogStore: Send + Sync {
     /// may use a hot metadata projection instead of loading source bindings.
     async fn get_catalog_detail(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         _session: SessionTokenHash,
         reference: ProblemVersionRef,
     ) -> Result<Option<CatalogProblemDetail>, StoreError> {
@@ -87,7 +87,7 @@ pub trait CatalogStore: Send + Sync {
     /// Applies an author-owned, one-way post-publication transition.
     async fn transition_catalog_problem(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         reference: ProblemVersionRef,
         transition: CatalogTransition,
@@ -97,14 +97,14 @@ pub trait CatalogStore: Send + Sync {
 /// Private catalog bridge from an exact visible version to its source bytes.
 ///
 /// This trait is intentionally not part of any browser DTO or public asset
-/// delivery API. A foreign tenant receives `None` before an object store is
-/// consulted, which keeps source-object existence tenant-isolated.
+/// delivery API. An unauthorized actor receives `None` before an object store
+/// is consulted, which keeps source-object existence concealed.
 #[async_trait]
 pub trait CatalogSourceStore: Send + Sync {
     /// Resolves the exact source binding for one visible immutable version.
     async fn catalog_source_artifact(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedSourceArtifact>, StoreError>;
 }

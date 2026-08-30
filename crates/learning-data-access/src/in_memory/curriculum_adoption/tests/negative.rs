@@ -89,7 +89,7 @@ async fn foreign_tenant_and_revoked_course_authority_refuse_without_mutation() {
         let course = resolve_course(&state, scenario.tenant, scenario.course).expect("course");
         state
             .active_course_membership_by_user
-            .remove(&(scenario.tenant, course, scenario.actor))
+            .remove(&(course, scenario.actor))
             .expect("active Instructor membership");
     }
     let before = lifecycle_snapshot(&scenario);
@@ -207,7 +207,6 @@ fn issue_run_for_assignment(
         (scenario.tenant, enrollment),
         AssignmentEnrollment {
             id: enrollment,
-            tenant: scenario.tenant,
             assignment,
             user: scenario.actor,
             student: StudentId::from_uuid(Uuid::from_u128(number + 2)),
@@ -221,7 +220,6 @@ fn issue_run_for_assignment(
         AssignmentRun {
             id: run,
             reference: RunReference::new(1).expect("run reference"),
-            tenant: scenario.tenant,
             enrollment,
             run_number: 1,
             started_at: ActivityTimestamp::from_unix_millis(0),

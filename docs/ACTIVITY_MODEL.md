@@ -28,10 +28,10 @@ checks the compact summary rather than treating the first completion as terminal
 ## Single-installation authorization
 
 PLE is one installation with global accounts. It has no institution selector,
-`TenantId`, tenant-leading key, or client-selected database context. Institution
+an installation-wide account selector, leading scope key, or client-selected database context. Institution
 policy configuration is deployment metadata; it is not an account boundary,
 authorization partition, or activity-record owner. Historical pre-SD1 source
-still contains tenant-shaped fields and `TenantContext`; that source is migration
+still contains legacy installation-scope fields; that source is migration
 input, not the target activity contract.
 
 `CourseId` is the exact educational-record boundary. An assignment belongs to

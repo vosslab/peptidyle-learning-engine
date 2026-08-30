@@ -1,7 +1,7 @@
 //! Authenticated private workspace draft routes (MOD-UI-EDITOR).
 //!
 //! A workspace is deliberately unversioned authoring state. The route only
-//! accepts the browser-safe draft definition and derives the tenant from the
+//! accepts the browser-safe draft definition and derives the actor from the
 //! resolved server session; publication and source preparation remain owned by
 //! the catalog and adapter boundaries.
 

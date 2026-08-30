@@ -81,13 +81,13 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return import_not_found();
     }
-    let actor = authenticated.record.subject.user();
+    let actor = authenticated.actor;
     match state
         .store
-        .get_draft(authenticated.tenant_context, actor, workspace)
+        .get_draft(actor, workspace)
         .await
     {
         Ok(Some(_)) => {}
@@ -102,7 +102,7 @@ where
     }
     let created_at = match state
         .store
-        .authoritative_time(authenticated.tenant_context)
+        .authoritative_time()
         .await
     {
         Ok(value) => value,
@@ -126,11 +126,9 @@ where
         }
     };
 
-    let tenant = authenticated.tenant_context.tenant_id();
-    let object = workspace_qti_archive_object_id(tenant, workspace, import);
+    let object = workspace_qti_archive_object_id(workspace, import);
     let candidate = PutObject {
         key: ObjectKey::WorkspaceSource {
-            tenant,
             workspace,
             import,
             object,
@@ -159,11 +157,9 @@ where
     let view = match state
         .store
         .queue_qti_import(
-            authenticated.tenant_context,
             actor,
             QueueQtiImportCommand {
                 reference: QtiImportRef {
-                    tenant,
                     workspace,
                     import,
                 },
@@ -192,17 +188,12 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return import_not_found();
     }
     let view = match state
         .store
-        .qti_import_view(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            workspace,
-            import,
-        )
+        .qti_import_view(authenticated.actor, workspace, import)
         .await
     {
         Ok(Some(view)) => view,
@@ -515,15 +506,13 @@ fn stored_object_matches_candidate(stored: &StoredObject, candidate: &PutObject)
         && stored.bytes == candidate.bytes
 }
 
-fn may_author(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_author(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 fn store_error_response(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             import_not_found()
         }
         StoreError::AlreadyExists | StoreError::Conflict => archive_conflict(),

@@ -8,7 +8,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    CurriculumAdoptionStore, SessionLifetime, SessionRecord, SessionStore, SessionSubject,
+    CurriculumAdoptionStore, SessionId, SessionLifetime, SessionRecord, SessionStore, SessionSubject,
     SessionTokenHash, StoreError, TenantContext, in_memory::MemoryStore,
 };
 use question_model::{
@@ -105,6 +105,7 @@ impl RecordingStore {
         (
             Self {
                 session: SessionRecord {
+                    id: SessionId::from_uuid(Uuid::from_u128(6_401)),
                     token_hash,
                     subject,
                     created_at: ActivityTimestamp::from_unix_millis(0),

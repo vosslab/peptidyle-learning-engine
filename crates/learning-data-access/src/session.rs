@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Digest;
-use question_model::{ActivityTimestamp, TenantId, UserId, UserRole};
+use question_model::{ActivityTimestamp, UserId, UserRole};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -21,6 +21,14 @@ pub const MAX_DISPLAY_NAME_CHARS: usize = 200;
 pub struct SessionId(Uuid);
 
 impl SessionId {
+    /// Mints a fresh durable session identity before persistence.
+    pub fn generate() -> Result<Self, StoreError> {
+        crate::random_uuid::random_uuid_v4(|error| {
+            StoreError::Unavailable(format!("session ID randomness unavailable: {error}"))
+        })
+        .map(Self)
+    }
+
     /// Reconstitutes an ID read from trusted session storage.
     pub fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -41,9 +49,21 @@ impl SessionId {
 pub struct ActorContext {
     user_id: UserId,
     session_id: SessionId,
+    role: UserRole,
 }
 
 impl ActorContext {
+    /// Derives request identity only from an active session record resolved by
+    /// trusted session storage. ASVS 7.2.1 and 8.3.1: trusted backend storage
+    /// establishes the identity used by every later authorization decision.
+    pub fn from_session_record(record: &SessionRecord) -> Self {
+        Self {
+            user_id: record.subject.user(),
+            session_id: record.id,
+            role: record.subject.role(),
+        }
+    }
+
     /// Returns the authenticated global account identity.
     pub fn user_id(self) -> UserId {
         self.user_id
@@ -52,6 +72,11 @@ impl ActorContext {
     /// Returns the resolved durable session-record identity.
     pub fn session_id(self) -> SessionId {
         self.session_id
+    }
+
+    /// Returns the one immutable role resolved with this active session.
+    pub fn role(self) -> UserRole {
+        self.role
     }
 }
 
@@ -129,19 +154,17 @@ impl SessionLifetime {
 /// Identity established by a trusted credential provider.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionSubject {
-    tenant: TenantId,
     user: UserId,
     display_name: String,
-    roles: Vec<UserRole>,
+    role: UserRole,
 }
 
 impl SessionSubject {
-    /// Validates and canonicalizes a provider-established identity.
+    /// Validates one provider-established account identity.
     pub fn new(
-        tenant: TenantId,
         user: UserId,
         display_name: impl Into<String>,
-        mut roles: Vec<UserRole>,
+        role: UserRole,
     ) -> Result<Self, SessionSubjectError> {
         let display_name = display_name.into();
         let display_name = display_name.trim();
@@ -151,22 +174,11 @@ impl SessionSubject {
         if display_name.chars().count() > MAX_DISPLAY_NAME_CHARS {
             return Err(SessionSubjectError::DisplayNameTooLong);
         }
-        roles.sort_unstable();
-        roles.dedup();
-        if roles.is_empty() {
-            return Err(SessionSubjectError::NoRoles);
-        }
         Ok(Self {
-            tenant,
             user,
             display_name: display_name.to_string(),
-            roles,
+            role,
         })
-    }
-
-    /// Tenant used to construct authenticated RLS context.
-    pub fn tenant(&self) -> TenantId {
-        self.tenant
     }
 
     /// Authenticated person, distinct from an enrollment identifier.
@@ -179,9 +191,9 @@ impl SessionSubject {
         &self.display_name
     }
 
-    /// Canonical, nonempty coarse roles.
-    pub fn roles(&self) -> &[UserRole] {
-        &self.roles
+    /// Immutable product role for this account.
+    pub fn role(&self) -> UserRole {
+        self.role
     }
 }
 
@@ -192,8 +204,6 @@ pub enum SessionSubjectError {
     EmptyDisplayName,
     /// The label exceeded the bounded session-field size.
     DisplayNameTooLong,
-    /// Authentication produced no application authorization role.
-    NoRoles,
 }
 
 impl std::fmt::Display for SessionSubjectError {
@@ -204,7 +214,6 @@ impl std::fmt::Display for SessionSubjectError {
                 formatter,
                 "display name must contain at most {MAX_DISPLAY_NAME_CHARS} characters"
             ),
-            Self::NoRoles => formatter.write_str("session subject must have at least one role"),
         }
     }
 }
@@ -214,6 +223,8 @@ impl std::error::Error for SessionSubjectError {}
 /// Active database session returned after expiry and revocation checks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionRecord {
+    /// Durable session identity, distinct from the opaque credential hash.
+    pub id: SessionId,
     /// One-way lookup key, never the raw cookie credential.
     pub token_hash: SessionTokenHash,
     /// Identity established at credential verification time.
@@ -271,25 +282,38 @@ mod tests {
 
     #[test]
     fn session_subject_is_bounded_and_canonical() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let user = UserId::from_uuid(Uuid::from_u128(2));
-        let subject = SessionSubject::new(
-            tenant,
-            user,
-            " Fixture User ",
-            vec![UserRole::Student, UserRole::Instructor, UserRole::Student],
-        )
-        .expect("valid session subject");
+        let subject = SessionSubject::new(user, " Fixture User ", UserRole::Student)
+            .expect("valid session subject");
 
         assert_eq!(subject.display_name(), "Fixture User");
-        assert_eq!(subject.roles(), &[UserRole::Student, UserRole::Instructor]);
+        assert_eq!(subject.role(), UserRole::Student);
         assert_eq!(
-            SessionSubject::new(tenant, user, " ", vec![UserRole::Student]),
+            SessionSubject::new(user, " ", UserRole::Student),
             Err(SessionSubjectError::EmptyDisplayName)
         );
-        assert_eq!(
-            SessionSubject::new(tenant, user, "Fixture User", Vec::new()),
-            Err(SessionSubjectError::NoRoles)
-        );
+    }
+
+    #[test]
+    fn actor_context_preserves_the_resolved_session_role() {
+        let subject = SessionSubject::new(
+            UserId::from_uuid(Uuid::from_u128(2)),
+            "Fixture User",
+            UserRole::Instructor,
+        )
+        .expect("valid session subject");
+        let record = SessionRecord {
+            id: SessionId::from_uuid(Uuid::from_u128(3)),
+            token_hash: SessionTokenHash::compute(b"opaque credential"),
+            subject,
+            created_at: ActivityTimestamp::from_unix_millis(1),
+            expires_at: ActivityTimestamp::from_unix_millis(2),
+        };
+
+        let actor = ActorContext::from_session_record(&record);
+
+        assert_eq!(actor.user_id(), record.subject.user());
+        assert_eq!(actor.session_id(), record.id);
+        assert_eq!(actor.role(), UserRole::Instructor);
     }
 }

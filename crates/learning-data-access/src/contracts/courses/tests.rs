@@ -15,7 +15,6 @@ fn selection_run(id_value: u128, enrollment: u128, run_number: u32) -> Assignmen
             u64::try_from(id_value).expect("run reference"),
         )
         .expect("valid run reference"),
-        tenant: TenantId::from_uuid(id(2)),
         enrollment: EnrollmentId::from_uuid(id(enrollment)),
         run_number,
         started_at: ActivityTimestamp::from_unix_millis(0),
@@ -34,7 +33,6 @@ fn run_selection_is_reproducible_and_freezes_expanded_order() {
     };
     let assignment = AssignmentRecord {
         id: AssignmentId::from_uuid(id(1)),
-        tenant: TenantId::from_uuid(id(2)),
         course_id: CourseId::from_uuid(id(3)),
         title: "Selection fixture".to_string(),
         lifecycle: question_model::AssignmentLifecycle::Draft,
@@ -160,7 +158,6 @@ fn current_attempt_points_apply_every_scoring_mode_and_attempt_exclusion() {
     ];
     let assignment = AssignmentRecord {
         id: AssignmentId::from_uuid(id(202)),
-        tenant: TenantId::from_uuid(id(203)),
         course_id: CourseId::from_uuid(id(204)),
         title: "Scoring modes".to_string(),
         lifecycle: question_model::AssignmentLifecycle::Draft,
@@ -276,7 +273,6 @@ fn completed_run_score_is_rounded_before_persistence() {
 
 #[test]
 fn selected_group_items_complete_from_the_immutable_delivered_order() {
-    let tenant = TenantId::from_uuid(id(300));
     let run = selection_run(301, 305, 1);
     let reference = |value| ProblemVersionRef {
         problem: ProblemId::from_uuid(id(310 + value)),
@@ -284,7 +280,6 @@ fn selected_group_items_complete_from_the_immutable_delivered_order() {
     };
     let assignment = AssignmentRecord {
         id: AssignmentId::from_uuid(id(302)),
-        tenant,
         course_id: CourseId::from_uuid(id(303)),
         title: "Selected completion".to_string(),
         lifecycle: question_model::AssignmentLifecycle::Draft,
@@ -321,7 +316,6 @@ fn selected_group_items_complete_from_the_immutable_delivered_order() {
         .enumerate()
         .map(|(index, item)| QuestionAttempt {
             id: QuestionAttemptId::from_uuid(id(340 + index as u128)),
-            tenant,
             run: run.id,
             problem: item.reference.problem,
             question_version: item.reference.version,
@@ -393,7 +387,6 @@ fn immutable_assignment_fixture() -> AssignmentRecord {
     };
     AssignmentRecord {
         id: AssignmentId::from_uuid(id(1)),
-        tenant: TenantId::from_uuid(id(2)),
         course_id: CourseId::from_uuid(id(3)),
         title: "Immutable item fixture".to_string(),
         lifecycle: question_model::AssignmentLifecycle::Draft,

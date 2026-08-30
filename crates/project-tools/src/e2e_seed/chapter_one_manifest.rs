@@ -49,7 +49,6 @@ pub(super) enum ChapterOneCorpusState {
 pub(super) async fn select_chapter_one_resume_manifest(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
-    tenant: TenantId,
     chapters: &[PilotChapterSpec],
     manifest_path: Option<&str>,
 ) -> Result<Option<ChapterOnePilotManifest>> {
@@ -58,7 +57,7 @@ pub(super) async fn select_chapter_one_resume_manifest(
         let course = store
             .get_course(
                 context,
-                CourseId::from_uuid(pilot_uuid(tenant, &chapter.slug, "course")),
+                CourseId::from_uuid(pilot_uuid(&chapter.slug, "course")),
             )
             .await?;
         markers.push(course.is_some());
@@ -68,7 +67,7 @@ pub(super) async fn select_chapter_one_resume_manifest(
         return Ok(None);
     };
     let manifest = read_resume_manifest(path)?;
-    validate_resume_manifest(&manifest, tenant, chapters)?;
+    validate_resume_manifest(&manifest, chapters)?;
     Ok(Some(manifest))
 }
 
@@ -129,7 +128,6 @@ pub(super) fn read_resume_manifest(path: &str) -> Result<ChapterOnePilotManifest
 
 pub(super) fn validate_resume_manifest(
     manifest: &ChapterOnePilotManifest,
-    tenant: TenantId,
     tracked: &[PilotChapterSpec],
 ) -> Result<()> {
     if manifest.chapters.len() != tracked.len() {
@@ -140,9 +138,9 @@ pub(super) fn validate_resume_manifest(
     let mut references = std::collections::BTreeSet::new();
     for (actual, expected) in manifest.chapters.iter().zip(tracked) {
         if actual.slug != expected.slug
-            || actual.course_id != CourseId::from_uuid(pilot_uuid(tenant, &expected.slug, "course"))
+            || actual.course_id != CourseId::from_uuid(pilot_uuid(&expected.slug, "course"))
             || actual.assignment_id
-                != AssignmentId::from_uuid(pilot_uuid(tenant, &expected.slug, "assignment"))
+                != AssignmentId::from_uuid(pilot_uuid(&expected.slug, "assignment"))
             || actual.questions.len() != expected.questions.len()
         {
             bail!("existing Chapter 1 manifest does not match tracked chapter identity");

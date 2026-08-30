@@ -10,7 +10,7 @@ use domain::effective_assignment_policy::{
 use question_model::{
     AssignmentId, AssignmentPolicyExceptionId, CourseGroupId, CourseGroupPurpose,
     CourseGroupPurposePolicy, CourseGroupReference, CourseId, CourseMembershipId,
-    MultipleMembershipDisposition, QuestionAttemptId, StudentId, TenantId, UserId,
+    MultipleMembershipDisposition, QuestionAttemptId, StudentId, UserId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +57,6 @@ impl CourseGroupRevision {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseGroupRecord {
     pub id: CourseGroupId,
-    pub tenant: TenantId,
     pub course: CourseId,
     pub purpose: CourseGroupPurpose,
     pub title: String,
@@ -155,7 +154,6 @@ pub struct PutCourseGroupCommand {
 /// M1: assignment-owned policy with no audience or membership authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StoredBaseAssignmentPolicy {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub policy: BaseAssignmentPolicy,
@@ -239,7 +237,6 @@ pub struct DeleteIndividualPolicyExceptionCommand {
 /// a second timing resolver.  The caller supplies the S5 decision and clock.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectivePolicyResolution {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub decision: domain::effective_assignment_policy::EffectivePolicyDecision,

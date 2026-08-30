@@ -1,9 +1,9 @@
 //! Pure, retention-safe anonymous question-statistics aggregation.
 //!
-//! These values are sufficient statistics only: they carry no tenant or
+//! These values are sufficient statistics only: they carry no institution or
 //! learner identity, answer material, feedback, source reference, or raw time
 //! series. Store implementations derive one observation per exact published
-//! question version before tenant-owned activity records are deleted.
+//! question version before course-owned activity records are deleted.
 
 use std::fmt;
 

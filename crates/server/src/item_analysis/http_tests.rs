@@ -301,12 +301,12 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
         generation,
     };
     store
-        .prepare_course_item_analysis(context, command)
+        .prepare_course_item_analysis(command)
         .await
         .expect("stage analysis");
     assert_eq!(
         store
-            .commit_course_item_analysis(context, command)
+            .commit_course_item_analysis(command)
             .await
             .expect("publish analysis"),
         CourseItemAnalysisCommitOutcome::Committed

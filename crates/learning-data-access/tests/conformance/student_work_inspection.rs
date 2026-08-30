@@ -726,7 +726,6 @@ async fn inspection_conceals_retention_deleted_student_work_without_audit() {
         }
     );
     let command = RetentionWorkerCommand {
-        tenant: fixture.tenant,
         course: fixture.course,
         stage: learning_data_access::RetentionStage::DeleteStudentRecords,
         generation: 2,

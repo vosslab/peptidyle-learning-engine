@@ -1,6 +1,6 @@
 //! Server-private immutable learner-response authority for Memory conformance.
 
-use question_model::{QuestionAttemptId, StudentResponse, TenantId};
+use question_model::{QuestionAttemptId, StudentResponse};
 
 use super::{State, StoreError};
 
@@ -53,13 +53,12 @@ impl std::fmt::Debug for StoredPrivateSubmissionResponse {
 /// exposing that authority to receipt or attempt callers.
 pub(super) fn stored_submission_matches_response(
     state: &State,
-    tenant: TenantId,
     attempt: QuestionAttemptId,
     response: &StudentResponse,
 ) -> Result<bool, StoreError> {
     let canonical_text = crate::canonical_student_response_json(response)?;
     let sha256 = objects::Sha256Digest::compute(canonical_text.as_bytes());
-    stored_submission_matches_canonical(state, tenant, attempt, response, &canonical_text, sha256)
+    stored_submission_matches_canonical(state, attempt, response, &canonical_text, sha256)
 }
 
 /// Validates a response against already-canonicalized replay identity.
@@ -68,7 +67,6 @@ pub(super) fn stored_submission_matches_response(
 /// generic completed-submission paths use `stored_submission_matches_response`.
 pub(super) fn stored_submission_matches_canonical(
     state: &State,
-    tenant: TenantId,
     attempt: QuestionAttemptId,
     response: &StudentResponse,
     canonical_text: &str,
@@ -76,7 +74,7 @@ pub(super) fn stored_submission_matches_canonical(
 ) -> Result<bool, StoreError> {
     let private = state
         .private_submission_responses
-        .get(&(tenant, attempt))
+        .get(&attempt)
         .ok_or_else(|| {
             StoreError::Unavailable("submission response authority is missing".to_string())
         })?;
@@ -88,12 +86,11 @@ pub(super) fn stored_submission_matches_canonical(
 /// identity before inspection projects it against the issued presentation.
 pub(super) fn load_verified_private_submission_response(
     state: &State,
-    tenant: TenantId,
     attempt: QuestionAttemptId,
 ) -> Result<&StudentResponse, StoreError> {
     let private = state
         .private_submission_responses
-        .get(&(tenant, attempt))
+        .get(&attempt)
         .ok_or(StoreError::NotFound)?;
     let canonical_text = crate::canonical_student_response_json(&private.response)?;
     let sha256 = objects::Sha256Digest::compute(canonical_text.as_bytes());

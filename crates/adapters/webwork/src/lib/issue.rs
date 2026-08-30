@@ -63,7 +63,7 @@ pub struct WebworkIssuedAttempt {
     /// Immutable source, implementation, and rendered-output evidence.
     pub provenance: AttemptProvenance,
     /// Private field/value mapping captured from the exact trusted render.
-    /// It is persisted under the attempt's tenant boundary and is never part
+    /// It is persisted under the attempt's course boundary and is never part
     /// of the browser envelope or safe render cache.
     pub replay: Option<WebworkReplayMappingV1>,
     /// Whether this response came from object storage rather than the renderer.
@@ -350,7 +350,7 @@ where
     }
 
     /// Reproduces only the browser-safe cached render for an existing attempt.
-    /// Attempt-bound replay state is loaded separately from tenant storage.
+    /// Attempt-bound replay state is loaded separately from course storage.
     pub async fn reproduce(
         &self,
         question: &QuestionDefinition,

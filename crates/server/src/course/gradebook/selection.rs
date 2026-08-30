@@ -254,7 +254,7 @@ fn gradebook_selection_store_error(error: StoreError) -> Response {
     match error {
         StoreError::NotFound
         | StoreError::Forbidden
-        | StoreError::TenantMismatch
+        | StoreError::OwnershipMismatch
         | StoreError::Unavailable(_) => gradebook_selection_unavailable(),
         error => store_error_response(error),
     }

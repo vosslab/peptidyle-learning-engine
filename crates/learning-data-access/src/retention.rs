@@ -2,14 +2,14 @@
 //!
 //! This module deliberately does not schedule work, read a wall clock, or
 //! authorize deletion. Store and worker implementations bind these deterministic
-//! values to tenant-scoped configuration, database time, and private jobs.
+//! values to installation-wide configuration, database time, and private jobs.
 
 #[cfg(any(test, feature = "test-support"))]
 use std::collections::BTreeSet;
 use std::num::NonZeroU16;
 
 use objects::ObjectKey;
-use question_model::{ActivityTimestamp, CourseId, TenantId};
+use question_model::{ActivityTimestamp, CourseId};
 use serde::{Deserialize, Serialize};
 
 /// Default number of days after a course ends before instructors are notified.
@@ -128,13 +128,13 @@ impl std::error::Error for RetentionPolicyError {}
 /// boundary owns configuration and prevents a browser request from choosing a
 /// shorter or longer deletion window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InstitutionRetentionPolicy {
+pub struct RetentionPolicy {
     notify_after: RetentionDays,
     archive_after: RetentionDays,
     delete_after: RetentionDays,
 }
 
-impl InstitutionRetentionPolicy {
+impl RetentionPolicy {
     /// Creates an ordered retention policy.
     pub fn new(
         notify_after: RetentionDays,
@@ -216,7 +216,7 @@ impl InstitutionRetentionPolicy {
     }
 }
 
-impl Default for InstitutionRetentionPolicy {
+impl Default for RetentionPolicy {
     fn default() -> Self {
         Self::new(
             RetentionDays::new(DEFAULT_RETENTION_NOTIFY_DAYS).expect("default notify days"),
@@ -276,11 +276,11 @@ pub enum CourseRetentionState {
     StudentRecordsDeleted,
 }
 
-/// Owner-selected treatment of the tenant-owned assignment definition.
+/// Owner-selected treatment of the course assignment definition.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentDefinitionDisposition {
-    /// Preserve the reusable tenant-owned assignment definition after record purge.
+    /// Preserve the reusable assignment definition after record purge.
     #[default]
     Retain,
     /// Delete the assignment definition after its student records are purged.
@@ -304,7 +304,7 @@ pub struct CourseRetentionStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CourseRetentionSnapshot {
     ended_at: ActivityTimestamp,
-    policy: InstitutionRetentionPolicy,
+    policy: RetentionPolicy,
     assignment_definitions: AssignmentDefinitionDisposition,
     generation: u64,
 }
@@ -409,7 +409,7 @@ impl CourseRetentionSnapshot {
     /// Creates the first immutable schedule snapshot for an ended course.
     pub(crate) fn new(
         ended_at: ActivityTimestamp,
-        policy: InstitutionRetentionPolicy,
+        policy: RetentionPolicy,
         assignment_definitions: AssignmentDefinitionDisposition,
         generation: u64,
     ) -> Result<Self, RetentionPolicyError> {
@@ -429,7 +429,7 @@ impl CourseRetentionSnapshot {
         self.ended_at
     }
     /// Returns the immutable policy effective at course end.
-    pub fn policy(self) -> InstitutionRetentionPolicy {
+    pub fn policy(self) -> RetentionPolicy {
         self.policy
     }
     /// Returns the selected assignment-definition disposition.
@@ -480,7 +480,7 @@ impl CourseRetentionStatus {
 /// Private idempotency identity for one scheduled retention job.
 ///
 /// This is intentionally non-serializable and crate-private. R2 binds it to a
-/// tenant-scoped Store command; later queue payloads carry only this immutable
+/// Store command; later queue payloads carry only this immutable
 /// course/stage/generation identity, never student IDs, object keys, URLs, or
 /// record payloads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -497,7 +497,7 @@ pub(crate) struct RetentionJobIdentity {
 /// Private, typed object manifest resolved by the Store for one worker claim.
 ///
 /// It is intentionally neither serializable nor constructible from a route or
-/// queue payload. Every entry must be a tenant-owned `StudentRecord` object;
+/// queue payload. Every entry must be an owned `StudentRecord` object;
 /// the worker deletes these exact keys only after the Store has revoked their
 /// protected deliveries.
 #[derive(Clone, PartialEq, Eq)]
@@ -573,8 +573,6 @@ impl std::fmt::Debug for RetentionWork {
 /// implementation, so it cannot become a browser command or queue payload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RetentionWorkerCommand {
-    /// Active tenant inherited from the claimed durable job.
-    pub tenant: TenantId,
     /// Course identity from the closed queue payload.
     pub course: CourseId,
     /// Retention stage from the closed queue payload.
@@ -638,7 +636,7 @@ mod tests {
         let thirty = RetentionDays::new(30).expect("valid days");
         let hundred = RetentionDays::new(100).expect("valid days");
         assert_eq!(
-            InstitutionRetentionPolicy::new(hundred, thirty, RetentionDays::new(365).unwrap()),
+            RetentionPolicy::new(hundred, thirty, RetentionDays::new(365).unwrap()),
             Err(RetentionPolicyError::StagesNotIncreasing)
         );
         assert_eq!(
@@ -656,7 +654,7 @@ mod tests {
             MAX_RETENTION_DISPATCH_BATCH
         );
         assert_eq!(
-            InstitutionRetentionPolicy::default().due_at(
+            RetentionPolicy::default().due_at(
                 ActivityTimestamp::from_unix_millis(i64::MAX),
                 RetentionStage::Notify,
             ),
@@ -666,7 +664,7 @@ mod tests {
 
     #[test]
     fn default_policy_reports_due_stages_without_claiming_worker_effects() {
-        let policy = InstitutionRetentionPolicy::default();
+        let policy = RetentionPolicy::default();
         let ended_at = timestamp(10_000);
         for (offset, expected_due) in [
             (29, vec![]),

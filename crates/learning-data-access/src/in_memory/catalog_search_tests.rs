@@ -201,8 +201,7 @@ pub(super) fn submit_statistics_attempt(
     };
     let mut state = store.write_state().expect("statistics fixture state");
     state.authoritative_time = ActivityTimestamp::from_unix_millis(submitted_at);
-    insert_statistics_issued_authority(&mut state, &attempt);
-    state.attempts.insert((attempt.tenant, attempt.id), attempt);
+    insert_statistics_issued_authority(&mut state, attempt);
     let record = submit_question_attempt_locked(&mut state, context, command.clone())
         .expect("statistics fixture submission");
     (record, command)
@@ -211,33 +210,34 @@ pub(super) fn submit_statistics_attempt(
 /// Statistics fixtures install only the authority a real issue transaction
 /// persists. Submission must therefore succeed even after the catalog record
 /// is unavailable; it has no permission to recover timing from current policy.
-pub(super) fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttempt) {
+pub(super) fn insert_statistics_issued_authority(state: &mut State, attempt: QuestionAttempt) {
+    let scope = state
+        .runs
+        .keys()
+        .find_map(|(scope, run)| (*run == attempt.run).then_some(*scope))
+        .expect("statistics attempt has a run");
     let run = state
         .runs
-        .get(&(attempt.tenant, attempt.run))
+        .get(&(scope, attempt.run))
         .expect("statistics attempt has a run");
     let enrollment = state
         .enrollments
-        .get(&(attempt.tenant, run.enrollment))
+        .get(&(scope, run.enrollment))
         .expect("statistics run has an enrollment");
-    state.attempt_presentation_capabilities.insert(
-        (attempt.tenant, attempt.id),
-        crate::PresentationCapability::NotApplicable,
-    );
-    state.attempt_flat_grading_capabilities.insert(
-        (attempt.tenant, attempt.id),
-        crate::FlatGradingCapability::NotApplicable,
-    );
-    state.attempt_webwork_grading_capabilities.insert(
-        (attempt.tenant, attempt.id),
-        crate::WebworkGradingCapability::NotApplicable,
-    );
-    state.attempt_qti_grading_capabilities.insert(
-        (attempt.tenant, attempt.id),
-        crate::QtiGradingCapability::NotApplicable,
-    );
+    state
+        .attempt_presentation_capabilities
+        .insert(attempt.id, crate::PresentationCapability::NotApplicable);
+    state
+        .attempt_flat_grading_capabilities
+        .insert(attempt.id, crate::FlatGradingCapability::NotApplicable);
+    state
+        .attempt_webwork_grading_capabilities
+        .insert(attempt.id, crate::WebworkGradingCapability::NotApplicable);
+    state
+        .attempt_qti_grading_capabilities
+        .insert(attempt.id, crate::QtiGradingCapability::NotApplicable);
     state.attempt_timing.insert(
-        (attempt.tenant, attempt.id),
+        attempt.id,
         MemoryAttemptTiming {
             assignment: enrollment.assignment,
             authored_deadline: None,
@@ -251,7 +251,6 @@ pub(super) fn insert_statistics_issued_authority(state: &mut State, attempt: &Qu
     );
     super::course_policy::store_issued_effective_policy_receipt(
         state,
-        attempt.tenant,
         attempt.id,
         domain::effective_assignment_policy::EffectiveAssignmentPolicy {
             available_at: domain::effective_assignment_policy::ResolvedField {
@@ -285,30 +284,24 @@ pub(super) fn insert_statistics_issued_authority(state: &mut State, attempt: &Qu
         },
     )
     .expect("statistics fixture effective-policy receipt");
+    state.attempts.insert(attempt.id, attempt);
 }
 
 #[tokio::test]
 async fn statistics_receipts_are_exactly_once_and_disclose_only_at_k_five() {
     let store = MemoryStore::default();
     let mut record = record(71_000);
-    record.scope = PublicationScope::Institution;
+    record.scope = PublicationScope::Public;
     let reference = ProblemVersionRef {
         problem: record.problem,
         version: record.version,
     };
     let tenant = TenantId::from_uuid(Uuid::from_u128(71_001));
-    let context = TenantContext::from_authenticated_session(tenant);
     store
         .write_state()
         .expect("test state")
         .published
         .insert((reference.problem, reference.version), record);
-    store
-        .write_state()
-        .expect("test state")
-        .catalog_grants
-        .insert((tenant, reference.problem, reference.version));
-
     let first = CollapsedQuestionObservation::new(0.5, 2, 30, Some(0.4))
         .expect("valid collapsed observation");
     assert!(
@@ -373,7 +366,7 @@ async fn statistics_receipts_are_exactly_once_and_disclose_only_at_k_five() {
     }
     assert_eq!(
         store
-            .question_statistics(context, reference)
+            .question_statistics(reference)
             .await
             .expect("safe statistics read at four"),
         QuestionStatisticsDisclosure::Suppressed
@@ -392,7 +385,7 @@ async fn statistics_receipts_are_exactly_once_and_disclose_only_at_k_five() {
             .expect("fifth receipt records")
     );
     let disclosure = store
-        .question_statistics(context, reference)
+        .question_statistics(reference)
         .await
         .expect("safe statistics read");
     assert!(matches!(
@@ -423,14 +416,12 @@ async fn statistics_receipts_are_exactly_once_and_disclose_only_at_k_five() {
             )
             .expect("one completion trigger can contribute another version")
     );
-    let foreign_context =
-        TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(71_999)));
     assert_eq!(
         store
-            .question_statistics(foreign_context, reference)
+            .question_statistics(reference)
             .await
-            .expect("foreign safe statistics read"),
-        QuestionStatisticsDisclosure::Suppressed
+            .expect("repeat safe statistics read"),
+        disclosure
     );
 }
 
@@ -574,10 +565,9 @@ async fn catalog_search_applies_metadata_filters_facets_and_actor_course_usage()
         );
         let course = CourseId::from_uuid(Uuid::from_u128(73_103));
         state.courses.insert(
-            (tenant, course),
+            course,
             CourseRecord {
                 id: course,
-                tenant,
                 title: "Metadata parity course".to_string(),
                 term: question_model::CourseTerm::from_parts(
                     "2026-08-24",
@@ -588,12 +578,12 @@ async fn catalog_search_applies_metadata_filters_facets_and_actor_course_usage()
             },
         );
         state.course_references.insert(
-            (tenant, course),
+            course,
             question_model::CourseReference::new(73_104).unwrap(),
         );
         let membership = CourseMembershipId::from_uuid(Uuid::from_u128(73_105));
         state.course_memberships.insert(
-            (tenant, membership),
+            membership,
             CourseMembershipRecord {
                 id: membership,
                 tenant,
@@ -609,7 +599,7 @@ async fn catalog_search_applies_metadata_filters_facets_and_actor_course_usage()
         );
         let assignment_id = AssignmentId::from_uuid(Uuid::from_u128(73_106));
         state.assignments.insert(
-            (tenant, assignment_id),
+            assignment_id,
             AssignmentRecord {
                 id: assignment_id,
                 tenant,

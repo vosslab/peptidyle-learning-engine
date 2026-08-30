@@ -206,7 +206,7 @@ async fn fixture_for_item_identifier(item_identifier: &str) -> Fixture {
         .expect("existing visible draft");
 
     let bytes = canvas_archive_with_item_identifier(item_identifier);
-    let object = workspace_qti_archive_object_id(tenant, workspace, import);
+    let object = workspace_qti_archive_object_id(workspace, import);
     let source = objects
         .put(PutObject {
             key: ObjectKey::WorkspaceSource {

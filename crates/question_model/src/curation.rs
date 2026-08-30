@@ -11,9 +11,9 @@ use crate::{
 
 /// Maximum ordered Question IDs accepted in one atomic collection replacement.
 pub const MAX_PROBLEM_COLLECTION_MEMBERS: usize = 200;
-/// Maximum named collections owned by one instructor in one tenant.
+/// Maximum named collections owned by one instructor in this installation.
 pub const MAX_NAMED_PROBLEM_COLLECTIONS: usize = 100;
-/// Maximum personal saved searches owned by one instructor in one tenant.
+/// Maximum personal saved searches owned by one instructor in this installation.
 pub const MAX_SAVED_PROBLEM_SEARCHES: usize = 100;
 /// Maximum trimmed Unicode scalar values in a collection or saved-search title.
 pub const MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS: usize = 200;
@@ -50,7 +50,7 @@ pub enum ProblemCollectionSelectionAvailability {
 pub enum ProblemCollectionAccess {
     /// The active Instructor owns and may mutate this personal collection.
     Owner,
-    /// A catalog-authorized same-tenant reader may inspect this institution collection.
+    /// An authorized Instructor may inspect this shared collection.
     InstitutionReader,
 }
 

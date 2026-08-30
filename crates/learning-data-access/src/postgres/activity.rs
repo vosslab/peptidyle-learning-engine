@@ -172,13 +172,8 @@ impl crate::ActivityStore for PostgresStore {
         }
         let assignment =
             load_assignment(&mut transaction, context.tenant_id(), record.assignment).await?;
-        let instructor = postgres_is_course_instructor(
-            &mut transaction,
-            context.tenant_id(),
-            assignment.course_id,
-            actor,
-        )
-        .await?;
+        let instructor =
+            postgres_is_course_instructor(&mut transaction, assignment.course_id, actor).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         if instructor {
             Ok(Some(record))
@@ -347,13 +342,8 @@ impl crate::ActivityStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         }
-        let instructor = postgres_is_course_instructor(
-            &mut transaction,
-            context.tenant_id(),
-            assignment.course_id,
-            actor,
-        )
-        .await?;
+        let instructor =
+            postgres_is_course_instructor(&mut transaction, assignment.course_id, actor).await?;
         if !instructor {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);

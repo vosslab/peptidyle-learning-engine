@@ -35,7 +35,6 @@ const RESPONSE_MAXIMUM_BYTES = 1_048_576;
 const POLL_TIMEOUT_MS = 45_000;
 const REPLICA_REFRESH_MS = 2_500;
 const REPLICA_HEADER_PREFIX = "ple-replica-e2e-api-";
-const TENANT_ID = "00000000-0000-0000-0000-000000000100";
 // Completed learner feedback may include policy-released correctResponse material.
 // These markers identify only server-owned source, grading, renderer, and credential material.
 const PRIVATE_SERVER_MARKERS = [
@@ -387,7 +386,7 @@ async function requirePostgresqlCounts(manifestPath, attemptId) {
   const result = await adapterCommand(
     "postgresql-count",
     manifestPath,
-    ["--tenant-id", TENANT_ID, "--attempt-id", requireUuid(attemptId, "attempt id")],
+    ["--attempt-id", requireUuid(attemptId, "attempt id")],
     "checking durable submission rows",
   );
   assert.equal(

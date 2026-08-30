@@ -39,18 +39,15 @@ pub(super) async fn fail_assignment_scoring_job(store: &MemoryStore, assignment:
                 assignment: candidate,
                 ..
             } if candidate == assignment => {
-                let context = TenantContext::from_authenticated_session(claim.tenant);
                 store
-                    .fail_job(
-                        context,
-                        claim.id,
-                        claim.lease_token,
-                        JobFailureKind::Permanent,
-                    )
+                    .fail_job(claim.id, claim.lease_token, JobFailureKind::Permanent)
                     .await
                     .expect("permanent score-worker failure");
                 let status = store
-                    .get_assignment_for_edit(context, assignment)
+                    .get_assignment_for_edit(
+                        TenantContext::from_authenticated_session(claim.tenant),
+                        assignment,
+                    )
                     .await
                     .expect("assignment scoring read")
                     .expect("fixture assignment")
@@ -590,12 +587,12 @@ pub(super) async fn publish_pending_scoring_and_analysis(
                     generation,
                 };
                 store
-                    .prepare_assignment_scoring(context, command)
+                    .prepare_assignment_scoring(command)
                     .await
                     .expect("score cohort assignment");
                 assert!(matches!(
                     store
-                        .commit_assignment_scoring(context, command)
+                        .commit_assignment_scoring(command)
                         .await
                         .expect("publish cohort score"),
                     AssignmentScoringCommitOutcome::Committed
@@ -613,12 +610,12 @@ pub(super) async fn publish_pending_scoring_and_analysis(
                     generation,
                 };
                 store
-                    .prepare_course_item_analysis(context, command)
+                    .prepare_course_item_analysis(command)
                     .await
                     .expect("stage cohort analysis");
                 published_current_analysis |= matches!(
                     store
-                        .commit_course_item_analysis(context, command)
+                        .commit_course_item_analysis(command)
                         .await
                         .expect("publish cohort analysis"),
                     CourseItemAnalysisCommitOutcome::Committed
@@ -657,13 +654,13 @@ pub(super) async fn publish_pending_assignment_scoring(
                     assignment,
                     generation,
                 };
-                match store.prepare_assignment_scoring(context, command).await {
+                match store.prepare_assignment_scoring(command).await {
                     Ok(
                         AssignmentScoringPreparationOutcome::Prepared
                         | AssignmentScoringPreparationOutcome::Superseded,
                     ) => {
                         let outcome = store
-                            .commit_assignment_scoring(context, command)
+                            .commit_assignment_scoring(command)
                             .await
                             .expect("publish or retire assignment score");
                         published |= outcome == AssignmentScoringCommitOutcome::Committed;

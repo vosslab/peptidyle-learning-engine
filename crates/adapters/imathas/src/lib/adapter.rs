@@ -10,7 +10,7 @@ use question_model::capability::{BackendCapabilities, Capability};
 use question_model::generation::Seed;
 use question_model::{
     ActivityTimestamp, AttemptProvenance, AttemptResult, ProblemId, QuestionAttemptId,
-    QuestionDefinition, QuestionEnvelope, QuestionSource, SourceArtifact, TenantId, VersionId,
+    QuestionDefinition, QuestionEnvelope, QuestionSource, SourceArtifact, VersionId,
 };
 use sha2::{Digest, Sha256};
 
@@ -403,7 +403,6 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         &self,
         question: &QuestionDefinition,
         source: &ImathasSource,
-        tenant: TenantId,
         attempt: QuestionAttemptId,
         seed: Seed,
         correlation: &ServerCorrelation,
@@ -414,7 +413,6 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             .verify_grade(ProviderGradeRequest {
                 snapshot: &source.bytes,
                 profile: &source.profile,
-                tenant,
                 attempt,
                 problem: question.problem,
                 version: question.version,
@@ -423,8 +421,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             })
             .await
             .map_err(ImathasAdapterError::Provider)?;
-        if verdict.tenant != tenant
-            || verdict.attempt != attempt
+        if verdict.attempt != attempt
             || verdict.problem != question.problem
             || verdict.version != question.version
             || verdict.seed != seed
@@ -435,7 +432,6 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         Ok(VerifiedGradeReceipt {
             result: verdict.result,
             binding: GradeBinding {
-                tenant,
                 attempt,
                 problem: question.problem,
                 version: question.version,
@@ -464,7 +460,6 @@ where
         &self,
         question: &QuestionDefinition,
         source: &ImathasSource,
-        tenant: TenantId,
         attempt: QuestionAttemptId,
         seed: Seed,
         correlation: ServerCorrelation,
@@ -472,16 +467,7 @@ where
         now: ActivityTimestamp,
     ) -> Result<broker_provider::ContractedLaunchSession, ImathasAdapterError> {
         self.provider
-            .begin_launch(
-                question,
-                source,
-                tenant,
-                attempt,
-                seed,
-                correlation,
-                nonce,
-                now,
-            )
+            .begin_launch(question, source, attempt, seed, correlation, nonce, now)
             .await
     }
 

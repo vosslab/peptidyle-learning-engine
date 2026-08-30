@@ -35,7 +35,7 @@ pub enum ObjectCategory {
     Source,
     /// Image, audio, or other referenced content asset.
     Asset,
-    /// Reusable tenant-owned course presentation content.
+    /// Reusable course presentation content.
     CourseContent,
     /// Regenerable rendered output.
     Render,

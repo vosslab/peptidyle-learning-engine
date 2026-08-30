@@ -23,7 +23,7 @@ This document maps identities and their scopes. It supplements
 [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md), and
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The active
 [single_installation_authorization_plan.md](active_plans/active/single_installation_authorization_plan.md)
-owns the migration from the former tenant model to these identities.
+owns the migration from the former installation-scope model to these identities.
 
 ## Rules that apply everywhere
 
@@ -82,9 +82,8 @@ authorize `SessionId`, `ActorContext`, `UserId`, course membership, workspace
 relationships, or Student ownership. The adapter applies transaction-local
 actor context and forced-RLS denial; domain and Store owners evaluate the exact
 relationship or typed capability.
-The current tenant-shaped `TenantContext` in this module is migration input
-for SD1, not a second session or actor contract and not a global replacement
-identity.
+The current legacy installation-scope context in this module is migration input
+for SD1, not a second session or actor contract and not a global replacement identity.
 
 ## Course, Student, and relationship identities
 

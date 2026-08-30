@@ -190,12 +190,12 @@ assignment creation, student work, repeat practice, scoring display, and
 gradebook inspection are journey evidence and must occur through the browser.
 
 The local roster capability belongs to local-development composition. It must
-accept only a server-configured learner alias, derive tenant and user identity
+accept only a server-configured learner alias, derive account and Student identity
 from the local identity provider, authorize the instructor against the target
 course, and atomically create the active membership, roster projection, and any
 required assignment enrollments. Production composition must not mount the
 route or advertise the control. The browser never submits a credential, email,
-arbitrary user ID, tenant ID, or account record to this capability.
+arbitrary user ID, installation-wide scope value, or account record to this capability.
 
 Public course and assignment IDs created by the instructor browser may cross
 fixed child boundaries through one runner-generated schema-versioned private
@@ -430,12 +430,12 @@ remain path-only private inputs and never enter the handoff or report.
   - The adapter route is mounted only by exact local-development authentication
     composition and is absent from production composition.
   - Every local identity record has one exact, bounded, unique ASCII alias. The
-    request accepts only a configured learner alias; tenant, user, display name,
+    request accepts only a configured learner alias; account, Student, display name,
     and roles come from the server's local identity provider.
   - The authenticated course manager can activate that learner through the
     canonical upsert, atomically creating or reviving the student member,
     active roster row, and enrollment for existing assignments.
-  - Repeating the action is idempotent; foreign tenant, nonmanager, arbitrary
+  - Repeating the action is idempotent; foreign-course, nonmanager, arbitrary
     user, instructor alias, unknown alias, and production requests fail closed.
   - The visible roster control uses no email field and confirms the active local
     learner row by keyboard.
@@ -811,7 +811,7 @@ dependency order, and release boundary.
 ### Objectives
 
 - Give instructors a selectable, copyable human reference for one immutable published question.
-- Make pasted Question IDs resolve atomically under the current tenant and preserve recoverable work.
+- Make pasted Question IDs resolve atomically for the authenticated actor and preserve recoverable work.
 - Connect the instructor's whole-run timing choice to the server-backed learner countdown.
 - Make the canonical J13 and J1--J8 workflow use explicit, private, schema-versioned runner inputs.
 
@@ -847,17 +847,17 @@ contract and evidence.
 
 - The editor displays and copies a human reference, accepts exact pasted Question IDs in one obvious
   add-by-ID control, resolves the one immutable published question named by that ID under the current
-  tenant, and changes the assignment only after a whole pasted batch resolves.
+  actor authorization, and changes the assignment only after a whole pasted batch resolves.
 - Malformed, unavailable, unauthorized, duplicate, race, and network cases preserve pasted text and the
   existing draft with labelled recovery. Displayed Question IDs remain selectable and copyable in
   canonical `AAA-BBBB` form. The browser uses no UUID as a question identifier and exposes no
   UUID-valued DOM helper solely for test extraction.
 - One seven-character Crockford Base32 Question ID is displayed as `AAA-BBBB`. The server validates its
-  HMAC-derived checksum before resolving that exact published question through tenant and actor
+  HMAC-derived checksum before resolving that exact published question through current actor
   authorization.
 - Live and mock resolver semantics agree: malformed or checksum-invalid is 400, unavailable is 404,
   unauthorized is 403, and an accessible exact published question succeeds. PostgreSQL conformance
-  proves that a valid Question ID cannot resolve a foreign-tenant-only question.
+  proves that a valid Question ID cannot resolve an inaccessible restricted question.
 - Hidden immutable snapshots and version identity remain internal for authorized replay, grading, audit,
   provenance, and transport. Instructor-facing selectors and latest-resolution paths use the human
   Question ID contract.

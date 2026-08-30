@@ -6,7 +6,7 @@ use crate::entitlement::{
 use chrono::TimeZone;
 use question_model::{
     AssignmentAudience, AssignmentId, AssignmentLifecycle, CourseGroupPurpose, CourseId,
-    CourseMembershipId, TenantId, UserId,
+    CourseMembershipId, UserId,
 };
 use uuid::Uuid;
 
@@ -35,7 +35,6 @@ fn base() -> BaseAssignmentPolicy {
 }
 fn grant(groups: Vec<(CourseGroupId, CourseGroupPurpose)>) -> EntitlementDecision {
     evaluate_assignment_entitlement(EntitlementFacts {
-        tenant: TenantId::from_uuid(Uuid::from_u128(1)),
         course: CourseId::from_uuid(Uuid::from_u128(2)),
         assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
         student_user: UserId::from_uuid(Uuid::from_u128(4)),
@@ -67,7 +66,6 @@ fn synthetic_input(
     ResolveSyntheticPreviewPolicyInput {
         lifecycle: AssignmentLifecycleGate::Open,
         entitlement: evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
-            TenantId::from_uuid(Uuid::from_u128(1)),
             CourseId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
             AssignmentAudience::CourseWide,

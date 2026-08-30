@@ -593,7 +593,6 @@ struct FixedFlatGrader(FlatQuestionGradingPayload);
 impl learning_data_access::FlatQuestionGradingStore for FixedFlatGrader {
     async fn flat_question_published_grading(
         &self,
-        _context: TenantContext,
         _reference: ProblemVersionRef,
     ) -> Result<Option<FlatQuestionGradingPayload>, StoreError> {
         Ok(Some(self.0.clone()))

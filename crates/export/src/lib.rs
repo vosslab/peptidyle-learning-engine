@@ -2,7 +2,7 @@
 //!
 //! The worker resolves immutable, published assets before it calls this crate.
 //! This crate receives verified bytes only: it never receives an object key,
-//! a URL, tenant information, or an answer key.
+//! a URL, account-ownership information, or an answer key.
 
 /// Microsoft Word output.
 pub mod docx;

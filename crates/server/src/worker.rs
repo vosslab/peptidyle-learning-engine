@@ -20,11 +20,10 @@ use std::{
 use async_trait::async_trait;
 use learning_data_access::{
     ClaimedJob, ExportArtifactRecord, JobClaimFilter, JobFailureKind, JobId, JobKind,
-    JobLeaseDuration, JobLeaseToken, JobPayload, JobStore, QueueDepth, StoreError, TenantContext,
+    JobLeaseDuration, JobLeaseToken, JobPayload, JobStore, QueueDepth, StoreError,
 };
 use question_model::{
-    AssignmentId, ObjectId, QuestionAttemptId, ScoringGeneration, TenantId, WorkspaceId,
-    WorkspaceImportId,
+    AssignmentId, ObjectId, QuestionAttemptId, ScoringGeneration, WorkspaceId, WorkspaceImportId,
 };
 
 use crate::accepted_submission_worker::AcceptedSubmissionExecutionWorkerReport;
@@ -51,7 +50,6 @@ pub(crate) trait JobHandler: Send + Sync + 'static {
     /// orphan if the claim is later lost.
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind>;
@@ -114,19 +112,16 @@ impl JobExecution {
 pub(crate) enum PreparedJobEffect {
     /// Current-score rows staged for one assignment generation.
     AssignmentScoring {
-        tenant: TenantId,
         assignment: AssignmentId,
         generation: ScoringGeneration,
     },
     /// Current course-local item-analysis rows staged after scoring has published.
     CourseItemAnalysis {
-        tenant: TenantId,
         assignment: AssignmentId,
         generation: ScoringGeneration,
     },
     /// Server-owned deadline transition requiring no external preparation.
     AttemptAutoSubmit {
-        tenant: TenantId,
         attempt: QuestionAttemptId,
         timing_generation: u64,
     },
@@ -140,13 +135,11 @@ pub(crate) enum PreparedJobEffect {
     /// A bundle is indivisible: a partial print set is never a visible student
     /// record. The records contain only verified object metadata, never bytes.
     Export {
-        tenant: TenantId,
         manifest: ObjectId,
         artifacts: Box<PreparedExportArtifacts>,
     },
     /// Private QTI registry awaiting the exact queue-claim commit.
     QtiImport {
-        tenant: TenantId,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
         source_object: ObjectId,
@@ -590,30 +583,22 @@ where
         let claim = JobCommitClaim::new(claimed.id, claimed.lease_token);
         let execution = JobExecution::new().with_claim(claim);
         let handler = family.handler;
-        let context = TenantContext::from_authenticated_session(claimed.tenant);
         let payload = claimed.payload.clone();
         let handler_execution = execution.clone();
         let mut task =
-            tokio::spawn(async move { handler.prepare(context, payload, handler_execution).await });
+            tokio::spawn(async move { handler.prepare(payload, handler_execution).await });
 
         let prepared =
             match tokio::time::timeout(self.settings.preparation_timeout, &mut task).await {
                 Ok(Ok(Ok(effect))) => Some(effect),
                 Ok(Ok(Err(failure))) => {
-                    self.finalize_failure(
-                        &mut report,
-                        context,
-                        claimed.id,
-                        claimed.lease_token,
-                        failure,
-                    )
-                    .await;
+                    self.finalize_failure(&mut report, claimed.id, claimed.lease_token, failure)
+                        .await;
                     None
                 }
                 Ok(Err(_panic)) => {
                     self.finalize_failure(
                         &mut report,
-                        context,
                         claimed.id,
                         claimed.lease_token,
                         JobFailureKind::Transient,
@@ -628,7 +613,6 @@ where
                         Ok(_) => {
                             self.finalize_failure(
                                 &mut report,
-                                context,
                                 claimed.id,
                                 claimed.lease_token,
                                 JobFailureKind::TimedOut,
@@ -642,7 +626,6 @@ where
                             let _ = task.await;
                             self.finalize_failure(
                                 &mut report,
-                                context,
                                 claimed.id,
                                 claimed.lease_token,
                                 JobFailureKind::Permanent,
@@ -674,12 +657,11 @@ where
     async fn finalize_failure(
         &self,
         report: &mut DrainReport,
-        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
     ) {
-        match self.store.fail_job(context, id, token, failure).await {
+        match self.store.fail_job(id, token, failure).await {
             Ok(learning_data_access::JobFailureDisposition::Retrying) => report.retrying += 1,
             Ok(learning_data_access::JobFailureDisposition::Dead) => report.dead += 1,
             Err(_) => report.finalization_failed += 1,

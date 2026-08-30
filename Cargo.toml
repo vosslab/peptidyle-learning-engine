@@ -102,8 +102,10 @@ chrono-tz = { version = "*", default-features = false }
 chacha20poly1305 = "*"
 csv = "*"
 
-# PostgreSQL access belongs to `crates/learning-data-access`, which owns the Store trait,
-# migrations, and RLS context. No other member declares it.
+# Product PostgreSQL access belongs to `crates/learning-data-access`, which owns
+# the Store trait, active migrations, and RLS context. `project-tools` also uses
+# SQLx for explicit repository-administration commands, including the isolated
+# non-runtime SD1 staged-migration oracle.
 sqlx = { version = "*", features = [
     "json",
     "macros",

@@ -3,24 +3,23 @@
 //! for reads as well as mutations.
 
 use super::super::*;
-use crate::PrefetchedQuestionDescriptorV1;
+use crate::{ActorContext, PrefetchedQuestionDescriptorV1};
 
 pub(super) async fn assignment_run_items(
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: UserId,
     run: RunId,
 ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
     let state = store.read_state()?;
-    let Some(record) = state.runs.get(&(context.tenant_id(), run)) else {
+    let Some(record) = state.runs.get(&run) else {
         return Ok(None);
     };
-    let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-    require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+    let enrollment = enrollment_record(&state, record.enrollment)?;
+    let assignment = assignment_record(&state, enrollment.assignment)?;
+    require_course_records_accessible(&state, assignment.course_id)?;
     if super::super::entitlement::require_current_enrollment_entitlement(
         &state,
-        context.tenant_id(),
         actor,
         assignment.course_id,
         assignment.id,
@@ -30,33 +29,26 @@ pub(super) async fn assignment_run_items(
     {
         return Ok(None);
     }
-    Ok(Some(
-        state
-            .run_items
-            .get(&(context.tenant_id(), run))
-            .cloned()
-            .unwrap_or_default(),
-    ))
+    Ok(Some(state.run_items.get(&run).cloned().unwrap_or_default()))
 }
 
 pub(super) async fn prefetched_question(
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: UserId,
     run: RunId,
     predecessor: QuestionAttemptId,
     assignment_position: u32,
 ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
     let state = store.read_state()?;
-    let Some(record) = state.runs.get(&(context.tenant_id(), run)) else {
+    let Some(record) = state.runs.get(&run) else {
         return Ok(None);
     };
-    let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-    require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+    let enrollment = enrollment_record(&state, record.enrollment)?;
+    let assignment = assignment_record(&state, enrollment.assignment)?;
+    require_course_records_accessible(&state, assignment.course_id)?;
     if super::super::entitlement::require_current_enrollment_entitlement(
         &state,
-        context.tenant_id(),
         actor,
         assignment.course_id,
         assignment.id,
@@ -68,26 +60,25 @@ pub(super) async fn prefetched_question(
     }
     Ok(state
         .prefetched_questions
-        .get(&(context.tenant_id(), run, predecessor, assignment_position))
+        .get(&(run, predecessor, assignment_position))
         .cloned())
 }
 
 pub(super) async fn pending_submission_for_run(
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: UserId,
     run: RunId,
 ) -> Result<Option<QuestionAttemptId>, StoreError> {
     let state = store.read_state()?;
-    let Some(record) = state.runs.get(&(context.tenant_id(), run)) else {
+    let Some(record) = state.runs.get(&run) else {
         return Ok(None);
     };
-    let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-    require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+    let enrollment = enrollment_record(&state, record.enrollment)?;
+    let assignment = assignment_record(&state, enrollment.assignment)?;
+    require_course_records_accessible(&state, assignment.course_id)?;
     if super::super::entitlement::require_current_enrollment_entitlement(
         &state,
-        context.tenant_id(),
         actor,
         assignment.course_id,
         assignment.id,
@@ -101,14 +92,9 @@ pub(super) async fn pending_submission_for_run(
         .attempts
         .values()
         .filter(|attempt| {
-            attempt.tenant == context.tenant_id()
-                && attempt.run == run
-                && state
-                    .submissions
-                    .contains_key(&(context.tenant_id(), attempt.id))
-                && !state
-                    .submission_next_attempts
-                    .contains_key(&(context.tenant_id(), attempt.id))
+            attempt.run == run
+                && state.submissions.contains_key(&attempt.id)
+                && !state.submission_next_attempts.contains_key(&attempt.id)
         })
         .map(|attempt| attempt.id)
         .take(2)
@@ -122,21 +108,20 @@ pub(super) async fn pending_submission_for_run(
 
 pub(super) async fn list_question_attempts(
     store: &MemoryStore,
-    context: TenantContext,
+    _context: ActorContext,
     actor: UserId,
     run: RunId,
     page: PageRequest,
 ) -> Result<Option<Page<QuestionAttempt>>, StoreError> {
     let state = store.read_state()?;
-    let Some(record) = state.runs.get(&(context.tenant_id(), run)) else {
+    let Some(record) = state.runs.get(&run) else {
         return Ok(None);
     };
-    let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-    require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+    let enrollment = enrollment_record(&state, record.enrollment)?;
+    let assignment = assignment_record(&state, enrollment.assignment)?;
+    require_course_records_accessible(&state, assignment.course_id)?;
     if super::super::entitlement::require_current_enrollment_entitlement(
         &state,
-        context.tenant_id(),
         actor,
         assignment.course_id,
         assignment.id,
@@ -149,14 +134,13 @@ pub(super) async fn list_question_attempts(
     let records = state
         .attempts
         .iter()
-        .filter(|((tenant, _), attempt)| *tenant == context.tenant_id() && attempt.run == run)
-        .map(|((_, id), _attempt)| {
+        .filter(|(_, attempt)| attempt.run == run)
+        .map(|(id, _attempt)| {
             let projected = projected_attempt(
                 &state,
-                context.tenant_id(),
                 state
                     .attempts
-                    .get(&(context.tenant_id(), *id))
+                    .get(id)
                     .expect("iterated attempt remains present"),
             );
             (

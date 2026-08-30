@@ -12,7 +12,7 @@ impl RetentionStore for PostgresStore {
         &self,
         context: TenantContext,
         session: SessionTokenHash,
-        policy: InstitutionRetentionPolicy,
+        policy: RetentionPolicy,
     ) -> Result<(), StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let changed: bool =
@@ -358,12 +358,9 @@ impl RetentionWorkerStore for PostgresStore {
         &self,
         command: RetentionWorkerCommand,
     ) -> Result<RetentionWork, StoreError> {
-        let mut transaction = self
-            .begin_tenant(TenantContext::from_authenticated_session(command.tenant))
-            .await?;
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
         let value: Option<Value> =
-            sqlx::query_scalar("SELECT ple_prepare_retention_work($1,$2,$3,$4,$5,$6)")
-                .bind(command.tenant.as_uuid())
+            sqlx::query_scalar("SELECT ple_prepare_retention_work($1,$2,$3,$4,$5)")
                 .bind(command.job.as_uuid())
                 .bind(command.lease.as_uuid())
                 .bind(command.course.as_uuid())
@@ -406,7 +403,7 @@ impl RetentionWorkerStore for PostgresStore {
                         )
                     })?;
                     objects.push(objects::ObjectKey::StudentRecord {
-                        tenant: command.tenant,
+                        course: command.course,
                         object: ObjectId::from_uuid(object),
                     });
                 }
@@ -426,15 +423,12 @@ impl RetentionWorkerStore for PostgresStore {
         &self,
         command: RetentionWorkerCommand,
     ) -> Result<(), StoreError> {
-        let mut transaction = self
-            .begin_tenant(TenantContext::from_authenticated_session(command.tenant))
-            .await?;
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
         let generation = i64::try_from(command.generation).map_err(|_| {
             StoreError::InvalidRecord("retention generation exceeds database range".to_string())
         })?;
         let committed: bool =
-            sqlx::query_scalar("SELECT ple_commit_retention_work($1,$2,$3,$4,$5,$6)")
-                .bind(command.tenant.as_uuid())
+            sqlx::query_scalar("SELECT ple_commit_retention_work($1,$2,$3,$4,$5)")
                 .bind(command.job.as_uuid())
                 .bind(command.lease.as_uuid())
                 .bind(command.course.as_uuid())
@@ -460,7 +454,7 @@ fn retention_stage_db(stage: crate::RetentionStage) -> &'static str {
 }
 
 #[cfg(feature = "postgres")]
-fn decode_retention_policy(row: &PgRow) -> Result<InstitutionRetentionPolicy, StoreError> {
+fn decode_retention_policy(row: &PgRow) -> Result<RetentionPolicy, StoreError> {
     let notify: i32 = row.try_get("notify_days").map_err(map_sqlx_error)?;
     let archive: i32 = row.try_get("archive_days").map_err(map_sqlx_error)?;
     let delete: i32 = row.try_get("delete_days").map_err(map_sqlx_error)?;
@@ -470,7 +464,7 @@ fn decode_retention_policy(row: &PgRow) -> Result<InstitutionRetentionPolicy, St
         })?)
         .map_err(|error| StoreError::Unavailable(error.to_string()))
     };
-    InstitutionRetentionPolicy::new(days(notify)?, days(archive)?, days(delete)?)
+    RetentionPolicy::new(days(notify)?, days(archive)?, days(delete)?)
         .map_err(|error| StoreError::Unavailable(error.to_string()))
 }
 

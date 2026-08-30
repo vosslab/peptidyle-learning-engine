@@ -11,7 +11,9 @@ use learning_data_access::{
     TenantContext,
 };
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
-use question_model::{ActivityTimestamp, ProblemId, ProblemVersionRef, TenantId, VersionId};
+use question_model::{
+    ActivityTimestamp, CourseId, ProblemId, ProblemVersionRef, TenantId, VersionId,
+};
 use uuid::Uuid;
 
 use super::*;
@@ -20,38 +22,34 @@ use super::*;
 enum Behavior {
     Success,
     CooperativeSleep(Duration),
-    UncooperativeFor(TenantId, Duration),
+    UncooperativeFor(Duration),
 }
 
 #[derive(Clone)]
 struct RecordingHandler {
     behavior: Behavior,
-    tenants: Arc<Mutex<Vec<TenantId>>>,
+    claims: Arc<Mutex<Vec<JobId>>>,
 }
 
 #[async_trait]
 impl JobHandler for RecordingHandler {
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
-        self.tenants
-            .lock()
-            .expect("test lock")
-            .push(context.tenant_id());
+        let claim = execution.claim().expect("worker supplies a lease claim");
+        self.claims.lock().expect("test lock").push(claim.job_id());
         match self.behavior {
             Behavior::Success => Ok(effect_for(payload)),
             Behavior::CooperativeSleep(duration) => tokio::select! {
                 () = tokio::time::sleep(duration) => Ok(effect_for(payload)),
                 () = execution.cancelled() => Err(JobFailureKind::TimedOut),
             },
-            Behavior::UncooperativeFor(expected, duration) if expected == context.tenant_id() => {
+            Behavior::UncooperativeFor(duration) => {
                 tokio::time::sleep(duration).await;
                 Ok(effect_for(payload))
             }
-            Behavior::UncooperativeFor(_, _) => Ok(effect_for(payload)),
         }
     }
 }
@@ -124,7 +122,6 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
             assignment,
             generation,
         } => PreparedJobEffect::AssignmentScoring {
-            tenant: TenantId::from_uuid(id(1)),
             assignment,
             generation,
         },
@@ -132,7 +129,6 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
             assignment,
             generation,
         } => PreparedJobEffect::CourseItemAnalysis {
-            tenant: TenantId::from_uuid(id(1)),
             assignment,
             generation,
         },
@@ -140,7 +136,6 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
             attempt,
             timing_generation,
         } => PreparedJobEffect::AttemptAutoSubmit {
-            tenant: TenantId::from_uuid(id(1)),
             attempt,
             timing_generation,
         },
@@ -149,7 +144,6 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
         }
         JobPayload::Render { .. } => PreparedJobEffect::Test,
         JobPayload::Export { delivery_object } => PreparedJobEffect::Export {
-            tenant: TenantId::from_uuid(id(1)),
             manifest: delivery_object,
             artifacts: Box::new(PreparedExportArtifacts {
                 docx: export_artifact(ExportArtifactKind::Docx, id(9_001)),
@@ -164,7 +158,6 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
             import,
             source_object,
         } => PreparedJobEffect::QtiImport {
-            tenant: TenantId::from_uuid(id(1)),
             workspace,
             import,
             source_object,
@@ -176,7 +169,7 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
 fn export_artifact(kind: ExportArtifactKind, object: Uuid) -> ExportArtifactRecord {
     let object = ObjectId::from_uuid(object);
     let key = ObjectKey::StudentRecord {
-        tenant: TenantId::from_uuid(id(1)),
+        course: CourseId::from_uuid(id(1)),
         object,
     };
     ExportArtifactRecord {
@@ -197,9 +190,8 @@ fn export_artifact(kind: ExportArtifactKind, object: Uuid) -> ExportArtifactReco
         },
     }
 }
-fn render_job(tenant: TenantId, max_attempts: u16) -> EnqueueJob {
+fn render_job(max_attempts: u16) -> EnqueueJob {
     EnqueueJob {
-        tenant,
         payload: JobPayload::Render {
             reference: ProblemVersionRef {
                 problem: ProblemId::from_uuid(id(31)),
@@ -221,10 +213,10 @@ fn committer(store: Arc<learning_data_access::in_memory::MemoryStore>) -> Arc<Me
 }
 fn registry(
     behavior: Behavior,
-    tenants: Arc<Mutex<Vec<TenantId>>>,
+    claims: Arc<Mutex<Vec<JobId>>>,
     committer: Arc<MemoryCommitter>,
 ) -> JobRegistry {
-    let handler: Arc<dyn JobHandler> = Arc::new(RecordingHandler { behavior, tenants });
+    let handler: Arc<dyn JobHandler> = Arc::new(RecordingHandler { behavior, claims });
     let committer: Arc<dyn EffectCommitter> = committer;
     JobRegistry::new([JobRegistryEntry::new(JobKind::Render, handler, committer)])
         .expect("test registry")
@@ -232,13 +224,13 @@ fn registry(
 fn worker(
     store: Arc<learning_data_access::in_memory::MemoryStore>,
     behavior: Behavior,
-    tenants: Arc<Mutex<Vec<TenantId>>>,
+    claims: Arc<Mutex<Vec<JobId>>>,
     batch_size: usize,
 ) -> Worker<learning_data_access::in_memory::MemoryStore> {
     let commit = committer(Arc::clone(&store));
     Worker::new(
         store,
-        registry(behavior, tenants, commit),
+        registry(behavior, claims, commit),
         WorkerSettings::new(2, Duration::from_millis(30), batch_size).expect("settings"),
     )
 }
@@ -250,7 +242,7 @@ async fn enqueue(
     store
         .enqueue_job(
             TenantContext::from_authenticated_session(tenant),
-            render_job(tenant, attempts),
+            render_job(attempts),
         )
         .await
         .expect("enqueue")
@@ -429,16 +421,13 @@ async fn generic_drain_one_ignores_the_configured_batch_size() {
 
     assert_eq!(worker.drain_one().await.expect("one claim").completed, 1);
     let first_state = store
-        .get_job(TenantContext::from_authenticated_session(tenant(41)), first)
+        .get_job(first)
         .await
         .expect("first view")
         .expect("first job")
         .state;
     let second_state = store
-        .get_job(
-            TenantContext::from_authenticated_session(tenant(42)),
-            second,
-        )
+        .get_job(second)
         .await
         .expect("second view")
         .expect("second job")
@@ -459,7 +448,6 @@ async fn registry_claims_only_complete_families_and_leaves_reserved_work_ready()
         .enqueue_job(
             context,
             EnqueueJob {
-                tenant,
                 payload: JobPayload::Export {
                     delivery_object: ObjectId::from_uuid(id(7_001)),
                 },
@@ -470,7 +458,7 @@ async fn registry_claims_only_complete_families_and_leaves_reserved_work_ready()
         .expect("supported export");
     let handler: Arc<dyn JobHandler> = Arc::new(RecordingHandler {
         behavior: Behavior::Success,
-        tenants: Arc::new(Mutex::new(Vec::new())),
+        claims: Arc::new(Mutex::new(Vec::new())),
     });
     let committer: Arc<dyn EffectCommitter> = committer(Arc::clone(&store));
     let registry = JobRegistry::new([JobRegistryEntry::new(JobKind::Export, handler, committer)])
@@ -485,7 +473,7 @@ async fn registry_claims_only_complete_families_and_leaves_reserved_work_ready()
     assert_eq!(worker.ready_queue_depth().await.expect("depth").ready, 0);
     assert_eq!(
         store
-            .get_job(context, supported)
+            .get_job(supported)
             .await
             .expect("supported view")
             .expect("supported job")
@@ -494,7 +482,7 @@ async fn registry_claims_only_complete_families_and_leaves_reserved_work_ready()
     );
     assert_eq!(
         store
-            .get_job(context, reserved)
+            .get_job(reserved)
             .await
             .expect("reserved view")
             .expect("reserved job")
@@ -516,9 +504,9 @@ async fn concurrent_workers_claim_distinct_jobs_and_drain_depth() {
         left.expect("left").completed + right.expect("right").completed,
         2
     );
-    let mut tenants = seen.lock().expect("test lock").clone();
-    tenants.sort();
-    assert_eq!(tenants, vec![tenant(1), tenant(2)]);
+    let claims = seen.lock().expect("test lock").clone();
+    assert_eq!(claims.len(), 2);
+    assert_ne!(claims[0], claims[1]);
     assert_eq!(
         worker(store, Behavior::Success, seen, 1)
             .ready_queue_depth()
@@ -545,12 +533,7 @@ async fn cooperative_timeout_stops_preparation_before_retry() {
     .expect("drain");
     assert_eq!(report.retrying, 1);
     assert_eq!(
-        store
-            .get_job(TenantContext::from_authenticated_session(tenant(1)), job)
-            .await
-            .expect("view")
-            .expect("job")
-            .state,
+        store.get_job(job).await.expect("view").expect("job").state,
         JobState::Ready
     );
     store
@@ -574,7 +557,7 @@ async fn unconfirmed_preparation_is_dead_and_adjacent_work_continues() {
     let good = enqueue(&store, tenant(2), 2).await;
     let report = worker(
         Arc::clone(&store),
-        Behavior::UncooperativeFor(tenant(1), Duration::from_millis(200)),
+        Behavior::UncooperativeFor(Duration::from_millis(200)),
         seen,
         2,
     )
@@ -584,21 +567,11 @@ async fn unconfirmed_preparation_is_dead_and_adjacent_work_continues() {
     assert_eq!(report.dead, 1);
     assert_eq!(report.completed, 1, "adjacent job must still run");
     assert_eq!(
-        store
-            .get_job(TenantContext::from_authenticated_session(tenant(1)), bad)
-            .await
-            .expect("view")
-            .expect("job")
-            .state,
+        store.get_job(bad).await.expect("view").expect("job").state,
         JobState::Dead
     );
     assert_eq!(
-        store
-            .get_job(TenantContext::from_authenticated_session(tenant(2)), good)
-            .await
-            .expect("view")
-            .expect("job")
-            .state,
+        store.get_job(good).await.expect("view").expect("job").state,
         JobState::Completed
     );
 }
@@ -706,7 +679,7 @@ fn registry_rejects_empty_and_duplicate_families() {
     let commit = committer(store);
     let handler: Arc<dyn JobHandler> = Arc::new(RecordingHandler {
         behavior: Behavior::Success,
-        tenants: Arc::new(Mutex::new(Vec::new())),
+        claims: Arc::new(Mutex::new(Vec::new())),
     });
     let first_committer: Arc<dyn EffectCommitter> = commit.clone();
     let second_committer: Arc<dyn EffectCommitter> = commit;

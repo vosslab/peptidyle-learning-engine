@@ -40,7 +40,7 @@ use question_model::{
     AssignmentScoringMode, AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle,
     CourseId, EnrollmentId, FeedbackContent, ImplementationVersion, ObjectId, PointValue,
     PresentationBindingV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId,
-    QuestionId, RunId, TenantId, UserId, UserRole, VersionId, WorkspaceId,
+    QuestionId, RunId, UserId, UserRole, VersionId, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -82,7 +82,7 @@ use scoring::*;
 mod records;
 use records::*;
 
-const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] --tenant <UUID> (--instructor <UUID>|--user <UUID>) --apply-migrations [--student <UUID> [--exercise-scoring]] [(--webwork-pilot|--webwork-catalog-baseline|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
+const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] (--instructor <UUID>|--user <UUID>) --apply-migrations [--student <UUID> [--exercise-scoring]] [(--webwork-pilot|--webwork-catalog-baseline|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
 const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
 const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -111,7 +111,6 @@ struct Manifest {
 #[derive(Debug)]
 struct SeedArguments {
     database_url: String,
-    tenant: TenantId,
     instructor: UserId,
     student: Option<UserId>,
     apply_migrations: bool,
@@ -170,7 +169,6 @@ fn parse_arguments_with_database_url(
     environment_database_url: Option<String>,
 ) -> Result<SeedArguments> {
     let mut database_url = None;
-    let mut tenant = None;
     let mut instructor = None;
     let mut student = None;
     let mut apply_migrations = false;
@@ -212,7 +210,6 @@ fn parse_arguments_with_database_url(
         index += 1;
         match flag.as_str() {
             "--database-url" if database_url.is_none() => database_url = Some(value.clone()),
-            "--tenant" if tenant.is_none() => tenant = Some(parse_tenant(value, "tenant")?),
             "--instructor" | "--user" if instructor.is_none() => {
                 instructor = Some(parse_user(value, "instructor")?);
             }
@@ -283,7 +280,6 @@ fn parse_arguments_with_database_url(
         database_url: database_url
             .or(environment_database_url)
             .ok_or_else(|| anyhow::anyhow!("--database-url is required; {USAGE}"))?,
-        tenant: tenant.ok_or_else(|| anyhow::anyhow!("--tenant is required; {USAGE}"))?,
         instructor: instructor
             .ok_or_else(|| anyhow::anyhow!("--instructor is required; {USAGE}"))?,
         student,
@@ -316,12 +312,6 @@ fn validate_s3_endpoint(value: &str) -> Result<String> {
         bail!("--s3-endpoint must not include a query or fragment");
     }
     Ok(endpoint.into())
-}
-
-fn parse_tenant(value: &str, name: &str) -> Result<TenantId> {
-    Ok(TenantId::from_uuid(
-        Uuid::parse_str(value).with_context(|| format!("{name} must be a UUID"))?,
-    ))
 }
 
 fn parse_user(value: &str, name: &str) -> Result<UserId> {

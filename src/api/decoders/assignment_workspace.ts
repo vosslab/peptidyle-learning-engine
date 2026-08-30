@@ -32,7 +32,6 @@ export function decodeAssignmentEditorDetail(
   requireOnlyFields(record, path, [
     "id",
     "reference",
-    "tenant",
     "courseId",
     "title",
     "items",
@@ -65,7 +64,6 @@ export function decodeAssignmentEditorDetail(
   const decoded = {
     id: summary.id,
     reference: summary.reference,
-    tenant: summary.tenant,
     courseId: summary.courseId,
     title: summary.title,
     items: summary.items,

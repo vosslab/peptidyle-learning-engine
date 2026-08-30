@@ -4,14 +4,14 @@ use async_trait::async_trait;
 use objects::{Bucket, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::{
     ActivityTimestamp, AssetId, CourseBannerId, CourseId, ObjectId, ProblemVersionRef,
-    PublicationScope, TenantId, UserId,
+    PublicationScope, UserId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{StoreError, TenantContext};
+use crate::{ActorContext, StoreError};
 
-/// Opaque route identifier for either a logical catalog asset or a tenant object.
+/// Opaque route identifier for either a logical catalog asset or a course record.
 ///
 /// The identifier is never minted independently: public content reuses its
 /// [`AssetId`], and a student-record artifact reuses its [`ObjectId`]. That
@@ -26,7 +26,7 @@ impl AssetDeliveryId {
         Self(asset.as_uuid())
     }
 
-    /// Builds the route identifier for a tenant-owned physical artifact.
+    /// Builds the route identifier for a course-owned physical artifact.
     pub fn from_object(object: ObjectId) -> Self {
         Self(object.as_uuid())
     }
@@ -73,17 +73,13 @@ pub enum AssetDeliveryScope {
     },
     /// Educational-record artifact visible only to explicitly named users.
     StudentRecord {
-        /// Direct RLS boundary owning the artifact.
-        tenant: TenantId,
         /// Exact course whose retention lifecycle governs this record.
         course: CourseId,
         /// Authenticated users allowed to request a short-lived URL.
         authorized_users: Vec<UserId>,
     },
-    /// Tenant course presentation authorized only through the exact current pointer.
+    /// Course presentation authorized only through the exact current pointer.
     CourseBanner {
-        /// Direct RLS boundary owning the course.
-        tenant: TenantId,
         /// Course whose current appearance may select this banner.
         course: CourseId,
         /// Browser-safe identity which must equal the route delivery ID.
@@ -204,8 +200,6 @@ pub(crate) fn validate_catalog_asset_delivery_scope(
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetAccessEvent {
-    /// Tenant in whose security context the request was authorized.
-    pub tenant: TenantId,
     /// Authenticated person requesting the protected object.
     pub actor: UserId,
     /// Stable route identifier requested by the actor.
@@ -235,13 +229,13 @@ pub trait AssetStore: Send + Sync {
     /// Records metadata only after the owning workflow has stored object bytes.
     async fn register_asset_delivery(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         record: AssetDeliveryRecord,
     ) -> Result<(), StoreError>;
 
     /// Resolves only globally public catalog content for direct CDN delivery.
     ///
-    /// Institution content and every educational record deliberately look
+    /// Course content and every educational record deliberately look
     /// absent here so callers cannot bypass the authenticated path.
     async fn get_public_asset_delivery(
         &self,
@@ -251,19 +245,19 @@ pub trait AssetStore: Send + Sync {
     /// Resolves every catalog asset registered for one exact visible version.
     ///
     /// The result is ordered by logical [`AssetId`] and intentionally excludes
-    /// tenant-owned educational records. This lookup has no delivery audit or
+    /// course-owned educational records. This lookup has no delivery audit or
     /// signed-URL side effect: it is solely the trusted bridge from immutable
     /// catalog content to provenance verification.
     async fn catalog_asset_bindings(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         reference: ProblemVersionRef,
     ) -> Result<Vec<CatalogAssetBinding>, StoreError>;
 
     /// Authorizes one protected request and appends its audit event atomically.
     async fn authorize_asset_delivery(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         delivery: AssetDeliveryId,
     ) -> Result<AuthorizedAssetDelivery, StoreError>;
@@ -279,7 +273,7 @@ pub trait AssetStore: Send + Sync {
 pub trait PublicAssetPublicationStore: Send + Sync {
     /// Resolves pending public assets only after the catalog publication has
     /// committed and only through the exact active publisher lease. An
-    /// institution version has no entries in this outbox.
+    /// private course version has no entries in this outbox.
     async fn pending_public_asset_publication(
         &self,
         job: crate::JobId,

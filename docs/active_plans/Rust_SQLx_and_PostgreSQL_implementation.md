@@ -12,7 +12,7 @@
 
 `docs/active_plans/decisions/database_schema_evolution_plan.md`
 specified a consolidated pre-data PostgreSQL baseline: six domain-owned SQLx migrations, forced
-tenant RLS, least-privilege principals, bounded partitions, and `cargo tools database` as the only
+exact-resource RLS, least-privilege principals, bounded partitions, and `cargo tools database` as the only
 apply path. That work landed 2026-08-08 (commits `fdac14e`, `ac91688`).
 
 This is a **static, read-only** post-implementation review. No database was started, no migration
@@ -49,7 +49,7 @@ Objectives testable against shipped artifacts:
 
 - Six migrations, no historical repair chain (plan lines 395-422).
 - Forced RLS with default-deny; application connections never own tables or bypass RLS (342-346).
-- `tenant_id` leading every private key, foreign key, and important index (344).
+- Exact resource IDs leading every private key, foreign key, and important index (344).
 - `NUMERIC` for points and credit, never floating point (69).
 - Monthly partitions on high-volume append-only data; pre-create partitions and **alert on
   default-partition writes** (366-369).
@@ -66,7 +66,7 @@ Objectives testable against shipped artifacts:
 - Every `SECURITY DEFINER` function is revoked from `PUBLIC`, reassigned to a narrow broker role,
   and pinned with `SET search_path` (41 of 52 functions are definer). Volatility is deliberate:
   `STABLE` on readers, `IMMUTABLE STRICT` on the two CHECK-constraint helpers.
-- `ENABLE` plus `FORCE ROW LEVEL SECURITY` on essentially every tenant table. `FORCE` is
+- `ENABLE` plus `FORCE ROW LEVEL SECURITY` on every protected table. `FORCE` is
   load-bearing: tables are owned by the migration runner, not a `ple_*` role, and PG16 `ALTER TABLE`
   states RLS "will not be applied when the user is the table owner" unless forced.
 - Points columns are `numeric(16,4)` / `numeric(16,12)`. `double precision` appears only in
@@ -89,17 +89,17 @@ foreign key. Of 90 FKs, **75 have leading-prefix index coverage and 15 do not.**
 matter, because they are `ON DELETE CASCADE` (the cascade fires the scan automatically) or point at
 a high-volume parent:
 
-| Referencing table                  | Referencing columns                              | Parent                       | Why it matters                                                                     | Cite                            |
-| ---------------------------------- | ------------------------------------------------ | ---------------------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
-| `catalog_tenant_grant`             | `(problem_id, version_id)`                       | `problem_version`            | CASCADE with **no supporting index of any kind**                                   | `catalog_authoring.sql:482`     |
-| `attempt_timing_current`           | `(tenant_id, attempt_id, attempt_occurred_at)`   | `question_attempt`           | CASCADE into the partitioned, highest-volume table; only a 2-of-3 PK prefix exists | `operations_analytics.sql:1084` |
-| `assignment_attempt_score_staging` | `(job_id)`                                       | `worker_job`                 | CASCADE; every index on the staging tables leads with `tenant_id`                  | `operations_analytics.sql:1103` |
-| `assignment_scoring_staging`       | `(job_id)`                                       | `worker_job`                 | same                                                                               | `operations_analytics.sql:1112` |
-| `assignment_summary_staging`       | `(job_id)`                                       | `worker_job`                 | same                                                                               | `operations_analytics.sql:1118` |
-| `assignment_summary_staging`       | `(tenant_id, enrollment_id)`                     | `enrollment`                 | CASCADE                                                                            | `operations_analytics.sql:1124` |
-| `course_group_member`              | `(tenant_id, course_id, course_group_id)`        | `course_group`               | CASCADE; an index exists but with `user_id` in position 3, so it is not a prefix   | `courses_assignments.sql:318`   |
-| `assignment_policy_exception`      | `(tenant_id, course_id, course_group_id)`        | `course_group`               | CASCADE                                                                            | `courses_assignments.sql:333`   |
-| `assignment_selection_candidate`   | `(tenant_id, assignment_id, selection_group_id)` | `assignment_selection_group` | CASCADE                                                                            | `courses_assignments.sql:306`   |
+| Referencing table                  | Referencing columns                   | Parent                       | Why it matters                                                                     | Cite                            |
+| ---------------------------------- | ------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
+| `catalog_publication_grant`        | `(problem_id, version_id)`            | `problem_version`            | CASCADE with **no supporting index of any kind**                                   | `catalog_authoring.sql:482`     |
+| `attempt_timing_current`           | `(attempt_id, attempt_occurred_at)`   | `question_attempt`           | CASCADE into the partitioned, highest-volume table; only a 2-of-3 PK prefix exists | `operations_analytics.sql:1084` |
+| `assignment_attempt_score_staging` | `(job_id)`                            | `worker_job`                 | CASCADE; staging indexes lead with their exact parent identity                     | `operations_analytics.sql:1103` |
+| `assignment_scoring_staging`       | `(job_id)`                            | `worker_job`                 | same                                                                               | `operations_analytics.sql:1112` |
+| `assignment_summary_staging`       | `(job_id)`                            | `worker_job`                 | same                                                                               | `operations_analytics.sql:1118` |
+| `assignment_summary_staging`       | `(enrollment_id)`                     | `enrollment`                 | CASCADE                                                                            | `operations_analytics.sql:1124` |
+| `course_group_member`              | `(course_id, course_group_id)`        | `course_group`               | CASCADE; an index exists but with `user_id` in position 3, so it is not a prefix   | `courses_assignments.sql:318`   |
+| `assignment_policy_exception`      | `(course_id, course_group_id)`        | `course_group`               | CASCADE                                                                            | `courses_assignments.sql:333`   |
+| `assignment_selection_candidate`   | `(assignment_id, selection_group_id)` | `assignment_selection_group` | CASCADE                                                                            | `courses_assignments.sql:306`   |
 
 Also: `manual_grade_receipt` carries **no secondary index at all** - only its PK - yet has two FKs
 (`activity_feedback.sql:467,470`). Five more uncovered FKs are `RESTRICT`/no-action references to
@@ -159,7 +159,7 @@ The blank-padding semantics also mean the RLS policy comparison
 `text` plus the existing CHECK is strictly better on both counts.
 
 **Partition key versus predicates.** The four range-partitioned tables key on `occurred_at`, and
-their PKs are `(tenant_id, <entity>_id, occurred_at)`. Consequently every FK pointing at
+their PKs are `(<entity>_id, occurred_at)`. Consequently every FK pointing at
 `question_attempt` must carry `occurred_at` as a third column, which is exactly why the
 `attempt_timing_current` CASCADE above is uncovered. Any lookup that knows only `attempt_id` cannot
 prune and must touch every partition. This is an inherent, accepted cost of the partitioning choice,
@@ -171,15 +171,15 @@ Defects from this phase are D2, D3, D4, D7, and D8 below.
 
 ### Delivered well
 
-- **Tenant context is correct.** `SELECT set_config('ple.tenant_id', $1, true)` is parameterized and
-  transaction-local, issued inside the transaction it protects (`postgres.rs:341-352`), as is
-  `SET LOCAL ROLE ple_app`. No `after_connect` hook carries session state, so nothing leaks across a
-  pooled checkout. The most important thing to get right is right.
+- **Protected-resource context is correct.** The server parameterizes actor and resource bindings
+  inside the transaction they protect, alongside `SET LOCAL ROLE ple_app`. No `after_connect` hook
+  carries session state, so nothing leaks across a pooled checkout. The most important thing to get
+  right is right.
 - **Zero dynamic SQL.** All 247 sites pass `&'static str` with `$N` binds. No `QueryBuilder`, no
   `format!` into SQL text, no interpolated identifiers, `ORDER BY`, or `LIMIT`. `PageSize` clamps to
   `1..=100` before binding.
-- **Ownership contract enforced by types.** `TenantContext` has no `Default` and one construction
-  site, so omitting tenancy fails to compile (`rls.rs`).
+- **Ownership contract enforced by types.** The actor and exact resource inputs have no `Default`
+  and one construction site, so omitting authorization context fails to compile (`rls.rs`).
 - Optimistic concurrency is single-statement CAS, never read-then-write.
 - Job leasing is `FOR UPDATE SKIP LOCKED` with lease-token fencing and a replay-safe export commit.
 - 13 `.expect()` sites, no bare `.unwrap()`, no `panic!`; all assert internal invariants, not raw
@@ -279,14 +279,14 @@ missing grant surfaces in production.
 
 ### D2. Three tables have no row-level security
 
-| Table                           | Evidence                                                                               | Assessment                                                                                                                                                                                                                                                                                        |
-| ------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `problem`                       | `catalog_authoring.sql:150-162`; `GRANT SELECT,INSERT ... TO ple_app` line 765         | **Real leak.** Rows carry `owner_tenant_id`, `owner_user_id`, `public_id`, `visibility` (which admits `'institution'`), `lifecycle`. Every tenant's `ple_app` reads every row. The child `problem_version` gates on `publication_scope` plus `catalog_tenant_grant`; the parent gates on nothing. |
-| `answer_key`                    | `catalog_authoring.sql:135-140`; only `GRANT SELECT,INSERT ... TO ple_grader` line 759 | Grading secrets protected by grant alone, inconsistent with the RLS-enabled `published_qti_grading`.                                                                                                                                                                                              |
-| `question_statistics_aggregate` | `operations_analytics.sql:978`                                                         | Deliberate cross-tenant aggregate. Record the intent in SQL.                                                                                                                                                                                                                                      |
+| Table                           | Evidence                                                                               | Assessment                                                                                                                                                                                                                                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `problem`                       | `catalog_authoring.sql:150-162`; `GRANT SELECT,INSERT ... TO ple_app` line 765         | **Real leak.** Rows carried an obsolete scope owner beside `owner_user_id`, `public_id`, `visibility`, and `lifecycle`. Every application connection read every row. The child `problem_version` gated on publication scope plus a catalog publication grant; the parent gated on nothing. |
+| `answer_key`                    | `catalog_authoring.sql:135-140`; only `GRANT SELECT,INSERT ... TO ple_grader` line 759 | Grading secrets protected by grant alone, inconsistent with the RLS-enabled `published_qti_grading`.                                                                                                                                                                                       |
+| `question_statistics_aggregate` | `operations_analytics.sql:978`                                                         | Deliberate cross-course aggregate. Record the intent in SQL.                                                                                                                                                                                                                               |
 
 `ple_qti_staging_broker` and `ple_queue_broker` hold `BYPASSRLS` (`principals.sql:28,32`) -
-defensible, since the bypass is reachable only through definer functions with their own tenant
+defensible, since the bypass is reachable only through definer functions with their own actor and
 checks, but per D1 nothing proves the denial.
 
 ### D3. The baseline is a `pg_dump`, not an authored baseline
@@ -314,7 +314,7 @@ constraints never validated** - `catalog_authoring.sql:399`, `courses_assignment
 
 ### D5. Rust and SQLx hardening gaps
 
-- **No serialization-failure retry.** `begin_tenant_snapshot` opens `REPEATABLE READ`
+- **No serialization-failure retry.** The protected snapshot opens `REPEATABLE READ`
   (`postgres.rs:362`); `map_sqlx_error` (`:11250-11272`) does not map `40001` or `40P01`; both
   collapse into `StoreError::Unavailable` and nothing retries.
 - **Pool config is one line.** `max_connections(8)` only (`postgres.rs:2376-2380`); no
@@ -353,7 +353,7 @@ Three separate categories, with different confidence levels:
   an index on the referencing side, and 15 of 90 FKs lack leading-prefix coverage. Whether each
   merits an index depends on expected parent-deletion frequency, child-table size, and workload. The
   ones worth acting on are the nine `ON DELETE CASCADE` cases, where PostgreSQL must search the
-  child automatically - especially `catalog_tenant_grant` (no supporting index of any kind), the
+  child automatically - especially the catalog publication grant (no supporting index of any kind), the
   three `*_staging` tables cascading from `worker_job`, and `attempt_timing_current` cascading from
   the partitioned, highest-volume `question_attempt`. `manual_grade_receipt` has no secondary index
   at all despite two FKs. The five `RESTRICT`/no-action references to immutable
@@ -390,7 +390,7 @@ advisory locks are blocking rather than `try_`.
 
 ### D11. Minor
 
-- `ple_current_tenant()` (`principals.sql:58-62`) is the only function without `SET search_path`;
+- The historical current-actor helper (`principals.sql:58-62`) was the only function without `SET search_path`;
   invoker-rights and schema-safe, but it backs ~100 policies.
 - `question_attempt_run_summary_cursor_idx` and `question_attempt_run_position_idx`
   (`activity_feedback.sql:391,393`) are near-duplicate coverage.
@@ -410,13 +410,13 @@ migration from any item below.
    `docs/E2E_TESTS.md`, reusing the
    Postgres in `containers/compose.yaml`. Validation: six migrations apply to an empty database;
    re-run is a no-op; `cargo tools database verify` passes; a mutated migration file reports
-   `modified`; a cross-tenant denial matrix proves that as each of `ple_app`, `ple_student`,
-   `ple_grader`, `ple_grading_reader`, tenant A cannot read tenant B on every RLS-protected table. This
+   `modified`; an exact-resource denial matrix proves that each of `ple_app`, `ple_student`,
+   `ple_grader`, and `ple_grading_reader` cannot read another actor's protected records on every RLS-protected table. This
    is the oracle for tasks 2-5 and the only place the execution-oriented parts of
    `/postgresql-expert` belong.
 2. **Close the RLS gaps.** The recommendation was `ENABLE` + `FORCE` plus policies on `problem`
    (mirroring
-   `problem_version`'s `publication_scope` / `catalog_tenant_grant` logic) and `answer_key`
+   `problem_version`'s publication-scope and catalog-grant logic) and `answer_key`
    (grader-only); comment the deliberate scope of `question_statistics_aggregate`. Validation: the
    task 1 denial matrix, plus a catalog check that no `public` table has `relrowsecurity = false`.
 3. **De-dump the baseline.** The recommendation was to replace the six `NOT VALID` constraints with
@@ -445,8 +445,8 @@ migration from any item below.
    support credible near-term schema or query evolution; reconsider only ones with no identified
    purpose. Evaluate the uncovered CASCADE foreign keys according to expected child-table size and
    parent-deletion behavior, and add covering indexes where that evaluation justifies them -
-   starting with `catalog_tenant_grant(problem_id, version_id)`, the three staging `job_id` columns,
-   and `attempt_timing_current(tenant_id, attempt_id, attempt_occurred_at)`; reorder
+   starting with the catalog publication grant's `(problem_id, version_id)` key, the three staging `job_id` columns,
+   and `attempt_timing_current(attempt_id, attempt_occurred_at)`; reorder
    `course_group_member_user_idx` or add a sibling so the `course_group` FK has a prefix. Validation:
    an FK-to-index coverage query in the task 1 gate that reports uncovered CASCADE FKs, reviewed
    rather than auto-failed.

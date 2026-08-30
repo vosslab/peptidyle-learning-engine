@@ -6,7 +6,7 @@ the accepted baseline design as historical evidence, not as an implementation pa
 The baseline is frozen: every later schema change uses a new forward migration. WP-CA3 followed that
 rule with the accepted `2026080907_course_appearance.sql` forward migration and a fresh
 seven-migration PostgreSQL/RLS gate on 2026-08-09. WP-RC1 acceptance strengthened that migration
-with a trigger enforcing exact current-banner delivery kind and legacy tenant/course ownership; the real
+with a trigger enforcing exact current-banner delivery kind and legacy scope/course ownership; the real
 `ple_app` negative probe and combined PostgreSQL/MinIO cleanup oracle passed.
 
 ## Context
@@ -25,18 +25,18 @@ Human Guidance.
 
 The database must serve several legitimate perspectives at once:
 
-| Perspective          | Database need                                                                    |
-| -------------------- | -------------------------------------------------------------------------------- |
-| Instructor           | Change points, dates, policies, and remove and regrade bad questions             |
-| Student              | Stable active attempts, fair recalculation, and recovery from technical problems |
+| Perspective          | Database need                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Instructor           | Change points, dates, policies, and remove and regrade bad questions                  |
+| Student              | Stable active attempts, fair recalculation, and recovery from technical problems      |
 | Problem author       | Immutable published questions, drafts, Question ID lineages, versions, and provenance |
-| Problem finder       | Human-readable IDs and discovery that is not restricted by subject               |
-| Grading service      | Raw responses, deterministic automated evaluation, and recalculation             |
-| Support staff        | Force-submit, clear attempts, access logs, and actionable statuses               |
-| Analyst              | Rebuildable item analysis without slowing operational queries                    |
-| Security and privacy | Exact actor, relationship ownership, least privilege, retention, and access auditing |
-| Operations           | One-installation routing, bounded partitions, typed leases, and current summaries |
-| Import and export    | QTI provenance, partial failures, validation, and duplicate warnings             |
+| Problem finder       | Human-readable IDs and discovery that is not restricted by subject                    |
+| Grading service      | Raw responses, deterministic automated evaluation, and recalculation                  |
+| Support staff        | Force-submit, clear attempts, access logs, and actionable statuses                    |
+| Analyst              | Rebuildable item analysis without slowing operational queries                         |
+| Security and privacy | Exact actor, relationship ownership, least privilege, retention, and access auditing  |
+| Operations           | One-installation routing, bounded partitions, typed leases, and current summaries     |
+| Import and export    | QTI provenance, partial failures, validation, and duplicate warnings                  |
 
 The design must preserve adaptability without creating assignment-history or scoring-history cruft.
 The unifying persistence model is:
@@ -88,7 +88,7 @@ adapter-specific metadata. Every durable JSONB contract has a schema version and
 - Name keys and foreign keys for their actual owner: `user_id`, `workspace_id`, `course_id`, `student_id`,
   `assignment_id`, `run_id`, `question_attempt_id`, or immutable catalog identity.
 - Transaction authority is the server-derived `ActorContext { user_id, session_id }`; it is not a caller-
-  selected tenant or database context.
+  selected installation scope or database context.
 
 This preserves the useful part of Sinedon's required identity and timestamp convention without
 giving every pure relationship a meaningless surrogate ID.
@@ -386,8 +386,8 @@ and grading authority; a provider is a private server-side adapter and its crede
 raw responses, and answer-bearing material never cross the browser boundary.
 
 The checked-in pre-SD1 migration files and current Rust Store names are migration/source evidence for
-the rebase. Their historical `tenant`, `tenant_id`, `TenantId`, `TenantContext`, publication-scope,
-Alpha, and provider vocabulary remains unchanged where needed to preserve lineage, but does not define
+the rebase. Their historical global-scope, publication-scope, Alpha, and provider vocabulary remains
+migration evidence, but does not define
 the fresh schema, authorization, route, or API contract. One-time Graphify maps, source inventories,
 migration matrices, schema fingerprints, and clean-volume receipts record this distinction; they are
 not permanent tests or a second compatibility model.
@@ -399,7 +399,7 @@ must enforce least privilege and defensible safeguards.
 
 - Separate catalog, authoring, educational-record, grading-secret, and operational schemas and roles.
 - Derive `ActorContext { user_id, session_id }` from the authenticated server session. It has no
-  caller-controlled constructor and no institution or tenant selector.
+  caller-controlled constructor and no institution or installation-scope selector.
 - Author private drafts through the exact workspace owner/collaborator relationship; authorize
   courses and assignments through current direct Instructor membership; bind Student records to the
   exact course and Student owner; derive worker, object, export, retention, and provider work from a
@@ -421,12 +421,12 @@ must enforce least privilege and defensible safeguards.
 ## Partitioning and distribution
 
 Maximum distributability means preserving clean typed ownership and routing boundaries, not inventing
-an institution or tenant hierarchy.
+an institution or installation-scope hierarchy.
 
 - Start with one PostgreSQL cluster and separate logical schemas.
 - Keep the shared catalog central and read-replicable.
 - Keep private records addressable by their exact `UserId`, `WorkspaceId`, `CourseId`, `StudentId`,
-  and child identities. Do not add tenant-leading keys or a tenant-placement contract.
+  and child identities. Do not add scope-leading keys or a placement contract.
 - Avoid cross-course business joins and transactions where a typed course-owned operation suffices.
 - Monthly range-partition only high-volume append-only attempt, submission, access-log, and audit
   detail.
@@ -465,7 +465,7 @@ Keep raw SQL while replacing custom orchestration:
 The historical pre-SD1 baseline contains exactly six ordered SQLx migrations. Each file owns a
 durable domain boundary rather than a chronological implementation slice:
 
-1. `2026080801_principals.sql`: historical runtime principals, tenant/session helpers, authentication
+1. `2026080801_principals.sql`: historical runtime principals, scope/session helpers, authentication
    sessions, and the narrow read-only migration-state projection used by application compatibility
    checks.
 2. `2026080802_catalog_authoring.sql`: immutable problems and versions, payload and answer-key
@@ -505,27 +505,27 @@ after evidence is recorded rather than becoming committed fixtures.
 ### Fresh SD1-C epoch
 
 The current single-installation target is a fresh disposable PostgreSQL epoch owned by `WP-SD1-C`,
-not a compatibility migration over the historical tenant-shaped schema. The exact allocation remains
+not a compatibility migration over the historical global-scope schema. The exact allocation remains
 in [implementation_status.md](../implementation_status.md) and the single-installation scope
 register. The range is `2026082901` through `2026082932`, with these capability families:
 
-| Range | Capability family |
-| --- | --- |
-| `2026082901` | Principal baseline, schemas, capability roles, and default ACLs |
-| `2026082902`-`2026082906` | Accounts, passwordless identity, Instructor vetting, and actor resolution |
-| `2026082907`-`2026082909` | Global immutable catalog, publication, discovery, and stewardship |
-| `2026082910`-`2026082912` | Private authoring, Blueprints, collections, and saved searches |
+| Range                     | Capability family                                                            |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `2026082901`              | Principal baseline, schemas, capability roles, and default ACLs              |
+| `2026082902`-`2026082906` | Accounts, passwordless identity, Instructor vetting, and actor resolution    |
+| `2026082907`-`2026082909` | Global immutable catalog, publication, discovery, and stewardship            |
+| `2026082910`-`2026082912` | Private authoring, Blueprints, collections, and saved searches               |
 | `2026082913`-`2026082916` | Courses, equal co-Instructors, Students, invitations, and reusable curricula |
-| `2026082917`-`2026082920` | Assignments, schedules, runs, attempts, submissions, and artifacts |
-| `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, and improvement threads |
-| `2026082925`-`2026082928` | Typed jobs, exports, objects, retention, and external-tool state |
-| `2026082929`-`2026082932` | Capability brokers, forced RLS, grants, and schema acceptance helpers |
+| `2026082917`-`2026082920` | Assignments, schedules, runs, attempts, submissions, and artifacts           |
+| `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, and improvement threads              |
+| `2026082925`-`2026082928` | Typed jobs, exports, objects, retention, and external-tool state             |
+| `2026082929`-`2026082932` | Capability brokers, forced RLS, grants, and schema acceptance helpers        |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content identities and exact user, workspace, course, membership,
-Student, lease, and immutable-version relationships. It creates no `tenant_id` compatibility column,
-tenant RLS predicate, Alpha compatibility table/function, or latest-version reader. Historical
-migrations remain unchanged and are one-time migration/source evidence; their tenant or provider
+Student, lease, and immutable-version relationships. It creates no scope compatibility column,
+scope RLS predicate, Alpha compatibility table/function, or latest-version reader. Historical
+migrations remain unchanged and are one-time migration/source evidence; their obsolete scope or provider
 spelling does not establish the current schema. Fresh-install convergence, no-op replay, checksum
 status, missing-actor refusal, exact Student/course authorization, equal co-Instructor behavior,
 typed lease scope, and forced-RLS denial are the required SD1-C PostgreSQL acceptance boundaries.
@@ -558,7 +558,7 @@ Instructor commands are explicit domain operations:
 
 Each command derives the actor from the authenticated session, authorizes its exact workspace,
 course, Student, catalog, or typed lease scope, is revision-checked, idempotent where retryable,
-and validated against active attempts. No command accepts a caller-selected tenant or institution as
+and validated against active attempts. No command accepts a caller-selected installation scope or institution as
 authority.
 
 ## Verification
@@ -582,7 +582,7 @@ authority.
 - Verify random selection reproducibility and candidate retirement.
 - Verify a newer scoring generation supersedes an in-flight job.
 - Verify atomic replacement leaves exactly one current score per attempt and student.
-- Verify there are no assignment-history, scoring-revision, old-grade, tenant-compatibility, or
+- Verify there are no assignment-history, scoring-revision, old-grade, scope-compatibility, or
   latest-version tables/readers in the fresh SD1-C epoch.
 - Verify active timer changes and server auto-submit.
 - Verify force-submit, clear, and access-log authorization.
@@ -617,7 +617,7 @@ authority.
 - PostgreSQL and explicit SQL remain authoritative.
 - SQLx replaces the custom migration registry.
 - The accepted six-file baseline is immutable; all schema evolution now uses new forward migrations.
-- The fresh `WP-SD1-C` epoch owns `2026082901`-`2026082932`; historical tenant-shaped migrations are
+- The fresh `WP-SD1-C` epoch owns `2026082901`-`2026082932`; historical global-scope migrations are
   unchanged migration evidence and are not a compatibility authority.
 
 ## Explicit non-goals
@@ -627,7 +627,7 @@ authority.
 - Globally mutable linked published questions.
 - A new Question ID for every compatible content change.
 - Subject-based catalog silos.
-- Institution or tenant boundaries, selectors, tenant-leading keys, or tenant-based RLS.
+- Institution or installation-scope boundaries, selectors, scope-leading keys, or scope-based RLS.
 - A database per Instructor or CourseInstance.
 - Generic EAV storage for educational records.
 - Runtime automatic DDL.

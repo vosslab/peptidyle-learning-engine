@@ -181,7 +181,7 @@ where
 
 fn store_error_response(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "export not found")
         }
         StoreError::AlreadyExists | StoreError::Conflict => {
@@ -653,7 +653,6 @@ mod tests {
                 } => {
                     assert_eq!(claimed_course, course);
                     break RetentionWorkerCommand {
-                        tenant,
                         course,
                         stage,
                         generation,

@@ -204,7 +204,7 @@ authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_P
 ## Can a Student upload a file answer?
 
 Not yet. The current browser widget and submission route fail closed because a browser-supplied object
-key cannot prove tenant, learner, attempt, storage, or inspection ownership. The planned capability
+key cannot prove course, learner, attempt, storage, or inspection ownership. The planned capability
 creates one server-issued, attempt-bound upload record and later accepts only that opaque upload ID.
 See [secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md).
 

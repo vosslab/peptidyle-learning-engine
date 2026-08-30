@@ -140,8 +140,8 @@ run "security_baseline_plan" {
     error_message = "Only the narrow publisher principal may create immutable public assets; API may not write or delete them."
   }
   assert {
-    condition     = strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/imports/*/assets/*") && strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/questions/assets/*") && !strcontains(aws_iam_role_policy.publisher_storage.policy, "private_content/problems/*") && !strcontains(aws_iam_role_policy.publisher_storage.policy, "private_content/tenants/*")
-    error_message = "Publisher private reads must be limited to the two typed workspace asset paths, never published or tenant-wide content."
+    condition     = strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/imports/*/assets/*") && strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/questions/assets/*") && !strcontains(aws_iam_role_policy.publisher_storage.policy, "private_content/problems/*")
+    error_message = "Publisher private reads must be limited to the two typed workspace asset paths."
   }
   assert {
     condition     = strcontains(aws_iam_role_policy.api_execution_secrets.policy, var.api_application_secrets_kms_key_arn) && !strcontains(aws_iam_role_policy.api_execution_secrets.policy, aws_kms_key.secrets.arn) && strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.publisher_application_secrets_kms_key_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.worker_application_secrets_arn)

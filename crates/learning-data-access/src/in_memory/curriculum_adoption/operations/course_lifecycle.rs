@@ -16,7 +16,7 @@ use super::super::{
 };
 use crate::in_memory::curriculum_adoption::destination;
 use crate::in_memory::{MemoryStore, State};
-use crate::{CourseRecord, SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, CourseRecord, SessionTokenHash, StoreError};
 
 /// Post-state facts from a rollover core. The dispatcher retains the apply
 /// record and builds immutable receipt evidence in its transaction envelope.
@@ -50,17 +50,16 @@ struct RolloverAssignmentImportFacts {
 /// Projects rollover facts from the current source without creating apply authority.
 pub(super) async fn preview_rollover_course_instance(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: RolloverCourseInstancePreviewRequest,
 ) -> Result<RolloverCourseInstancePreview, StoreError> {
-    let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
-    let course = super::super::resolve_course(&state, tenant, request.source_course)?;
-    require_course_instructor(&state, tenant, course, actor)?;
-    let witness = course_witness(&state, tenant, course)?;
-    let input = rollover_input(&state, tenant, course, &request.target_term)?;
+    let course = super::super::resolve_course(&state, request.source_course)?;
+    require_course_instructor(&state, course, actor)?;
+    let witness = course_witness(&state, course)?;
+    let input = rollover_input(&state, course, &request.target_term)?;
     Ok(RolloverCourseInstancePreview {
         witness,
         target_term: request.target_term,
@@ -72,18 +71,17 @@ pub(super) async fn preview_rollover_course_instance(
 /// Projects a term shift, refusing a course whose delivery history has begun.
 pub(super) async fn preview_shift_course_instance_term(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: ShiftCourseInstanceTermPreviewRequest,
 ) -> Result<ShiftCourseInstanceTermPreview, StoreError> {
-    let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
-    let course = super::super::resolve_course(&state, tenant, request.course)?;
-    require_course_instructor(&state, tenant, course, actor)?;
-    course_instance_blueprint_application(&state, tenant, course)?;
-    let witness = course_witness(&state, tenant, course)?;
-    if course_has_any_run(&state, tenant, course) {
+    let course = super::super::resolve_course(&state, request.course)?;
+    require_course_instructor(&state, course, actor)?;
+    course_instance_blueprint_application(&state, course)?;
+    let witness = course_witness(&state, course)?;
+    if course_has_any_run(&state, course) {
         return Ok(ShiftCourseInstanceTermPreview {
             witness: witness.clone(),
             target_term: request.target_term,
@@ -99,15 +97,12 @@ pub(super) async fn preview_shift_course_instance_term(
     let mut schedules = Vec::new();
     let mut corrections = Vec::new();
     for assignment in witness.assignments() {
-        let assignment_id = state
-            .assignment_references
-            .iter()
-            .find_map(|((record_tenant, id), reference)| {
-                (*record_tenant == tenant && *reference == assignment.assignment).then_some(*id)
-            })
+        let assignment_id = *state
+            .assignments_by_reference
+            .get(&assignment.assignment)
             .ok_or(StoreError::Conflict)?;
         let semantic =
-            super::super::current_with_projected_teaching_schedule(&state, tenant, assignment_id)?;
+            super::super::current_with_projected_teaching_schedule(&state, assignment_id)?;
         let (schedule, row_corrections) =
             crate::curriculum_adoption::preview_assignment(&semantic, &request.target_term)
                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -136,20 +131,18 @@ pub(super) async fn preview_shift_course_instance_term(
 /// Consumes a server-built rollover command inside an existing write transition.
 pub(super) fn apply_rollover_course_instance_locked(
     state: &mut State,
-    context: TenantContext,
+    _context: ActorContext,
     actor: question_model::UserId,
     command: &RolloverCourseInstanceCommand,
 ) -> Result<AppliedRollover, StoreError> {
-    let tenant = context.tenant_id();
     validate_rollover_command(actor, command)?;
-    let source_course = require_exact_witness(state, tenant, command.source_course_instance())?;
-    require_course_instructor(state, tenant, source_course, actor)?;
-    let blueprint_application =
-        course_instance_blueprint_application(state, tenant, source_course)?;
+    let source_course = require_exact_witness(state, command.source_course_instance())?;
+    require_course_instructor(state, source_course, actor)?;
+    let blueprint_application = course_instance_blueprint_application(state, source_course)?;
     if blueprint_application != command.blueprint_application() {
         return Err(StoreError::Conflict);
     }
-    let input = rollover_input(state, tenant, source_course, command.target_term())?;
+    let input = rollover_input(state, source_course, command.target_term())?;
     if manifest(&input)? != *command.manifest() {
         return Err(StoreError::Conflict);
     }
@@ -158,7 +151,6 @@ pub(super) fn apply_rollover_course_instance_locked(
         state,
         CourseRecord {
             id: course_id,
-            tenant,
             title: input.title.clone(),
             term: command.target_term().clone(),
         },
@@ -170,23 +162,19 @@ pub(super) fn apply_rollover_course_instance_locked(
     if state
         .curriculum_adoption
         .course_instance_blueprint_applications
-        .insert((tenant, course_id), blueprint_application)
+        .insert(course_id, blueprint_application)
         .is_some()
     {
         return Err(StoreError::Conflict);
     }
-    let precondition = course_witness(state, tenant, course_id)?;
+    let precondition = course_witness(state, course_id)?;
     let mut imported = Vec::new();
     for assignment in input.assignments() {
-        let (assignment_id, reference) = destination::materialize_semantic_assignment(
-            state,
-            context,
-            course_id,
-            &assignment.semantic,
-        )?;
+        let (assignment_id, reference) =
+            destination::materialize_semantic_assignment(state, course_id, &assignment.semantic)?;
         imported.push((assignment_id, reference, assignment.source));
     }
-    let destination = course_witness(state, tenant, course_id)?;
+    let destination = course_witness(state, course_id)?;
     for (assignment_id, reference, source) in imported {
         let applied_assignment = destination
             .assignments()
@@ -228,44 +216,39 @@ pub(super) fn apply_rollover_course_instance_locked(
 /// Consumes the exact server-resolved term-shift schedule set inside one write transition.
 pub(super) fn apply_shift_course_instance_term_locked(
     state: &mut State,
-    context: TenantContext,
+    _context: ActorContext,
     actor: question_model::UserId,
     command: &ShiftCourseInstanceTermCommand,
 ) -> Result<AppliedTermShift, StoreError> {
-    let tenant = context.tenant_id();
     if actor != command.authorized_actor() {
         return Err(StoreError::Conflict);
     }
-    let course = require_exact_witness(state, tenant, command.destination())?;
-    require_course_instructor(state, tenant, course, actor)?;
-    let blueprint_application = course_instance_blueprint_application(state, tenant, course)?;
-    if blueprint_application != command.blueprint_application()
-        || course_has_any_run(state, tenant, course)
+    let course = require_exact_witness(state, command.destination())?;
+    require_course_instructor(state, course, actor)?;
+    let blueprint_application = course_instance_blueprint_application(state, course)?;
+    if blueprint_application != command.blueprint_application() || course_has_any_run(state, course)
     {
         return Err(StoreError::Conflict);
     }
-    let current = course_witness(state, tenant, course)?;
-    let input = shift_schedules(state, tenant, &current, command.target_term())?;
+    let current = course_witness(state, course)?;
+    let input = shift_schedules(state, &current, command.target_term())?;
     if input.as_slice() != command.schedules() {
         return Err(StoreError::Conflict);
     }
     for (observed, schedule) in current.assignments().iter().zip(command.schedules()) {
-        let assignment = state
-            .assignment_references
-            .iter()
-            .find_map(|((record_tenant, id), reference)| {
-                (*record_tenant == tenant && *reference == observed.assignment).then_some(*id)
-            })
+        let assignment = *state
+            .assignments_by_reference
+            .get(&observed.assignment)
             .ok_or(StoreError::Conflict)?;
-        apply_schedule(state, tenant, assignment, schedule)?;
+        apply_schedule(state, assignment, schedule)?;
     }
     state
         .courses
-        .get_mut(&(tenant, course))
+        .get_mut(&course)
         .ok_or(StoreError::NotFound)?
         .term = command.target_term().clone();
-    advance_course_schedule_revision(state, tenant, course)?;
-    let destination = course_witness(state, tenant, course)?;
+    advance_course_schedule_revision(state, course)?;
+    let destination = course_witness(state, course)?;
     Ok(AppliedTermShift {
         course: destination.course,
         outcome: destination,
@@ -304,21 +287,16 @@ fn validate_rollover_command(
 
 pub(super) fn shift_schedules(
     state: &State,
-    tenant: question_model::TenantId,
     witness: &CourseInstanceWitness,
     target_term: &question_model::CourseTerm,
 ) -> Result<question_model::BoundedResolvedScheduleSet, StoreError> {
     let mut schedules = Vec::new();
     for observed in witness.assignments() {
-        let assignment = state
-            .assignment_references
-            .iter()
-            .find_map(|((record_tenant, id), reference)| {
-                (*record_tenant == tenant && *reference == observed.assignment).then_some(*id)
-            })
+        let assignment = *state
+            .assignments_by_reference
+            .get(&observed.assignment)
             .ok_or(StoreError::Conflict)?;
-        let semantic =
-            super::super::current_with_projected_teaching_schedule(state, tenant, assignment)?;
+        let semantic = super::super::current_with_projected_teaching_schedule(state, assignment)?;
         let (schedule, corrections) =
             crate::curriculum_adoption::preview_assignment(&semantic, target_term)
                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -332,27 +310,25 @@ pub(super) fn shift_schedules(
 
 fn apply_schedule(
     state: &mut State,
-    tenant: question_model::TenantId,
     assignment: question_model::AssignmentId,
     schedule: &question_model::ResolvedRelativeAssignmentSchedule,
 ) -> Result<(), StoreError> {
-    let key = (tenant, assignment);
     let revision = *state
         .assignment_revisions
-        .get(&key)
+        .get(&assignment)
         .ok_or_else(|| destination::integrity("assignment revision"))?;
     let next = crate::assignment_revision_checked_next(revision)?;
     let mut stored = state
         .assignment_base_policy
-        .get(&key)
+        .get(&assignment)
         .copied()
         .ok_or_else(|| destination::integrity("assignment base policy"))?;
     stored.policy.available_at = schedule.available_at.as_ref().map(|value| value.timestamp);
     stored.policy.due_at = schedule.due_at.as_ref().map(|value| value.timestamp);
     stored.policy.closes_at = schedule.closes_at.as_ref().map(|value| value.timestamp);
     stored.revision = next;
-    state.assignment_base_policy.insert(key, stored);
-    state.assignment_revisions.insert(key, next);
+    state.assignment_base_policy.insert(assignment, stored);
+    state.assignment_revisions.insert(assignment, next);
     Ok(())
 }
 

@@ -624,7 +624,6 @@ def _canonical_uuid(value: str, label: str) -> str:
 #============================================
 def postgresql_count_command(
 	disposable: local_stack_control.models.DisposableComposeTarget,
-	tenant_id: str,
 	attempt_id: str,
 ) -> tuple[list[str], dict[str, str], str]:
 	"""Form the replica profile's one fixed scoped durability-count query."""
@@ -641,7 +640,6 @@ def postgresql_count_command(
 		raise local_stack_control.models.ControllerError(
 			"PostgreSQL count is limited to the fixed replica profile"
 		)
-	tenant = _canonical_uuid(tenant_id, "PostgreSQL count tenant")
 	attempt = _canonical_uuid(attempt_id, "PostgreSQL count attempt")
 	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
 	postgres_user = values.get("POSTGRES_USER")
@@ -652,7 +650,7 @@ def postgresql_count_command(
 		)
 	sql = "SELECT " + ",".join(
 		f"(SELECT count(*) FROM {table} "
-		"WHERE tenant_id = :'tenant_id'::uuid AND attempt_id = :'attempt_id'::uuid)"
+		"WHERE attempt_id = :'attempt_id'::uuid)"
 		for table in POSTGRESQL_COUNT_FIELDS
 	) + ";\n"
 	argv = local_stack_control.compose.compose_argv(
@@ -664,8 +662,6 @@ def postgresql_count_command(
 			"psql",
 			"-v",
 			"ON_ERROR_STOP=1",
-			"-v",
-			f"tenant_id={tenant}",
 			"-v",
 			f"attempt_id={attempt}",
 			"-U",

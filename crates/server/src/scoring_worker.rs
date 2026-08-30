@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use learning_data_access::{
     AssignmentScoringCommitOutcome, AssignmentScoringPreparationOutcome,
     AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, JobFailureKind, JobId, JobKind,
-    JobPayload, JobState, JobStore, StoreError, TenantContext,
+    JobPayload, JobState, JobStore, StoreError,
 };
 
 use crate::worker::{
@@ -30,7 +30,6 @@ pub enum ExactAssignmentScoringOutcome {
 /// background worker while selecting only the caller's durable job identity.
 pub async fn execute_exact_assignment_scoring<S>(
     store: Arc<S>,
-    context: TenantContext,
     job: JobId,
     settings: WorkerSettings,
 ) -> Result<ExactAssignmentScoringOutcome, StoreError>
@@ -62,7 +61,7 @@ where
             "exact assignment scoring did not publish successfully".to_string(),
         ));
     }
-    match store.get_job(context, job).await? {
+    match store.get_job(job).await? {
         Some(view) if view.state == JobState::Completed => {
             Ok(ExactAssignmentScoringOutcome::Completed)
         }
@@ -96,7 +95,6 @@ where
 {
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
@@ -113,15 +111,12 @@ where
         }
         match self
             .store
-            .prepare_assignment_scoring(
-                context,
-                AssignmentScoringWorkerCommand {
-                    job: claim.job_id(),
-                    lease: claim.lease_token(),
-                    assignment,
-                    generation,
-                },
-            )
+            .prepare_assignment_scoring(AssignmentScoringWorkerCommand {
+                job: claim.job_id(),
+                lease: claim.lease_token(),
+                assignment,
+                generation,
+            })
             .await
             .map_err(scoring_failure)?
         {
@@ -132,7 +127,6 @@ where
             return Err(JobFailureKind::TimedOut);
         }
         Ok(PreparedJobEffect::AssignmentScoring {
-            tenant: context.tenant_id(),
             assignment,
             generation,
         })
@@ -174,7 +168,6 @@ where
         effect: PreparedJobEffect,
     ) -> Result<EffectCommitOutcome, StoreError> {
         let PreparedJobEffect::AssignmentScoring {
-            tenant,
             assignment,
             generation,
         } = effect
@@ -185,15 +178,12 @@ where
         };
         match self
             .store
-            .commit_assignment_scoring(
-                TenantContext::from_authenticated_session(tenant),
-                AssignmentScoringWorkerCommand {
-                    job: claim.job_id(),
-                    lease: claim.lease_token(),
-                    assignment,
-                    generation,
-                },
-            )
+            .commit_assignment_scoring(AssignmentScoringWorkerCommand {
+                job: claim.job_id(),
+                lease: claim.lease_token(),
+                assignment,
+                generation,
+            })
             .await?
         {
             AssignmentScoringCommitOutcome::Committed

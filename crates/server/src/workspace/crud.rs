@@ -28,7 +28,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
@@ -41,8 +41,7 @@ where
     match state
         .store
         .list_drafts(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
+            authenticated.actor,
             page,
         )
         .await
@@ -65,7 +64,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
@@ -74,8 +73,7 @@ where
     match state
         .store
         .get_draft(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
+            authenticated.actor,
             workspace,
         )
         .await
@@ -100,7 +98,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
@@ -135,8 +133,7 @@ where
     let existing = match state
         .store
         .get_draft(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
+            authenticated.actor,
             workspace,
         )
         .await
@@ -145,15 +142,13 @@ where
         Err(error) => return store_error_response(error),
     };
     let draft = DraftRecord {
-        tenant: authenticated.tenant_context.tenant_id(),
         question: question.clone(),
         derived_from: existing.and_then(|draft| draft.record.derived_from),
     };
     match state
         .store
         .upsert_draft(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
+            authenticated.actor,
             expected_revision,
             draft,
         )
@@ -177,7 +172,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
@@ -201,15 +196,14 @@ where
     match state
         .store
         .delete_draft(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
+            authenticated.actor,
             workspace,
             expected_revision,
         )
         .await
     {
         Ok(true) => no_store(StatusCode::NO_CONTENT.into_response()),
-        // A foreign tenant intentionally has the same result as an absent row.
+        // An inaccessible workspace intentionally has the same result as an absent row.
         Ok(false) => error_response(StatusCode::NOT_FOUND, "workspace not found"),
         Err(error) => store_error_response(error),
     }

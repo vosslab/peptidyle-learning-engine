@@ -29,12 +29,12 @@ async fn publish_assignment_scoring(store: &MemoryStore) {
         generation,
     };
     store
-        .prepare_assignment_scoring(context, command)
+        .prepare_assignment_scoring(command)
         .await
         .expect("prepare assignment scoring");
     assert!(matches!(
         store
-            .commit_assignment_scoring(context, command)
+            .commit_assignment_scoring(command)
             .await
             .expect("commit assignment scoring"),
         AssignmentScoringCommitOutcome::Committed | AssignmentScoringCommitOutcome::Superseded

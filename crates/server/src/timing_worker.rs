@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use learning_data_access::{
     AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
-    JobFailureKind, JobPayload, StoreError, TenantContext,
+    JobFailureKind, JobPayload, StoreError,
 };
 
 use crate::worker::{
@@ -28,7 +28,6 @@ impl AttemptAutoSubmitHandler {
 impl JobHandler for AttemptAutoSubmitHandler {
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
@@ -46,7 +45,6 @@ impl JobHandler for AttemptAutoSubmitHandler {
             return Err(JobFailureKind::TimedOut);
         }
         Ok(PreparedJobEffect::AttemptAutoSubmit {
-            tenant: context.tenant_id(),
             attempt,
             timing_generation,
         })
@@ -80,7 +78,6 @@ where
         effect: PreparedJobEffect,
     ) -> Result<EffectCommitOutcome, StoreError> {
         let PreparedJobEffect::AttemptAutoSubmit {
-            tenant,
             attempt,
             timing_generation,
         } = effect
@@ -91,15 +88,12 @@ where
         };
         match self
             .store
-            .commit_attempt_auto_submit(
-                TenantContext::from_authenticated_session(tenant),
-                AttemptAutoSubmitWorkerCommand {
-                    job: claim.job_id(),
-                    lease: claim.lease_token(),
-                    attempt,
-                    timing_generation,
-                },
-            )
+            .commit_attempt_auto_submit(AttemptAutoSubmitWorkerCommand {
+                job: claim.job_id(),
+                lease: claim.lease_token(),
+                attempt,
+                timing_generation,
+            })
             .await?
         {
             AttemptAutoSubmitCommitOutcome::AutoSubmitted

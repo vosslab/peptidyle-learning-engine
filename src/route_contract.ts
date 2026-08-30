@@ -222,7 +222,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "courseRoster",
     path: "/instructor/courses/:courseRef/students",
-    surface: "Course roster, invitations, import, and grade export",
+    surface: "Course roster, invitations, and import",
     requiredRoles: ["instructor", "sysadmin"],
   },
   {

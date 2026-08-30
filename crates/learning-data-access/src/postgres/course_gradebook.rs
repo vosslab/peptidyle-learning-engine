@@ -214,7 +214,6 @@ impl CourseGradebookStore for PostgresStore {
         let actor = validate_export_audit_witness(&row, tenant, course, id, &scheme, rows.len())?;
         let audit = CourseGradeExportAudit {
             id,
-            tenant,
             course,
             requested_by: actor,
             scheme_revision: scheme.revision,

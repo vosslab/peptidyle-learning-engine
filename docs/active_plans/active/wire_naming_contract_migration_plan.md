@@ -137,14 +137,10 @@ its one closure; it adds neither aliases nor parallel role vocabulary.
   `decodeLearnerQuestionAttempt`, `decodeLearnerAssignmentProgress`,
   `decodeLearnerAssignmentPage`, and `decodeLearnerSubmissionStatus`, the class-statistics
   converter, and each browser client/runtime member target.
-- SR5 names `learner_work_broker_assignment_tenant`, `learner_work_broker_attempt_tenant`,
-  `learner_work_broker_audience_tenant`, `learner_work_broker_course_tenant`,
-  `learner_work_broker_enrollment_tenant`, `learner_work_broker_group_member_tenant`,
-  `learner_work_broker_group_tenant`, `learner_work_broker_member_tenant`,
-  `learner_work_broker_question_prefetch_delete`, `learner_work_broker_question_prefetch_select`,
-  `learner_work_broker_run_tenant`, and `learner_work_broker_summary_tenant`, with each exact
-  explicitly listed target name in the ledger. It also names the fence and the three exact
-  current function names and targets in the ledger.
+- SR5 maps every legacy learner-work broker function to its exact successor target in the ledger,
+  including assignment, attempt, audience, course, enrollment, group-member, group, member,
+  prefetch, run, and summary operations. It also names the fence and the three exact current
+  function names and targets in the ledger.
 
 Fresh WN1-A review checked those embedded tables against current material source before WN1-B and
 accepted them on 2026-08-28. The allocation receipt makes no implementation or test-acceptance claim.

@@ -17,19 +17,19 @@ use crate::course_gradebook::{
 };
 #[cfg(feature = "test-support")]
 use crate::gradebook_cursor::CalculatedGradebookCursor;
+use crate::{
+    ActorContext, CourseGradeAssignmentRecord, CourseGradeExport, CourseGradeExportAudit,
+    CourseGradeExportId, CourseGradeExportRow, CourseGradeSchemeRecord, CourseGradeSchemeRevision,
+    CourseGradebookStore, CourseGradebookTotalRow, CourseGradebookTotals,
+    GradebookOperationSelection, MAX_COURSE_GRADE_EXPORT_ROWS, SessionTokenHash, StoreError,
+    UpdateCourseGradeScheme,
+};
 #[cfg(feature = "test-support")]
 use crate::{
     AssignmentScoringWitness, CalculatedAssignmentCell, CalculatedAssignmentCellAvailability,
     CalculatedGradebookPage, CalculatedGradebookRequest, CalculatedGradebookResult,
     CalculatedGradebookRow, GradebookFilter, GradebookReloadReason, GradebookSelectionRequest,
     GradebookSelectionResult, SubmittedRunChoicesPage, SubmittedRunChoicesRequest,
-};
-use crate::{
-    CourseGradeAssignmentRecord, CourseGradeExport, CourseGradeExportAudit, CourseGradeExportId,
-    CourseGradeExportRow, CourseGradeSchemeRecord, CourseGradeSchemeRevision, CourseGradebookStore,
-    CourseGradebookTotalRow, CourseGradebookTotals, GradebookOperationSelection,
-    MAX_COURSE_GRADE_EXPORT_ROWS, SessionTokenHash, StoreError, TenantContext,
-    UpdateCourseGradeScheme,
 };
 
 #[cfg(feature = "test-support")]
@@ -40,36 +40,33 @@ mod selection;
 impl CourseGradebookStore for MemoryStore {
     async fn course_grade_scheme(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradeSchemeRecord, StoreError> {
         let state = self.read_state()?;
-        require_course_records_accessible(&state, context.tenant_id(), course)?;
+        require_course_records_accessible(&state, course)?;
         require_course_instructor(&state, context, session, course)?;
-        Ok(course_grade_scheme(&state, context.tenant_id(), course))
+        Ok(course_grade_scheme(&state, course))
     }
 
     async fn update_course_grade_scheme(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: UpdateCourseGradeScheme,
     ) -> Result<CourseGradeSchemeRecord, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        require_course_records_accessible(&state, tenant, command.course)?;
+        require_course_records_accessible(&state, command.course)?;
         require_course_instructor(&state, context, session, command.course)?;
-        let current = course_grade_scheme(&state, tenant, command.course);
+        let current = course_grade_scheme(&state, command.course);
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
         }
         let current_assignments = state
             .assignments
             .values()
-            .filter(|assignment| {
-                assignment.tenant == tenant && assignment.course_id == command.course
-            })
+            .filter(|assignment| assignment.course_id == command.course)
             .map(|assignment| assignment.id)
             .collect();
         validate_course_grade_scheme_update(&command, &current_assignments)?;
@@ -79,7 +76,7 @@ impl CourseGradebookStore for MemoryStore {
             .map(|membership| {
                 let title = state
                     .assignments
-                    .get(&(tenant, membership.assignment))
+                    .get(&membership.assignment)
                     .expect("validated current assignment")
                     .title
                     .clone();
@@ -101,22 +98,21 @@ impl CourseGradebookStore for MemoryStore {
         };
         state
             .course_grade_schemes
-            .insert((tenant, record.course), record.clone());
+            .insert(record.course, record.clone());
         Ok(record)
     }
 
     async fn course_gradebook_totals(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradebookTotals, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_course_records_accessible(&state, tenant, course)?;
+        require_course_records_accessible(&state, course)?;
         require_course_instructor(&state, context, session, course)?;
-        let scheme = course_grade_scheme(&state, tenant, course);
-        let rows = course_gradebook_export_rows(&state, tenant, course)?
+        let scheme = course_grade_scheme(&state, course);
+        let rows = course_gradebook_export_rows(&state, course)?
             .into_iter()
             .map(|row| CourseGradebookTotalRow {
                 display_name: row.display_name,
@@ -134,17 +130,16 @@ impl CourseGradebookStore for MemoryStore {
     #[cfg(feature = "test-support")]
     async fn calculated_gradebook_page(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         request: CalculatedGradebookRequest,
     ) -> Result<CalculatedGradebookResult, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_course_records_accessible(&state, tenant, course)?;
+        require_course_records_accessible(&state, course)?;
         require_course_instructor(&state, context, session, course)?;
-        let scheme = course_grade_scheme(&state, tenant, course);
-        let roster_revision = super::course_roster::roster_policy(&state, tenant, course).revision;
+        let scheme = course_grade_scheme(&state, course);
+        let roster_revision = super::course_roster::roster_policy(&state, course).revision;
         let after = request
             .page
             .after
@@ -169,11 +164,11 @@ impl CourseGradebookStore for MemoryStore {
             }
         }
 
-        let mut memberships = active_student_memberships(&state, tenant, course, request.filter)?;
+        let mut memberships = active_student_memberships(&state, course, request.filter)?;
         memberships.sort_by_key(|membership| {
             state
                 .course_membership_references
-                .get(&(tenant, membership.id))
+                .get(&membership.id)
                 .map(|reference| reference.number())
                 .unwrap_or_default()
         });
@@ -184,7 +179,7 @@ impl CourseGradebookStore for MemoryStore {
                 after_membership.is_none_or(|after| {
                     state
                         .course_membership_references
-                        .get(&(tenant, membership.id))
+                        .get(&membership.id)
                         .is_some_and(|reference| *reference > after)
                 })
             })
@@ -198,7 +193,7 @@ impl CourseGradebookStore for MemoryStore {
             let membership = rows.last().expect("a following page has a final row");
             let last_membership = *state
                 .course_membership_references
-                .get(&(tenant, membership.id))
+                .get(&membership.id)
                 .ok_or_else(|| {
                     StoreError::Unavailable(
                         "active student membership lacks public reference".to_string(),
@@ -217,18 +212,11 @@ impl CourseGradebookStore for MemoryStore {
             None
         };
         let scoring_witnesses =
-            calculated_scoring_witnesses(&state, tenant, course, &scheme, request.filter)?;
+            calculated_scoring_witnesses(&state, course, &scheme, request.filter)?;
         let rows = rows
             .into_iter()
             .map(|membership| {
-                calculated_gradebook_row(
-                    &state,
-                    tenant,
-                    course,
-                    membership,
-                    &scheme,
-                    request.filter,
-                )
+                calculated_gradebook_row(&state, course, membership, &scheme, request.filter)
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
         Ok(CalculatedGradebookResult::Page(CalculatedGradebookPage {
@@ -245,24 +233,23 @@ impl CourseGradebookStore for MemoryStore {
 
     async fn resolve_gradebook_operation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         operation: GradingOperationReference,
     ) -> Result<GradebookOperationSelection, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_course_records_accessible(&state, tenant, course)?;
+        require_course_records_accessible(&state, course)?;
         require_course_instructor(&state, context, session, course)?;
         let operation = state
             .automated_grading_operations
-            .get(&(tenant, operation))
+            .get(&operation)
             .copied()
             .filter(|value| value.course == course)
             .ok_or(StoreError::NotFound)?;
         let assignment = state
             .assignment_references
-            .get(&(tenant, operation.assignment))
+            .get(&operation.assignment)
             .copied()
             .ok_or(StoreError::NotFound)?;
         match operation.target {
@@ -273,35 +260,31 @@ impl CourseGradebookStore for MemoryStore {
                 let attempt = state
                     .automated_grading_executions
                     .iter()
-                    .find_map(|((stored_tenant, attempt), execution)| {
-                        (*stored_tenant == tenant && execution.submission == submission)
+                    .find_map(|(attempt, execution)| {
+                        (super::activity::attempt_belongs_to_course(&state, *attempt)
+                            && execution.submission == submission)
                             .then_some(*attempt)
                     })
                     .ok_or(StoreError::NotFound)?;
                 let run = state
                     .attempts
-                    .get(&(tenant, attempt))
-                    .and_then(|attempt| state.runs.get(&(tenant, attempt.run)))
+                    .get(&attempt)
+                    .and_then(|attempt| state.runs.get(&attempt.run))
                     .ok_or(StoreError::NotFound)?;
                 let enrollment = state
                     .enrollments
-                    .get(&(tenant, run.enrollment))
+                    .get(&run.enrollment)
                     .ok_or(StoreError::NotFound)?;
                 let membership = state
                     .course_memberships
                     .values()
                     .find(|membership| {
-                        membership.tenant == tenant
-                            && membership.course == course
+                        membership.course == course
                             && membership.student == Some(enrollment.student)
                             && membership.role == CourseMembershipRole::Student
                             && membership.status == crate::CourseMemberStatus::Active
                     })
-                    .and_then(|membership| {
-                        state
-                            .course_membership_references
-                            .get(&(tenant, membership.id))
-                    })
+                    .and_then(|membership| state.course_membership_references.get(&membership.id))
                     .copied()
                     .ok_or(StoreError::NotFound)?;
                 Ok(GradebookOperationSelection::SingleStudent {
@@ -315,7 +298,7 @@ impl CourseGradebookStore for MemoryStore {
     #[cfg(feature = "test-support")]
     async fn gradebook_selection(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         request: GradebookSelectionRequest,
@@ -326,7 +309,7 @@ impl CourseGradebookStore for MemoryStore {
     #[cfg(feature = "test-support")]
     async fn submitted_run_choices(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         request: SubmittedRunChoicesRequest,
@@ -336,20 +319,18 @@ impl CourseGradebookStore for MemoryStore {
 
     async fn create_course_grade_export(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradeExport, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        require_course_records_accessible(&state, tenant, course)?;
+        require_course_records_accessible(&state, course)?;
         let actor = require_course_instructor(&state, context, session, course)?;
-        let rows = course_gradebook_export_rows(&state, tenant, course)?;
-        let scheme = course_grade_scheme(&state, tenant, course);
+        let rows = course_gradebook_export_rows(&state, course)?;
+        let scheme = course_grade_scheme(&state, course);
         let id = CourseGradeExportId::generate()?;
         let audit = CourseGradeExportAudit {
             id,
-            tenant,
             course,
             requested_by: actor,
             scheme_revision: scheme.revision,
@@ -394,20 +375,16 @@ pub(super) fn initial_course_grade_scheme(course: CourseId) -> CourseGradeScheme
     default_scheme(course, Vec::new())
 }
 
-fn course_grade_scheme(
-    state: &State,
-    tenant: question_model::TenantId,
-    course: CourseId,
-) -> CourseGradeSchemeRecord {
+fn course_grade_scheme(state: &State, course: CourseId) -> CourseGradeSchemeRecord {
     let mut record = state
         .course_grade_schemes
-        .get(&(tenant, course))
+        .get(&course)
         .cloned()
         .unwrap_or_else(|| {
             let mut assignments: Vec<_> = state
                 .assignments
                 .values()
-                .filter(|assignment| assignment.tenant == tenant && assignment.course_id == course)
+                .filter(|assignment| assignment.course_id == course)
                 .map(|assignment| (assignment.id, assignment.title.clone()))
                 .collect();
             assignments.sort();
@@ -427,7 +404,7 @@ fn course_grade_scheme(
     let current: BTreeMap<_, _> = state
         .assignments
         .values()
-        .filter(|assignment| assignment.tenant == tenant && assignment.course_id == course)
+        .filter(|assignment| assignment.course_id == course)
         .map(|assignment| (assignment.id, assignment.title.clone()))
         .collect();
     record
@@ -465,18 +442,17 @@ fn course_grade_scheme(
 #[cfg(feature = "test-support")]
 fn active_student_memberships(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     filter: GradebookFilter,
 ) -> Result<Vec<&crate::CourseMembershipRecord>, StoreError> {
     if let GradebookFilter::Assignment(reference) = filter {
         state
             .assignments_by_reference
-            .get(&(tenant, reference))
+            .get(&reference)
             .filter(|assignment| {
                 state
                     .assignments
-                    .get(&(tenant, **assignment))
+                    .get(assignment)
                     .is_some_and(|record| record.course_id == course)
             })
             .ok_or(StoreError::NotFound)?;
@@ -485,16 +461,13 @@ fn active_student_memberships(
         GradebookFilter::Student(reference) => Some(
             *state
                 .course_memberships_by_reference
-                .get(&(tenant, reference))
+                .get(&reference)
                 .filter(|id| {
-                    state
-                        .course_memberships
-                        .get(&(tenant, **id))
-                        .is_some_and(|membership| {
-                            membership.course == course
-                                && membership.status == crate::CourseMemberStatus::Active
-                                && membership.role == CourseMembershipRole::Student
-                        })
+                    state.course_memberships.get(id).is_some_and(|membership| {
+                        membership.course == course
+                            && membership.status == crate::CourseMemberStatus::Active
+                            && membership.role == CourseMembershipRole::Student
+                    })
                 })
                 .ok_or(StoreError::NotFound)?,
         ),
@@ -504,8 +477,7 @@ fn active_student_memberships(
         .course_memberships
         .values()
         .filter(|membership| {
-            membership.tenant == tenant
-                && membership.course == course
+            membership.course == course
                 && membership.status == crate::CourseMemberStatus::Active
                 && membership.role == CourseMembershipRole::Student
                 && selected_membership.is_none_or(|id| membership.id == id)
@@ -516,7 +488,6 @@ fn active_student_memberships(
 #[cfg(feature = "test-support")]
 fn calculated_scoring_witnesses(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     scheme: &CourseGradeSchemeRecord,
     filter: GradebookFilter,
@@ -529,12 +500,12 @@ fn calculated_scoring_witnesses(
     for configured in &scheme.assignments {
         let assignment = state
             .assignments
-            .get(&(tenant, configured.assignment))
+            .get(&configured.assignment)
             .filter(|assignment| assignment.course_id == course)
             .ok_or(StoreError::NotFound)?;
         let reference = *state
             .assignment_references
-            .get(&(tenant, configured.assignment))
+            .get(&configured.assignment)
             .ok_or_else(|| {
                 StoreError::Unavailable("course assignment lacks public reference".to_string())
             })?;
@@ -543,7 +514,7 @@ fn calculated_scoring_witnesses(
         }
         let (generation, status) = state
             .assignment_scoring
-            .get(&(tenant, assignment.id))
+            .get(&assignment.id)
             .copied()
             .ok_or_else(|| {
                 StoreError::Unavailable("assignment scoring state is missing".to_string())
@@ -560,7 +531,6 @@ fn calculated_scoring_witnesses(
 #[cfg(feature = "test-support")]
 fn calculated_gradebook_row(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     membership: &crate::CourseMembershipRecord,
     scheme: &CourseGradeSchemeRecord,
@@ -571,17 +541,17 @@ fn calculated_gradebook_row(
     })?;
     let membership_reference = *state
         .course_membership_references
-        .get(&(tenant, membership.id))
+        .get(&membership.id)
         .ok_or_else(|| {
             StoreError::Unavailable("active student membership lacks public reference".to_string())
         })?;
     let profile = state
         .roster_profiles
-        .get(&(tenant, course, membership.id))
+        .get(&(course, membership.id))
         .ok_or_else(|| {
             StoreError::Unavailable("active student membership lacks roster profile".to_string())
         })?;
-    let assignments = course_grade_assignments(state, tenant, course, student, scheme)?;
+    let assignments = course_grade_assignments(state, course, student, scheme)?;
     let outcome =
         calculate_course_grade(&scheme.scheme, &assignments).map_err(course_grade_error)?;
     let dropped_assignments = outcome
@@ -590,7 +560,7 @@ fn calculated_gradebook_row(
         .map(|assignment| {
             state
                 .assignment_references
-                .get(&(tenant, *assignment))
+                .get(assignment)
                 .copied()
                 .ok_or_else(|| {
                     StoreError::Unavailable(
@@ -607,23 +577,13 @@ fn calculated_gradebook_row(
         .assignments
         .iter()
         .filter_map(|configured| {
-            let reference = state
-                .assignment_references
-                .get(&(tenant, configured.assignment))?;
+            let reference = state.assignment_references.get(&configured.assignment)?;
             selected
                 .is_none_or(|selected| selected == *reference)
                 .then_some((configured, *reference))
         })
         .map(|(configured, reference)| {
-            calculated_assignment_cell(
-                state,
-                tenant,
-                course,
-                student,
-                configured,
-                reference,
-                &assignments,
-            )
+            calculated_assignment_cell(state, course, student, configured, reference, &assignments)
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(CalculatedGradebookRow {
@@ -638,7 +598,6 @@ fn calculated_gradebook_row(
 #[cfg(feature = "test-support")]
 fn calculated_assignment_cell(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     student: question_model::StudentId,
     configured: &CourseGradeAssignmentRecord,
@@ -647,13 +606,11 @@ fn calculated_assignment_cell(
 ) -> Result<CalculatedAssignmentCell, StoreError> {
     let assignment = state
         .assignments
-        .get(&(tenant, configured.assignment))
+        .get(&configured.assignment)
         .filter(|assignment| assignment.course_id == course)
         .ok_or(StoreError::NotFound)?;
     let enrollment = state.enrollments.values().find(|enrollment| {
-        enrollment.tenant == tenant
-            && enrollment.assignment == configured.assignment
-            && enrollment.student == student
+        enrollment.assignment == configured.assignment && enrollment.student == student
     });
     let grade_assignment = grade_assignments
         .iter()
@@ -661,7 +618,7 @@ fn calculated_assignment_cell(
         .ok_or_else(|| StoreError::Unavailable("course grade assignment is missing".to_string()))?;
     let (_, scoring_status) = state
         .assignment_scoring
-        .get(&(tenant, configured.assignment))
+        .get(&configured.assignment)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("assignment scoring state is missing".to_string())
@@ -682,7 +639,6 @@ fn calculated_assignment_cell(
         scoring_status,
         inspection_choice: selection::inspection_choice(
             state,
-            tenant,
             enrollment,
             assignment.policies.grade,
         )?,
@@ -706,27 +662,24 @@ fn course_grade_error(error: CourseGradeError) -> StoreError {
 /// changes outside the scheme editor.
 pub(super) fn advance_course_grade_scheme_revision(
     state: &mut State,
-    tenant: question_model::TenantId,
     course: CourseId,
 ) -> Result<(), StoreError> {
-    let mut record = course_grade_scheme(state, tenant, course);
+    let mut record = course_grade_scheme(state, course);
     record.revision = record.revision.next()?;
-    state.course_grade_schemes.insert((tenant, course), record);
+    state.course_grade_schemes.insert(course, record);
     Ok(())
 }
 
 fn course_gradebook_export_rows(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
 ) -> Result<Vec<CourseGradeExportRow>, StoreError> {
-    let scheme = course_grade_scheme(state, tenant, course);
+    let scheme = course_grade_scheme(state, course);
     let active_students: Vec<_> = state
         .course_memberships
         .values()
         .filter(|membership| {
-            membership.tenant == tenant
-                && membership.course == course
+            membership.course == course
                 && membership.status == crate::CourseMemberStatus::Active
                 && membership.role == question_model::CourseMembershipRole::Student
         })
@@ -743,13 +696,13 @@ fn course_gradebook_export_rows(
         })?;
         let profile = state
             .roster_profiles
-            .get(&(tenant, course, membership.id))
+            .get(&(course, membership.id))
             .ok_or_else(|| {
                 StoreError::Unavailable(
                     "active student membership lacks roster profile".to_string(),
                 )
             })?;
-        let assignments = course_grade_assignments(state, tenant, course, student, &scheme)?;
+        let assignments = course_grade_assignments(state, course, student, &scheme)?;
         let outcome =
             calculate_course_grade(&scheme.scheme, &assignments).map_err(|error| match error {
                 CourseGradeError::MissingCategory { .. }
@@ -776,7 +729,6 @@ fn course_gradebook_export_rows(
 
 fn course_grade_assignments(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     student: question_model::StudentId,
     scheme: &CourseGradeSchemeRecord,
@@ -790,7 +742,7 @@ fn course_grade_assignments(
     for assignment in state
         .assignments
         .values()
-        .filter(|assignment| assignment.tenant == tenant && assignment.course_id == course)
+        .filter(|assignment| assignment.course_id == course)
     {
         let default_membership = CourseGradeAssignmentRecord {
             assignment: assignment.id,
@@ -811,16 +763,14 @@ fn course_grade_assignments(
         };
         let (selected_current_score, points_possible, scoring_status) = if membership.included {
             let enrollment = state.enrollments.values().find(|enrollment| {
-                enrollment.tenant == tenant
-                    && enrollment.assignment == assignment.id
-                    && enrollment.student == student
+                enrollment.assignment == assignment.id && enrollment.student == student
             });
             let selected_current_score = enrollment
-                .and_then(|enrollment| state.summaries.get(&(tenant, enrollment.id)))
+                .and_then(|enrollment| state.summaries.get(&enrollment.id))
                 .and_then(|summary| summary.current_score);
             let (_, scoring_status) = state
                 .assignment_scoring
-                .get(&(tenant, assignment.id))
+                .get(&assignment.id)
                 .copied()
                 .ok_or_else(|| {
                     StoreError::Unavailable("assignment scoring state is missing".to_string())

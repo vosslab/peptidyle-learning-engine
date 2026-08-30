@@ -132,7 +132,7 @@ pub(super) fn decode_catalog_discovery_evidence_row(
     let observed_course_count = nonnegative_evidence_count(row, "course_count")?;
     // Storage retains its audit-oriented receipt name. The browser contract
     // describes the actual release rule: one valid observation per learner
-    // and exact immutable publication within this tenant.
+    // and exact immutable publication.
     let independent_learner_observation_count =
         nonnegative_evidence_count(row, "first_attempt_count")?;
     let difficulty_index = bounded_evidence_float(row, "difficulty_index", 0.0, 1.0)?;

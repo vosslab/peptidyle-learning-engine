@@ -156,7 +156,6 @@ pub(super) async fn seed_chapter_one_pilot(
     let resumed = select_chapter_one_resume_manifest(
         &store,
         context,
-        arguments.tenant,
         &chapter_specs,
         arguments.chapter_one_existing_manifest.as_deref(),
     )
@@ -166,9 +165,8 @@ pub(super) async fn seed_chapter_one_pilot(
     let mut statistics_fixture = None;
 
     for chapter in chapter_specs {
-        let course_id = CourseId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "course"));
-        let assignment_id =
-            AssignmentId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "assignment"));
+        let course_id = CourseId::from_uuid(pilot_uuid(&chapter.slug, "course"));
+        let assignment_id = AssignmentId::from_uuid(pilot_uuid(&chapter.slug, "assignment"));
         // The deterministic course is the durable outer marker. It exists
         // before any question/object publication, so an interrupted Chapter
         // One run stops at the protected manifest boundary instead of
@@ -179,7 +177,6 @@ pub(super) async fn seed_chapter_one_pilot(
             arguments.instructor,
             CourseRecord {
                 id: course_id,
-                tenant: arguments.tenant,
                 title: chapter.course_title.clone(),
                 term: question_model::CourseTerm::from_parts(
                     "2026-08-24",
@@ -246,11 +243,7 @@ pub(super) async fn seed_chapter_one_pilot(
                 }
             }
             items.push(AssignmentItem {
-                id: AssignmentItemId::from_uuid(pilot_uuid(
-                    arguments.tenant,
-                    &question.slug,
-                    "assignment-item",
-                )),
+                id: AssignmentItemId::from_uuid(pilot_uuid(&question.slug, "assignment-item")),
                 reference,
                 position: u32::try_from(position).expect("four questions fit u32"),
                 points_possible: PointValue::from_whole(question.points),
@@ -271,7 +264,6 @@ pub(super) async fn seed_chapter_one_pilot(
             arguments.instructor,
             AssignmentRecord {
                 id: assignment_id,
-                tenant: arguments.tenant,
                 course_id,
                 title: chapter.assignment_title.clone(),
                 lifecycle: question_model::AssignmentLifecycle::Published,
@@ -398,7 +390,6 @@ where
         pg_path: spec.source_path.to_string(),
     };
     let draft = DraftRecord {
-        tenant: context.tenant_id(),
         question: webwork_draft(ids.workspace, spec),
         derived_from: None,
     };
@@ -546,7 +537,6 @@ async fn publish_flat_question(
         .with_context(|| format!("compiling reviewed flat pilot source {}", spec.slug))?
         .into_parts();
     let draft = DraftRecord {
-        tenant: context.tenant_id(),
         question,
         derived_from: None,
     };
@@ -605,7 +595,6 @@ async fn publish_flat_question(
         objects,
         context,
         ObjectKey::WorkspaceQuestionSource {
-            tenant: context.tenant_id(),
             workspace: ids.workspace,
             object: ids.workspace_source,
         },
@@ -788,7 +777,7 @@ where
             media_type: media_type.to_string(),
             license: "CC-BY-4.0".to_string(),
             provenance: PILOT_PROVENANCE.to_string(),
-            created_at: store.authoritative_time(context).await?,
+            created_at: store.authoritative_time().await?,
         })
         .await
     {

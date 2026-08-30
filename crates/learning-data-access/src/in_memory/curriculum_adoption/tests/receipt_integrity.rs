@@ -119,7 +119,13 @@ async fn reconciliation_refuses_assignment_evidence_bound_to_another_receipt() {
     create_selected_copy(&scenario, "integrity-other").await;
     {
         let mut state = scenario.store.write_state().expect("fixture state");
-        let assignment = state.assignments_by_reference[&(scenario.tenant, assignment_reference)];
+        let assignment = state
+            .assignments_by_reference
+            .iter()
+            .find_map(|((_, stored_reference), assignment)| {
+                (*stored_reference == assignment_reference).then_some(*assignment)
+            })
+            .expect("fixture assignment reference");
         let revision = state.curriculum_adoption.import_records[&assignment].import_revision;
         state
             .curriculum_adoption

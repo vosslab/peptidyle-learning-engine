@@ -1,14 +1,11 @@
 //! Validation for native flat-question publication and private grading promotion.
 
 use super::{validate_flat_import_publication_promotion, validate_source_artifact_for_publication};
-use crate::{
-    AssetDeliveryScope, PublishDraftCommand, StoreError, TenantContext, validate_asset_delivery,
-};
+use crate::{AssetDeliveryScope, PublishDraftCommand, StoreError, validate_asset_delivery};
 use question_model::{DraftQuestionSource, QuestionSource};
 
 /// Validates a flat-question-specific promotion path before publication.
 pub(crate) fn validate_flat_question_publication(
-    context: TenantContext,
     command: &PublishDraftCommand,
     staged: &crate::WorkspaceFlatQuestionSource,
 ) -> Result<(), StoreError> {
@@ -24,7 +21,6 @@ pub(crate) fn validate_flat_question_publication(
         ));
     };
     validate_flat_import_publication_promotion(
-        context,
         command.publication,
         promotion.import_origin.as_ref(),
     )?;
@@ -51,11 +47,9 @@ pub(crate) fn validate_flat_question_publication(
             ));
         }
     }
-    if staged.tenant != context.tenant_id()
-        || staged.workspace != command.expected_draft.question.workspace
-    {
+    if staged.workspace != command.expected_draft.question.workspace {
         return Err(StoreError::InvalidRecord(
-            "flat-question promotion is not staged for this tenant or workspace".to_string(),
+            "flat-question promotion is not staged for this workspace".to_string(),
         ));
     }
     if staged.workspace_revision != command.expected_revision {

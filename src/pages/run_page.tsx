@@ -55,7 +55,6 @@ import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 function attemptContext(attempt: QuestionAttempt): AttemptContext {
   return {
-    tenantId: attempt.tenant,
     runId: attempt.run,
     attemptId: attempt.id,
     questionVersion: attempt.questionVersion,

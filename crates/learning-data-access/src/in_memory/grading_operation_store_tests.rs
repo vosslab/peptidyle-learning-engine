@@ -66,7 +66,7 @@ fn fixture() -> Fixture {
         },
     );
     state.course_membership_references.insert(
-        (tenant, learner_membership),
+        learner_membership,
         question_model::CourseMembershipReference::new(75_013).expect("membership reference"),
     );
     state.entitlement_materializations.insert(
@@ -83,7 +83,7 @@ fn fixture() -> Fixture {
         },
     );
     state.course_memberships.insert(
-        (tenant, instructor_membership),
+        instructor_membership,
         CourseMembershipRecord {
             id: instructor_membership,
             tenant,
@@ -99,11 +99,10 @@ fn fixture() -> Fixture {
     );
     state
         .active_course_membership_by_user
-        .insert((tenant, course, instructor), instructor_membership);
-    state.assignment_revisions.insert(
-        (tenant, assignment),
-        question_model::AssignmentRevision::INITIAL,
-    );
+        .insert((course, instructor), instructor_membership);
+    state
+        .assignment_revisions
+        .insert(assignment, question_model::AssignmentRevision::INITIAL);
     let issued_snapshot = crate::IssuedQuestionSnapshotV1::new(
         state
             .published
@@ -119,7 +118,7 @@ fn fixture() -> Fixture {
     .expect("issued question snapshot");
     state
         .attempt_issued_question_snapshots
-        .insert((tenant, attempt), issued_snapshot);
+        .insert(attempt, issued_snapshot);
     state
         .automated_grading_executions
         .values_mut()
@@ -181,7 +180,6 @@ fn retry_command(
     action: u128,
 ) -> RetryGradingOperationCommand {
     RetryGradingOperationCommand {
-        tenant: fixture.tenant,
         session,
         course: fixture.course,
         assignment: fixture.assignment,
@@ -198,7 +196,6 @@ fn list_command(
     page: PageRequest,
 ) -> ListInstructorGradingOperationsCommand {
     ListInstructorGradingOperationsCommand {
-        tenant: fixture.tenant,
         session,
         course: fixture.course,
         assignment: fixture.assignment,
@@ -422,16 +419,15 @@ async fn operation_pagination_rejects_cross_view_and_cross_scope_cursors() {
             .keys()
             .next()
             .expect("attempt")
-            .1;
+            .to_owned();
         for number in 2..=3 {
             add_distinct_submission_recovery_thread(&mut state, base_attempt, number);
             let reference = GradingOperationReference::new(number).expect("reference");
             let submission = state
                 .automated_grading_executions
-                .get(&(
-                    fixture.tenant,
-                    QuestionAttemptId::from_uuid(Uuid::from_u128(u128::from(76_000 + number))),
-                ))
+                .get(&QuestionAttemptId::from_uuid(Uuid::from_u128(u128::from(
+                    76_000 + number,
+                ))))
                 .expect("distinct execution")
                 .submission;
             state.automated_grading_operations.insert(
@@ -529,12 +525,16 @@ fn add_distinct_submission_recovery_thread(
     base_attempt: QuestionAttemptId,
     number: u64,
 ) {
-    let (tenant, base_execution) = state
+    let base_execution = state
         .automated_grading_executions
-        .iter()
-        .find(|((_, attempt), _)| *attempt == base_attempt)
-        .map(|((tenant, _), execution)| (*tenant, *execution))
+        .get(&base_attempt)
+        .copied()
         .expect("base execution");
+    let tenant = state
+        .attempts
+        .keys()
+        .find_map(|(tenant, attempt)| (*attempt == base_attempt).then_some(*tenant))
+        .expect("base attempt tenant");
     let new_attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(u128::from(76_000 + number)));
     let new_submission =
         AcceptedSubmissionId::from_uuid(Uuid::from_u128(u128::from(77_000 + number)));
@@ -542,19 +542,19 @@ fn add_distinct_submission_recovery_thread(
 
     let mut attempt = state
         .attempts
-        .get(&(tenant, base_attempt))
+        .get(&base_attempt)
         .cloned()
         .expect("base attempt");
     attempt.id = new_attempt;
-    state.attempts.insert((tenant, new_attempt), attempt);
+    state.attempts.insert(new_attempt, attempt);
     if let Some(snapshot) = state
         .attempt_issued_question_snapshots
-        .get(&(tenant, base_attempt))
+        .get(&base_attempt)
         .cloned()
     {
         state
             .attempt_issued_question_snapshots
-            .insert((tenant, new_attempt), snapshot);
+            .insert(new_attempt, snapshot);
     }
     let mut submission = state
         .submissions
@@ -573,13 +573,13 @@ fn add_distinct_submission_recovery_thread(
         StoredSubmissionState::Completed(_) => panic!("pagination fixture needs pending input"),
     }
     submission.key = idempotency_key;
-    state.submissions.insert((tenant, new_attempt), submission);
+    state.submissions.insert(new_attempt, submission);
     state.automated_grading_evaluations.insert(
-        (tenant, new_attempt),
+        new_attempt,
         question_model::SubmissionEvaluationStatus::AutomatedPending,
     );
     state.automated_grading_executions.insert(
-        (tenant, new_attempt),
+        new_attempt,
         GradingExecution {
             submission: new_submission,
             job: new_job,
@@ -602,7 +602,6 @@ async fn recalculation_projects_reason_count_generation_and_replay_without_extra
     let session = instructor_session(&fixture, b"w5-recalculation").await;
     let context = TenantContext::from_authenticated_session(fixture.tenant);
     let command = RecalculateAssignmentCommand {
-        tenant: fixture.tenant,
         session,
         course: fixture.course,
         assignment: fixture.assignment,
@@ -660,7 +659,6 @@ async fn recalculation_projects_reason_count_generation_and_replay_without_extra
         .recalculate_instructor_assignment(
             context,
             RecalculateAssignmentCommand {
-                tenant: fixture.tenant,
                 session,
                 course: fixture.course,
                 assignment: fixture.assignment,

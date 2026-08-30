@@ -10,11 +10,11 @@ use domain::item_analysis::{
 use question_model::{
     AssignmentId, AssignmentItemId, AssignmentRun, AttemptStatus, CourseId, CourseMembershipRole,
     ProblemVersionRef, ScoringGeneration, ScoringStatus, StudentClassStatistics,
-    SubmissionEvaluationStatus, TenantId, UserId,
+    SubmissionEvaluationStatus, UserId,
 };
 
 use super::*;
-use crate::SessionSubject;
+use crate::{ActorContext, SessionSubject};
 
 #[derive(Debug, Clone)]
 struct ItemAggregate {
@@ -43,32 +43,31 @@ impl ItemAggregate {
 impl crate::CourseItemAnalysisStore for MemoryStore {
     async fn course_item_analysis(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<Option<CourseItemAnalysisReport>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let Some(assignment_record) = state.assignments.get(&(tenant, assignment)) else {
+        let Some(assignment_record) = state.assignments.get(&assignment) else {
             return Ok(None);
         };
         let Some(subject) = active_analysis_session(&state, context, session) else {
             return Ok(None);
         };
-        let authorized = state.courses.contains_key(&(tenant, course))
-            && super::entitlement::current_course_role(&state, tenant, course, subject.user())
+        let authorized = state.courses.contains_key(&course)
+            && super::entitlement::current_course_role(&state, course, subject.user())
                 == Some(CourseMembershipRole::Instructor);
         if assignment_record.course_id != course
-            || !course_records_accessible(&state, tenant, course)
+            || !course_records_accessible(&state, course)
             || !authorized
         {
             return Ok(None);
         }
-        let Some(mut report) = state.item_analysis.get(&(tenant, assignment)).cloned() else {
+        let Some(mut report) = state.item_analysis.get(&assignment).cloned() else {
             return Ok(None);
         };
-        let Some((generation, status)) = state.assignment_scoring.get(&(tenant, assignment)) else {
+        let Some((generation, status)) = state.assignment_scoring.get(&assignment) else {
             return Err(StoreError::NotFound);
         };
         report.recent_rescoring =
@@ -78,21 +77,20 @@ impl crate::CourseItemAnalysisStore for MemoryStore {
 
     async fn student_class_statistics(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         student: UserId,
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<StudentClassStatistics, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
         super::entitlement::require_current_assignment_entitlement(
-            &state, tenant, student, course, assignment,
+            &state, student, course, assignment,
         )?;
-        require_course_records_accessible(&state, tenant, course)?;
-        let Some(mut report) = state.item_analysis.get(&(tenant, assignment)).cloned() else {
+        require_course_records_accessible(&state, course)?;
+        let Some(mut report) = state.item_analysis.get(&assignment).cloned() else {
             return Ok(StudentClassStatistics::InsufficientEvidence);
         };
-        let Some((generation, status)) = state.assignment_scoring.get(&(tenant, assignment)) else {
+        let Some((generation, status)) = state.assignment_scoring.get(&assignment) else {
             return Ok(StudentClassStatistics::InsufficientEvidence);
         };
         report.recent_rescoring =
@@ -108,21 +106,16 @@ impl crate::CourseItemAnalysisStore for MemoryStore {
 
 fn active_analysis_session(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Option<&SessionSubject> {
-    let stored = state.sessions.get(&session)?;
-    (!stored.revoked
-        && stored.record.expires_at > state.authoritative_time
-        && stored.record.subject.tenant() == context.tenant_id())
-    .then_some(&stored.record.subject)
+    super::sessions::active_subject(state, context, session)
 }
 
 #[async_trait]
 impl crate::CourseItemAnalysisWorkerStore for MemoryStore {
     async fn prepare_course_item_analysis(
         &self,
-        context: TenantContext,
         command: crate::CourseItemAnalysisWorkerCommand,
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
@@ -130,35 +123,27 @@ impl crate::CourseItemAnalysisWorkerStore for MemoryStore {
             assignment: command.assignment,
             generation: command.generation,
         };
-        let claim_active = state.jobs.get(&command.job).is_some_and(|job| {
-            job.tenant == context.tenant_id()
-                && job.state == JobState::Leased
+        let claimed = state.jobs.get(&command.job).is_some_and(|job| {
+            (job.state == JobState::Leased
                 && job.lease_token == Some(command.lease)
                 && job
                     .lease_expires_at
                     .is_some_and(|expiry| expiry > state.authoritative_time)
-                && job.payload == expected
+                && job.payload == expected)
         });
-        if !claim_active {
+        if !claimed {
             return Err(StoreError::Conflict);
         }
-        if state
-            .assignment_scoring
-            .get(&(context.tenant_id(), command.assignment))
+        if state.assignment_scoring.get(&command.assignment)
             != Some(&(command.generation, ScoringStatus::Current))
         {
             return Ok(());
         }
-        let report = build_memory_course_item_analysis(
-            &state,
-            context.tenant_id(),
-            command.assignment,
-            command.generation,
-        )?;
+        let report =
+            build_memory_course_item_analysis(&state, command.assignment, command.generation)?;
         state.item_analysis_staging.insert(
             command.job,
             PreparedCourseItemAnalysis {
-                tenant: context.tenant_id(),
                 assignment: command.assignment,
                 generation: command.generation,
                 report,
@@ -169,7 +154,6 @@ impl crate::CourseItemAnalysisWorkerStore for MemoryStore {
 
     async fn commit_course_item_analysis(
         &self,
-        context: TenantContext,
         command: crate::CourseItemAnalysisWorkerCommand,
     ) -> Result<crate::CourseItemAnalysisCommitOutcome, StoreError> {
         let mut state = self.write_state()?;
@@ -177,21 +161,20 @@ impl crate::CourseItemAnalysisWorkerStore for MemoryStore {
             assignment: command.assignment,
             generation: command.generation,
         };
-        let claim_active = state.jobs.get(&command.job).is_some_and(|job| {
-            job.tenant == context.tenant_id()
-                && job.state == JobState::Leased
+        let claimed = state.jobs.get(&command.job).is_some_and(|job| {
+            (job.state == JobState::Leased
                 && job.lease_token == Some(command.lease)
                 && job
                     .lease_expires_at
                     .is_some_and(|expiry| expiry > state.authoritative_time)
-                && job.payload == expected
+                && job.payload == expected)
         });
-        if !claim_active {
+        if !claimed {
             return Ok(crate::CourseItemAnalysisCommitOutcome::ClaimNoLongerActive);
         }
         let current = state
             .assignment_scoring
-            .get(&(context.tenant_id(), command.assignment))
+            .get(&command.assignment)
             .copied()
             .ok_or(StoreError::NotFound)?;
         if current != (command.generation, ScoringStatus::Current) {
@@ -203,15 +186,12 @@ impl crate::CourseItemAnalysisWorkerStore for MemoryStore {
             .item_analysis_staging
             .remove(&command.job)
             .ok_or(StoreError::Conflict)?;
-        if prepared.tenant != context.tenant_id()
-            || prepared.assignment != command.assignment
-            || prepared.generation != command.generation
-        {
+        if prepared.assignment != command.assignment || prepared.generation != command.generation {
             return Err(StoreError::Conflict);
         }
         state
             .item_analysis
-            .insert((context.tenant_id(), command.assignment), prepared.report);
+            .insert(command.assignment, prepared.report);
         super::queue::complete_memory_job(&mut state, command.job)?;
         Ok(crate::CourseItemAnalysisCommitOutcome::Committed)
     }
@@ -219,17 +199,14 @@ impl crate::CourseItemAnalysisWorkerStore for MemoryStore {
 
 fn build_memory_course_item_analysis(
     state: &State,
-    tenant: TenantId,
     assignment_id: AssignmentId,
     generation: ScoringGeneration,
 ) -> Result<CourseItemAnalysisReport, StoreError> {
     let assignment = state
         .assignments
-        .get(&(tenant, assignment_id))
+        .get(&assignment_id)
         .ok_or(StoreError::NotFound)?;
-    if state.assignment_scoring.get(&(tenant, assignment_id))
-        != Some(&(generation, ScoringStatus::Current))
-    {
+    if state.assignment_scoring.get(&assignment_id) != Some(&(generation, ScoringStatus::Current)) {
         return Err(StoreError::Conflict);
     }
     let mut aggregates = BTreeMap::<(AssignmentItemId, ProblemVersionRef), ItemAggregate>::new();
@@ -240,17 +217,17 @@ fn build_memory_course_item_analysis(
     for enrollment in state
         .enrollments
         .values()
-        .filter(|record| record.tenant == tenant && record.assignment == assignment_id)
+        .filter(|record| record.assignment == assignment_id)
     {
-        let Some(run) = latest_run_for_enrollment(state, tenant, enrollment.id) else {
+        let Some(run) = latest_run_for_enrollment(state, enrollment.id) else {
             continue;
         };
-        if run_is_active(state, tenant, run)? {
+        if run_is_active(state, run)? {
             in_progress_run_count = in_progress_run_count.saturating_add(1);
             continue;
         }
         completed_run_count = completed_run_count.saturating_add(1);
-        let completion_millis = terminal_run_elapsed_millis(state, tenant, run)?;
+        let completion_millis = terminal_run_elapsed_millis(state, run)?;
         if run.completed_at.is_some()
             && let Some(score) = run.score.filter(|score| score.is_finite())
         {
@@ -259,7 +236,7 @@ fn build_memory_course_item_analysis(
         if let Some(elapsed) = completion_millis {
             completion_times.push(elapsed);
         }
-        aggregate_run(state, tenant, run, completion_millis, &mut aggregates)?;
+        aggregate_run(state, run, completion_millis, &mut aggregates)?;
     }
     let analyzed_at = state.authoritative_time;
     let mut incomplete_scoring = false;
@@ -278,7 +255,6 @@ fn build_memory_course_item_analysis(
                 })
                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
                 Ok(AssignmentItemAnalysis {
-                    tenant,
                     course: assignment.course_id,
                     assignment: assignment_id,
                     assignment_item,
@@ -299,7 +275,6 @@ fn build_memory_course_item_analysis(
         )
         .collect::<Result<Vec<_>, _>>()?;
     Ok(CourseItemAnalysisReport {
-        tenant,
         course: assignment.course_id,
         assignment: assignment_id,
         source_scoring_generation: generation,
@@ -316,48 +291,43 @@ fn build_memory_course_item_analysis(
     })
 }
 
-fn latest_run_for_enrollment(
-    state: &State,
-    tenant: TenantId,
-    enrollment: EnrollmentId,
-) -> Option<&AssignmentRun> {
+fn latest_run_for_enrollment(state: &State, enrollment: EnrollmentId) -> Option<&AssignmentRun> {
     state
         .runs
         .values()
-        .filter(|run| run.tenant == tenant && run.enrollment == enrollment)
+        .filter(|run| run.enrollment == enrollment)
         .max_by_key(|run| (run.run_number, run.id))
 }
 
 /// A terminal cohort may still contain a pending automated evaluation. Only a
 /// missing or actively open current attempt suppresses prior runs from the
 /// current-only analysis cohort.
-fn run_is_active(state: &State, tenant: TenantId, run: &AssignmentRun) -> Result<bool, StoreError> {
+fn run_is_active(state: &State, run: &AssignmentRun) -> Result<bool, StoreError> {
     let items = state
         .run_items
-        .get(&(tenant, run.id))
+        .get(&run.id)
         .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
     Ok(items.iter().any(|item| {
-        latest_current_attempt(state, tenant, run.id, item.issued_position)
+        latest_current_attempt(state, run.id, item.issued_position)
             .is_none_or(|attempt| attempt.status == AttemptStatus::InProgress)
     }))
 }
 
 fn aggregate_run(
     state: &State,
-    tenant: TenantId,
     run: &AssignmentRun,
     completion_millis: Option<u64>,
     aggregates: &mut BTreeMap<(AssignmentItemId, ProblemVersionRef), ItemAggregate>,
 ) -> Result<(), StoreError> {
     let items = state
         .run_items
-        .get(&(tenant, run.id))
+        .get(&run.id)
         .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
     let observations = items
         .iter()
         .map(|item| {
-            let attempt = latest_current_attempt(state, tenant, run.id, item.issued_position);
-            classify_item_observation(state, tenant, attempt.as_ref())
+            let attempt = latest_current_attempt(state, run.id, item.issued_position);
+            classify_item_observation(state, attempt.as_ref())
                 .map(|observation| (item, observation))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -399,19 +369,14 @@ fn aggregate_run(
 
 fn latest_current_attempt(
     state: &State,
-    tenant: TenantId,
     run: question_model::RunId,
     position: u32,
 ) -> Option<QuestionAttempt> {
     state
         .attempts
         .values()
-        .filter(|attempt| {
-            attempt.tenant == tenant
-                && attempt.run == run
-                && attempt.assignment_position == position
-        })
-        .map(|attempt| projected_attempt(state, tenant, attempt))
+        .filter(|attempt| attempt.run == run && attempt.assignment_position == position)
+        .map(|attempt| projected_attempt(state, attempt))
         .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id))
 }
 
@@ -426,7 +391,6 @@ enum ItemObservation {
 /// canonical automated evaluation state, and immutable result evidence.
 fn classify_item_observation(
     state: &State,
-    tenant: TenantId,
     attempt: Option<&QuestionAttempt>,
 ) -> Result<ItemObservation, StoreError> {
     let Some(attempt) = attempt else {
@@ -454,7 +418,7 @@ fn classify_item_observation(
     }
     let evaluation = state
         .automated_grading_evaluations
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .ok_or_else(|| {
             StoreError::Unavailable(
                 "submitted attempt lacks automated evaluation state".to_string(),
@@ -462,7 +426,7 @@ fn classify_item_observation(
         })?;
     let execution = state
         .automated_grading_executions
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .ok_or_else(|| {
             StoreError::Unavailable("submitted attempt lacks automated execution state".to_string())
         })?;
@@ -493,7 +457,7 @@ fn classify_item_observation(
     }
     let evidence = state
         .automated_grading_result_evidence
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .ok_or_else(|| {
             StoreError::Unavailable(
                 "graded automated evaluation lacks immutable result evidence".to_string(),
@@ -529,17 +493,16 @@ fn classify_item_observation(
 
 fn terminal_run_elapsed_millis(
     state: &State,
-    tenant: TenantId,
     run: &AssignmentRun,
 ) -> Result<Option<u64>, StoreError> {
     let items = state
         .run_items
-        .get(&(tenant, run.id))
+        .get(&run.id)
         .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
     let submitted_at = items
         .iter()
         .filter_map(|item| {
-            latest_current_attempt(state, tenant, run.id, item.issued_position)
+            latest_current_attempt(state, run.id, item.issued_position)
                 .and_then(|attempt| attempt.timer.submitted_at)
         })
         .max();
@@ -582,7 +545,6 @@ pub(super) fn allocate_course_item_analysis_job(state: &State) -> Result<crate::
 pub(super) fn enqueue_course_item_analysis_after_scoring(
     state: &mut State,
     job: crate::JobId,
-    tenant: TenantId,
     assignment: AssignmentId,
     generation: ScoringGeneration,
 ) -> Result<(), StoreError> {
@@ -592,7 +554,6 @@ pub(super) fn enqueue_course_item_analysis_after_scoring(
     state.jobs.insert(
         job,
         StoredJob {
-            tenant,
             payload: JobPayload::RecalculateCourseItemAnalysis {
                 assignment,
                 generation,
@@ -623,8 +584,7 @@ mod tests {
     #[tokio::test]
     async fn response_bearing_incoherent_automated_tuple_cannot_stage_or_publish_analysis() {
         let store = MemoryStore::default();
-        let (tenant, _student, attempt, _) = seed_complete_issued_execution(&store);
-        let context = TenantContext::from_authenticated_session(tenant);
+        let (_scope, _student, attempt, _) = seed_complete_issued_execution(&store);
         let assignment = AssignmentId::from_uuid(Uuid::from_u128(75_004));
         let run = RunId::from_uuid(Uuid::from_u128(75_006));
         let generation = ScoringGeneration::INITIAL;
@@ -635,10 +595,7 @@ mod tests {
                 .write_state()
                 .expect("inject contradictory Memory state");
             {
-                let attempt = state
-                    .attempts
-                    .get_mut(&(tenant, attempt))
-                    .expect("issued attempt");
+                let attempt = state.attempts.get_mut(&attempt).expect("issued attempt");
                 attempt.status = AttemptStatus::Submitted;
                 attempt.response = Some(StudentResponse::Numeric { value: 42.0 });
                 attempt.result = Some(AttemptResult {
@@ -648,18 +605,13 @@ mod tests {
                 });
                 attempt.timer.submitted_at = Some(ActivityTimestamp::from_unix_millis(1_001));
             }
-            state
-                .runs
-                .get_mut(&(tenant, run))
-                .expect("issued run")
-                .completed_at = Some(ActivityTimestamp::from_unix_millis(1_001));
+            state.runs.get_mut(&run).expect("issued run").completed_at =
+                Some(ActivityTimestamp::from_unix_millis(1_001));
             state
                 .automated_grading_evaluations
-                .insert((tenant, attempt), SubmissionEvaluationStatus::Graded);
-            enqueue_course_item_analysis_after_scoring(
-                &mut state, job, tenant, assignment, generation,
-            )
-            .expect("queue item-analysis rebuild");
+                .insert(attempt, SubmissionEvaluationStatus::Graded);
+            enqueue_course_item_analysis_after_scoring(&mut state, job, assignment, generation)
+                .expect("queue item-analysis rebuild");
         }
 
         let claim = store
@@ -677,11 +629,11 @@ mod tests {
             generation,
         };
         assert!(matches!(
-            store.prepare_course_item_analysis(context, command).await,
+            store.prepare_course_item_analysis(command).await,
             Err(StoreError::Unavailable(_))
         ));
         let state = store.read_state().expect("verify no report was published");
-        assert!(!state.item_analysis.contains_key(&(tenant, assignment)));
+        assert!(!state.item_analysis.contains_key(&assignment));
         assert!(!state.item_analysis_staging.contains_key(&job));
     }
 }

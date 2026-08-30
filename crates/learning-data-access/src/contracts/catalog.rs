@@ -22,7 +22,7 @@ const SEALED_CURSOR_NONCE_LENGTH: usize = 24;
 const SEALED_CURSOR_TAG_LENGTH: usize = 16;
 
 /// Encodes a small server-owned keyset value with a domain-separated AEAD
-/// capability.  Callers bind tenant, session, list kind, and aggregate revision
+/// capability. Callers bind actor, session, list kind, and aggregate revision
 /// in `associated_data`; the browser never receives those values or the keyset.
 #[cfg(feature = "postgres")]
 pub(crate) fn encode_sealed_cursor_u32(
@@ -323,25 +323,25 @@ fn catalog_cursor_key_from_plaintext(
     })
 }
 
-/// Encodes a tenant-bound opaque continuation for workspace-draft listing.
+/// Encodes an actor-bound opaque continuation for workspace-draft listing.
 ///
 /// The stable workspace UUID never appears directly in an API cursor. Binding
-/// it to the tenant prevents a continuation issued to one tenant from being
-/// replayed against another tenant's private workspace list.
-pub(crate) fn encode_workspace_draft_cursor(tenant: TenantId, workspace: WorkspaceId) -> String {
+/// it to the authenticated actor prevents a continuation issued for one
+/// private workspace list from being replayed by another actor.
+pub(crate) fn encode_workspace_draft_cursor(actor: UserId, workspace: WorkspaceId) -> String {
     let mut bytes = Vec::with_capacity(65);
     bytes.push(1);
-    bytes.extend_from_slice(tenant.as_uuid().as_bytes());
+    bytes.extend_from_slice(actor.as_uuid().as_bytes());
     bytes.extend_from_slice(workspace.as_uuid().as_bytes());
     let integrity = Sha256Digest::compute(&bytes);
     bytes.extend_from_slice(integrity.as_bytes());
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-/// Decodes a workspace-draft continuation only for the tenant that received it.
+/// Decodes a workspace-draft continuation only for the actor that received it.
 pub(crate) fn decode_workspace_draft_cursor(
     cursor: &str,
-    tenant: TenantId,
+    actor: UserId,
 ) -> Result<WorkspaceId, StoreError> {
     if cursor.len() > 128 {
         return Err(StoreError::InvalidRecord(
@@ -351,21 +351,21 @@ pub(crate) fn decode_workspace_draft_cursor(
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(cursor)
         .map_err(|_| StoreError::InvalidRecord("workspace cursor is malformed".to_string()))?;
-    let tenant_id = tenant.as_uuid();
-    let tenant_bytes = tenant_id.as_bytes();
+    let actor_id = actor.as_uuid();
+    let actor_bytes = actor_id.as_bytes();
     if bytes.len() != 65
         || bytes[0] != 1
-        || bytes[1..17] != *tenant_bytes
+        || bytes[1..17] != *actor_bytes
         || Sha256Digest::compute(&bytes[..33]).as_bytes() != &bytes[33..65]
     {
         return Err(StoreError::InvalidRecord(
-            "workspace cursor does not belong to this tenant".to_string(),
+            "workspace cursor does not belong to this actor".to_string(),
         ));
     }
     let workspace = Uuid::from_slice(&bytes[17..33])
         .map_err(|_| StoreError::InvalidRecord("workspace cursor is malformed".to_string()))?;
     let workspace = WorkspaceId::from_uuid(workspace);
-    if encode_workspace_draft_cursor(tenant, workspace) != cursor {
+    if encode_workspace_draft_cursor(actor, workspace) != cursor {
         return Err(StoreError::InvalidRecord(
             "workspace cursor is malformed".to_string(),
         ));
@@ -393,12 +393,10 @@ pub struct PublishedSourceArtifact {
     pub object: ObjectRecord,
 }
 
-/// Tenant-owned editable question draft.
+/// Editable question draft owned through its private workspace.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftRecord {
-    /// Direct RLS boundary.
-    pub tenant: TenantId,
     /// Editable content with no published identifiers.
     pub question: DraftQuestionDefinition,
     /// Optional immutable source evidence for an attributed derivative.
@@ -481,7 +479,7 @@ pub struct PublishedProblemRecord {
     pub question: QuestionDefinition,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: BackendCapabilities,
-    /// Institution-only or cross-tenant catalog visibility.
+    /// Institution-only or cross-course catalog visibility.
     pub scope: PublicationScope,
     /// Discoverability and new-assignment state.
     pub lifecycle: CatalogLifecycle,

@@ -1,10 +1,10 @@
 use super::course_assignments::retirement_would_orphan_active_attempt;
 use super::*;
-use crate::assignment_revision_checked_next;
+use crate::{ActorContext, assignment_revision_checked_next};
 
 pub(super) async fn create_assignment_draft(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     command: CreateAssignmentDraftCommand,
 ) -> Result<StoredAssignment, StoreError> {
     let CreateAssignmentDraftCommand {
@@ -14,12 +14,11 @@ pub(super) async fn create_assignment_draft(
         title,
     } = command;
     let mut state = store.write_state()?;
-    super::course_assignments::require_assignment_editor(&state, context, course, actor)?;
-    let draft = crate::new_assignment_draft(context.tenant_id(), course, assignment, title);
+    super::course_assignments::require_assignment_editor(&state, course, actor)?;
+    let draft = crate::new_assignment_draft(course, assignment, title);
     let snapshot = state.clone();
     let result = super::course_assignments::materialize_assignment_locked(
         &mut state,
-        context,
         draft.record,
         draft.base_policy,
     );
@@ -32,7 +31,7 @@ pub(super) async fn create_assignment_draft(
 
 pub(super) async fn replace_assignment_content(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     command: ReplaceAssignmentContentCommand,
 ) -> Result<ReplaceAssignmentContentOutcome, StoreError> {
     let ReplaceAssignmentContentCommand {
@@ -43,7 +42,7 @@ pub(super) async fn replace_assignment_content(
         update,
     } = command;
     let mut state = store.write_state()?;
-    super::course_assignments::require_assignment_editor(&state, context, course, actor)?;
+    super::course_assignments::require_assignment_editor(&state, course, actor)?;
     let (key, existing, current) = load_current_assignment(&state, context, course, assignment)?;
     if current != expected_revision {
         return Ok(ReplaceAssignmentContentOutcome::RevisionConflict);
@@ -51,14 +50,14 @@ pub(super) async fn replace_assignment_content(
     let replacement = existing.with_content_update(update);
     let issued_work_change = assignment_content_changes_issued_work(&existing, &replacement);
     validate_assignment(&replacement)?;
-    validate_memory_assignment_references(&state, context, &replacement)?;
+    validate_memory_assignment_references(&state, &replacement)?;
     if issued_work_change && super::course_policy::memory_assignment_has_run(&state, &existing) {
         return Ok(ReplaceAssignmentContentOutcome::Issued);
     }
     let snapshot = state.clone();
     let base_policy = state
         .assignment_base_policy
-        .get(&key)
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?
         .policy;
     let stored = match stage_assignment_replacement(
@@ -75,12 +74,9 @@ pub(super) async fn replace_assignment_content(
             return Err(error);
         }
     };
-    if let Err(error) = super::course_policy::reresolve_active_assignment_attempts(
-        &mut state,
-        context.tenant_id(),
-        course,
-        assignment,
-    ) {
+    if let Err(error) =
+        super::course_policy::reresolve_active_assignment_attempts(&mut state, course, assignment)
+    {
         *state = snapshot;
         return Err(error);
     }
@@ -89,7 +85,7 @@ pub(super) async fn replace_assignment_content(
 
 pub(super) async fn replace_assignment_policies(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     command: ReplaceAssignmentPoliciesCommand,
 ) -> Result<ReplaceAssignmentPoliciesOutcome, StoreError> {
     let ReplaceAssignmentPoliciesCommand {
@@ -100,15 +96,15 @@ pub(super) async fn replace_assignment_policies(
         update,
     } = command;
     let mut state = store.write_state()?;
-    super::course_assignments::require_assignment_editor(&state, context, course, actor)?;
+    super::course_assignments::require_assignment_editor(&state, course, actor)?;
     let (_key, existing, current) = load_current_assignment(&state, context, course, assignment)?;
     if current != expected_revision {
         return Ok(ReplaceAssignmentPoliciesOutcome::RevisionConflict);
     }
-    validate_assignment_audience(&state, context.tenant_id(), course, &update.audience)?;
+    validate_assignment_audience(&state, course, &update.audience)?;
     let course_term = state
         .courses
-        .get(&(context.tenant_id(), course))
+        .get(&course)
         .ok_or(StoreError::NotFound)?
         .term
         .clone();
@@ -137,20 +133,15 @@ pub(super) async fn replace_assignment_policies(
             return Err(error);
         }
     };
-    if let Err(error) = super::course_policy::reresolve_active_assignment_attempts(
-        &mut state,
-        context.tenant_id(),
-        course,
-        assignment,
-    ) {
+    if let Err(error) =
+        super::course_policy::reresolve_active_assignment_attempts(&mut state, course, assignment)
+    {
         *state = snapshot;
         return Err(error);
     }
-    if let Err(error) = super::curriculum_adoption::advance_course_schedule_revision(
-        &mut state,
-        context.tenant_id(),
-        course,
-    ) {
+    if let Err(error) =
+        super::curriculum_adoption::advance_course_schedule_revision(&mut state, course)
+    {
         *state = snapshot;
         return Err(error);
     }
@@ -159,18 +150,11 @@ pub(super) async fn replace_assignment_policies(
 
 pub(super) fn load_current_assignment(
     state: &State,
-    context: TenantContext,
+    _context: ActorContext,
     course: CourseId,
     assignment: AssignmentId,
-) -> Result<
-    (
-        (TenantId, AssignmentId),
-        AssignmentRecord,
-        AssignmentRevision,
-    ),
-    StoreError,
-> {
-    let key = (context.tenant_id(), assignment);
+) -> Result<(AssignmentId, AssignmentRecord, AssignmentRevision), StoreError> {
+    let key = assignment;
     let record = state
         .assignments
         .get(&key)
@@ -191,23 +175,20 @@ pub(super) fn load_current_assignment(
 /// shared revision exactly once. The caller owns the rollback snapshot.
 pub(super) fn stage_assignment_replacement(
     state: &mut State,
-    context: TenantContext,
+    _context: ActorContext,
     previous: &AssignmentRecord,
     replacement: AssignmentRecord,
     base_policy: question_model::BaseAssignmentPolicy,
     actor: UserId,
 ) -> Result<StoredAssignment, StoreError> {
-    let key = (context.tenant_id(), replacement.id);
-    if replacement.tenant != context.tenant_id()
-        || replacement.course_id != previous.course_id
-        || replacement.id != previous.id
-    {
+    let key = replacement.id;
+    if replacement.course_id != previous.course_id || replacement.id != previous.id {
         return Err(StoreError::NotFound);
     }
     if !state.assignment_base_policy.contains_key(&key) {
         return Err(StoreError::NotFound);
     }
-    if retirement_would_orphan_active_attempt(state, context.tenant_id(), previous, &replacement)? {
+    if retirement_would_orphan_active_attempt(state, previous, &replacement)? {
         return Err(StoreError::Conflict);
     }
     let current = state
@@ -237,7 +218,9 @@ pub(super) fn stage_assignment_replacement(
         scoring_generation,
         scoring_status,
     };
-    state.assignments.insert(key, stored.record.clone());
+    state
+        .assignments
+        .insert(stored.record.id, stored.record.clone());
     state.assignment_revisions.insert(key, stored.revision);
     state
         .assignment_scoring
@@ -247,14 +230,12 @@ pub(super) fn stage_assignment_replacement(
     {
         super::course_gradebook::advance_course_grade_scheme_revision(
             state,
-            stored.record.tenant,
             stored.record.course_id,
         )?;
     }
     state.assignment_base_policy.insert(
-        key,
+        stored.record.id,
         StoredBaseAssignmentPolicy {
-            tenant: stored.record.tenant,
             course: stored.record.course_id,
             assignment: stored.record.id,
             policy: stored.base_policy,
@@ -264,7 +245,6 @@ pub(super) fn stage_assignment_replacement(
     if requires_scoring_invalidation {
         let invalidation = super::scoring_invalidation::request_scoring_invalidation(
             state,
-            context.tenant_id(),
             stored.record.course_id,
             stored.record.id,
             crate::ScoringInvalidationOrigin::assignment_definition(
@@ -293,7 +273,6 @@ pub(super) fn stage_assignment_replacement(
 
 pub(super) fn validate_assignment_audience(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     audience: &question_model::AssignmentAudience,
 ) -> Result<(), StoreError> {
@@ -303,7 +282,7 @@ pub(super) fn validate_assignment_audience(
     for group in groups.iter() {
         if !state
             .course_groups
-            .get(&(tenant, group))
+            .get(&group)
             .is_some_and(|record| record.course == course)
         {
             return Err(StoreError::NotFound);

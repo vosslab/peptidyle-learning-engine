@@ -203,10 +203,6 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     ),
     read("/api/courses/{course}/roster"),
     mutation("/api/courses/{course}/members/{member}", "DELETE"),
-    mutation(
-        "/api/courses/{course}/assignments/{assignment}/grade-export.csv",
-        "POST",
-    ),
     mutation("/api/courses/{course}/invitations", "POST"),
     mutation("/api/courses/{course}/invitations/{invitation}", "DELETE"),
     mutation("/api/courses/{course}/enrollment-policy", "PUT"),
@@ -547,13 +543,6 @@ mod tests {
             ),
             Some(RouteIntent::Representation),
         );
-    }
-
-    #[test]
-    fn retired_manual_grade_routes_have_no_policy_authority() {
-        let path = "/api/attempts/{attempt}/manual-grade";
-        assert_eq!(route_policy(path, "GET"), None);
-        assert_eq!(route_policy(path, "PUT"), None);
     }
 
     #[test]

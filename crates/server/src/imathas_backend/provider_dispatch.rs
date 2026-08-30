@@ -144,7 +144,7 @@ where
                 .map_err(map_adapter_error)?;
             let now = self
                 .sources
-                .authoritative_time(context)
+                .authoritative_time()
                 .await
                 .map_err(map_store_error)?;
             self.adapter

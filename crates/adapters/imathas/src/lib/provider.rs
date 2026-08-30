@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::envelope::ContentBlock;
 use question_model::generation::Seed;
-use question_model::{ProblemId, QuestionAttemptId, TenantId, VersionId};
+use question_model::{ProblemId, QuestionAttemptId, VersionId};
 
 use crate::{
     ImathasAdapterError, ProviderFailure, ServerCorrelation, VerifiedProviderGrade,
@@ -201,7 +201,6 @@ pub struct ProviderRenderRequest<'a> {
 pub struct ProviderGradeRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) profile: &'a str,
-    pub(crate) tenant: TenantId,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) problem: ProblemId,
     pub(crate) version: VersionId,
@@ -215,9 +214,6 @@ impl<'a> ProviderGradeRequest<'a> {
     }
     pub fn profile(&self) -> &'a str {
         self.profile
-    }
-    pub fn tenant(&self) -> TenantId {
-        self.tenant
     }
     pub fn attempt(&self) -> QuestionAttemptId {
         self.attempt

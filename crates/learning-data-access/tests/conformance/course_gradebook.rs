@@ -777,7 +777,6 @@ async fn student_filter_requires_an_active_student_in_the_selected_course() {
             CreateCourseCommand {
                 course: CourseRecord {
                     id: foreign_course,
-                    tenant: context.tenant_id(),
                     title: "Foreign gradebook course".to_string(),
                     term: question_model::CourseTerm::from_parts(
                         "2026-08-24",

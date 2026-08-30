@@ -138,7 +138,6 @@ impl crate::CourseStore for PostgresStore {
         };
         let record = CourseRecord {
             id: course,
-            tenant: context.tenant_id(),
             title: row.try_get("title").map_err(map_sqlx_error)?,
             term: decode_course_term(&row)?,
         };
@@ -175,7 +174,6 @@ impl crate::CourseStore for PostgresStore {
                         row.try_get("course_membership_id")
                             .map_err(map_sqlx_error)?,
                     ),
-                    tenant: context.tenant_id(),
                     course,
                     user,
                     student: row
@@ -242,7 +240,6 @@ impl crate::CourseStore for PostgresStore {
                     CourseSummary {
                         id,
                         reference,
-                        tenant: context.tenant_id(),
                         title,
                         term,
                         role: parse_course_membership_role(&role)?,
@@ -337,7 +334,6 @@ impl crate::CourseStore for PostgresStore {
                 let stored = StoredCourseGroup {
                     record: CourseGroupRecord {
                         id: command.record.id,
-                        tenant,
                         course: stored_course,
                         purpose: decode_course_group_purpose(
                             row.try_get("purpose").map_err(map_sqlx_error)?,
@@ -378,7 +374,6 @@ impl crate::CourseStore for PostgresStore {
             Some(StoredCourseGroup {
                 record: CourseGroupRecord {
                     id: group,
-                    tenant,
                     course: CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?),
                     purpose: decode_course_group_purpose(
                         row.try_get("purpose").map_err(map_sqlx_error)?,

@@ -7,7 +7,7 @@ use objects::Sha256Digest;
 use question_model::envelope::ContentBlock;
 use question_model::{
     ActivityTimestamp, AssignmentRun, AttemptResult, FeedbackContent, QuestionAttemptId,
-    ScoringStatus, StudentAssignmentSummary, StudentResponse, TenantId, UserId,
+    ScoringStatus, StudentAssignmentSummary, StudentResponse, UserId,
 };
 
 /// One Student-safe summary and its score freshness read atomically by storage.
@@ -18,7 +18,7 @@ pub struct StudentAssignmentSummarySnapshot {
     pub scoring_status: ScoringStatus,
 }
 
-/// Tenant-owned private feedback retained beside the first grade.
+/// Private feedback retained beside the first grade.
 ///
 /// The content is deliberately neither serde nor debug printable. Store
 /// backends encode its closed `ContentBlock` representation only into their
@@ -30,12 +30,11 @@ pub struct AttemptFeedbackRecord {
     content_sha256: Sha256Digest,
 }
 
-/// Immutable tenant-owned audit receipt for an instructor feedback action.
+/// Immutable audit receipt for an instructor feedback action.
 ///
 /// This carries no feedback content and never changes Student disclosure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackReleaseRecord {
-    pub tenant: TenantId,
     pub attempt: QuestionAttemptId,
     pub released_by: UserId,
     pub released_at: ActivityTimestamp,
@@ -101,7 +100,7 @@ pub struct RunSummaryOutcomeInput {
     pub feedback: Option<AttemptFeedbackRecord>,
 }
 
-/// Private run-summary material returned in one tenant-authorized store read.
+/// Private run-summary material returned in one authorized store read.
 ///
 /// It deliberately carries no question definition, source, provenance, key,
 /// envelope, or provider data. `practice_allowed` is advisory presentation

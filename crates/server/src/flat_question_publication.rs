@@ -115,7 +115,7 @@ where
     };
     // Do not let a valid but non-author session use this endpoint to discover
     // workspace IDs that happen to hold answer-bearing source material.
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return error_response(StatusCode::NOT_FOUND, "workspace not found");
     }
     let actor = authenticated.record.subject.user();
@@ -233,7 +233,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
@@ -309,15 +309,10 @@ where
         Err(error) => return private_store_error(error),
     };
     let draft = DraftRecord {
-        tenant: authenticated.tenant_context.tenant_id(),
         question,
         derived_from: existing.and_then(|draft| draft.record.derived_from),
     };
-    let created_at = match state
-        .store
-        .authoritative_time(authenticated.tenant_context)
-        .await
-    {
+    let created_at = match state.store.authoritative_time().await {
         Ok(value) => value,
         Err(error) => return private_store_error(error),
     };
@@ -325,11 +320,7 @@ where
     let source = match state
         .objects
         .put(PutObject {
-            key: ObjectKey::WorkspaceQuestionSource {
-                tenant: authenticated.tenant_context.tenant_id(),
-                workspace,
-                object,
-            },
+            key: ObjectKey::WorkspaceQuestionSource { workspace, object },
             bytes: canonical_source.clone(),
             media_type: FLAT_QUESTION_MEDIA_TYPE.to_string(),
             license: publication_license(&draft),
@@ -385,7 +376,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_publish(authenticated.record.subject.roles(), request.scope) {
+    if !may_publish(authenticated.record.subject.role(), request.scope) {
         return error_response(StatusCode::FORBIDDEN, "publication is not authorized");
     }
     let expected_revision = match required_revision(&headers) {
@@ -682,7 +673,6 @@ where
 
     let import = origin.import();
     let object = published_import_archive_object_id(
-        import.tenant,
         publication.problem,
         publication.version,
         import.import,
@@ -690,7 +680,6 @@ where
     );
     let candidate = PutObject {
         key: ObjectKey::PublishedImportArchive {
-            tenant: import.tenant,
             problem: publication.problem,
             version: publication.version,
             import: import.import,
@@ -855,10 +844,8 @@ where
     }
 }
 
-fn may_author(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_author(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 #[derive(Clone, Copy)]
@@ -931,7 +918,7 @@ pub(super) fn flat_source_changed_response() -> Response {
 
 pub(super) fn private_store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "workspace not found")
         }
         StoreError::AlreadyExists | StoreError::Conflict | StoreError::TimedOut => {

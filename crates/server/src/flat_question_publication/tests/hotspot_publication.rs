@@ -18,7 +18,6 @@ async fn register_hotspot_asset(fixture: &Fixture) -> (AssetId, Vec<u8>) {
         .objects
         .put(PutObject {
             key: ObjectKey::WorkspaceQuestionAsset {
-                tenant: fixture.tenant,
                 workspace: fixture.workspace,
                 asset,
                 object,
@@ -36,7 +35,6 @@ async fn register_hotspot_asset(fixture: &Fixture) -> (AssetId, Vec<u8>) {
         .register_workspace_flat_question_asset(
             fixture.context(),
             WorkspaceFlatQuestionAsset::new(
-                fixture.tenant,
                 fixture.workspace,
                 asset,
                 record,
@@ -75,7 +73,6 @@ async fn restage_hotspot_revision(
         .objects
         .put(PutObject {
             key: ObjectKey::WorkspaceQuestionSource {
-                tenant: fixture.tenant,
                 workspace: fixture.workspace,
                 object,
             },
@@ -95,7 +92,6 @@ async fn restage_hotspot_revision(
             UpsertFlatQuestionCommand {
                 expected_revision: None,
                 draft: DraftRecord {
-                    tenant: fixture.tenant,
                     question,
                     derived_from: Some(derived_from),
                 },

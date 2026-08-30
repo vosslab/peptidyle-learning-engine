@@ -7,10 +7,8 @@ use learning_data_access::{
 use objects::workspace_qti_archive_object_id;
 
 fn archive_record(reference: QtiImportRef, bytes: &[u8]) -> ObjectRecord {
-    let object =
-        workspace_qti_archive_object_id(reference.tenant, reference.workspace, reference.import);
+    let object = workspace_qti_archive_object_id(reference.workspace, reference.import);
     let key = ObjectKey::WorkspaceSource {
-        tenant: reference.tenant,
         workspace: reference.workspace,
         import: reference.import,
         object,
@@ -49,7 +47,6 @@ async fn create_workspace<S: Store>(
             owner,
             None,
             DraftRecord {
-                tenant: reference.tenant,
                 question: draft_question(reference.workspace),
                 derived_from: None,
             },
@@ -156,7 +153,6 @@ fn profiled_import(
 async fn memory_qti_ingress_exact_replay_failure_and_nonenumeration_conform() {
     let store = MemoryStore::default();
     let reference = QtiImportRef {
-        tenant: TenantId::from_uuid(uuid(91_001)),
         workspace: WorkspaceId::from_uuid(uuid(91_002)),
         import: WorkspaceImportId::from_uuid(uuid(91_003)),
     };
@@ -243,12 +239,7 @@ async fn memory_qti_ingress_exact_replay_failure_and_nonenumeration_conform() {
         .expect("request remains visible");
     assert_private_state(&processing, QtiImportApiState::Processing);
     store
-        .fail_job(
-            context,
-            claim.id,
-            claim.lease_token,
-            JobFailureKind::Permanent,
-        )
+        .fail_job(claim.id, claim.lease_token, JobFailureKind::Permanent)
         .await
         .expect("permanent refusal persists");
     let failed = store
@@ -263,7 +254,6 @@ async fn memory_qti_ingress_exact_replay_failure_and_nonenumeration_conform() {
 async fn memory_qti_ingress_becomes_ready_only_with_atomic_registry_commit() {
     let store = MemoryStore::default();
     let reference = QtiImportRef {
-        tenant: TenantId::from_uuid(uuid(91_101)),
         workspace: WorkspaceId::from_uuid(uuid(91_102)),
         import: WorkspaceImportId::from_uuid(uuid(91_103)),
     };
@@ -316,7 +306,6 @@ async fn memory_qti_ingress_becomes_ready_only_with_atomic_registry_commit() {
 async fn memory_draft_deletion_removes_its_queued_qti_request() {
     let store = MemoryStore::default();
     let reference = QtiImportRef {
-        tenant: TenantId::from_uuid(uuid(91_201)),
         workspace: WorkspaceId::from_uuid(uuid(91_202)),
         import: WorkspaceImportId::from_uuid(uuid(91_203)),
     };
@@ -359,7 +348,6 @@ async fn memory_draft_deletion_removes_its_queued_qti_request() {
 async fn memory_draft_deletion_discards_prepared_qti_state_and_fences_late_preparation() {
     let store = MemoryStore::default();
     let reference = QtiImportRef {
-        tenant: TenantId::from_uuid(uuid(91_301)),
         workspace: WorkspaceId::from_uuid(uuid(91_302)),
         import: WorkspaceImportId::from_uuid(uuid(91_303)),
     };

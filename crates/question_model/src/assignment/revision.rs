@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// Server-issued optimistic-concurrency value for one editable assignment.
 ///
-/// Assignment definitions are tenant-owned course artifacts. Their selected
+/// Assignment definitions are course-owned artifacts. Their selected
 /// published versions stay immutable, while the ordered selection and policies
 /// change only through this compare-and-swap token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

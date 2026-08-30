@@ -60,7 +60,7 @@ use question_model::generation::Seed;
 #[cfg(test)]
 use question_model::{
     ActivityTimestamp, AttemptResult, ObjectId, ProblemId, QuestionAttemptId, QuestionDefinition,
-    QuestionSource, TenantId, VersionId,
+    QuestionSource, VersionId,
 };
 #[cfg(test)]
 use sha2::{Digest, Sha256};

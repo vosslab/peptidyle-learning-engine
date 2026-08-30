@@ -88,9 +88,8 @@ impl Fixture {
     }
 
     fn key(&self, import: WorkspaceImportId) -> ObjectKey {
-        let object = workspace_qti_archive_object_id(self.tenant, self.workspace, import);
+        let object = workspace_qti_archive_object_id(self.workspace, import);
         ObjectKey::WorkspaceSource {
-            tenant: self.tenant,
             workspace: self.workspace,
             import,
             object,
@@ -310,7 +309,6 @@ async fn commit_all_rejected_blackboard_profile_import(
         .expect("uploaded archive")
         .record;
     let reference = QtiImportRef {
-        tenant: fixture.tenant,
         workspace: fixture.workspace,
         import,
     };
@@ -382,7 +380,7 @@ async fn commit_all_rejected_blackboard_profile_import(
 }
 
 fn reference_source_object(reference: QtiImportRef) -> question_model::ObjectId {
-    workspace_qti_archive_object_id(reference.tenant, reference.workspace, reference.import)
+    workspace_qti_archive_object_id(reference.workspace, reference.import)
 }
 
 #[tokio::test]
@@ -590,7 +588,6 @@ async fn status_reports_queued_failed_and_recognized_ready_without_private_mater
             workspace: failed_fixture.workspace,
             import: failed_import,
             source_object: reference_source_object(QtiImportRef {
-                tenant: failed_fixture.tenant,
                 workspace: failed_fixture.workspace,
                 import: failed_import,
             }),
@@ -607,7 +604,6 @@ async fn status_reports_queued_failed_and_recognized_ready_without_private_mater
     failed_fixture
         .store
         .fail_job(
-            TenantContext::from_authenticated_session(failed_claim.tenant),
             failed_claim.id,
             failed_claim.lease_token,
             JobFailureKind::Permanent,
@@ -644,7 +640,6 @@ async fn status_reports_queued_failed_and_recognized_ready_without_private_mater
             workspace: ready_fixture.workspace,
             import: ready_import,
             source_object: reference_source_object(QtiImportRef {
-                tenant: ready_fixture.tenant,
                 workspace: ready_fixture.workspace,
                 import: ready_import,
             }),
@@ -743,7 +738,6 @@ async fn generic_ready_is_honestly_unsupported_and_import_lookups_do_not_enumera
         .expect("generic archive")
         .record;
     let reference = QtiImportRef {
-        tenant: fixture.tenant,
         workspace: fixture.workspace,
         import,
     };

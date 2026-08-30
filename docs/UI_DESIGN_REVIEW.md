@@ -10,7 +10,7 @@ iPhone Pro aspect, and square profiles.
 Increased contrast is an optional account presentation preference rather than the visual default.
 
 This review implements [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md). It changes presentation and human
-navigation, not course content, grading, answer secrecy, tenant authorization, assignment behavior,
+navigation, not course content, grading, answer secrecy, course authorization, assignment behavior,
 or learning semantics.
 
 ## Page-level findings and resolution

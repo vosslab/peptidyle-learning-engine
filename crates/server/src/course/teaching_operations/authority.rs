@@ -729,7 +729,7 @@ where
     S: SessionStore + 'static,
 {
     let auth = authenticated(store, headers).await?;
-    if auth.record.subject.roles().contains(&UserRole::Sysadmin) {
+    if auth.record.subject.role() == UserRole::Sysadmin {
         Ok(auth)
     } else {
         Err(error_response(StatusCode::FORBIDDEN, "operator approval is not authorized").into())
@@ -927,7 +927,7 @@ fn authority_error(error: StoreError) -> Response {
             StatusCode::PRECONDITION_FAILED,
             "authority changed; reload it",
         ),
-        StoreError::Forbidden | StoreError::TenantMismatch | StoreError::NotFound => {
+        StoreError::Forbidden | StoreError::OwnershipMismatch | StoreError::NotFound => {
             error_response(StatusCode::NOT_FOUND, "authority record not found")
         }
         other => store_error_response(other),

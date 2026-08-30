@@ -9,39 +9,32 @@ use domain::{
 };
 
 use super::*;
-use crate::assignment_revision_checked_next;
+use crate::{ActorContext, assignment_revision_checked_next};
 
 #[async_trait]
 impl crate::EffectivePolicyStore for MemoryStore {
     async fn get_base_assignment_policy_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         assignment: AssignmentId,
     ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError> {
         Ok(self
             .read_state()?
             .assignment_base_policy
-            .get(&(context.tenant_id(), assignment))
+            .get(&assignment)
             .copied())
     }
 
     async fn put_assignment_teaching_settings_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: PutAssignmentTeachingSettingsCommand,
     ) -> Result<StoredBaseAssignmentPolicy, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
         let course_term = state
             .courses
-            .get(&(tenant, command.course))
+            .get(&command.course)
             .ok_or(StoreError::NotFound)?
             .term
             .clone();
@@ -51,15 +44,11 @@ impl crate::EffectivePolicyStore for MemoryStore {
                     "invalid assignment teaching settings: {error:?}"
                 ))
             })?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let assignment = state
             .assignments
-            .get(&(tenant, command.assignment))
+            .get(&command.assignment)
             .cloned()
             .ok_or(StoreError::NotFound)?;
         if !domain::effective_assignment_policy::is_legal_assignment_lifecycle_transition(
@@ -79,7 +68,6 @@ impl crate::EffectivePolicyStore for MemoryStore {
         // snapshot so every validation or re-resolution failure is atomic.
         let snapshot = state.clone();
         let record = StoredBaseAssignmentPolicy {
-            tenant,
             course: command.course,
             assignment: command.assignment,
             policy: command.settings.base_policy,
@@ -87,27 +75,20 @@ impl crate::EffectivePolicyStore for MemoryStore {
         };
         state
             .assignment_base_policy
-            .insert((tenant, command.assignment), record);
-        state
-            .assignments
-            .insert((tenant, command.assignment), updated);
+            .insert(command.assignment, record);
+        state.assignments.insert(command.assignment, updated);
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
-        if let Err(error) = super::curriculum_adoption::advance_course_schedule_revision(
-            &mut state,
-            tenant,
-            command.course,
-        ) {
+        if let Err(error) =
+            super::curriculum_adoption::advance_course_schedule_revision(&mut state, command.course)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -116,45 +97,29 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn put_group_schedule_offset_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: PutGroupScheduleOffsetCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
         require_group_capability(
             &state,
-            tenant,
             command.course,
             command.offset.group,
             |capabilities| capabilities.schedule_scope,
         )?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let snapshot = state.clone();
-        state.assignment_group_schedule_offsets.insert(
-            (tenant, command.assignment, command.offset.group),
-            command.offset,
-        );
+        state
+            .assignment_group_schedule_offsets
+            .insert((command.assignment, command.offset.group), command.offset);
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -163,45 +128,27 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn delete_group_schedule_offset_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: DeleteGroupScheduleOffsetCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
-        require_group_capability(
-            &state,
-            tenant,
-            command.course,
-            command.group,
-            |capabilities| capabilities.schedule_scope,
-        )?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
+        require_group_capability(&state, command.course, command.group, |capabilities| {
+            capabilities.schedule_scope
+        })?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let snapshot = state.clone();
         state
             .assignment_group_schedule_offsets
-            .remove(&(tenant, command.assignment, command.group))
+            .remove(&(command.assignment, command.group))
             .ok_or(StoreError::NotFound)?;
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -210,45 +157,30 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn put_group_accommodation_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: PutGroupAccommodationCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
         require_group_capability(
             &state,
-            tenant,
             command.course,
             command.accommodation.group,
             |capabilities| capabilities.accommodation_scope,
         )?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let snapshot = state.clone();
         state.assignment_group_accommodations.insert(
-            (tenant, command.assignment, command.accommodation.group),
+            (command.assignment, command.accommodation.group),
             command.accommodation,
         );
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -257,45 +189,27 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn delete_group_accommodation_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: DeleteGroupAccommodationCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
-        require_group_capability(
-            &state,
-            tenant,
-            command.course,
-            command.group,
-            |capabilities| capabilities.accommodation_scope,
-        )?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
+        require_group_capability(&state, command.course, command.group, |capabilities| {
+            capabilities.accommodation_scope
+        })?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let snapshot = state.clone();
         state
             .assignment_group_accommodations
-            .remove(&(tenant, command.assignment, command.group))
+            .remove(&(command.assignment, command.group))
             .ok_or(StoreError::NotFound)?;
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -304,28 +218,16 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn put_individual_policy_exception_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: PutIndividualPolicyExceptionCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let student = command.exception.exception.student;
         let valid_student = state.course_memberships.values().any(|membership| {
-            membership.tenant == tenant
-                && membership.course == command.course
+            membership.course == command.course
                 && membership.student == Some(student)
                 && membership.role == CourseMembershipRole::Student
                 && membership.status == crate::CourseMemberStatus::Active
@@ -334,9 +236,8 @@ impl crate::EffectivePolicyStore for MemoryStore {
             return Err(StoreError::NotFound);
         }
         if state.assignment_individual_policy_exceptions.iter().any(
-            |((record_tenant, record_assignment, existing_student), existing)| {
-                *record_tenant == tenant
-                    && *record_assignment == command.assignment
+            |((record_assignment, existing_student), existing)| {
+                *record_assignment == command.assignment
                     && *existing_student != student
                     && existing.id == command.exception.id
             },
@@ -346,16 +247,13 @@ impl crate::EffectivePolicyStore for MemoryStore {
         let snapshot = state.clone();
         state
             .assignment_individual_policy_exceptions
-            .insert((tenant, command.assignment, student), command.exception);
+            .insert((command.assignment, student), command.exception);
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -364,38 +262,24 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn delete_individual_policy_exception_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: DeleteIndividualPolicyExceptionCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        authorize_policy_editor(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.actor,
-        )?;
-        let revision = require_expected_revision(
-            &state,
-            tenant,
-            command.assignment,
-            command.expected_revision,
-        )?;
+        authorize_policy_editor(&state, command.course, command.assignment, command.actor)?;
+        let revision =
+            require_expected_revision(&state, command.assignment, command.expected_revision)?;
         let snapshot = state.clone();
         state
             .assignment_individual_policy_exceptions
-            .remove(&(tenant, command.assignment, command.student))
+            .remove(&(command.assignment, command.student))
             .ok_or(StoreError::NotFound)?;
         state
             .assignment_revisions
-            .insert((tenant, command.assignment), revision);
-        if let Err(error) = reresolve_active_assignment_attempts(
-            &mut state,
-            tenant,
-            command.course,
-            command.assignment,
-        ) {
+            .insert(command.assignment, revision);
+        if let Err(error) =
+            reresolve_active_assignment_attempts(&mut state, command.course, command.assignment)
+        {
             *state = snapshot;
             return Err(error);
         }
@@ -404,12 +288,11 @@ impl crate::EffectivePolicyStore for MemoryStore {
 
     async fn resolve_effective_policy_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: ResolveEffectivePolicyCommand,
     ) -> Result<Option<EffectivePolicyResolution>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let record = match state.assignments.get(&(tenant, command.assignment)) {
+        let record = match state.assignments.get(&command.assignment) {
             Some(record) => record,
             None => return Ok(None),
         };
@@ -436,15 +319,12 @@ impl crate::EffectivePolicyStore for MemoryStore {
             else {
                 unreachable!("the preceding gate check handles denied entitlement");
             };
-            if grant.tenant() != tenant
-                || grant.course() != record.course_id
-                || grant.assignment() != command.assignment
-            {
+            if grant.course() != record.course_id || grant.assignment() != command.assignment {
                 return Err(StoreError::InvalidRecord(
                     "effective-policy entitlement does not bind this assignment".to_string(),
                 ));
             }
-            memory_effective_policy_inputs_for_grant(&state, tenant, command.assignment, grant)?
+            memory_effective_policy_inputs_for_grant(&state, command.assignment, grant)?
         };
         let decision = resolve_effective_policy(ResolveEffectivePolicyInput {
             lifecycle,
@@ -461,31 +341,29 @@ impl crate::EffectivePolicyStore for MemoryStore {
             StoreError::InvalidRecord(format!("invalid effective policy inputs: {error:?}"))
         })?;
         Ok(Some(EffectivePolicyResolution {
-            tenant,
             course: record.course_id,
             assignment: command.assignment,
             decision,
             revision: *state
                 .assignment_revisions
-                .get(&(tenant, command.assignment))
+                .get(&command.assignment)
                 .ok_or(StoreError::NotFound)?,
         }))
     }
 
     async fn get_issued_effective_policy_receipt_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         attempt: QuestionAttemptId,
     ) -> Result<Option<IssuedEffectivePolicyReceipt>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
         Ok(state
             .attempt_effective_policy_current
-            .get(&(tenant, attempt))
+            .get(&attempt)
             .and_then(|generation| {
                 state
                     .issued_effective_policy_receipts
-                    .get(&(tenant, attempt, *generation))
+                    .get(&(attempt, *generation))
                     .cloned()
             }))
     }
@@ -505,20 +383,16 @@ fn inert_effective_policy_inputs() -> Result<crate::EffectivePolicyInputs, Store
 /// helper must not rediscover course-group membership while loading M2 or M3.
 pub(super) fn resolve_granted_memory_effective_policy(
     state: &State,
-    tenant: TenantId,
     assignment: &AssignmentRecord,
     grant: EntitlementGrant,
     prior_run_count: u32,
 ) -> Result<EffectivePolicyDecision, StoreError> {
-    if grant.tenant() != tenant
-        || grant.course() != assignment.course_id
-        || grant.assignment() != assignment.id
-    {
+    if grant.course() != assignment.course_id || grant.assignment() != assignment.id {
         return Err(StoreError::InvalidRecord(
             "effective-policy entitlement does not bind this assignment".to_string(),
         ));
     }
-    let inputs = memory_effective_policy_inputs_for_grant(state, tenant, assignment.id, &grant)?;
+    let inputs = memory_effective_policy_inputs_for_grant(state, assignment.id, &grant)?;
     resolve_effective_policy(ResolveEffectivePolicyInput {
         lifecycle: stored_assignment_lifecycle_gate(assignment),
         entitlement: domain::entitlement::EntitlementDecision::Granted(grant),
@@ -542,17 +416,16 @@ fn stored_assignment_lifecycle_gate(assignment: &AssignmentRecord) -> Assignment
 /// Loads the S3 modifier inputs selected by an already-evaluated S5 grant.
 ///
 /// This is the sole Memory action/read input owner: it deliberately trusts the
-/// grant's exact tenant, course, assignment, student, and applicable scope
+/// grant's exact course, assignment, student, and applicable scope
 /// bindings rather than rediscovering roster or group membership.
 pub(super) fn memory_effective_policy_inputs_for_grant(
     state: &State,
-    tenant: TenantId,
     assignment: AssignmentId,
     grant: &EntitlementGrant,
 ) -> Result<crate::EffectivePolicyInputs, StoreError> {
     let base = state
         .assignment_base_policy
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?
         .policy;
     let schedule_scopes = grant
@@ -578,26 +451,22 @@ pub(super) fn memory_effective_policy_inputs_for_grant(
         schedule_offsets: state
             .assignment_group_schedule_offsets
             .iter()
-            .filter_map(|((record_tenant, record_assignment, group), value)| {
-                (*record_tenant == tenant
-                    && *record_assignment == assignment
-                    && schedule_scopes.contains(group))
-                .then_some(*value)
+            .filter_map(|((record_assignment, group), value)| {
+                (*record_assignment == assignment && schedule_scopes.contains(group))
+                    .then_some(*value)
             })
             .collect(),
         accommodations: state
             .assignment_group_accommodations
             .iter()
-            .filter_map(|((record_tenant, record_assignment, group), value)| {
-                (*record_tenant == tenant
-                    && *record_assignment == assignment
-                    && accommodation_scopes.contains(group))
-                .then_some(*value)
+            .filter_map(|((record_assignment, group), value)| {
+                (*record_assignment == assignment && accommodation_scopes.contains(group))
+                    .then_some(*value)
             })
             .collect(),
         individual: state
             .assignment_individual_policy_exceptions
-            .get(&(tenant, assignment, grant.student()))
+            .get(&(assignment, grant.student()))
             .map(|value| value.exception),
     })
 }
@@ -606,10 +475,8 @@ pub(super) fn memory_assignment_has_run(state: &State, assignment: &AssignmentRe
     state.runs.values().any(|run| {
         state
             .enrollments
-            .get(&(run.tenant, run.enrollment))
-            .is_some_and(|enrollment| {
-                enrollment.tenant == assignment.tenant && enrollment.assignment == assignment.id
-            })
+            .get(&run.enrollment)
+            .is_some_and(|enrollment| enrollment.assignment == assignment.id)
     })
 }
 
@@ -622,21 +489,23 @@ pub(super) fn memory_assignment_has_results(state: &State, assignment: &Assignme
         attempt.result.is_some()
             && state
                 .runs
-                .get(&(attempt.tenant, attempt.run))
-                .and_then(|run| state.enrollments.get(&(run.tenant, run.enrollment)))
+                .values()
+                .find(|run| run.id == attempt.run)
+                .and_then(|run| {
+                    state
+                        .enrollments
+                        .values()
+                        .find(|value| value.id == run.enrollment)
+                })
                 .is_some_and(|enrollment| enrollment.assignment == assignment.id)
     })
 }
 
 pub(super) fn validate_memory_assignment_references(
     state: &State,
-    context: TenantContext,
     assignment: &AssignmentRecord,
 ) -> Result<(), StoreError> {
-    if !state
-        .courses
-        .contains_key(&(assignment.tenant, assignment.course_id))
-    {
+    if !state.courses.contains_key(&assignment.course_id) {
         return Err(StoreError::InvalidRecord(
             "assignment references a missing course".to_string(),
         ));
@@ -648,11 +517,11 @@ pub(super) fn validate_memory_assignment_references(
                 reference.problem, reference.version
             )));
         };
-        let visible = catalog_record_visible(state, context.tenant_id(), record);
+        let visible = catalog_record_visible(record);
         let eligible_for_new_reference = record.lifecycle.is_eligible_for_ordinary_new_selection();
         let retained_exact_pin = state
             .assignments
-            .get(&(assignment.tenant, assignment.id))
+            .get(&assignment.id)
             .is_some_and(|existing| existing.references().any(|existing| existing == reference));
         if !visible || (!eligible_for_new_reference && !retained_exact_pin) {
             return Err(StoreError::InvalidRecord(format!(
@@ -666,7 +535,6 @@ pub(super) fn validate_memory_assignment_references(
 
 pub(super) fn store_issued_effective_policy_receipt(
     state: &mut State,
-    tenant: TenantId,
     attempt: QuestionAttemptId,
     policy: domain::effective_assignment_policy::EffectiveAssignmentPolicy,
 ) -> Result<(), StoreError> {
@@ -686,7 +554,7 @@ pub(super) fn store_issued_effective_policy_receipt(
     }
     let generation = state
         .attempt_effective_policy_current
-        .get(&(tenant, attempt))
+        .get(&attempt)
         .copied()
         .unwrap_or(0)
         .checked_add(1)
@@ -700,22 +568,16 @@ pub(super) fn store_issued_effective_policy_receipt(
     };
     for source in receipt.field_sources() {
         state.issued_effective_policy_field_sources.insert(
-            (
-                tenant,
-                attempt,
-                generation,
-                source.field,
-                source.source_order,
-            ),
+            (attempt, generation, source.field, source.source_order),
             source,
         );
     }
     state
         .issued_effective_policy_receipts
-        .insert((tenant, attempt, generation), receipt);
+        .insert((attempt, generation), receipt);
     state
         .attempt_effective_policy_current
-        .insert((tenant, attempt), generation);
+        .insert(attempt, generation);
     Ok(())
 }
 
@@ -740,25 +602,21 @@ fn receipt_policy_sources(
 /// current pointer instead of rewriting history.
 pub(super) fn reresolve_active_assignment_attempts(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
 ) -> Result<(), StoreError> {
     let record = state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     let active_attempts = state
         .attempts
         .values()
-        .filter(|attempt| attempt.tenant == tenant)
-        .filter(|attempt| {
-            projected_attempt(state, tenant, attempt).status == AttemptStatus::InProgress
-        })
+        .filter(|attempt| projected_attempt(state, attempt).status == AttemptStatus::InProgress)
         .filter_map(|attempt| {
-            let run = state.runs.get(&(tenant, attempt.run))?;
-            let enrollment = state.enrollments.get(&(tenant, run.enrollment))?;
+            let run = state.runs.get(&attempt.run)?;
+            let enrollment = state.enrollments.get(&run.enrollment)?;
             (enrollment.assignment == assignment).then_some((
                 attempt.clone(),
                 run.clone(),
@@ -770,7 +628,6 @@ pub(super) fn reresolve_active_assignment_attempts(
     for (attempt, run, enrollment) in active_attempts {
         let grant = match super::entitlement::evaluate_locked(
             state,
-            tenant,
             enrollment.user,
             course,
             assignment,
@@ -786,7 +643,6 @@ pub(super) fn reresolve_active_assignment_attempts(
         let policy = match grant {
             Some(grant) => match resolve_granted_memory_effective_policy(
                 state,
-                tenant,
                 &record,
                 grant,
                 run.run_number.saturating_sub(1),
@@ -801,20 +657,18 @@ pub(super) fn reresolve_active_assignment_attempts(
             None => None,
         };
         let Some(policy) = policy else {
-            let mut terminal = projected_attempt(state, tenant, &attempt);
+            let mut terminal = projected_attempt(state, &attempt);
             terminal.status = AttemptStatus::AutoSubmitted;
             terminal.timer.submitted_at = Some(state.authoritative_time);
-            state.attempt_current.insert((tenant, attempt.id), terminal);
-            super::complete_memory_attempt_timing_job(state, tenant, attempt.id);
-            state
-                .attempt_effective_policy_current
-                .remove(&(tenant, attempt.id));
+            state.attempt_current.insert(attempt.id, terminal);
+            super::complete_memory_attempt_timing_job(state, attempt.id);
+            state.attempt_effective_policy_current.remove(&attempt.id);
             continue;
         };
 
         let timing = state
             .attempt_timing
-            .get(&(tenant, attempt.id))
+            .get(&attempt.id)
             .copied()
             .ok_or_else(|| {
                 StoreError::Unavailable("active attempt is missing timing state".to_string())
@@ -829,19 +683,17 @@ pub(super) fn reresolve_active_assignment_attempts(
         if effective_deadline.is_some_and(|deadline| deadline < state.authoritative_time)
             || auto_submit_at.is_some_and(|deadline| deadline <= state.authoritative_time)
         {
-            let mut terminal = projected_attempt(state, tenant, &attempt);
+            let mut terminal = projected_attempt(state, &attempt);
             terminal.status = AttemptStatus::AutoSubmitted;
             terminal.timer.deadline = effective_deadline;
             terminal.timer.submitted_at = Some(state.authoritative_time);
-            state.attempt_current.insert((tenant, attempt.id), terminal);
-            super::complete_memory_attempt_timing_job(state, tenant, attempt.id);
-            state
-                .attempt_effective_policy_current
-                .remove(&(tenant, attempt.id));
+            state.attempt_current.insert(attempt.id, terminal);
+            super::complete_memory_attempt_timing_job(state, attempt.id);
+            state.attempt_effective_policy_current.remove(&attempt.id);
             continue;
         }
 
-        super::complete_memory_attempt_timing_job(state, tenant, attempt.id);
+        super::complete_memory_attempt_timing_job(state, attempt.id);
         let next_generation = timing.generation.checked_add(1).ok_or_else(|| {
             StoreError::Unavailable("attempt timing generation overflow".to_string())
         })?;
@@ -851,7 +703,6 @@ pub(super) fn reresolve_active_assignment_attempts(
                 state.jobs.insert(
                     job,
                     StoredJob {
-                        tenant,
                         payload: JobPayload::AutoSubmitAttempt {
                             attempt: attempt.id,
                             timing_generation: next_generation,
@@ -870,7 +721,7 @@ pub(super) fn reresolve_active_assignment_attempts(
             None => None,
         };
         state.attempt_timing.insert(
-            (tenant, attempt.id),
+            attempt.id,
             MemoryAttemptTiming {
                 assignment,
                 authored_deadline: timing.authored_deadline,
@@ -882,44 +733,42 @@ pub(super) fn reresolve_active_assignment_attempts(
                 job,
             },
         );
-        let mut current = projected_attempt(state, tenant, &attempt);
+        let mut current = projected_attempt(state, &attempt);
         current.timer.deadline = effective_deadline;
-        state.attempt_current.insert((tenant, attempt.id), current);
-        store_issued_effective_policy_receipt(state, tenant, attempt.id, *policy)?;
+        state.attempt_current.insert(attempt.id, current);
+        store_issued_effective_policy_receipt(state, attempt.id, *policy)?;
     }
     Ok(())
 }
 
 fn authorize_policy_editor(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     actor: UserId,
 ) -> Result<(), StoreError> {
     let record = state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?;
     if record.course_id != course
-        || super::entitlement::current_course_role(state, tenant, course, actor)
+        || super::entitlement::current_course_role(state, course, actor)
             != Some(CourseMembershipRole::Instructor)
     {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(state, tenant, course)
+    require_course_records_accessible(state, course)
 }
 
 fn require_group_capability(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     group: CourseGroupId,
     permits: impl FnOnce(question_model::GroupPurposeCapabilities) -> bool,
 ) -> Result<(), StoreError> {
     let record = state
         .course_groups
-        .get(&(tenant, group))
+        .get(&group)
         .filter(|record| record.course == course)
         .ok_or(StoreError::NotFound)?;
     permits(question_model::GroupPurposeCapabilities::for_purpose(
@@ -933,13 +782,12 @@ fn require_group_capability(
 
 fn require_expected_revision(
     state: &State,
-    tenant: TenantId,
     assignment: AssignmentId,
     expected: AssignmentRevision,
 ) -> Result<AssignmentRevision, StoreError> {
     let current = *state
         .assignment_revisions
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?;
     if current != expected {
         return Err(StoreError::Conflict);

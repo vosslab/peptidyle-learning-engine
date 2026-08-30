@@ -1,18 +1,18 @@
 //! Solution-free, audited Instructor inspection of one Student's submitted run.
 //!
 //! This contract names only public route locators.  Implementations resolve the
-//! full tenant/course/membership/assignment/run composite before reading a
+//! full course/membership/assignment/run composite before reading a
 //! private response.  ASVS 8.2.1, 8.3.1, and 14.1.1 apply at this boundary.
 
 use async_trait::async_trait;
 use question_model::{
     ActivityTimestamp, AssignmentId, AssignmentReference, CourseId, CourseMembershipId,
     CourseMembershipReference, CourseReference, InspectedStudentScoreFeedbackV1, QuestionAttemptId,
-    RunId, RunReference, ScoringGeneration, ScoringStatus, TeachingDisplayLabel, TenantId,
+    RunId, RunReference, ScoringGeneration, ScoringStatus, TeachingDisplayLabel,
     presentation::{InspectedStudentResponseV1, PresentationDigestV1},
 };
 
-use crate::{ReceiptPresentationSnapshot, SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, ReceiptPresentationSnapshot, SessionTokenHash, StoreError};
 
 /// Server-owned purpose for the paired successful-record audit writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,8 +148,6 @@ pub struct StudentWorkInspectionRecordAccess {
     pub intent: StudentWorkInspectionAuditIntent,
     /// Authoritative timestamp for the paired facts.
     pub occurred_at: ActivityTimestamp,
-    /// Tenant owning this protected Student record.
-    pub tenant: TenantId,
     /// Course owning this protected Student record.
     pub course: CourseId,
     /// Student membership selected by the Instructor.
@@ -175,8 +173,6 @@ pub struct StudentWorkInspectionAudit {
     pub intent: StudentWorkInspectionAuditIntent,
     /// Authoritative timestamp shared with the paired access fact.
     pub occurred_at: ActivityTimestamp,
-    /// Tenant owning this protected Student record.
-    pub tenant: TenantId,
     /// Course selected by the Instructor.
     pub course: CourseId,
     /// Student membership selected by the Instructor.
@@ -252,7 +248,7 @@ impl std::fmt::Debug for InspectedStudentWorkDetailV1 {
 pub trait StudentWorkInspectionStore: Send + Sync {
     async fn inspect_student_work(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         request: InspectStudentWorkRequest,
     ) -> Result<InspectedStudentWorkDetailV1, StoreError>;

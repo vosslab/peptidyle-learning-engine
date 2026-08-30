@@ -9,7 +9,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use learning_data_access::{
     JobFailureKind, JobPayload, RetentionWork, RetentionWorkerCommand, RetentionWorkerStore,
-    StoreError, TenantContext,
+    StoreError,
 };
 use objects::{ObjectKey, ObjectStore, ObjectStoreError};
 
@@ -35,7 +35,7 @@ fn store_failure(error: StoreError) -> JobFailureKind {
         StoreError::RetryableTransaction | StoreError::Unavailable(_) => JobFailureKind::Transient,
         StoreError::NotFound
         | StoreError::AlreadyExists
-        | StoreError::TenantMismatch
+        | StoreError::OwnershipMismatch
         | StoreError::Conflict
         | StoreError::Forbidden
         | StoreError::InvalidRecord(_)
@@ -46,12 +46,12 @@ fn store_failure(error: StoreError) -> JobFailureKind {
 
 fn validate_cleanup_key(
     key: &ObjectKey,
-    tenant: question_model::TenantId,
+    course: question_model::CourseId,
 ) -> Result<(), JobFailureKind> {
     match key {
         ObjectKey::StudentRecord {
-            tenant: key_tenant, ..
-        } if *key_tenant == tenant => Ok(()),
+            course: key_course, ..
+        } if *key_course == course => Ok(()),
         _ => Err(JobFailureKind::Permanent),
     }
 }
@@ -64,7 +64,6 @@ where
 {
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
@@ -81,7 +80,6 @@ where
         }
         let claim = execution.claim().ok_or(JobFailureKind::Permanent)?;
         let command = RetentionWorkerCommand {
-            tenant: context.tenant_id(),
             course,
             stage,
             generation,
@@ -100,7 +98,7 @@ where
                     if execution.cancellation_requested() {
                         return Err(JobFailureKind::TimedOut);
                     }
-                    validate_cleanup_key(key, context.tenant_id())?;
+                    validate_cleanup_key(key, course)?;
                     match self.objects.delete(key).await {
                         Ok(()) | Err(ObjectStoreError::NotFound) => {}
                         Err(ObjectStoreError::Unavailable(_)) => {
@@ -160,13 +158,13 @@ mod tests {
 
     use learning_data_access::{
         ClaimedJob, EnqueueJob, JobClaimFilter, JobFailureDisposition, JobId, JobKind,
-        JobLeaseDuration, JobLeaseToken, JobStore, QueueDepth, TenantJobView,
+        JobLeaseDuration, JobLeaseToken, JobStore, JobView, QueueDepth,
     };
     use objects::{
         ObjectRecord, ObjectStoreError, PutObject, SignedUrl, StoredObject,
         memory::MemoryObjectStore,
     };
-    use question_model::{ActivityTimestamp, CourseId, ObjectId, TenantId};
+    use question_model::{ActivityTimestamp, CourseId, ObjectId};
     use uuid::Uuid;
 
     use super::*;
@@ -194,18 +192,13 @@ mod tests {
         }
         async fn fail_job(
             &self,
-            _: TenantContext,
             _: JobId,
             _: JobLeaseToken,
             _: JobFailureKind,
         ) -> Result<JobFailureDisposition, StoreError> {
             unreachable!("fixture succeeds")
         }
-        async fn get_job(
-            &self,
-            _: TenantContext,
-            _: JobId,
-        ) -> Result<Option<TenantJobView>, StoreError> {
+        async fn get_job(&self, _: JobId) -> Result<Option<JobView>, StoreError> {
             Ok(None)
         }
         async fn ready_queue_depth(&self, _: &JobClaimFilter) -> Result<QueueDepth, StoreError> {
@@ -281,14 +274,12 @@ mod tests {
 
     #[tokio::test]
     async fn worker_dispatches_closed_retention_payload_to_lease_bound_committer() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(70_001));
         let course = CourseId::from_uuid(Uuid::from_u128(70_002));
         let job = JobId::from_uuid(Uuid::from_u128(70_003));
         let lease = JobLeaseToken::generate().expect("lease");
         let store = Arc::new(FixtureStore {
             claim: Mutex::new(Some(ClaimedJob {
                 id: job,
-                tenant,
                 payload: JobPayload::Retention {
                     course,
                     stage: learning_data_access::RetentionStage::Notify,
@@ -324,13 +315,8 @@ mod tests {
                 .lock()
                 .expect("commit lock")
                 .as_ref()
-                .map(|command| (
-                    command.tenant,
-                    command.course,
-                    command.generation,
-                    command.job
-                )),
-            Some((tenant, course, 1, job))
+                .map(|command| (command.course, command.generation, command.job)),
+            Some((course, 1, job))
         );
     }
 
@@ -399,22 +385,22 @@ mod tests {
 
     #[test]
     fn hostile_cleanup_targets_are_refused_before_any_object_operation() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(72_001));
-        let foreign = TenantId::from_uuid(Uuid::from_u128(72_002));
+        let course = CourseId::from_uuid(Uuid::from_u128(72_001));
+        let foreign = CourseId::from_uuid(Uuid::from_u128(72_002));
         let object = ObjectId::from_uuid(Uuid::from_u128(72_003));
-        assert!(validate_cleanup_key(&ObjectKey::StudentRecord { tenant, object }, tenant).is_ok());
+        assert!(validate_cleanup_key(&ObjectKey::StudentRecord { course, object }, course).is_ok());
         assert_eq!(
             validate_cleanup_key(
                 &ObjectKey::StudentRecord {
-                    tenant: foreign,
-                    object
+                    course: foreign,
+                    object,
                 },
-                tenant
+                course,
             ),
             Err(JobFailureKind::Permanent)
         );
         assert_eq!(
-            validate_cleanup_key(&ObjectKey::Temporary { object }, tenant),
+            validate_cleanup_key(&ObjectKey::Temporary { object }, course),
             Err(JobFailureKind::Permanent)
         );
     }

@@ -1,4 +1,4 @@
-use super::fixtures::{Fixture, OTHER_TENANT, tenant, token, user};
+use super::fixtures::{Fixture, token, user};
 
 use crate::{
     PageRequest, PageSize, ProblemCurationCapability, ProblemCurationStore, SessionLifetime,
@@ -48,13 +48,8 @@ async fn role_preflight_distinguishes_catalog_reads_from_personal_curation() {
         .store
         .create_session(
             student,
-            SessionSubject::new(
-                fixture.context.tenant_id(),
-                user(930_099),
-                "Student",
-                vec![UserRole::Student],
-            )
-            .expect("student session"),
+            SessionSubject::new(user(930_099), "Student", UserRole::Student)
+                .expect("student session"),
             SessionLifetime::from_seconds(600).expect("positive lifetime"),
         )
         .await
@@ -74,7 +69,7 @@ async fn role_preflight_distinguishes_catalog_reads_from_personal_curation() {
 }
 
 #[tokio::test]
-async fn private_collections_are_owner_only_and_tenant_scoped() {
+async fn private_collections_are_owner_only() {
     let fixture = Fixture::new(2).await;
     let private = fixture
         .named(
@@ -102,35 +97,10 @@ async fn private_collections_are_owner_only_and_tenant_scoped() {
             .expect("sysadmin lookup")
             .is_none()
     );
-
-    let other_context = fixture.context_for(tenant(OTHER_TENANT));
-    let other_session = token("d2-other-tenant");
-    fixture
-        .store
-        .create_session(
-            other_session,
-            SessionSubject::new(
-                tenant(OTHER_TENANT),
-                user(OTHER_TENANT),
-                "Other tenant instructor",
-                vec![UserRole::Instructor],
-            )
-            .expect("valid session"),
-            SessionLifetime::from_seconds(600).expect("valid lifetime"),
-        )
-        .await
-        .expect("other tenant session");
-    assert!(matches!(
-        fixture
-            .store
-            .get_problem_collection_summary(other_context, other_session, private.reference)
-            .await,
-        Err(StoreError::Forbidden) | Err(StoreError::NotFound)
-    ));
 }
 
 #[tokio::test]
-async fn institution_collections_are_readable_by_same_tenant_instructor_and_sysadmin() {
+async fn shared_collections_are_readable_by_instructor_and_sysadmin() {
     let fixture = Fixture::new(1).await;
     let institution = fixture
         .named(
@@ -147,7 +117,7 @@ async fn institution_collections_are_readable_by_same_tenant_instructor_and_sysa
             .store
             .get_problem_collection_summary(fixture.context, session, institution.reference)
             .await
-            .expect("same-tenant reader")
+            .expect("shared collection reader")
             .expect("institution projection");
         assert_eq!(view.access, ProblemCollectionAccess::InstitutionReader);
         assert_eq!(view.title, "Shared peptide questions");

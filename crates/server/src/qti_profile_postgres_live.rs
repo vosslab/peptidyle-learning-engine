@@ -256,7 +256,7 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
         assert_eq!(receipt["state"], "queued");
     }
 
-    let source_object = workspace_qti_archive_object_id(tenant, workspace, import);
+    let source_object = workspace_qti_archive_object_id(workspace, import);
     let payload = JobPayload::QtiImport {
         workspace,
         import,
@@ -520,7 +520,6 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
     );
 
     let published_archive_object = published_import_archive_object_id(
-        tenant,
         reference.problem,
         reference.version,
         import,
@@ -586,7 +585,7 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
         result: None,
         timer: AttemptTimerRecord {
             issued_at: store
-                .authoritative_time(context)
+                .authoritative_time()
                 .await
                 .expect("authoritative attempt time"),
             deadline: None,

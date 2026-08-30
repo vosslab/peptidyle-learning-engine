@@ -6,7 +6,7 @@ use question_model::{
     RunReference, UserId, WorkspaceId, WorkspaceReference,
 };
 
-use crate::{StoreError, TenantContext};
+use crate::{ActorContext, StoreError};
 
 /// Internal assignment route resolved from one public locator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,61 +26,61 @@ pub struct RunRouteIdentity {
 /// Persistence capability for public route locators.
 ///
 /// Every method takes the authenticated actor. A result is absent unless that actor may navigate to
-/// the record under the current tenant; the returned UUID remains an internal transport detail.
+/// the record through their exact course or workspace relationship; the returned UUID remains an internal transport detail.
 #[async_trait]
 pub trait NavigationReferenceStore: Send + Sync {
     async fn course_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
     ) -> Result<Option<CourseReference>, StoreError>;
 
     async fn resolve_course_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         reference: CourseReference,
     ) -> Result<Option<CourseId>, StoreError>;
 
     async fn assignment_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         assignment: AssignmentId,
     ) -> Result<Option<AssignmentReference>, StoreError>;
 
     async fn resolve_assignment_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         reference: AssignmentReference,
     ) -> Result<Option<AssignmentRouteIdentity>, StoreError>;
 
     async fn run_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<RunReference>, StoreError>;
 
     async fn resolve_run_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         reference: RunReference,
     ) -> Result<Option<RunRouteIdentity>, StoreError>;
 
     async fn workspace_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceReference>, StoreError>;
 
     async fn resolve_workspace_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         reference: WorkspaceReference,
     ) -> Result<Option<WorkspaceId>, StoreError>;

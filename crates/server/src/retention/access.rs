@@ -23,14 +23,13 @@ where
     S: Store,
 {
     let user = authenticated.record.subject.user();
-    let roles = authenticated.record.subject.roles();
-    let is_sysadmin = roles.contains(&UserRole::Sysadmin);
+    let is_sysadmin = authenticated.record.subject.role() == UserRole::Sysadmin;
     let membership = match store
         .get_current_course_membership(authenticated.tenant_context, course, user)
         .await
     {
         Ok(membership) => membership,
-        Err(StoreError::Forbidden | StoreError::TenantMismatch | StoreError::NotFound) => None,
+        Err(StoreError::Forbidden | StoreError::OwnershipMismatch | StoreError::NotFound) => None,
         Err(error) => return Err(route_store_error(error).into()),
     };
     if !(is_sysadmin

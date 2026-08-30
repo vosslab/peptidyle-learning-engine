@@ -322,7 +322,6 @@ where
     let (reservation_presentation_binding, second_presentation) =
         receipt_presentation(version, 993, 9);
     let reservation = PrefetchedQuestionDescriptorV1 {
-        tenant,
         run: run.id,
         predecessor: attempt.id,
         assignment_position: 1,

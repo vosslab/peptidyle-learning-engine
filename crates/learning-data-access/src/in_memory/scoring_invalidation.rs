@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use question_model::{
     AssignmentId, CourseId, GradingOperationReason, GradingOperationState, ScoringGeneration,
-    ScoringStatus, TenantId,
+    ScoringStatus,
 };
 
 use super::{State, StoredJob, grading_operation_lifecycle};
@@ -29,7 +29,6 @@ pub(super) struct MemoryScoringInvalidation {
 
 pub(super) type MemoryScoringInvalidations = BTreeMap<
     (
-        TenantId,
         crate::ScoringInvalidationOriginKind,
         crate::ScoringInvalidationOriginId,
     ),
@@ -66,7 +65,6 @@ pub(super) fn definition_scoring_state(
 /// the one 1830-compatible job and its safe operation projection.
 pub(super) fn request_scoring_invalidation(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     origin: ScoringInvalidationOrigin,
@@ -91,7 +89,7 @@ pub(super) fn request_scoring_invalidation(
             GradingOperationReason::ScoringRecalculationRequested
         }
     };
-    let origin_key = (tenant, origin.kind, origin.id);
+    let origin_key = (origin.kind, origin.id);
     if let Some(existing) = state.scoring_invalidations.get(&origin_key).copied() {
         if existing.origin == origin
             && existing.course == course
@@ -101,18 +99,17 @@ pub(super) fn request_scoring_invalidation(
         }
         return Err(StoreError::Conflict);
     }
-    let key = (tenant, assignment);
     let (current_generation, _) = state
         .assignment_scoring
-        .get(&key)
+        .get(&assignment)
         .copied()
         .ok_or(StoreError::NotFound)?;
     let generation = current_generation.next().ok_or(StoreError::Conflict)?;
-    let operation = grading_operation_lifecycle::next_operation_reference(state, tenant)?;
+    let operation = grading_operation_lifecycle::next_operation_reference(state)?;
     if state.jobs.contains_key(&job) {
         return Err(StoreError::Conflict);
     }
-    supersede_older_active_operations(state, tenant, assignment, generation)?;
+    supersede_older_active_operations(state, assignment, generation)?;
     let invalidation = MemoryScoringInvalidation {
         origin,
         course,
@@ -123,11 +120,10 @@ pub(super) fn request_scoring_invalidation(
     };
     state
         .assignment_scoring
-        .insert(key, (generation, ScoringStatus::Recalculating));
+        .insert(assignment, (generation, ScoringStatus::Recalculating));
     state.jobs.insert(
         job,
         StoredJob {
-            tenant,
             payload: JobPayload::RecalculateAssignment {
                 assignment,
                 generation,
@@ -142,9 +138,8 @@ pub(super) fn request_scoring_invalidation(
         },
     );
     state.automated_grading_operations.insert(
-        (tenant, operation),
+        operation,
         GradingOperation {
-            tenant,
             course,
             assignment,
             reference: operation,
@@ -163,22 +158,20 @@ pub(super) fn request_scoring_invalidation(
 
 fn supersede_older_active_operations(
     state: &mut State,
-    tenant: TenantId,
     assignment: AssignmentId,
     next_generation: ScoringGeneration,
 ) -> Result<(), StoreError> {
     let revisions = state
         .automated_grading_operations
         .iter()
-        .filter_map(|((stored_tenant, reference), operation)| {
+        .filter_map(|(reference, operation)| {
             let GradingOperationTarget::AssignmentScoringGeneration {
                 requested_generation,
             } = operation.target
             else {
                 return None;
             };
-            (*stored_tenant == tenant
-                && operation.assignment == assignment
+            (operation.assignment == assignment
                 && matches!(
                     operation.state,
                     GradingOperationState::ActionInProgress | GradingOperationState::Actionable
@@ -198,7 +191,7 @@ fn supersede_older_active_operations(
     for (reference, revision) in revisions {
         let operation = state
             .automated_grading_operations
-            .get_mut(&(tenant, reference))
+            .get_mut(&reference)
             .expect("selected scoring operation remains present");
         operation.revision = revision;
         operation.state = GradingOperationState::Superseded;
@@ -214,10 +207,6 @@ mod tests {
         GradingOperationAction, GradingOperationReason, GradingOperationState, UserId,
     };
     use uuid::Uuid;
-
-    fn tenant() -> TenantId {
-        TenantId::from_uuid(Uuid::from_u128(1))
-    }
 
     fn assignment() -> AssignmentId {
         AssignmentId::from_uuid(Uuid::from_u128(2))
@@ -274,12 +263,11 @@ mod tests {
     fn exact_origin_replays_and_newer_origin_supersedes_active_generation() {
         let mut state = State::default();
         state.assignment_scoring.insert(
-            (tenant(), assignment()),
+            assignment(),
             (ScoringGeneration::INITIAL, ScoringStatus::Current),
         );
         let first = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(7),
@@ -288,7 +276,6 @@ mod tests {
         .expect("first origin");
         let replay = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(7),
@@ -298,7 +285,6 @@ mod tests {
         assert_eq!(replay, first);
         let second = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(8),
@@ -307,7 +293,7 @@ mod tests {
         .expect("new origin");
         assert!(second.generation.value() > first.generation.value());
         assert_eq!(
-            state.automated_grading_operations[&(tenant(), first.operation)].state,
+            state.automated_grading_operations[&first.operation].state,
             GradingOperationState::Superseded
         );
     }
@@ -316,12 +302,11 @@ mod tests {
     fn terminal_projection_changes_only_the_matching_generation_thread() {
         let mut state = State::default();
         state.assignment_scoring.insert(
-            (tenant(), assignment()),
+            assignment(),
             (ScoringGeneration::INITIAL, ScoringStatus::Current),
         );
         let first = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(9),
@@ -330,7 +315,6 @@ mod tests {
         .expect("first origin");
         let second = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(10),
@@ -339,7 +323,6 @@ mod tests {
         .expect("second origin");
         grading_operation_lifecycle::project_assignment_scoring_operation(
             &mut state,
-            tenant(),
             assignment(),
             first.generation,
             ScoringStatus::Failed,
@@ -347,18 +330,17 @@ mod tests {
         .expect("stale failure projection");
         grading_operation_lifecycle::project_assignment_scoring_operation(
             &mut state,
-            tenant(),
             assignment(),
             second.generation,
             ScoringStatus::Current,
         )
         .expect("current success projection");
         assert_eq!(
-            state.automated_grading_operations[&(tenant(), first.operation)].state,
+            state.automated_grading_operations[&first.operation].state,
             GradingOperationState::Superseded
         );
         assert_eq!(
-            state.automated_grading_operations[&(tenant(), second.operation)].state,
+            state.automated_grading_operations[&second.operation].state,
             GradingOperationState::Completed
         );
     }
@@ -367,12 +349,11 @@ mod tests {
     fn exact_failed_generation_reopens_its_own_operation() {
         let mut state = State::default();
         state.assignment_scoring.insert(
-            (tenant(), assignment()),
+            assignment(),
             (ScoringGeneration::INITIAL, ScoringStatus::Current),
         );
         let invalidation = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(11),
@@ -381,13 +362,12 @@ mod tests {
         .expect("origin");
         grading_operation_lifecycle::project_assignment_scoring_operation(
             &mut state,
-            tenant(),
             assignment(),
             invalidation.generation,
             ScoringStatus::Failed,
         )
         .expect("failure projection");
-        let operation = state.automated_grading_operations[&(tenant(), invalidation.operation)];
+        let operation = state.automated_grading_operations[&invalidation.operation];
         assert_eq!(
             operation.reason,
             GradingOperationReason::ScoringRecalculationFailed
@@ -399,7 +379,6 @@ mod tests {
         );
         request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(12),
@@ -407,7 +386,7 @@ mod tests {
         )
         .expect("new origin supersedes retryable predecessor");
         assert_eq!(
-            state.automated_grading_operations[&(tenant(), invalidation.operation)].state,
+            state.automated_grading_operations[&invalidation.operation].state,
             GradingOperationState::Superseded
         );
     }
@@ -416,12 +395,11 @@ mod tests {
     fn supersession_validates_every_revision_before_mutating_any_thread() {
         let mut state = State::default();
         state.assignment_scoring.insert(
-            (tenant(), assignment()),
+            assignment(),
             (ScoringGeneration::INITIAL, ScoringStatus::Current),
         );
         let first = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(13),
@@ -430,7 +408,6 @@ mod tests {
         .expect("first origin");
         let second = request_scoring_invalidation(
             &mut state,
-            tenant(),
             course(),
             assignment(),
             origin(14),
@@ -439,14 +416,13 @@ mod tests {
         .expect("second origin");
         let first_operation = state
             .automated_grading_operations
-            .get_mut(&(tenant(), first.operation))
+            .get_mut(&first.operation)
             .expect("first operation");
         first_operation.state = GradingOperationState::Actionable;
         first_operation.revision = GradingOperationRevision::from_u64(u64::MAX).expect("max");
         assert!(matches!(
             request_scoring_invalidation(
                 &mut state,
-                tenant(),
                 course(),
                 assignment(),
                 origin(15),
@@ -455,7 +431,7 @@ mod tests {
             Err(StoreError::Conflict)
         ));
         assert_eq!(
-            state.automated_grading_operations[&(tenant(), second.operation)].state,
+            state.automated_grading_operations[&second.operation].state,
             GradingOperationState::ActionInProgress
         );
     }

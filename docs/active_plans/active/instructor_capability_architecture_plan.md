@@ -778,8 +778,8 @@ command contract are product-crate owned.
 
 Evidence stays KISS: pure product-crate tests cover typed request, receipt, recipe, and deterministic
 convergence; the existing LDA PostgreSQL live oracle covers schema and lock behavior; and the existing
-`tests/e2e/e2e_live_demo_baseline.py` covers the connected lifecycle. LD1 does not add a second
-product-specific PostgreSQL harness or an exhaustive live matrix.
+The clean database baseline and production service-owner lanes cover the connected lifecycle. LD1 does
+not add a second product-specific PostgreSQL harness or an exhaustive live matrix.
 
 ### WP-INST-LD2 seeded demo entry contract
 
@@ -1208,8 +1208,8 @@ P1 finding.
 | WP-INST-D1  | Expert coder         | Accepted 2026-08-25: ranked metadata search, actor-scoped usage, first-attempt validity, disclosed evidence, and deterministic answer-free generated examples; canonical PostgreSQL, production HTTPS, screenshot, review, and final Validation evidence passed                                                                               | WP-INST-S7, WP-R2                                                                        |
 | WP-INST-D2  | Coder                | Accepted 2026-08-25: live vetted-Instructor Stars and private collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                                        | WP-INST-D1 accepted                                                                      |
 | WP-INST-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                            | WP-INST-D1                                                                               |
-| WP-INST-B1  | Expert coder         | Accepted 2026-08-25: revisioned UserId-owned Blueprint courses and owner-authorized curriculum workspaces with typed references, explicit publication state, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-INST-D2 accepted, WP-INST-S7 accepted                                                 |
-| WP-INST-B2  | Expert coder         | Accepted 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, divergence recovery, canonical PostgreSQL/browser/screenshot evidence, and final Validation passed                                                                                                                            | WP-INST-B1 accepted, WP-INST-T1 accepted                                                 |
+| WP-INST-B1  | Expert coder         | Historical acceptance, 2026-08-25: revisioned UserId-owned Blueprint courses and owner-authorized curriculum workspaces with typed references, explicit publication state, answer-free projections, and shared `ProblemPicker` authoring and reuse. Its PostgreSQL, HTTPS, visual, and review evidence applies to the pre-SD1 material tree only; SD1-C/D owns the current replacement. | WP-INST-D2 accepted, WP-INST-S7 accepted |
+| WP-INST-B2  | Expert coder         | Historical acceptance, 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, and divergence recovery. Its PostgreSQL/browser/screenshot evidence applies to the pre-SD1 material tree only; SD1-C/D owns the current BlueprintCourse/CourseInstance replacement. | WP-INST-B1 accepted, WP-INST-T1 accepted |
 | WP-INST-T6  | Expert coder         | Accepted 2026-08-27: linked assignment home, separate Questions and Policies pages, focused revision-checked mutations, persisted incomplete drafts, and Instructor-authorized answer-free Student view; binding plan at `docs/active_plans/active/instructor_assignment_workspace_plan.md`                                                   | WP-INST-T3, WP-INST-LD3, WP-INST-T5 accepted                                             |
 | WP-INST-G1  | Expert coder         | Accepted 2026-08-28: automated-grading operation queue grouped by question/learner, deterministic-grader exception routing, bounded retry, generation-fenced recalculation, immutable operation receipts, canonical live recovery, independent review, and final Validation passed                                                            | WP-INST-T2, WP-INST-T6                                                                   |
 | WP-INST-WN1 | Expert coder         | Current: [repository-wide wire naming contract migration](wire_naming_contract_migration_plan.md): current pre-WN1 lower-camel transport, then revised WN1-A/B/C1-C6/QM/WA/D/F for Rust-owned direct snake PLE data-object fields/discriminants, pure route-contract ownership, external boundary preservation, and evidence-gated durable transitions | accepted prerequisites; WN1-A independent ledger acceptance |
@@ -1545,8 +1545,9 @@ named E2E or one-time evidence lane. B1 acceptance uses semantic behavior and re
 elapsed-time thresholds, artifact counts, collection counts, and pixel-equivalence gates carry no
 acceptance authority.
 
-**Accepted evidence (2026-08-25).** The Memory and PostgreSQL Stores, strict server and browser
-contracts, and production HTTPS `reusable_curriculum` journey are green. Elena uses her ordinary
+**Historical accepted evidence (2026-08-25).** The predecessor Memory and PostgreSQL Stores, strict
+server and browser contracts, and production HTTPS `reusable_curriculum` journey were green on that
+material tree. Elena used her ordinary
 approved-Instructor email-code or passkey entry to create and revise a UserId-owned BlueprintCourse
 draft, recover a stale draft, publish its safe projection, reload persisted meaning, and reuse globally published questions through
 the shared picker. Morgan's independent Sysadmin passkey supports Avery's separate visible approval
@@ -1557,7 +1558,9 @@ Student refusal, revision safety, rollback, and exact cleanup. The privacy-valid
 canonical desktop creator and picker views.
 Final `source source_me.sh && ./all_test.sh`
 passed the Rust workspace, all five codebase gates, the complete production-browser suite, the
-database baseline, and the browser-free service oracles on this material tree.
+database baseline, and the browser-free service oracles on that historical material tree. This
+receipt does not accept the current SD1 material tree: its current Store contract is Memory-only,
+and the PostgreSQL/RLS, server, browser, and live-demo replacement remains SD1-C/D/F work.
 
 The repository-owned independent-review receipt is:
 

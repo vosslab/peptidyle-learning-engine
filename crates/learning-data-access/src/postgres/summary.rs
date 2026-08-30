@@ -1,6 +1,6 @@
 //! Typed PostgreSQL codec for the compact assignment scoring projection.
 
-use question_model::{ActivityTimestamp, EnrollmentId, StudentAssignmentSummary, TenantId};
+use question_model::{ActivityTimestamp, EnrollmentId, StudentAssignmentSummary};
 use sqlx::Row;
 use sqlx::postgres::PgRow;
 use sqlx::types::Uuid;
@@ -9,7 +9,6 @@ use super::map_sqlx_error;
 use crate::StoreError;
 
 pub(super) struct SummaryRowValues {
-    pub(super) tenant_id: Uuid,
     pub(super) enrollment_id: Uuid,
     pub(super) current_score: Option<f64>,
     pub(super) best_score: Option<f64>,
@@ -27,7 +26,6 @@ pub(super) fn decode_summary_values(
     values: SummaryRowValues,
 ) -> Result<StudentAssignmentSummary, StoreError> {
     Ok(StudentAssignmentSummary {
-        tenant: TenantId::from_uuid(values.tenant_id),
         enrollment: EnrollmentId::from_uuid(values.enrollment_id),
         current_score: values.current_score,
         best_score: values.best_score,
@@ -49,7 +47,6 @@ pub(super) fn decode_summary_row_named(
     prefix: &str,
 ) -> Result<StudentAssignmentSummary, StoreError> {
     let column = |name: &str| format!("{prefix}{name}");
-    let tenant = column("tenant_id");
     let enrollment = column("enrollment_id");
     let current_score = column("current_score");
     let best_score = column("best_score");
@@ -64,9 +61,6 @@ pub(super) fn decode_summary_row_named(
         .try_get::<i64, _>(total_question_attempts.as_str())
         .map_err(map_sqlx_error)?;
     decode_summary_values(SummaryRowValues {
-        tenant_id: row
-            .try_get::<Uuid, _>(tenant.as_str())
-            .map_err(map_sqlx_error)?,
         enrollment_id: row
             .try_get::<Uuid, _>(enrollment.as_str())
             .map_err(map_sqlx_error)?,

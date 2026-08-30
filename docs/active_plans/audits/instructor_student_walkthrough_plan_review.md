@@ -47,10 +47,10 @@ contract and the companion evidence has one stale arrangement statement.
   internal source type or equivalent closed representation. Add an exact,
   unique server-side local learner alias to the local identity configuration;
   the browser request may supply only that alias, never an ID, credential,
-  tenant, display name, or role. Preserve `legacy` for legacy reconciliation
+  installation scope, display name, or role. Preserve `legacy` for legacy reconciliation
   rather than reusing it for the new path.
 - **Retest:** Memory and PostgreSQL prove the manager-only, idempotent atomic
-  active-member/enrollment result; unknown, instructor, foreign-tenant, and
+  active-member/enrollment result; unknown, instructor, unaffiliated, and
   production requests fail closed; a PostgreSQL migration test proves the new
   source and its null email/roster-ID shape are valid.
 
@@ -100,7 +100,7 @@ production email and canonical-onboarding acceptance.
   `local_development` source, the corresponding narrow Store command, and
   Memory/PostgreSQL conformance. Its exact bounded unique server-side ASCII
   alias contract permits browser input of only the configured learner alias;
-  tenant, user, display name, and roles remain server-derived. The migration
+  installation scope, user, display name, and roles remain server-derived. The migration
   policy preserves existing `legacy` and `invitation` behavior and permits the
   local source's null email/roster-ID shape. `DATABASE_STRUCTURE`, the release
   plan, and implementation status reserve the same migration without claiming

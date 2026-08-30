@@ -19,14 +19,13 @@ mod retention_tests {
     async fn establish_session(
         store: &MemoryStore,
         token: SessionTokenHash,
-        tenant: TenantId,
         user: UserId,
-        roles: Vec<UserRole>,
+        role: UserRole,
     ) {
         store
             .create_session(
                 token,
-                SessionSubject::new(tenant, user, "Retention fixture", roles)
+                SessionSubject::new(user, "Retention fixture", role)
                     .expect("valid session subject"),
                 SessionLifetime::from_seconds(3_600).expect("valid lifetime"),
             )
@@ -34,9 +33,18 @@ mod retention_tests {
             .expect("store session");
     }
 
+    async fn context_for(store: &MemoryStore, token: SessionTokenHash) -> ActorContext {
+        ActorContext::from_session_record(
+            &store
+                .resolve_session(token)
+                .await
+                .expect("fixture session read")
+                .expect("fixture active session"),
+        )
+    }
+
     async fn establish_course(
         store: &MemoryStore,
-        context: TenantContext,
         course: CourseId,
         title: &str,
         instructor: UserId,
@@ -46,18 +54,23 @@ mod retention_tests {
         establish_session(
             store,
             initial_instructor_session,
-            context.tenant_id(),
             instructor,
-            vec![UserRole::Sysadmin],
+            UserRole::Sysadmin,
         )
         .await;
+        let context = ActorContext::from_session_record(
+            &store
+                .resolve_session(initial_instructor_session)
+                .await
+                .expect("fixture course-creator session read")
+                .expect("fixture course-creator active session"),
+        );
         store
             .create_course(
                 context,
                 CreateCourseCommand {
                     course: CourseRecord {
                         id: course,
-                        tenant: context.tenant_id(),
                         title: title.to_string(),
                         term: question_model::CourseTerm::from_parts(
                             "2026-08-24",
@@ -94,8 +107,6 @@ mod retention_tests {
     #[tokio::test]
     async fn retention_policy_and_course_end_are_session_authorized_and_idempotent() {
         let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(Uuid::from_u128(81_001));
-        let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_002));
         let student = UserId::from_uuid(Uuid::from_u128(81_003));
         let sysadmin = UserId::from_uuid(Uuid::from_u128(81_004));
@@ -103,55 +114,36 @@ mod retention_tests {
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000_000))
             .expect("retention fixture clock");
-        establish_course(
-            &store,
-            context,
-            course,
-            "Retention course",
-            instructor,
-            &[student],
-        )
-        .await;
-        establish_session(
-            &store,
-            session(1),
-            tenant,
-            instructor,
-            vec![UserRole::Instructor],
-        )
-        .await;
-        establish_session(&store, session(2), tenant, student, vec![UserRole::Student]).await;
-        establish_session(
-            &store,
-            session(3),
-            tenant,
-            sysadmin,
-            vec![UserRole::Sysadmin],
-        )
-        .await;
+        establish_course(&store, course, "Retention course", instructor, &[student]).await;
+        establish_session(&store, session(1), instructor, UserRole::Instructor).await;
+        establish_session(&store, session(2), student, UserRole::Student).await;
+        establish_session(&store, session(3), sysadmin, UserRole::Sysadmin).await;
+        let instructor_context = context_for(&store, session(1)).await;
+        let student_context = context_for(&store, session(2)).await;
+        let sysadmin_context = context_for(&store, session(3)).await;
 
         assert_eq!(
             store
                 .configure_retention_policy(
-                    context,
+                    instructor_context,
                     session(1),
-                    InstitutionRetentionPolicy::default()
+                    RetentionPolicy::default()
                 )
                 .await,
             Err(StoreError::Forbidden)
         );
-        let custom = InstitutionRetentionPolicy::new(
+        let custom = RetentionPolicy::new(
             RetentionDays::new(31).unwrap(),
             RetentionDays::new(101).unwrap(),
             RetentionDays::new(366).unwrap(),
         )
         .unwrap();
         store
-            .configure_retention_policy(context, session(3), custom)
+            .configure_retention_policy(sysadmin_context, session(3), custom)
             .await
             .expect("sysadmin policy");
         let first = store
-            .end_course_retention(context, session(1), course)
+            .end_course_retention(instructor_context, session(1), course)
             .await
             .expect("instructor ends course");
         assert_eq!(
@@ -163,18 +155,20 @@ mod retention_tests {
         assert_eq!(first.status.state, CourseRetentionState::Active);
         assert_eq!(
             store
-                .end_course_retention(context, session(1), course)
+                .end_course_retention(instructor_context, session(1), course)
                 .await
                 .expect("exact replay"),
             first
         );
         assert_eq!(
-            store.course_retention(context, session(2), course).await,
+            store
+                .course_retention(student_context, session(2), course)
+                .await,
             Ok(None)
         );
         assert_eq!(
             store
-                .course_retention(context, session(3), course)
+                .course_retention(sysadmin_context, session(3), course)
                 .await
                 .expect("sysadmin view"),
             Some(first)
@@ -184,43 +178,29 @@ mod retention_tests {
     #[tokio::test]
     async fn scheduler_dispatches_each_due_current_stage_once_and_binds_worker_execution() {
         let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(Uuid::from_u128(81_100));
-        let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_101));
         let sysadmin = UserId::from_uuid(Uuid::from_u128(81_102));
         let course = CourseId::from_uuid(Uuid::from_u128(81_103));
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000_000))
             .expect("fixture clock");
-        establish_course(&store, context, course, "Dispatch course", instructor, &[]).await;
-        establish_session(
-            &store,
-            session(10),
-            tenant,
-            instructor,
-            vec![UserRole::Instructor],
-        )
-        .await;
-        establish_session(
-            &store,
-            session(11),
-            tenant,
-            sysadmin,
-            vec![UserRole::Sysadmin],
-        )
-        .await;
-        let policy = InstitutionRetentionPolicy::new(
+        establish_course(&store, course, "Dispatch course", instructor, &[]).await;
+        establish_session(&store, session(10), instructor, UserRole::Instructor).await;
+        establish_session(&store, session(11), sysadmin, UserRole::Sysadmin).await;
+        let instructor_context = context_for(&store, session(10)).await;
+        let sysadmin_context = context_for(&store, session(11)).await;
+        let policy = RetentionPolicy::new(
             RetentionDays::new(2).unwrap(),
             RetentionDays::new(4).unwrap(),
             RetentionDays::new(6).unwrap(),
         )
         .unwrap();
         store
-            .configure_retention_policy(context, session(11), policy)
+            .configure_retention_policy(sysadmin_context, session(11), policy)
             .await
             .expect("sysadmin policy");
         let record = store
-            .end_course_retention(context, session(10), course)
+            .end_course_retention(instructor_context, session(10), course)
             .await
             .expect("course end");
         let batch = RetentionDispatchBatch::new(3).expect("batch");
@@ -263,7 +243,6 @@ mod retention_tests {
                 }
             );
             let command = RetentionWorkerCommand {
-                tenant,
                 course,
                 stage,
                 generation: 1,
@@ -282,9 +261,8 @@ mod retention_tests {
         // A valid-looking but unbound job cannot execute under R3's worker API.
         let forged = store
             .enqueue_job(
-                context,
+                sysadmin_context,
                 crate::EnqueueJob {
-                    tenant,
                     payload: JobPayload::Retention {
                         course,
                         stage: crate::RetentionStage::Notify,
@@ -307,7 +285,6 @@ mod retention_tests {
         assert_eq!(
             store
                 .prepare_retention_work(RetentionWorkerCommand {
-                    tenant,
                     course,
                     stage: crate::RetentionStage::Notify,
                     generation: 1,
@@ -318,58 +295,49 @@ mod retention_tests {
             Err(StoreError::Conflict)
         );
 
-        // The same trusted scheduler path honors an institution without an
-        // explicit policy row: R1's 30-day default is still a real dispatch
-        // deadline, not only a pure-policy calculation.
-        let default_tenant = TenantId::from_uuid(Uuid::from_u128(81_104));
-        let default_context = TenantContext::from_authenticated_session(default_tenant);
-        let default_course = CourseId::from_uuid(Uuid::from_u128(81_105));
+        // The installation-wide policy applies to every later course: the
+        // scheduler's deadline remains durable rather than a pure calculation.
+        let other_course = CourseId::from_uuid(Uuid::from_u128(81_105));
         establish_course(
             &store,
-            default_context,
-            default_course,
-            "Default dispatch course",
+            other_course,
+            "Global-policy dispatch course",
             instructor,
             &[],
         )
         .await;
-        establish_session(
-            &store,
-            session(12),
-            default_tenant,
-            instructor,
-            vec![UserRole::Instructor],
-        )
-        .await;
-        let default_record = store
-            .end_course_retention(default_context, session(12), default_course)
+        establish_session(&store, session(12), instructor, UserRole::Instructor).await;
+        let other_context = context_for(&store, session(12)).await;
+        let other_record = store
+            .end_course_retention(other_context, session(12), other_course)
             .await
-            .expect("default-policy end");
-        let default_due = default_record
+            .expect("global-policy end");
+        assert_eq!(other_record.snapshot.policy(), policy);
+        let other_due = other_record
             .snapshot
             .policy()
             .due_at(
-                default_record.snapshot.ended_at(),
+                other_record.snapshot.ended_at(),
                 crate::RetentionStage::Notify,
             )
             .expect("default due");
         {
             let mut state = store.write_state().expect("state");
-            state.authoritative_time = default_due;
+            state.authoritative_time = other_due;
         }
         assert_eq!(store.dispatch_due_retention_stages(batch).await, Ok(1));
-        let default_job = store
+        let other_job = store
             .claim_next_job(
                 &JobClaimFilter::all(),
                 JobLeaseDuration::from_seconds(30).unwrap(),
             )
             .await
-            .expect("claim default")
-            .expect("default job");
+            .expect("claim global-policy job")
+            .expect("global-policy job");
         assert_eq!(
-            default_job.payload,
+            other_job.payload,
             JobPayload::Retention {
-                course: default_course,
+                course: other_course,
                 stage: crate::RetentionStage::Notify,
                 generation: 1,
             }
@@ -379,8 +347,6 @@ mod retention_tests {
     #[tokio::test]
     async fn extension_and_disposition_are_authorized_and_generation_fenced() {
         let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(Uuid::from_u128(81_200));
-        let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_201));
         let student = UserId::from_uuid(Uuid::from_u128(81_202));
         let sysadmin = UserId::from_uuid(Uuid::from_u128(81_203));
@@ -388,43 +354,17 @@ mod retention_tests {
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(2_000_000))
             .expect("fixture clock");
-        establish_course(
-            &store,
-            context,
-            course,
-            "Extension course",
-            instructor,
-            &[student],
-        )
-        .await;
-        establish_session(
-            &store,
-            session(20),
-            tenant,
-            instructor,
-            vec![UserRole::Instructor],
-        )
-        .await;
-        establish_session(
-            &store,
-            session(21),
-            tenant,
-            student,
-            vec![UserRole::Student],
-        )
-        .await;
-        establish_session(
-            &store,
-            session(22),
-            tenant,
-            sysadmin,
-            vec![UserRole::Sysadmin],
-        )
-        .await;
+        establish_course(&store, course, "Extension course", instructor, &[student]).await;
+        establish_session(&store, session(20), instructor, UserRole::Instructor).await;
+        establish_session(&store, session(21), student, UserRole::Student).await;
+        establish_session(&store, session(22), sysadmin, UserRole::Sysadmin).await;
+        let instructor_context = context_for(&store, session(20)).await;
+        let student_context = context_for(&store, session(21)).await;
+        let sysadmin_context = context_for(&store, session(22)).await;
         assert_eq!(
             store
                 .extend_course_retention(
-                    context,
+                    sysadmin_context,
                     session(22),
                     course,
                     RetentionDays::new(1).unwrap(),
@@ -436,7 +376,7 @@ mod retention_tests {
         assert_eq!(
             store
                 .extend_course_retention(
-                    context,
+                    sysadmin_context,
                     session(22),
                     CourseId::from_uuid(Uuid::from_u128(81_299)),
                     RetentionDays::new(1).unwrap(),
@@ -446,13 +386,13 @@ mod retention_tests {
             "missing courses remain nonenumerating"
         );
         let original = store
-            .end_course_retention(context, session(20), course)
+            .end_course_retention(instructor_context, session(20), course)
             .await
             .expect("end");
         assert_eq!(
             store
                 .extend_course_retention(
-                    context,
+                    instructor_context,
                     session(20),
                     course,
                     RetentionDays::new(1).unwrap()
@@ -463,7 +403,7 @@ mod retention_tests {
         assert_eq!(
             store
                 .extend_course_retention(
-                    context,
+                    student_context,
                     session(21),
                     course,
                     RetentionDays::new(1).unwrap()
@@ -473,7 +413,7 @@ mod retention_tests {
         );
         let chosen = store
             .set_archive_disposition(
-                context,
+                instructor_context,
                 session(20),
                 course,
                 AssignmentDefinitionDisposition::Delete,
@@ -489,7 +429,7 @@ mod retention_tests {
         // generation.
         {
             let mut state = store.write_state().expect("state");
-            let notify_key = (tenant, course, crate::RetentionStage::Notify, 1);
+            let notify_key = (course, crate::RetentionStage::Notify, 1);
             let stored = state.retention_stages[&notify_key];
             state.retention_stages.insert(
                 notify_key,
@@ -500,7 +440,7 @@ mod retention_tests {
             );
             let notification_created_at = state.authoritative_time;
             state.retention_notifications.insert(
-                (tenant, course, 1),
+                (course, 1),
                 crate::RetentionNotificationView {
                     intent: crate::RetentionNotificationIntent::Archive,
                     created_at: notification_created_at,
@@ -514,7 +454,6 @@ mod retention_tests {
             state.jobs.insert(
                 leased_job,
                 StoredJob {
-                    tenant,
                     payload: JobPayload::Retention {
                         course,
                         stage: crate::RetentionStage::ArchiveStudentRecords,
@@ -532,17 +471,12 @@ mod retention_tests {
                 },
             );
             state.retention_dispatches.insert(
-                (
-                    tenant,
-                    course,
-                    crate::RetentionStage::ArchiveStudentRecords,
-                    1,
-                ),
+                (course, crate::RetentionStage::ArchiveStudentRecords, 1),
                 leased_job,
             );
         }
         let extended = store
-            .extend_course_retention(context, session(22), course, RetentionDays::new(7).unwrap())
+            .extend_course_retention(sysadmin_context, session(22), course, RetentionDays::new(7).unwrap())
             .await
             .expect("sysadmin extension");
         assert_eq!(extended.snapshot.generation(), 2);
@@ -551,7 +485,7 @@ mod retention_tests {
             AssignmentDefinitionDisposition::Delete
         );
         let latest_notification = store
-            .retention_notification(context, session(20), course)
+            .retention_notification(instructor_context, session(20), course)
             .await
             .expect("authorized notification read")
             .expect("completed notification remains readable after extension");
@@ -570,8 +504,8 @@ mod retention_tests {
                 crate::RetentionStage::ArchiveStudentRecords,
                 crate::RetentionStage::DeleteStudentRecords,
             ] {
-                let old = state.retention_stages[&(tenant, course, stage, 1)];
-                let new = state.retention_stages[&(tenant, course, stage, 2)];
+                let old = state.retention_stages[&(course, stage, 1)];
+                let new = state.retention_stages[&(course, stage, 2)];
                 if stage == crate::RetentionStage::Notify {
                     assert_eq!(old.state, RetentionStageWorkState::Completed);
                     assert_eq!(new.state, RetentionStageWorkState::Completed);
@@ -596,12 +530,7 @@ mod retention_tests {
         // a Sysadmin also cannot extend an in-progress generation.
         {
             let mut state = store.write_state().expect("state");
-            let archive_key = (
-                tenant,
-                course,
-                crate::RetentionStage::ArchiveStudentRecords,
-                2,
-            );
+            let archive_key = (course, crate::RetentionStage::ArchiveStudentRecords, 2);
             let stored = state.retention_stages[&archive_key];
             state.retention_stages.insert(
                 archive_key,
@@ -614,7 +543,7 @@ mod retention_tests {
         assert_eq!(
             store
                 .set_archive_disposition(
-                    context,
+                    instructor_context,
                     session(20),
                     course,
                     AssignmentDefinitionDisposition::Retain,
@@ -625,7 +554,7 @@ mod retention_tests {
         assert_eq!(
             store
                 .extend_course_retention(
-                    context,
+                    sysadmin_context,
                     session(22),
                     course,
                     RetentionDays::new(1).unwrap(),
@@ -646,32 +575,16 @@ mod retention_tests {
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(3_000_000))
             .expect("fixture clock");
+        establish_course(&store, course, "Retention API course", instructor, &[]).await;
         establish_course(
             &store,
-            context,
-            course,
-            "Retention API course",
-            instructor,
-            &[],
-        )
-        .await;
-        establish_course(
-            &store,
-            context,
             other_course,
             "Other retention API course",
             instructor,
             &[],
         )
         .await;
-        establish_session(
-            &store,
-            session(30),
-            tenant,
-            instructor,
-            vec![UserRole::Instructor],
-        )
-        .await;
+        establish_session(&store, session(30), instructor, UserRole::Instructor).await;
         store
             .end_course_retention(context, session(30), course)
             .await
@@ -747,7 +660,6 @@ mod retention_tests {
             let other_job = state
                 .retention_dispatches
                 .remove(&(
-                    tenant,
                     other_course,
                     crate::RetentionStage::ArchiveStudentRecords,
                     2,
@@ -833,7 +745,6 @@ mod retention_tests {
             }
         );
         let command = RetentionWorkerCommand {
-            tenant,
             course,
             stage: crate::RetentionStage::ArchiveStudentRecords,
             generation: 2,

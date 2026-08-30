@@ -3,7 +3,7 @@
 //! This module verifies a score only after the server-side broker has matched
 //! it to an exact, single-use launch ledger.  iMathAS result JWTs authenticate
 //! the provider response, but the upstream protocol does not carry PLE's
-//! tenant, attempt, version, nonce, or idempotency claims.  Consequently a
+//! account, attempt, version, nonce, or idempotency claims. Consequently a
 //! valid JWT alone is never a grade.
 
 use base64::Engine as _;
@@ -388,7 +388,7 @@ impl ScoredEmbedLaunchClaims {
     pub fn nonce(&self) -> &str {
         &self.nonce
     }
-    /// Signed digest of exact tenant/attempt/problem/version/seed/source/profile binding.
+    /// Signed digest of exact attempt/problem/version/seed/source/profile binding.
     pub fn binding_digest(&self) -> &str {
         &self.binding_digest
     }
@@ -400,7 +400,7 @@ impl std::fmt::Debug for ScoredEmbedLaunchClaims {
     }
 }
 
-/// Shared-content cache identity. Tenant identity never contributes to it.
+/// Shared-content cache identity excludes attempt-bound grading identity.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ScoredEmbedRenderCacheKey {
     version: VersionId,
@@ -674,7 +674,6 @@ fn launch_binding_digest(
 ) -> String {
     let mut digest = Sha256::new();
     digest.update(b"ple:imathas:scored-embed-binding:v1");
-    digest.update(binding.tenant.as_uuid().as_bytes());
     digest.update(binding.attempt.as_uuid().as_bytes());
     digest.update(binding.problem.as_uuid().as_bytes());
     digest.update(binding.version.as_uuid().as_bytes());
@@ -690,7 +689,7 @@ fn launch_binding_digest(
 #[cfg(test)]
 mod tests {
     use hmac::{Hmac, KeyInit, Mac};
-    use question_model::{ProblemId, QuestionAttemptId, TenantId, generation::Seed};
+    use question_model::{ProblemId, QuestionAttemptId, generation::Seed};
     use uuid::Uuid;
 
     use super::*;
@@ -702,7 +701,6 @@ mod tests {
 
     fn binding() -> GradeBinding {
         GradeBinding {
-            tenant: TenantId::from_uuid(Uuid::from_u128(1)),
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(2)),
             problem: ProblemId::from_uuid(Uuid::from_u128(3)),
             version: VersionId::from_uuid(Uuid::from_u128(4)),
@@ -776,7 +774,7 @@ mod tests {
     }
 
     #[test]
-    fn provider_seed_is_documented_bounded_and_cache_has_no_tenant() {
+    fn provider_seed_is_documented_bounded_and_cache_excludes_attempt_binding() {
         assert_eq!(normalize_provider_seed(Seed::new(0)), 1);
         assert_eq!(normalize_provider_seed(Seed::new(9_998)), 9_999);
         assert_eq!(normalize_provider_seed(Seed::new(9_999)), 1);
@@ -784,7 +782,7 @@ mod tests {
         assert_eq!(ledger.ple_seed(), Seed::new(10_001));
         assert_eq!(ledger.provider_seed(), 3);
         let debug = format!("{:?}", ledger.cache_key());
-        assert!(!debug.contains(&binding().tenant.to_string()));
+        assert!(!debug.contains(&binding().attempt.to_string()));
     }
 
     #[test]

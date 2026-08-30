@@ -416,7 +416,6 @@ payload rules are normative.
 | `DELETE /api/courses/{course}/members/{member}` | Revoke current course access without deleting records | Existing member path plus exact roster revision |
 | `POST /api/courses/{course}/roster-imports/preview` | Parse and stage bounded `email,roster_id` CSV | Exact roster revision plus direct Instructor or audited Sysadmin roster-support authorization |
 | `POST /api/courses/{course}/roster-imports/{import}/commit` | Commit the reviewed ready rows atomically | Import revision plus idempotency key |
-| `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Download the calculated roster score CSV | Course and assignment from path plus direct Instructor authorization |
 
 The roster response is deliberately small:
 

@@ -2,16 +2,14 @@
 //!
 //! This capability is deliberately separate from [`crate::Store`]. Course and
 //! run code must not gain access to authentication emails, passkey material,
-//! or in-progress credential ceremonies merely because it can read tenant
+//! or in-progress credential ceremonies merely because it can read protected
 //! educational records.
 
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Digest;
-use question_model::{
-    ActivityTimestamp, CourseId, CourseMembershipRole, TenantId, UserId, UserRole,
-};
+use question_model::{ActivityTimestamp, CourseId, CourseMembershipRole, UserId, UserRole};
 use uuid::Uuid;
 
 use crate::{Page, PageRequest, StoreError};
@@ -170,7 +168,6 @@ pub struct AccountRecord {
 /// One course relationship proven from a PLE account, not browser authority.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountCourseContext {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub title: String,
     pub role: CourseMembershipRole,
@@ -329,7 +326,7 @@ pub enum AuthenticationRateLimitDecision {
     Denied { retry_after_seconds: u32 },
 }
 
-/// Bounded lifetime for tenant-independent account authentication state.
+/// Bounded lifetime for global account authentication state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AccountSessionLifetime(NonZeroU32);
 
@@ -347,7 +344,7 @@ impl AccountSessionLifetime {
     }
 }
 
-/// Short-lived account proof used before selecting an authorized tenant.
+/// Short-lived account proof used before selecting an authorized course.
 #[derive(Clone, PartialEq, Eq)]
 pub struct AccountSessionRecord {
     pub token_hash: AccountSessionTokenHash,
@@ -471,7 +468,7 @@ pub struct CompleteEmailAuthenticationAndCreateSession {
 }
 
 /// Atomic verified email replacement that invalidates every prior account and
-/// tenant proof for the account before issuing a replacement account proof to
+/// course proof for the account before issuing a replacement account proof to
 /// the browser that completed the browser-bound challenge.
 #[derive(Debug, Clone)]
 pub struct CompleteEmailChangeAndRevokeUserSessions {
@@ -708,7 +705,7 @@ pub trait AccountIdentityStore: Send + Sync {
     ) -> Result<CompletedAccountSession, StoreError>;
 
     /// Completes only a verified email-change challenge, revokes every prior
-    /// account and tenant session for that account, and issues one replacement
+    /// account and educational session for that account, and issues one replacement
     /// account proof in the same Store transaction.
     async fn complete_email_change_and_revoke_user_sessions(
         &self,
@@ -719,7 +716,7 @@ pub trait AccountIdentityStore: Send + Sync {
 
     /// Lists bounded course contexts currently reachable by one PLE account.
     ///
-    /// Implementations must derive every tenant and role from a persisted
+    /// Implementations must derive every course relationship and role from a persisted
     /// course relationship. Student contexts whose learner records are no
     /// longer accessible are omitted.
     async fn list_account_course_contexts(
@@ -728,8 +725,8 @@ pub trait AccountIdentityStore: Send + Sync {
         page: PageRequest,
     ) -> Result<Page<AccountCourseContext>, StoreError>;
 
-    /// Resolves one course context without accepting a tenant or role from
-    /// the browser. More than one matching tenant is invalid stored state.
+    /// Resolves one course context without accepting an installation scope or role from
+    /// the browser. More than one matching course context is invalid stored state.
     async fn resolve_account_course_context(
         &self,
         user: UserId,
@@ -785,8 +782,8 @@ pub trait AccountIdentityStore: Send + Sync {
     async fn revoke_passkey(&self, user: UserId, passkey: PasskeyId) -> Result<(), StoreError>;
 }
 
-/// Tenant-independent account proof. Educational routes must still mint and
-/// resolve the existing tenant-scoped session after an authorized context is
+/// Global account proof. Educational routes must still mint and
+/// resolve the existing course-authorized session after an authorized context is
 /// selected or an invitation is claimed.
 #[async_trait]
 pub trait AccountSessionStore: Send + Sync {

@@ -17,9 +17,9 @@ use uuid::Uuid;
 
 use super::{MemoryStore, State, catalog_record_visible};
 use crate::{
-    CreateBlueprintCourseCommand, Cursor, Page, PageRequest, ReplaceBlueprintCourseCommand,
-    ReusableCurriculumCapability, ReusableCurriculumStore, SessionTokenHash, StoreError,
-    TenantContext, UserId,
+    ActorContext, CreateBlueprintCourseCommand, Cursor, Page, PageRequest,
+    ReplaceBlueprintCourseCommand, ReusableCurriculumCapability, ReusableCurriculumStore,
+    SessionTokenHash, StoreError, UserId,
 };
 
 mod source_snapshot;
@@ -34,7 +34,6 @@ pub(super) struct BlueprintCourseId(Uuid);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct StoredReusableCurriculumCursor {
-    tenant: question_model::TenantId,
     actor: UserId,
     after_key: u32,
 }
@@ -96,7 +95,7 @@ pub(super) struct StoredBlueprintCourseRevision {
 impl ReusableCurriculumStore for MemoryStore {
     async fn preflight_reusable_curriculum(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         _capability: ReusableCurriculumCapability,
     ) -> Result<(), StoreError> {
@@ -106,7 +105,7 @@ impl ReusableCurriculumStore for MemoryStore {
 
     async fn list_blueprint_courses(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<BlueprintCourseSummaryView>, StoreError> {
@@ -115,10 +114,7 @@ impl ReusableCurriculumStore for MemoryStore {
         let mut rows = state
             .blueprint_courses
             .iter()
-            .filter(|((tenant, _), _)| *tenant == context.tenant_id())
-            .map(|((_, id), row)| {
-                blueprint_course_summary(&state, context.tenant_id(), *id, row, actor)
-            })
+            .map(|(id, row)| blueprint_course_summary(&state, *id, row, actor))
             .collect::<Result<Vec<_>, _>>()?;
         rows.sort_by_key(|row| row.reference.number());
         page_rows(
@@ -127,50 +123,45 @@ impl ReusableCurriculumStore for MemoryStore {
                 .map(|row| (row.reference.number(), row))
                 .collect(),
             page,
-            context.tenant_id(),
             actor,
         )
     }
 
     async fn get_blueprint_course(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: BlueprintReference,
     ) -> Result<Option<BlueprintCourseView>, StoreError> {
         let state = self.read_state()?;
         let actor = require_approved_instructor(&state, context, session)?;
-        let Some(id) = state
-            .blueprint_courses_by_reference
-            .get(&(context.tenant_id(), reference))
-        else {
+        let Some(id) = state.blueprint_courses_by_reference.get(&reference) else {
             return Ok(None);
         };
         let row = state
             .blueprint_courses
-            .get(&(context.tenant_id(), *id))
+            .get(id)
             .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
-        blueprint_course_view(&state, context.tenant_id(), *id, row, actor).map(Some)
+        blueprint_course_view(&state, *id, row, actor).map(Some)
     }
 
     async fn create_blueprint_course(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: CreateBlueprintCourseCommand,
     ) -> Result<BlueprintCourseView, StoreError> {
         command.definition.validate().map_err(validation_error)?;
         let mut state = self.write_state()?;
         let actor = require_approved_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
-        let snapshot = resolve_create_snapshot(&state, self, tenant, &command.definition)?;
+        let snapshot = resolve_create_snapshot(&state, self, &command.definition)?;
         assert_fresh_snapshot_handles(&state, &snapshot)?;
         let id = fresh_blueprint_course_id(&state)?;
-        let _reference = allocate_blueprint_course_reference(&mut state, tenant, id)?;
+        let _reference = allocate_blueprint_course_reference(&mut state, id)?;
         if state
             .blueprint_courses
             .insert(
-                (tenant, id),
+                id,
                 StoredBlueprintCourse {
                     creator: actor,
                     head_revision: BlueprintRevision::INITIAL,
@@ -184,7 +175,7 @@ impl ReusableCurriculumStore for MemoryStore {
         }
         if state
             .blueprint_course_revisions
-            .insert((tenant, id, BlueprintRevision::INITIAL), snapshot)
+            .insert((id, BlueprintRevision::INITIAL), snapshot)
             .is_some()
         {
             return Err(StoreError::Unavailable(
@@ -193,28 +184,27 @@ impl ReusableCurriculumStore for MemoryStore {
         }
         let row = state
             .blueprint_courses
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or(StoreError::NotFound)?;
-        blueprint_course_view(&state, tenant, id, row, actor)
+        blueprint_course_view(&state, id, row, actor)
     }
 
     async fn replace_blueprint_course(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: ReplaceBlueprintCourseCommand,
     ) -> Result<BlueprintCourseView, StoreError> {
         command.definition.validate().map_err(validation_error)?;
         let mut state = self.write_state()?;
         let actor = require_approved_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
         let id = *state
             .blueprint_courses_by_reference
-            .get(&(tenant, command.reference))
+            .get(&command.reference)
             .ok_or(StoreError::NotFound)?;
         let row = state
             .blueprint_courses
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
         // ASVS 8.2.1-8.3.1: only the authenticated aggregate owner may advance its head.
         if row.creator != actor {
@@ -226,10 +216,10 @@ impl ReusableCurriculumStore for MemoryStore {
         }
         let expected = state
             .blueprint_course_revisions
-            .get(&(tenant, id, command.expected_revision))
+            .get(&(id, command.expected_revision))
             .ok_or_else(|| reconciliation_error("BlueprintCourse revision"))?;
         let replacement =
-            resolve_replacement_snapshot(&state, self, tenant, expected, &command.definition)?;
+            resolve_replacement_snapshot(&state, self, expected, &command.definition)?;
         assert_replacement_handles(&replacement)?;
         if replacement != *expected {
             let next = command.expected_revision.checked_next().ok_or_else(|| {
@@ -238,7 +228,7 @@ impl ReusableCurriculumStore for MemoryStore {
             // ASVS 2.3.3: append the immutable snapshot before moving the only mutable head.
             if state
                 .blueprint_course_revisions
-                .insert((tenant, id, next), replacement)
+                .insert((id, next), replacement)
                 .is_some()
             {
                 return Err(StoreError::Unavailable(
@@ -247,29 +237,26 @@ impl ReusableCurriculumStore for MemoryStore {
             }
             state
                 .blueprint_courses
-                .get_mut(&(tenant, id))
+                .get_mut(&id)
                 .ok_or_else(|| reconciliation_error("BlueprintCourse"))?
                 .head_revision = next;
         }
         let row = state
             .blueprint_courses
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or(StoreError::NotFound)?;
-        blueprint_course_view(&state, tenant, id, row, actor)
+        blueprint_course_view(&state, id, row, actor)
     }
 }
 
 pub(super) fn require_approved_instructor(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Result<UserId, StoreError> {
     let subject =
         super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    if !subject
-        .roles()
-        .contains(&question_model::UserRole::Instructor)
-    {
+    if subject.role() != question_model::UserRole::Instructor {
         return Err(StoreError::Forbidden);
     }
     let actor = subject.user();
@@ -292,7 +279,6 @@ pub(super) fn require_approved_instructor(
 fn resolve_create_snapshot(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     input: &CreateBlueprintCourseDefinitionInput,
 ) -> Result<StoredBlueprintCourseRevision, StoreError> {
     let modules = input
@@ -310,7 +296,7 @@ fn resolve_create_snapshot(
                     .map(|definition| {
                         Ok::<_, StoreError>(StoredBlueprintAssignment {
                             id: new_assignment_id(state)?,
-                            definition: resolve_definition(state, store, tenant, definition)?,
+                            definition: resolve_definition(state, store, definition)?,
                         })
                     })
                     .collect::<Result<Vec<_>, StoreError>>()?,
@@ -326,7 +312,6 @@ fn resolve_create_snapshot(
 fn resolve_replacement_snapshot(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     expected: &StoredBlueprintCourseRevision,
     input: &ReplaceBlueprintCourseDefinitionInput,
 ) -> Result<StoredBlueprintCourseRevision, StoreError> {
@@ -355,12 +340,7 @@ fn resolve_replacement_snapshot(
                             assignment.handle,
                             &expected_assignments,
                         )?,
-                        definition: resolve_definition(
-                            state,
-                            store,
-                            tenant,
-                            &assignment.definition,
-                        )?,
+                        definition: resolve_definition(state, store, &assignment.definition)?,
                     })
                 })
                 .collect::<Result<Vec<_>, StoreError>>()?;
@@ -437,7 +417,7 @@ pub(super) fn fresh_blueprint_course_id(state: &State) -> Result<BlueprintCourse
     (!state
         .blueprint_courses
         .keys()
-        .any(|(_, existing)| *existing == id))
+        .any(|existing| *existing == id))
     .then_some(id)
     .ok_or_else(|| StoreError::Unavailable("BlueprintCourse identity collision".into()))
 }
@@ -512,7 +492,6 @@ fn assert_replacement_handles(
 fn resolve_definition(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     input: &ReusableAssignmentDefinitionInput,
 ) -> Result<StoredDefinition, StoreError> {
     let entries = input
@@ -520,7 +499,7 @@ fn resolve_definition(
         .iter()
         .map(|entry| match entry {
             ReusableAssignmentEntryInput::Fixed(source) => Ok(StoredEntry::Fixed {
-                pin: resolve_question(state, store, tenant, &source.question_id)?,
+                pin: resolve_question(state, store, &source.question_id)?,
                 points_possible: source.points_possible,
                 scoring_mode: source.scoring_mode,
             }),
@@ -528,7 +507,7 @@ fn resolve_definition(
                 pins: source
                     .candidates
                     .iter()
-                    .map(|id| resolve_question(state, store, tenant, id))
+                    .map(|id| resolve_question(state, store, id))
                     .collect::<Result<Vec<_>, _>>()?,
                 draw_count: source.draw_count,
                 points_per_item: source.points_per_item,
@@ -549,7 +528,6 @@ fn resolve_definition(
 fn resolve_question(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     question_id: &question_model::QuestionId,
 ) -> Result<ProblemVersionRef, StoreError> {
     if !store.question_ids.validates(question_id) {
@@ -560,7 +538,7 @@ fn resolve_question(
         .values()
         .find(|record| &record.question_id == question_id)
         .ok_or(StoreError::NotFound)?;
-    reusable_question_selectable(state, tenant, record)
+    reusable_question_selectable(record)
         .then_some(ProblemVersionRef {
             problem: record.problem,
             version: record.version,
@@ -571,7 +549,6 @@ fn resolve_question(
 pub(super) fn resolve_public_replacement(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     question: &question_model::QuestionId,
 ) -> Result<ProblemVersionRef, StoreError> {
     if !store.question_ids.validates(question) {
@@ -582,27 +559,20 @@ pub(super) fn resolve_public_replacement(
         .values()
         .find(|record| &record.question_id == question)
         .ok_or(StoreError::NotFound)?;
-    (record.scope == PublicationScope::Public
-        && reusable_question_selectable(state, tenant, record))
-    .then_some(ProblemVersionRef {
-        problem: record.problem,
-        version: record.version,
-    })
-    .ok_or(StoreError::NotFound)
+    (record.scope == PublicationScope::Public && reusable_question_selectable(record))
+        .then_some(ProblemVersionRef {
+            problem: record.problem,
+            version: record.version,
+        })
+        .ok_or(StoreError::NotFound)
 }
 
-fn reusable_question_selectable(
-    state: &State,
-    tenant: question_model::TenantId,
-    record: &crate::PublishedProblemRecord,
-) -> bool {
-    catalog_record_visible(state, tenant, record)
-        && record.lifecycle.is_eligible_for_ordinary_new_selection()
+fn reusable_question_selectable(record: &crate::PublishedProblemRecord) -> bool {
+    catalog_record_visible(record) && record.lifecycle.is_eligible_for_ordinary_new_selection()
 }
 
 fn definition_view(
     state: &State,
-    tenant: question_model::TenantId,
     stored: &StoredDefinition,
 ) -> Result<ReusableAssignmentDefinitionView, StoreError> {
     let entries = stored
@@ -614,7 +584,7 @@ fn definition_view(
                 points_possible,
                 scoring_mode,
             } => Ok(ReusableAssignmentEntryView::Fixed {
-                question: Box::new(question_view(state, tenant, pin)?),
+                question: Box::new(question_view(state, pin)?),
                 points_possible: *points_possible,
                 scoring_mode: *scoring_mode,
             }),
@@ -628,11 +598,9 @@ fn definition_view(
                 candidates: pins
                     .iter()
                     .map(|pin| {
-                        question_view(state, tenant, pin).map(|question| {
-                            ReusablePoolCandidateView {
-                                catalog: question.catalog,
-                                selection_availability: question.selection_availability,
-                            }
+                        question_view(state, pin).map(|question| ReusablePoolCandidateView {
+                            catalog: question.catalog,
+                            selection_availability: question.selection_availability,
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()?,
@@ -654,7 +622,6 @@ fn definition_view(
 
 fn question_view(
     state: &State,
-    tenant: question_model::TenantId,
     pin: &ProblemVersionRef,
 ) -> Result<ReusableQuestionView, StoreError> {
     let record = state
@@ -671,7 +638,7 @@ fn question_view(
             summary: record.summary(),
             evidence,
         },
-        selection_availability: if reusable_question_selectable(state, tenant, record) {
+        selection_availability: if reusable_question_selectable(record) {
             ReusableSelectionAvailability::Available
         } else {
             ReusableSelectionAvailability::Retained
@@ -681,16 +648,15 @@ fn question_view(
 
 fn blueprint_course_summary(
     state: &State,
-    tenant: question_model::TenantId,
     id: BlueprintCourseId,
     row: &StoredBlueprintCourse,
     actor: UserId,
 ) -> Result<BlueprintCourseSummaryView, StoreError> {
-    let revision = blueprint_course_head_snapshot(state, tenant, id, row)?;
+    let revision = blueprint_course_head_snapshot(state, id, row)?;
     Ok(BlueprintCourseSummaryView {
         reference: *state
             .blueprint_course_references
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or_else(|| reconciliation_error("BlueprintCourse"))?,
         title: revision.title.clone(),
         revision: row.head_revision,
@@ -700,16 +666,15 @@ fn blueprint_course_summary(
 
 fn blueprint_course_view(
     state: &State,
-    tenant: question_model::TenantId,
     id: BlueprintCourseId,
     row: &StoredBlueprintCourse,
     actor: UserId,
 ) -> Result<BlueprintCourseView, StoreError> {
-    let revision = blueprint_course_head_snapshot(state, tenant, id, row)?;
+    let revision = blueprint_course_head_snapshot(state, id, row)?;
     Ok(BlueprintCourseView {
         reference: *state
             .blueprint_course_references
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or_else(|| reconciliation_error("BlueprintCourse"))?,
         title: revision.title.clone(),
         revision: row.head_revision,
@@ -727,7 +692,7 @@ fn blueprint_course_view(
                         .map(|assignment| {
                             Ok::<_, StoreError>(BlueprintCourseAssignmentDefinitionView {
                                 assignment_id: assignment.id,
-                                definition: definition_view(state, tenant, &assignment.definition)?,
+                                definition: definition_view(state, &assignment.definition)?,
                             })
                         })
                         .collect::<Result<Vec<_>, StoreError>>()?,
@@ -739,13 +704,12 @@ fn blueprint_course_view(
 
 fn blueprint_course_head_snapshot<'a>(
     state: &'a State,
-    tenant: question_model::TenantId,
     id: BlueprintCourseId,
     row: &StoredBlueprintCourse,
 ) -> Result<&'a StoredBlueprintCourseRevision, StoreError> {
     state
         .blueprint_course_revisions
-        .get(&(tenant, id, row.head_revision))
+        .get(&(id, row.head_revision))
         .ok_or_else(|| reconciliation_error("BlueprintCourse head revision"))
 }
 
@@ -761,7 +725,6 @@ fn page_rows<T: Clone>(
     state: &mut State,
     rows: Vec<(u32, T)>,
     page: PageRequest,
-    tenant: question_model::TenantId,
     actor: UserId,
 ) -> Result<Page<T>, StoreError> {
     let after_key = match page.after {
@@ -775,7 +738,7 @@ fn page_rows<T: Clone>(
                         "reusable curriculum cursor is malformed or expired".into(),
                     )
                 })?;
-            if stored.tenant != tenant || stored.actor != actor {
+            if stored.actor != actor {
                 return Err(StoreError::InvalidRecord(
                     "reusable curriculum cursor is not authorized for this view".into(),
                 ));
@@ -801,7 +764,6 @@ fn page_rows<T: Clone>(
         state.reusable_curriculum_cursors.insert(
             token.clone(),
             StoredReusableCurriculumCursor {
-                tenant,
                 actor,
                 after_key: rows[end - 1].0,
             },
@@ -818,13 +780,9 @@ fn page_rows<T: Clone>(
 
 fn allocate_blueprint_course_reference(
     state: &mut State,
-    tenant: question_model::TenantId,
     id: BlueprintCourseId,
 ) -> Result<BlueprintReference, StoreError> {
-    if state
-        .blueprint_course_references
-        .contains_key(&(tenant, id))
-    {
+    if state.blueprint_course_references.contains_key(&id) {
         return Err(StoreError::Unavailable(
             "BlueprintCourse reference identity collision".into(),
         ));
@@ -837,7 +795,7 @@ fn allocate_blueprint_course_reference(
         .ok_or_else(|| StoreError::Unavailable("BlueprintCourse reference exhausted".into()))?;
     if state
         .blueprint_courses_by_reference
-        .contains_key(&(tenant, reference))
+        .contains_key(&reference)
     {
         return Err(StoreError::Unavailable(
             "BlueprintCourse reference collision".into(),
@@ -845,7 +803,7 @@ fn allocate_blueprint_course_reference(
     }
     if state
         .blueprint_course_references
-        .insert((tenant, id), reference)
+        .insert(id, reference)
         .is_some()
     {
         return Err(StoreError::Unavailable(
@@ -854,7 +812,7 @@ fn allocate_blueprint_course_reference(
     }
     if state
         .blueprint_courses_by_reference
-        .insert((tenant, reference), id)
+        .insert(reference, id)
         .is_some()
     {
         return Err(StoreError::Unavailable(

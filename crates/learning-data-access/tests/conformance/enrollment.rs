@@ -65,6 +65,13 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         b"roster-cross-product-instructor",
     )
     .await;
+    let instructor_actor = ActorContext::from_session_record(
+        &store
+            .resolve_session(instructor_session)
+            .await
+            .expect("instructor session lookup")
+            .expect("active instructor session"),
+    );
 
     let first_version = publish_assignment_version(
         &store,
@@ -161,7 +168,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
 
     let gradebook = store
         .list_gradebook_rows(
-            context,
+            instructor_actor,
             course,
             PageRequest::first(PageSize::new(20).unwrap()),
         )
@@ -191,7 +198,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         .expect("second learner action materializes its own receipt");
     let gradebook = store
         .list_gradebook_rows(
-            context,
+            instructor_actor,
             course,
             PageRequest::first(PageSize::new(20).unwrap()),
         )
@@ -215,26 +222,6 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         }),
         "each enrollment has its required empty summary"
     );
-    let export = store
-        .create_manual_grade_export(
-            context,
-            instructor_session,
-            CreateManualGradeExport {
-                course,
-                assignment: first_assignment,
-            },
-        )
-        .await
-        .expect("manual export should use the protected roster mapping");
-    assert_eq!(export.rows.len(), 1);
-    assert_eq!(export.rows[0].roster_id.as_str(), "900123456");
-    assert_eq!(
-        export.rows[0].roster_email.normalized(),
-        "learner@mail.roosevelt.edu"
-    );
-    assert_eq!(export.rows[0].display_name, "Course Learner");
-    assert_eq!(export.rows[0].current_score, None);
-
     store
         .revoke_course_member(
             context,
@@ -262,7 +249,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     assert_eq!(
         store
             .list_gradebook_rows(
-                context,
+                instructor_actor,
                 course,
                 PageRequest::first(PageSize::new(20).unwrap())
             )

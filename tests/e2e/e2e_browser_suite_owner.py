@@ -356,8 +356,6 @@ def webwork_catalog_seed_argv(minio_port: int) -> list[str]:
 		"e2e-seed",
 		"--webwork-catalog-baseline",
 		"--apply-migrations",
-		"--tenant",
-		local_stack_control.lifecycle.LOCAL_TENANT_ID,
 		"--instructor",
 		local_stack_control.lifecycle.LOCAL_INSTRUCTOR_ID,
 		"--s3-endpoint",

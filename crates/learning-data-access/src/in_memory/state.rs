@@ -8,7 +8,6 @@ mod test_support;
 /// the test seam aligned with the production broker's evidence boundary.
 #[cfg(test)]
 pub(super) struct TestStatisticsContributionScope {
-    tenant: TenantId,
     enrollment: EnrollmentId,
     course: CourseId,
     learner: StudentId,
@@ -19,14 +18,12 @@ pub(super) struct TestStatisticsContributionScope {
 #[cfg(test)]
 impl TestStatisticsContributionScope {
     pub(super) fn for_course(
-        tenant: TenantId,
         enrollment: EnrollmentId,
         course: CourseId,
         first_completed_run: RunId,
         attempt: QuestionAttemptId,
     ) -> Self {
         Self::for_course_and_learner(
-            tenant,
             enrollment,
             course,
             StudentId::from_uuid(enrollment.as_uuid()),
@@ -36,7 +33,6 @@ impl TestStatisticsContributionScope {
     }
 
     pub(super) fn for_course_and_learner(
-        tenant: TenantId,
         enrollment: EnrollmentId,
         course: CourseId,
         learner: StudentId,
@@ -44,7 +40,6 @@ impl TestStatisticsContributionScope {
         attempt: QuestionAttemptId,
     ) -> Self {
         Self {
-            tenant,
             enrollment,
             course,
             learner,
@@ -63,9 +58,7 @@ impl MemoryStore {
     #[cfg(feature = "test-support")]
     pub fn insert_legacy_draft_for_test(&self, draft: DraftRecord) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
-        state
-            .drafts
-            .insert((draft.tenant, draft.question.workspace), draft);
+        state.drafts.insert(draft.question.workspace, draft);
         Ok(())
     }
 
@@ -73,12 +66,10 @@ impl MemoryStore {
     #[cfg(feature = "test-support")]
     pub fn seed_retention_cleanup_for_test(
         &self,
-        tenant: TenantId,
         course: CourseId,
         objects: Vec<question_model::ObjectId>,
     ) -> Result<Vec<objects::ObjectKey>, StoreError> {
         self.seed_retention_cleanup_stage_for_test(
-            tenant,
             course,
             objects,
             crate::RetentionStage::ArchiveStudentRecords,
@@ -89,7 +80,6 @@ impl MemoryStore {
     #[cfg(feature = "test-support")]
     fn seed_retention_cleanup_stage_for_test(
         &self,
-        tenant: TenantId,
         course: CourseId,
         objects: Vec<question_model::ObjectId>,
         stage: crate::RetentionStage,
@@ -100,29 +90,21 @@ impl MemoryStore {
         let job = crate::JobId::generate()?;
         let export_job = crate::JobId::generate()?;
         let export = crate::ExportId::generate()?;
-        let snapshot = CourseRetentionSnapshot::new(
-            now,
-            InstitutionRetentionPolicy::default(),
-            disposition,
-            1,
-        )
-        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        state
-            .courses
-            .entry((tenant, course))
-            .or_insert_with(|| CourseRecord {
-                id: course,
-                tenant,
-                title: "Retention test course".to_string(),
-                term: question_model::CourseTerm::from_parts(
-                    "2026-08-24",
-                    "2026-12-18",
-                    "America/Chicago",
-                )
-                .expect("explicit fixture course term"),
-            });
+        let snapshot =
+            CourseRetentionSnapshot::new(now, RetentionPolicy::default(), disposition, 1)
+                .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        state.courses.entry(course).or_insert_with(|| CourseRecord {
+            id: course,
+            title: "Retention test course".to_string(),
+            term: question_model::CourseTerm::from_parts(
+                "2026-08-24",
+                "2026-12-18",
+                "America/Chicago",
+            )
+            .expect("explicit fixture course term"),
+        });
         state.course_retention.insert(
-            (tenant, course),
+            course,
             CourseRetentionRecord {
                 snapshot,
                 status: crate::CourseRetentionStatus::from_persisted(
@@ -132,7 +114,7 @@ impl MemoryStore {
             },
         );
         state.retention_stages.insert(
-            (tenant, course, stage, 1),
+            (course, stage, 1),
             StoredRetentionStage {
                 due_at: now,
                 state: RetentionStageWorkState::Scheduled,
@@ -140,13 +122,10 @@ impl MemoryStore {
                 lease: None,
             },
         );
-        state
-            .retention_dispatches
-            .insert((tenant, course, stage, 1), job);
+        state.retention_dispatches.insert((course, stage, 1), job);
         state.jobs.insert(
             job,
             StoredJob {
-                tenant,
                 payload: crate::JobPayload::Retention {
                     course,
                     stage,
@@ -173,7 +152,6 @@ impl MemoryStore {
         state.jobs.insert(
             export_job,
             StoredJob {
-                tenant,
                 payload: crate::JobPayload::Export {
                     delivery_object: manifest,
                 },
@@ -187,7 +165,7 @@ impl MemoryStore {
             },
         );
         state.exports.insert(
-            (tenant, export),
+            export,
             StoredExport {
                 course,
                 assignment: AssignmentId::from_uuid(fixture_uuid(2)),
@@ -203,7 +181,7 @@ impl MemoryStore {
         );
         Ok(objects
             .into_iter()
-            .map(|object| objects::ObjectKey::StudentRecord { tenant, object })
+            .map(|object| objects::ObjectKey::StudentRecord { course, object })
             .collect())
     }
 
@@ -258,13 +236,12 @@ impl MemoryStore {
     #[cfg(feature = "test-support")]
     pub fn tamper_private_submission_response_witness_for_test(
         &self,
-        tenant: TenantId,
         attempt: QuestionAttemptId,
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
         let private = state
             .private_submission_responses
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .ok_or(StoreError::NotFound)?;
         private.canonical_text.push('!');
         Ok(())
@@ -278,7 +255,6 @@ impl MemoryStore {
     #[cfg(test)]
     pub(super) fn record_question_statistics_contribution(
         &self,
-        tenant: TenantId,
         enrollment: EnrollmentId,
         first_completed_run: RunId,
         attempt: QuestionAttemptId,
@@ -287,7 +263,6 @@ impl MemoryStore {
     ) -> Result<bool, StoreError> {
         self.record_question_statistics_contribution_for_scope(
             TestStatisticsContributionScope::for_course(
-                tenant,
                 enrollment,
                 CourseId::from_uuid(enrollment.as_uuid()),
                 first_completed_run,
@@ -307,7 +282,6 @@ impl MemoryStore {
         observation: CollapsedQuestionObservation,
     ) -> Result<bool, StoreError> {
         let TestStatisticsContributionScope {
-            tenant,
             enrollment,
             course,
             learner,
@@ -315,7 +289,7 @@ impl MemoryStore {
             attempt,
         } = scope;
         let mut state = self.write_state()?;
-        let receipt_key = (tenant, enrollment, reference.problem, reference.version);
+        let receipt_key = (enrollment, reference.problem, reference.version);
         if let Some(receipt) = state.question_statistics_receipts.get(&receipt_key) {
             return if receipt.first_completed_run == first_completed_run
                 && receipt.attempt == attempt
@@ -330,7 +304,7 @@ impl MemoryStore {
         let student_key = (
             aggregate_key.0,
             aggregate_key.1,
-            super::statistics::discovery_student_fingerprint(tenant, learner),
+            super::statistics::discovery_student_fingerprint(learner),
         );
         let independent = state.catalog_evidence_learners.insert(student_key);
         if independent {

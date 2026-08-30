@@ -132,8 +132,7 @@ pub(super) fn valid_item_ref(value: &str) -> bool {
 }
 
 pub(super) fn binding_payload(binding: &GradeBinding) -> Vec<u8> {
-    let mut value = Vec::with_capacity(16 * 4 + 8);
-    value.extend_from_slice(binding.tenant.as_uuid().as_bytes());
+    let mut value = Vec::with_capacity(16 * 3 + 8);
     value.extend_from_slice(binding.attempt.as_uuid().as_bytes());
     value.extend_from_slice(binding.problem.as_uuid().as_bytes());
     value.extend_from_slice(binding.version.as_uuid().as_bytes());

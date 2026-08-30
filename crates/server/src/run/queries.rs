@@ -70,7 +70,7 @@ where
     let page = match state
         .store
         .get_run_summary_page(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             run_id,
             page,
@@ -205,7 +205,7 @@ where
     match state
         .store
         .release_attempt_feedback(
-            authenticated.tenant_context,
+            authenticated.actor,
             learning_data_access::ReleaseAttemptFeedbackCommand {
                 actor: authenticated.record.subject.user(),
                 attempt,
@@ -248,7 +248,7 @@ where
     let mut page = match state
         .store
         .student_list_question_attempts(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             run.id,
             page,
@@ -262,7 +262,7 @@ where
     let run_items = match state
         .store
         .student_assignment_run_items(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             run.id,
         )
@@ -282,7 +282,7 @@ where
             let record = match state
                 .store
                 .submission_record(
-                    authenticated.tenant_context,
+                    authenticated.actor,
                     authenticated.record.subject.user(),
                     attempt.id,
                 )
@@ -339,7 +339,7 @@ where
     let mut attempt = match state
         .store
         .student_get_question_attempt(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             attempt_id,
         )
@@ -359,7 +359,7 @@ where
         let record = match state
             .store
             .submission_record(
-                authenticated.tenant_context,
+                authenticated.actor,
                 authenticated.record.subject.user(),
                 attempt.id,
             )
@@ -385,7 +385,7 @@ where
     let pool_selection = match state
         .store
         .student_assignment_run_items(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             run.id,
         )
@@ -433,7 +433,7 @@ where
     match state
         .store
         .read_issued_attempt_evidence(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             StudentWorkRoutingBinding::new(course, assignment),
             attempt_id,
@@ -478,7 +478,7 @@ where
             StatusCode::CONFLICT,
             "terminal attempt has no question-delivery receipt",
         ),
-        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch) => {
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
             error_response(StatusCode::NOT_FOUND, "attempt not found")
         }
         Err(error) => {
@@ -522,7 +522,7 @@ where
     let summary = match state
         .store
         .student_get_summary(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             enrollment.id,
         )
@@ -587,7 +587,7 @@ where
     match state
         .store
         .student_get_summary(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             enrollment_id,
         )
@@ -646,12 +646,12 @@ where
     let result = if enrollment.user == actor {
         state
             .store
-            .student_list_runs(authenticated.tenant_context, actor, enrollment_id, page)
+            .student_list_runs(authenticated.actor, actor, enrollment_id, page)
             .await
     } else {
         state
             .store
-            .instructor_list_runs(authenticated.tenant_context, actor, enrollment_id, page)
+            .instructor_list_runs(authenticated.actor, actor, enrollment_id, page)
             .await
     };
     match result {
@@ -659,7 +659,7 @@ where
             if enrollment.user == actor {
                 let summary = match state
                     .store
-                    .student_get_summary(authenticated.tenant_context, actor, enrollment_id)
+                    .student_get_summary(authenticated.actor, actor, enrollment_id)
                     .await
                 {
                     Ok(Some(summary)) => summary,
@@ -702,7 +702,7 @@ pub(super) async fn all_attempts<S: Store>(
     loop {
         let page = store
             .student_list_question_attempts(
-                authenticated.tenant_context,
+                authenticated.actor,
                 authenticated.record.subject.user(),
                 run,
                 page_request,
@@ -725,7 +725,7 @@ pub(super) async fn authorized_run<S: Store>(
 ) -> HttpResult<AssignmentRun> {
     let run = store
         .student_get_run(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             run_id,
         )
@@ -745,14 +745,14 @@ async fn redact_student_run_score<S: Store + AuthoritativeTimeStore + CourseItem
 ) -> HttpResult<()> {
     let actor = authenticated.record.subject.user();
     let Some(enrollment) = store
-        .student_get_enrollment(authenticated.tenant_context, actor, run.enrollment)
+        .student_get_enrollment(authenticated.actor, actor, run.enrollment)
         .await
         .map_err(store_error_response)?
     else {
         return Ok(());
     };
     let summary = store
-        .student_get_summary(authenticated.tenant_context, actor, enrollment.id)
+        .student_get_summary(authenticated.actor, actor, enrollment.id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "summary not found"))?;
@@ -780,7 +780,7 @@ async fn run_summary_enrollment_access<S: Store>(
 ) -> HttpResult<RunSummaryEnrollmentAccess> {
     let actor = authenticated.record.subject.user();
     if let Some(enrollment) = store
-        .instructor_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .instructor_get_enrollment(authenticated.actor, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
         && enrollment.user != actor
@@ -788,7 +788,7 @@ async fn run_summary_enrollment_access<S: Store>(
         return Ok(RunSummaryEnrollmentAccess::Instructor);
     }
     let enrollment = store
-        .student_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .student_get_enrollment(authenticated.actor, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
@@ -805,20 +805,20 @@ where
 {
     let course_id = page.assignment.course_id;
     let record = store
-        .get_course(authenticated.tenant_context, course_id)
+        .get_course(authenticated.actor, course_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
     let actor = authenticated.record.subject.user();
     let role = store
-        .get_current_course_membership(authenticated.tenant_context, course_id, actor)
+        .get_current_course_membership(authenticated.actor, course_id, actor)
         .await
         .map_err(store_error_response)?
         .map(|membership| membership.role)
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
     let appearance = store
         .course_appearance(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.token_hash,
             course_id,
         )
@@ -826,7 +826,7 @@ where
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course appearance not found"))?;
     let public_id = store
-        .course_reference(authenticated.tenant_context, actor, course_id)
+        .course_reference(authenticated.actor, actor, course_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
@@ -843,7 +843,7 @@ pub(super) async fn owned_run<S: Store>(
 ) -> HttpResult<AssignmentRun> {
     let run = store
         .student_get_run(
-            authenticated.tenant_context,
+            authenticated.actor,
             authenticated.record.subject.user(),
             run_id,
         )
@@ -869,7 +869,7 @@ pub(super) async fn owned_assignment_for_run<S: Store>(
 ) -> HttpResult<learning_data_access::AssignmentRecord> {
     let enrollment = owned_enrollment(store, authenticated, run.enrollment).await?;
     store
-        .get_assignment(authenticated.tenant_context, enrollment.assignment)
+        .get_assignment(authenticated.actor, enrollment.assignment)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))
@@ -884,7 +884,7 @@ pub(super) async fn authorized_enrollment<S: Store>(
 ) -> HttpResult<AssignmentEnrollment> {
     let actor = authenticated.record.subject.user();
     if let Some(enrollment) = store
-        .student_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .student_get_enrollment(authenticated.actor, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
     {
@@ -894,12 +894,12 @@ pub(super) async fn authorized_enrollment<S: Store>(
     // fall through to this raw read: an enrollment belonging to the caller is
     // rejected below unless the learner capability proved active membership.
     let enrollment = store
-        .instructor_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .instructor_get_enrollment(authenticated.actor, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
     let assignment = store
-        .get_assignment(authenticated.tenant_context, enrollment.assignment)
+        .get_assignment(authenticated.actor, enrollment.assignment)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
@@ -910,7 +910,7 @@ pub(super) async fn authorized_enrollment<S: Store>(
         return Err(error_response(StatusCode::NOT_FOUND, "enrollment not found").into());
     }
     let instructor = store
-        .get_current_course_membership(authenticated.tenant_context, assignment.course_id, actor)
+        .get_current_course_membership(authenticated.actor, assignment.course_id, actor)
         .await
         .map_err(store_error_response)?
         .is_some_and(|membership| {

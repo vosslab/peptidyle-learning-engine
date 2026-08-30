@@ -537,7 +537,6 @@ async fn assert_audience_revocation_terminalizes_current_attempt<S>(
                 expected_revision: None,
                 record: CourseGroupRecord {
                     id: audience_group,
-                    tenant: fixture.context.tenant_id(),
                     course: fixture.course,
                     purpose: question_model::CourseGroupPurpose::Section,
                     title: "Active audience".into(),

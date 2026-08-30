@@ -69,7 +69,7 @@ Use the following sequence for a question-agnostic adapter.
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current catalog definition, grader, or renderer. Never trust browser-provided score,
    correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
-6. Register the backend through the server run boundary, where tenant authorization, attempt
+6. Register the backend through the server run boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
 The native flat adapter is the small reference: it compiles answer-bearing PLE flat-question JSON v2
@@ -89,7 +89,7 @@ in [DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md).
 
 Render caches are immutable, shared-content artifacts keyed by version and seed. Cache only a
 validated browser-safe render plus enough provenance to prove its source, implementation, and
-envelope identity. Cache keys and bytes must exclude tenant identity, answer material, credentials,
+envelope identity. Cache keys and bytes must exclude installation identity, answer material, credentials,
 raw provider responses, browser submissions, and upstream session state. If stateless replicas race
 to write the same key, reload and validate the winning immutable record.
 
@@ -137,7 +137,7 @@ An adapter change is complete only when each applicable layer passes.
   projection without claiming that an upstream service was exercised. WeBWorK RC3 recorded checks
   do not replace its live gate.
 - Live tests run against the declared disposable or private service, prove authenticated semantic
-  render and correct/incorrect grading, repeat/cache behavior, timeouts and outages, tenant
+  render and correct/incorrect grading, repeat/cache behavior, timeouts and outages, course
   isolation where relevant, and an answer-free PLE-only browser network trace.
 - Repository gates include formatting, strict Rust checks, focused browser tests where a learner
   path changes, and [E2E_TESTS.md](E2E_TESTS.md) expectations. Run the narrowest adapter command

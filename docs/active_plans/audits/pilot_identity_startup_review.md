@@ -28,7 +28,7 @@ remains operator-owned and is not normalized, seeded, or given credentials.
   `LocalFileIdentityProvider::verify`, which base64url-decodes the presented
   value and applies SHA-256 to the 32 raw bytes rather than to text.
 - The regenerated JSON uses the server-required `learner_alias` fields
-  `instructor-local` and `student-local`, fixed local tenant/user IDs, and the
+  `instructor-local` and `student-local`, fixed local account IDs, and the
   expected instructor/administrator and student role sets. The identity file
   contains hashes only; bearer values remain only in the mode-0600 credential
   file.

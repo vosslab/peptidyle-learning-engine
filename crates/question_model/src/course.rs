@@ -8,7 +8,7 @@ use crate::{
     AssignmentSelectionGroupId, BackendCapabilities, CourseId, CourseReference, EnrollmentId,
     IanaTimeZone, LateSubmissionPolicy, PointValue, QuestionBackend, QuestionId, RunPolicies,
     ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentDisclosurePolicy, StudentId,
-    TenantId, VariationPolicy,
+    VariationPolicy,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -32,8 +32,6 @@ pub struct CourseSummary {
     pub id: CourseId,
     /// Stable typed locator used in application navigation.
     pub reference: CourseReference,
-    /// Direct RLS boundary.
-    pub tenant: TenantId,
     /// Human-facing course or section title.
     pub title: String,
     /// Required inclusive term bounds and authoritative scheduling zone.
@@ -114,8 +112,6 @@ pub struct AssignmentSummary {
     pub id: AssignmentId,
     /// Stable typed locator used in application navigation.
     pub reference: AssignmentReference,
-    /// Direct RLS boundary.
-    pub tenant: TenantId,
     /// Course that owns this assignment.
     pub course_id: CourseId,
     /// Human-facing assignment title.
@@ -155,7 +151,7 @@ pub struct AssignmentLandingPresentation {
 
 /// Student-safe assignment definition.
 ///
-/// This projection deliberately omits tenant and course identities, run and
+/// This projection deliberately omits course identities, run and
 /// disclosure policy, and other server authority inputs. Student routes use
 /// it instead of [`AssignmentSummary`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -265,17 +261,15 @@ impl StudentAssignmentDetail {
 
 /// One compact gradebook row for a course assignment enrollment.
 ///
-/// The row comes only from the tenant-owned assignment, enrollment, and
+/// The row comes only from the course-owned assignment, enrollment, and
 /// `StudentAssignmentSummary` projection. It carries no run or attempt
 /// history, so continued practice cannot make the default gradebook slower.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct GradebookSummaryRow {
-    /// RLS boundary carried directly on this educational record projection.
-    pub tenant: TenantId,
     /// Course whose instructor requested this bounded page.
     pub course_id: CourseId,
-    /// Tenant-owned enrollment represented by this row.
+    /// Course-owned enrollment represented by this row.
     pub enrollment_id: EnrollmentId,
     /// Stable Student identity used by course records.
     pub student_id: StudentId,
@@ -302,7 +296,6 @@ mod tests {
         let assignment = AssignmentSummary {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),
-            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),
             items: vec![AssignmentItemSummary {
@@ -338,7 +331,6 @@ mod tests {
         let student = StudentAssignmentLandingSummary::from(AssignmentSummary {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),
-            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),
             items: Vec::new(),
@@ -361,7 +353,6 @@ mod tests {
         let assignment = AssignmentSummary {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),
-            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),
             items: Vec::new(),
@@ -419,17 +410,13 @@ mod tests {
     #[test]
     fn gradebook_summary_row_keeps_the_projection_nested() {
         let row = GradebookSummaryRow {
-            tenant: TenantId::from_uuid(Uuid::from_u128(1)),
             course_id: CourseId::from_uuid(Uuid::from_u128(2)),
             enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(3)),
             student_id: StudentId::from_uuid(Uuid::from_u128(4)),
             student_name: "Ada Student".to_string(),
             assignment_id: AssignmentId::from_uuid(Uuid::from_u128(5)),
             assignment_title: "Peptide bonds".to_string(),
-            summary: StudentAssignmentSummary::empty(
-                TenantId::from_uuid(Uuid::from_u128(1)),
-                EnrollmentId::from_uuid(Uuid::from_u128(3)),
-            ),
+            summary: StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(3))),
             scoring_status: crate::ScoringStatus::Current,
         };
 

@@ -6,54 +6,42 @@ use super::*;
 impl crate::AuthoringStore for PostgresStore {
     async fn upsert_draft_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         expected_revision: Option<WorkspaceDraftRevision>,
         draft: DraftRecord,
     ) -> Result<WorkspaceDraft, StoreError> {
-        ensure_tenant(context, draft.tenant)?;
         validate_draft(&draft)?;
-        let (payload, checksum) = encode_payload(&draft)?;
-        let mut transaction = self.begin_tenant(context).await?;
+        let title = draft.question.metadata.title.clone();
+        let definition = serde_json::to_value(&draft)
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        let workspace = draft.question.workspace;
+        let user = actor.user_id();
+        let mut transaction = self.begin_actor(actor).await?;
         let current: Option<i64> = sqlx::query_scalar(
-            "SELECT revision FROM workspace_draft \
-             WHERE tenant_id = $1 AND workspace_id = $2 FOR UPDATE",
+            "SELECT revision::bigint FROM ple_private.workspace_draft_question \
+             WHERE workspace_id = $1 FOR UPDATE",
         )
-        .bind(draft.tenant.as_uuid())
-        .bind(draft.question.workspace.as_uuid())
+        .bind(workspace.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let revision = match current {
             Some(value) => {
                 let current = WorkspaceDraftRevision::from_stored(value)?;
-                let role: Option<String> = sqlx::query_scalar(
-                    "SELECT role FROM workspace_draft_access \
-                     WHERE tenant_id = $1 AND workspace_id = $2 AND user_id = $3",
-                )
-                .bind(draft.tenant.as_uuid())
-                .bind(draft.question.workspace.as_uuid())
-                .bind(actor.as_uuid())
-                .fetch_optional(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-                if !matches!(role.as_deref(), Some("owner" | "collaborator")) {
-                    return Err(StoreError::Forbidden);
-                }
                 if expected_revision != Some(current) {
                     return Err(StoreError::Conflict);
                 }
                 let next = current.next()?;
                 sqlx::query(
-                    "UPDATE workspace_draft SET payload = $3, payload_sha256 = $4, \
-                     revision = $5, updated_at = transaction_timestamp() \
-                     WHERE tenant_id = $1 AND workspace_id = $2",
+                    "UPDATE ple_private.workspace_draft_question \
+                     SET title = $2, definition = $3, revision = $4, \
+                         updated_at = transaction_timestamp() \
+                     WHERE workspace_id = $1",
                 )
-                .bind(draft.tenant.as_uuid())
-                .bind(draft.question.workspace.as_uuid())
-                .bind(payload)
-                .bind(checksum)
-                .bind(i64::try_from(next.value()).map_err(|_| {
+                .bind(workspace.as_uuid())
+                .bind(title)
+                .bind(definition)
+                .bind(i32::try_from(next.value()).map_err(|_| {
                     StoreError::Unavailable("workspace draft revision limit reached".to_string())
                 })?)
                 .execute(&mut *transaction)
@@ -65,32 +53,38 @@ impl crate::AuthoringStore for PostgresStore {
                 if expected_revision.is_some() {
                     return Err(StoreError::Conflict);
                 }
-                sqlx::query(
-                    "INSERT INTO workspace_draft \
-                     (tenant_id, workspace_id, payload, payload_sha256, revision) \
-                     VALUES ($1, $2, $3, $4, $5)",
+                let (can_access, owns_workspace): (bool, bool) = sqlx::query_as(
+                    "SELECT ple_api.current_actor_can_access_workspace($1), \
+                            ple_api.current_actor_owns_workspace($1)",
                 )
-                .bind(draft.tenant.as_uuid())
-                .bind(draft.question.workspace.as_uuid())
-                .bind(payload)
-                .bind(checksum)
-                .bind(
-                    i64::try_from(WorkspaceDraftRevision::INITIAL.value()).map_err(|_| {
-                        StoreError::Unavailable(
-                            "workspace draft revision limit reached".to_string(),
-                        )
-                    })?,
-                )
-                .execute(&mut *transaction)
+                .bind(workspace.as_uuid())
+                .fetch_one(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
+                if can_access && !owns_workspace {
+                    return Err(StoreError::Forbidden);
+                }
+                if !can_access {
+                    sqlx::query(
+                        "INSERT INTO ple_private.authoring_workspace \
+                         (workspace_id, owner_user_id, created_at) \
+                         VALUES ($1, $2, transaction_timestamp())",
+                    )
+                    .bind(workspace.as_uuid())
+                    .bind(user.as_uuid())
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
+                }
                 sqlx::query(
-                    "INSERT INTO workspace_draft_access \
-                     (tenant_id, workspace_id, user_id, role) VALUES ($1, $2, $3, 'owner')",
+                    "INSERT INTO ple_private.workspace_draft_question \
+                     (draft_id, workspace_id, revision, title, definition, created_at, updated_at) \
+                     VALUES ($1, $2, 1, $3, $4, transaction_timestamp(), transaction_timestamp())",
                 )
-                .bind(draft.tenant.as_uuid())
-                .bind(draft.question.workspace.as_uuid())
-                .bind(actor.as_uuid())
+                .bind(workspace.as_uuid())
+                .bind(workspace.as_uuid())
+                .bind(title)
+                .bind(definition)
                 .execute(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -105,27 +99,25 @@ impl crate::AuthoringStore for PostgresStore {
     }
     async fn get_draft_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceDraft>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_actor(actor).await?;
         let row = sqlx::query(
-            "SELECT d.payload, d.payload_sha256, d.revision FROM workspace_draft AS d \
-             JOIN workspace_draft_access AS a \
-               ON a.tenant_id = d.tenant_id AND a.workspace_id = d.workspace_id \
-             WHERE d.tenant_id = $1 AND d.workspace_id = $2 AND a.user_id = $3",
+            "SELECT definition, revision::bigint AS revision \
+             FROM ple_private.workspace_draft_question \
+             WHERE workspace_id = $1",
         )
-        .bind(context.tenant_id().as_uuid())
         .bind(workspace.as_uuid())
-        .bind(actor.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let record = row
             .as_ref()
             .map(|row| {
-                let record = decode_payload_row(row)?;
+                let definition: serde_json::Value = row.try_get("definition").map_err(map_sqlx_error)?;
+                let record = serde_json::from_value(definition)
+                    .map_err(|error| StoreError::Unavailable(error.to_string()))?;
                 let revision = WorkspaceDraftRevision::from_stored(
                     row.try_get("revision").map_err(map_sqlx_error)?,
                 )?;
@@ -137,27 +129,24 @@ impl crate::AuthoringStore for PostgresStore {
     }
     async fn list_drafts_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         page: PageRequest,
     ) -> Result<Page<WorkspaceDraftSummary>, StoreError> {
+        let user = actor.user_id();
         let after = page
             .after
             .as_ref()
-            .map(|cursor| decode_workspace_draft_cursor(cursor.as_str(), context.tenant_id()))
+            .map(|cursor| decode_workspace_draft_cursor(cursor.as_str(), user))
             .transpose()?;
         let limit = i64::from(page.size.get()) + 1;
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_actor(actor).await?;
         let rows = sqlx::query(
-            "SELECT d.workspace_id, d.public_id, d.payload, d.payload_sha256 FROM workspace_draft AS d \
-             JOIN workspace_draft_access AS a \
-               ON a.tenant_id = d.tenant_id AND a.workspace_id = d.workspace_id \
-             WHERE d.tenant_id = $1 AND a.user_id = $2 \
-               AND ($3::uuid IS NULL OR d.workspace_id > $3) \
-             ORDER BY d.workspace_id LIMIT $4",
+            "SELECT d.workspace_id, workspace.reference_number, d.definition \
+             FROM ple_private.workspace_draft_question AS d \
+             JOIN ple_private.authoring_workspace AS workspace USING (workspace_id) \
+             WHERE ($1::uuid IS NULL OR d.workspace_id > $1) \
+             ORDER BY d.workspace_id LIMIT $2",
         )
-        .bind(context.tenant_id().as_uuid())
-        .bind(actor.as_uuid())
         .bind(after.map(|workspace| workspace.as_uuid()))
         .bind(limit)
         .fetch_all(&mut *transaction)
@@ -167,17 +156,17 @@ impl crate::AuthoringStore for PostgresStore {
             .iter()
             .map(|row| {
                 let workspace: Uuid = row.try_get("workspace_id").map_err(map_sqlx_error)?;
-                let public_number: i32 = row.try_get("public_id").map_err(map_sqlx_error)?;
-                let reference = question_model::WorkspaceReference::new(public_number as u64)
+                let reference_number: i64 = row.try_get("reference_number").map_err(map_sqlx_error)?;
+                let reference = question_model::WorkspaceReference::new(reference_number as u64)
                     .ok_or_else(|| {
                         StoreError::Unavailable(
                             "stored workspace route number is invalid".to_string(),
                         )
                     })?;
-                let draft: DraftRecord = decode_payload_row(row)?;
-                if draft.tenant != context.tenant_id()
-                    || draft.question.workspace.as_uuid() != workspace
-                {
+                let definition: serde_json::Value = row.try_get("definition").map_err(map_sqlx_error)?;
+                let draft: DraftRecord = serde_json::from_value(definition)
+                    .map_err(|error| StoreError::Unavailable(error.to_string()))?;
+                if draft.question.workspace.as_uuid() != workspace {
                     return Err(StoreError::Unavailable(
                         "stored workspace draft identity does not match its row".to_string(),
                     ));
@@ -195,7 +184,7 @@ impl crate::AuthoringStore for PostgresStore {
         let next_cursor = if has_more {
             drafts.last().map(|(workspace, _)| {
                 Cursor::from_stable_key(encode_workspace_draft_cursor(
-                    context.tenant_id(),
+                    user,
                     *workspace,
                 ))
             })
@@ -210,60 +199,69 @@ impl crate::AuthoringStore for PostgresStore {
     }
     async fn delete_draft_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         expected_revision: WorkspaceDraftRevision,
     ) -> Result<bool, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_actor(actor).await?;
         let expected_revision_value = i64::try_from(expected_revision.value()).map_err(|_| {
             StoreError::Unavailable("workspace draft revision limit reached".to_string())
         })?;
-        let authorized: bool =
-            sqlx::query_scalar("SELECT ple_delete_draft_qti_jobs($1, $2, $3, $4)")
-                .bind(context.tenant_id().as_uuid())
-                .bind(workspace.as_uuid())
-                .bind(actor.as_uuid())
-                .bind(expected_revision_value)
-                .fetch_one(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-        let deleted = if authorized {
-            sqlx::query_scalar::<_, Uuid>(
-                "DELETE FROM workspace_draft AS d USING workspace_draft_access AS a \
-                 WHERE d.tenant_id = $1 AND d.workspace_id = $2 AND d.revision = $4 \
-                   AND a.tenant_id = d.tenant_id AND a.workspace_id = d.workspace_id \
-                   AND a.user_id = $3 AND a.role = 'owner' \
-                 RETURNING d.workspace_id",
-            )
-            .bind(context.tenant_id().as_uuid())
-            .bind(workspace.as_uuid())
-            .bind(actor.as_uuid())
-            .bind(expected_revision_value)
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?
-        } else {
-            None
-        };
+        let deleted = sqlx::query_scalar::<_, Uuid>(
+            "DELETE FROM ple_private.workspace_draft_question AS draft \
+             WHERE draft.workspace_id = $1 AND draft.revision = $2 \
+               AND ple_api.current_actor_owns_workspace(draft.workspace_id) \
+             RETURNING draft.workspace_id",
+        )
+        .bind(workspace.as_uuid())
+        .bind(expected_revision_value)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         if deleted.is_some() {
+            sqlx::query(
+                "DELETE FROM ple_private.worker_job \
+                 WHERE target_kind = 'qti_import' AND workspace_id = $1",
+            )
+            .bind(workspace.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+            sqlx::query(
+                "DELETE FROM ple_private.workspace_qti_import \
+                 WHERE workspace_id = $1",
+            )
+            .bind(workspace.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+            sqlx::query(
+                "DELETE FROM ple_private.workspace_flat_question_source \
+                 WHERE workspace_id = $1",
+            )
+            .bind(workspace.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+            sqlx::query(
+                "DELETE FROM ple_private.workspace_flat_question_grading \
+                 WHERE workspace_id = $1",
+            )
+            .bind(workspace.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(true);
         }
 
-        // The capability and delete predicates above are the authoritative
-        // atomic decision. This follow-up only classifies its safe
-        // non-mutating failure while preserving absent/foreign non-enumeration.
         let row = sqlx::query(
-            "SELECT d.revision, a.role FROM workspace_draft AS d \
-             LEFT JOIN workspace_draft_access AS a \
-               ON a.tenant_id = d.tenant_id AND a.workspace_id = d.workspace_id AND a.user_id = $3 \
-             WHERE d.tenant_id = $1 AND d.workspace_id = $2 \
-             FOR UPDATE OF d",
+            "SELECT draft.revision::bigint AS revision, \
+                    ple_api.current_actor_owns_workspace(draft.workspace_id) AS owns_workspace \
+             FROM ple_private.workspace_draft_question AS draft \
+             WHERE draft.workspace_id = $1 FOR UPDATE",
         )
-        .bind(context.tenant_id().as_uuid())
         .bind(workspace.as_uuid())
-        .bind(actor.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -271,8 +269,8 @@ impl crate::AuthoringStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(false);
         };
-        let role: Option<String> = row.try_get("role").map_err(map_sqlx_error)?;
-        if role.as_deref() != Some("owner") {
+        let owns_workspace: bool = row.try_get("owns_workspace").map_err(map_sqlx_error)?;
+        if !owns_workspace {
             return Err(StoreError::Forbidden);
         }
         let current =
@@ -284,47 +282,37 @@ impl crate::AuthoringStore for PostgresStore {
     }
     async fn grant_draft_collaborator_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         collaborator: UserId,
     ) -> Result<(), StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        let role: Option<String> = sqlx::query_scalar(
-            "SELECT role FROM workspace_draft_access \
-             WHERE tenant_id = $1 AND workspace_id = $2 AND user_id = $3",
+        let actor_user = actor.user_id();
+        let mut transaction = self.begin_actor(actor).await?;
+        let (can_access, owns_workspace): (bool, bool) = sqlx::query_as(
+            "SELECT ple_api.current_actor_can_access_workspace($1), \
+                    ple_api.current_actor_owns_workspace($1)",
         )
-        .bind(context.tenant_id().as_uuid())
         .bind(workspace.as_uuid())
-        .bind(actor.as_uuid())
-        .fetch_optional(&mut *transaction)
+        .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        if role.as_deref() != Some("owner") {
-            let exists: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM workspace_draft \
-                 WHERE tenant_id = $1 AND workspace_id = $2)",
-            )
-            .bind(context.tenant_id().as_uuid())
-            .bind(workspace.as_uuid())
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            return Err(if exists {
+        if !owns_workspace {
+            return Err(if can_access {
                 StoreError::Forbidden
             } else {
                 StoreError::NotFound
             });
         }
-        if collaborator != actor {
+        if collaborator != actor_user {
             sqlx::query(
-                "INSERT INTO workspace_draft_access \
-                 (tenant_id, workspace_id, user_id, role) VALUES ($1, $2, $3, 'collaborator') \
-                 ON CONFLICT (tenant_id, workspace_id, user_id) DO NOTHING",
+                "INSERT INTO ple_private.authoring_workspace_collaborator \
+                 (workspace_id, user_id, granted_by_user_id, granted_at) \
+                 VALUES ($1, $2, $3, transaction_timestamp()) \
+                 ON CONFLICT (workspace_id, user_id) DO NOTHING",
             )
-            .bind(context.tenant_id().as_uuid())
             .bind(workspace.as_uuid())
             .bind(collaborator.as_uuid())
+            .bind(actor_user.as_uuid())
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;

@@ -145,7 +145,7 @@ where
         // This Store call proves both assignment existence and direct instructor
         // authorization; never distinguish the two to the browser.
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch) => {
+        | Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
             error_response(StatusCode::NOT_FOUND, "item analysis not found")
         }
         Err(StoreError::Unavailable(_) | StoreError::RetryableTransaction) => {

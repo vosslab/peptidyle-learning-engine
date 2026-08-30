@@ -27,22 +27,20 @@ pub(crate) struct ReusableSourceSnapshot {
 
 pub(crate) fn curriculum_source_snapshot(
     state: &State,
-    tenant: question_model::TenantId,
-    _actor: UserId,
     source: ObservedBlueprintSource,
 ) -> Result<ReusableSourceSnapshot, StoreError> {
     let observed = source;
     let id = *state
         .blueprint_courses_by_reference
-        .get(&(tenant, observed.reference))
+        .get(&observed.reference)
         .ok_or(StoreError::NotFound)?;
     let _row = state
         .blueprint_courses
-        .get(&(tenant, id))
+        .get(&id)
         .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
     let revision = state
         .blueprint_course_revisions
-        .get(&(tenant, id, observed.revision))
+        .get(&(id, observed.revision))
         .ok_or(StoreError::NotFound)?;
     Ok(ReusableSourceSnapshot {
         payload: CurriculumSemanticPayload::course(semantic_course(revision)?),
@@ -51,12 +49,9 @@ pub(crate) fn curriculum_source_snapshot(
 
 pub(crate) fn curriculum_assignment_source_snapshot(
     state: &State,
-    tenant: question_model::TenantId,
-    actor: UserId,
     source: AssignmentDefinitionSourceView,
 ) -> Result<ReusableSourceSnapshot, StoreError> {
-    let _ = actor;
-    let assignment = assignment_in_snapshot(state, tenant, source)?
+    let assignment = assignment_in_snapshot(state, source)?
         .map(|(_, assignment)| assignment)
         .ok_or(StoreError::NotFound)?;
     Ok(ReusableSourceSnapshot {
@@ -66,22 +61,20 @@ pub(crate) fn curriculum_assignment_source_snapshot(
 
 pub(crate) fn current_assignment_source(
     state: &State,
-    tenant: question_model::TenantId,
-    _actor: UserId,
     source: AssignmentDefinitionSourceView,
 ) -> Result<AssignmentDefinitionSourceView, StoreError> {
     let observed = source.source();
     let id = *state
         .blueprint_courses_by_reference
-        .get(&(tenant, observed.reference))
+        .get(&observed.reference)
         .ok_or(StoreError::NotFound)?;
     let row = state
         .blueprint_courses
-        .get(&(tenant, id))
+        .get(&id)
         .ok_or_else(|| reconciliation_error("BlueprintCourse"))?;
     let revision = state
         .blueprint_course_revisions
-        .get(&(tenant, id, row.head_revision))
+        .get(&(id, row.head_revision))
         .ok_or_else(|| reconciliation_error("BlueprintCourse head revision"))?;
     if !revision
         .modules
@@ -98,7 +91,7 @@ pub(crate) fn current_assignment_source(
         },
         source.assignment_id(),
     );
-    curriculum_assignment_source_snapshot(state, tenant, _actor, current)?;
+    curriculum_assignment_source_snapshot(state, current)?;
     Ok(current)
 }
 
@@ -106,16 +99,15 @@ pub(crate) fn current_assignment_source(
 /// Order drives whole-course materialization; identity remains the assigned opaque handle.
 pub(crate) fn course_assignment_sources(
     state: &State,
-    tenant: question_model::TenantId,
     source: ObservedBlueprintSource,
 ) -> Result<Vec<AssignmentDefinitionSourceView>, StoreError> {
     let id = *state
         .blueprint_courses_by_reference
-        .get(&(tenant, source.reference))
+        .get(&source.reference)
         .ok_or(StoreError::NotFound)?;
     let revision = state
         .blueprint_course_revisions
-        .get(&(tenant, id, source.revision))
+        .get(&(id, source.revision))
         .ok_or(StoreError::NotFound)?;
     Ok(revision
         .modules
@@ -129,18 +121,17 @@ pub(crate) fn course_assignment_sources(
 /// answer-free pin-recovery presentation. Positions never authorize updates.
 pub(crate) fn course_assignment_source_at_position(
     state: &State,
-    tenant: question_model::TenantId,
     source: ObservedBlueprintSource,
     module_index: u16,
     assignment_index: u16,
 ) -> Result<AssignmentDefinitionSourceView, StoreError> {
     let id = *state
         .blueprint_courses_by_reference
-        .get(&(tenant, source.reference))
+        .get(&source.reference)
         .ok_or(StoreError::NotFound)?;
     let revision = state
         .blueprint_course_revisions
-        .get(&(tenant, id, source.revision))
+        .get(&(id, source.revision))
         .ok_or(StoreError::NotFound)?;
     let assignment = revision
         .modules
@@ -152,7 +143,6 @@ pub(crate) fn course_assignment_source_at_position(
 
 pub(crate) fn create_blueprint_course_from_semantic_locked(
     state: &mut State,
-    tenant: question_model::TenantId,
     actor: UserId,
     semantic: &CurriculumSemanticCourse,
 ) -> Result<question_model::BlueprintReference, StoreError> {
@@ -182,11 +172,11 @@ pub(crate) fn create_blueprint_course_from_semantic_locked(
     };
     assert_fresh_snapshot_handles(state, &snapshot)?;
     let id = fresh_blueprint_course_id(state)?;
-    let reference = allocate_blueprint_course_reference(state, tenant, id)?;
+    let reference = allocate_blueprint_course_reference(state, id)?;
     if state
         .blueprint_courses
         .insert(
-            (tenant, id),
+            id,
             StoredBlueprintCourse {
                 creator: actor,
                 head_revision: question_model::BlueprintRevision::INITIAL,
@@ -200,10 +190,7 @@ pub(crate) fn create_blueprint_course_from_semantic_locked(
     }
     if state
         .blueprint_course_revisions
-        .insert(
-            (tenant, id, question_model::BlueprintRevision::INITIAL),
-            snapshot,
-        )
+        .insert((id, question_model::BlueprintRevision::INITIAL), snapshot)
         .is_some()
     {
         return Err(StoreError::Unavailable(
@@ -276,17 +263,16 @@ fn semantic_course(
 
 fn assignment_in_snapshot(
     state: &State,
-    tenant: question_model::TenantId,
     source: AssignmentDefinitionSourceView,
 ) -> Result<Option<(BlueprintModuleId, CurriculumSemanticAssignment)>, StoreError> {
     let observed = source.source();
     let id = *state
         .blueprint_courses_by_reference
-        .get(&(tenant, observed.reference))
+        .get(&observed.reference)
         .ok_or(StoreError::NotFound)?;
     let revision = state
         .blueprint_course_revisions
-        .get(&(tenant, id, observed.revision))
+        .get(&(id, observed.revision))
         .ok_or(StoreError::NotFound)?;
     revision
         .modules

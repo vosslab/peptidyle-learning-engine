@@ -13,21 +13,20 @@ use super::*;
 impl crate::EntitlementStore for MemoryStore {
     async fn list_student_entitled_assignments_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         student_user: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRecord>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
         let mut records = Vec::new();
         for record in state
             .assignments
             .values()
-            .filter(|record| record.tenant == tenant && record.course_id == course)
+            .filter(|record| record.course_id == course)
         {
             let EntitlementDecision::Granted(grant) =
-                evaluate_locked(&state, tenant, student_user, course, record.id)?
+                evaluate_locked(&state, student_user, course, record.id)?
             else {
                 continue;
             };
@@ -35,11 +34,10 @@ impl crate::EntitlementStore for MemoryStore {
                 .runs
                 .values()
                 .filter(|run| {
-                    run.tenant == tenant
-                        && run.completed_at.is_some()
+                    run.completed_at.is_some()
                         && state
                             .enrollments
-                            .get(&(tenant, run.enrollment))
+                            .get(&run.enrollment)
                             .is_some_and(|enrollment| {
                                 enrollment.assignment == record.id
                                     && enrollment.student == grant.student()
@@ -52,7 +50,6 @@ impl crate::EntitlementStore for MemoryStore {
             if matches!(
                 super::course_policy::resolve_granted_memory_effective_policy(
                     &state,
-                    tenant,
                     record,
                     grant,
                     prior_run_count,
@@ -70,35 +67,27 @@ impl crate::EntitlementStore for MemoryStore {
 
     async fn evaluate_assignment_entitlement_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<EntitlementDecision, StoreError> {
         let state = self.read_state()?;
-        evaluate_locked(
-            &state,
-            context.tenant_id(),
-            student_user,
-            course,
-            assignment,
-        )
+        evaluate_locked(&state, student_user, course, assignment)
     }
 
     async fn issue_assignment_entitlement_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: crate::MaterializeAssignmentEntitlementCommand,
     ) -> Result<crate::AssignmentEntitlementMaterialization, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        materialize_locked(&mut state, tenant, command)
+        materialize_locked(&mut state, command)
     }
 }
 
 pub(super) fn materialize_locked(
     state: &mut State,
-    tenant: TenantId,
     command: crate::MaterializeAssignmentEntitlementCommand,
 ) -> Result<crate::AssignmentEntitlementMaterialization, StoreError> {
     match (command.purpose(), command.authority()) {
@@ -110,11 +99,11 @@ pub(super) fn materialize_locked(
             question_model::EntitlementPurpose::GradeBearingAction,
             question_model::MaterializationAuthority::Actor(actor),
         ) if actor == command.student_user()
-            || current_course_instructor(state, tenant, command.course(), actor) => {}
+            || current_course_instructor(state, command.course(), actor) => {}
         (
             question_model::EntitlementPurpose::InstructorIssue,
             question_model::MaterializationAuthority::Actor(actor),
-        ) if current_course_instructor(state, tenant, command.course(), actor) => {}
+        ) if current_course_instructor(state, command.course(), actor) => {}
         (
             question_model::EntitlementPurpose::GradeBearingAction,
             question_model::MaterializationAuthority::Rule(_),
@@ -123,7 +112,6 @@ pub(super) fn materialize_locked(
     }
     let decision = evaluate_locked(
         state,
-        tenant,
         command.student_user(),
         command.course(),
         command.assignment(),
@@ -138,8 +126,7 @@ pub(super) fn materialize_locked(
         .enrollments
         .values()
         .find(|enrollment| {
-            enrollment.tenant == tenant
-                && enrollment.assignment == command.assignment()
+            enrollment.assignment == command.assignment()
                 // The educational receipt belongs to the durable student
                 // identity.  A reinvited user can receive a new membership
                 // episode without duplicating completed work or mutating its
@@ -148,16 +135,17 @@ pub(super) fn materialize_locked(
         })
         .cloned()
     {
-        let summary = state
-            .summaries
-            .get(&(tenant, enrollment.id))
-            .cloned()
-            .ok_or(StoreError::Unavailable(
-                "entitlement receipt is missing its summary".to_string(),
-            ))?;
+        let summary =
+            state
+                .summaries
+                .get(&enrollment.id)
+                .cloned()
+                .ok_or(StoreError::Unavailable(
+                    "entitlement receipt is missing its summary".to_string(),
+                ))?;
         let provenance = state
             .entitlement_materializations
-            .get(&(tenant, enrollment.id))
+            .get(&enrollment.id)
             .cloned()
             .ok_or(StoreError::Unavailable(
                 "entitlement receipt is missing immutable provenance".to_string(),
@@ -174,7 +162,6 @@ pub(super) fn materialize_locked(
     }
     let enrollment = AssignmentEnrollment {
         id: random_enrollment_id()?,
-        tenant,
         assignment: command.assignment(),
         user: command.student_user(),
         student: grant.student(),
@@ -182,7 +169,7 @@ pub(super) fn materialize_locked(
         current_grade_run: None,
         best_grade_run: None,
     };
-    let summary = StudentAssignmentSummary::empty(tenant, enrollment.id);
+    let summary = StudentAssignmentSummary::empty(enrollment.id);
     let provenance = EntitlementMaterialization {
         enrollment: enrollment.id,
         membership: grant.membership(),
@@ -193,15 +180,11 @@ pub(super) fn materialize_locked(
         basis: grant.basis(),
         evaluator_version: EvaluatorVersion::INITIAL,
     };
-    state
-        .summaries
-        .insert((tenant, enrollment.id), summary.clone());
+    state.summaries.insert(enrollment.id, summary.clone());
     state
         .entitlement_materializations
-        .insert((tenant, enrollment.id), provenance.clone());
-    state
-        .enrollments
-        .insert((tenant, enrollment.id), enrollment.clone());
+        .insert(enrollment.id, provenance.clone());
+    state.enrollments.insert(enrollment.id, enrollment.clone());
     Ok(crate::AssignmentEntitlementMaterialization::Granted(
         crate::MaterializedAssignmentEntitlement {
             enrollment,
@@ -213,25 +196,19 @@ pub(super) fn materialize_locked(
     ))
 }
 
-fn current_course_instructor(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-    actor: UserId,
-) -> bool {
-    active_membership_for(state, tenant, course, actor).is_some_and(|membership| {
+fn current_course_instructor(state: &State, course: CourseId, actor: UserId) -> bool {
+    active_membership_for(state, course, actor).is_some_and(|membership| {
         membership.role == question_model::CourseMembershipRole::Instructor
     })
 }
 
 pub(super) fn evaluate_locked(
     state: &State,
-    tenant: TenantId,
     student_user: UserId,
     course: CourseId,
     assignment: AssignmentId,
 ) -> Result<EntitlementDecision, StoreError> {
-    let Some(record) = state.assignments.get(&(tenant, assignment)) else {
+    let Some(record) = state.assignments.get(&assignment) else {
         return Ok(EntitlementDecision::Denied(
             domain::entitlement::EntitlementDenial::AssignmentNotFound,
         ));
@@ -241,15 +218,15 @@ pub(super) fn evaluate_locked(
             domain::entitlement::EntitlementDenial::AssignmentOutsideCourse,
         ));
     }
-    if !state.courses.contains_key(&(tenant, course)) {
+    if !state.courses.contains_key(&course) {
         return Ok(EntitlementDecision::Denied(
             domain::entitlement::EntitlementDenial::CourseNotFound,
         ));
     }
     let membership = state
         .active_course_membership_by_user
-        .get(&(tenant, course, student_user))
-        .and_then(|id| state.course_memberships.get(&(tenant, *id)))
+        .get(&(course, student_user))
+        .and_then(|id| state.course_memberships.get(id))
         .filter(|member| {
             member.status == crate::CourseMemberStatus::Active
                 && member.role == question_model::CourseMembershipRole::Student
@@ -263,12 +240,11 @@ pub(super) fn evaluate_locked(
     let current_groups = state
         .course_groups
         .values()
-        .filter(|group| group.tenant == tenant && group.course == course)
+        .filter(|group| group.course == course)
         .filter(|group| membership.is_some_and(|member| group.members.contains(&member.id)))
         .map(|group| (group.id, group.purpose))
         .collect();
     Ok(evaluate_assignment_entitlement(EntitlementFacts {
-        tenant,
         course,
         assignment,
         student_user,
@@ -283,12 +259,11 @@ pub(super) fn evaluate_locked(
 /// as the authority predicate.
 pub(super) fn require_current_assignment_entitlement(
     state: &State,
-    tenant: TenantId,
     student_user: UserId,
     course: CourseId,
     assignment: AssignmentId,
 ) -> Result<domain::entitlement::EntitlementGrant, StoreError> {
-    match evaluate_locked(state, tenant, student_user, course, assignment)? {
+    match evaluate_locked(state, student_user, course, assignment)? {
         EntitlementDecision::Granted(grant) => Ok(grant),
         EntitlementDecision::Denied(_) => Err(StoreError::NotFound),
     }
@@ -300,13 +275,12 @@ pub(super) fn require_current_assignment_entitlement(
 /// student is reinvited through a new membership episode.
 pub(super) fn require_current_enrollment_entitlement(
     state: &State,
-    tenant: TenantId,
     actor: UserId,
     course: CourseId,
     assignment: AssignmentId,
     enrollment: &AssignmentEnrollment,
 ) -> Result<domain::entitlement::EntitlementGrant, StoreError> {
-    let grant = require_current_assignment_entitlement(state, tenant, actor, course, assignment)?;
+    let grant = require_current_assignment_entitlement(state, actor, course, assignment)?;
     (grant.student() == enrollment.student)
         .then_some(grant)
         .ok_or(StoreError::NotFound)
@@ -321,17 +295,16 @@ fn random_enrollment_id() -> Result<EnrollmentId, StoreError> {
 
 pub(super) fn ensure_course_membership_id(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     user: UserId,
     student: StudentId,
 ) -> Result<CourseMembershipId, StoreError> {
     if let Some(id) = state
         .active_course_membership_by_user
-        .get(&(tenant, course, user))
+        .get(&(course, user))
         .copied()
     {
-        let existing = state.course_memberships.get(&(tenant, id)).ok_or_else(|| {
+        let existing = state.course_memberships.get(&id).ok_or_else(|| {
             StoreError::Unavailable("active course-membership index is inconsistent".to_string())
         })?;
         return (existing.role == question_model::CourseMembershipRole::Student
@@ -347,10 +320,9 @@ pub(super) fn ensure_course_membership_id(
     })
     .map(CourseMembershipId::from_uuid)?;
     state.course_memberships.insert(
-        (tenant, id),
+        id,
         CourseMembershipRecord {
             id,
-            tenant,
             course,
             user,
             student: Some(student),
@@ -363,14 +335,13 @@ pub(super) fn ensure_course_membership_id(
     );
     state
         .active_course_membership_by_user
-        .insert((tenant, course, user), id);
-    if let Err(error) =
-        super::navigation_references::ensure_course_membership_reference(state, tenant, id)
+        .insert((course, user), id);
+    if let Err(error) = super::navigation_references::ensure_course_membership_reference(state, id)
     {
-        state.course_memberships.remove(&(tenant, id));
+        state.course_memberships.remove(&id);
         state
             .active_course_membership_by_user
-            .remove(&(tenant, course, user));
+            .remove(&(course, user));
         return Err(error);
     }
     Ok(id)
@@ -378,13 +349,12 @@ pub(super) fn ensure_course_membership_id(
 
 pub(super) fn create_initial_instructor_membership(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     user: UserId,
 ) -> Result<CourseMembershipId, StoreError> {
     if state
         .active_course_membership_by_user
-        .contains_key(&(tenant, course, user))
+        .contains_key(&(course, user))
     {
         return Err(StoreError::Conflict);
     }
@@ -395,10 +365,9 @@ pub(super) fn create_initial_instructor_membership(
     })
     .map(CourseMembershipId::from_uuid)?;
     state.course_memberships.insert(
-        (tenant, id),
+        id,
         CourseMembershipRecord {
             id,
-            tenant,
             course,
             user,
             student: None,
@@ -411,14 +380,13 @@ pub(super) fn create_initial_instructor_membership(
     );
     state
         .active_course_membership_by_user
-        .insert((tenant, course, user), id);
-    if let Err(error) =
-        super::navigation_references::ensure_course_membership_reference(state, tenant, id)
+        .insert((course, user), id);
+    if let Err(error) = super::navigation_references::ensure_course_membership_reference(state, id)
     {
-        state.course_memberships.remove(&(tenant, id));
+        state.course_memberships.remove(&id);
         state
             .active_course_membership_by_user
-            .remove(&(tenant, course, user));
+            .remove(&(course, user));
         return Err(error);
     }
     Ok(id)
@@ -426,34 +394,31 @@ pub(super) fn create_initial_instructor_membership(
 
 pub(super) fn active_membership_for(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     user: UserId,
 ) -> Option<&CourseMembershipRecord> {
     let id = state
         .active_course_membership_by_user
-        .get(&(tenant, course, user))?;
-    active_membership_by_id(state, tenant, *id)
+        .get(&(course, user))?;
+    active_membership_by_id(state, *id)
 }
 
 /// Resolves current authority from the canonical membership episode index.
 /// Course aggregates deliberately carry no mirrored member or role data.
 pub(super) fn current_course_role(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     user: UserId,
 ) -> Option<question_model::CourseMembershipRole> {
-    active_membership_for(state, tenant, course, user).map(|membership| membership.role)
+    active_membership_for(state, course, user).map(|membership| membership.role)
 }
 
 pub(super) fn active_membership_by_id(
     state: &State,
-    tenant: TenantId,
     id: CourseMembershipId,
 ) -> Option<&CourseMembershipRecord> {
     state
         .course_memberships
-        .get(&(tenant, id))
+        .get(&id)
         .filter(|membership| membership.status == crate::CourseMemberStatus::Active)
 }

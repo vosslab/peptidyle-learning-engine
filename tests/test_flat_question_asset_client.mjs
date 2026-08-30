@@ -31,7 +31,7 @@ function json(value, status = 200) {
 test("asset descriptor decoder accepts only the safe exact browser projection", () => {
   assert.deepEqual(decodeFlatQuestionAssetDescriptor(DESCRIPTOR), DESCRIPTOR);
   const invalid = [
-    { ...DESCRIPTOR, objectKey: "tenant/private/key" },
+    { ...DESCRIPTOR, objectKey: "private/object/key" },
     { ...DESCRIPTOR, assetId: DESCRIPTOR.assetId.toUpperCase() },
     { ...DESCRIPTOR, contentChecksum: "A".repeat(64) },
     { ...DESCRIPTOR, mediaType: "image/gif" },

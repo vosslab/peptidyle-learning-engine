@@ -5,7 +5,8 @@ use question_model::ActivityTimestamp;
 
 use super::MemoryStore;
 use crate::{
-    SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionTokenHash, StoreError,
+    ActorContext, SessionId, SessionLifetime, SessionRecord, SessionStore, SessionSubject,
+    SessionTokenHash, StoreError,
 };
 
 #[derive(Debug, Clone)]
@@ -35,6 +36,7 @@ impl SessionStore for MemoryStore {
                 .ok_or_else(|| StoreError::InvalidRecord("session expiry overflow".to_string()))?,
         );
         let record = SessionRecord {
+            id: SessionId::generate()?,
             token_hash,
             subject,
             created_at,
@@ -72,12 +74,16 @@ impl SessionStore for MemoryStore {
 
 pub(super) fn active_subject(
     state: &super::State,
-    context: crate::TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Option<&SessionSubject> {
     let stored = state.sessions.get(&session)?;
+    // ASVS 7.4.1 and 8.2.2: reject every stale, revoked, or mismatched
+    // server-derived identity before exposing an authenticated subject.
     (!stored.revoked
         && stored.record.expires_at > state.authoritative_time
-        && stored.record.subject.tenant() == context.tenant_id())
+        && stored.record.subject.user() == context.user_id()
+        && stored.record.id == context.session_id()
+        && stored.record.subject.role() == context.role())
     .then_some(&stored.record.subject)
 }

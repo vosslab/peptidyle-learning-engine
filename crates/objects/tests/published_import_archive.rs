@@ -14,7 +14,7 @@ use objects::{
     Sha256Digest, published_import_archive_object_id,
 };
 use question_model::{
-    ActivityTimestamp, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
+    ActivityTimestamp, ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -39,14 +39,12 @@ fn is_exact_published_archive_replay(record: &ObjectRecord, candidate: &PutObjec
 #[tokio::test]
 async fn published_import_archive_candidate_is_deterministic_non_signable_and_exact_on_replay() {
     let store = MemoryObjectStore::default();
-    let tenant = TenantId::from_uuid(id(1));
     let workspace = WorkspaceId::from_uuid(id(2));
     let import = WorkspaceImportId::from_uuid(id(3));
     let problem = ProblemId::from_uuid(id(4));
     let version = VersionId::from_uuid(id(5));
     let archive_bytes = b"verified QTI archive bytes".to_vec();
     let workspace_key = ObjectKey::WorkspaceSource {
-        tenant,
         workspace,
         import,
         object: ObjectId::from_uuid(id(6)),
@@ -73,7 +71,6 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     assert_eq!(verified_workspace_archive.bytes, archive_bytes);
 
     let archive_object = published_import_archive_object_id(
-        tenant,
         problem,
         version,
         import,
@@ -81,7 +78,6 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     );
     let candidate = PutObject {
         key: ObjectKey::PublishedImportArchive {
-            tenant,
             problem,
             version,
             import,
@@ -101,7 +97,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         .expect("first immutable archive candidate should be stored");
     assert_eq!(
         first_record.id,
-        published_import_archive_object_id(tenant, problem, version, import, first_record.sha256),
+        published_import_archive_object_id(problem, version, import, first_record.sha256),
         "the candidate object identity must be derived from its complete typed identity"
     );
     assert_eq!(first_record.bucket, Bucket::PrivateContent);

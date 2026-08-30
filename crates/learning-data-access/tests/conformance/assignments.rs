@@ -190,7 +190,6 @@ where
             learning_data_access::CreateCourseCommand {
                 course: CourseRecord {
                     id: foreign_course,
-                    tenant: foreign_tenant,
                     title: "Foreign course".to_string(),
                     term: question_model::CourseTerm::from_parts(
                         "2026-08-24",
@@ -770,7 +769,6 @@ where
                 instructor,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_202)),
-                    tenant: foreign_tenant,
                     course_id: foreign_course,
                     title: "hidden reference".to_string(),
                     lifecycle: question_model::AssignmentLifecycle::Published,

@@ -5,12 +5,12 @@
 //! must never be retried automatically.
 
 use async_trait::async_trait;
-use question_model::{ActivityTimestamp, CourseId, TenantId};
+use question_model::{ActivityTimestamp, CourseId};
 use uuid::Uuid;
 
 use crate::{
-    CourseInvitationId, CourseRosterId, RosterIdempotencyKey, SessionTokenHash, StoreError,
-    TenantContext,
+    ActorContext, CourseInvitationId, CourseRosterId, RosterIdempotencyKey, SessionTokenHash,
+    StoreError,
 };
 
 macro_rules! delivery_id_type {
@@ -93,7 +93,6 @@ pub enum CourseInvitationDeliveryOutcomeCode {
 /// One durable outbox row, keyed one-to-one by its invitation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitationDelivery {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub invitation: CourseInvitationId,
     pub id: CourseInvitationDeliveryId,
@@ -139,13 +138,11 @@ impl std::fmt::Debug for PreparedCourseInvitationDelivery {
 #[derive(Clone, PartialEq, Eq)]
 pub enum InvitationDeliveryReissuance {
     Single {
-        tenant: TenantId,
         course: CourseId,
         roster_id: CourseRosterId,
         idempotency_key: RosterIdempotencyKey,
     },
     Import {
-        tenant: TenantId,
         course: CourseId,
         import: crate::CourseRosterImportId,
         row_number: u16,
@@ -173,7 +170,7 @@ pub enum CompleteCourseInvitationDelivery {
 pub trait CourseInvitationDeliveryStore: Send + Sync {
     async fn course_invitation_delivery_state(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         invitation: CourseInvitationId,

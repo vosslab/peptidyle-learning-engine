@@ -219,7 +219,7 @@ impl_banner_route_id!(CourseBannerId);
 
 /// Opaque identity returned after an authorized candidate upload.
 ///
-/// The server binds it to tenant, course, actor, and expiry before accepting
+/// The server binds it to the course, actor, and expiry before accepting
 /// it in an appearance update. It reveals no physical storage identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseBannerCandidateId(Uuid);

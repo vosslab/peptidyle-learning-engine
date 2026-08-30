@@ -123,7 +123,6 @@ async fn publish(
     scope: PublicationScope,
 ) -> learning_data_access::PublishedProblemRecord {
     let draft = DraftRecord {
-        tenant: context.tenant_id(),
         question: DraftQuestionDefinition {
             workspace: WorkspaceId::from_uuid(id()),
             source: DraftQuestionSource::Native {

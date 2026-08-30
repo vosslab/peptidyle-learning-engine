@@ -9,7 +9,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use learning_data_access::{
     CourseItemAnalysisCommitOutcome, CourseItemAnalysisWorkerCommand,
-    CourseItemAnalysisWorkerStore, JobFailureKind, JobPayload, StoreError, TenantContext,
+    CourseItemAnalysisWorkerStore, JobFailureKind, JobPayload, StoreError,
 };
 
 use crate::worker::{
@@ -35,7 +35,6 @@ where
 {
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
@@ -51,22 +50,18 @@ where
             return Err(JobFailureKind::TimedOut);
         }
         self.store
-            .prepare_course_item_analysis(
-                context,
-                CourseItemAnalysisWorkerCommand {
-                    job: claim.job_id(),
-                    lease: claim.lease_token(),
-                    assignment,
-                    generation,
-                },
-            )
+            .prepare_course_item_analysis(CourseItemAnalysisWorkerCommand {
+                job: claim.job_id(),
+                lease: claim.lease_token(),
+                assignment,
+                generation,
+            })
             .await
             .map_err(item_analysis_failure)?;
         if execution.cancellation_requested() {
             return Err(JobFailureKind::TimedOut);
         }
         Ok(PreparedJobEffect::CourseItemAnalysis {
-            tenant: context.tenant_id(),
             assignment,
             generation,
         })
@@ -109,7 +104,6 @@ where
         effect: PreparedJobEffect,
     ) -> Result<EffectCommitOutcome, StoreError> {
         let PreparedJobEffect::CourseItemAnalysis {
-            tenant,
             assignment,
             generation,
         } = effect
@@ -120,15 +114,12 @@ where
         };
         match self
             .store
-            .commit_course_item_analysis(
-                TenantContext::from_authenticated_session(tenant),
-                CourseItemAnalysisWorkerCommand {
-                    job: claim.job_id(),
-                    lease: claim.lease_token(),
-                    assignment,
-                    generation,
-                },
-            )
+            .commit_course_item_analysis(CourseItemAnalysisWorkerCommand {
+                job: claim.job_id(),
+                lease: claim.lease_token(),
+                assignment,
+                generation,
+            })
             .await?
         {
             CourseItemAnalysisCommitOutcome::Committed
@@ -145,7 +136,7 @@ mod tests {
     use std::sync::Mutex;
 
     use learning_data_access::{JobId, JobLeaseToken};
-    use question_model::{AssignmentId, ScoringGeneration, TenantId};
+    use question_model::{AssignmentId, ScoringGeneration};
     use uuid::Uuid;
 
     use super::*;
@@ -167,7 +158,6 @@ mod tests {
     impl CourseItemAnalysisWorkerStore for RecordingStore {
         async fn prepare_course_item_analysis(
             &self,
-            _context: TenantContext,
             command: CourseItemAnalysisWorkerCommand,
         ) -> Result<(), StoreError> {
             self.prepared.lock().expect("test lock").push(command);
@@ -176,7 +166,6 @@ mod tests {
 
         async fn commit_course_item_analysis(
             &self,
-            _context: TenantContext,
             command: CourseItemAnalysisWorkerCommand,
         ) -> Result<CourseItemAnalysisCommitOutcome, StoreError> {
             self.committed.lock().expect("test lock").push(command);
@@ -216,21 +205,15 @@ mod tests {
             behavior: CommitBehavior::Committed,
         });
         let handler = CourseItemAnalysisHandler::new(Arc::clone(&store));
-        let tenant = TenantId::from_uuid(uuid(4));
         let claim = claim();
         let effect = handler
-            .prepare(
-                TenantContext::from_authenticated_session(tenant),
-                payload(),
-                JobExecution::new().with_test_claim(claim),
-            )
+            .prepare(payload(), JobExecution::new().with_test_claim(claim))
             .await
             .expect("prepare");
 
         assert_eq!(
             effect,
             PreparedJobEffect::CourseItemAnalysis {
-                tenant,
                 assignment: AssignmentId::from_uuid(uuid(2)),
                 generation: ScoringGeneration::new(3).expect("positive generation"),
             }
@@ -245,7 +228,6 @@ mod tests {
         assert_eq!(
             handler
                 .prepare(
-                    TenantContext::from_authenticated_session(tenant),
                     JobPayload::RecalculateAssignment {
                         assignment: AssignmentId::from_uuid(uuid(2)),
                         generation: ScoringGeneration::new(3).expect("positive generation"),
@@ -259,7 +241,6 @@ mod tests {
 
     #[tokio::test]
     async fn committer_maps_visible_and_stale_outcomes_without_touching_scoring() {
-        let tenant = TenantId::from_uuid(uuid(4));
         for (behavior, expected) in [
             (CommitBehavior::Committed, EffectCommitOutcome::Committed),
             (CommitBehavior::Superseded, EffectCommitOutcome::Committed),
@@ -279,7 +260,6 @@ mod tests {
                 .commit(
                     claim,
                     PreparedJobEffect::CourseItemAnalysis {
-                        tenant,
                         assignment: AssignmentId::from_uuid(uuid(2)),
                         generation: ScoringGeneration::new(3).expect("positive generation"),
                     },

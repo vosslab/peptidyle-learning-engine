@@ -7,17 +7,17 @@ use super::{
 use crate::gradebook_cursor::{GradebookSelectionCursor, SubmittedRunChoicesCursor};
 use crate::in_memory::course_roster::require_course_instructor;
 use crate::{
-    AssignmentId, AssignmentInspectionChoice, CourseGradebookStore, CourseId, GradebookFilter,
-    GradebookOperationSelection, GradebookSelectionRequest, GradebookSelectionResult,
-    SessionTokenHash, StoreError, SubmittedRunChoicesPage, SubmittedRunChoicesRequest,
-    TenantContext,
+    ActorContext, AssignmentId, AssignmentInspectionChoice, CourseGradebookStore, CourseId,
+    GradebookFilter, GradebookOperationSelection, GradebookSelectionRequest,
+    GradebookSelectionResult, SessionTokenHash, StoreError, SubmittedRunChoicesPage,
+    SubmittedRunChoicesRequest,
 };
 use crate::{GradebookFilterRequest, StudentSelectionRow, SubmittedRunChoice};
 use question_model::{ActivityTimestamp, CourseMembershipRole, GradePolicy, RunCompletionStatus};
 
 pub(super) async fn gradebook_selection(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     course: CourseId,
     request: GradebookSelectionRequest,
@@ -34,8 +34,7 @@ pub(super) async fn gradebook_selection(
         | GradebookFilterRequest::Student(_) => None,
     };
     let state = store.read_state()?;
-    let tenant = context.tenant_id();
-    require_course_records_accessible(&state, tenant, course)?;
+    require_course_records_accessible(&state, course)?;
     require_course_instructor(&state, context, session, course)?;
     let (assignment_reference, operation) = match (request.filter, operation_selection) {
         (GradebookFilterRequest::Assignment(assignment), None) => (assignment, None),
@@ -45,8 +44,7 @@ pub(super) async fn gradebook_selection(
                 membership,
                 assignment,
             } => {
-                let choice =
-                    selection_inspection_choice(&state, tenant, course, membership, assignment)?;
+                let choice = selection_inspection_choice(&state, course, membership, assignment)?;
                 return Ok(GradebookSelectionResult::SingleStudent {
                     membership,
                     assignment,
@@ -56,10 +54,9 @@ pub(super) async fn gradebook_selection(
         },
         _ => return Err(StoreError::NotFound),
     };
-    let assignment = assignment_id_for_course(&state, tenant, course, assignment_reference)?;
-    let scheme = course_grade_scheme(&state, tenant, course);
-    let roster_revision =
-        crate::in_memory::course_roster::roster_policy(&state, tenant, course).revision;
+    let assignment = assignment_id_for_course(&state, course, assignment_reference)?;
+    let scheme = course_grade_scheme(&state, course);
+    let roster_revision = crate::in_memory::course_roster::roster_policy(&state, course).revision;
     let after = request
         .page
         .after
@@ -75,11 +72,11 @@ pub(super) async fn gradebook_selection(
         return Err(StoreError::NotFound);
     }
     let after_membership = after.map(|cursor| cursor.last_membership);
-    let mut memberships = active_student_memberships(&state, tenant, course, GradebookFilter::All)?;
+    let mut memberships = active_student_memberships(&state, course, GradebookFilter::All)?;
     memberships.sort_by_key(|membership| {
         state
             .course_membership_references
-            .get(&(tenant, membership.id))
+            .get(&membership.id)
             .map(|value| value.number())
             .unwrap_or_default()
     });
@@ -89,7 +86,7 @@ pub(super) async fn gradebook_selection(
             after_membership.is_none_or(|after| {
                 state
                     .course_membership_references
-                    .get(&(tenant, membership.id))
+                    .get(&membership.id)
                     .is_some_and(|reference| *reference > after)
             })
         })
@@ -104,19 +101,14 @@ pub(super) async fn gradebook_selection(
         .map(|membership| {
             let reference = *state
                 .course_membership_references
-                .get(&(tenant, membership.id))
+                .get(&membership.id)
                 .ok_or(StoreError::NotFound)?;
             let profile = state
                 .roster_profiles
-                .get(&(tenant, course, membership.id))
+                .get(&(course, membership.id))
                 .ok_or(StoreError::NotFound)?;
-            let choice = selection_inspection_choice(
-                &state,
-                tenant,
-                course,
-                reference,
-                assignment_reference,
-            )?;
+            let choice =
+                selection_inspection_choice(&state, course, reference, assignment_reference)?;
             Ok(StudentSelectionRow {
                 membership: reference,
                 display_label: profile.display_name.clone(),
@@ -149,7 +141,7 @@ pub(super) async fn gradebook_selection(
 
 pub(super) async fn submitted_run_choices(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     course: CourseId,
     request: SubmittedRunChoicesRequest,
@@ -169,11 +161,9 @@ pub(super) async fn submitted_run_choices(
         }
     }
     let state = store.read_state()?;
-    let tenant = context.tenant_id();
-    require_course_records_accessible(&state, tenant, course)?;
+    require_course_records_accessible(&state, course)?;
     require_course_instructor(&state, context, session, course)?;
-    let roster_revision =
-        crate::in_memory::course_roster::roster_policy(&state, tenant, course).revision;
+    let roster_revision = crate::in_memory::course_roster::roster_policy(&state, course).revision;
     let after = request
         .page
         .after
@@ -188,20 +178,18 @@ pub(super) async fn submitted_run_choices(
     {
         return Err(StoreError::NotFound);
     }
-    let membership = active_student_membership(&state, tenant, course, request.membership)?;
-    let assignment = assignment_id_for_course(&state, tenant, course, request.assignment)?;
+    let membership = active_student_membership(&state, course, request.membership)?;
+    let assignment = assignment_id_for_course(&state, course, request.assignment)?;
     let student = membership.student.ok_or(StoreError::NotFound)?;
     let enrollment = state
         .enrollments
         .values()
-        .find(|value| {
-            value.tenant == tenant && value.assignment == assignment && value.student == student
-        })
+        .find(|value| value.assignment == assignment && value.student == student)
         .ok_or(StoreError::NotFound)?;
     let mut runs = state
         .runs
         .values()
-        .filter(|run| run.tenant == tenant && run.enrollment == enrollment.id)
+        .filter(|run| run.enrollment == enrollment.id)
         .filter(|run| run.completion_status() == RunCompletionStatus::Completed)
         .collect::<Vec<_>>();
     runs.sort_by_key(|run| {
@@ -257,17 +245,16 @@ pub(super) async fn submitted_run_choices(
 
 fn active_student_membership(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     reference: question_model::CourseMembershipReference,
 ) -> Result<&crate::CourseMembershipRecord, StoreError> {
     let id = state
         .course_memberships_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .ok_or(StoreError::NotFound)?;
     state
         .course_memberships
-        .get(&(tenant, *id))
+        .get(id)
         .filter(|membership| {
             membership.course == course
                 && membership.status == crate::CourseMemberStatus::Active
@@ -278,17 +265,16 @@ fn active_student_membership(
 
 fn assignment_id_for_course(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     reference: question_model::AssignmentReference,
 ) -> Result<AssignmentId, StoreError> {
     let assignment = *state
         .assignments_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .ok_or(StoreError::NotFound)?;
     state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .filter(|record| record.course_id == course)
         .map(|_| assignment)
         .ok_or(StoreError::NotFound)
@@ -296,27 +282,26 @@ fn assignment_id_for_course(
 
 fn selection_inspection_choice(
     state: &State,
-    tenant: question_model::TenantId,
     course: CourseId,
     membership: question_model::CourseMembershipReference,
     assignment: question_model::AssignmentReference,
 ) -> Result<AssignmentInspectionChoice, StoreError> {
-    let membership = active_student_membership(state, tenant, course, membership)?;
-    let assignment_id = assignment_id_for_course(state, tenant, course, assignment)?;
+    let membership = active_student_membership(state, course, membership)?;
+    let assignment_id = assignment_id_for_course(state, course, assignment)?;
     let assignment_record = state
         .assignments
-        .get(&(tenant, assignment_id))
+        .get(&assignment_id)
         .ok_or(StoreError::NotFound)?;
     let student = membership.student.ok_or(StoreError::NotFound)?;
-    let enrollment = state.enrollments.values().find(|value| {
-        value.tenant == tenant && value.assignment == assignment_id && value.student == student
-    });
-    inspection_choice(state, tenant, enrollment, assignment_record.policies.grade)
+    let enrollment = state
+        .enrollments
+        .values()
+        .find(|value| value.assignment == assignment_id && value.student == student);
+    inspection_choice(state, enrollment, assignment_record.policies.grade)
 }
 
 pub(super) fn inspection_choice(
     state: &State,
-    tenant: question_model::TenantId,
     enrollment: Option<&question_model::AssignmentEnrollment>,
     policy: GradePolicy,
 ) -> Result<AssignmentInspectionChoice, StoreError> {
@@ -324,10 +309,7 @@ pub(super) fn inspection_choice(
         return Ok(AssignmentInspectionChoice::NoSubmittedRun);
     };
     if let Some(selected) = enrollment.current_grade_run {
-        let run = state
-            .runs
-            .get(&(tenant, selected))
-            .ok_or(StoreError::NotFound)?;
+        let run = state.runs.get(&selected).ok_or(StoreError::NotFound)?;
         let submitted_at = run.completed_at.ok_or_else(|| {
             StoreError::Unavailable("selected grade run is not completed".to_string())
         })?;
@@ -340,7 +322,7 @@ pub(super) fn inspection_choice(
     let completed_run_count = state
         .runs
         .values()
-        .filter(|run| run.tenant == tenant && run.enrollment == enrollment.id)
+        .filter(|run| run.enrollment == enrollment.id)
         .filter(|run| run.completion_status() == RunCompletionStatus::Completed)
         .count();
     let completed_run_count = u32::try_from(completed_run_count).map_err(|_| {

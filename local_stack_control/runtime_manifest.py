@@ -34,6 +34,11 @@ MINIO_REGION = "secrets/minio-region"
 MINIO_ACCESS_KEY_ID = "secrets/minio-access-key-id"
 MINIO_SECRET_ACCESS_KEY = "secrets/minio-secret-access-key"
 DATABASE_NAME = "ple_e2e_baseline"
+SD1_RUNTIME_DIRECTORY = "sd1"
+SD1_RUNTIME_KIND = "ple.sd1_staged_database_acceptance"
+SD1_RUNTIME_PROFILE = "sd1_staged_database"
+SD1_MIGRATOR_ROLE = "ple_migrator"
+SD1_MIGRATOR_URL = "secrets/postgres-migrator.url"
 POSTGRES_USER = "ple_e2e_migrator"
 GRADER_USER = "ple_grading_reader"
 FAST_PATH_USER = "ple_accepted_submission_fast_path_login"
@@ -766,6 +771,7 @@ def main(argv: list[str] | None = None) -> None:
 	commands = {
 		"--emit-grader-login-provisioning": emit_grader_login_provisioning,
 		"--emit-accepted-submission-login-provisioning": emit_accepted_submission_login_provisioning,
+		"--emit-sd1-staged-bootstrap": emit_sd1_staged_bootstrap,
 	}
 	if len(arguments) != 2 or arguments[0] not in commands:
 		print(
@@ -776,6 +782,11 @@ def main(argv: list[str] | None = None) -> None:
 		print(
 			"   or: python3 -m local_stack_control.runtime_manifest "
 			"--emit-accepted-submission-login-provisioning WORKSPACE",
+			file=sys.stderr,
+		)
+		print(
+			"   or: python3 -m local_stack_control.runtime_manifest "
+			"--emit-sd1-staged-bootstrap WORKSPACE",
 			file=sys.stderr,
 		)
 		raise SystemExit(2)
@@ -899,6 +910,92 @@ def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> Datab
 	finally:
 		os.close(workspace_descriptor)
 	return load_database_baseline_runtime(workspace)
+
+
+#============================================
+def write_sd1_staged_database_runtime(workspace: pathlib.Path, port: int) -> pathlib.Path:
+	"""Create the nested private runtime used only by staged SD1 migration tools."""
+	# ASVS 1.2.4, 2.2.1, and 8.3.1: the migrator URL is generated privately and
+	# the child receives only its exact closed profile locator.
+	_require_private_platform()
+	workspace = workspace.absolute()
+	if not isinstance(port, int) or isinstance(port, bool) or not 1024 <= port <= 65535:
+		raise _error("acceptance runtime port is invalid")
+	workspace_descriptor = _open_private_workspace(workspace)
+	try:
+		try:
+			os.mkdir(SD1_RUNTIME_DIRECTORY, 0o700, dir_fd=workspace_descriptor)
+		except OSError as error:
+			raise _error("SD1 acceptance runtime is unavailable") from error
+		sd1_descriptor = _open_private_directory_at(
+			workspace_descriptor, SD1_RUNTIME_DIRECTORY, "SD1 runtime directory"
+		)
+		try:
+			try:
+				os.mkdir(SECRETS_DIRECTORY, 0o700, dir_fd=sd1_descriptor)
+			except OSError as error:
+				raise _error("SD1 acceptance runtime is unavailable") from error
+			secrets_descriptor = _open_private_directory_at(
+				sd1_descriptor, SECRETS_DIRECTORY, "SD1 secrets directory"
+			)
+			try:
+				password = secrets.token_urlsafe(24)
+				endpoint = f"@127.0.0.1:{port}/{DATABASE_NAME}\n"
+				url = (
+					f"postgres://{SD1_MIGRATOR_ROLE}:"
+					f"{urllib.parse.quote(password, safe='')}{endpoint}"
+				).encode("ascii")
+				manifest = (
+					"schema_version: 1\n"
+					f"kind: {SD1_RUNTIME_KIND}\n"
+					"identity:\n"
+					f"  owner: {local_stack_control.models.LIVE_DEMO_BROWSER_OWNER}\n"
+					f"  project: {local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT}\n"
+					f"  profile: {SD1_RUNTIME_PROFILE}\n"
+					"secrets:\n"
+					f"  postgres_migrator_url: {SD1_MIGRATOR_URL}\n"
+				).encode("ascii")
+				_write_private_file_at(secrets_descriptor, "postgres-migrator.url", url)
+				_write_private_file_at(sd1_descriptor, MANIFEST_NAME, manifest)
+			finally:
+				os.close(secrets_descriptor)
+		finally:
+			os.close(sd1_descriptor)
+	finally:
+		os.close(workspace_descriptor)
+	return workspace / SD1_RUNTIME_DIRECTORY / MANIFEST_NAME
+
+
+#============================================
+def emit_sd1_staged_bootstrap(workspace: pathlib.Path) -> None:
+	"""Emit private SQL that binds the bootstrap-created role to its URL secret."""
+	_require_private_platform()
+	workspace = workspace.absolute()
+	workspace_descriptor = _open_private_workspace(workspace)
+	try:
+		sd1_descriptor = _open_private_directory_at(
+			workspace_descriptor, SD1_RUNTIME_DIRECTORY, "SD1 runtime directory"
+		)
+		try:
+			secrets_descriptor = _open_private_directory_at(
+				sd1_descriptor, SECRETS_DIRECTORY, "SD1 secrets directory"
+			)
+			try:
+				password = _url_secret(
+					secrets_descriptor,
+					"postgres-migrator.url",
+					SD1_MIGRATOR_ROLE,
+					"SD1 migrator URL",
+				)
+			finally:
+				os.close(secrets_descriptor)
+		finally:
+			os.close(sd1_descriptor)
+	finally:
+		os.close(workspace_descriptor)
+	print("BEGIN;")
+	print(f"ALTER ROLE {SD1_MIGRATOR_ROLE} PASSWORD '{password}';")
+	print("COMMIT;")
 
 
 #============================================

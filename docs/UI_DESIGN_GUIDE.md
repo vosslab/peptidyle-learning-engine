@@ -144,7 +144,7 @@ accidental activation. Reduced motion and forced-colors preferences remain honor
 Show names and titles first. Never show or announce UUIDs. Application routes and copyable links use
 short typed references: `C-n`, `A-n`, `R-n`, and `W-n`; questions use one `AAA-BBBB` Crockford Base32
 Question ID without a public version suffix. A public reference identifies a resource for a person;
-it never grants access, and the server resolves it within the existing tenant, role, membership, and
+it never grants access, and the server resolves it within the existing course, role, membership, and
 ownership boundary. Assignment import and existing-assignment checklists carry groups of questions;
 direct Question ID entry remains an occasional recovery and communication path.
 

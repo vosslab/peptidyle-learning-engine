@@ -298,7 +298,6 @@ async fn fixture() -> Fixture {
 fn attempt(fixture: &Fixture, issued: IssuedAttemptMetadata) -> QuestionAttempt {
     QuestionAttempt {
         id: QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(7_006)),
-        tenant: fixture.context.tenant_id(),
         run: RunId::from_uuid(uuid::Uuid::from_u128(7_007)),
         problem: fixture.reference.problem,
         question_version: fixture.reference.version,

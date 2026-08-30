@@ -23,6 +23,28 @@ where
     let instructor = UserId::from_uuid(uuid(80_002));
     let student = UserId::from_uuid(uuid(80_003));
     let course = CourseId::from_uuid(uuid(80_004));
+    let instructor_actor = ActorContext::from_session_record(
+        &store
+            .create_session(
+                SessionTokenHash::compute(b"pagination-gradebook-instructor"),
+                SessionSubject::new(instructor, "Pagination instructor", UserRole::Instructor)
+                    .expect("valid instructor session subject"),
+                SessionLifetime::from_seconds(3_600).expect("valid session lifetime"),
+            )
+            .await
+            .expect("pagination instructor session"),
+    );
+    let student_actor = ActorContext::from_session_record(
+        &store
+            .create_session(
+                SessionTokenHash::compute(b"pagination-gradebook-student"),
+                SessionSubject::new(student, "Pagination learner", UserRole::Student)
+                    .expect("valid learner session subject"),
+                SessionLifetime::from_seconds(3_600).expect("valid session lifetime"),
+            )
+            .await
+            .expect("pagination learner session"),
+    );
     let course_creation_authority =
         sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
@@ -112,7 +134,8 @@ where
             "assignment traversal must return every record once at page size {page_size}"
         );
 
-        let gradebook_rows = collect_gradebook_rows(store, context, course, page_size).await;
+        let gradebook_rows =
+            collect_gradebook_rows(store, instructor_actor, course, page_size).await;
         assert_eq!(
             gradebook_rows, expected_gradebook_rows,
             "gradebook traversal must return every record once at page size {page_size}"
@@ -128,11 +151,9 @@ where
         "a foreign tenant cannot discover course assignments"
     );
     assert_eq!(
-        store
-            .list_gradebook_rows(foreign_context, course, page)
-            .await,
-        Err(StoreError::NotFound),
-        "a foreign tenant cannot discover gradebook summaries"
+        store.list_gradebook_rows(student_actor, course, page).await,
+        Err(StoreError::Forbidden),
+        "a Student cannot read another Student's course gradebook"
     );
 }
 
@@ -193,7 +214,7 @@ where
 
 async fn collect_gradebook_rows<S>(
     store: &S,
-    context: TenantContext,
+    actor: ActorContext,
     course: CourseId,
     page_size: u16,
 ) -> BTreeSet<(String, String)>
@@ -209,12 +230,12 @@ where
         let page = match cursor {
             Some(cursor) => {
                 store
-                    .list_gradebook_rows(context, course, PageRequest::after(cursor, size))
+                    .list_gradebook_rows(actor, course, PageRequest::after(cursor, size))
                     .await
             }
             None => {
                 store
-                    .list_gradebook_rows(context, course, PageRequest::first(size))
+                    .list_gradebook_rows(actor, course, PageRequest::first(size))
                     .await
             }
         }

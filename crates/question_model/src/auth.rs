@@ -31,10 +31,10 @@ impl std::fmt::Display for UserId {
     }
 }
 
-/// A coarse application role used for route authorization.
+/// The one immutable global role assigned to an account.
 ///
-/// A user may carry more than one role. Course-specific permissions remain
-/// tenant records and do not become global session roles.
+/// Course-specific permissions remain exact course relationships and do not
+/// become global session roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UserRole {

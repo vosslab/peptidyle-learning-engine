@@ -670,7 +670,6 @@ async fn memory_start_rejects_valid_assignment_bound_to_different_course_without
             CreateCourseCommand {
                 course: CourseRecord {
                     id: asserted_course,
-                    tenant: fixture.context.tenant_id(),
                     title: "Unrelated asserted course".to_string(),
                     term: question_model::CourseTerm::from_parts(
                         "2026-08-24",

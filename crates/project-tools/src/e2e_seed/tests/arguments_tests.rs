@@ -45,9 +45,8 @@ fn parsing_accepts_child_only_database_url() {
 
 #[test]
 fn deterministic_seed_scaffold_keeps_non_question_records_separate() {
-    let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-    let first = SeedIds::fresh_for_tenant(tenant);
-    let second = SeedIds::fresh_for_tenant(tenant);
+    let first = SeedIds::fresh_for_installation();
+    let second = SeedIds::fresh_for_installation();
     assert_eq!(first.assignment, second.assignment);
     assert_ne!(first.problem.as_uuid(), first.version.as_uuid());
     assert_ne!(first.problem, second.problem);

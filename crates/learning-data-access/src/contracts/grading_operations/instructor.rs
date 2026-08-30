@@ -10,14 +10,14 @@ use base64::Engine as _;
 use question_model::{
     ActivityTimestamp, AssignmentId, AssignmentRevision, CourseId, CourseMembershipReference,
     GradingOperationAction, GradingOperationReason, GradingOperationReference,
-    GradingOperationState, QuestionId, ScoringGeneration, TeachingDisplayLabel, TenantId,
+    GradingOperationState, QuestionId, ScoringGeneration, TeachingDisplayLabel,
 };
 
 use super::{
     GradingExecutionGeneration, GradingOperationActionId, GradingOperationReceiptSafeCategory,
     GradingOperationRevision,
 };
-use crate::{Cursor, Page, PageRequest, SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, Cursor, Page, PageRequest, SessionTokenHash, StoreError};
 
 /// Maximum human-confirmed retries for one accepted-submission execution thread.
 ///
@@ -54,7 +54,7 @@ pub enum GradingOperationGroup {
 
 /// Versioned opaque seek cursor for an Instructor operations list.
 ///
-/// The cursor binds its continuation to one tenant, course, assignment, and
+/// The cursor binds its continuation to one course, assignment, and
 /// grouping arrangement, preventing reuse in a different instructional view.
 pub(crate) struct GradingOperationCursor;
 
@@ -68,7 +68,6 @@ impl GradingOperationCursor {
     const VERSION: u8 = 1;
 
     pub(crate) fn encode(
-        tenant: TenantId,
         course: CourseId,
         assignment: AssignmentId,
         group_by: GradingOperationGroupBy,
@@ -82,9 +81,8 @@ impl GradingOperationCursor {
         };
         let key_bytes = group_key.as_bytes();
         let key_len = u16::try_from(key_bytes.len()).expect("bounded group key fits cursor");
-        let mut wire = Vec::with_capacity(56 + key_bytes.len());
+        let mut wire = Vec::with_capacity(40 + key_bytes.len());
         wire.extend_from_slice(&[Self::VERSION, mode]);
-        wire.extend_from_slice(tenant.as_uuid().as_bytes());
         wire.extend_from_slice(course.as_uuid().as_bytes());
         wire.extend_from_slice(assignment.as_uuid().as_bytes());
         wire.extend_from_slice(&key_len.to_be_bytes());
@@ -95,7 +93,6 @@ impl GradingOperationCursor {
 
     pub(crate) fn decode(
         cursor: &Cursor,
-        tenant: TenantId,
         course: CourseId,
         assignment: AssignmentId,
         group_by: GradingOperationGroupBy,
@@ -105,7 +102,7 @@ impl GradingOperationCursor {
             .map_err(|_| {
                 StoreError::InvalidRecord("invalid grading operation cursor".to_string())
             })?;
-        if wire.len() < 56 || wire[0] != Self::VERSION {
+        if wire.len() < 40 || wire[0] != Self::VERSION {
             return Err(StoreError::InvalidRecord(
                 "invalid grading operation cursor".to_string(),
             ));
@@ -117,22 +114,21 @@ impl GradingOperationCursor {
         if wire[1] != expected_mode {
             return Err(StoreError::Conflict);
         }
-        if wire[2..18] != *tenant.as_uuid().as_bytes()
-            || wire[18..34] != *course.as_uuid().as_bytes()
-            || wire[34..50] != *assignment.as_uuid().as_bytes()
+        if wire[2..18] != *course.as_uuid().as_bytes()
+            || wire[18..34] != *assignment.as_uuid().as_bytes()
         {
             return Err(StoreError::Conflict);
         }
-        let key_len = usize::from(u16::from_be_bytes([wire[50], wire[51]]));
-        if wire.len() != 56 + key_len {
+        let key_len = usize::from(u16::from_be_bytes([wire[34], wire[35]]));
+        if wire.len() != 40 + key_len {
             return Err(StoreError::InvalidRecord(
                 "invalid grading operation cursor".to_string(),
             ));
         }
-        let group_key = std::str::from_utf8(&wire[52..52 + key_len])
+        let group_key = std::str::from_utf8(&wire[36..36 + key_len])
             .map_err(|_| StoreError::InvalidRecord("invalid grading operation cursor".to_string()))?
             .to_string();
-        let offset = 52 + key_len;
+        let offset = 36 + key_len;
         let operation = GradingOperationReference::new(u64::from(u32::from_be_bytes([
             wire[offset],
             wire[offset + 1],
@@ -194,7 +190,6 @@ pub struct InstructorGradingOperationRow {
 /// witness for the store's transaction-time authority check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListInstructorGradingOperationsCommand {
-    pub tenant: TenantId,
     pub session: SessionTokenHash,
     pub course: CourseId,
     pub assignment: AssignmentId,
@@ -208,7 +203,6 @@ pub struct ListInstructorGradingOperationsCommand {
 /// state lock, so a stale recovery request cannot replace newer work.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RetryGradingOperationCommand {
-    pub tenant: TenantId,
     pub session: SessionTokenHash,
     pub course: CourseId,
     pub assignment: AssignmentId,
@@ -220,7 +214,6 @@ pub struct RetryGradingOperationCommand {
 /// Assignment recalculation request assembled from route and header evidence.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecalculateAssignmentCommand {
-    pub tenant: TenantId,
     pub session: SessionTokenHash,
     pub course: CourseId,
     pub assignment: AssignmentId,
@@ -260,19 +253,19 @@ pub enum GradingOperationActionReceipt {
 pub trait GradingOperationStore: Send + Sync {
     async fn list_instructor_grading_operations(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ListInstructorGradingOperationsCommand,
     ) -> Result<Page<InstructorGradingOperationRow>, StoreError>;
 
     async fn retry_instructor_grading_operation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RetryGradingOperationCommand,
     ) -> Result<GradingOperationActionReceipt, StoreError>;
 
     async fn recalculate_instructor_assignment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RecalculateAssignmentCommand,
     ) -> Result<GradingOperationActionReceipt, StoreError>;
 }

@@ -1,5 +1,6 @@
 //! Memory implementation of the identity-free T3 preview plane.
 
+use crate::ActorContext;
 use async_trait::async_trait;
 use domain::effective_assignment_policy::{
     AuthorizationGate, HypotheticalIndividualPolicyException, PolicyModificationMode, PolicyPatch,
@@ -25,24 +26,20 @@ use super::*;
 impl crate::PoolPreviewStore for MemoryStore {
     async fn preview_pool_draw(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: crate::PoolPreviewCommand,
     ) -> Result<question_model::PoolDrawPreview, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
+        (context.user_id() == command.actor)
+            .then_some(())
+            .ok_or(StoreError::NotFound)?;
         super::teaching_authority::require_direct_instructor(
             &state,
-            tenant,
             command.course,
             command.actor,
         )?;
-        let (assignment_id, assignment) = preview_assignment(
-            &state,
-            tenant,
-            command.course,
-            command.assignment,
-            command.revision,
-        )?;
+        let (assignment_id, assignment) =
+            preview_assignment(&state, command.course, command.assignment, command.revision)?;
         let group = assignment
             .selection_groups
             .iter()
@@ -92,7 +89,7 @@ impl crate::PoolPreviewStore for MemoryStore {
 impl crate::PreviewPlaneStore for MemoryStore {
     async fn list_instructor_preview_schedule(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         assignment_ref: question_model::AssignmentReference,
@@ -100,14 +97,14 @@ impl crate::PreviewPlaneStore for MemoryStore {
         page: crate::PageRequest,
     ) -> Result<InstructorPreviewSchedulePage, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
-        let (assignment, record) =
-            preview_assignment(&state, tenant, course, assignment_ref, revision)?;
+        (context.user_id() == actor)
+            .then_some(())
+            .ok_or(StoreError::NotFound)?;
+        super::teaching_authority::require_direct_instructor(&state, course, actor)?;
+        let (assignment, record) = preview_assignment(&state, course, assignment_ref, revision)?;
         let mut rows = Vec::new();
         for membership in state.course_memberships.values().filter(|value| {
-            value.tenant == tenant
-                && value.course == course
+            value.course == course
                 && value.status == crate::CourseMemberStatus::Active
                 && value.role == CourseMembershipRole::Student
         }) {
@@ -118,30 +115,24 @@ impl crate::PreviewPlaneStore for MemoryStore {
             })?;
             let reference = state
                 .course_membership_references
-                .get(&(tenant, membership.id))
+                .get(&membership.id)
                 .copied()
                 .ok_or(StoreError::NotFound)?;
             let display = state
                 .roster_profiles
-                .get(&(tenant, course, membership.id))
+                .get(&(course, membership.id))
                 .and_then(|profile| {
                     question_model::TeachingDisplayLabel::try_from(profile.display_name.clone())
                         .ok()
                 })
                 .ok_or(StoreError::NotFound)?;
-            let entitlement = super::entitlement::evaluate_locked(
-                &state,
-                tenant,
-                membership.user,
-                course,
-                assignment,
-            )?;
+            let entitlement =
+                super::entitlement::evaluate_locked(&state, membership.user, course, assignment)?;
             match entitlement {
                 domain::entitlement::EntitlementDecision::Granted(grant) => {
-                    let prior = completed_run_count(&state, tenant, assignment, student)?;
+                    let prior = completed_run_count(&state, assignment, student)?;
                     let policy = super::course_policy::resolve_granted_memory_effective_policy(
                         &state,
-                        tenant,
                         record,
                         grant.clone(),
                         prior,
@@ -159,11 +150,7 @@ impl crate::PreviewPlaneStore for MemoryStore {
                                 entitlement: grant_reason(grant.basis()),
                                 schedule: domain::preview_plane::project_preview_schedule(
                                     &policy,
-                                    &state
-                                        .courses
-                                        .get(&(tenant, course))
-                                        .ok_or(StoreError::NotFound)?
-                                        .term,
+                                    &state.courses.get(&course).ok_or(StoreError::NotFound)?.term,
                                 )
                                 .map_err(local_error)?,
                             },
@@ -199,30 +186,33 @@ impl crate::PreviewPlaneStore for MemoryStore {
 
     async fn construct_synthetic_preview(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         request: SyntheticPreviewSubjectRequest,
     ) -> Result<crate::PreviewPlaneResult, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
-        resolve_synthetic_preview_locked(&state, tenant, course, request)
+        (context.user_id() == actor)
+            .then_some(())
+            .ok_or(StoreError::NotFound)?;
+        super::teaching_authority::require_direct_instructor(&state, course, actor)?;
+        resolve_synthetic_preview_locked(&state, course, request)
     }
 
     async fn construct_derived_preview(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         request: DerivedPreviewSubjectRequest,
     ) -> Result<crate::PreviewPlaneResult, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        (context.user_id() == actor)
+            .then_some(())
+            .ok_or(StoreError::NotFound)?;
+        super::teaching_authority::require_direct_instructor(&state, course, actor)?;
         let result = resolve_derived_preview_locked(
             &state,
-            tenant,
             course,
             request.assignment,
             request.revision,
@@ -232,7 +222,7 @@ impl crate::PreviewPlaneStore for MemoryStore {
         if matches!(result.evaluation, PreviewEvaluation::Allowed { .. }) {
             let assignment_id = state
                 .assignments_by_reference
-                .get(&(tenant, request.assignment))
+                .get(&request.assignment)
                 .copied()
                 .ok_or(StoreError::NotFound)?;
             let payload = format!(
@@ -241,13 +231,12 @@ impl crate::PreviewPlaneStore for MemoryStore {
             );
             let membership_id = state
                 .course_memberships_by_reference
-                .get(&(tenant, request.membership))
+                .get(&request.membership)
                 .copied()
                 .ok_or(StoreError::NotFound)?;
             state
                 .preview_subject_audits
                 .push(crate::PreviewSubjectAudit {
-                    tenant,
                     actor,
                     course,
                     assignment: request.assignment,
@@ -267,17 +256,12 @@ fn pool_preview_group_label(position: u32) -> String {
 
 pub(super) fn resolve_synthetic_preview_locked(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     request: SyntheticPreviewSubjectRequest,
 ) -> Result<crate::PreviewPlaneResult, StoreError> {
     let (assignment, record) =
-        preview_assignment(state, tenant, course, request.assignment, request.revision)?;
-    let term = &state
-        .courses
-        .get(&(tenant, course))
-        .ok_or(StoreError::NotFound)?
-        .term;
+        preview_assignment(state, course, request.assignment, request.revision)?;
+    let term = &state.courses.get(&course).ok_or(StoreError::NotFound)?.term;
     let now = selected_moment(&request.selected_moment, term)?;
     let groups = request
         .groups
@@ -286,12 +270,12 @@ pub(super) fn resolve_synthetic_preview_locked(
         .map(|reference| {
             let id = state
                 .course_groups_by_reference
-                .get(&(tenant, *reference))
+                .get(reference)
                 .copied()
                 .ok_or(StoreError::NotFound)?;
             let group = state
                 .course_groups
-                .get(&(tenant, id))
+                .get(&id)
                 .filter(|group| group.course == course)
                 .ok_or(StoreError::NotFound)?;
             Ok((id, group.purpose))
@@ -299,13 +283,12 @@ pub(super) fn resolve_synthetic_preview_locked(
         .collect::<Result<Vec<_>, StoreError>>()?;
     let entitlement =
         evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
-            tenant,
             course,
             assignment,
             record.audience.clone(),
             groups.clone(),
         ));
-    let inputs = synthetic_inputs(state, tenant, assignment, &groups)?;
+    let inputs = synthetic_inputs(state, assignment, &groups)?;
     let entitlement_reason = match &entitlement {
         domain::entitlement::SyntheticPreviewEntitlementDecision::Granted(grant) => {
             grant_reason(grant.basis())
@@ -356,41 +339,38 @@ pub(super) fn resolve_synthetic_preview_locked(
 
 pub(super) fn resolve_derived_preview_locked(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     assignment_ref: question_model::AssignmentReference,
     revision: TeachingOperationRevision,
     membership_ref: question_model::CourseMembershipReference,
     selected_moment_value: question_model::PreviewSelectedMoment,
 ) -> Result<crate::PreviewPlaneResult, StoreError> {
-    let (assignment, record) = preview_assignment(state, tenant, course, assignment_ref, revision)?;
+    let (assignment, record) = preview_assignment(state, course, assignment_ref, revision)?;
     let term = state
         .courses
-        .get(&(tenant, course))
+        .get(&course)
         .ok_or(StoreError::NotFound)?
         .term
         .clone();
     let now = selected_moment(&selected_moment_value, &term)?;
     let membership_id = state
         .course_memberships_by_reference
-        .get(&(tenant, membership_ref))
+        .get(&membership_ref)
         .copied()
         .ok_or(StoreError::NotFound)?;
-    let membership = super::entitlement::active_membership_by_id(state, tenant, membership_id)
+    let membership = super::entitlement::active_membership_by_id(state, membership_id)
         .filter(|value| value.course == course && value.role == CourseMembershipRole::Student)
         .ok_or(StoreError::NotFound)?;
     let student_user = membership.user;
     let student = membership.student.ok_or(StoreError::NotFound)?;
-    let groups = current_groups(state, tenant, course, membership_id);
-    let entitlement =
-        super::entitlement::evaluate_locked(state, tenant, student_user, course, assignment)?;
+    let groups = current_groups(state, course, membership_id);
+    let entitlement = super::entitlement::evaluate_locked(state, student_user, course, assignment)?;
     let domain::entitlement::EntitlementDecision::Granted(grant) = entitlement else {
         return Ok(denied(question_model::PreviewDenialReason::NotEntitled));
     };
-    let prior = completed_run_count(state, tenant, assignment, student)?;
-    let inputs = super::course_policy::memory_effective_policy_inputs_for_grant(
-        state, tenant, assignment, &grant,
-    )?;
+    let prior = completed_run_count(state, assignment, student)?;
+    let inputs =
+        super::course_policy::memory_effective_policy_inputs_for_grant(state, assignment, &grant)?;
     let before = resolve_effective_policy(ResolveEffectivePolicyInput {
         lifecycle: assignment_lifecycle_gate(record.lifecycle),
         entitlement: domain::entitlement::EntitlementDecision::Granted(grant.clone()),
@@ -414,7 +394,7 @@ pub(super) fn resolve_derived_preview_locked(
         group_accommodations: inputs.accommodations,
         individual_exception: state
             .assignment_individual_policy_exceptions
-            .get(&(tenant, assignment, student))
+            .get(&(assignment, student))
             .map(|value| value.exception),
     })
     .map_err(policy_error)?;
@@ -437,24 +417,23 @@ pub(super) fn resolve_derived_preview_locked(
 
 fn preview_assignment(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     reference: question_model::AssignmentReference,
     revision: TeachingOperationRevision,
 ) -> Result<(AssignmentId, &AssignmentRecord), StoreError> {
     let assignment = state
         .assignments_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .copied()
         .ok_or(StoreError::NotFound)?;
     let record = state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .filter(|value| value.course_id == course)
         .ok_or(StoreError::NotFound)?;
     let current = state
         .assignment_revisions
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .copied()
         .ok_or(StoreError::NotFound)?;
     (current.value() == revision.value())
@@ -483,7 +462,6 @@ fn policy_error(error: domain::effective_assignment_policy::EffectivePolicyError
 }
 fn completed_run_count(
     state: &State,
-    tenant: TenantId,
     assignment: AssignmentId,
     student: StudentId,
 ) -> Result<u32, StoreError> {
@@ -492,11 +470,10 @@ fn completed_run_count(
             .runs
             .values()
             .filter(|run| {
-                run.tenant == tenant
-                    && run.completed_at.is_some()
+                run.completed_at.is_some()
                     && state
                         .enrollments
-                        .get(&(tenant, run.enrollment))
+                        .get(&run.enrollment)
                         .is_some_and(|enrollment| {
                             enrollment.assignment == assignment && enrollment.student == student
                         })
@@ -507,30 +484,26 @@ fn completed_run_count(
 }
 fn current_groups(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     membership: CourseMembershipId,
 ) -> Vec<(CourseGroupId, question_model::CourseGroupPurpose)> {
     state
         .course_groups
         .iter()
-        .filter_map(|((entry_tenant, id), group)| {
-            (*entry_tenant == tenant
-                && group.course == course
-                && group.members.contains(&membership))
-            .then_some((*id, group.purpose))
+        .filter_map(|(id, group)| {
+            (group.course == course && group.members.contains(&membership))
+                .then_some((*id, group.purpose))
         })
         .collect()
 }
 fn synthetic_inputs(
     state: &State,
-    tenant: TenantId,
     assignment: AssignmentId,
     groups: &[(CourseGroupId, question_model::CourseGroupPurpose)],
 ) -> Result<crate::EffectivePolicyInputs, StoreError> {
     let base = state
         .assignment_base_policy
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?
         .policy;
     let ids = groups
@@ -542,17 +515,15 @@ fn synthetic_inputs(
         schedule_offsets: state
             .assignment_group_schedule_offsets
             .iter()
-            .filter_map(|((entry_tenant, entry_assignment, group), value)| {
-                (*entry_tenant == tenant && *entry_assignment == assignment && ids.contains(group))
-                    .then_some(*value)
+            .filter_map(|((entry_assignment, group), value)| {
+                (*entry_assignment == assignment && ids.contains(group)).then_some(*value)
             })
             .collect(),
         accommodations: state
             .assignment_group_accommodations
             .iter()
-            .filter_map(|((entry_tenant, entry_assignment, group), value)| {
-                (*entry_tenant == tenant && *entry_assignment == assignment && ids.contains(group))
-                    .then_some(*value)
+            .filter_map(|((entry_assignment, group), value)| {
+                (*entry_assignment == assignment && ids.contains(group)).then_some(*value)
             })
             .collect(),
         individual: None,

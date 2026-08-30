@@ -11,9 +11,9 @@ use async_trait::async_trait;
 use learning_data_access::{
     CommitPreparedQtiImport, CommitPreparedQtiImportOutcome, CreateQtiImportCommand,
     FlatImportIntegrityDigests, FlatImportProvenanceStore, JobFailureKind, JobPayload,
-    QtiImportGradingPayload, QtiImportItem, QtiImportItemRegistration, QtiImportItemResult,
-    QtiImportItemStatus, QtiImportProfileSummary, QtiImportRef, QtiImportRegistry, QtiImportStore,
-    QtiProfileImportEvidence, QtiUnsupportedFeature, StoreError, TenantContext,
+    PrepareClaimedQtiImport, QtiImportGradingPayload, QtiImportItem, QtiImportItemRegistration,
+    QtiImportItemResult, QtiImportItemStatus, QtiImportProfileSummary, QtiImportRef,
+    QtiImportRegistry, QtiImportStore, QtiProfileImportEvidence, QtiUnsupportedFeature, StoreError,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError, PutObject, Sha256Digest};
 use question_model::{AssetId, ObjectId, response::ChoiceId};
@@ -72,7 +72,6 @@ where
 {
     async fn prepare(
         &self,
-        context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
@@ -84,9 +83,7 @@ where
         else {
             return Err(JobFailureKind::Permanent);
         };
-        let tenant = context.tenant_id();
         let source_key = ObjectKey::WorkspaceSource {
-            tenant,
             workspace,
             import,
             object: source_object,
@@ -112,11 +109,7 @@ where
             prepare_qti_profile_package(&source.bytes, adapter_qti::QtiImportLimits::default())
                 .map_err(|_| JobFailureKind::Permanent)?
         {
-            let reference = QtiImportRef {
-                tenant,
-                workspace,
-                import,
-            };
+            let reference = QtiImportRef { workspace, import };
             let profile = profile_package.profile();
             let profile_summary = QtiImportProfileSummary::new(
                 profile,
@@ -188,13 +181,17 @@ where
                 unsupported_features: Vec::new(),
             };
             self.store
-                .prepare_qti_import(
-                    context,
-                    CreateQtiImportCommand {
+                .prepare_claimed_qti_import(PrepareClaimedQtiImport {
+                    job: execution.claim().expect("validated worker claim").job_id(),
+                    lease: execution
+                        .claim()
+                        .expect("validated worker claim")
+                        .lease_token(),
+                    command: CreateQtiImportCommand {
                         registry,
                         item_bindings,
                     },
-                )
+                })
                 .await
                 .map_err(store_failure)?;
             for evidence in evidences {
@@ -204,7 +201,6 @@ where
                     .map_err(store_failure)?;
             }
             return Ok(PreparedJobEffect::QtiImport {
-                tenant,
                 workspace,
                 import,
                 source_object,
@@ -228,7 +224,6 @@ where
             }
             let object = staged_asset_object(import, asset.worker_asset_id());
             let key = ObjectKey::WorkspaceAsset {
-                tenant,
                 workspace,
                 import,
                 asset: asset.worker_asset_id(),
@@ -294,11 +289,7 @@ where
             });
         }
         let registry = QtiImportRegistry {
-            reference: QtiImportRef {
-                tenant,
-                workspace,
-                import,
-            },
+            reference: QtiImportRef { workspace, import },
             source: source.record,
             source_format: "qti".to_string(),
             source_identifier: package.manifest.identifier.clone(),
@@ -347,17 +338,20 @@ where
                 .collect(),
         };
         self.store
-            .prepare_qti_import(
-                context,
-                CreateQtiImportCommand {
+            .prepare_claimed_qti_import(PrepareClaimedQtiImport {
+                job: execution.claim().expect("validated worker claim").job_id(),
+                lease: execution
+                    .claim()
+                    .expect("validated worker claim")
+                    .lease_token(),
+                command: CreateQtiImportCommand {
                     registry,
                     item_bindings,
                 },
-            )
+            })
             .await
             .map_err(store_failure)?;
         Ok(PreparedJobEffect::QtiImport {
-            tenant,
             workspace,
             import,
             source_object,
@@ -454,7 +448,6 @@ mod tests {
 
     async fn source(
         objects: &MemoryObjectStore,
-        tenant: TenantId,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
         object: ObjectId,
@@ -463,7 +456,6 @@ mod tests {
         objects
             .put(PutObject {
                 key: ObjectKey::WorkspaceSource {
-                    tenant,
                     workspace,
                     import,
                     object,
@@ -485,7 +477,6 @@ mod tests {
                 UserId::from_uuid(id(900)),
                 None,
                 DraftRecord {
-                    tenant,
                     question: DraftQuestionDefinition {
                         workspace,
                         source: DraftQuestionSource::Qti {
@@ -535,7 +526,7 @@ mod tests {
         let store = Arc::new(MemoryStore::default());
         save_workspace(store.as_ref(), tenant, workspace).await;
         let objects = Arc::new(MemoryObjectStore::default());
-        source(objects.as_ref(), tenant, workspace, import, object, bytes).await;
+        source(objects.as_ref(), workspace, import, object, bytes).await;
         let handler = QtiImportHandler::new(Arc::clone(&store), Arc::clone(&objects));
         let _committer = QtiImportCommitter::new(Arc::clone(&store));
         let payload = JobPayload::QtiImport {
@@ -564,7 +555,6 @@ mod tests {
             .enqueue_job(
                 context,
                 EnqueueJob {
-                    tenant,
                     payload: JobPayload::QtiImport {
                         workspace,
                         import,
@@ -591,11 +581,7 @@ mod tests {
                     CommitPreparedQtiImport {
                         job,
                         lease: claim.lease_token,
-                        reference: QtiImportRef {
-                            tenant,
-                            workspace,
-                            import,
-                        },
+                        reference: QtiImportRef { workspace, import },
                         source_object: object,
                     },
                 )
@@ -647,7 +633,7 @@ mod tests {
         let store = Arc::new(store);
         save_workspace(store.as_ref(), tenant, workspace).await;
         let objects = Arc::new(MemoryObjectStore::default());
-        source(objects.as_ref(), tenant, workspace, import, object, bytes).await;
+        source(objects.as_ref(), workspace, import, object, bytes).await;
         let handler = QtiImportHandler::new(Arc::clone(&store), objects);
         let payload = JobPayload::QtiImport {
             workspace,
@@ -676,7 +662,6 @@ mod tests {
             .enqueue_job(
                 context,
                 EnqueueJob {
-                    tenant,
                     payload,
                     max_attempts: 1,
                 },
@@ -699,11 +684,7 @@ mod tests {
                     CommitPreparedQtiImport {
                         job,
                         lease: claim.lease_token,
-                        reference: QtiImportRef {
-                            tenant,
-                            workspace,
-                            import,
-                        },
+                        reference: QtiImportRef { workspace, import },
                         source_object: object,
                     },
                 )
@@ -775,7 +756,7 @@ mod tests {
         let store = Arc::new(MemoryStore::default());
         save_workspace(store.as_ref(), tenant, workspace).await;
         let objects = Arc::new(MemoryObjectStore::default());
-        source(objects.as_ref(), tenant, workspace, import, object, bytes).await;
+        source(objects.as_ref(), workspace, import, object, bytes).await;
         let handler = QtiImportHandler::new(Arc::clone(&store), objects);
         let payload = JobPayload::QtiImport {
             workspace,
@@ -798,7 +779,6 @@ mod tests {
             .enqueue_job(
                 context,
                 EnqueueJob {
-                    tenant,
                     payload,
                     max_attempts: 1,
                 },
@@ -821,11 +801,7 @@ mod tests {
                     CommitPreparedQtiImport {
                         job,
                         lease: claim.lease_token,
-                        reference: QtiImportRef {
-                            tenant,
-                            workspace,
-                            import,
-                        },
+                        reference: QtiImportRef { workspace, import },
                         source_object: object,
                     },
                 )
@@ -861,7 +837,6 @@ mod tests {
         let objects = Arc::new(MemoryObjectStore::default());
         source(
             objects.as_ref(),
-            tenant,
             workspace,
             import,
             object,
@@ -921,7 +896,6 @@ where
         effect: PreparedJobEffect,
     ) -> Result<EffectCommitOutcome, StoreError> {
         let PreparedJobEffect::QtiImport {
-            tenant,
             workspace,
             import,
             source_object,
@@ -933,19 +907,12 @@ where
         };
         match self
             .store
-            .commit_prepared_qti_import(
-                TenantContext::from_authenticated_session(tenant),
-                CommitPreparedQtiImport {
-                    job: claim.job_id(),
-                    lease: claim.lease_token(),
-                    reference: QtiImportRef {
-                        tenant,
-                        workspace,
-                        import,
-                    },
-                    source_object,
-                },
-            )
+            .commit_prepared_qti_import(CommitPreparedQtiImport {
+                job: claim.job_id(),
+                lease: claim.lease_token(),
+                reference: QtiImportRef { workspace, import },
+                source_object,
+            })
             .await?
         {
             CommitPreparedQtiImportOutcome::Committed => Ok(EffectCommitOutcome::Committed),

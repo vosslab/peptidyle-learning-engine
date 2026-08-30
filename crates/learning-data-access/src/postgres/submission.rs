@@ -114,7 +114,7 @@ pub(super) async fn apply_postgres_attempt_support(
     let run = load_run_for_update(transaction, tenant, previous.run).await?;
     let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
     let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
-    if !postgres_is_course_instructor(transaction, tenant, assignment.course_id, actor).await? {
+    if !postgres_is_course_instructor(transaction, assignment.course_id, actor).await? {
         return Err(StoreError::NotFound);
     }
 
@@ -161,7 +161,6 @@ pub(super) async fn apply_postgres_attempt_support(
             return Err(StoreError::Conflict);
         }
         return Ok(AttemptSupportRecord {
-            tenant,
             action: action_id,
             actor,
             attempt: attempt_id,
@@ -270,7 +269,6 @@ pub(super) async fn apply_postgres_attempt_support(
         .await?;
     }
     Ok(AttemptSupportRecord {
-        tenant,
         action: action_id,
         actor,
         attempt: attempt_id,
@@ -839,7 +837,6 @@ mod tests {
     fn receipt_attempt_snapshot_is_answer_free_but_retains_grade_and_timing() {
         let attempt = QuestionAttempt {
             id: QuestionAttemptId::from_uuid(Uuid::from_u128(1)),
-            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             run: RunId::from_uuid(Uuid::from_u128(3)),
             problem: ProblemId::from_uuid(Uuid::from_u128(4)),
             question_version: VersionId::from_uuid(Uuid::from_u128(5)),

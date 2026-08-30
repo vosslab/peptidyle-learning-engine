@@ -8,8 +8,6 @@ WP-RC8 package acceptance.
 
 ## Evidence
 
-- The corrected workstream lists six focused commands and says that all six
-  passed ([wp_rc8_production_account_composition.md](../workstreams/wp_rc8_production_account_composition.md):35).
 - The route map matches the accepted Rust split: production has the
   provider-free passwordless/account/session graph and no legacy login route;
   the exact local-development mode supplies the legacy route

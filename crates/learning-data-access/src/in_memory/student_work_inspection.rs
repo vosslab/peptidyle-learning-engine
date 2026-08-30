@@ -9,48 +9,47 @@ use question_model::{
 
 use super::{MemoryStore, State};
 use crate::{
-    CourseMemberStatus, InspectStudentWorkRequest, InspectedStudentSubmissionV1,
+    ActorContext, CourseMemberStatus, InspectStudentWorkRequest, InspectedStudentSubmissionV1,
     InspectedStudentWorkDetailV1, InspectedSubmissionEvidenceV1, SessionTokenHash, StoreError,
     StudentWorkInspectionAudit, StudentWorkInspectionAuditIntent,
     StudentWorkInspectionEvidenceWitness, StudentWorkInspectionRecordAccess,
     StudentWorkInspectionReturnContext, StudentWorkInspectionStore,
-    StudentWorkInspectionSubmissionWitness, SubmissionReceiptRead, TenantContext,
+    StudentWorkInspectionSubmissionWitness, SubmissionReceiptRead,
 };
 
 #[async_trait]
 impl StudentWorkInspectionStore for MemoryStore {
     async fn inspect_student_work(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         request: InspectStudentWorkRequest,
     ) -> Result<InspectedStudentWorkDetailV1, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        let course = resolve_course(&state, tenant, request.course)?;
-        super::require_course_records_accessible(&state, tenant, course)?;
+        let course = resolve_course(&state, request.course)?;
+        super::require_course_records_accessible(&state, course)?;
         let actor =
             super::course_roster::require_course_instructor(&state, context, session, course)
                 .map_err(conceal)?;
-        let assignment = resolve_assignment(&state, tenant, request.assignment, course)?;
-        let membership = resolve_student_membership(&state, tenant, request.membership, course)?;
-        let run = resolve_run(&state, tenant, request.run, assignment, membership)?;
+        let assignment = resolve_assignment(&state, request.assignment, course)?;
+        let membership = resolve_student_membership(&state, request.membership, course)?;
+        let run = resolve_run(&state, request.run, assignment, membership)?;
         let student_display_label = state
             .roster_profiles
-            .get(&(tenant, course, membership))
+            .get(&(course, membership))
             .map(|profile| TeachingDisplayLabel::try_from(profile.display_name.clone()))
             .transpose()
             .map_err(|_| StoreError::NotFound)?
             .ok_or(StoreError::NotFound)?;
         let assignment_title = state
             .assignments
-            .get(&(tenant, assignment))
+            .get(&assignment)
             .filter(|record| record.course_id == course)
             .map(|record| record.title.clone())
             .ok_or(StoreError::NotFound)?;
         if state
             .runs
-            .get(&(tenant, run))
+            .get(&run)
             .is_none_or(|record| record.completion_status() != RunCompletionStatus::Completed)
         {
             return Err(StoreError::NotFound);
@@ -64,22 +63,15 @@ impl StudentWorkInspectionStore for MemoryStore {
 
         let (scoring_generation, scoring_status) = state
             .assignment_scoring
-            .get(&(tenant, assignment))
+            .get(&assignment)
             .copied()
             .ok_or(StoreError::NotFound)?;
         let mut submissions = state
             .attempts
             .values()
-            .filter(|attempt| attempt.tenant == tenant && attempt.run == run)
+            .filter(|attempt| attempt.run == run)
             .map(|attempt| {
-                inspect_attempt(
-                    &state,
-                    tenant,
-                    attempt.id,
-                    run,
-                    scoring_generation,
-                    scoring_status,
-                )
+                inspect_attempt(&state, attempt.id, run, scoring_generation, scoring_status)
             })
             .collect::<Result<Vec<_>, _>>()?;
         submissions.sort_by_key(|submission| {
@@ -121,7 +113,6 @@ impl StudentWorkInspectionStore for MemoryStore {
                 actor,
                 intent: StudentWorkInspectionAuditIntent::GradebookInspection,
                 occurred_at,
-                tenant,
                 course,
                 membership,
                 assignment,
@@ -136,7 +127,6 @@ impl StudentWorkInspectionStore for MemoryStore {
                 actor,
                 intent: StudentWorkInspectionAuditIntent::GradebookInspection,
                 occurred_at,
-                tenant,
                 course,
                 membership,
                 assignment,
@@ -172,30 +162,28 @@ fn inspection_submission_order_key(
 
 fn resolve_course(
     state: &State,
-    tenant: question_model::TenantId,
     reference: question_model::CourseReference,
 ) -> Result<question_model::CourseId, StoreError> {
     state
         .courses_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .copied()
         .ok_or(StoreError::NotFound)
 }
 
 fn resolve_assignment(
     state: &State,
-    tenant: question_model::TenantId,
     reference: question_model::AssignmentReference,
     course: question_model::CourseId,
 ) -> Result<question_model::AssignmentId, StoreError> {
     let assignment = state
         .assignments_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .copied()
         .ok_or(StoreError::NotFound)?;
     state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .filter(|record| record.course_id == course)
         .map(|_| assignment)
         .ok_or(StoreError::NotFound)
@@ -203,18 +191,17 @@ fn resolve_assignment(
 
 fn resolve_student_membership(
     state: &State,
-    tenant: question_model::TenantId,
     reference: question_model::CourseMembershipReference,
     course: question_model::CourseId,
 ) -> Result<question_model::CourseMembershipId, StoreError> {
     let membership = state
         .course_memberships_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .copied()
         .ok_or(StoreError::NotFound)?;
     state
         .course_memberships
-        .get(&(tenant, membership))
+        .get(&membership)
         .filter(|record| {
             record.course == course
                 && record.role == CourseMembershipRole::Student
@@ -226,24 +213,23 @@ fn resolve_student_membership(
 
 fn resolve_run(
     state: &State,
-    tenant: question_model::TenantId,
     reference: question_model::RunReference,
     assignment: question_model::AssignmentId,
     membership: question_model::CourseMembershipId,
 ) -> Result<question_model::RunId, StoreError> {
     let run = state
         .runs_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .copied()
         .ok_or(StoreError::NotFound)?;
-    let record = state.runs.get(&(tenant, run)).ok_or(StoreError::NotFound)?;
+    let record = state.runs.get(&run).ok_or(StoreError::NotFound)?;
     let enrollment = state
         .enrollments
-        .get(&(tenant, record.enrollment))
+        .get(&record.enrollment)
         .ok_or(StoreError::NotFound)?;
     let materialization = state
         .entitlement_materializations
-        .get(&(tenant, enrollment.id))
+        .get(&enrollment.id)
         .ok_or(StoreError::NotFound)?;
     (enrollment.assignment == assignment && materialization.membership == membership)
         .then_some(run)
@@ -303,7 +289,6 @@ fn validate_return_context(
 
 fn inspect_attempt(
     state: &State,
-    tenant: question_model::TenantId,
     attempt_id: question_model::QuestionAttemptId,
     run: question_model::RunId,
     scoring_generation: question_model::ScoringGeneration,
@@ -311,13 +296,13 @@ fn inspect_attempt(
 ) -> Result<InspectedStudentSubmissionV1, StoreError> {
     let attempt = state
         .attempts
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .ok_or(StoreError::NotFound)?;
     // This is the sole completed-receipt reader. It verifies the immutable
     // issued snapshot, reconstructs the current disclosure input, and never
     // substitutes mutable catalog state for the receipt evidence.
     let SubmissionReceiptRead::Completed(receipt) =
-        super::runs::load_submission_record(state, tenant, attempt).map_err(conceal)?
+        super::runs::load_submission_record(state, attempt).map_err(conceal)?
     else {
         return Err(StoreError::NotFound);
     };
@@ -326,10 +311,9 @@ fn inspect_attempt(
         .timer
         .submitted_at
         .ok_or(StoreError::NotFound)?;
-    let private_response = super::private_submission::load_verified_private_submission_response(
-        state, tenant, attempt_id,
-    )
-    .map_err(conceal)?;
+    let private_response =
+        super::private_submission::load_verified_private_submission_response(state, attempt_id)
+            .map_err(conceal)?;
     if receipt.attempt.id != attempt_id || receipt.run.id != run {
         return Err(StoreError::NotFound);
     }
@@ -337,11 +321,11 @@ fn inspect_attempt(
         Some(snapshot) => {
             let envelope = state
                 .attempt_grading_envelopes
-                .get(&(tenant, attempt_id))
+                .get(&attempt_id)
                 .ok_or(StoreError::NotFound)?;
             let binding = state
                 .attempt_presentations
-                .get(&(tenant, attempt_id))
+                .get(&attempt_id)
                 .copied()
                 .ok_or(StoreError::NotFound)?;
             let presentation = presentation::reproduce_presentation_v1(

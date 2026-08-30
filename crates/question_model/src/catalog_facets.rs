@@ -88,7 +88,7 @@ impl From<&ResponseDefinition> for CatalogResponseFamily {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CatalogUsedInMyCourses {
-    /// Include every tenant-visible publication regardless of current actor use.
+    /// Include every published item regardless of current actor use.
     #[default]
     Any,
     /// Include only publications used in at least one course visible to the actor.
@@ -102,7 +102,7 @@ pub enum CatalogUsedInMyCourses {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CatalogAuthorship {
-    /// Include every tenant-visible publication regardless of authorship.
+    /// Include every published item regardless of authorship.
     #[default]
     Any,
     /// Include publications whose immutable author list contains the current actor.

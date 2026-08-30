@@ -2557,6 +2557,7 @@ dependencies = [
  "serde_yaml_ng",
  "server_core",
  "sha2 0.11.0",
+ "sqlx",
  "syn 3.0.4",
  "tokio",
  "url",

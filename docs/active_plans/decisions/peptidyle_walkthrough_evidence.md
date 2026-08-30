@@ -19,7 +19,7 @@ outside the walkthrough.
   gateway, validated environment inputs, and Playwright. The walkthrough
   reuses that operational shape.
 - The default local launcher supplies one seeded learner and local-file
-  development tenant credentials. Those credentials are not canonical global
+  development account credentials. Those credentials are not canonical global
   account sessions.
 - The launcher seeds the native course, membership, learner enrollment, and a
   baseline native assignment, then writes mode-0600 `containers/local-demo.json`.

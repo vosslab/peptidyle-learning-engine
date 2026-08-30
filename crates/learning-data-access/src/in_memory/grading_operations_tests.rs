@@ -7,12 +7,10 @@ use uuid::Uuid;
 
 #[test]
 fn accepted_pending_submission_has_no_fabricated_completed_receipt() {
-    let tenant = question_model::TenantId::from_uuid(Uuid::from_u128(301));
     let submission = AcceptedSubmissionId::from_uuid(Uuid::from_u128(302));
     let stored = StoredSubmission {
         key: crate::SubmissionIdempotencyKey::parse("accepted-pending").expect("key"),
         state: StoredSubmissionState::AcceptedPending(AcceptedSubmission {
-            tenant,
             course: CourseId::from_uuid(Uuid::from_u128(303)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(304)),
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(305)),
@@ -38,7 +36,6 @@ fn accepted_pending_submission_has_no_fabricated_completed_receipt() {
 
 #[test]
 fn private_response_identity_requires_canonical_text_digest_and_typed_value() {
-    let tenant = question_model::TenantId::from_uuid(Uuid::from_u128(401));
     let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(402));
     let response = question_model::StudentResponse::Numeric { value: 88.0 };
     let private =
@@ -46,14 +43,11 @@ fn private_response_identity_requires_canonical_text_digest_and_typed_value() {
     let mut state = State::default();
     state
         .private_submission_responses
-        .insert((tenant, attempt), private.clone());
-    assert!(
-        stored_submission_matches_response(&state, tenant, attempt, &response).expect("stored")
-    );
+        .insert(attempt, private.clone());
+    assert!(stored_submission_matches_response(&state, attempt, &response).expect("stored"));
     assert!(
         !stored_submission_matches_response(
             &state,
-            tenant,
             attempt,
             &question_model::StudentResponse::Numeric { value: 89.0 },
         )

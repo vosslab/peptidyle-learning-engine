@@ -51,7 +51,6 @@ pub(super) async fn require_attempt_owner_for_read(
 #[cfg(feature = "postgres")]
 pub(super) async fn postgres_is_course_instructor(
     transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
     course: CourseId,
     actor: UserId,
 ) -> Result<bool, StoreError> {
@@ -61,10 +60,9 @@ pub(super) async fn postgres_is_course_instructor(
     // privilege on course_member and therefore must not request a row lock.
     Ok(sqlx::query(
         "SELECT user_id FROM course_member \
-         WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 \
+         WHERE course_id = $1 AND user_id = $2 \
            AND role = 'instructor' AND status = 'active'",
     )
-    .bind(tenant.as_uuid())
     .bind(course.as_uuid())
     .bind(actor.as_uuid())
     .fetch_optional(&mut **transaction)

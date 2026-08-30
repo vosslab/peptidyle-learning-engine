@@ -43,7 +43,6 @@ pub(crate) async fn converge(
     let expected_base_course = base_course(participants, ids.base_course)?;
     let expected_practice_course = practice_course(participants, ids.practice_course)?;
     let expected_draft = DraftRecord {
-        tenant: participants.tenant(),
         question: base_course_native_draft(ids.workspace),
         derived_from: None,
     };
@@ -319,7 +318,7 @@ async fn ensure_publication(
                 qti_promotion: None,
                 flat_question_promotion: None,
                 publisher: participants.primary_instructor(),
-                scope: PublicationScope::Institution,
+                scope: PublicationScope::Public,
                 byline: question_model::PublicByline::new(vec![
                     question_model::PublicAuthorName::new(PRIMARY_INSTRUCTOR_NAME.to_string())
                         .map_err(|error| {
@@ -379,7 +378,7 @@ async fn verify_publication(
     if canonical_question_id != record.question_id
         || record.question != expected
         || record.capabilities != native_capabilities()?
-        || record.scope != PublicationScope::Institution
+        || record.scope != PublicationScope::Public
         || record.lifecycle != CatalogLifecycle::Published
         || record.author_ids.as_slice() != [participants.primary_instructor()]
         || record.derived_from.is_some()

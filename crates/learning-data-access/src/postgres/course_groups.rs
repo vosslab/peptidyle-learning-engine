@@ -70,7 +70,7 @@ async fn require_group_manager(
             .fetch_one(&mut **tx)
             .await
             .map_err(map_sqlx_error)?;
-    if !accessible || !postgres_is_course_instructor(tx, tenant, course, actor).await? {
+    if !accessible || !postgres_is_course_instructor(tx, course, actor).await? {
         return Err(StoreError::NotFound);
     }
     Ok(())
@@ -92,7 +92,6 @@ async fn load_group(
         group: StoredCourseGroup {
             record: CourseGroupRecord {
                 id,
-                tenant,
                 course,
                 purpose: super::courses::decode_course_group_purpose(
                     row.try_get("purpose").map_err(map_sqlx_error)?,

@@ -8,14 +8,13 @@ use crate::StudentDisclosureInput;
 /// caller has already performed Student or Instructor authorization.
 pub(super) fn current_disclosure_input(
     state: &State,
-    tenant: TenantId,
     assignment: &AssignmentRecord,
     attempt: QuestionAttemptId,
     submitted_at: Option<ActivityTimestamp>,
 ) -> Result<StudentDisclosureInput, StoreError> {
     if state
         .attempt_timing
-        .get(&(tenant, attempt))
+        .get(&attempt)
         .map(|timing| timing.assignment)
         != Some(assignment.id)
     {
@@ -25,13 +24,13 @@ pub(super) fn current_disclosure_input(
     }
     let generation = state
         .attempt_effective_policy_current
-        .get(&(tenant, attempt))
+        .get(&attempt)
         .ok_or_else(|| {
             StoreError::Unavailable("current effective-policy receipt is missing".to_string())
         })?;
     let receipt = state
         .issued_effective_policy_receipts
-        .get(&(tenant, attempt, *generation))
+        .get(&(attempt, *generation))
         .ok_or_else(|| {
             StoreError::Unavailable("current effective-policy receipt is corrupt".to_string())
         })?;
@@ -52,43 +51,37 @@ pub(super) fn current_disclosure_input(
 impl crate::FeedbackStore for MemoryStore {
     async fn release_attempt_feedback_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReleaseAttemptFeedbackCommand,
     ) -> Result<FeedbackReleaseRecord, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
+        if context.user_id() != command.actor {
+            return Err(StoreError::NotFound);
+        }
         let attempt = state
             .attempts
-            .get(&(tenant, command.attempt))
+            .get(&command.attempt)
             .cloned()
             .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         state
             .courses
-            .get(&(tenant, assignment.course_id))
+            .get(&assignment.course_id)
             .ok_or(StoreError::NotFound)?;
-        if super::entitlement::current_course_role(
-            &state,
-            tenant,
-            assignment.course_id,
-            command.actor,
-        ) != Some(CourseMembershipRole::Instructor)
+        if super::entitlement::current_course_role(&state, assignment.course_id, command.actor)
+            != Some(CourseMembershipRole::Instructor)
         {
             return Err(StoreError::NotFound);
         }
-        if !state.submissions.contains_key(&(tenant, command.attempt)) {
+        if !state.submissions.contains_key(&command.attempt) {
             return Err(StoreError::NotFound);
         }
-        let current = projected_attempt(&state, tenant, &attempt);
+        let current = projected_attempt(&state, &attempt);
         let disclosure = current_disclosure_input(
             &state,
-            tenant,
             &assignment,
             command.attempt,
             current.timer.submitted_at,
@@ -99,7 +92,7 @@ impl crate::FeedbackStore for MemoryStore {
                 "feedback release requires currently disclosed teaching feedback".to_string(),
             ));
         }
-        if let Some(existing) = state.feedback_releases.get(&(tenant, command.attempt)) {
+        if let Some(existing) = state.feedback_releases.get(&command.attempt) {
             return if existing.released_by == command.actor {
                 Ok(existing.clone())
             } else {
@@ -107,42 +100,39 @@ impl crate::FeedbackStore for MemoryStore {
             };
         }
         let record = FeedbackReleaseRecord {
-            tenant,
             attempt: command.attempt,
             released_by: command.actor,
             released_at: state.authoritative_time,
         };
         state
             .feedback_releases
-            .insert((tenant, command.attempt), record.clone());
+            .insert(command.attempt, record.clone());
         Ok(record)
     }
     async fn get_attempt_feedback_release_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt_id: QuestionAttemptId,
     ) -> Result<Option<FeedbackReleaseRecord>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
+        if context.user_id() != actor {
+            return Err(StoreError::NotFound);
+        }
         let attempt = state
             .attempts
-            .get(&(tenant, attempt_id))
+            .get(&attempt_id)
             .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         state
             .courses
-            .get(&(tenant, assignment.course_id))
+            .get(&assignment.course_id)
             .ok_or(StoreError::NotFound)?;
         let student_self = super::entitlement::require_current_enrollment_entitlement(
             &state,
-            tenant,
             actor,
             assignment.course_id,
             assignment.id,
@@ -150,37 +140,38 @@ impl crate::FeedbackStore for MemoryStore {
         )
         .is_ok();
         if !student_self
-            && super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
+            && super::entitlement::current_course_role(&state, assignment.course_id, actor)
                 != Some(CourseMembershipRole::Instructor)
         {
             return Err(StoreError::NotFound);
         }
-        Ok(state.feedback_releases.get(&(tenant, attempt_id)).cloned())
+        Ok(state.feedback_releases.get(&attempt_id).cloned())
     }
     async fn get_run_summary_page_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run_id: RunId,
         page: PageRequest,
     ) -> Result<RunSummaryPageInput, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
+        if context.user_id() != actor {
+            return Err(StoreError::NotFound);
+        }
         let run = state
             .runs
-            .get(&(tenant, run_id))
+            .get(&run_id)
             .cloned()
             .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         state
             .courses
-            .get(&(tenant, assignment.course_id))
+            .get(&assignment.course_id)
             .ok_or(StoreError::NotFound)?;
         let student_self = super::entitlement::require_current_enrollment_entitlement(
             &state,
-            tenant,
             actor,
             assignment.course_id,
             assignment.id,
@@ -188,35 +179,35 @@ impl crate::FeedbackStore for MemoryStore {
         )
         .is_ok();
         if !student_self
-            && super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
+            && super::entitlement::current_course_role(&state, assignment.course_id, actor)
                 != Some(CourseMembershipRole::Instructor)
         {
             return Err(StoreError::NotFound);
         }
         let summary = state
             .summaries
-            .get(&(tenant, enrollment.id))
+            .get(&enrollment.id)
             .cloned()
             .ok_or(StoreError::NotFound)?;
         let after = page
             .after
             .as_ref()
-            .map(|cursor| RunSummaryCursor::decode(cursor, tenant.as_uuid(), run.id.as_uuid()))
+            .map(|cursor| RunSummaryCursor::decode(cursor, run.id.as_uuid()))
             .transpose()?;
         let mut rows = Vec::new();
         for attempt in state
             .attempts
             .values()
-            .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
+            .filter(|attempt| attempt.run == run.id)
         {
-            let current = projected_attempt(&state, tenant, attempt);
+            let current = projected_attempt(&state, attempt);
             if student_self && current.status == AttemptStatus::Cleared {
                 continue;
             }
             if student_self {
                 let assignment_item = state
                     .run_items
-                    .get(&(tenant, run.id))
+                    .get(&run.id)
                     .and_then(|items| {
                         items
                             .iter()
@@ -245,7 +236,7 @@ impl crate::FeedbackStore for MemoryStore {
             }
             let submitted = state
                 .submissions
-                .get(&(tenant, attempt.id))
+                .get(&attempt.id)
                 .and_then(|stored| stored.completed_record_opt());
             rows.push((
                 key,
@@ -257,7 +248,6 @@ impl crate::FeedbackStore for MemoryStore {
                     result: current.result,
                     disclosure: current_disclosure_input(
                         &state,
-                        tenant,
                         &assignment,
                         current.id,
                         current.timer.submitted_at,
@@ -271,14 +261,11 @@ impl crate::FeedbackStore for MemoryStore {
         let has_more = rows.len() > take;
         rows.truncate(take);
         let next_cursor = has_more
-            .then(|| {
-                rows.last()
-                    .map(|(key, _)| key.encode(tenant.as_uuid(), run.id.as_uuid()))
-            })
+            .then(|| rows.last().map(|(key, _)| key.encode(run.id.as_uuid())))
             .flatten();
         let scoring_status = state
             .assignment_scoring
-            .get(&(tenant, assignment.id))
+            .get(&assignment.id)
             .ok_or(StoreError::NotFound)?
             .1;
         Ok(RunSummaryPageInput {

@@ -6,7 +6,7 @@ use objects::{
 };
 use question_model::{
     ActivityTimestamp, AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
-    ProblemId, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
+    ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -46,7 +46,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         "answer-bearing source must remain server-only"
     );
     let archive_key = ObjectKey::PublishedImportArchive {
-        tenant: TenantId::from_uuid(id(40)),
         problem: ProblemId::from_uuid(id(41)),
         version: VersionId::from_uuid(id(42)),
         import: WorkspaceImportId::from_uuid(id(43)),
@@ -92,7 +91,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("published assets should be signable");
     let student_key = ObjectKey::StudentRecord {
-        tenant: TenantId::from_uuid(id(4)),
+        course: CourseId::from_uuid(id(4)),
         object: ObjectId::from_uuid(id(5)),
     };
     store
@@ -126,7 +125,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .expect("temporary put should succeed");
 
     let banner_candidate_key = ObjectKey::CourseBannerCandidate {
-        tenant: TenantId::from_uuid(id(50)),
         course: CourseId::from_uuid(id(51)),
         candidate: CourseBannerCandidateId::from_uuid(id(52)),
     };
@@ -135,7 +133,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             key: banner_candidate_key.clone(),
             bytes: b"normalized candidate".to_vec(),
             media_type: "image/webp".to_string(),
-            license: "tenant course branding".to_string(),
+            license: "course branding".to_string(),
             provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
@@ -155,7 +153,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
 
     let course_banner_key = ObjectKey::CourseBanner {
-        tenant: TenantId::from_uuid(id(50)),
         course: CourseId::from_uuid(id(51)),
         banner: CourseBannerId::from_uuid(id(53)),
     };
@@ -164,7 +161,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             key: course_banner_key.clone(),
             bytes: b"current course banner".to_vec(),
             media_type: "image/webp".to_string(),
-            license: "tenant course branding".to_string(),
+            license: "course branding".to_string(),
             provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
@@ -181,25 +178,21 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .expect("current course banners are signable after separate pointer authorization");
 
     let workspace_source = ObjectKey::WorkspaceSource {
-        tenant: TenantId::from_uuid(id(7)),
         workspace: WorkspaceId::from_uuid(id(8)),
         import: WorkspaceImportId::from_uuid(id(9)),
         object: ObjectId::from_uuid(id(10)),
     };
     let workspace_question_source = ObjectKey::WorkspaceQuestionSource {
-        tenant: TenantId::from_uuid(id(7)),
         workspace: WorkspaceId::from_uuid(id(8)),
         object: ObjectId::from_uuid(id(15)),
     };
     let workspace_asset = ObjectKey::WorkspaceAsset {
-        tenant: TenantId::from_uuid(id(7)),
         workspace: WorkspaceId::from_uuid(id(8)),
         import: WorkspaceImportId::from_uuid(id(9)),
         asset: AssetId::from_uuid(id(11)),
         object: ObjectId::from_uuid(id(12)),
     };
     let workspace_question_asset = ObjectKey::WorkspaceQuestionAsset {
-        tenant: TenantId::from_uuid(id(7)),
         workspace: WorkspaceId::from_uuid(id(8)),
         asset: AssetId::from_uuid(id(16)),
         object: ObjectId::from_uuid(id(17)),
@@ -310,21 +303,19 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 }
 
 #[test]
-fn workspace_object_paths_bind_tenant_workspace_and_import_identity() {
+fn workspace_object_paths_bind_workspace_and_import_identity() {
     let source = ObjectKey::WorkspaceSource {
-        tenant: TenantId::from_uuid(id(20)),
         workspace: WorkspaceId::from_uuid(id(21)),
         import: WorkspaceImportId::from_uuid(id(22)),
         object: ObjectId::from_uuid(id(23)),
     };
-    let other_tenant = ObjectKey::WorkspaceSource {
-        tenant: TenantId::from_uuid(id(24)),
-        workspace: WorkspaceId::from_uuid(id(21)),
+    let other_workspace = ObjectKey::WorkspaceSource {
+        workspace: WorkspaceId::from_uuid(id(24)),
         import: WorkspaceImportId::from_uuid(id(22)),
         object: ObjectId::from_uuid(id(23)),
     };
-    assert_ne!(source, other_tenant);
-    assert_ne!(source.path(), other_tenant.path());
+    assert_ne!(source, other_workspace);
+    assert_ne!(source.path(), other_workspace.path());
     assert_eq!(source.bucket(), Bucket::PrivateContent);
     assert_eq!(source.category(), ObjectCategory::Source);
     assert_eq!(source.version_id(), None);
@@ -335,14 +326,13 @@ fn workspace_object_paths_bind_tenant_workspace_and_import_identity() {
 #[test]
 fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source() {
     let source = ObjectKey::WorkspaceQuestionSource {
-        tenant: TenantId::from_uuid(id(30)),
         workspace: WorkspaceId::from_uuid(id(31)),
         object: ObjectId::from_uuid(id(32)),
     };
     assert_eq!(
         source.path(),
-        "workspaces/00000000-0000-0000-0000-00000000001e/00000000-0000-0000-0000-00000000001f/questions/source/00000000-0000-0000-0000-000000000020",
-        "workspace question source path should encode tenant and workspace ids"
+        "workspaces/00000000-0000-0000-0000-00000000001f/questions/source/00000000-0000-0000-0000-000000000020",
+        "workspace question source path should encode the workspace id"
     );
     assert_eq!(source.bucket(), Bucket::PrivateContent);
     assert_eq!(source.category(), ObjectCategory::Source);
@@ -353,14 +343,13 @@ fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source
 #[test]
 fn workspace_question_asset_key_is_private_content_without_import_or_version() {
     let asset = ObjectKey::WorkspaceQuestionAsset {
-        tenant: TenantId::from_uuid(id(33)),
         workspace: WorkspaceId::from_uuid(id(34)),
         asset: AssetId::from_uuid(id(35)),
         object: ObjectId::from_uuid(id(36)),
     };
     assert_eq!(
         asset.path(),
-        "workspaces/00000000-0000-0000-0000-000000000021/00000000-0000-0000-0000-000000000022/questions/assets/00000000-0000-0000-0000-000000000023/00000000-0000-0000-0000-000000000024"
+        "workspaces/00000000-0000-0000-0000-000000000022/questions/assets/00000000-0000-0000-0000-000000000023/00000000-0000-0000-0000-000000000024"
     );
     assert_eq!(asset.bucket(), Bucket::PrivateContent);
     assert_eq!(asset.category(), ObjectCategory::Asset);

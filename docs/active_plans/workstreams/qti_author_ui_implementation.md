@@ -4,8 +4,8 @@
 > dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
 > and [implementation status](../implementation_status.md).
 
-Status: complete and independently accepted on 2026-08-09. WP-QTI-11 subsequently passed; its
-evidence is in `qti_live_acceptance_implementation.md`. WP-QTI-12 subsequently passed as well.
+Status: complete and independently accepted on 2026-08-09. WP-QTI-11 and WP-QTI-12 subsequently
+passed as well.
 
 ## Scope
 

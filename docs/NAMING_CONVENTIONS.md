@@ -68,7 +68,7 @@ a stronger reason.
 
 ## Domain owner map
 
-PLE has one installation and no tenant or institution authority. Name each
+PLE has one installation and no institution authority. Name each
 PLE-owned key for the domain relationship that actually authorizes the record:
 
 | Owner | Names and scope |
@@ -188,10 +188,10 @@ learning outcomes.
 ## Historical and external names
 
 - Immutable migration filenames, migration IDs, and archived evidence may retain historical
-  `tenant` or `tenant_id` text so their lineage stays exact. These names are metadata only; they do
+  scope text so their lineage stays exact. These names are metadata only; they do
   not authorize a record or define the fresh single-installation schema.
 - Registered external protocol fields, headers, XML/JSON names, and vendor identifiers retain their
-  owner's spelling, including a historical `tenant_id` field when required for interoperability.
+  owner's spelling, including a historical scope field when required for interoperability.
   External names are protocol metadata, not PLE actor, membership, course, or worker authority.
 
 ## Files and operations

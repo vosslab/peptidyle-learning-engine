@@ -1,6 +1,6 @@
 //! Tags, taxonomy, and licensing (WP-C1).
 //!
-//! Shared content with no tenant identifier: one published problem carries one
+//! Shared content with no institution identifier: one published problem carries one
 //! set of tags for every institution using it. That is what lets a single
 //! published problem serve thousands of instructors without copying.
 //!

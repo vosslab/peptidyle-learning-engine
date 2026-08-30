@@ -34,7 +34,6 @@ impl GradingOperationStore for PostgresStore {
         context: TenantContext,
         command: ListInstructorGradingOperationsCommand,
     ) -> Result<Page<InstructorGradingOperationRow>, StoreError> {
-        ensure_list_context(context, &command)?;
         let seek = command
             .page
             .after
@@ -42,7 +41,6 @@ impl GradingOperationStore for PostgresStore {
             .map(|cursor| {
                 GradingOperationCursor::decode(
                     cursor,
-                    command.tenant,
                     command.course,
                     command.assignment,
                     command.group_by,
@@ -55,7 +53,7 @@ impl GradingOperationStore for PostgresStore {
         let page_size = i32::from(command.page.size.get());
         let mut transaction = self.begin_tenant_session(context, command.session).await?;
         let rows = sqlx::query(LIST_SQL)
-            .bind(command.tenant.as_uuid())
+            .bind(context.tenant_id().as_uuid())
             .bind(command.session.to_string())
             .bind(command.course.as_uuid())
             .bind(command.assignment.as_uuid())
@@ -80,10 +78,9 @@ impl GradingOperationStore for PostgresStore {
         context: TenantContext,
         command: RetryGradingOperationCommand,
     ) -> Result<GradingOperationActionReceipt, StoreError> {
-        ensure_retry_context(context, &command)?;
         let mut transaction = self.begin_tenant_session(context, command.session).await?;
         let row = sqlx::query(RETRY_SQL)
-            .bind(command.tenant.as_uuid())
+            .bind(context.tenant_id().as_uuid())
             .bind(command.session.to_string())
             .bind(command.course.as_uuid())
             .bind(command.assignment.as_uuid())
@@ -110,10 +107,9 @@ impl GradingOperationStore for PostgresStore {
         context: TenantContext,
         command: RecalculateAssignmentCommand,
     ) -> Result<GradingOperationActionReceipt, StoreError> {
-        ensure_recalculation_context(context, &command)?;
         let mut transaction = self.begin_tenant_session(context, command.session).await?;
         let row = sqlx::query(RECALCULATE_SQL)
-            .bind(command.tenant.as_uuid())
+            .bind(context.tenant_id().as_uuid())
             .bind(command.session.to_string())
             .bind(command.course.as_uuid())
             .bind(command.assignment.as_uuid())
@@ -179,7 +175,6 @@ fn decode_operation_row(
     let affected_learner_count = bounded_count(row, "affected_learner_count")?;
     let trust_generation = decode_generation(row, &target_kind, projection.state)?;
     let stable_cursor = GradingOperationCursor::encode(
-        command.tenant,
         command.course,
         command.assignment,
         command.group_by,
@@ -426,34 +421,6 @@ fn accepted_or_replayed(row: &PgRow) -> Result<(), StoreError> {
         .ok_or_else(|| {
             unavailable("grading-operation broker returned an invalid action disposition")
         })
-}
-
-fn ensure_list_context(
-    context: TenantContext,
-    command: &ListInstructorGradingOperationsCommand,
-) -> Result<(), StoreError> {
-    if context.tenant_id() != command.tenant {
-        return Err(StoreError::Conflict);
-    }
-    Ok(())
-}
-
-fn ensure_retry_context(
-    context: TenantContext,
-    command: &RetryGradingOperationCommand,
-) -> Result<(), StoreError> {
-    (context.tenant_id() == command.tenant)
-        .then_some(())
-        .ok_or(StoreError::Conflict)
-}
-
-fn ensure_recalculation_context(
-    context: TenantContext,
-    command: &RecalculateAssignmentCommand,
-) -> Result<(), StoreError> {
-    (context.tenant_id() == command.tenant)
-        .then_some(())
-        .ok_or(StoreError::Conflict)
 }
 
 fn group_by_name(value: GradingOperationGroupBy) -> &'static str {

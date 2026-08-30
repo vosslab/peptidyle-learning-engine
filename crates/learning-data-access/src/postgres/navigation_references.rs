@@ -53,7 +53,7 @@ async fn actor_can_navigate_run(
     ) {
         return Ok(true);
     }
-    postgres_is_course_instructor(transaction, tenant, course, actor).await
+    postgres_is_course_instructor(transaction, course, actor).await
 }
 
 #[async_trait]

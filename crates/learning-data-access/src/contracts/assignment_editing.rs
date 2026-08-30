@@ -226,14 +226,13 @@ mod structural_content_tests {
         AssignmentItem, AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode,
         AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentSelectionGroupId,
         GradePolicy, PointValue, PoolDrawAlgorithm, ProblemId, ProblemVersionRef, RunPolicies,
-        SelectionOrdering, StudentDisclosurePolicy, TenantId, VersionId,
+        SelectionOrdering, StudentDisclosurePolicy, VersionId,
     };
     use uuid::Uuid;
 
     fn assignment() -> AssignmentRecord {
         AssignmentRecord {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
-            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: question_model::CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Structural content fixture".to_string(),
             lifecycle: AssignmentLifecycle::Draft,

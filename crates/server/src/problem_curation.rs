@@ -189,7 +189,7 @@ where
     {
         Ok(Some(value)) => collection_response(StatusCode::OK, value),
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             collection_not_found()
         }
         Err(error) => curation_store_error(error),
@@ -240,7 +240,7 @@ where
             collection_member_page_response(value.members, value.collection.revision)
         }
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             collection_not_found()
         }
         Err(error) => curation_store_error(error),
@@ -484,7 +484,7 @@ where
     {
         Ok(true) => no_store(StatusCode::NO_CONTENT.into_response()),
         Ok(false)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             collection_not_found()
         }
         Err(error) => curation_store_error(error),
@@ -590,7 +590,7 @@ where
     {
         Ok(Some(value)) => saved_search_response(StatusCode::OK, value),
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             saved_search_not_found()
         }
         Err(error) => curation_store_error(error),
@@ -737,7 +737,7 @@ where
     {
         Ok(true) => no_store(StatusCode::NO_CONTENT.into_response()),
         Ok(false)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             saved_search_not_found()
         }
         Err(error) => curation_store_error(error),
@@ -868,7 +868,7 @@ fn saved_search_not_found() -> Response {
 
 fn curation_authority_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::FORBIDDEN, "problem curation is not authorized")
         }
         StoreError::RetryableTransaction | StoreError::TimedOut | StoreError::Unavailable(_) => {
@@ -885,7 +885,7 @@ fn curation_authority_error(error: StoreError) -> Response {
 
 fn curation_store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "curation record not found")
         }
         StoreError::Conflict => error_response(

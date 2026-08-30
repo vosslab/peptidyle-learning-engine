@@ -227,7 +227,7 @@ fn preflight_error(error: StoreError) -> Response {
             )
         }
         StoreError::NotFound
-        | StoreError::TenantMismatch
+        | StoreError::OwnershipMismatch
         | StoreError::Forbidden
         | StoreError::AlreadyExists
         | StoreError::Conflict
@@ -241,7 +241,7 @@ fn preflight_error(error: StoreError) -> Response {
 
 pub(super) fn store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(
                 StatusCode::NOT_FOUND,
                 "curriculum adoption target not found",

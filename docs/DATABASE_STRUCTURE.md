@@ -30,7 +30,7 @@ the API; server code establishes authenticated transaction context and calls Sto
 capabilities.
 
 The current migration directory is also the pre-SD1 physical source inventory. Its historical
-tenant-shaped keys and context are not the binding single-installation target. SD1-C owns the fresh
+legacy installation-scope keys and context are not the binding single-installation target. SD1-C owns the fresh
 epoch that replaces those shapes with global identities, exact course/Student and workspace
 relationships, and typed capability scopes. Until that epoch lands, current source names are
 migration input and one-time evidence; this document does not introduce compatibility columns,
@@ -515,8 +515,8 @@ Retention is a database-backed lifecycle, not an ad hoc delete:
 
 - `institution_retention_policy` is the current pre-SD1 source name for deployment retention policy
   metadata. Conceptually this metadata contains notify/archive/delete intervals; it is not an
-  account, institution selector, tenant identity, tenant boundary, or authorization partition.
-  SD1-C owns the source/schema rename and de-tenanting; no compatibility relation is added here.
+  account, institution selector, installation identity, installation boundary, or authorization partition.
+  SD1-C owns the source/schema rename and direct cutover; no compatibility relation is added here.
 - `course_retention`, notification, stage, dispatch, and API-receipt relations persist exact
   course-scoped policy and revision-fenced actions.
 - Cleanup manifest relations freeze the exact typed object set for one course, stage, and generation

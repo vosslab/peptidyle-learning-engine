@@ -29,25 +29,24 @@ use crate::curriculum_adoption::{
 use crate::in_memory::curriculum_adoption::destination;
 use crate::in_memory::curriculum_adoption::receipt_evidence::validate_assignment_import_projection;
 use crate::in_memory::{MemoryStore, State};
-use crate::{SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, SessionTokenHash, StoreError};
 
 /// Resolves an answer-free controlled-update preview from current immutable import evidence.
 pub(super) async fn preview_controlled_update_blueprint_assignment(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: ControlledUpdateBlueprintAssignmentPreviewRequest,
 ) -> Result<ControlledUpdateBlueprintAssignmentPreview, StoreError> {
-    let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
-    let course = resolve_course(&state, tenant, request.course)?;
-    require_course_instructor(&state, tenant, course, actor)?;
-    let _blueprint_application = course_instance_blueprint_application(&state, tenant, course)?;
-    let witness = course_witness(&state, tenant, course)?;
-    let import = current_import_witness(&state, tenant, course, request.assignment)?;
+    let course = resolve_course(&state, request.course)?;
+    require_course_instructor(&state, course, actor)?;
+    let _blueprint_application = course_instance_blueprint_application(&state, course)?;
+    let witness = course_witness(&state, course)?;
+    let import = current_import_witness(&state, course, request.assignment)?;
     let eligibility =
-        controlled_update_eligibility(&state, tenant, actor, &witness, &import, request.source)?;
+        controlled_update_eligibility(&state, actor, &witness, &import, request.source)?;
     Ok(ControlledUpdateBlueprintAssignmentPreview {
         import,
         witness,
@@ -58,42 +57,31 @@ pub(super) async fn preview_controlled_update_blueprint_assignment(
 /// Resolves an answer-free selected-copy preview with the server-resolved target schedule.
 pub(super) async fn preview_create_selected_blueprint_assignment(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     request: CreateSelectedBlueprintAssignmentPreviewRequest,
 ) -> Result<CreateSelectedBlueprintAssignmentPreview, StoreError> {
-    let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
-    let course = resolve_course(&state, tenant, request.course)?;
-    require_course_instructor(&state, tenant, course, actor)?;
-    let _blueprint_application = course_instance_blueprint_application(&state, tenant, course)?;
-    let witness = course_witness(&state, tenant, course)?;
+    let course = resolve_course(&state, request.course)?;
+    require_course_instructor(&state, course, actor)?;
+    let _blueprint_application = course_instance_blueprint_application(&state, course)?;
+    let witness = course_witness(&state, course)?;
     let source = assignment_source_snapshot_with_replacements(
         &state,
         store,
-        tenant,
         actor,
         request.source,
         &request.replacements,
     )?;
     let semantic = only_assignment(&source.payload)?;
-    let term = &state
-        .courses
-        .get(&(tenant, course))
-        .ok_or(StoreError::NotFound)?
-        .term;
+    let term = &state.courses.get(&course).ok_or(StoreError::NotFound)?.term;
     let (schedule, corrections) = preview_assignment(semantic, term).map_err(semantic_error)?;
-    let eligibility = if validate_destination_pins(&state, tenant, &source.payload).is_err() {
+    let eligibility = if validate_destination_pins(&state, &source.payload).is_err() {
         CourseInstanceEligibility::Refused {
             refusal: CourseInstanceRefusal::UnavailablePin {
-                recovery: super::super::pin_correction(
-                    &state,
-                    tenant,
-                    request.source,
-                    &source.payload,
-                )?
-                .ok_or(StoreError::Conflict)?,
+                recovery: super::super::pin_correction(&state, request.source, &source.payload)?
+                    .ok_or(StoreError::Conflict)?,
             },
         }
     } else if corrections.is_empty() {
@@ -114,24 +102,21 @@ pub(super) async fn preview_create_selected_blueprint_assignment(
 /// Loads one answer-free CourseInstance provenance projection from immutable evidence.
 pub(super) async fn inspect_course_instance_blueprint_adoption(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     course_reference: question_model::CourseReference,
 ) -> Result<Option<CourseInstanceBlueprintInspectionView>, StoreError> {
-    let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
-    let course = resolve_course(&state, tenant, course_reference)?;
-    require_course_instructor(&state, tenant, course, actor)?;
-    let initial_blueprint_application =
-        course_instance_blueprint_application(&state, tenant, course)?;
-    let witness = course_witness(&state, tenant, course)?;
+    let course = resolve_course(&state, course_reference)?;
+    require_course_instructor(&state, course, actor)?;
+    let initial_blueprint_application = course_instance_blueprint_application(&state, course)?;
+    let witness = course_witness(&state, course)?;
     let assignments = witness
         .assignments()
         .iter()
         .map(|observed| {
-            let assignment =
-                assignment_id_for_reference(&state, tenant, course, observed.assignment)?;
+            let assignment = assignment_id_for_reference(&state, course, observed.assignment)?;
             let import = state
                 .curriculum_adoption
                 .import_records
@@ -141,7 +126,6 @@ pub(super) async fn inspect_course_instance_blueprint_adoption(
                 })?;
             let evidence = validate_assignment_import_projection(
                 &state,
-                tenant,
                 course_reference,
                 assignment,
                 observed.assignment,
@@ -187,24 +171,20 @@ pub(super) struct AppliedSelectedCopy {
 /// M5 owns replay lookup, receipt creation, receipt insertion, and rollback around this core.
 pub(super) fn apply_controlled_update_blueprint_assignment_locked(
     state: &mut State,
-    context: TenantContext,
+    context: ActorContext,
     actor: question_model::UserId,
     command: &ControlledUpdateBlueprintAssignmentCommand,
 ) -> Result<AppliedControlledUpdate, StoreError> {
-    let tenant = context.tenant_id();
     if actor != command.authorized_actor() {
         return Err(StoreError::Conflict);
     }
-    let course = require_exact_witness(state, tenant, command.destination())?;
-    require_course_instructor(state, tenant, course, actor)?;
-    if course_instance_blueprint_application(state, tenant, course)?
-        != command.blueprint_application()
-    {
+    let course = require_exact_witness(state, command.destination())?;
+    require_course_instructor(state, course, actor)?;
+    if course_instance_blueprint_application(state, course)? != command.blueprint_application() {
         return Err(StoreError::Conflict);
     }
     let eligibility = controlled_update_eligibility(
         state,
-        tenant,
         actor,
         command.destination(),
         command.import(),
@@ -213,39 +193,27 @@ pub(super) fn apply_controlled_update_blueprint_assignment_locked(
     if eligibility != CourseInstanceEligibility::Eligible {
         return Err(StoreError::Conflict);
     }
-    let assignment = assignment_id_for_reference(
-        state,
-        tenant,
-        course,
-        command.import().destination.assignment,
-    )?;
+    let assignment =
+        assignment_id_for_reference(state, course, command.import().destination.assignment)?;
     let source = super::super::super::reusable_curriculum::curriculum_assignment_source_snapshot(
         state,
-        tenant,
-        actor,
         command.source(),
     )?;
-    validate_destination_pins(state, tenant, &source.payload).map_err(|_| StoreError::Conflict)?;
+    validate_destination_pins(state, &source.payload).map_err(|_| StoreError::Conflict)?;
     let semantic = only_assignment(&source.payload)?;
     let imported = super::super::super::reusable_curriculum::curriculum_assignment_source_snapshot(
         state,
-        tenant,
-        actor,
         command.import().source,
     )?;
     let original = only_assignment(&imported.payload)?;
-    let current = destination::current_semantic_assignment(
-        state,
-        tenant,
-        assignment,
-        original.schedule().clone(),
-    )?;
+    let current =
+        destination::current_semantic_assignment(state, assignment, original.schedule().clone())?;
     let current_payload = CurriculumSemanticPayload::assignment(current);
     let proposed_payload = CurriculumSemanticPayload::assignment(semantic.clone());
     let (effect, semantic_digest) = match current_payload.compare(&proposed_payload) {
         CurriculumSemanticComparison::Changed { actual, .. } => {
-            destination::replace_reusable_meaning(state, tenant, assignment, semantic)?;
-            super::super::advance_course_schedule_revision(state, tenant, course)?;
+            destination::replace_reusable_meaning(state, assignment, semantic)?;
+            super::super::advance_course_schedule_revision(state, course)?;
             (ControlledUpdateEffect::MeaningChanged, actual)
         }
         CurriculumSemanticComparison::Equivalent { digest } => {
@@ -253,7 +221,7 @@ pub(super) fn apply_controlled_update_blueprint_assignment_locked(
         }
     };
     let import_revision = next_import_revision(command.import().import_revision)?;
-    let outcome = course_witness(state, tenant, course)?;
+    let outcome = course_witness(state, course)?;
     let assignment_reference = command.import().destination.assignment;
     let observed = outcome
         .assignments()
@@ -309,46 +277,38 @@ pub(super) fn apply_controlled_update_blueprint_assignment_locked(
 pub(super) fn apply_create_selected_blueprint_assignment_locked(
     state: &mut State,
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     actor: question_model::UserId,
     command: &CreateSelectedBlueprintAssignmentCommand,
 ) -> Result<AppliedSelectedCopy, StoreError> {
-    let tenant = context.tenant_id();
     if actor != command.authorized_actor() {
         return Err(StoreError::Conflict);
     }
-    let course = require_exact_witness(state, tenant, command.destination())?;
-    require_course_instructor(state, tenant, course, actor)?;
-    if course_instance_blueprint_application(state, tenant, course)?
-        != command.blueprint_application()
-    {
+    let course = require_exact_witness(state, command.destination())?;
+    require_course_instructor(state, course, actor)?;
+    if course_instance_blueprint_application(state, course)? != command.blueprint_application() {
         return Err(StoreError::Conflict);
     }
     let source = assignment_source_snapshot_with_replacements(
         state,
         store,
-        tenant,
         actor,
         command.source(),
         command.replacements(),
     )?;
-    validate_destination_pins(state, tenant, &source.payload).map_err(|_| StoreError::Conflict)?;
+    validate_destination_pins(state, &source.payload).map_err(|_| StoreError::Conflict)?;
     let semantic = only_assignment(&source.payload)?;
     let semantic_digest = source.payload.digest();
-    let term = &state
-        .courses
-        .get(&(tenant, course))
-        .ok_or(StoreError::NotFound)?
-        .term;
+    let term = &state.courses.get(&course).ok_or(StoreError::NotFound)?.term;
     let (schedule, corrections) = preview_assignment(semantic, term).map_err(semantic_error)?;
     if !corrections.is_empty() || schedule != *command.schedule() {
         return Err(StoreError::Conflict);
     }
     let (assignment, reference) =
-        destination::materialize_semantic_assignment(state, context, course, semantic)?;
+        destination::materialize_semantic_assignment(state, course, semantic)?;
     let import_revision =
         CurriculumImportRevision::new(1).expect("initial import revision is bounded");
-    let outcome = course_witness(state, tenant, course)?;
+    let outcome = course_witness(state, course)?;
     let observed = outcome
         .assignments()
         .iter()
@@ -398,16 +358,13 @@ pub(super) fn apply_create_selected_blueprint_assignment_locked(
 /// Rebuilds B2-owned import indexes from exact immutable receipt evidence only.
 pub(super) fn reconcile_course_instance_adoption_locked(
     state: &mut State,
-    tenant: question_model::TenantId,
     actor: question_model::UserId,
     target: &CourseInstanceReceiptTarget,
 ) -> Result<ReconcileCourseInstanceAdoptionCompleted, StoreError> {
-    let target = resolve_reconciliation_target(state, tenant, target)?;
-    let course = resolve_course(state, tenant, target.destination().course)?;
-    require_course_instructor(state, tenant, course, actor)?;
-    if course_instance_blueprint_application(state, tenant, course)?
-        != target.blueprint_application()
-    {
+    let target = resolve_reconciliation_target(state, target)?;
+    let course = resolve_course(state, target.destination().course)?;
+    require_course_instructor(state, course, actor)?;
+    if course_instance_blueprint_application(state, course)? != target.blueprint_application() {
         return Err(StoreError::Conflict);
     }
     let receipt_identity = (target.authorized_actor(), target.idempotency_key().clone());
@@ -416,11 +373,11 @@ pub(super) fn reconcile_course_instance_adoption_locked(
         .receipts
         .get(&receipt_identity)
         .ok_or(StoreError::Conflict)?;
-    validate_receipt_evidence(state, tenant, receipt)?;
+    validate_receipt_evidence(state, receipt)?;
     let Some(locator) = target.assignment_import_target() else {
         return Err(StoreError::Conflict);
     };
-    let assignment = assignment_id_for_reference(state, tenant, course, locator.assignment())?;
+    let assignment = assignment_id_for_reference(state, course, locator.assignment())?;
     let evidence = state
         .curriculum_adoption
         .assignment_evidence
@@ -452,15 +409,13 @@ pub(super) fn reconcile_course_instance_adoption_locked(
 
 pub(super) fn controlled_update_eligibility(
     state: &State,
-    tenant: question_model::TenantId,
     actor: question_model::UserId,
     destination: &CourseInstanceWitness,
     import: &CourseInstanceImportWitness,
     source: question_model::AssignmentDefinitionSourceView,
 ) -> Result<CourseInstanceEligibility, StoreError> {
-    let course = resolve_course(state, tenant, destination.course)?;
-    let assignment =
-        assignment_id_for_reference(state, tenant, course, import.destination.assignment)?;
+    let course = resolve_course(state, destination.course)?;
+    let assignment = assignment_id_for_reference(state, course, import.destination.assignment)?;
     let current_import = state
         .curriculum_adoption
         .import_records
@@ -472,12 +427,8 @@ pub(super) fn controlled_update_eligibility(
         .get(&(assignment, current_import.import_revision))
         .ok_or_else(|| destination::integrity("controlled update immutable import evidence"))?;
     // ASVS 2.3.1/2.3.3: an update advances exactly one retained assignment lineage.
-    let current_source = super::super::super::reusable_curriculum::current_assignment_source(
-        state,
-        tenant,
-        actor,
-        import.source,
-    );
+    let current_source =
+        super::super::super::reusable_curriculum::current_assignment_source(state, import.source);
     if current_import.import_revision != import.import_revision
         || evidence.source != import.source
         || evidence.assignment() != import.destination.assignment
@@ -492,7 +443,7 @@ pub(super) fn controlled_update_eligibility(
     }
     let revision = *state
         .assignment_revisions
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or_else(|| destination::integrity("controlled update assignment revision"))?;
     if revision != import.destination.revision {
         return Ok(CourseInstanceEligibility::Refused {
@@ -501,7 +452,7 @@ pub(super) fn controlled_update_eligibility(
             },
         });
     }
-    if assignment_has_run(state, tenant, assignment) {
+    if assignment_has_run(state, assignment) {
         return Ok(CourseInstanceEligibility::Refused {
             refusal: CourseInstanceRefusal::IssuedWork {
                 course: destination.course,
@@ -510,17 +461,11 @@ pub(super) fn controlled_update_eligibility(
     }
     let imported = super::super::super::reusable_curriculum::curriculum_assignment_source_snapshot(
         state,
-        tenant,
-        actor,
         import.source,
     )?;
     let original = only_assignment(&imported.payload)?;
-    let current = destination::current_semantic_assignment(
-        state,
-        tenant,
-        assignment,
-        original.schedule().clone(),
-    )?;
+    let current =
+        destination::current_semantic_assignment(state, assignment, original.schedule().clone())?;
     if &current != original {
         return Ok(CourseInstanceEligibility::Refused {
             refusal: CourseInstanceRefusal::Divergent {
@@ -529,12 +474,12 @@ pub(super) fn controlled_update_eligibility(
         });
     }
     let proposed = super::super::super::reusable_curriculum::curriculum_assignment_source_snapshot(
-        state, tenant, actor, source,
+        state, source,
     )?;
-    if validate_destination_pins(state, tenant, &proposed.payload).is_err() {
+    if validate_destination_pins(state, &proposed.payload).is_err() {
         return Ok(CourseInstanceEligibility::Refused {
             refusal: CourseInstanceRefusal::UnavailablePin {
-                recovery: super::super::pin_correction(state, tenant, source, &proposed.payload)?
+                recovery: super::super::pin_correction(state, source, &proposed.payload)?
                     .ok_or(StoreError::Conflict)?,
             },
         });
@@ -544,11 +489,10 @@ pub(super) fn controlled_update_eligibility(
 
 pub(super) fn current_import_witness(
     state: &State,
-    tenant: question_model::TenantId,
     course: question_model::CourseId,
     assignment_reference: question_model::AssignmentReference,
 ) -> Result<CourseInstanceImportWitness, StoreError> {
-    let assignment = assignment_id_for_reference(state, tenant, course, assignment_reference)?;
+    let assignment = assignment_id_for_reference(state, course, assignment_reference)?;
     let import = state
         .curriculum_adoption
         .import_records
@@ -561,7 +505,7 @@ pub(super) fn current_import_witness(
         .ok_or_else(|| destination::integrity("controlled update immutable import evidence"))?;
     let revision = *state
         .assignment_revisions
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or_else(|| destination::integrity("controlled update assignment revision"))?;
     Ok(CourseInstanceImportWitness {
         source: evidence.source,
@@ -575,17 +519,16 @@ pub(super) fn current_import_witness(
 
 fn assignment_id_for_reference(
     state: &State,
-    tenant: question_model::TenantId,
     course: question_model::CourseId,
     reference: question_model::AssignmentReference,
 ) -> Result<question_model::AssignmentId, StoreError> {
     let assignment = *state
         .assignments_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .ok_or(StoreError::NotFound)?;
     state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .filter(|record| record.course_id == course)
         .map(|_| assignment)
         .ok_or(StoreError::NotFound)

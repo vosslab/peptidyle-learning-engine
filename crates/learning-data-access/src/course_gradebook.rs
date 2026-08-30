@@ -11,8 +11,8 @@ use question_model::{
 use uuid::Uuid;
 
 use crate::{
-    AuthenticationEmail, CourseRosterId, Cursor, PageRequest, RosterRevision, SessionTokenHash,
-    StoreError, TenantContext,
+    ActorContext, AuthenticationEmail, CourseRosterId, Cursor, PageRequest, RosterRevision,
+    SessionTokenHash, StoreError,
 };
 
 /// Maximum active students returned by a synchronous course-grade export.
@@ -565,8 +565,6 @@ impl CourseGradeExportId {
 pub struct CourseGradeExportAudit {
     /// Export audit identity.
     pub id: CourseGradeExportId,
-    /// Tenant RLS boundary for this audit record.
-    pub tenant: question_model::TenantId,
     /// Course whose grade totals were exported.
     pub course: CourseId,
     /// Actor that requested the export.
@@ -606,7 +604,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// Reads one course scheme, returning the deterministic implicit default when absent.
     async fn course_grade_scheme(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradeSchemeRecord, StoreError>;
@@ -614,7 +612,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// Atomically validates and saves one revision-checked scheme replacement.
     async fn update_course_grade_scheme(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: UpdateCourseGradeScheme,
     ) -> Result<CourseGradeSchemeRecord, StoreError>;
@@ -622,7 +620,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// Returns bounded protected course totals derived only from assignment summaries.
     async fn course_gradebook_totals(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradebookTotals, StoreError>;
@@ -634,7 +632,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// stores closed until the PostgreSQL calculated-Gradebook implementation lands.
     async fn calculated_gradebook_page(
         &self,
-        _context: TenantContext,
+        _context: ActorContext,
         _session: SessionTokenHash,
         _course: CourseId,
         _request: CalculatedGradebookRequest,
@@ -649,7 +647,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// adapters that do not implement the operation/Gradebook integration.
     async fn resolve_gradebook_operation(
         &self,
-        _context: TenantContext,
+        _context: ActorContext,
         _session: SessionTokenHash,
         _course: CourseId,
         _operation: GradingOperationReference,
@@ -662,7 +660,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// Resolves a bounded, explicit named-Student selection before inspection.
     async fn gradebook_selection(
         &self,
-        _context: TenantContext,
+        _context: ActorContext,
         _session: SessionTokenHash,
         _course: CourseId,
         _request: GradebookSelectionRequest,
@@ -675,7 +673,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// Returns one bounded, public-reference-only submitted-run chooser page.
     async fn submitted_run_choices(
         &self,
-        _context: TenantContext,
+        _context: ActorContext,
         _session: SessionTokenHash,
         _course: CourseId,
         _request: SubmittedRunChoicesRequest,
@@ -688,7 +686,7 @@ pub trait CourseGradebookStore: Send + Sync {
     /// Produces bounded ephemeral rows and records a PII-free audit.
     async fn create_course_grade_export(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradeExport, StoreError>;

@@ -78,7 +78,7 @@ The final integrated results are:
 - focused server suite: 189 passed and 3 explicitly ignored live fixtures;
 - focused learning-data-access library suite: 70 passed;
 - disposable PostgreSQL baseline: passed migration replay and checksum refusal, serialization retry,
-  concurrent claims, tenant ownership, course appearance, partition pruning over 260,000 attempts,
+  concurrent claims, course ownership, course appearance, partition pruning over 260,000 attempts,
   bounded summaries, QTI import/conversion/provenance, private flat grading, item analysis, manual
   grading, constraint inventory, and four-role RLS denial;
 - focused adapter, domain, export, project-tool, TypeScript, and browser gates passed during their

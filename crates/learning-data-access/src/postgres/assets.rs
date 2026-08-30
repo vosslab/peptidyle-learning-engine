@@ -10,7 +10,7 @@ use super::connection::map_sqlx_error;
 use super::{PostgresStore, database_timestamp, decode_payload_row, encode_payload};
 use crate::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
-    AuthorizedAssetDelivery, CatalogAssetBinding, StoreError, TenantContext, ensure_tenant,
+    AuthorizedAssetDelivery, CatalogAssetBinding, StoreError, TenantContext,
     validate_asset_delivery, validate_catalog_asset_delivery_scope,
 };
 
@@ -32,17 +32,14 @@ impl AssetStore for PostgresStore {
                 Some(reference.version),
                 Some(*asset),
             ),
-            AssetDeliveryScope::StudentRecord { tenant, course, .. } => {
-                ensure_tenant(context, *tenant)?;
-                (
-                    "student_record",
-                    Some(*tenant),
-                    Some(*course),
-                    None,
-                    None,
-                    None,
-                )
-            }
+            AssetDeliveryScope::StudentRecord { course, .. } => (
+                "student_record",
+                Some(context.tenant_id()),
+                Some(*course),
+                None,
+                None,
+                None,
+            ),
             AssetDeliveryScope::CourseBanner { .. } => {
                 return Err(StoreError::InvalidRecord(
                     "course-banner delivery registration is owned by appearance promotion"
@@ -206,14 +203,7 @@ impl AssetStore for PostgresStore {
         let (scope_text, delivery_id, scope_course_id): (&str, Uuid, Option<Uuid>) =
             match &record.scope {
                 AssetDeliveryScope::Catalog { .. } => ("catalog", record.id.as_uuid(), None),
-                AssetDeliveryScope::StudentRecord {
-                    tenant: scope_tenant,
-                    course,
-                    ..
-                } => {
-                    if *scope_tenant != context.tenant_id() {
-                        return Err(StoreError::NotFound);
-                    }
+                AssetDeliveryScope::StudentRecord { course, .. } => {
                     let object_course = row
                         .try_get::<Option<Uuid>, _>("course_id")
                         .map_err(map_sqlx_error)?;
@@ -229,17 +219,15 @@ impl AssetStore for PostgresStore {
                 AssetDeliveryScope::CourseBanner { .. } => return Err(StoreError::NotFound),
             };
         if let AssetDeliveryScope::StudentRecord {
-            tenant,
             course: _,
             authorized_users,
         } = &record.scope
-            && (*tenant != context.tenant_id() || !authorized_users.contains(&actor))
+            && !authorized_users.contains(&actor)
         {
             return Err(StoreError::NotFound);
         }
         let authorized_at = database_timestamp(&mut transaction).await?;
         let event = AssetAccessEvent {
-            tenant: context.tenant_id(),
             actor,
             delivery,
             object: record.object.id,

@@ -4,31 +4,28 @@ use async_trait::async_trait;
 #[cfg(feature = "test-support")]
 use question_model::GradingOperationReason;
 use question_model::{
-    AssignmentId, CourseId, GradingOperationAction, GradingOperationState, ScoringStatus, TenantId,
-    UserId,
+    AssignmentId, CourseId, GradingOperationAction, GradingOperationState, ScoringStatus, UserId,
 };
 #[cfg(feature = "test-support")]
 use uuid::Uuid;
 
 use super::{MemoryStore, StoredJob};
 use crate::{
-    GradingExecution, GradingExecutionGeneration, GradingOperation, GradingOperationActionReceipt,
-    GradingOperationRevision, GradingOperationStore, ListInstructorGradingOperationsCommand,
-    MAX_INSTRUCTOR_GRADING_RETRY_COUNT, RecalculateAssignmentCommand, RetryGradingOperationCommand,
-    StoreError, TenantContext,
+    ActorContext, GradingExecution, GradingExecutionGeneration, GradingOperation,
+    GradingOperationActionReceipt, GradingOperationRevision, GradingOperationStore,
+    ListInstructorGradingOperationsCommand, MAX_INSTRUCTOR_GRADING_RETRY_COUNT,
+    RecalculateAssignmentCommand, RetryGradingOperationCommand, StoreError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum MemoryGradingOperationIntent {
     Retry {
-        tenant: TenantId,
         course: CourseId,
         assignment: AssignmentId,
         operation: question_model::GradingOperationReference,
         expected_revision: GradingOperationRevision,
     },
     Recalculate {
-        tenant: TenantId,
         course: CourseId,
         assignment: AssignmentId,
         expected_assignment_revision: question_model::AssignmentRevision,
@@ -42,10 +39,8 @@ pub(super) struct MemoryGradingOperationAction {
     receipt: GradingOperationActionReceipt,
 }
 
-pub(super) type MemoryGradingOperationActions = std::collections::BTreeMap<
-    (TenantId, crate::GradingOperationActionId),
-    MemoryGradingOperationAction,
->;
+pub(super) type MemoryGradingOperationActions =
+    std::collections::BTreeMap<crate::GradingOperationActionId, MemoryGradingOperationAction>;
 
 /// Seeds the smallest durable exception state needed by route-boundary tests.
 ///
@@ -57,7 +52,6 @@ pub(super) type MemoryGradingOperationActions = std::collections::BTreeMap<
 impl MemoryStore {
     pub fn seed_retryable_grading_operation_for_test(
         &self,
-        tenant: TenantId,
         course: CourseId,
         assignment: AssignmentId,
         operation: question_model::GradingOperationReference,
@@ -66,7 +60,7 @@ impl MemoryStore {
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
         state.automated_grading_executions.insert(
-            (tenant, attempt),
+            attempt,
             GradingExecution {
                 submission,
                 generation: GradingExecutionGeneration::INITIAL,
@@ -76,9 +70,8 @@ impl MemoryStore {
             },
         );
         state.automated_grading_operations.insert(
-            (tenant, operation),
+            operation,
             GradingOperation {
-                tenant,
                 course,
                 assignment,
                 reference: operation,
@@ -97,17 +90,13 @@ impl MemoryStore {
 impl GradingOperationStore for MemoryStore {
     async fn list_instructor_grading_operations(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ListInstructorGradingOperationsCommand,
     ) -> Result<crate::Page<crate::InstructorGradingOperationRow>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        if command.tenant != tenant {
-            return Err(StoreError::NotFound);
-        }
         super::grading_operations::require_instructor_operation_authority(
             &state,
-            tenant,
+            context,
             command.session,
             command.course,
             command.assignment,
@@ -116,17 +105,10 @@ impl GradingOperationStore for MemoryStore {
             .automated_grading_operations
             .values()
             .filter(|operation| {
-                operation.tenant == tenant
-                    && operation.course == command.course
-                    && operation.assignment == command.assignment
+                operation.course == command.course && operation.assignment == command.assignment
             })
             .map(|operation| {
-                super::grading_operations::operation_row(
-                    &state,
-                    tenant,
-                    *operation,
-                    command.group_by,
-                )
+                super::grading_operations::operation_row(&state, *operation, command.group_by)
             })
             .collect::<Result<Vec<_>, _>>()?;
         rows.sort_by_key(|row| {
@@ -137,7 +119,6 @@ impl GradingOperationStore for MemoryStore {
         });
         super::grading_operations::page_rows(
             rows,
-            tenant,
             command.course,
             command.assignment,
             command.group_by,
@@ -147,17 +128,13 @@ impl GradingOperationStore for MemoryStore {
 
     async fn retry_instructor_grading_operation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RetryGradingOperationCommand,
     ) -> Result<GradingOperationActionReceipt, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        if command.tenant != tenant {
-            return Err(StoreError::NotFound);
-        }
         let actor = super::grading_operations::require_instructor_operation_authority(
             &state,
-            tenant,
+            context,
             command.session,
             command.course,
             command.assignment,
@@ -165,13 +142,13 @@ impl GradingOperationStore for MemoryStore {
         let intent = retry_intent(&command);
         if let Some(stored) = state
             .instructor_grading_operation_actions
-            .get(&(tenant, command.action))
+            .get(&command.action)
         {
             return replay(stored, actor, &intent);
         }
         let operation = state
             .automated_grading_operations
-            .get(&(tenant, command.operation))
+            .get(&command.operation)
             .copied()
             .filter(|operation| {
                 operation.course == command.course && operation.assignment == command.assignment
@@ -186,8 +163,9 @@ impl GradingOperationStore for MemoryStore {
             crate::GradingOperationTarget::SubmissionRecovery { submission } => state
                 .automated_grading_executions
                 .iter()
-                .find_map(|((stored_tenant, attempt), execution)| {
-                    (*stored_tenant == tenant && execution.submission == submission)
+                .find_map(|(attempt, execution)| {
+                    (super::activity::attempt_belongs_to_course(&state, *attempt)
+                        && execution.submission == submission)
                         .then_some(*attempt)
                 })
                 .ok_or(StoreError::NotFound)?,
@@ -195,7 +173,7 @@ impl GradingOperationStore for MemoryStore {
         };
         let execution = state
             .automated_grading_executions
-            .get(&(tenant, question_attempt))
+            .get(&question_attempt)
             .copied()
             .ok_or(StoreError::NotFound)?;
         if execution.state != crate::GradingExecutionState::Exception
@@ -225,7 +203,7 @@ impl GradingOperationStore for MemoryStore {
         };
         let occurred_at = state.authoritative_time;
         state.automated_grading_executions.insert(
-            (tenant, question_attempt),
+            question_attempt,
             GradingExecution {
                 generation,
                 state: crate::GradingExecutionState::Ready,
@@ -238,12 +216,12 @@ impl GradingOperationStore for MemoryStore {
             },
         );
         state.automated_grading_evaluations.insert(
-            (tenant, question_attempt),
+            question_attempt,
             question_model::SubmissionEvaluationStatus::AutomatedPending,
         );
         state
             .automated_grading_execution_receipts
-            .entry((tenant, question_attempt))
+            .entry(question_attempt)
             .or_default()
             .push(crate::GradingExecutionReceipt {
                 submission: execution.submission,
@@ -257,7 +235,6 @@ impl GradingOperationStore for MemoryStore {
         state.jobs.insert(
             job,
             StoredJob {
-                tenant,
                 payload: crate::JobPayload::GradeAcceptedSubmission {
                     attempt: question_attempt,
                     submission: execution.submission,
@@ -273,7 +250,7 @@ impl GradingOperationStore for MemoryStore {
             },
         );
         state.automated_grading_operations.insert(
-            (tenant, command.operation),
+            command.operation,
             GradingOperation {
                 revision,
                 state: GradingOperationState::ActionInProgress,
@@ -282,7 +259,7 @@ impl GradingOperationStore for MemoryStore {
             },
         );
         state.instructor_grading_operation_actions.insert(
-            (tenant, command.action),
+            command.action,
             MemoryGradingOperationAction {
                 actor,
                 intent,
@@ -294,17 +271,13 @@ impl GradingOperationStore for MemoryStore {
 
     async fn recalculate_instructor_assignment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RecalculateAssignmentCommand,
     ) -> Result<GradingOperationActionReceipt, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        if command.tenant != tenant {
-            return Err(StoreError::NotFound);
-        }
         let actor = super::grading_operations::require_instructor_operation_authority(
             &state,
-            tenant,
+            context,
             command.session,
             command.course,
             command.assignment,
@@ -312,13 +285,13 @@ impl GradingOperationStore for MemoryStore {
         let intent = recalculation_intent(&command);
         if let Some(stored) = state
             .instructor_grading_operation_actions
-            .get(&(tenant, command.action))
+            .get(&command.action)
         {
             return replay(stored, actor, &intent);
         }
         let assignment_revision = state
             .assignment_revisions
-            .get(&(tenant, command.assignment))
+            .get(&command.assignment)
             .copied()
             .ok_or(StoreError::NotFound)?;
         if assignment_revision != command.expected_assignment_revision {
@@ -326,7 +299,7 @@ impl GradingOperationStore for MemoryStore {
         }
         let (_, status) = state
             .assignment_scoring
-            .get(&(tenant, command.assignment))
+            .get(&command.assignment)
             .copied()
             .ok_or(StoreError::NotFound)?;
         if !matches!(status, ScoringStatus::Current | ScoringStatus::Failed) {
@@ -334,7 +307,6 @@ impl GradingOperationStore for MemoryStore {
         }
         let invalidation = super::scoring_invalidation::request_scoring_invalidation(
             &mut state,
-            tenant,
             command.course,
             command.assignment,
             crate::ScoringInvalidationOrigin::instructor_recalculation(
@@ -353,7 +325,7 @@ impl GradingOperationStore for MemoryStore {
             occurred_at: state.authoritative_time,
         };
         state.instructor_grading_operation_actions.insert(
-            (tenant, command.action),
+            command.action,
             MemoryGradingOperationAction {
                 actor,
                 intent,
@@ -366,7 +338,6 @@ impl GradingOperationStore for MemoryStore {
 
 fn retry_intent(command: &RetryGradingOperationCommand) -> MemoryGradingOperationIntent {
     MemoryGradingOperationIntent::Retry {
-        tenant: command.tenant,
         course: command.course,
         assignment: command.assignment,
         operation: command.operation,
@@ -375,7 +346,6 @@ fn retry_intent(command: &RetryGradingOperationCommand) -> MemoryGradingOperatio
 }
 fn recalculation_intent(command: &RecalculateAssignmentCommand) -> MemoryGradingOperationIntent {
     MemoryGradingOperationIntent::Recalculate {
-        tenant: command.tenant,
         course: command.course,
         assignment: command.assignment,
         expected_assignment_revision: command.expected_assignment_revision,

@@ -112,7 +112,7 @@ where
             appearance_response(StatusCode::OK, appearance)
         }
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             appearance_not_found()
         }
         Err(error) => appearance_store_error(error),
@@ -148,12 +148,12 @@ where
         .await
     {
         Ok(authorized) => authorized,
-        Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             return banner_not_found();
         }
         Err(error) => return appearance_store_error(error),
     };
-    if !authorized_banner_record_matches(&authorized.record, authenticated.tenant_context, banner) {
+    if !authorized_banner_record_matches(&authorized.record, banner) {
         return error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "banner delivery is unavailable",
@@ -176,13 +176,8 @@ where
     banner_delivery_response(stored)
 }
 
-fn authorized_banner_record_matches(
-    record: &AssetDeliveryRecord,
-    context: TenantContext,
-    banner: CourseBannerId,
-) -> bool {
+fn authorized_banner_record_matches(record: &AssetDeliveryRecord, banner: CourseBannerId) -> bool {
     let AssetDeliveryScope::CourseBanner {
-        tenant,
         course,
         banner: scoped_banner,
     } = record.scope
@@ -192,12 +187,10 @@ fn authorized_banner_record_matches(
     matches!(
         record.object.key,
         ObjectKey::CourseBanner {
-            tenant: key_tenant,
             course: key_course,
             banner: key_banner,
-        } if key_tenant == tenant && key_course == course && key_banner == banner
-    ) && tenant == context.tenant_id()
-        && scoped_banner == banner
+        } if key_course == course && key_banner == banner
+    ) && scoped_banner == banner
         && record.id == AssetDeliveryId::from_course_banner(banner)
         && record.object.bucket == objects::Bucket::PrivateContent
         && record.object.category == ObjectCategory::CourseContent
@@ -257,7 +250,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_manage_appearance(authenticated.record.subject.roles()) {
+    if !may_manage_appearance(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "course appearance is read-only");
     }
     let media_type = match request_media_type(request.headers()) {
@@ -279,11 +272,7 @@ where
         Ok(normalized) => normalized,
         Err(error) => return image_error_response(error),
     };
-    let now = match state
-        .store
-        .authoritative_time(authenticated.tenant_context)
-        .await
-    {
+    let now = match state.store.authoritative_time().await {
         Ok(now) => now,
         Err(error) => return appearance_store_error(error),
     };
@@ -296,11 +285,7 @@ where
     };
     let candidate = CourseBannerCandidateId::generate();
     let banner = CourseBannerId::generate();
-    let key = ObjectKey::CourseBannerCandidate {
-        tenant: authenticated.tenant_context.tenant_id(),
-        course,
-        candidate,
-    };
+    let key = ObjectKey::CourseBannerCandidate { course, candidate };
     let put = PutObject {
         key: key.clone(),
         bytes: normalized,
@@ -374,7 +359,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_manage_appearance(authenticated.record.subject.roles()) {
+    if !may_manage_appearance(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "course appearance is read-only");
     }
     let expected_revision = match required_revision(request.headers()) {
@@ -475,7 +460,7 @@ where
         return;
     };
     for claim in claims {
-        if !cleanup_claim_is_tenant_owned(&claim, context) {
+        if !cleanup_claim_has_exact_object_keys(&claim) {
             continue;
         }
         for key in [&claim.candidate_object, &claim.promoted_object]
@@ -491,27 +476,24 @@ where
     }
 }
 
-fn cleanup_claim_is_tenant_owned(
+fn cleanup_claim_has_exact_object_keys(
     claim: &learning_data_access::CourseBannerCleanupClaim,
-    context: TenantContext,
 ) -> bool {
     let candidate_is_valid = claim.candidate_object.as_ref().is_none_or(|key| {
         matches!(
             key,
             ObjectKey::CourseBannerCandidate {
-                tenant,
                 course,
                 candidate,
-            } if *tenant == context.tenant_id()
-                && *course == claim.course
+            } if *course == claim.course
                 && *candidate == claim.candidate
         )
     });
     let promoted_is_valid = claim.promoted_object.as_ref().is_none_or(|key| {
         matches!(
             key,
-            ObjectKey::CourseBanner { tenant, course, .. }
-                if *tenant == context.tenant_id() && *course == claim.course
+            ObjectKey::CourseBanner { course, .. }
+                if *course == claim.course
         )
     });
     candidate_is_valid && promoted_is_valid
@@ -543,11 +525,7 @@ where
         }
         Err(error) => return Err(mutation_store_error(error).into()),
     };
-    let candidate_key = ObjectKey::CourseBannerCandidate {
-        tenant: context.tenant_id(),
-        course,
-        candidate,
-    };
+    let candidate_key = ObjectKey::CourseBannerCandidate { course, candidate };
     let stored = state
         .objects
         .get(&candidate_key)
@@ -567,12 +545,11 @@ where
     }
     let now = state
         .store
-        .authoritative_time(context)
+        .authoritative_time()
         .await
         .map_err(appearance_store_error)?;
     let put = PutObject {
         key: ObjectKey::CourseBanner {
-            tenant: context.tenant_id(),
             course,
             banner: promotion.banner,
         },
@@ -704,10 +681,8 @@ fn candidate_matches_promotion(
         && Sha256Digest::compute(&stored.bytes) == sha256
 }
 
-fn may_manage_appearance(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_manage_appearance(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 fn image_error_response(error: BannerImageError) -> Response {
@@ -725,7 +700,7 @@ fn mutation_store_error(error: StoreError) -> Response {
         StoreError::Forbidden => {
             error_response(StatusCode::FORBIDDEN, "course appearance is read-only")
         }
-        StoreError::NotFound | StoreError::TenantMismatch => appearance_not_found(),
+        StoreError::NotFound | StoreError::OwnershipMismatch => appearance_not_found(),
         StoreError::InvalidRecord(_) => error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "appearance update is invalid",

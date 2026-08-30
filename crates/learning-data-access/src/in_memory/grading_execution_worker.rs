@@ -3,7 +3,6 @@
 use async_trait::async_trait;
 use question_model::{
     ActivityTimestamp, GradingOperationReason, QuestionAttemptId, SubmissionEvaluationStatus,
-    TenantId,
 };
 #[cfg(test)]
 use uuid::Uuid;
@@ -17,7 +16,7 @@ use crate::{
     AcceptedSubmissionExecutionLoadError, AcceptedSubmissionExecutionOutcome,
     AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionExecutionStore,
     AcceptedSubmissionExecutionTarget, GradingExecutionReceipt, JobLeaseDuration, JobPayload,
-    JobState, StoreError, TenantContext, WorkerId,
+    JobState, StoreError, WorkerId,
 };
 
 struct SuccessfulEvaluationPlan {
@@ -51,21 +50,15 @@ impl AcceptedSubmissionExecutionFastPathClaimStore for MemoryStore {
 impl AcceptedSubmissionExecutionStore for MemoryStore {
     async fn load_accepted_submission_for_execution(
         &self,
-        context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
     ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        if claim.tenant != tenant {
-            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
-        }
         let now = state.authoritative_time;
         let job = state
             .jobs
             .get(&claim.job)
             .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
-        if job.tenant != tenant
-            || job.state != crate::JobState::Leased
+        if job.state != crate::JobState::Leased
             || job.lease_token != Some(claim.lease_token)
             || !job.lease_expires_at.is_some_and(|expiry| expiry > now)
         {
@@ -84,32 +77,29 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
         }
         let execution = state
             .automated_grading_executions
-            .get(&(tenant, attempt))
+            .get(&attempt)
             .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
         if execution.submission != claim.submission
             || execution.generation != claim.execution_generation
             || execution.job != claim.job
             || execution.state != crate::GradingExecutionState::Running
-            || state
-                .automated_grading_execution_workers
-                .get(&(tenant, attempt))
-                != Some(&claim.worker)
+            || state.automated_grading_execution_workers.get(&attempt) != Some(&claim.worker)
         {
             return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let stored = state
             .submissions
-            .get(&(tenant, attempt))
+            .get(&attempt)
             .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
         let accepted = stored
             .accepted_pending()
             .ok_or(AcceptedSubmissionExecutionLoadError::Conflict)?;
-        if accepted.submission != claim.submission || accepted.tenant != tenant {
+        if accepted.submission != claim.submission {
             return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let private = state
             .private_submission_responses
-            .get(&(tenant, attempt))
+            .get(&attempt)
             .ok_or(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         let canonical = crate::canonical_student_response_json(&private.response)
             .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
@@ -120,7 +110,7 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
             return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         let prepared =
-            super::grading_operations::load_prepared_accepted_submission(&state, tenant, attempt)
+            super::grading_operations::load_prepared_accepted_submission(&state, attempt)
                 .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         Ok(AcceptedSubmissionExecution {
             accepted: accepted.clone(),
@@ -131,17 +121,12 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
 
     async fn commit_or_fail_accepted_submission_execution(
         &self,
-        context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
         outcome: AcceptedSubmissionExecutionOutcome,
     ) -> Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError> {
         let mut state = self.write_state()?;
         let now = state.authoritative_time;
-        let tenant = context.tenant_id();
-        if claim.tenant != tenant {
-            return Ok(AcceptedSubmissionExecutionDisposition::ClaimNoLongerActive);
-        }
-        let Some((attempt, accepted)) = active_claim_attempt(&state, tenant, claim, now) else {
+        let Some((attempt, accepted)) = active_claim_attempt(&state, claim, now) else {
             return Ok(AcceptedSubmissionExecutionDisposition::ClaimNoLongerActive);
         };
         let success_plan = match &outcome {
@@ -242,7 +227,6 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
             {
                 super::stage_statistics_contributions(
                     &mut state,
-                    accepted.tenant,
                     success_plan
                         .as_ref()
                         .expect("evaluated plan")
@@ -267,19 +251,17 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
         }
         let execution = state
             .automated_grading_executions
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .ok_or(StoreError::NotFound)?;
         execution.state = state_after;
         state
             .automated_grading_evaluations
-            .insert((tenant, attempt), evaluation);
-        state
-            .automated_grading_execution_workers
-            .remove(&(tenant, attempt));
+            .insert(attempt, evaluation);
+        state.automated_grading_execution_workers.remove(&attempt);
         if let Some(evidence) = evidence {
             state
                 .automated_grading_result_evidence
-                .insert((tenant, attempt), evidence);
+                .insert(attempt, evidence);
         }
         let job = state
             .jobs
@@ -305,14 +287,12 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
         if committed {
             super::grading_operation_lifecycle::close_completed_submission_operation(
                 &mut state,
-                tenant,
                 accepted.submission,
             )?;
         }
         if let Some(reason) = terminal_reason {
             super::grading_operation_lifecycle::reopen_submission_operation(
                 &mut state,
-                tenant,
                 accepted.course,
                 accepted.assignment,
                 accepted.submission,
@@ -321,7 +301,7 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
         }
         state
             .automated_grading_execution_receipts
-            .entry((tenant, attempt))
+            .entry(attempt)
             .or_default()
             .push(GradingExecutionReceipt {
                 submission: claim.submission,
@@ -353,41 +333,41 @@ fn prepare_successful_evaluation(
     crate::validate_attempt_result(grade.evidence.result)?;
     let base = state
         .attempts
-        .get(&(accepted.tenant, accepted.attempt))
+        .get(&accepted.attempt)
         .ok_or(StoreError::NotFound)?;
-    let submitted = projected_attempt(state, accepted.tenant, base);
+    let submitted = projected_attempt(state, base);
     let run = state
         .runs
-        .get(&(accepted.tenant, submitted.run))
+        .get(&submitted.run)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::Conflict);
     }
-    let enrollment = enrollment_record(state, accepted.tenant, run.enrollment)?;
-    let assignment = assignment_record(state, accepted.tenant, enrollment.assignment)?;
+    let enrollment = enrollment_record(state, run.enrollment)?;
+    let assignment = assignment_record(state, enrollment.assignment)?;
     if assignment.id != accepted.assignment || assignment.course_id != accepted.course {
         return Err(StoreError::Conflict);
     }
     let summary = state
         .summaries
-        .get(&(accepted.tenant, enrollment.id))
+        .get(&enrollment.id)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     let run_items = state
         .run_items
-        .get(&(accepted.tenant, run.id))
+        .get(&run.id)
         .cloned()
         .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
     let attempts = state
         .attempts
         .values()
-        .filter(|attempt| attempt.tenant == accepted.tenant && attempt.run == run.id)
+        .filter(|attempt| attempt.run == run.id)
         .map(|attempt| {
             if attempt.id == submitted.id {
                 submitted.clone()
             } else {
-                projected_attempt(state, accepted.tenant, attempt)
+                projected_attempt(state, attempt)
             }
         })
         .collect::<Vec<_>>();
@@ -402,7 +382,7 @@ fn prepare_successful_evaluation(
             run_items,
             attempts,
             accepted_at: accepted.accepted_at,
-            presentation: super::runs::load_issued_presentation(state, accepted.tenant, base)?,
+            presentation: super::runs::load_issued_presentation(state, base)?,
         })?;
     Ok(SuccessfulEvaluationPlan { completion })
 }
@@ -414,7 +394,6 @@ fn apply_successful_evaluation(
 ) -> Result<(), StoreError> {
     super::scoring_invalidation::request_scoring_invalidation(
         state,
-        accepted.tenant,
         accepted.course,
         accepted.assignment,
         crate::ScoringInvalidationOrigin::accepted_submission_completion(
@@ -422,25 +401,23 @@ fn apply_successful_evaluation(
         ),
         crate::accepted_submission_recalculation_job(accepted.submission),
     )?;
-    state.attempt_current.insert(
-        (accepted.tenant, accepted.attempt),
-        plan.completion.receipt.attempt.clone(),
-    );
+    state
+        .attempt_current
+        .insert(accepted.attempt, plan.completion.receipt.attempt.clone());
     state.runs.insert(
-        (accepted.tenant, plan.completion.receipt.run.id),
+        plan.completion.receipt.run.id,
         plan.completion.receipt.run.clone(),
     );
-    state.enrollments.insert(
-        (accepted.tenant, plan.completion.enrollment.id),
-        plan.completion.enrollment,
-    );
+    state
+        .enrollments
+        .insert(plan.completion.enrollment.id, plan.completion.enrollment);
     state.summaries.insert(
-        (accepted.tenant, plan.completion.receipt.summary.enrollment),
+        plan.completion.receipt.summary.enrollment,
         plan.completion.receipt.summary.clone(),
     );
     let stored = state
         .submissions
-        .get_mut(&(accepted.tenant, accepted.attempt))
+        .get_mut(&accepted.attempt)
         .expect("active accepted claim retains its submission receipt");
     stored.state = StoredSubmissionState::Completed(Box::new(plan.completion.receipt));
     Ok(())
@@ -465,25 +442,16 @@ pub(super) fn converge_expired_exhausted_claims(
             (job.state == JobState::Leased
                 && job.lease_expires_at.is_some_and(|expiry| expiry <= now)
                 && job.attempt_count >= job.max_attempts)
-                .then_some((
-                    *job_id,
-                    job.tenant,
-                    attempt,
-                    submission,
-                    execution_generation,
-                ))
+                .then_some((*job_id, attempt, submission, execution_generation))
         })
         .collect::<Vec<_>>();
-    for (job_id, tenant, attempt, submission, generation) in exhausted {
+    for (job_id, attempt, submission, generation) in exhausted {
         let accepted = state
             .submissions
-            .get(&(tenant, attempt))
+            .get(&attempt)
             .and_then(StoredSubmission::accepted_pending)
             .cloned();
-        let Some(execution) = state
-            .automated_grading_executions
-            .get_mut(&(tenant, attempt))
-        else {
+        let Some(execution) = state.automated_grading_executions.get_mut(&attempt) else {
             continue;
         };
         if execution.submission != submission
@@ -495,13 +463,12 @@ pub(super) fn converge_expired_exhausted_claims(
         }
         let worker = state
             .automated_grading_execution_workers
-            .remove(&(tenant, attempt))
+            .remove(&attempt)
             .ok_or(StoreError::Conflict)?;
         execution.state = crate::GradingExecutionState::Exception;
-        state.automated_grading_evaluations.insert(
-            (tenant, attempt),
-            SubmissionEvaluationStatus::AutomatedException,
-        );
+        state
+            .automated_grading_evaluations
+            .insert(attempt, SubmissionEvaluationStatus::AutomatedException);
         if let Some(job) = state.jobs.get_mut(&job_id) {
             job.state = JobState::Dead;
             job.lease_token = None;
@@ -510,7 +477,7 @@ pub(super) fn converge_expired_exhausted_claims(
         }
         state
             .automated_grading_execution_receipts
-            .entry((tenant, attempt))
+            .entry(attempt)
             .or_default()
             .push(GradingExecutionReceipt {
                 submission,
@@ -524,7 +491,6 @@ pub(super) fn converge_expired_exhausted_claims(
         if let Some(accepted) = accepted {
             super::grading_operation_lifecycle::reopen_submission_operation(
                 state,
-                tenant,
                 accepted.course,
                 accepted.assignment,
                 submission,
@@ -557,7 +523,6 @@ fn execution_failure_category(
 
 fn active_claim_attempt(
     state: &State,
-    tenant: TenantId,
     claim: AcceptedSubmissionExecutionClaim,
     now: ActivityTimestamp,
 ) -> Option<(QuestionAttemptId, AcceptedSubmission)> {
@@ -570,13 +535,9 @@ fn active_claim_attempt(
     else {
         return None;
     };
-    let execution = state.automated_grading_executions.get(&(tenant, attempt))?;
-    let accepted = state
-        .submissions
-        .get(&(tenant, attempt))?
-        .accepted_pending()?;
-    (job.tenant == tenant
-        && job.state == JobState::Leased
+    let execution = state.automated_grading_executions.get(&attempt)?;
+    let accepted = state.submissions.get(&attempt)?.accepted_pending()?;
+    (job.state == JobState::Leased
         && job.lease_token == Some(claim.lease_token)
         && job.lease_expires_at.is_some_and(|expiry| expiry > now)
         && submission == claim.submission
@@ -585,11 +546,7 @@ fn active_claim_attempt(
         && execution.generation == claim.execution_generation
         && execution.job == claim.job
         && execution.state == crate::GradingExecutionState::Running
-        && state
-            .automated_grading_execution_workers
-            .get(&(tenant, attempt))
-            == Some(&claim.worker)
-        && accepted.tenant == tenant
+        && state.automated_grading_execution_workers.get(&attempt) == Some(&claim.worker)
         && accepted.submission == claim.submission)
         .then_some((attempt, accepted.clone()))
 }
@@ -604,18 +561,13 @@ mod tests {
     };
     use question_model::UserId;
 
-    fn seed_claimable_execution(
-        store: &MemoryStore,
-        max_attempts: u16,
-    ) -> (TenantId, AcceptedSubmissionId) {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(501));
+    fn seed_claimable_execution(store: &MemoryStore, max_attempts: u16) -> AcceptedSubmissionId {
         let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(502));
         let submission = AcceptedSubmissionId::from_uuid(Uuid::from_u128(503));
         let course = CourseId::from_uuid(Uuid::from_u128(504));
         let assignment = AssignmentId::from_uuid(Uuid::from_u128(505));
         let job = crate::JobId::from_uuid(Uuid::from_u128(506));
         let accepted = AcceptedSubmission {
-            tenant,
             course,
             assignment,
             attempt,
@@ -629,14 +581,14 @@ mod tests {
         let mut state = store.write_state().expect("memory state");
         state.authoritative_time = ActivityTimestamp::from_unix_millis(1_000);
         state.submissions.insert(
-            (tenant, attempt),
+            attempt,
             StoredSubmission {
                 key: accepted.idempotency_key.clone(),
                 state: StoredSubmissionState::AcceptedPending(accepted),
             },
         );
         state.automated_grading_executions.insert(
-            (tenant, attempt),
+            attempt,
             GradingExecution {
                 submission,
                 generation: GradingExecutionGeneration::INITIAL,
@@ -645,18 +597,16 @@ mod tests {
                 retry_count: 0,
             },
         );
-        state.automated_grading_evaluations.insert(
-            (tenant, attempt),
-            SubmissionEvaluationStatus::AutomatedPending,
-        );
+        state
+            .automated_grading_evaluations
+            .insert(attempt, SubmissionEvaluationStatus::AutomatedPending);
         state.assignment_scoring.insert(
-            (tenant, assignment),
+            assignment,
             (ScoringGeneration::INITIAL, ScoringStatus::Current),
         );
         state.jobs.insert(
             job,
             StoredJob {
-                tenant,
                 payload: JobPayload::GradeAcceptedSubmission {
                     attempt,
                     submission,
@@ -671,12 +621,11 @@ mod tests {
                 failure: None,
             },
         );
-        (tenant, submission)
+        submission
     }
 
     fn seeded_target() -> AcceptedSubmissionExecutionTarget {
         AcceptedSubmissionExecutionTarget {
-            tenant: TenantId::from_uuid(Uuid::from_u128(501)),
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(502)),
             submission: AcceptedSubmissionId::from_uuid(Uuid::from_u128(503)),
             job: crate::JobId::from_uuid(Uuid::from_u128(506)),
@@ -699,8 +648,8 @@ mod tests {
             .expect("exact claim")
             .expect("exact winner");
         assert_eq!(
-            (exact_claim.tenant, exact_claim.job, exact_claim.submission,),
-            (target.tenant, target.job, target.submission)
+            (exact_claim.job, exact_claim.submission),
+            (target.job, target.submission)
         );
         assert!(
             exact_first
@@ -724,12 +673,8 @@ mod tests {
             .expect("recovery claim")
             .expect("recovery winner");
         assert_eq!(
-            (
-                recovery_claim.tenant,
-                recovery_claim.job,
-                recovery_claim.submission,
-            ),
-            (target.tenant, target.job, target.submission)
+            (recovery_claim.job, recovery_claim.submission),
+            (target.job, target.submission)
         );
         assert!(
             recovery_first
@@ -747,7 +692,7 @@ mod tests {
     #[tokio::test]
     async fn claim_commit_and_stale_tuple_are_fenced() {
         let store = MemoryStore::default();
-        let (tenant, submission) = seed_claimable_execution(&store, 2);
+        let submission = seed_claimable_execution(&store, 2);
         let worker = WorkerId::from_uuid(Uuid::from_u128(508));
         let lease = JobLeaseDuration::from_seconds(30).expect("lease");
         let claim = store
@@ -755,7 +700,6 @@ mod tests {
             .await
             .expect("claim")
             .expect("winner");
-        assert_eq!(claim.tenant, tenant);
         assert!(
             store
                 .claim_next_accepted_submission_execution(
@@ -771,7 +715,6 @@ mod tests {
         assert_eq!(
             store
                 .commit_or_fail_accepted_submission_execution(
-                    TenantContext::from_authenticated_session(tenant),
                     stale,
                     AcceptedSubmissionExecutionOutcome::TerminalFailure
                 )
@@ -782,7 +725,6 @@ mod tests {
         assert_eq!(
             store
                 .commit_or_fail_accepted_submission_execution(
-                    TenantContext::from_authenticated_session(tenant),
                     claim,
                     AcceptedSubmissionExecutionOutcome::TerminalFailure
                 )
@@ -806,7 +748,7 @@ mod tests {
         assert_eq!(
             state
                 .assignment_scoring
-                .get(&(tenant, AssignmentId::from_uuid(Uuid::from_u128(505)),)),
+                .get(&AssignmentId::from_uuid(Uuid::from_u128(505))),
             Some(&(ScoringGeneration::INITIAL, ScoringStatus::Current))
         );
     }
@@ -814,7 +756,7 @@ mod tests {
     #[tokio::test]
     async fn controlled_time_reclaims_then_converges_expired_exhaustion() {
         let store = MemoryStore::default();
-        let (tenant, submission) = seed_claimable_execution(&store, 2);
+        let submission = seed_claimable_execution(&store, 2);
         let worker = WorkerId::from_uuid(Uuid::from_u128(511));
         let lease = JobLeaseDuration::from_seconds(1).expect("lease");
         let first = store
@@ -833,7 +775,6 @@ mod tests {
         assert_eq!(
             store
                 .commit_or_fail_accepted_submission_execution(
-                    TenantContext::from_authenticated_session(tenant),
                     first,
                     AcceptedSubmissionExecutionOutcome::TerminalFailure,
                 )

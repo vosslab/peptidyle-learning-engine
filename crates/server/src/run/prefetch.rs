@@ -447,7 +447,6 @@ where
             let native_execution_envelope_capability =
                 native_execution_envelope_capability(&question, issued.flat_grading_capability);
             let value = PrefetchedQuestionDescriptorV1 {
-                tenant: authenticated.tenant_context.tenant_id(),
                 run: run.id,
                 predecessor,
                 assignment_position,

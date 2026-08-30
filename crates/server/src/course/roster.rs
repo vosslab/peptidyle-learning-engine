@@ -28,8 +28,6 @@ use super::invitation_capability::CourseInvitationIssuer;
 use super::policy::{course_records_are_visible, require_course_access};
 use super::projection::{error_response, store_error_response};
 
-#[path = "roster/export.rs"]
-mod export;
 #[path = "roster/import.rs"]
 mod import;
 
@@ -57,7 +55,6 @@ where
         + CourseRecordsAccessStore
         + CourseRosterStore
         + CourseInvitationDeliveryStore
-        + learning_data_access::ManualGradeExportStore
         + SessionStore
         + 'static,
 {
@@ -68,10 +65,6 @@ where
         .route(
             "/api/courses/{course}/members/{member}",
             delete(revoke_member::<S>),
-        )
-        .route(
-            "/api/courses/{course}/assignments/{assignment}/grade-export.csv",
-            post(export::create::<S>),
         )
         .route(
             "/api/courses/{course}/invitations",
@@ -104,12 +97,7 @@ pub(super) async fn require_roster_support_access<S>(
 where
     S: Store + CourseRecordsAccessStore,
 {
-    if authenticated
-        .record
-        .subject
-        .roles()
-        .contains(&UserRole::Sysadmin)
-    {
+    if authenticated.record.subject.role() == UserRole::Sysadmin {
         return match course_records_are_visible(store, authenticated, course).await {
             Ok(true) => Ok(()),
             Ok(false) => Err(error_response(StatusCode::NOT_FOUND, "course not found").into()),

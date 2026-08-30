@@ -24,7 +24,6 @@ test("session expiry, reauthentication, and page retry submit one saved response
   let callCount = 0;
   const machine = createAttemptStateMachine({
     context: {
-      tenantId: "tenant-a",
       runId: "run-a",
       attemptId: "attempt-a",
       questionVersion: "version-a",
@@ -44,7 +43,6 @@ test("session expiry, reauthentication, and page retry submit one saved response
         accepted: true,
         attempt: {
           id: "attempt-a",
-          tenant: "tenant-a",
           run: "run-a",
           problem: "problem-a",
           questionVersion: "version-a",
@@ -111,7 +109,6 @@ test("the response controller exposes 422 and receipt failures for correction be
     let submissions = 0;
     const machine = createAttemptStateMachine({
       context: {
-        tenantId: "tenant-a",
         runId: "run-a",
         attemptId: "attempt-a",
         questionVersion: "version-a",
@@ -134,7 +131,6 @@ test("the response controller exposes 422 and receipt failures for correction be
           accepted: true,
           attempt: {
             id: attemptId,
-            tenant: "tenant-a",
             run: "run-a",
             problem: "problem-a",
             questionVersion: "version-a",

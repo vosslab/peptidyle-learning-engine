@@ -11,36 +11,37 @@ use super::issued_contracts::{
     load_issued_presentation, load_submission_record, validate_issued_question_snapshot,
 };
 use crate::{
-    AuthorizedSubmissionIntent, StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey,
-    SubmissionPreparation, SubmissionReceiptRead, TenantContext,
+    ActorContext, AuthorizedSubmissionIntent, StoreError, StudentWorkRoutingBinding,
+    SubmissionIdempotencyKey, SubmissionPreparation, SubmissionReceiptRead,
 };
 
 pub(in crate::in_memory) fn prepare_question_submission(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     actor: UserId,
     binding: StudentWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
     response: &StudentResponse,
     idempotency_key: &SubmissionIdempotencyKey,
 ) -> Result<SubmissionPreparation, StoreError> {
-    let tenant = context.tenant_id();
+    if context.user_id() != actor {
+        return Err(StoreError::NotFound);
+    }
     // ASVS 8.2.2: establish current Student authority for the route before
     // resolving an opaque attempt identity.
-    super::super::entitlement::active_membership_for(state, tenant, binding.course, actor)
+    super::super::entitlement::active_membership_for(state, binding.course, actor)
         .filter(|membership| {
             membership.role == question_model::CourseMembershipRole::Student
                 && membership.student.is_some()
         })
         .ok_or(StoreError::NotFound)?;
-    let assignment = assignment_record(state, tenant, binding.assignment)?;
+    let assignment = assignment_record(state, binding.assignment)?;
     if assignment.course_id != binding.course {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(state, tenant, binding.course)?;
+    require_course_records_accessible(state, binding.course)?;
     let EntitlementDecision::Granted(grant) = super::super::entitlement::evaluate_locked(
         state,
-        tenant,
         actor,
         binding.course,
         binding.assignment,
@@ -50,16 +51,16 @@ pub(in crate::in_memory) fn prepare_question_submission(
     };
     let base = state
         .attempts
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .cloned()
         .ok_or(StoreError::NotFound)?;
-    let attempt = projected_attempt(state, tenant, &base);
+    let attempt = projected_attempt(state, &base);
     let run = state
         .runs
-        .get(&(tenant, attempt.run))
+        .get(&attempt.run)
         .cloned()
         .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+    let enrollment = enrollment_record(state, run.enrollment)?;
     if enrollment.assignment != binding.assignment
         || enrollment.user != actor
         || enrollment.student != grant.student()
@@ -68,7 +69,7 @@ pub(in crate::in_memory) fn prepare_question_submission(
     }
     let run_item = state
         .run_items
-        .get(&(tenant, run.id))
+        .get(&run.id)
         .and_then(|items| {
             items
                 .iter()
@@ -84,22 +85,20 @@ pub(in crate::in_memory) fn prepare_question_submission(
     }
     let summary = state
         .summaries
-        .get(&(tenant, enrollment.id))
+        .get(&enrollment.id)
         .ok_or(StoreError::NotFound)?;
-    if summary.tenant != tenant || summary.enrollment != enrollment.id {
+    if summary.enrollment != enrollment.id {
         return Err(StoreError::Unavailable(
             "prepared summary disagrees with enrollment".to_string(),
         ));
     }
-    if let Some(stored) = state.submissions.get(&(tenant, attempt_id)) {
+    if let Some(stored) = state.submissions.get(&attempt_id) {
         if stored.key != *idempotency_key
-            || !super::super::stored_submission_matches_response(
-                state, tenant, attempt_id, response,
-            )?
+            || !super::super::stored_submission_matches_response(state, attempt_id, response)?
         {
             return Err(StoreError::Conflict);
         }
-        return match load_submission_record(state, tenant, &attempt)? {
+        return match load_submission_record(state, &attempt)? {
             SubmissionReceiptRead::Missing => Err(StoreError::Unavailable(
                 "submission receipt disappeared during replay".to_string(),
             )),
@@ -120,28 +119,28 @@ pub(in crate::in_memory) fn prepare_question_submission(
     // issued snapshot; current catalog visibility is never a grading input.
     let issued_question_snapshot = state
         .attempt_issued_question_snapshots
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .cloned()
         .ok_or_else(|| {
             StoreError::Unavailable("issued question snapshot is missing".to_string())
         })?;
     let flat_capability = state
         .attempt_flat_grading_capabilities
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("attempt flat grading capability is missing".to_string())
         })?;
     let webwork_capability = state
         .attempt_webwork_grading_capabilities
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("attempt WeBWorK grading capability is missing".to_string())
         })?;
     let qti_capability = state
         .attempt_qti_grading_capabilities
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("attempt QTI grading capability is missing".to_string())
@@ -152,19 +151,11 @@ pub(in crate::in_memory) fn prepare_question_submission(
         flat_capability,
         webwork_capability,
         qti_capability,
-        state
-            .attempt_presentation_snapshots
-            .get(&(tenant, attempt.id)),
+        state.attempt_presentation_snapshots.get(&attempt.id),
     )?;
-    let presentation = load_issued_presentation(state, tenant, &attempt)?;
-    let presentation_binding = state
-        .attempt_presentations
-        .get(&(tenant, attempt.id))
-        .copied();
-    let grading_envelope = state
-        .attempt_grading_envelopes
-        .get(&(tenant, attempt.id))
-        .cloned();
+    let presentation = load_issued_presentation(state, &attempt)?;
+    let presentation_binding = state.attempt_presentations.get(&attempt.id).copied();
+    let grading_envelope = state.attempt_grading_envelopes.get(&attempt.id).cloned();
     Ok(SubmissionPreparation::FirstEffect(Box::new(
         AuthorizedSubmissionIntent {
             attempt,

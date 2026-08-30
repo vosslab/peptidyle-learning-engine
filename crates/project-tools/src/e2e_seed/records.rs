@@ -92,8 +92,8 @@ pub(super) struct WebworkCatalogBaselineIds {
 }
 
 impl WebworkCatalogBaselineIds {
-    pub(super) fn for_tenant(tenant: TenantId) -> Self {
-        let id = |label| webwork_catalog_baseline_uuid(tenant, label);
+    pub(super) fn for_installation() -> Self {
+        let id = webwork_catalog_baseline_uuid;
         Self {
             workspace: WorkspaceId::from_uuid(id("workspace")),
             problem: ProblemId::from_uuid(id("problem")),
@@ -104,8 +104,8 @@ impl WebworkCatalogBaselineIds {
 }
 
 impl WebworkPilotSeedIds {
-    pub(super) fn fresh_for_tenant(tenant: TenantId) -> Self {
-        let id = |label| webwork_pilot_scaffold_uuid(tenant, label);
+    pub(super) fn fresh_for_installation() -> Self {
+        let id = webwork_pilot_scaffold_uuid;
         Self {
             workspace: WorkspaceId::generate(),
             problem: ProblemId::generate(),
@@ -118,11 +118,10 @@ impl WebworkPilotSeedIds {
     }
 
     pub(super) fn from_published(
-        tenant: TenantId,
         record: &learning_data_access::PublishedProblemRecord,
         source_object: ObjectId,
     ) -> Self {
-        let id = |label| webwork_pilot_scaffold_uuid(tenant, label);
+        let id = webwork_pilot_scaffold_uuid;
         Self {
             workspace: record.question.workspace,
             problem: record.problem,
@@ -136,8 +135,8 @@ impl WebworkPilotSeedIds {
 }
 
 impl SeedIds {
-    pub(super) fn fresh_for_tenant(tenant: TenantId) -> Self {
-        let id = |label| derived_uuid(tenant, label);
+    pub(super) fn fresh_for_installation() -> Self {
+        let id = derived_uuid;
         Self {
             workspace: WorkspaceId::generate(),
             problem: ProblemId::generate(),
@@ -158,11 +157,8 @@ impl SeedIds {
         }
     }
 
-    pub(super) fn from_published(
-        tenant: TenantId,
-        record: &learning_data_access::PublishedProblemRecord,
-    ) -> Self {
-        let mut ids = Self::fresh_for_tenant(tenant);
+    pub(super) fn from_published(record: &learning_data_access::PublishedProblemRecord) -> Self {
+        let mut ids = Self::fresh_for_installation();
         ids.workspace = record.question.workspace;
         ids.problem = record.problem;
         ids.version = record.version;
@@ -171,10 +167,9 @@ impl SeedIds {
 }
 
 /// Stable IDs make the manifest repeatable for an isolated disposable E2E DB.
-pub(super) fn derived_uuid(tenant: TenantId, label: &str) -> Uuid {
+pub(super) fn derived_uuid(label: &str) -> Uuid {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple-replica-e2e-seed-v1:");
-    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(b"ple-single-installation-replica-e2e-seed-v1:");
     hasher.update(label.as_bytes());
     let digest = hasher.finalize();
     let mut bytes = [0_u8; 16];
@@ -187,11 +182,10 @@ pub(super) fn derived_uuid(tenant: TenantId, label: &str) -> Uuid {
 }
 
 /// Keeps the native and WebWork disposable scaffolds disjoint without
-/// assigning any publication identity from the tenant.
-fn webwork_pilot_scaffold_uuid(tenant: TenantId, label: &str) -> Uuid {
+/// assigning any publication identity from an installation scope.
+fn webwork_pilot_scaffold_uuid(label: &str) -> Uuid {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple-webwork-pilot-e2e-scaffold-v1:");
-    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(b"ple-single-installation-webwork-pilot-e2e-scaffold-v1:");
     hasher.update(label.as_bytes());
     let digest = hasher.finalize();
     let mut bytes = [0_u8; 16];
@@ -201,12 +195,11 @@ fn webwork_pilot_scaffold_uuid(tenant: TenantId, label: &str) -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-/// Derives the immutable provider-only identity from one tenant and reviewed
-/// baseline label. No browser input participates in this identity.
-fn webwork_catalog_baseline_uuid(tenant: TenantId, label: &str) -> Uuid {
+/// Derives the immutable provider-only identity from one reviewed baseline
+/// label. No browser input participates in this identity.
+fn webwork_catalog_baseline_uuid(label: &str) -> Uuid {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple-webwork-catalog-baseline-v1:");
-    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(b"ple-single-installation-webwork-catalog-baseline-v1:");
     hasher.update(label.as_bytes());
     let digest = hasher.finalize();
     let mut bytes = [0_u8; 16];

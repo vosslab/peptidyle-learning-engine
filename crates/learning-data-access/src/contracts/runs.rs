@@ -782,7 +782,6 @@ pub struct ClearAttemptCommand {
 /// copied into this record. The protected attempt remains the evidence owner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttemptSupportRecord {
-    pub tenant: TenantId,
     pub action: AttemptSupportActionId,
     pub actor: UserId,
     pub attempt: QuestionAttemptId,

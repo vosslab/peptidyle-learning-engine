@@ -150,7 +150,6 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
 
 fn correlation(question: &QuestionDefinition, seed: Seed) -> ServerCorrelation {
     let binding = GradeBinding {
-        tenant: TenantId::from_uuid(Uuid::from_u128(5)),
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         problem: question.problem,
         version: question.version,
@@ -189,7 +188,6 @@ async fn launch(
         .begin_launch(
             question,
             source,
-            TenantId::from_uuid(Uuid::from_u128(5)),
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             Seed::new(10_001),
             correlation(question, Seed::new(10_001)),
@@ -232,7 +230,6 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
             .begin_launch(
                 &question,
                 &source,
-                TenantId::from_uuid(Uuid::from_u128(5)),
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 Seed::new(10_001),
                 correlation(&question, Seed::new(10_001)),
@@ -249,7 +246,6 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
             .begin_launch(
                 &question,
                 &source,
-                TenantId::from_uuid(Uuid::from_u128(5)),
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 Seed::new(10_001),
                 correlation(&question, Seed::new(10_001)),
@@ -314,7 +310,6 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
             .begin_launch(
                 &question,
                 &source,
-                TenantId::from_uuid(Uuid::from_u128(5)),
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 Seed::new(10_001),
                 correlation(&question, Seed::new(10_001)),
@@ -336,7 +331,6 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     let codec = LaunchSessionCodec::from_server_secret([11; 32]).unwrap();
     let expected = ContractedLaunchExpectation::new(
         GradeBinding {
-            tenant: TenantId::from_uuid(Uuid::from_u128(5)),
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             problem: question.problem,
             version: question.version,
@@ -404,7 +398,6 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let (question, source) = question_and_source();
     let expected = ContractedLaunchExpectation::new(
         GradeBinding {
-            tenant: TenantId::from_uuid(Uuid::from_u128(5)),
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             problem: question.problem,
             version: question.version,

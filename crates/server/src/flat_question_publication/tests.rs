@@ -378,7 +378,6 @@ async fn install_import_origin(fixture: &Fixture) -> ImportedFlatFixture {
         .objects
         .put(PutObject {
             key: ObjectKey::WorkspaceSource {
-                tenant: fixture.tenant,
                 workspace: fixture.workspace,
                 import,
                 object: archive_object,
@@ -405,7 +404,6 @@ async fn install_import_origin(fixture: &Fixture) -> ImportedFlatFixture {
         choice_map_sha256: choice_map.sha256(),
     };
     let import_reference = QtiImportRef {
-        tenant: fixture.tenant,
         workspace: fixture.workspace,
         import,
     };

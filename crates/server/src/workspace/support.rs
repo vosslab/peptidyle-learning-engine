@@ -21,10 +21,8 @@ pub(super) struct WorkspaceQuery {
     page_size: Option<u16>,
 }
 
-pub(super) fn may_author_workspaces(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+pub(super) fn may_author_workspaces(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 pub(super) fn page_request(query: WorkspaceQuery) -> Result<PageRequest, PaginationError> {
@@ -45,9 +43,9 @@ pub(super) fn store_error_response(error: StoreError) -> Response {
             error_response(StatusCode::CONFLICT, "workspace changed; reload it")
         }
         // Workspace visibility is governed by persisted owner/collaborator
-        // bindings. Returning not-found keeps an unshared same-tenant draft
+        // bindings. Returning not-found keeps an unshared same-course draft
         // indistinguishable from an absent or foreign draft.
-        StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "workspace not found")
         }
         StoreError::InvalidRecord(message) => {

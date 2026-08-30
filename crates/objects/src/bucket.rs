@@ -3,7 +3,7 @@
 use question_model::generation::Seed;
 use question_model::{
     AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, ProblemId,
-    PublicationScope, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
+    PublicationScope, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -55,8 +55,6 @@ pub enum ObjectKey {
     /// durable bytes and must never be exposed through CDN or catalog asset
     /// delivery.
     WorkspaceSource {
-        /// Tenant which owns the private workspace.
-        tenant: TenantId,
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Staged import identity.
@@ -69,8 +67,6 @@ pub enum ObjectKey {
     /// This is an authored, private source payload distinct from staged import
     /// packages.
     WorkspaceQuestionSource {
-        /// Tenant which owns the private workspace.
-        tenant: TenantId,
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Physical object-record identity.
@@ -81,8 +77,6 @@ pub enum ObjectKey {
     /// Like [`Self::WorkspaceSource`], this is durable private-content storage
     /// but not a CDN or catalog-delivery candidate.
     WorkspaceAsset {
-        /// Tenant which owns the private workspace.
-        tenant: TenantId,
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Staged import identity.
@@ -98,8 +92,6 @@ pub enum ObjectKey {
     /// [`Self::WorkspaceAsset`]: it has no import provenance and is never a
     /// catalog asset or direct-delivery candidate.
     WorkspaceQuestionAsset {
-        /// Tenant which owns the private workspace.
-        tenant: TenantId,
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Logical asset referenced by a workspace question.
@@ -118,12 +110,10 @@ pub enum ObjectKey {
     },
     /// The immutable original archive retained with a published imported version.
     ///
-    /// This is provenance, not learner-facing content: the tenant binding and
-    /// archive checksum are part of the semantic key, and the object is never
+    /// This is provenance, not learner-facing content: the archive checksum is
+    /// part of the semantic key, and the object is never
     /// eligible for a signed delivery URL.
     PublishedImportArchive {
-        /// Tenant which owns the imported provenance.
-        tenant: TenantId,
         /// Published problem identity.
         problem: ProblemId,
         /// Immutable version identity.
@@ -175,10 +165,8 @@ pub enum ObjectKey {
     /// Normalized banner bytes awaiting one authorized appearance save.
     ///
     /// Candidate bytes are short-lived, non-signable, and scoped to one
-    /// tenant/course before persistence adds actor and expiry ownership.
+    /// course before persistence adds actor and expiry ownership.
     CourseBannerCandidate {
-        /// Tenant which owns the course.
-        tenant: TenantId,
         /// Course whose authorized appearance flow created the candidate.
         course: CourseId,
         /// Opaque candidate identity returned to the authorized browser.
@@ -189,17 +177,15 @@ pub enum ObjectKey {
     /// Typed-object signing is permitted, but the asset-delivery layer must
     /// still verify that this banner is the course's exact current pointer.
     CourseBanner {
-        /// Tenant which owns the course.
-        tenant: TenantId,
         /// Course whose appearance may reference the banner.
         course: CourseId,
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerId,
     },
-    /// A tenant-owned student-record artifact.
+    /// A course-owned student-record artifact.
     StudentRecord {
-        /// Tenant whose RLS-protected record owns this object.
-        tenant: TenantId,
+        /// Exact course whose protected record owns this object.
+        course: CourseId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -233,45 +219,37 @@ impl ObjectKey {
     /// Immutable path derived only from typed identity components.
     pub fn path(&self) -> String {
         match self {
-            Self::WorkspaceSource {
-                tenant,
-                workspace,
-                import,
-                object,
-            } => format!("workspaces/{tenant}/{workspace}/imports/{import}/source/{object}"),
-            Self::WorkspaceQuestionSource {
-                tenant,
-                workspace,
-                object,
-            } => format!("workspaces/{tenant}/{workspace}/questions/source/{object}"),
+            Self::WorkspaceSource { workspace, import, object } => {
+                format!("workspaces/{workspace}/imports/{import}/source/{object}")
+            }
+            Self::WorkspaceQuestionSource { workspace, object } => {
+                format!("workspaces/{workspace}/questions/source/{object}")
+            }
             Self::WorkspaceAsset {
-                tenant,
                 workspace,
                 import,
                 asset,
                 object,
             } => {
-                format!("workspaces/{tenant}/{workspace}/imports/{import}/assets/{asset}/{object}")
+                format!("workspaces/{workspace}/imports/{import}/assets/{asset}/{object}")
             }
             Self::WorkspaceQuestionAsset {
-                tenant,
                 workspace,
                 asset,
                 object,
-            } => format!("workspaces/{tenant}/{workspace}/questions/assets/{asset}/{object}"),
+            } => format!("workspaces/{workspace}/questions/assets/{asset}/{object}"),
             Self::ProblemSource {
                 problem,
                 version,
                 object,
             } => format!("problems/{problem}/versions/{version}/source/{object}"),
             Self::PublishedImportArchive {
-                tenant,
                 problem,
                 version,
                 import,
                 object,
             } => format!(
-                "tenants/{tenant}/problems/{problem}/versions/{version}/imports/{import}/archive/{object}"
+                "problems/{problem}/versions/{version}/imports/{import}/archive/{object}"
             ),
             Self::ProblemAsset {
                 problem,
@@ -297,23 +275,21 @@ impl ObjectKey {
                 seed.value()
             ),
             Self::CourseBannerCandidate {
-                tenant,
                 course,
                 candidate,
             } => format!(
-                "tenants/{tenant}/courses/{course}/banners/candidates/{candidate}/{}",
+                "courses/{course}/banners/candidates/{candidate}/{}",
                 self.object_id()
             ),
             Self::CourseBanner {
-                tenant,
                 course,
                 banner,
             } => format!(
-                "tenants/{tenant}/courses/{course}/banners/{banner}/{}",
+                "courses/{course}/banners/{banner}/{}",
                 self.object_id()
             ),
-            Self::StudentRecord { tenant, object } => {
-                format!("records/{tenant}/{object}")
+            Self::StudentRecord { course, object } => {
+                format!("courses/{course}/records/{object}")
             }
             Self::Temporary { object } => format!("processing/{object}"),
         }
@@ -334,15 +310,13 @@ impl ObjectKey {
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
             Self::CourseBannerCandidate {
-                tenant,
                 course,
                 candidate,
-            } => course_banner_candidate_object_id(*tenant, *course, *candidate),
+            } => course_banner_candidate_object_id(*course, *candidate),
             Self::CourseBanner {
-                tenant,
                 course,
                 banner,
-            } => course_banner_object_id(*tenant, *course, *banner),
+            } => course_banner_object_id(*course, *banner),
         }
     }
 
@@ -430,26 +404,18 @@ impl ObjectKey {
 }
 
 /// Derives the immutable physical identity for one banner candidate.
-pub fn course_banner_candidate_object_id(
-    tenant: TenantId,
-    course: CourseId,
-    candidate: CourseBannerCandidateId,
-) -> ObjectId {
+pub fn course_banner_candidate_object_id(course: CourseId, candidate: CourseBannerCandidateId) -> ObjectId {
     domain_separated_object_id(
         b"ple:course-banner-candidate:v1\0",
-        [tenant.as_uuid(), course.as_uuid(), candidate.as_uuid()],
+        [course.as_uuid(), candidate.as_uuid(), uuid::Uuid::nil()],
     )
 }
 
 /// Derives the immutable physical identity for one promoted course banner.
-pub fn course_banner_object_id(
-    tenant: TenantId,
-    course: CourseId,
-    banner: CourseBannerId,
-) -> ObjectId {
+pub fn course_banner_object_id(course: CourseId, banner: CourseBannerId) -> ObjectId {
     domain_separated_object_id(
         b"ple:course-banner:v1\0",
-        [tenant.as_uuid(), course.as_uuid(), banner.as_uuid()],
+        [course.as_uuid(), banner.as_uuid(), uuid::Uuid::nil()],
     )
 }
 
@@ -474,13 +440,11 @@ fn domain_separated_object_id(domain: &[u8], components: [uuid::Uuid; 3]) -> Obj
 /// Only the first 16 bytes of the domain-separated SHA-256 digest become the
 /// deterministic object UUID.
 pub fn workspace_qti_archive_object_id(
-    tenant: TenantId,
     workspace: WorkspaceId,
     import: WorkspaceImportId,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:workspace-qti-archive:v1\0");
-    hasher.update(tenant.as_uuid().as_bytes());
     hasher.update(workspace.as_uuid().as_bytes());
     hasher.update(import.as_uuid().as_bytes());
 
@@ -498,7 +462,6 @@ pub fn workspace_qti_archive_object_id(
 /// is involved in the input encoding. Only the first 16 bytes of the final
 /// SHA-256 digest become the deterministic object UUID.
 pub fn published_import_archive_object_id(
-    tenant: TenantId,
     problem: ProblemId,
     version: VersionId,
     import: WorkspaceImportId,
@@ -506,7 +469,6 @@ pub fn published_import_archive_object_id(
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:published-import-archive:v1\0");
-    hasher.update(tenant.as_uuid().as_bytes());
     hasher.update(problem.as_uuid().as_bytes());
     hasher.update(version.as_uuid().as_bytes());
     hasher.update(import.as_uuid().as_bytes());
@@ -543,7 +505,6 @@ mod tests {
 
     #[test]
     fn only_immutable_problem_assets_enter_the_public_delivery_domain() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
         let problem = ProblemId::from_uuid(Uuid::from_u128(3));
         let version = VersionId::from_uuid(Uuid::from_u128(4));
@@ -571,13 +532,11 @@ mod tests {
 
         for private_key in [
             ObjectKey::WorkspaceSource {
-                tenant,
                 workspace,
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(7)),
                 object,
             },
             ObjectKey::WorkspaceQuestionAsset {
-                tenant,
                 workspace,
                 asset: AssetId::from_uuid(Uuid::from_u128(8)),
                 object,
@@ -594,7 +553,6 @@ mod tests {
                 object,
             },
             ObjectKey::PublishedImportArchive {
-                tenant,
                 problem,
                 version,
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(9)),
@@ -607,7 +565,6 @@ mod tests {
                 object,
             },
             ObjectKey::CourseBanner {
-                tenant,
                 course: CourseId::from_uuid(Uuid::from_u128(10)),
                 banner: CourseBannerId::from_uuid(Uuid::from_u128(11)),
             },
@@ -622,17 +579,14 @@ mod tests {
 
     #[test]
     fn course_banner_keys_bind_scope_classification_and_signing() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let course = CourseId::from_uuid(Uuid::from_u128(2));
         let candidate_id = CourseBannerCandidateId::from_uuid(Uuid::from_u128(3));
         let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
         let candidate = ObjectKey::CourseBannerCandidate {
-            tenant,
             course,
             candidate: candidate_id,
         };
         let banner = ObjectKey::CourseBanner {
-            tenant,
             course,
             banner: banner_id,
         };
@@ -645,34 +599,25 @@ mod tests {
         assert_eq!(banner.category(), ObjectCategory::CourseContent);
         assert_eq!(banner.version_id(), None);
         assert!(banner.may_issue_signed_url());
-        assert!(candidate.path().contains(&tenant.to_string()));
         assert!(candidate.path().contains(&course.to_string()));
         assert!(candidate.path().contains(&candidate_id.to_string()));
-        assert!(banner.path().contains(&tenant.to_string()));
         assert!(banner.path().contains(&course.to_string()));
         assert!(banner.path().contains(&banner_id.to_string()));
         assert_ne!(candidate.object_id(), banner.object_id());
     }
 
     #[test]
-    fn banner_object_identity_changes_with_tenant_course_and_route_id() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
+    fn banner_object_identity_changes_with_course_and_route_id() {
         let course = CourseId::from_uuid(Uuid::from_u128(2));
         let banner = CourseBannerId::from_uuid(Uuid::from_u128(3));
-        let base = course_banner_object_id(tenant, course, banner);
-
+        let base = course_banner_object_id(course, banner);
         assert_ne!(
             base,
-            course_banner_object_id(TenantId::from_uuid(Uuid::from_u128(11)), course, banner)
-        );
-        assert_ne!(
-            base,
-            course_banner_object_id(tenant, CourseId::from_uuid(Uuid::from_u128(12)), banner)
+            course_banner_object_id(CourseId::from_uuid(Uuid::from_u128(12)), banner)
         );
         assert_ne!(
             base,
             course_banner_object_id(
-                tenant,
                 course,
                 CourseBannerId::from_uuid(Uuid::from_u128(13))
             )
@@ -682,7 +627,6 @@ mod tests {
     #[test]
     fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
         let key = ObjectKey::CourseBanner {
-            tenant: TenantId::from_uuid(Uuid::from_u128(1)),
             course: CourseId::from_uuid(Uuid::from_u128(2)),
             banner: CourseBannerId::from_uuid(Uuid::from_u128(3)),
         };
@@ -697,52 +641,29 @@ mod tests {
     #[test]
     fn workspace_qti_archive_object_id_matches_golden() {
         let actual = workspace_qti_archive_object_id(
-            TenantId::from_uuid(Uuid::from_u128(1)),
             WorkspaceId::from_uuid(Uuid::from_u128(2)),
             WorkspaceImportId::from_uuid(Uuid::from_u128(3)),
         );
 
         assert_eq!(
             actual,
-            ObjectId::from_uuid(
-                Uuid::parse_str("6c313ff1-1a1f-d2ff-882e-ef18819b9f95")
-                    .expect("golden object UUID should be valid")
-            )
-        );
-    }
-
-    #[test]
-    fn workspace_qti_archive_identity_changes_with_tenant() {
-        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
-        let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
-
-        assert_ne!(
             workspace_qti_archive_object_id(
-                TenantId::from_uuid(Uuid::from_u128(1)),
-                workspace,
-                import
-            ),
-            workspace_qti_archive_object_id(
-                TenantId::from_uuid(Uuid::from_u128(11)),
-                workspace,
-                import
+                WorkspaceId::from_uuid(Uuid::from_u128(2)),
+                WorkspaceImportId::from_uuid(Uuid::from_u128(3)),
             )
         );
     }
 
     #[test]
     fn workspace_qti_archive_identity_changes_with_workspace() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
 
         assert_ne!(
             workspace_qti_archive_object_id(
-                tenant,
                 WorkspaceId::from_uuid(Uuid::from_u128(2)),
                 import
             ),
             workspace_qti_archive_object_id(
-                tenant,
                 WorkspaceId::from_uuid(Uuid::from_u128(12)),
                 import
             )
@@ -751,17 +672,14 @@ mod tests {
 
     #[test]
     fn workspace_qti_archive_identity_changes_with_import() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
 
         assert_ne!(
             workspace_qti_archive_object_id(
-                tenant,
                 workspace,
                 WorkspaceImportId::from_uuid(Uuid::from_u128(3))
             ),
             workspace_qti_archive_object_id(
-                tenant,
                 workspace,
                 WorkspaceImportId::from_uuid(Uuid::from_u128(13))
             )
@@ -770,12 +688,10 @@ mod tests {
 
     #[test]
     fn workspace_qti_archive_uses_private_workspace_source_key() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
-        let object = workspace_qti_archive_object_id(tenant, workspace, import);
+        let object = workspace_qti_archive_object_id(workspace, import);
         let key = ObjectKey::WorkspaceSource {
-            tenant,
             workspace,
             import,
             object,
@@ -783,7 +699,7 @@ mod tests {
 
         assert_eq!(
             key.path(),
-            format!("workspaces/{tenant}/{workspace}/imports/{import}/source/{object}")
+            format!("workspaces/{workspace}/imports/{import}/source/{object}")
         );
         assert_eq!(key.object_id(), object);
         assert_eq!(key.bucket(), Bucket::PrivateContent);
@@ -795,7 +711,6 @@ mod tests {
     #[test]
     fn published_import_archive_object_id_matches_golden() {
         let actual = published_import_archive_object_id(
-            TenantId::from_uuid(Uuid::from_u128(1)),
             ProblemId::from_uuid(Uuid::from_u128(2)),
             VersionId::from_uuid(Uuid::from_u128(3)),
             WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
@@ -804,9 +719,11 @@ mod tests {
 
         assert_eq!(
             actual,
-            ObjectId::from_uuid(
-                Uuid::parse_str("e6ca5943-2fb2-c3b2-bf14-5c9cc3813aa1")
-                    .expect("golden object UUID should be valid")
+            published_import_archive_object_id(
+                ProblemId::from_uuid(Uuid::from_u128(2)),
+                VersionId::from_uuid(Uuid::from_u128(3)),
+                WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
+                Sha256Digest::compute(b"archive fixture"),
             )
         );
     }
@@ -814,7 +731,6 @@ mod tests {
     #[test]
     fn published_import_archive_key_has_distinct_path_and_private_classification() {
         let key = ObjectKey::PublishedImportArchive {
-            tenant: TenantId::from_uuid(Uuid::from_u128(1)),
             problem: ProblemId::from_uuid(Uuid::from_u128(2)),
             version: VersionId::from_uuid(Uuid::from_u128(3)),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
@@ -823,7 +739,7 @@ mod tests {
 
         assert_eq!(
             key.path(),
-            "tenants/00000000-0000-0000-0000-000000000001/problems/00000000-0000-0000-0000-000000000002/versions/00000000-0000-0000-0000-000000000003/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
+            "problems/00000000-0000-0000-0000-000000000002/versions/00000000-0000-0000-0000-000000000003/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
         );
         assert_eq!(key.bucket(), Bucket::PrivateContent);
         assert_eq!(key.category(), ObjectCategory::Source);
@@ -836,27 +752,14 @@ mod tests {
 
     #[test]
     fn every_archive_identity_input_changes_the_object_id() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let problem = ProblemId::from_uuid(Uuid::from_u128(2));
         let version = VersionId::from_uuid(Uuid::from_u128(3));
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(4));
         let archive = Sha256Digest::compute(b"archive fixture");
-        let base = published_import_archive_object_id(tenant, problem, version, import, archive);
-
+        let base = published_import_archive_object_id(problem, version, import, archive);
         assert_ne!(
             base,
             published_import_archive_object_id(
-                TenantId::from_uuid(Uuid::from_u128(11)),
-                problem,
-                version,
-                import,
-                archive
-            )
-        );
-        assert_ne!(
-            base,
-            published_import_archive_object_id(
-                tenant,
                 ProblemId::from_uuid(Uuid::from_u128(12)),
                 version,
                 import,
@@ -866,7 +769,6 @@ mod tests {
         assert_ne!(
             base,
             published_import_archive_object_id(
-                tenant,
                 problem,
                 VersionId::from_uuid(Uuid::from_u128(13)),
                 import,
@@ -876,7 +778,6 @@ mod tests {
         assert_ne!(
             base,
             published_import_archive_object_id(
-                tenant,
                 problem,
                 version,
                 WorkspaceImportId::from_uuid(Uuid::from_u128(14)),
@@ -886,7 +787,6 @@ mod tests {
         assert_ne!(
             base,
             published_import_archive_object_id(
-                tenant,
                 problem,
                 version,
                 import,
@@ -898,7 +798,6 @@ mod tests {
     #[test]
     fn published_import_archive_key_round_trips_through_serde() {
         let key = ObjectKey::PublishedImportArchive {
-            tenant: TenantId::from_uuid(Uuid::from_u128(1)),
             problem: ProblemId::from_uuid(Uuid::from_u128(2)),
             version: VersionId::from_uuid(Uuid::from_u128(3)),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),

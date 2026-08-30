@@ -263,7 +263,7 @@ fn touch(summary: &mut StudentAssignmentSummary, at: ActivityTimestamp) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{EnrollmentId, TenantId};
+    use question_model::EnrollmentId;
     use uuid::Uuid;
 
     fn run(id: u128, run_number: u32, score: f64) -> CompletedRunScore {
@@ -275,10 +275,7 @@ mod tests {
     }
 
     fn empty_summary() -> StudentAssignmentSummary {
-        StudentAssignmentSummary::empty(
-            TenantId::from_uuid(Uuid::from_u128(10)),
-            EnrollmentId::from_uuid(Uuid::from_u128(11)),
-        )
+        StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(11)))
     }
 
     fn projected_score(completed_runs: &[CompletedRunScore], policy: GradePolicy) -> Option<f64> {

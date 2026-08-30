@@ -7,12 +7,12 @@ use question_model::{
     ReconcileCourseInstanceAdoptionCompleted, ReconcileCourseInstanceAdoptionIntent,
 };
 
-use super::{SessionTokenHash, StoreError, TenantContext};
+use super::{ActorContext, SessionTokenHash, StoreError};
 
 /// Explicit adoption persistence, separate from reusable-source and learner-work Stores.
 ///
 /// The server supplies a validated session token; references are locators only.
-/// Implementations re-resolve tenant, actor, source, and destination authority at
+/// Implementations re-resolve actor, source, and destination authority at
 /// every boundary. Browser inputs are closed and bounded (ASVS 1.5.2, 2.2.1,
 /// 2.2.2); the Store re-resolves them under its atomic write boundary (ASVS 2.3.3).
 #[async_trait]
@@ -20,7 +20,7 @@ pub trait CurriculumAdoptionStore: Send + Sync {
     /// Resolves a current approved Instructor before a route decodes protected input.
     async fn preflight_curriculum_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
     ) -> Result<(), StoreError>;
 
@@ -29,7 +29,7 @@ pub trait CurriculumAdoptionStore: Send + Sync {
     /// Preview reserves no authority. A later apply re-authorizes and re-reads every mutable fact.
     async fn preview_curriculum_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         request: CurriculumAdoptionPreviewRequest,
     ) -> Result<CurriculumAdoptionPreview, StoreError>;
@@ -39,7 +39,7 @@ pub trait CurriculumAdoptionStore: Send + Sync {
     /// Implementations keep non-Serde records and immutable receipt evidence inside this operation.
     async fn apply_curriculum_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         intent: CurriculumAdoptionApplyIntent,
     ) -> Result<CurriculumAdoptionCompleted, StoreError>;
@@ -50,7 +50,7 @@ pub trait CurriculumAdoptionStore: Send + Sync {
     /// implementations never reconstruct authoritative evidence from mutable rows.
     async fn inspect_course_instance_blueprint_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseReference,
     ) -> Result<Option<CourseInstanceBlueprintInspectionView>, StoreError>;
@@ -63,7 +63,7 @@ pub trait CurriculumAdoptionStore: Send + Sync {
     /// baseline, envelope, or receipt is changed.
     async fn reconcile_course_instance_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         intent: ReconcileCourseInstanceAdoptionIntent,
     ) -> Result<ReconcileCourseInstanceAdoptionCompleted, StoreError>;

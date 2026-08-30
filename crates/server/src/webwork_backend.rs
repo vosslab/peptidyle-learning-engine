@@ -608,7 +608,6 @@ mod tests {
             .await
             .expect("source object stores");
         let draft = DraftRecord {
-            tenant: context.tenant_id(),
             question: draft(),
             derived_from: None,
         };
@@ -684,7 +683,6 @@ mod tests {
         let reference = reference();
         QuestionAttempt {
             id: QuestionAttemptId::from_uuid(id(16)),
-            tenant: TenantId::from_uuid(id(13)),
             run: RunId::from_uuid(id(17)),
             problem: reference.problem,
             question_version: reference.version,

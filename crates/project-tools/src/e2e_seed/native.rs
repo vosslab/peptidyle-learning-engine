@@ -16,7 +16,7 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
     }
     let store = crate::postgres_store::configured_postgres_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
-    let marker = SeedIds::fresh_for_tenant(arguments.tenant);
+    let marker = SeedIds::fresh_for_installation();
     seed_native_records(store, context, &arguments, marker).await
 }
 
@@ -62,7 +62,7 @@ async fn seed_native_records(
                 .await
                 .context("reading retained native publication")?
                 .context("native seed assignment refers to a missing publication")?;
-            let ids = SeedIds::from_published(arguments.tenant, &published);
+            let ids = SeedIds::from_published(&published);
             let expected_course = native_course(arguments, ids.course);
             if !webwork_pilot_course_seed_matches(&course, &expected_course) {
                 bail!("native seed course marker differs from the reviewed host seed");
@@ -136,7 +136,6 @@ async fn publish_fresh_native(
     ids: SeedIds,
 ) -> Result<(SeedIds, learning_data_access::PublishedProblemRecord)> {
     let draft = DraftRecord {
-        tenant: arguments.tenant,
         question: replica_native_draft(ids.workspace),
         derived_from: None,
     };
@@ -190,7 +189,6 @@ async fn publish_fresh_native(
 pub(super) fn native_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
     CourseRecord {
         id: course,
-        tenant: arguments.tenant,
         title: "PLE replica E2E course".to_string(),
         term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
             .expect("explicit fixture course term"),
@@ -204,7 +202,6 @@ pub(super) fn native_assignment(
 ) -> AssignmentRecord {
     AssignmentRecord {
         id: ids.assignment,
-        tenant: arguments.tenant,
         course_id: ids.course,
         title: "PLE replica E2E assignment".to_string(),
         lifecycle: question_model::AssignmentLifecycle::Published,

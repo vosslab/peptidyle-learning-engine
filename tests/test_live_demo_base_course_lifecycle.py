@@ -247,8 +247,7 @@ def test_installing_base_course_routes_receipt_and_writes_diagnostic(
 	canonical = json.loads(prepared)["storageReceiptJson"]
 	command = [
 		"cargo", "tools", "base-course",
-		"--tenant", "00000000-0000-0000-0000-000000000100",
-		"--instructor", "00000000-0000-0000-0000-000000000101",
+        "--instructor", "00000000-0000-0000-0000-000000000101",
 		"--mary", "00000000-0000-0000-0000-000000000102",
 		"--jack", "00000000-0000-0000-0000-000000000103",
 		"--approval-candidate", "00000000-0000-0000-0000-000000000104",

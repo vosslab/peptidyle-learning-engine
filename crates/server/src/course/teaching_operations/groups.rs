@@ -209,7 +209,6 @@ where
     };
     let record = CourseGroupRecord {
         id: CourseGroupId::from_uuid(uuid::Uuid::now_v7()),
-        tenant: auth.tenant_context.tenant_id(),
         course,
         purpose: input.purpose,
         title: input.title.into(),
@@ -290,7 +289,6 @@ where
     };
     let record = CourseGroupRecord {
         id: current.group.record.id,
-        tenant: auth.tenant_context.tenant_id(),
         course,
         purpose: input.purpose,
         title: input.title.into(),
@@ -755,7 +753,7 @@ fn group_error(error: StoreError) -> Response {
             StatusCode::PRECONDITION_FAILED,
             "group changed or is referenced",
         ),
-        StoreError::Forbidden | StoreError::TenantMismatch | StoreError::NotFound => {
+        StoreError::Forbidden | StoreError::OwnershipMismatch | StoreError::NotFound => {
             error_response(StatusCode::NOT_FOUND, "group not found")
         }
         other => store_error_response(other),

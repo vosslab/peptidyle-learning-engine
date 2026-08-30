@@ -62,7 +62,6 @@ impl ExportJobStore for PostgresStore {
         }
         let frozen = StudentExportJob {
             id: export,
-            tenant: context.tenant_id(),
             assignment: assignment.id,
             course: assignment.course_id,
             title: assignment.title.clone(),
@@ -168,7 +167,6 @@ impl ExportJobStore for PostgresStore {
         context: TenantContext,
         commit: ExportJobCommit,
     ) -> Result<ExportCommitDisposition, StoreError> {
-        validate_export_artifacts(context.tenant_id(), &commit.artifacts)?;
         let mut transaction = self.begin_tenant(context).await?;
         let request_row = sqlx::query(
             "SELECT requester_id, course_id FROM student_export_request \
@@ -186,6 +184,7 @@ impl ExportJobStore for PostgresStore {
                 .map_err(map_sqlx_error)?,
         );
         let course = CourseId::from_uuid(request_row.try_get("course_id").map_err(map_sqlx_error)?);
+        validate_export_artifacts(course, &commit.artifacts)?;
         let mut artifacts = Vec::with_capacity(commit.artifacts.len());
         for artifact in &commit.artifacts {
             let delivery = AssetDeliveryRecord {
@@ -194,7 +193,6 @@ impl ExportJobStore for PostgresStore {
                 intrinsic_width: None,
                 intrinsic_height: None,
                 scope: AssetDeliveryScope::StudentRecord {
-                    tenant: context.tenant_id(),
                     course,
                     authorized_users: vec![requester],
                 },
@@ -267,7 +265,7 @@ fn export_artifact_kind_from_db(value: &str) -> Result<ExportArtifactKind, Store
 }
 
 fn validate_export_artifacts(
-    tenant: TenantId,
+    course: CourseId,
     artifacts: &[ExportArtifactRecord],
 ) -> Result<(), StoreError> {
     if artifacts.len() != 4 {
@@ -288,8 +286,8 @@ fn validate_export_artifacts(
             || !objects.insert(artifact.object.id)
             || artifact.filename != expected_filename
             || artifact.object.media_type != artifact.kind.media_type()
-            || !matches!(&artifact.object.key, objects::ObjectKey::StudentRecord { tenant: key_tenant, object }
-                if *key_tenant == tenant && *object == artifact.object.id)
+            || !matches!(&artifact.object.key, objects::ObjectKey::StudentRecord { course: key_course, object }
+                if *key_course == course && *object == artifact.object.id)
         {
             return Err(StoreError::InvalidRecord(
                 "export artifact does not match its closed private output contract".to_string(),

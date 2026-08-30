@@ -168,7 +168,7 @@ impl CatalogStore for PostgresStore {
             .map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
                     let registry: QtiImportRegistry = decode_payload_row(&row)?;
-                    validate_qti_publication_promotion(context, &command, promotion, &registry)?;
+                    validate_qti_publication_promotion(&command, promotion, &registry)?;
                     let question_model::DraftQuestionSource::Qti { item_id, .. } =
                         &command.expected_draft.question.source
                     else {
@@ -201,7 +201,6 @@ impl CatalogStore for PostgresStore {
                         return Err(StoreError::Conflict);
                     };
                     let staged = WorkspaceFlatQuestionSource::new(
-                        context.tenant_id(),
                         command.expected_draft.question.workspace,
                         stored_revision,
                         family.to_string(),
@@ -211,7 +210,7 @@ impl CatalogStore for PostgresStore {
                         row.try_get("public_binding_sha256")
                             .map_err(map_sqlx_error)?,
                     )?;
-                    validate_flat_question_publication(context, &command, &staged)?;
+                    validate_flat_question_publication(&command, &staged)?;
                     Some((staged, source_payload_checksum))
                 } else {
                     None

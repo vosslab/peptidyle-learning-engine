@@ -29,9 +29,7 @@ where
     S: JobStore,
 {
     let tenant = TenantId::from_uuid(uuid(9_100));
-    let foreign = TenantId::from_uuid(uuid(9_101));
     let context = TenantContext::from_authenticated_session(tenant);
-    let foreign_context = TenantContext::from_authenticated_session(foreign);
     let lease = JobLeaseDuration::from_seconds(30).expect("bounded lease");
     let first = store
         .enqueue_job(context, render_job(tenant, 9_110, 1))
@@ -43,10 +41,12 @@ where
         .expect("second tenant enqueue");
     assert_eq!(
         store
-            .get_job(foreign_context, first)
+            .get_job(first)
             .await
-            .expect("foreign lookup"),
-        None
+            .expect("job lookup")
+            .expect("stored job")
+            .id,
+        first
     );
     let filter = JobClaimFilter::all();
     let (left, right) = tokio::join!(
@@ -73,19 +73,14 @@ where
         .expect("current token completes left job");
     assert_eq!(
         store
-            .fail_job(
-                context,
-                right.id,
-                right.lease_token,
-                JobFailureKind::Permanent,
-            )
+            .fail_job(right.id, right.lease_token, JobFailureKind::Permanent,)
             .await
             .expect("current token can dead-letter right job"),
         JobFailureDisposition::Dead
     );
     assert_eq!(
         store
-            .get_job(context, right.id)
+            .get_job(right.id)
             .await
             .expect("owner lookup")
             .expect("dead row remains inspectable")
@@ -153,7 +148,7 @@ async fn memory_job_store_claim_filter_leaves_reserved_and_expired_work_untouche
     assert_eq!(export_claim.id, supported);
     assert_eq!(
         store
-            .get_job(context, reserved)
+            .get_job(reserved)
             .await
             .expect("reserved inspection")
             .expect("reserved job")
@@ -170,7 +165,7 @@ async fn memory_job_store_claim_filter_leaves_reserved_and_expired_work_untouche
     );
     assert_eq!(
         store
-            .get_job(context, reserved)
+            .get_job(reserved)
             .await
             .expect("dead inspection")
             .expect("dead job")
@@ -183,9 +178,7 @@ async fn memory_job_store_claim_filter_leaves_reserved_and_expired_work_untouche
 async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     let store = MemoryStore::default();
     let tenant = TenantId::from_uuid(uuid(9_001));
-    let foreign = TenantId::from_uuid(uuid(9_002));
     let context = TenantContext::from_authenticated_session(tenant);
-    let foreign_context = TenantContext::from_authenticated_session(foreign);
     let lease = JobLeaseDuration::from_seconds(1).expect("bounded lease");
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
@@ -209,11 +202,12 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     );
     assert_eq!(
         store
-            .get_job(foreign_context, first)
+            .get_job(first)
             .await
-            .expect("foreign read is bounded"),
-        None,
-        "tenant inspection must not reveal another tenant's job"
+            .expect("job lookup")
+            .expect("stored job")
+            .id,
+        first
     );
 
     let filter = JobClaimFilter::all();
@@ -267,7 +261,7 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
         .expect("current lease token completes exactly once");
     assert_eq!(
         store
-            .get_job(context, reclaimed.id)
+            .get_job(reclaimed.id)
             .await
             .expect("owner lookup")
             .expect("completed row retained")
@@ -289,7 +283,7 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     );
     assert_eq!(
         store
-            .get_job(context, exhausted_claim.id)
+            .get_job(exhausted_claim.id)
             .await
             .expect("owner lookup")
             .expect("dead row retained")
@@ -309,12 +303,7 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     assert_eq!(retry_claim.id, retry);
     assert_eq!(
         store
-            .fail_job(
-                context,
-                retry,
-                retry_claim.lease_token,
-                JobFailureKind::Transient,
-            )
+            .fail_job(retry, retry_claim.lease_token, JobFailureKind::Transient,)
             .await
             .expect("first transient failure"),
         JobFailureDisposition::Retrying
@@ -338,12 +327,7 @@ async fn memory_job_store_enforces_atomic_leases_retries_depth_and_tenants() {
     assert_eq!(final_claim.id, retry);
     assert_eq!(
         store
-            .fail_job(
-                context,
-                retry,
-                final_claim.lease_token,
-                JobFailureKind::Transient,
-            )
+            .fail_job(retry, final_claim.lease_token, JobFailureKind::Transient,)
             .await
             .expect("attempt exhaustion"),
         JobFailureDisposition::Dead

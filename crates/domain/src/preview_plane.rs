@@ -222,7 +222,7 @@ mod tests {
     use question_model::{
         AssignmentAudience, AssignmentDeadlineBehavior, AssignmentId, CourseGroupId,
         CourseGroupPurpose, CourseId, CourseMembershipId, CourseTerm, LateSubmissionPolicy,
-        StudentDisclosureTiming, StudentId, TenantId, UserId,
+        StudentDisclosureTiming, StudentId, UserId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -233,7 +233,6 @@ mod tests {
     fn allowed() -> (EntitlementDecision, EffectivePolicyDecision) {
         let group = CourseGroupId::from_uuid(id(7));
         let facts = EntitlementFacts {
-            tenant: TenantId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
             student_user: UserId::from_uuid(id(4)),

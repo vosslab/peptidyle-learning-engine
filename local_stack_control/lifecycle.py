@@ -28,7 +28,6 @@ import local_stack_control.base_course_lifecycle
 import local_stack_control.live_demo_gateway
 
 
-LOCAL_TENANT_ID = "00000000-0000-0000-0000-000000000100"
 LOCAL_INSTRUCTOR_ID = "00000000-0000-0000-0000-000000000101"
 LOCAL_MARY_ID = "00000000-0000-0000-0000-000000000102"
 LOCAL_JACK_ID = "00000000-0000-0000-0000-000000000103"
@@ -707,9 +706,7 @@ def run_base_course_phase(
 		"cargo",
 		"tools",
 		"base-course",
-		"--tenant",
-		LOCAL_TENANT_ID,
-		"--instructor",
+        "--instructor",
 		LOCAL_INSTRUCTOR_ID,
 		"--mary",
 		LOCAL_MARY_ID,
@@ -841,8 +838,7 @@ def publish_chapter_one(runner: local_stack_control.process.CommandRunner, repo_
 	request = local_stack_control.chapter_one.ChapterOneSeedRequest(
 		repo_root=repo_root,
 		database_url=database_url(values),
-		tenant_id=LOCAL_TENANT_ID,
-		instructor_id=LOCAL_INSTRUCTOR_ID,
+        instructor_id=LOCAL_INSTRUCTOR_ID,
 		student_id=LOCAL_MARY_ID,
 		s3_endpoint="http://127.0.0.1:" + values.get("PLE_MINIO_API_HOST_PORT", "9000"),
 		aws_access_key_id=values["MINIO_ROOT_USER"],

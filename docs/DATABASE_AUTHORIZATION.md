@@ -2,8 +2,8 @@
 
 ## Intended database model
 
-PLE is one installation. Global accounts use `UserId`; there is no institution selector, tenant
-identity, tenant-leading key, or client-selected database context. This reference is the sole durable
+PLE is one installation. Global accounts use `UserId`; there is no institution selector, installation
+identity, leading scope key, or client-selected database context. This reference is the sole durable
 PostgreSQL authorization authority and the canonical database authorization target for the fresh SD1
 epoch. [SECURITY_MODEL.md](SECURITY_MODEL.md) provides the cross-cutting security model and points
 here for all durable PostgreSQL authorization detail. The active
@@ -155,7 +155,7 @@ renewed lease, so stale work cannot commit after a newer retention generation.
 ## Fresh migration epoch
 
 SD1-C creates the single-installation schema only on freshly cleaned disposable stack data. It does
-not preserve a tenant compatibility layer. The migration ledger allocates the exact next available
+not preserve an installation-scope compatibility layer. The migration ledger allocates the exact next available
 number in these ranges:
 
 | Range                     | Capability family                                                     |
@@ -172,7 +172,7 @@ number in these ranges:
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,
-lease, and immutable-content identities rather than a tenant-shaped key.
+lease, and immutable-content identities rather than a legacy scope key.
 
 ## Validation lanes
 

@@ -7,14 +7,14 @@ use super::issued_contracts::{
     load_issued_flat_grading, load_issued_qti_grading, load_issued_webwork_grading,
 };
 use super::submission_preparation;
-use crate::{StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey, TenantContext};
+use crate::{ActorContext, StoreError, StudentWorkRoutingBinding, SubmissionIdempotencyKey};
 use question_model::StudentResponse;
 
 #[async_trait]
 impl crate::SealedPrivateExecutionStore for MemorySealedPrivateExecutionStore {
     async fn prepare_sealed_private_execution(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: question_model::UserId,
         binding: StudentWorkRoutingBinding,
         intent: crate::AuthorizedSubmissionIntent,
@@ -43,19 +43,14 @@ impl crate::SealedPrivateExecutionStore for MemorySealedPrivateExecutionStore {
                         "sealed preparation disagrees with its authorized intent".to_string(),
                     ));
                 }
-                let tenant = context.tenant_id();
-                let flat_grading = load_issued_flat_grading(&state, tenant, &intent.attempt)?;
-                let webwork_grading = load_issued_webwork_grading(&state, tenant, &intent.attempt)?;
+                let flat_grading = load_issued_flat_grading(&state, &intent.attempt)?;
+                let webwork_grading = load_issued_webwork_grading(&state, &intent.attempt)?;
                 let issued_qti_grading = load_issued_qti_grading(
                     &state,
-                    tenant,
                     &intent.attempt,
                     &intent.issued_question_snapshot,
                 )?;
-                let webwork_replay = state
-                    .webwork_grade_replay
-                    .get(&(tenant, intent.attempt.id))
-                    .cloned();
+                let webwork_replay = state.webwork_grade_replay.get(&intent.attempt.id).cloned();
                 crate::validate_issued_flat_grading(
                     intent.issued_question_snapshot.question(),
                     if intent.presentation.is_some() {

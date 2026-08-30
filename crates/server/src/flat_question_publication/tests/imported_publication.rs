@@ -20,14 +20,12 @@ async fn imported_flat_publish_copies_verified_archive_and_promotes_origin() {
         version: published.version,
     };
     let archive_object = published_import_archive_object_id(
-        fixture.tenant,
         reference.problem,
         reference.version,
         imported.origin.import().import,
         imported.origin.source_archive().sha256,
     );
     let published_archive_key = ObjectKey::PublishedImportArchive {
-        tenant: fixture.tenant,
         problem: reference.problem,
         version: reference.version,
         import: imported.origin.import().import,
@@ -100,14 +98,12 @@ async fn imported_archive_candidate_replay_accepts_only_the_exact_existing_objec
         version: VersionId::from_uuid(id(20_002)),
     };
     let archive_object = published_import_archive_object_id(
-        exact.tenant,
         reference.problem,
         reference.version,
         exact_imported.origin.import().import,
         exact_imported.origin.source_archive().sha256,
     );
     let candidate_key = ObjectKey::PublishedImportArchive {
-        tenant: exact.tenant,
         problem: reference.problem,
         version: reference.version,
         import: exact_imported.origin.import().import,
@@ -134,7 +130,6 @@ async fn imported_archive_candidate_replay_accepts_only_the_exact_existing_objec
     let divergent = fixture().await;
     let divergent_imported = install_import_origin(&divergent).await;
     let divergent_object = published_import_archive_object_id(
-        divergent.tenant,
         reference.problem,
         reference.version,
         divergent_imported.origin.import().import,
@@ -144,7 +139,6 @@ async fn imported_archive_candidate_replay_accepts_only_the_exact_existing_objec
         .objects
         .put(PutObject {
             key: ObjectKey::PublishedImportArchive {
-                tenant: divergent.tenant,
                 problem: reference.problem,
                 version: reference.version,
                 import: divergent_imported.origin.import().import,

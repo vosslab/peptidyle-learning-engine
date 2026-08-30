@@ -216,7 +216,6 @@ pub(super) async fn exercise_residual_memory_matrix(
             CreateCourseCommand {
                 course: CourseRecord {
                     id: foreign_course,
-                    tenant: fixture.context.tenant_id(),
                     title: "Preview foreign-reference fixture".into(),
                     term: question_model::CourseTerm::from_parts(
                         "2026-08-24",
@@ -264,7 +263,6 @@ pub(super) async fn exercise_residual_memory_matrix(
                 expected_revision: None,
                 record: CourseGroupRecord {
                     id: foreign_group_id,
-                    tenant: fixture.context.tenant_id(),
                     course: foreign_course,
                     purpose: question_model::CourseGroupPurpose::Section,
                     title: "Foreign preview group".into(),

@@ -54,7 +54,7 @@ pub struct BucketNames {
     pub public_assets: String,
     /// Private authoring, provenance, render, and course-content bytes.
     pub private_content: String,
-    /// Tenant-owned educational-record bucket.
+    /// Course-owned educational-record bucket.
     pub student_records: String,
     /// Never-served processing bucket.
     pub temp_processing: String,

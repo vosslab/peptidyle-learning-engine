@@ -62,7 +62,6 @@ test("assignment workspace paths use the declared grading-operations route", () 
 test("session bootstrap retains only safe session state with direct narrow dependencies", async () => {
   const session = {
     authenticated: true,
-    tenant: "tenant-a",
     user: { id: "user-a", displayName: "Ada", roles: ["student"] },
   };
   const boundaryStates = [];
@@ -122,7 +121,6 @@ test("a stale session lookup cannot overwrite a newer authenticated generation",
   });
   const newerSession = {
     authenticated: true,
-    tenant: "tenant-new",
     user: { id: "user-new", displayName: "New session", roles: ["student"] },
   };
   let advances = 0;
@@ -142,7 +140,6 @@ test("a stale session lookup cannot overwrite a newer authenticated generation",
   assert.deepEqual(bootstrap.state(), { kind: "authenticated", session: newerSession });
   releaseFirst({
     authenticated: true,
-    tenant: "tenant-old",
     user: { id: "user-old", displayName: "Old session", roles: ["student"] },
   });
   await stale;

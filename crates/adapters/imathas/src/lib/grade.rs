@@ -4,9 +4,7 @@ use sha2::{Digest, Sha256};
 
 use objects::ObjectStoreError;
 use question_model::generation::Seed;
-use question_model::{
-    AttemptResult, ProblemId, QuestionAttemptId, QuestionTitleError, TenantId, VersionId,
-};
+use question_model::{AttemptResult, ProblemId, QuestionAttemptId, QuestionTitleError, VersionId};
 
 use crate::cache::{binding_payload, constant_time_eq, hex};
 
@@ -66,7 +64,6 @@ impl CorrelationIssuer {
 /// Exact server-owned grade identity persisted alongside its idempotency row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GradeBinding {
-    pub tenant: TenantId,
     pub attempt: QuestionAttemptId,
     pub problem: ProblemId,
     pub version: VersionId,
@@ -79,7 +76,7 @@ pub struct GradeBinding {
 pub struct PersistedCorrelation(String);
 
 impl PersistedCorrelation {
-    /// Returns the bounded opaque value the tenant-owned broker row may store.
+    /// Returns the bounded opaque value the protected broker row may store.
     /// This is intentionally not serde: callers must opt into this protected
     /// storage boundary rather than accidentally placing it in an HTTP DTO.
     pub fn to_storage_value(&self) -> String {
@@ -91,7 +88,7 @@ impl PersistedCorrelation {
     /// [`CorrelationIssuer::restore`] to validate the issuer MAC and exact
     /// attempt binding before a provider request.
     pub fn from_storage_value(value: &str) -> Result<Self, ImathasAdapterError> {
-        const PAYLOAD_HEX_LEN: usize = (16 * 4 + 8) * 2;
+        const PAYLOAD_HEX_LEN: usize = (16 * 3 + 8) * 2;
         const MAC_HEX_LEN: usize = 32 * 2;
         const ENCODED_LEN: usize = PAYLOAD_HEX_LEN + 1 + MAC_HEX_LEN;
         if value.len() != ENCODED_LEN {
@@ -130,7 +127,6 @@ impl std::fmt::Debug for ServerCorrelation {
 #[derive(Clone, PartialEq)]
 pub struct VerifiedProviderGrade {
     pub(crate) result: AttemptResult,
-    pub(crate) tenant: TenantId,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) problem: ProblemId,
     pub(crate) version: VersionId,
@@ -142,7 +138,6 @@ impl std::fmt::Debug for VerifiedProviderGrade {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VerifiedProviderGrade")
             .field("result", &self.result)
-            .field("tenant", &self.tenant)
             .field("attempt", &self.attempt)
             .field("problem", &self.problem)
             .field("version", &self.version)
@@ -162,7 +157,6 @@ impl VerifiedProviderGrade {
     /// Exact identity authenticated by the provider verifier.
     pub fn binding(&self) -> GradeBinding {
         GradeBinding {
-            tenant: self.tenant,
             attempt: self.attempt,
             problem: self.problem,
             version: self.version,
@@ -175,7 +169,6 @@ impl VerifiedProviderGrade {
     #[cfg(test)]
     pub(crate) fn verified(
         result: AttemptResult,
-        tenant: TenantId,
         attempt: QuestionAttemptId,
         problem: ProblemId,
         version: VersionId,
@@ -184,7 +177,6 @@ impl VerifiedProviderGrade {
     ) -> Self {
         Self {
             result,
-            tenant,
             attempt,
             problem,
             version,
@@ -203,7 +195,6 @@ impl VerifiedProviderGrade {
     ) -> Self {
         Self {
             result,
-            tenant: binding.tenant,
             attempt: binding.attempt,
             problem: binding.problem,
             version: binding.version,

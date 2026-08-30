@@ -8,8 +8,8 @@ use question_model::{
 };
 
 use super::super::{
-    AssignmentRecord, CourseId, State, StoreError, StoredBaseAssignmentPolicy, TenantContext,
-    TenantId, validate_assignment, validate_memory_assignment_references,
+    AssignmentRecord, CourseId, State, StoreError, StoredBaseAssignmentPolicy, validate_assignment,
+    validate_memory_assignment_references,
 };
 use crate::curriculum_adoption::{
     AssignmentMaterializationEntry, AssignmentMaterializationPlan, SemanticPlannerError,
@@ -18,16 +18,10 @@ use crate::curriculum_adoption::{
 
 pub(super) fn materialize_semantic_assignment(
     state: &mut State,
-    context: TenantContext,
     course: CourseId,
     semantic: &CurriculumSemanticAssignment,
 ) -> Result<(AssignmentId, question_model::AssignmentReference), StoreError> {
-    let tenant = context.tenant_id();
-    let term = &state
-        .courses
-        .get(&(tenant, course))
-        .ok_or(StoreError::NotFound)?
-        .term;
+    let term = &state.courses.get(&course).ok_or(StoreError::NotFound)?.term;
     let plan: AssignmentMaterializationPlan =
         plan_assignment_materialization(semantic, term).map_err(semantic_error)?;
     let assignment = random_assignment_id()?;
@@ -35,7 +29,6 @@ pub(super) fn materialize_semantic_assignment(
     let base_policy = plan.base_policy();
     let record = AssignmentRecord {
         id: assignment,
-        tenant,
         course_id: course,
         title: plan.title,
         lifecycle: AssignmentLifecycle::Draft,
@@ -46,34 +39,27 @@ pub(super) fn materialize_semantic_assignment(
         disclosure_policy: plan.defaults.student_disclosure,
         policies: plan.defaults.run_policies,
     };
-    super::super::course_assignments::materialize_assignment_locked(
-        state,
-        context,
-        record,
-        base_policy,
-    )?;
+    super::super::course_assignments::materialize_assignment_locked(state, record, base_policy)?;
     let reference = *state
         .assignment_references
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or_else(|| integrity("assignment reference"))?;
     Ok((assignment, reference))
 }
 
 pub(super) fn replace_reusable_meaning(
     state: &mut State,
-    tenant: TenantId,
     assignment: AssignmentId,
     semantic: &CurriculumSemanticAssignment,
 ) -> Result<AssignmentRevision, StoreError> {
-    let key = (tenant, assignment);
     let existing = state
         .assignments
-        .get(&key)
+        .get(&assignment)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     let current = *state
         .assignment_revisions
-        .get(&key)
+        .get(&assignment)
         .ok_or_else(|| integrity("assignment revision"))?;
     let next = crate::assignment_revision_checked_next(current)?;
     let entries = plan_assignment_entries(semantic).map_err(semantic_error)?;
@@ -88,14 +74,10 @@ pub(super) fn replace_reusable_meaning(
     replacement.disclosure_policy = semantic.defaults().student_disclosure;
     replacement.policies = semantic.defaults().run_policies;
     validate_assignment(&replacement)?;
-    validate_memory_assignment_references(
-        state,
-        TenantContext::from_authenticated_session(tenant),
-        &replacement,
-    )?;
+    validate_memory_assignment_references(state, &replacement)?;
     let policy = state
         .assignment_base_policy
-        .get(&key)
+        .get(&assignment)
         .copied()
         .ok_or_else(|| integrity("assignment base policy"))?;
     let defaults = semantic.defaults();
@@ -104,10 +86,10 @@ pub(super) fn replace_reusable_meaning(
     next_policy.attempt_limit = defaults.attempt_limit;
     next_policy.late_submission = defaults.late_submission;
     next_policy.deadline_behavior = defaults.deadline_behavior;
-    state.assignments.insert(key, replacement);
-    state.assignment_revisions.insert(key, next);
+    state.assignments.insert(assignment, replacement);
+    state.assignment_revisions.insert(assignment, next);
     state.assignment_base_policy.insert(
-        key,
+        assignment,
         StoredBaseAssignmentPolicy {
             revision: next,
             policy: next_policy,
@@ -115,26 +97,23 @@ pub(super) fn replace_reusable_meaning(
         },
     );
     if title_changed {
-        super::super::course_gradebook::advance_course_grade_scheme_revision(
-            state, tenant, course,
-        )?;
+        super::super::course_gradebook::advance_course_grade_scheme_revision(state, course)?;
     }
     Ok(next)
 }
 
 pub(super) fn current_semantic_assignment(
     state: &State,
-    tenant: TenantId,
     assignment: AssignmentId,
     relative_schedule: question_model::RelativeAssignmentSchedule,
 ) -> Result<CurriculumSemanticAssignment, StoreError> {
     let record = state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?;
     let stored_policy = state
         .assignment_base_policy
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or_else(|| integrity("assignment base policy"))?;
     let mut positioned = record
         .items

@@ -22,7 +22,7 @@ pub trait Store:
     /// as receipt materialization.
     async fn list_student_entitled_assignments(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         student_user: UserId,
         course: CourseId,
         page: PageRequest,
@@ -40,7 +40,7 @@ pub trait Store:
     /// Evaluates present Student authority without materializing a receipt.
     async fn evaluate_assignment_entitlement(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
@@ -59,7 +59,7 @@ pub trait Store:
     /// submission, and replay must materialize only inside their owning action.
     async fn issue_assignment_entitlement(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: MaterializeAssignmentEntitlementCommand,
     ) -> Result<AssignmentEntitlementMaterialization, StoreError> {
         EntitlementStore::issue_assignment_entitlement_impl(self, context, command).await
@@ -68,74 +68,67 @@ pub trait Store:
     /// Delegates to the focused [`StatisticsStore`] capability.
     async fn question_statistics(
         &self,
-        _context: TenantContext,
         _reference: ProblemVersionRef,
     ) -> Result<QuestionStatisticsDisclosure, StoreError> {
-        StatisticsStore::question_statistics_impl(self, _context, _reference).await
+        StatisticsStore::question_statistics_impl(self, _reference).await
     }
 
     /// Delegates to the focused [`StatisticsStore`] capability.
     async fn list_gradebook_rows(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<GradebookSummaryRow>, StoreError> {
-        StatisticsStore::list_gradebook_rows_impl(self, context, course, page).await
+        StatisticsStore::list_gradebook_rows_impl(self, actor, course, page).await
     }
 
     /// Delegates to the focused [`AuthoringStore`] capability.
     async fn upsert_draft(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         expected_revision: Option<WorkspaceDraftRevision>,
         draft: DraftRecord,
     ) -> Result<WorkspaceDraft, StoreError> {
-        AuthoringStore::upsert_draft_impl(self, context, actor, expected_revision, draft).await
+        AuthoringStore::upsert_draft_impl(self, actor, expected_revision, draft).await
     }
 
     /// Delegates to the focused [`AuthoringStore`] capability.
     async fn get_draft(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceDraft>, StoreError> {
-        AuthoringStore::get_draft_impl(self, context, actor, workspace).await
+        AuthoringStore::get_draft_impl(self, actor, workspace).await
     }
 
     /// Delegates to the focused [`AuthoringStore`] capability.
     async fn list_drafts(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         page: PageRequest,
     ) -> Result<Page<WorkspaceDraftSummary>, StoreError> {
-        AuthoringStore::list_drafts_impl(self, context, actor, page).await
+        AuthoringStore::list_drafts_impl(self, actor, page).await
     }
 
     /// Delegates to the focused [`AuthoringStore`] capability.
     async fn delete_draft(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         expected_revision: WorkspaceDraftRevision,
     ) -> Result<bool, StoreError> {
-        AuthoringStore::delete_draft_impl(self, context, actor, workspace, expected_revision).await
+        AuthoringStore::delete_draft_impl(self, actor, workspace, expected_revision).await
     }
 
     /// Delegates to the focused [`AuthoringStore`] capability.
     async fn grant_draft_collaborator(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         collaborator: UserId,
     ) -> Result<(), StoreError> {
-        AuthoringStore::grant_draft_collaborator_impl(self, context, actor, workspace, collaborator)
-            .await
+        AuthoringStore::grant_draft_collaborator_impl(self, actor, workspace, collaborator).await
     }
 
     /// Delegates to the focused [`AuthoringStore`] capability.
@@ -158,63 +151,62 @@ pub trait Store:
     /// Delegates to the focused [`CourseStore`] capability.
     async fn create_course(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         command: CreateCourseCommand,
     ) -> Result<(), StoreError> {
-        CourseStore::create_course_impl(self, context, command).await
+        CourseStore::create_course_impl(self, actor, command).await
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
     async fn get_course(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         course: CourseId,
     ) -> Result<Option<CourseRecord>, StoreError> {
-        CourseStore::get_course_impl(self, context, course).await
+        CourseStore::get_course_impl(self, actor, course).await
     }
 
     /// Delegates to the canonical current-membership authority query.
     async fn get_current_course_membership(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         course: CourseId,
         user: UserId,
     ) -> Result<Option<CourseMembershipRecord>, StoreError> {
-        CourseStore::get_current_course_membership_impl(self, context, course, user).await
+        CourseStore::get_current_course_membership_impl(self, actor, course, user).await
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
     async fn list_courses(
         &self,
-        context: TenantContext,
-        scope: CourseListScope,
+        actor: ActorContext,
         page: PageRequest,
     ) -> Result<Page<CourseSummary>, StoreError> {
-        CourseStore::list_courses_impl(self, context, scope, page).await
+        CourseStore::list_courses_impl(self, actor, page).await
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
     async fn put_course_group(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         command: PutCourseGroupCommand,
     ) -> Result<StoredCourseGroup, StoreError> {
-        CourseStore::put_course_group_impl(self, context, command).await
+        CourseStore::put_course_group_impl(self, actor, command).await
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
     async fn get_course_group(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         group: CourseGroupId,
     ) -> Result<Option<StoredCourseGroup>, StoreError> {
-        CourseStore::get_course_group_impl(self, context, group).await
+        CourseStore::get_course_group_impl(self, actor, group).await
     }
 
     /// Atomically creates an assignment and its explicit base policy.
     async fn create_assignment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::create_assignment_impl(self, context, command).await
@@ -223,7 +215,7 @@ pub trait Store:
     /// Creates one persisted assignment Draft with server-owned defaults.
     async fn create_assignment_draft(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateAssignmentDraftCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::create_assignment_draft_impl(self, context, command).await
@@ -232,7 +224,7 @@ pub trait Store:
     /// Replaces only the Questions-owned assignment content slice.
     async fn replace_assignment_content(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReplaceAssignmentContentCommand,
     ) -> Result<ReplaceAssignmentContentOutcome, StoreError> {
         CourseAssignmentStore::replace_assignment_content_impl(self, context, command).await
@@ -241,7 +233,7 @@ pub trait Store:
     /// Replaces only the Policies-owned assignment slice.
     async fn replace_assignment_policies(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReplaceAssignmentPoliciesCommand,
     ) -> Result<ReplaceAssignmentPoliciesOutcome, StoreError> {
         CourseAssignmentStore::replace_assignment_policies_impl(self, context, command).await
@@ -250,7 +242,7 @@ pub trait Store:
     /// Atomically replaces content fields while preserving teaching settings.
     async fn replace_assignment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReplaceAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::replace_assignment_impl(self, context, command).await
@@ -259,7 +251,7 @@ pub trait Store:
     /// Atomically replaces an unissued complete assignment definition.
     async fn replace_unissued_assignment_definition(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReplaceUnissuedAssignmentDefinitionCommand,
     ) -> Result<ReplaceUnissuedAssignmentDefinitionOutcome, StoreError> {
         CourseAssignmentStore::replace_unissued_assignment_definition_impl(self, context, command)
@@ -270,7 +262,7 @@ pub trait Store:
     /// revision-checked replacement capability.
     async fn replace_assignment_fixed_item(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReplaceAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::replace_assignment_fixed_item_impl(self, context, command).await
@@ -280,7 +272,7 @@ pub trait Store:
     /// pre-evidence editing capability.
     async fn add_assignment_fixed_item(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: AddAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::add_assignment_fixed_item_impl(self, context, command).await
@@ -290,7 +282,7 @@ pub trait Store:
     /// pre-evidence editing capability.
     async fn remove_assignment_fixed_item(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RemoveAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::remove_assignment_fixed_item_impl(self, context, command).await
@@ -299,7 +291,7 @@ pub trait Store:
     /// Delegates to the focused [`CourseAssignmentStore`] capability.
     async fn delete_and_regrade_assignment_item(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: DeleteAndRegradeAssignmentItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         CourseAssignmentStore::delete_and_regrade_assignment_item_impl(self, context, command).await
@@ -308,7 +300,7 @@ pub trait Store:
     /// Delegates to the focused [`CourseAssignmentStore`] capability.
     async fn get_assignment_for_edit(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         assignment: AssignmentId,
     ) -> Result<Option<StoredAssignment>, StoreError> {
         CourseAssignmentStore::get_assignment_for_edit_impl(self, context, assignment).await
@@ -317,7 +309,7 @@ pub trait Store:
     /// Delegates to the focused [`CourseAssignmentStore`] capability.
     async fn get_assignment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         assignment: AssignmentId,
     ) -> Result<Option<AssignmentRecord>, StoreError> {
         CourseAssignmentStore::get_assignment_impl(self, context, assignment).await
@@ -326,7 +318,7 @@ pub trait Store:
     /// Delegates to the focused [`CourseAssignmentStore`] capability.
     async fn list_assignments(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRecord>, StoreError> {
@@ -336,7 +328,7 @@ pub trait Store:
     /// Delegates to the focused [`CourseAssignmentStore`] capability.
     async fn get_enrollment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         CourseAssignmentStore::get_enrollment_impl(self, context, enrollment).await
@@ -345,7 +337,7 @@ pub trait Store:
     /// Browser Student capability; storage proves current active membership.
     async fn student_get_enrollment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
@@ -356,7 +348,7 @@ pub trait Store:
     /// identity, including course visibility and active-membership checks.
     async fn student_get_enrollment_for_assignment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         assignment: AssignmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
@@ -368,7 +360,7 @@ pub trait Store:
     /// membership instead of accepting a coarse platform role.
     async fn instructor_get_enrollment(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
@@ -378,7 +370,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn get_base_assignment_policy(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         assignment: AssignmentId,
     ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError> {
         EffectivePolicyStore::get_base_assignment_policy_impl(self, context, assignment).await
@@ -387,7 +379,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn put_assignment_teaching_settings(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: PutAssignmentTeachingSettingsCommand,
     ) -> Result<StoredBaseAssignmentPolicy, StoreError> {
         EffectivePolicyStore::put_assignment_teaching_settings_impl(self, context, command).await
@@ -396,7 +388,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn put_group_schedule_offset(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: PutGroupScheduleOffsetCommand,
     ) -> Result<AssignmentRevision, StoreError> {
         EffectivePolicyStore::put_group_schedule_offset_impl(self, context, command).await
@@ -405,7 +397,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn delete_group_schedule_offset(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: DeleteGroupScheduleOffsetCommand,
     ) -> Result<AssignmentRevision, StoreError> {
         EffectivePolicyStore::delete_group_schedule_offset_impl(self, context, command).await
@@ -414,7 +406,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn put_group_accommodation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: PutGroupAccommodationCommand,
     ) -> Result<AssignmentRevision, StoreError> {
         EffectivePolicyStore::put_group_accommodation_impl(self, context, command).await
@@ -423,7 +415,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn delete_group_accommodation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: DeleteGroupAccommodationCommand,
     ) -> Result<AssignmentRevision, StoreError> {
         EffectivePolicyStore::delete_group_accommodation_impl(self, context, command).await
@@ -432,7 +424,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn put_individual_policy_exception(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: PutIndividualPolicyExceptionCommand,
     ) -> Result<AssignmentRevision, StoreError> {
         EffectivePolicyStore::put_individual_policy_exception_impl(self, context, command).await
@@ -441,7 +433,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn delete_individual_policy_exception(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: DeleteIndividualPolicyExceptionCommand,
     ) -> Result<AssignmentRevision, StoreError> {
         EffectivePolicyStore::delete_individual_policy_exception_impl(self, context, command).await
@@ -450,7 +442,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn resolve_effective_policy(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ResolveEffectivePolicyCommand,
     ) -> Result<Option<EffectivePolicyResolution>, StoreError> {
         EffectivePolicyStore::resolve_effective_policy_impl(self, context, command).await
@@ -459,7 +451,7 @@ pub trait Store:
     /// Delegates to the focused [`EffectivePolicyStore`] capability.
     async fn get_issued_effective_policy_receipt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         attempt: QuestionAttemptId,
     ) -> Result<Option<IssuedEffectivePolicyReceipt>, StoreError> {
         EffectivePolicyStore::get_issued_effective_policy_receipt_impl(self, context, attempt).await
@@ -471,7 +463,7 @@ pub trait Store:
     /// authority or authorization grant.
     async fn start_or_resume_run(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         proposed_run: RunId,
@@ -482,7 +474,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn assignment_run_items(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         run: RunId,
     ) -> Result<Vec<AssignmentRunItem>, StoreError> {
         RunStore::assignment_run_items_impl(self, context, run).await
@@ -490,7 +482,7 @@ pub trait Store:
 
     async fn student_assignment_run_items(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
@@ -500,7 +492,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn issue_or_resume_question_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: IssueQuestionAttemptCommand,
     ) -> Result<QuestionAttempt, StoreError> {
         RunStore::issue_or_resume_question_attempt_impl(self, context, command).await
@@ -510,7 +502,7 @@ pub trait Store:
     /// explicit Student-work route binding.
     async fn read_issued_attempt_evidence(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -521,7 +513,7 @@ pub trait Store:
     /// Prepares one exact submission without holding storage locks across grading.
     async fn prepare_question_submission(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -543,7 +535,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn reserve_or_resume_prefetched_question(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReservePrefetchedQuestionCommand,
     ) -> Result<PrefetchedQuestionDescriptorV1, StoreError> {
         RunStore::reserve_or_resume_prefetched_question_impl(self, context, command).await
@@ -552,7 +544,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn get_prefetched_question(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         predecessor: QuestionAttemptId,
@@ -571,7 +563,7 @@ pub trait Store:
 
     async fn student_get_prefetched_question(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         predecessor: QuestionAttemptId,
@@ -591,7 +583,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn submission_next_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
@@ -602,7 +594,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn pending_submission_for_run(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
@@ -611,7 +603,7 @@ pub trait Store:
 
     async fn student_pending_submission_for_run(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
@@ -621,7 +613,7 @@ pub trait Store:
     /// Browser Student capability for the current enrollment's attempt list.
     async fn student_list_question_attempts(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         page: PageRequest,
@@ -632,7 +624,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn finalize_submission_next_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
@@ -652,7 +644,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn list_question_attempts(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         run: RunId,
         page: PageRequest,
     ) -> Result<Page<QuestionAttempt>, StoreError> {
@@ -662,7 +654,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn replay_submission(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt: QuestionAttemptId,
         response: &StudentResponse,
@@ -679,7 +671,7 @@ pub trait Store:
     /// authority, never a request to rebuild from current catalog state.
     async fn submission_record(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt: QuestionAttemptId,
     ) -> Result<SubmissionReceiptRead, StoreError> {
@@ -689,7 +681,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn submit_question_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: SubmitQuestionAttemptCommand,
     ) -> Result<SubmissionRecord, StoreError> {
         RunStore::submit_question_attempt_impl(self, context, command).await
@@ -698,7 +690,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn force_submit_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ForceSubmitAttemptCommand,
     ) -> Result<AttemptSupportRecord, StoreError> {
         RunStore::force_submit_attempt_impl(self, context, command).await
@@ -707,7 +699,7 @@ pub trait Store:
     /// Delegates to the focused [`RunStore`] capability.
     async fn clear_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ClearAttemptCommand,
     ) -> Result<AttemptSupportRecord, StoreError> {
         RunStore::clear_attempt_impl(self, context, command).await
@@ -716,7 +708,7 @@ pub trait Store:
     /// Delegates to the focused [`FeedbackStore`] capability.
     async fn release_attempt_feedback(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReleaseAttemptFeedbackCommand,
     ) -> Result<FeedbackReleaseRecord, StoreError> {
         FeedbackStore::release_attempt_feedback_impl(self, context, command).await
@@ -725,7 +717,7 @@ pub trait Store:
     /// Delegates to the focused [`FeedbackStore`] capability.
     async fn get_attempt_feedback_release(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt: QuestionAttemptId,
     ) -> Result<Option<FeedbackReleaseRecord>, StoreError> {
@@ -735,7 +727,7 @@ pub trait Store:
     /// Delegates to the focused [`FeedbackStore`] capability.
     async fn get_run_summary_page(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         page: PageRequest,
@@ -746,7 +738,7 @@ pub trait Store:
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn apply_activity_transition(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         transition: ActivityTransition,
     ) -> Result<StudentAssignmentSummary, StoreError> {
         ActivityStore::apply_activity_transition_impl(self, context, transition).await
@@ -755,7 +747,7 @@ pub trait Store:
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn get_run(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         run: RunId,
     ) -> Result<Option<AssignmentRun>, StoreError> {
         ActivityStore::get_run_impl(self, context, run).await
@@ -764,7 +756,7 @@ pub trait Store:
     /// Browser Student capability; checks current membership in storage.
     async fn student_get_run(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<AssignmentRun>, StoreError> {
@@ -774,7 +766,7 @@ pub trait Store:
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn list_runs(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         enrollment: EnrollmentId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRun>, StoreError> {
@@ -784,7 +776,7 @@ pub trait Store:
     /// Historical instructor capability; storage rechecks direct course membership.
     async fn instructor_list_runs(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
         page: PageRequest,
@@ -794,7 +786,7 @@ pub trait Store:
 
     async fn student_list_runs(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
         page: PageRequest,
@@ -805,7 +797,7 @@ pub trait Store:
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn get_question_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         attempt: QuestionAttemptId,
     ) -> Result<Option<QuestionAttempt>, StoreError> {
         ActivityStore::get_question_attempt_impl(self, context, attempt).await
@@ -813,7 +805,7 @@ pub trait Store:
 
     async fn student_get_question_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt: QuestionAttemptId,
     ) -> Result<Option<QuestionAttempt>, StoreError> {
@@ -823,7 +815,7 @@ pub trait Store:
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn get_summary(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         enrollment: EnrollmentId,
     ) -> Result<Option<StudentAssignmentSummary>, StoreError> {
         ActivityStore::get_summary_impl(self, context, enrollment).await
@@ -831,7 +823,7 @@ pub trait Store:
 
     async fn student_get_summary(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<StudentAssignmentSummarySnapshot>, StoreError> {

@@ -176,7 +176,7 @@ fn gradebook_store_error(error: learning_data_access::StoreError) -> Response {
     match error {
         learning_data_access::StoreError::NotFound
         | learning_data_access::StoreError::Forbidden
-        | learning_data_access::StoreError::TenantMismatch
+        | learning_data_access::StoreError::OwnershipMismatch
         | learning_data_access::StoreError::Unavailable(_) => gradebook_unavailable(),
         error => store_error_response(error),
     }

@@ -62,7 +62,6 @@ where
         .list_instructor_grading_operations(
             authenticated.tenant_context,
             ListInstructorGradingOperationsCommand {
-                tenant: authenticated.tenant_context.tenant_id(),
                 session: authenticated.session_hash,
                 course,
                 assignment,
@@ -119,7 +118,6 @@ where
         .retry_instructor_grading_operation(
             authenticated.tenant_context,
             RetryGradingOperationCommand {
-                tenant: authenticated.tenant_context.tenant_id(),
                 session: authenticated.session_hash,
                 course,
                 assignment,
@@ -173,7 +171,6 @@ where
         .recalculate_instructor_assignment(
             authenticated.tenant_context,
             RecalculateAssignmentCommand {
-                tenant: authenticated.tenant_context.tenant_id(),
                 session: authenticated.session_hash,
                 course,
                 assignment,
@@ -199,12 +196,7 @@ where
     S: Store + learning_data_access::CourseRecordsAccessStore,
 {
     // ASVS 8.2.1: require explicit Instructor permission at the trusted route layer.
-    if !authenticated
-        .record
-        .subject
-        .roles()
-        .contains(&UserRole::Instructor)
-    {
+    if authenticated.record.subject.role() != UserRole::Instructor {
         return Err(error_response(StatusCode::NOT_FOUND, "grading operations not found").into());
     }
     match store
@@ -216,10 +208,7 @@ where
         .await
     {
         Ok(Some(membership)) if membership.role == CourseMembershipRole::Instructor => {
-            match store
-                .course_records_accessible(authenticated.tenant_context, course)
-                .await
-            {
+            match store.course_records_accessible(course).await {
                 Ok(true) => Ok(()),
                 Ok(false) | Err(StoreError::NotFound) | Err(StoreError::Forbidden) => Err(
                     error_response(StatusCode::NOT_FOUND, "grading operations not found").into(),
@@ -343,7 +332,7 @@ async fn require_empty_action_body(request: Request) -> HttpResult<()> {
 
 fn grading_operation_store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch => {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => {
             error_response(StatusCode::NOT_FOUND, "grading operations not found")
         }
         error => store_error_response(error),

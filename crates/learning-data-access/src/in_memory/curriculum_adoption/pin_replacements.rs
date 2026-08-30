@@ -13,14 +13,13 @@ use crate::curriculum_adoption::{
     positioned_pins, substitute_resolved_pins,
 };
 use crate::in_memory::{MemoryStore, State, catalog_record_visible};
-use crate::{StoreError, TenantId, UserId};
+use crate::{StoreError, UserId};
 
 pub(crate) fn validate_destination_pins(
     state: &State,
-    tenant: TenantId,
     payload: &CurriculumSemanticPayload,
 ) -> Result<(), CurriculumPinPosition> {
-    unavailable_destination_pin(state, tenant, payload)
+    unavailable_destination_pin(state, payload)
         .expect("validated qmodel semantic positions remain bounded")
         .map(PositionedPin::position)
         .map_or(Ok(()), Err)
@@ -28,11 +27,10 @@ pub(crate) fn validate_destination_pins(
 
 pub(crate) fn unavailable_destination_pin(
     state: &State,
-    tenant: TenantId,
     payload: &CurriculumSemanticPayload,
 ) -> Result<Option<PositionedPin>, StoreError> {
     first_unavailable_pin(payload, |reference| {
-        pin_eligible_for_destination(state, tenant, reference)
+        pin_eligible_for_destination(state, reference)
     })
     .map_err(semantic_error)
 }
@@ -40,37 +38,31 @@ pub(crate) fn unavailable_destination_pin(
 pub(crate) fn source_snapshot_with_replacements(
     state: &State,
     store: &MemoryStore,
-    tenant: TenantId,
-    actor: UserId,
+    _actor: UserId,
     source: ObservedBlueprintSource,
     replacements: &CurriculumPinReplacements,
 ) -> Result<super::super::reusable_curriculum::ReusableSourceSnapshot, StoreError> {
-    let snapshot = super::super::reusable_curriculum::curriculum_source_snapshot(
-        state, tenant, actor, source,
-    )?;
-    let payload = apply_pin_replacements(state, store, tenant, &snapshot.payload, replacements)?;
+    let snapshot = super::super::reusable_curriculum::curriculum_source_snapshot(state, source)?;
+    let payload = apply_pin_replacements(state, store, &snapshot.payload, replacements)?;
     Ok(super::super::reusable_curriculum::ReusableSourceSnapshot { payload })
 }
 
 pub(crate) fn assignment_source_snapshot_with_replacements(
     state: &State,
     store: &MemoryStore,
-    tenant: TenantId,
-    actor: UserId,
+    _actor: UserId,
     source: AssignmentDefinitionSourceView,
     replacements: &CurriculumPinReplacements,
 ) -> Result<super::super::reusable_curriculum::ReusableSourceSnapshot, StoreError> {
-    let snapshot = super::super::reusable_curriculum::curriculum_assignment_source_snapshot(
-        state, tenant, actor, source,
-    )?;
-    let payload = apply_pin_replacements(state, store, tenant, &snapshot.payload, replacements)?;
+    let snapshot =
+        super::super::reusable_curriculum::curriculum_assignment_source_snapshot(state, source)?;
+    let payload = apply_pin_replacements(state, store, &snapshot.payload, replacements)?;
     Ok(super::super::reusable_curriculum::ReusableSourceSnapshot { payload })
 }
 
 pub(crate) fn apply_pin_replacements(
     state: &State,
     store: &MemoryStore,
-    tenant: TenantId,
     payload: &CurriculumSemanticPayload,
     replacements: &CurriculumPinReplacements,
 ) -> Result<CurriculumSemanticPayload, StoreError> {
@@ -95,7 +87,6 @@ pub(crate) fn apply_pin_replacements(
             let reference = super::super::reusable_curriculum::resolve_public_replacement(
                 state,
                 store,
-                tenant,
                 &replacement.question,
             )?;
             Ok(ResolvedPinReplacement {
@@ -112,7 +103,6 @@ pub(crate) fn apply_pin_replacements(
 /// their immutable exact pins independently of this destination gate.
 fn pin_eligible_for_destination(
     state: &State,
-    tenant: TenantId,
     reference: question_model::ProblemVersionRef,
 ) -> bool {
     state
@@ -120,20 +110,19 @@ fn pin_eligible_for_destination(
         .get(&(reference.problem, reference.version))
         .is_some_and(|record| {
             record.lifecycle.is_eligible_for_ordinary_new_selection()
-                && catalog_record_visible(state, tenant, record)
+                && catalog_record_visible(record)
         })
 }
 
 pub(crate) fn pin_correction(
     state: &State,
-    tenant: TenantId,
     source: AssignmentDefinitionSourceView,
     payload: &CurriculumSemanticPayload,
 ) -> Result<Option<UnavailableCurriculumPinRecovery>, StoreError> {
-    let Some(unavailable) = unavailable_destination_pin(state, tenant, payload)? else {
+    let Some(unavailable) = unavailable_destination_pin(state, payload)? else {
         return Ok(None);
     };
-    let candidates = replacement_question_choices(state, tenant)?;
+    let candidates = replacement_question_choices(state)?;
     Ok(Some(UnavailableCurriculumPinRecovery {
         source,
         position: unavailable.position(),
@@ -144,14 +133,13 @@ pub(crate) fn pin_correction(
 
 pub(crate) fn replacement_question_choices(
     state: &State,
-    tenant: TenantId,
 ) -> Result<ReplacementQuestionChoices, StoreError> {
     let candidates = state
         .published
         .values()
         .filter(|record| {
             record.lifecycle.is_eligible_for_ordinary_new_selection()
-                && catalog_record_visible(state, tenant, record)
+                && catalog_record_visible(record)
         })
         .map(|record| record.question_id.clone())
         .collect::<BTreeSet<_>>()

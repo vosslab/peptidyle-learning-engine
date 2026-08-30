@@ -5,28 +5,25 @@ use async_trait::async_trait;
 use super::course_roster::{delivery_provenance, require_roster_read_authority};
 use super::{MemoryStore, State};
 use crate::{
-    ClaimedCourseInvitationDelivery, CompleteCourseInvitationDelivery, CourseInvitationDelivery,
-    CourseInvitationDeliveryId, CourseInvitationDeliveryLeaseId,
+    ActorContext, ClaimedCourseInvitationDelivery, CompleteCourseInvitationDelivery,
+    CourseInvitationDelivery, CourseInvitationDeliveryId, CourseInvitationDeliveryLeaseId,
     CourseInvitationDeliveryOutcomeCode, CourseInvitationDeliveryState,
     CourseInvitationDeliveryStore, CourseInvitationDeliveryWorkerStore, CourseInvitationId,
     CourseInvitationStatus, MAX_COURSE_INVITATION_DELIVERY_ATTEMPTS, SessionTokenHash, StoreError,
-    TenantContext,
 };
-use question_model::{ActivityTimestamp, CourseId, TenantId};
+use question_model::{ActivityTimestamp, CourseId};
 
 pub(super) fn create_pending(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     invitation: CourseInvitationId,
 ) -> Result<CourseInvitationDelivery, StoreError> {
-    let key = (tenant, course, invitation);
+    let key = (course, invitation);
     if let Some(delivery) = state.invitation_deliveries.get(&key) {
         return Ok(delivery.clone());
     }
     let now = state.authoritative_time;
     let delivery = CourseInvitationDelivery {
-        tenant,
         course,
         invitation,
         id: CourseInvitationDeliveryId::generate()?,
@@ -49,13 +46,10 @@ pub(super) fn create_pending(
 
 pub(super) fn cancel_for_invitation(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     invitation: CourseInvitationId,
 ) {
-    if let Some(delivery) = state
-        .invitation_deliveries
-        .get_mut(&(tenant, course, invitation))
+    if let Some(delivery) = state.invitation_deliveries.get_mut(&(course, invitation))
         && matches!(
             delivery.state,
             CourseInvitationDeliveryState::Pending | CourseInvitationDeliveryState::RetryableFailed
@@ -84,7 +78,7 @@ pub(super) fn cancel_for_invitation(
 impl CourseInvitationDeliveryStore for MemoryStore {
     async fn course_invitation_delivery_state(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         invitation: CourseInvitationId,
@@ -93,7 +87,7 @@ impl CourseInvitationDeliveryStore for MemoryStore {
         require_roster_read_authority(&state, context, session, course)?;
         Ok(state
             .invitation_deliveries
-            .get(&(context.tenant_id(), course, invitation))
+            .get(&(course, invitation))
             .map(|item| item.state))
     }
 }
@@ -116,10 +110,10 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
         else {
             return Ok(None);
         };
-        let (tenant, course, invitation_id) = key;
+        let (course, invitation_id) = key;
         let active_lease = state
             .invitation_deliveries
-            .get(&(tenant, course, invitation_id))
+            .get(&(course, invitation_id))
             .is_some_and(|record| {
                 record.lease_expires_at.is_some_and(|until| until > now)
                     && record.dispatch_started_at.is_none()
@@ -129,12 +123,12 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
         }
         let invitation = state
             .course_invitations
-            .get(&(tenant, course, invitation_id))
+            .get(&(course, invitation_id))
             .ok_or(StoreError::NotFound)?;
         if invitation.record.status != CourseInvitationStatus::Pending
             || invitation.record.expires_at <= now
         {
-            cancel_for_invitation(&mut state, tenant, course, invitation_id);
+            cancel_for_invitation(&mut state, course, invitation_id);
             return Ok(None);
         }
         let delivery_email = invitation.record.email.delivery().to_string();
@@ -142,9 +136,8 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
         let idempotency_key = state
             .invitation_idempotency
             .iter()
-            .find_map(|((entry_tenant, entry_course, entry_key), (id, _))| {
-                (*entry_tenant == tenant && *entry_course == course && *id == invitation_id)
-                    .then_some(entry_key.clone())
+            .find_map(|((entry_course, entry_key), (id, _))| {
+                (*entry_course == course && *id == invitation_id).then_some(entry_key.clone())
             })
             .ok_or_else(|| {
                 StoreError::Unavailable(
@@ -153,13 +146,12 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
             })?;
         let record = state
             .invitation_deliveries
-            .get_mut(&(tenant, course, invitation_id))
+            .get_mut(&(course, invitation_id))
             .ok_or(StoreError::NotFound)?;
         record.dispatch_started_at = Some(now);
-        let reissuance = match delivery_provenance(&state, tenant, course, invitation_id)? {
+        let reissuance = match delivery_provenance(&state, course, invitation_id)? {
             Some((import, row_number, commit_idempotency_key)) => {
                 crate::InvitationDeliveryReissuance::Import {
-                    tenant,
                     course,
                     import,
                     row_number,
@@ -167,7 +159,6 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
                 }
             }
             None => crate::InvitationDeliveryReissuance::Single {
-                tenant,
                 course,
                 roster_id,
                 idempotency_key: idempotency_key.clone(),
@@ -179,7 +170,7 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
             delivery_email,
             expected_token_hash: state
                 .invitation_idempotency
-                .get(&(tenant, course, idempotency_key.clone()))
+                .get(&(course, idempotency_key.clone()))
                 .ok_or(StoreError::NotFound)?
                 .1,
             reissuance,
@@ -221,8 +212,8 @@ impl CourseInvitationDeliveryWorkerStore for MemoryStore {
                 .then_some(*key)
             })
             .collect::<Vec<_>>();
-        for (tenant, course, invitation) in expired {
-            cancel_for_invitation(&mut state, tenant, course, invitation);
+        for (course, invitation) in expired {
+            cancel_for_invitation(&mut state, course, invitation);
         }
         let expired_leases = state
             .invitation_deliveries

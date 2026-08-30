@@ -224,7 +224,6 @@ impl crate::EffectivePolicyStore for PostgresStore {
         )?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(Some(EffectivePolicyResolution {
-            tenant,
             course,
             assignment: command.assignment,
             decision,
@@ -457,7 +456,6 @@ fn decode_base(
         }
     };
     Ok(StoredBaseAssignmentPolicy {
-        tenant,
         course: CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?),
         assignment,
         policy: BaseAssignmentPolicy {

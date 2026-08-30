@@ -51,7 +51,6 @@ fn policy_with_sources(
 
 #[test]
 fn effective_policy_receipts_reject_hypothetical_sources_without_mutation() {
-    let tenant = TenantId::from_uuid(uuid::Uuid::from_u128(73_001));
     let attempt = QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(73_002));
     let group = CourseGroupId::from_uuid(uuid::Uuid::from_u128(73_003));
     let student = StudentId::from_uuid(uuid::Uuid::from_u128(73_004));
@@ -59,7 +58,6 @@ fn effective_policy_receipts_reject_hypothetical_sources_without_mutation() {
 
     store_issued_effective_policy_receipt(
         &mut state,
-        tenant,
         attempt,
         policy_with_sources(
             PolicySource::Base,
@@ -78,7 +76,6 @@ fn effective_policy_receipts_reject_hypothetical_sources_without_mutation() {
 
     let error = store_issued_effective_policy_receipt(
         &mut state,
-        tenant,
         attempt,
         policy_with_sources(
             PolicySource::Base,
@@ -106,7 +103,6 @@ fn effective_policy_receipts_reject_hypothetical_sources_without_mutation() {
 
 #[test]
 fn assignment_reference_validation_requires_published_new_pins_and_retains_exact_history() {
-    let tenant = TenantId::from_uuid(uuid::Uuid::from_u128(73_101));
     let course = CourseId::from_uuid(uuid::Uuid::from_u128(73_102));
     let retained_assignment = AssignmentId::from_uuid(uuid::Uuid::from_u128(73_103));
     let new_assignment = AssignmentId::from_uuid(uuid::Uuid::from_u128(73_104));
@@ -120,7 +116,6 @@ fn assignment_reference_validation_requires_published_new_pins_and_retains_exact
     };
     let assignment = |id| AssignmentRecord {
         id,
-        tenant,
         course_id: course,
         title: "Reference validation".to_string(),
         lifecycle: AssignmentLifecycle::Draft,
@@ -145,10 +140,9 @@ fn assignment_reference_validation_requires_published_new_pins_and_retains_exact
     };
     let mut state = State::default();
     state.courses.insert(
-        (tenant, course),
+        course,
         CourseRecord {
             id: course,
-            tenant,
             title: "Reference validation course".to_string(),
             term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                 .expect("valid course term"),
@@ -160,31 +154,19 @@ fn assignment_reference_validation_requires_published_new_pins_and_retains_exact
     let retained = assignment(retained_assignment);
     state
         .assignments
-        .insert((tenant, retained_assignment), retained.clone());
+        .insert(retained_assignment, retained.clone());
 
-    validate_memory_assignment_references(
-        &state,
-        TenantContext::from_authenticated_session(tenant),
-        &retained,
-    )
-    .expect("unchanged exact archived pin remains valid evidence");
+    validate_memory_assignment_references(&state, &retained)
+        .expect("unchanged exact archived pin remains valid evidence");
     assert!(matches!(
-        validate_memory_assignment_references(
-            &state,
-            TenantContext::from_authenticated_session(tenant),
-            &assignment(new_assignment),
-        ),
+        validate_memory_assignment_references(&state, &assignment(new_assignment)),
         Err(StoreError::InvalidRecord(_))
     ));
     state
         .published
         .remove(&(reference.problem, reference.version));
     assert!(matches!(
-        validate_memory_assignment_references(
-            &state,
-            TenantContext::from_authenticated_session(tenant),
-            &retained,
-        ),
+        validate_memory_assignment_references(&state, &retained),
         Err(StoreError::InvalidRecord(_))
     ));
 }

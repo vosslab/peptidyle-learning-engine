@@ -162,7 +162,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_publish(authenticated.record.subject.roles(), request.scope) {
+    if !may_publish(authenticated.record.subject.role(), request.scope) {
         return error_response(StatusCode::FORBIDDEN, "publication is not authorized");
     }
     let expected_revision = match required_publish_revision(&headers) {
@@ -335,13 +335,10 @@ where
     }
 }
 
-pub(crate) fn may_publish(roles: &[UserRole], scope: PublicationScope) -> bool {
+pub(crate) fn may_publish(role: UserRole, scope: PublicationScope) -> bool {
     match scope {
-        PublicationScope::Institution => roles
-            .iter()
-            .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin)),
-        PublicationScope::Public => roles
-            .iter()
-            .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin)),
+        PublicationScope::Institution | PublicationScope::Public => {
+            matches!(role, UserRole::Instructor | UserRole::Sysadmin)
+        }
     }
 }

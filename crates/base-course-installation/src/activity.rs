@@ -753,14 +753,8 @@ mod tests {
     use super::*;
     use crate::records::base_course_native_draft;
 
-    fn fixture() -> (
-        question_model::TenantId,
-        BaseCourseIds,
-        EnrollmentId,
-        QuestionDefinition,
-    ) {
-        let tenant = question_model::TenantId::from_uuid(Uuid::from_u128(901));
-        let ids = BaseCourseIds::for_tenant(tenant);
+    fn fixture() -> (BaseCourseIds, EnrollmentId, QuestionDefinition) {
+        let ids = BaseCourseIds::for_installation();
         let question = QuestionDefinition::from_draft(
             base_course_native_draft(ids.workspace),
             ids.problem,
@@ -769,16 +763,10 @@ mod tests {
                 family: "peptide_bond_geometry".to_string(),
             },
         );
-        (
-            tenant,
-            ids,
-            EnrollmentId::from_uuid(Uuid::from_u128(902)),
-            question,
-        )
+        (ids, EnrollmentId::from_uuid(Uuid::from_u128(902)), question)
     }
 
     fn run(
-        tenant: question_model::TenantId,
         id: RunId,
         enrollment: EnrollmentId,
         completed: bool,
@@ -787,7 +775,6 @@ mod tests {
         question_model::AssignmentRun {
             id,
             reference: RunReference::new(1).unwrap(),
-            tenant,
             enrollment,
             run_number: 1,
             started_at: ActivityTimestamp::from_unix_millis(1),
@@ -799,7 +786,6 @@ mod tests {
     }
 
     fn attempt(
-        tenant: question_model::TenantId,
         ids: BaseCourseIds,
         id: QuestionAttemptId,
         run: RunId,
@@ -809,7 +795,6 @@ mod tests {
     ) -> question_model::QuestionAttempt {
         question_model::QuestionAttempt {
             id,
-            tenant,
             run,
             problem: ids.problem,
             question_version: ids.version,
@@ -835,12 +820,11 @@ mod tests {
 
     #[test]
     fn completed_and_active_prefixes_converge_or_refuse() {
-        let (tenant, ids, enrollment, question) = fixture();
+        let (ids, enrollment, question) = fixture();
         let mary = installed_issued_attempt(&question, COMPLETED_SEED).unwrap();
         let jack = installed_issued_attempt(&question, ACTIVE_SEED).unwrap();
-        let mary_run = run(tenant, ids.mary_run, enrollment, false, 0.0);
+        let mary_run = run(ids.mary_run, enrollment, false, 0.0);
         let mary_attempt = attempt(
-            tenant,
             ids,
             ids.mary_attempt,
             ids.mary_run,
@@ -853,7 +837,7 @@ mod tests {
                 .unwrap(),
             CompletedActivityState::IssuedAttempt
         );
-        let jack_run = run(tenant, ids.jack_run, enrollment, false, 0.0);
+        let jack_run = run(ids.jack_run, enrollment, false, 0.0);
         assert_eq!(
             active_activity_state(Some(&jack_run), None, ids, enrollment, &jack).unwrap(),
             ActiveActivityState::RunWithoutAttempt
@@ -910,10 +894,9 @@ mod tests {
 
     #[test]
     fn exact_attempt_collection_refuses_duplicates_and_extra_pages() {
-        let (tenant, ids, _, question) = fixture();
+        let (ids, _, question) = fixture();
         let issued = installed_issued_attempt(&question, COMPLETED_SEED).unwrap();
         let value = attempt(
-            tenant,
             ids,
             ids.mary_attempt,
             ids.mary_run,

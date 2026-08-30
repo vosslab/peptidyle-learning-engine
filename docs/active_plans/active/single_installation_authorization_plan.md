@@ -6,11 +6,11 @@ PLE is one installation. It has global accounts, one shared published-question c
 Instructor authoring workspaces, and course-scoped educational records. The product has no
 institution boundary or institution selector.
 
-Historical pre-SD1 implementation carries `TenantId`, `TenantContext`, `tenant_id`, tenant-shaped
-keys, tenant RLS state, and tenant fields through the domain, Store contracts, PostgreSQL, workers,
-objects, browser contracts, local-stack seed, and documentation. Graphify identifies `TenantId` and
-`TenantContext` as two of the repository's highest-connectivity nodes. Direct source inspection found
-the model across hundreds of Rust files and most active migrations.
+Historical pre-SD1 implementation carries an obsolete global-installation identity, context,
+keys, RLS state, and fields through the domain, Store contracts, PostgreSQL, workers, objects,
+browser contracts, local-stack seed, and documentation. Graphify identifies that identity/context
+pair as among the repository's highest-connectivity nodes. Direct source inspection found the model
+across hundreds of Rust files and most active migrations.
 
 PLE is pre-production, and its project-named live-stack data is disposable. This package therefore
 establishes the intended model directly and creates a fresh migration epoch. It preserves the
@@ -397,7 +397,7 @@ The status-allocated actor installation, broker, RLS, and Store enforcement cont
 ### One reviewed promotion
 
 The companion owns one reviewed promotion and connected acceptance; this plan retains the product
-constraint that no partial epoch, tenant compatibility SQL, or Alpha bridge becomes active.
+constraint that no partial epoch, obsolete-scope compatibility SQL, or Alpha bridge becomes active.
 
 ## Dependency order
 
@@ -475,7 +475,7 @@ unassigned consumer; independent review returns `ACCEPT`.
   server-only, non-forgeable type boundary, while `SD1-B1-F` derives it from a resolved session
   record after exact-scope storage and service support exists. `rls.rs` is transaction-adapter-only:
   it adapts that context to transaction-local PostgreSQL state and defines no `ActorContext` type;
-  exact domain scopes replace tenant identity.
+  exact domain scopes replace the retired global identity.
 - Make course creation and multiple equal Instructor memberships first-class domain behavior.
 - Define the canonical `approved_instructor` predicate for every global Instructor capability and
   verify it when a co-Instructor accepts a course relationship.
@@ -503,7 +503,7 @@ unassigned consumer; independent review returns `ACCEPT`.
 **Workstreams:**
 
 - `SD1-B1-P0` server-only account/session and actor contract declaration; `SD1-B1-F` final
-  resolved-record session/auth integration and tenant-route retirement.
+  resolved-record session/auth integration and obsolete-route retirement.
 - `SD1-B2` approved-Instructor, course membership, equal co-Instructor, Student ownership, and future
   relationship target contracts.
 - `SD1-B3` catalog, authoring workspace, collection, `QuestionChangeProposal`, and improvement
@@ -520,8 +520,8 @@ remain a separate B2 boundary.
 routes resolve an actor. SD1-C/D own the fresh schema, Store/RLS, and direct protected-service
 implementation that makes those contracts executable. `SD1-B1-F` then assembles the resolved-record
 authentication seam, migrates affected consumers to their exact scopes, and retires the prior
-tenant-shaped session route. This coordination has one final session model and no installation-wide
-tenant fallback.
+obsolete global-scope session route. This coordination has one final session model and no
+installation-wide fallback.
 
 **Verification:** Focused domain tests, Store trait compilation, generated-contract tests, strict
 Clippy, TypeScript compilation, and independent architecture/security review. The contract gate
@@ -531,7 +531,7 @@ strict AC-reference refusal, immutable parent/revision binding, and no Alpha sou
 **Entry:** The scope register assigns every affected public type and consumer.
 
 **Exit:** Every domain family has a typed exact-scope contract root, and no SD1-B contract treats
-tenant identity as a global authorization grant. PostgreSQL implementation and connected acceptance
+the retired global identity as an authorization grant. PostgreSQL implementation and connected acceptance
 remain SD1-C/D work.
 
 **Parallel-plan ready:** Yes. After accepted B1-P0, B2-B4 contract roots may proceed in parallel.
@@ -740,8 +740,7 @@ no-Alpha outcomes.
 
 - Graphify impact maps and broad source inventories.
 - Old-to-new schema/table/key/policy/grant allocation.
-- Direct source search confirming retired tenant contracts are absent after the rebuild; retained
-  tenant terms are labeled historical migration input or external protocol terminology.
+- Direct source search confirming retired global-scope contracts are absent after the rebuild.
 - Migration-epoch comparison, clean-volume schema fingerprint, and migration-count reconciliation.
 - Temporary diagnostics used to understand dependency ordering or query plans.
 - Graphify impact maps, source/schema/route/generated/browser-resource inventories, migration
@@ -752,19 +751,19 @@ test tree when it does not satisfy [PYTEST_STYLE.md](../../PYTEST_STYLE.md).
 
 ## Risks and controls
 
-| Risk                                                                     | Control                                                                                                                                                  |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course membership becomes an ambient read grant                          | Use operation-specific predicates; Student records require Instructor membership or exact Student ownership.                                             |
-| Equal co-Instructor behavior accidentally preserves a privileged creator | Represent course creation as the first ordinary Instructor membership and exercise another co-Instructor through the same mutations and Gradebook reads. |
+| Risk                                                                     | Control                                                                                                                                                               |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Course membership becomes an ambient read grant                          | Use operation-specific predicates; Student records require Instructor membership or exact Student ownership.                                                          |
+| Equal co-Instructor behavior accidentally preserves a privileged creator | Represent course creation as the first ordinary Instructor membership and exercise another co-Instructor through the same mutations and Gradebook reads.              |
 | Future observer design weakens current FERPA boundaries                  | Use explicit exact-course audited relationships, named completion-only projections, and privacy-safe anonymous aggregate-grade projections with no individual scores. |
-| Schema rebase or a partial epoch loses product behavior                   | [single_installation_database_authorization_plan.md](single_installation_database_authorization_plan.md) owns the staged-epoch and promotion controls. |
-| Worker or object access uses caller-supplied scope                       | Derive typed scope from locked database metadata and server-issued opaque identities.                                                                    |
-| Shared catalog accumulates Student data                                  | Keep catalog evidence immutable, content-focused, aggregate-safe, and detached from Student identifiers.                                                 |
-| Broad rebuild encourages fragile inventory tests                         | Keep inventories as one-time evidence and retain permanent behavioral gates only.                                                                        |
-| Blueprint and delivery state become one mutable aggregate                   | Keep one immutable Blueprint parent/revision receipt per CourseInstance; resolve and edit live deadlines only in the instance.                              |
-| Upstream Blueprint changes silently alter teaching                           | Propagate new assignments as unreleased, compare source/import/delivery revisions, and require explicit release or selected-copy decisions.                 |
-| Question correction mutates issued work or leaks small cohorts               | Pin exact versions, classify semantic changes, preserve immutable evidence, generation-fence recalculation, and disclose version counts only above threshold. |
-| Alpha compatibility survives as a second authority                             | Use one BP route/Store/schema/decoder family and a one-time retired-symbol inventory; fail closed on AC references and remove aliases.                      |
+| Schema rebase or a partial epoch loses product behavior                  | [single_installation_database_authorization_plan.md](single_installation_database_authorization_plan.md) owns the staged-epoch and promotion controls.                |
+| Worker or object access uses caller-supplied scope                       | Derive typed scope from locked database metadata and server-issued opaque identities.                                                                                 |
+| Shared catalog accumulates Student data                                  | Keep catalog evidence immutable, content-focused, aggregate-safe, and detached from Student identifiers.                                                              |
+| Broad rebuild encourages fragile inventory tests                         | Keep inventories as one-time evidence and retain permanent behavioral gates only.                                                                                     |
+| Blueprint and delivery state become one mutable aggregate                | Keep one immutable Blueprint parent/revision receipt per CourseInstance; resolve and edit live deadlines only in the instance.                                        |
+| Upstream Blueprint changes silently alter teaching                       | Propagate new assignments as unreleased, compare source/import/delivery revisions, and require explicit release or selected-copy decisions.                           |
+| Question correction mutates issued work or leaks small cohorts           | Pin exact versions, classify semantic changes, preserve immutable evidence, generation-fence recalculation, and disclose version counts only above threshold.         |
+| Alpha compatibility survives as a second authority                       | Use one BP route/Store/schema/decoder family and a one-time retired-symbol inventory; fail closed on AC references and remove aliases.                                |
 
 ## Success criteria
 

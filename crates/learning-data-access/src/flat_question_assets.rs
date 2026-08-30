@@ -6,10 +6,10 @@
 
 use async_trait::async_trait;
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
-use question_model::{AssetId, TenantId, WorkspaceId};
+use question_model::{AssetId, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
-use crate::{StoreError, TenantContext};
+use crate::{ActorContext, StoreError};
 
 /// Maximum user-visible image label length after trimming.
 pub const MAX_WORKSPACE_FLAT_QUESTION_ASSET_LABEL_CHARS: usize = 160;
@@ -32,8 +32,6 @@ pub const WORKSPACE_FLAT_QUESTION_IMAGE_MEDIA_TYPES: &[&str] =
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceFlatQuestionAsset {
-    /// Tenant which owns the private workspace.
-    pub tenant: TenantId,
     /// Private workspace that owns the asset.
     pub workspace: WorkspaceId,
     /// Logical image identity referenced by native flat-question source.
@@ -51,7 +49,6 @@ pub struct WorkspaceFlatQuestionAsset {
 impl WorkspaceFlatQuestionAsset {
     /// Builds a verified descriptor after image inspection and object storage.
     pub fn new(
-        tenant: TenantId,
         workspace: WorkspaceId,
         asset: AssetId,
         object: ObjectRecord,
@@ -59,7 +56,7 @@ impl WorkspaceFlatQuestionAsset {
         intrinsic_height: u32,
         display_label: String,
     ) -> Result<Self, StoreError> {
-        validate_workspace_flat_question_asset_record(&tenant, &workspace, asset, &object)?;
+        validate_workspace_flat_question_asset_record(&workspace, asset, &object)?;
         if intrinsic_width == 0 || intrinsic_height == 0 {
             return Err(StoreError::InvalidRecord(
                 "workspace flat-question image dimensions must be nonzero".to_string(),
@@ -76,7 +73,6 @@ impl WorkspaceFlatQuestionAsset {
             MAX_WORKSPACE_FLAT_QUESTION_ASSET_PROVENANCE_CHARS,
         )?;
         let descriptor = Self {
-            tenant,
             workspace,
             asset,
             object,
@@ -95,12 +91,7 @@ impl WorkspaceFlatQuestionAsset {
 
     /// Revalidates a descriptor decoded from durable storage before use.
     pub fn validate(&self) -> Result<(), StoreError> {
-        validate_workspace_flat_question_asset_record(
-            &self.tenant,
-            &self.workspace,
-            self.asset,
-            &self.object,
-        )?;
+        validate_workspace_flat_question_asset_record(&self.workspace, self.asset, &self.object)?;
         if self.intrinsic_width == 0 || self.intrinsic_height == 0 {
             return Err(StoreError::InvalidRecord(
                 "workspace flat-question image dimensions must be nonzero".to_string(),
@@ -132,13 +123,11 @@ impl WorkspaceFlatQuestionAsset {
 
 /// Validates an exact private workspace-question image record.
 pub fn validate_workspace_flat_question_asset_record(
-    tenant: &TenantId,
     workspace: &WorkspaceId,
     asset: AssetId,
     record: &ObjectRecord,
 ) -> Result<(), StoreError> {
     let ObjectKey::WorkspaceQuestionAsset {
-        tenant: key_tenant,
         workspace: key_workspace,
         asset: key_asset,
         object,
@@ -148,11 +137,7 @@ pub fn validate_workspace_flat_question_asset_record(
             "flat-question image must use the workspace question asset key".to_string(),
         ));
     };
-    if key_tenant != tenant
-        || key_workspace != workspace
-        || *key_asset != asset
-        || record.id != *object
-    {
+    if key_workspace != workspace || *key_asset != asset || record.id != *object {
         return Err(StoreError::InvalidRecord(
             "flat-question image key must match its workspace asset identity".to_string(),
         ));
@@ -208,14 +193,14 @@ pub trait FlatQuestionAssetStore: Send + Sync {
     /// reuse of the logical asset identity with any divergent metadata fails.
     async fn register_workspace_flat_question_asset(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         descriptor: WorkspaceFlatQuestionAsset,
     ) -> Result<WorkspaceFlatQuestionAsset, StoreError>;
 
     /// Lists one workspace's descriptors in stable logical-asset order.
     async fn list_workspace_flat_question_assets(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         workspace: WorkspaceId,
     ) -> Result<Vec<WorkspaceFlatQuestionAsset>, StoreError>;
 
@@ -226,7 +211,7 @@ pub trait FlatQuestionAssetStore: Send + Sync {
     /// workspace's private object metadata.
     async fn resolve_workspace_flat_question_asset(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         workspace: WorkspaceId,
         asset: AssetId,
         checksum: Sha256Digest,

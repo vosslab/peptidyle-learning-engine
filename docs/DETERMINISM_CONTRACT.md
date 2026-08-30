@@ -184,7 +184,7 @@ estimates and operational evidence.
 The Store persists a bounded `WebworkGradeReplayStateV1`: immutable
 problem/version/source/seed/renderer provenance, presentation digest, and a
 redacted mapping from presentation-scoped rendered item IDs to upstream fields and values. The
-mapping is tenant-owned, validated, RLS-protected, and never serialized to the
+mapping is course-owned, validated, RLS-protected, and never serialized to the
 browser or cache.
 
 Issued native-flat and WeBWorK attempts also retain checksummed, server-only
@@ -221,7 +221,7 @@ envelope, not an untrusted browser-selected question type or mutable renderer.
 
 Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
 attempt. The server selects the next position and fresh seed, renders the
-question, creates a tenant/learner/run/predecessor-bound reservation, and
+question, creates a course/learner/run/predecessor-bound reservation, and
 persists its parameter hash, provenance, and presentation binding. It does not
 start the next timer or let the browser choose seed, version, backend, source,
 or grading state.

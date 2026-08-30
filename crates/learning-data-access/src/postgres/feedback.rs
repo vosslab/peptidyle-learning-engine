@@ -17,13 +17,8 @@ impl crate::FeedbackStore for PostgresStore {
         let enrollment =
             load_enrollment_for_update(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        if !postgres_is_course_instructor(
-            &mut transaction,
-            tenant,
-            assignment.course_id,
-            command.actor,
-        )
-        .await?
+        if !postgres_is_course_instructor(&mut transaction, assignment.course_id, command.actor)
+            .await?
         {
             return Err(StoreError::NotFound);
         }
@@ -82,7 +77,6 @@ impl crate::FeedbackStore for PostgresStore {
         }
         let released_at: i64 = row.try_get("released_at").map_err(map_sqlx_error)?;
         let record = FeedbackReleaseRecord {
-            tenant,
             attempt: command.attempt,
             released_by,
             released_at: ActivityTimestamp::from_unix_millis(released_at),
@@ -111,8 +105,7 @@ impl crate::FeedbackStore for PostgresStore {
                 if grant.student() == enrollment.student
         );
         if !student_self
-            && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
-                .await?
+            && !postgres_is_course_instructor(&mut transaction, assignment.course_id, actor).await?
         {
             return Err(StoreError::NotFound);
         }
@@ -128,7 +121,6 @@ impl crate::FeedbackStore for PostgresStore {
         let record = row
             .map(|row| {
                 Ok::<FeedbackReleaseRecord, StoreError>(FeedbackReleaseRecord {
-                    tenant,
                     attempt: attempt_id,
                     released_by: UserId::from_uuid(
                         row.try_get("released_by").map_err(map_sqlx_error)?,
@@ -153,7 +145,7 @@ impl crate::FeedbackStore for PostgresStore {
         let after = page
             .after
             .as_ref()
-            .map(|cursor| RunSummaryCursor::decode(cursor, tenant.as_uuid(), run_id.as_uuid()))
+            .map(|cursor| RunSummaryCursor::decode(cursor, run_id.as_uuid()))
             .transpose()?;
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
@@ -179,8 +171,7 @@ impl crate::FeedbackStore for PostgresStore {
                 if grant.student() == enrollment.student
         );
         if !student_self
-            && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
-                .await?
+            && !postgres_is_course_instructor(&mut transaction, assignment.course_id, actor).await?
         {
             return Err(StoreError::NotFound);
         }
@@ -288,7 +279,7 @@ impl crate::FeedbackStore for PostgresStore {
             .then(|| {
                 outcomes
                     .last()
-                    .map(|(cursor, _)| cursor.encode(tenant.as_uuid(), run.id.as_uuid()))
+                    .map(|(cursor, _)| cursor.encode(run.id.as_uuid()))
             })
             .flatten();
         let scoring_status = super::course_assignments::load_assignment_scoring_status(

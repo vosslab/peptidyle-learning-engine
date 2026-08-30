@@ -2,9 +2,9 @@
 
 use super::*;
 use crate::{
-    CreateBlueprintCourseCommand, InstructorApprovalRevision, ReplaceBlueprintCourseCommand,
-    ReusableCurriculumStore, SessionLifetime, SessionStore, SessionSubject,
-    StoredInstructorApproval,
+    ActorContext, CreateBlueprintCourseCommand, InstructorApprovalRevision,
+    ReplaceBlueprintCourseCommand, ReusableCurriculumStore, SessionLifetime, SessionStore,
+    SessionSubject, StoredInstructorApproval,
 };
 use question_model::{
     AssignmentDefinitionSourceView, AssignmentInstructions, AssignmentScoringMode,
@@ -74,13 +74,13 @@ fn create_definition(
 
 async fn fixture() -> (
     MemoryStore,
-    TenantContext,
+    ActorContext,
+    ActorContext,
     SessionTokenHash,
     SessionTokenHash,
     question_model::QuestionId,
 ) {
     let store = MemoryStore::default();
-    let tenant = TenantId::from_uuid(Uuid::from_u128(97_001));
     let owner = UserId::from_uuid(Uuid::from_u128(97_002));
     let reader = UserId::from_uuid(Uuid::from_u128(97_003));
     let record = super::catalog_search_tests::record(97_004);
@@ -114,7 +114,7 @@ async fn fixture() -> (
         store
             .create_session(
                 session,
-                SessionSubject::new(tenant, actor, label, vec![UserRole::Instructor])
+                SessionSubject::new(actor, label, UserRole::Instructor)
                     .expect("instructor session"),
                 SessionLifetime::from_seconds(60).expect("session lifetime"),
             )
@@ -123,7 +123,20 @@ async fn fixture() -> (
     }
     (
         store,
-        TenantContext::from_authenticated_session(tenant),
+        ActorContext::from_session_record(
+            &store
+                .resolve_session(owner_session)
+                .await
+                .expect("owner session read")
+                .expect("owner active session"),
+        ),
+        ActorContext::from_session_record(
+            &store
+                .resolve_session(reader_session)
+                .await
+                .expect("reader session read")
+                .expect("reader active session"),
+        ),
         owner_session,
         reader_session,
         question,
@@ -155,11 +168,11 @@ fn retained_module(
 
 #[tokio::test]
 async fn immutable_history_preserves_retained_assignment_identity_across_reorder_and_insert() {
-    let (store, context, owner, reader, question) = fixture().await;
+    let (store, owner_context, reader_context, owner, reader, question) = fixture().await;
     let (creation, _first, second) = create_definition(question.clone());
     let created = store
         .create_blueprint_course(
-            context,
+            owner_context,
             owner,
             CreateBlueprintCourseCommand {
                 definition: creation,
@@ -178,7 +191,7 @@ async fn immutable_history_preserves_retained_assignment_identity_across_reorder
         first_id,
     );
     let reader_view = store
-        .get_blueprint_course(context, reader, created.reference)
+        .get_blueprint_course(reader_context, reader, created.reference)
         .await
         .expect("reader request")
         .expect("published BlueprintCourse exists");
@@ -188,7 +201,7 @@ async fn immutable_history_preserves_retained_assignment_identity_across_reorder
     );
     let listed = store
         .list_blueprint_courses(
-            context,
+            reader_context,
             reader,
             PageRequest::first(PageSize::new(10).expect("page size")),
         )
@@ -211,7 +224,7 @@ async fn immutable_history_preserves_retained_assignment_identity_across_reorder
     let inserted = assignment(question, "Inserted neighbor");
     let revised = store
         .replace_blueprint_course(
-            context,
+            owner_context,
             owner,
             ReplaceBlueprintCourseCommand {
                 reference: created.reference,
@@ -240,27 +253,14 @@ async fn immutable_history_preserves_retained_assignment_identity_across_reorder
         .expect("retained reorder succeeds");
     assert!(revised.revision > created.revision);
     let state = store.read_state().expect("state");
-    let historical = super::reusable_curriculum::curriculum_assignment_source_snapshot(
-        &state,
-        context.tenant_id(),
-        UserId::from_uuid(Uuid::from_u128(97_002)),
-        initial_source,
-    )
-    .expect("old exact snapshot remains available");
-    let current = super::reusable_curriculum::current_assignment_source(
-        &state,
-        context.tenant_id(),
-        UserId::from_uuid(Uuid::from_u128(97_002)),
-        initial_source,
-    )
-    .expect("retained assignment resolves at head");
-    let current_snapshot = super::reusable_curriculum::curriculum_assignment_source_snapshot(
-        &state,
-        context.tenant_id(),
-        UserId::from_uuid(Uuid::from_u128(97_002)),
-        current,
-    )
-    .expect("current exact snapshot remains available");
+    let historical =
+        super::reusable_curriculum::curriculum_assignment_source_snapshot(&state, initial_source)
+            .expect("old exact snapshot remains available");
+    let current = super::reusable_curriculum::current_assignment_source(&state, initial_source)
+        .expect("retained assignment resolves at head");
+    let current_snapshot =
+        super::reusable_curriculum::curriculum_assignment_source_snapshot(&state, current)
+            .expect("current exact snapshot remains available");
     assert!(current.is_strictly_newer_revision_of(initial_source));
     assert_eq!(current.assignment_id(), first_id);
     let question_model::curriculum_adoption::CurriculumSemanticPayload::Assignment(historical) =
@@ -298,11 +298,11 @@ async fn immutable_history_preserves_retained_assignment_identity_across_reorder
 
 #[tokio::test]
 async fn replacement_refuses_foreign_stale_and_removed_handles_and_keeps_no_op_revision() {
-    let (store, context, owner, _reader, question) = fixture().await;
+    let (store, owner_context, _reader_context, owner, _reader, question) = fixture().await;
     let (creation, first, second) = create_definition(question.clone());
     let created = store
         .create_blueprint_course(
-            context,
+            owner_context,
             owner,
             CreateBlueprintCourseCommand {
                 definition: creation,
@@ -326,14 +326,14 @@ async fn replacement_refuses_foreign_stale_and_removed_handles_and_keeps_no_op_r
         },
     };
     let unchanged = store
-        .replace_blueprint_course(context, owner, no_op)
+        .replace_blueprint_course(owner_context, owner, no_op)
         .await
         .expect("identity-and-meaning no-op succeeds");
     assert_eq!(unchanged.revision, created.revision);
 
     let foreign = store
         .replace_blueprint_course(
-            context,
+            owner_context,
             owner,
             ReplaceBlueprintCourseCommand {
                 reference: created.reference,
@@ -365,7 +365,7 @@ async fn replacement_refuses_foreign_stale_and_removed_handles_and_keeps_no_op_r
 
     let removed = store
         .replace_blueprint_course(
-            context,
+            owner_context,
             owner,
             ReplaceBlueprintCourseCommand {
                 reference: created.reference,
@@ -392,12 +392,7 @@ async fn replacement_refuses_foreign_stale_and_removed_handles_and_keeps_no_op_r
     {
         let state = store.read_state().expect("state");
         assert!(matches!(
-            super::reusable_curriculum::current_assignment_source(
-                &state,
-                context.tenant_id(),
-                UserId::from_uuid(Uuid::from_u128(97_002)),
-                old_source,
-            ),
+            super::reusable_curriculum::current_assignment_source(&state, old_source,),
             Err(StoreError::NotFound)
         ));
     }

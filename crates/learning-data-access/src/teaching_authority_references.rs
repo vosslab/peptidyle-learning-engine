@@ -16,8 +16,8 @@ use question_model::{
 };
 
 use crate::{
-    CoInstructorInvitationRevision, CourseMemberStatus, InstructorApprovalRevision, Page,
-    PageRequest, RosterRevision, SessionTokenHash, StoreError, TenantContext,
+    ActorContext, CoInstructorInvitationRevision, CourseMemberStatus, InstructorApprovalRevision,
+    Page, PageRequest, RosterRevision, SessionTokenHash, StoreError,
 };
 
 /// A session-bound self projection. It deliberately contains no email.
@@ -99,7 +99,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
     /// Sysadmin role before parsing or resolving any account reference.
     async fn search_sysadmin_instructor_candidates(
         &self,
-        _context: TenantContext,
+        _context: ActorContext,
         _session: SessionTokenHash,
         _request: SysadminInstructorCandidateSearchRequest,
     ) -> Result<SysadminInstructorCandidateSearchPage, StoreError> {
@@ -114,7 +114,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
     /// after course authority has been checked.
     async fn search_course_co_instructor_targets(
         &self,
-        _context: TenantContext,
+        _context: ActorContext,
         _actor: UserId,
         _course: CourseId,
         _request: CoInstructorTargetSearchRequest,
@@ -126,20 +126,20 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn own_account_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
     ) -> Result<OwnAccountReferenceView, StoreError>;
 
     async fn resolve_account_reference_for_operator(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: AccountReference,
     ) -> Result<Option<UserId>, StoreError>;
 
     async fn resolve_approved_account_reference_for_course(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: AccountReference,
@@ -147,7 +147,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn list_course_co_instructor_invitation_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
@@ -155,14 +155,14 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn list_pending_co_instructor_invitation_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<PendingCoInstructorInvitationReferenceView>, StoreError>;
 
     async fn list_course_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
@@ -173,7 +173,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
     /// contact fields beyond the safe membership reference and display facts.
     async fn list_course_active_student_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
@@ -181,7 +181,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn list_course_instructor_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
@@ -189,7 +189,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn list_course_group_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         group: CourseGroupReference,
@@ -198,7 +198,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn course_membership_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         membership: CourseMembershipId,
@@ -206,7 +206,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn resolve_course_membership_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: CourseMembershipReference,
@@ -214,7 +214,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn resolve_active_student_target_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: CourseMembershipReference,
@@ -222,7 +222,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn active_student_membership_reference_view(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         student: StudentId,
@@ -230,7 +230,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn co_instructor_invitation_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         invitation: question_model::CoInstructorInvitationId,
@@ -241,7 +241,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
     /// the target-bound pending resolver below.
     async fn resolve_pending_course_co_instructor_invitation_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: CoInstructorInvitationReference,
@@ -249,7 +249,7 @@ pub trait TeachingAuthorityReferenceStore: Send + Sync {
 
     async fn resolve_pending_co_instructor_invitation_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: CoInstructorInvitationReference,
     ) -> Result<Option<question_model::CoInstructorInvitationId>, StoreError>;

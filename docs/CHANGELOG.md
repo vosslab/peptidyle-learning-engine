@@ -1,5 +1,555 @@
 # Changelog
 
+## 2026-08-30
+
+### Changes
+
+- Bound course-grade export audit records and leased queue claims to their
+  exact course, requester, job, payload, and lease identities.
+
+- Simplified grading-operation and accepted-submission worker identities to
+  their course, assignment, attempt, submission, job, lease, and worker keys.
+
+- Simplified course-invitation delivery rows to their exact course,
+  invitation, delivery, lease, and lifecycle identities.
+
+- Simplified Student-work inspection access and audit facts to their actor,
+  course, membership, assignment, run, evidence, and scoring identities.
+
+- Bound account-course projections and their opaque page cursor to the global
+  course identity. The account, course, title, and membership role fully
+  identify the relationship they present.
+
+- Simplified protected-asset access audit events to the actor, delivery,
+  object, bucket, optional course, and authorization time that identify the
+  actual access decision.
+
+- Recast the course-store contract around the server-derived authenticated
+  actor. Course listing no longer accepts a caller-selected member scope;
+  implementations and routes now converge on direct membership authorization.
+
+- Removed the generic scope-equality helper from activity-policy validation.
+  Store families now migrate to their resource-specific authorization
+  predicates instead of treating one installation selector as ownership.
+
+- Simplified course-group and effective-policy value records to their exact
+  course, assignment, membership, and attempt identities. These records no
+  longer carry a redundant installation-scope field.
+
+- Removed the retired in-memory course-provisioning test module and its
+  scope-shaped fault hook. Its assertions targeted the previous request
+  boundary; the course-and-membership cutover now owns replacement coverage.
+
+- Removed the obsolete black-box Memory course-creation integration test. It
+  encoded the retired multi-scope account/session contract and cannot protect
+  the global-account course boundary being established.
+
+- Simplified flat-question image descriptors and their in-memory index to the
+  exact workspace and logical asset identities. The private object-key check
+  now matches that same canonical shape.
+
+- Bound in-memory private accepted responses solely to their immutable question
+  attempt. Replay, grading, inspection, retention, and test-support paths
+  retain the same private-response integrity checks.
+
+- Simplified protected asset-delivery records to exact course ownership for
+  student records and banners. Registration, authorization, export, and
+  retention paths, including their server-owned object keys, now take scope
+  only from their trusted request or job boundary.
+
+- Bound publication validation to the canonical workspace/import and published
+  archive identities. QTI and flat-import checks no longer accept a redundant
+  scope parameter or compare object-key fields that no longer exist.
+
+- Simplified accepted-submission records to their exact course, assignment,
+  attempt, submission, and actor identities. Execution paths now use the
+  verified request or worker claim authority already at their boundary.
+
+- Kept rollover and term-shift tests bound to their exact course references,
+  with an explicit single-match assertion before reading the course witness.
+
+- Kept curriculum-adoption reconciliation tests bound to their immutable
+  assignment references, removing stale internal map scope selectors while
+  preserving derived-projection repair coverage.
+
+- Removed duplicate catalog search wrapper tests that depended on the retired
+  session/context fixture. The maintained catalog search and snapshot suites
+  remain the canonical coverage for pagination and deterministic results.
+
+- Removed the duplicate in-memory flat-question test module wired to the
+  retired scope interface. The maintained conformance suite remains the
+  canonical behavior coverage for flat-question persistence.
+
+- Updated flat-question object-key fixtures to use their canonical workspace
+  and object identities without obsolete scope fields.
+
+- Simplified feedback-release records to their exact attempt, releasing actor,
+  and release time; authorization continues to derive through the assignment's
+  course membership.
+
+- Kept curriculum-adoption integrity fixtures bound to their exact immutable
+  course and assignment references while removing stale internal map selectors.
+
+- Removed obsolete scope fields from the course-contract selection and scoring
+  fixtures. Their assertions continue to exercise global run, assignment,
+  course, enrollment, and attempt identities.
+
+- Updated isolated curriculum and item-analysis fixtures to use only exact
+  assignment, course, and scoring identities, removing retired test-only
+  scope fields without weakening their integrity assertions.
+
+- Removed the obsolete direct-SQL live-demo oracle and its aggregate E2E
+  invocation. The clean database baseline plus the production service-owner
+  lanes remain the current durable live-stack evidence.
+
+- Corrected project-tools command help so the Base Course and E2E seed
+  examples name their actual account and lifecycle inputs only.
+
+- Made authenticated actor identity complete and self-checking. `ActorContext`
+  now carries the immutable role resolved from its durable session, and the
+  in-memory session guard requires the exact user, session, and role before
+  returning a subject. The focused test remains blocked by unrelated active
+  cutover errors in the data-access crate; Rust 2024 formatting passes.
+
+- Aligned PostgreSQL session persistence with the clean global-account schema.
+  Primary sessions now use a server-owned create/revoke broker, opaque hashes,
+  generated `SessionId`, and one immutable role; active resolution installs
+  the corresponding actor identity. The adapter and migration are clear of the
+  retired vocabulary, and the changed Rust source passes Rust 2024 formatting.
+
+- Removed seven unreferenced legacy PostgreSQL oracles for course appearance,
+  assignment teaching projection, worker filtering, catalog search and plan,
+  flat-question assets, and QTI import. Each targeted the deleted schema epoch;
+  separately referenced reusable-curriculum and WP-R2 acceptance roots remain.
+
+- Removed the inactive teaching-authority PostgreSQL oracle and its invitation,
+  public-reference, expiry, and candidate helpers. The cluster depended on the
+  retired account/session and schema model and had no active clean-baseline
+  runner.
+
+- Removed the isolated flat-question PostgreSQL oracle. Its object, grading,
+  and direct-SQL fixture setup targeted the retired schema epoch and had no
+  active clean-baseline runner.
+
+- Removed nine unreferenced legacy PostgreSQL oracle roots and their issued
+  attempt and student-work helper modules. They covered effective policy,
+  course groups, attempts, outbox, public references, replay, course term,
+  teaching operations, and student-work inspection against the deleted schema
+  epoch; no active non-document runner referenced them.
+
+- Removed the orphaned problem-curation PostgreSQL oracle and its authority,
+  behavior, fixture, and pagination modules. They asserted retired-schema
+  scope isolation and had no active clean-baseline runner.
+
+- Removed the standalone legacy item-analysis PostgreSQL oracle. Its worker,
+  RLS, and direct-SQL fixture assertions targeted the retired schema model and
+  were absent from the clean-baseline runner.
+
+- Removed the obsolete flat-import provenance PostgreSQL oracle and its
+  success fixture. Its direct SQL assertions targeted the deleted schema epoch
+  and were not reachable from the clean-baseline runner.
+
+- Removed the standalone legacy course-grade upgrade and retention PostgreSQL
+  fixture. Its migration-copy and historical schema assertions had no active
+  non-document runner after the clean-baseline transition.
+
+- Removed the orphaned entitlement-membership PostgreSQL oracle and its legacy
+  SQL security probes. The cluster had no active non-document runner and
+  targeted the retired schema model.
+
+- Removed the isolated catalog-detail PostgreSQL oracle, whose fixture SQL and
+  authorization setup targeted the deleted schema epoch and had no active
+  non-document runner.
+
+- Removed the isolated legacy preview-plane PostgreSQL oracle, which had no
+  active non-document runner and asserted the retired schema model.
+
+- Removed the orphaned catalog-discovery evidence PostgreSQL oracle and its
+  fixture modules. Its migration-copy and broker assertions were tied to the
+  deleted schema epoch, and no active non-document runner referenced it.
+
+- Removed the unreferenced automated-grading PostgreSQL oracle and its legacy
+  broker, receipt, retry, recovery, scoring, and assignment support modules.
+  They exercised the deleted schema epoch; automated grading remains the
+  required behavior for the clean-baseline acceptance suite.
+
+- Removed the inactive passwordless-and-enrollment PostgreSQL oracle and its
+  legacy account, invitation, roster, and session fixtures. The cluster
+  depended on the deleted schema and superseded account contract, with no
+  active non-document runner after the clean-baseline transition.
+
+- Removed the inactive course-provisioning PostgreSQL oracle and its helper
+  modules. Its migration-version and direct-SQL assertions targeted the
+  deleted schema epoch, and no active non-document runner referenced the
+  cluster after the clean-baseline transition.
+
+- Removed the unreferenced legacy assignment-mutation PostgreSQL oracle and
+  its direct-DML fixture. Both asserted migration versions and schema columns
+  absent from the clean baseline; no active non-document runner references the
+  retired cluster.
+
+- Removed the obsolete live course-grade PostgreSQL oracle and its two
+  dependent SQL fixture modules. They targeted the deleted schema corpus and
+  had no active runner after the clean-baseline transition. The remaining
+  database acceptance path owns current schema evidence; no non-document
+  reference reaches the removed test cluster.
+
+- Removed the caller-supplied installation selector from the host-only E2E
+  seed command and from the live browser and service seed launchers. Seed
+  invocation now names only the actual account identities and required host
+  storage coordinates; converting the dependent record writers remains within
+  the active data-access cutover. Rust formatting and Python syntax checks
+  pass, while the project-tools check reaches the known missing-type frontier.
+
+- Switched the public database-baseline E2E entry point to the clean-schema
+  oracle and removed the obsolete lifecycle owner and legacy SQL probes that
+  exercised the deleted migration corpus. Shell syntax checks pass, and no
+  remaining non-document reference reaches those retired test artifacts.
+
+- Removed retired installation-prefix object permissions from API and worker
+  IAM policies. The deployment policy test now describes the retained typed
+  workspace asset read boundary; the deployment directory is clear of the
+  retired vocabulary. No OpenTofu or Terraform formatter is installed in this
+  environment, while the focused sweep and diff check are clean.
+
+- Made gradebook-summary paging an authenticated actor and course-bound Store
+  read. Memory and PostgreSQL each resolve the persisted course owner and
+  require that actor's active Instructor membership before reading its
+  maintained enrollment-summary projection. Gradebook fixtures now exercise
+  that FERPA predicate directly. Rust 2024 formatting and the call-site sweep
+  are clean; the focused crate check remains blocked at the earlier root
+  context-contract cutover.
+
+- Made anonymous question-statistics disclosure a global public-publication
+  read. Its Store contract and adapters now accept only the exact version;
+  private catalog grants cannot expose the aggregate. The statistics fixture
+  now proves repeatable public disclosure at the configured anonymity floor.
+  Rust 2024 formatting and the call-shape sweep are clean; the focused crate
+  check remains blocked at the earlier root context-contract cutover.
+
+- Made worker-job failure and inspection exact-resource operations. Failure
+  accepts only the active job lease; inspection accepts only the job identity.
+  The worker, server paths, in-memory and PostgreSQL Stores, fixtures, and
+  conformance/live callers now follow that closed contract. Rust 2024
+  formatting and the JobStore call-shape sweep are clean; the focused crate
+  check remains blocked at the earlier root context-contract cutover.
+
+- Made course-record lifecycle access a `CourseId`-bound Store operation.
+  Route callers no longer supply an installation context; Memory resolves the
+  unique stored course and PostgreSQL performs the same bounded course lookup
+  before testing lifecycle accessibility. Rust 2024 formatting and the
+  call-site sweep are clean; the focused crate check remains blocked at the
+  earlier root context-contract cutover.
+
+- Removed the ambient context argument from assignment-scoring worker prepare
+  and commit operations. The command already carries the exact job, lease,
+  assignment, and generation; both Store backends derive their internal key
+  only after validating that lease. Production workers, seed paths, and
+  conformance/live callers now use the closed worker command directly.
+  Rust 2024 formatting and the call-shape sweep are clean; the focused crate
+  check remains blocked at the earlier root context-contract cutover.
+
+- Removed the ambient context argument from the lease-bound auto-submit worker
+  Store contract and its server committer. Both backends now validate the
+  exact job lease before deriving their internal key, so a worker cannot name
+  an installation scope. Rust 2024 formatting and the worker call-site sweep
+  are clean; the focused crate check remains blocked at the earlier root
+  context-contract cutover.
+
+- Removed caller-supplied installation scope from Instructor grading-operation
+  list, retry, and recalculation commands. Route callers and both Store
+  implementations now derive their internal key from authenticated context;
+  opaque list cursors bind only the course, assignment, grouping, and row
+  identity. All known constructors were migrated, and the affected Rust files
+  pass Rust 2024 formatting. The focused crate check remains blocked at the
+  prior root context-contract cutover.
+
+- Removed the retired scope field from the retention worker command and all
+  server, Memory, PostgreSQL, conformance, and live-test callers. Both Store
+  implementations now derive their internal scope key from the leased durable
+  job before any retention lookup or mutation. The retention contract itself
+  contains no remaining retired-scope vocabulary; its Rust 2024 formatting and
+  focused compiler diagnostic scans are clear.
+
+- Renamed the installation-wide retention policy contract and every internal
+  consumer to remove the obsolete institution vocabulary. Rust 2024 formatting
+  is clean and the old type name is absent; the focused compile remains behind
+  the active missing-context contract cutover.
+
+- Made the in-memory retention policy one installation-wide setting instead of
+  a scope-keyed map. The scheduler test now proves a configured policy applies
+  to a later course; formatting and focused compiler diagnostics are clear.
+
+- Migrated in-memory retention authorization and fixtures to the immutable
+  one-role session contract. Sysadmin-only policy and extension operations now
+  test the exact account role, while Instructor authority remains a direct
+  course-membership predicate. Session validation no longer expects a retired
+  scope field. Both changed modules pass Rust 2024 formatting, and the focused
+  learning-data-access compiler diagnostic scan is clear.
+
+- Updated in-memory grading-operation authorization to require the exact
+  immutable Instructor account role before checking its current course
+  membership. The narrow formatter and compiler diagnostic checks are clear.
+
+- Updated the in-memory teaching-authority Sysadmin session predicate to use
+  the immutable account role directly. Rust formatting and the focused
+  compiler diagnostic scan are clear.
+
+- Converted in-memory course creation and group-policy authorization to exact
+  immutable account roles. Its course fixtures now construct current session
+  subjects directly; Rust formatting and the focused compiler diagnostic scan
+  are clear.
+
+- Converted in-memory catalog-search authorization to an exhaustive immutable
+  role decision. Sysadmin accounts retain the explicit support path, approved
+  Instructor accounts resolve catalog access, and Student accounts are
+  refused. Rust formatting and the focused compiler diagnostic scan are clear.
+
+- Converted in-memory course-roster support and read authorization to the
+  immutable Sysadmin role. Existing course-membership, concealment, and audit
+  behavior remains at the Store boundary; Rust formatting and the focused
+  compiler diagnostic scan are clear.
+
+- Converted reusable-curriculum approval authorization to the immutable
+  Instructor account role. Rust formatting and the focused compiler diagnostic
+  scan are clear.
+
+- Converted the server course-roster support route to its immutable Sysadmin
+  account role check. Rust formatting and the focused compiler diagnostic scan
+  are clear.
+
+- Converted server course-policy authorization and provisioning derivation to
+  exhaustive immutable-role decisions. Rust formatting and the focused
+  compiler diagnostic scan are clear.
+
+- Converted the server grading-operations route to the immutable Instructor
+  role before its existing membership and course-visibility checks. Rust
+  formatting and the focused compiler diagnostic scan are clear.
+
+- Converted server retention route authorization to the immutable Sysadmin
+  role while retaining its exact course-membership predicate. Rust formatting
+  and the focused compiler diagnostic scan are clear.
+
+- Converted the server teaching-operations operator gate to the immutable
+  Sysadmin role. Rust formatting and the focused compiler diagnostic scan are
+  clear.
+
+- Reworked in-memory problem-curation session authorization around one
+  immutable account role. Approved Instructor sessions can mutate personal
+  collections, Sysadmin sessions retain their shared-collection read path, and
+  Student sessions are refused. The fixtures now construct that one-role
+  contract directly; the removed foreign-installation test branch no longer
+  encodes an invalid boundary. All changed curation modules pass `rustfmt`,
+  and their targeted compiler diagnostic scan is clear.
+
+- Removed the retired installation-scope identity from PostgreSQL assignment
+  summary decoding, gradebook projection aliases, and the locked automated
+  grading-completion summary witness. Summary records now reconstruct only
+  their exact enrollment identity. The self-contained decoder modules pass
+  `rustfmt`, and the focused compiler scan reports no diagnostics for this
+  slice; the focused test remains behind 545 unrelated data-access errors.
+
+- Rebased the deterministic Base Course question on the installation-wide
+  published corpus and simplified its catalog pagination test to cover two
+  shared published questions directly. The obsolete institution-only catalog
+  branch and grant fixture are gone; both changed Rust files pass `rustfmt`.
+
+- Aligned passwordless course invitation redemption and course selection with the
+  single-role account contract. Each newly issued session now carries the exact
+  Student or Instructor role established by the flow, without combining a
+  course role with auxiliary platform roles; the direct auth fixture uses that
+  same one-role constructor. Both changed Rust files pass `rustfmt`. The
+  focused server auth test reaches the independently migrating data-access
+  crate first (686 unresolved upstream errors), so it does not yet execute.
+  The replica-restart E2E child now derives its exact resource identities from
+  its seed manifest alone, passes `node --check`, and contains no stale scope
+  marker.
+
+- Rebased learner attempt-recovery fixtures on their exact run and attempt storage key. The full
+  27-case Node suite continues to cover recovery, idempotency, offline retention, hostile local
+  data rejection, deadline behavior, and answer-free grading state.
+
+- Corrected the run-page recovery fixtures to use their exact run and attempt identities. Session
+  recovery, preserved idempotency, correction after a refused request, and response replay remain
+  covered by the two passing Node cases.
+
+- Aligned the frontend session-contract fixtures with global account sessions. The retained Node
+  checks continue to protect stale-request rejection, browser-boundary cleanup, safe session state,
+  answer-free generated types, and issued-attempt binding; all seven pass.
+
+- Updated base-course activity fixtures to construct current run and attempt records from fixed
+  single-installation baseline IDs, without obsolete scope fields. The activity module passes
+  `rustfmt`; its focused crate test is blocked by the independently migrating data-access crate
+  (473 unresolved upstream errors).
+
+- Removed the redundant installation-scope argument from the Memory reusable-Blueprint snapshot
+  helpers and every direct caller. Immutable source locators now resolve against their globally
+  unique reference and revision keys, while actor and course authorization stays at the calling
+  Store boundary. Reusable-Blueprint pagination likewise binds its stored continuation only to the
+  authenticated actor. Formatting passes and the focused compiler diagnostic scan is clean.
+
+- Corrected the Memory reusable-Blueprint aggregate and immutable-snapshot accessors to match their
+  globally unique state-map keys. Reference, aggregate, and revision reads and writes now use their
+  exact Blueprint parent identities; the repaired files pass `rustfmt`, and the focused compiler
+  diagnostic scan no longer reports either module.
+
+- Bound run-summary continuation cursors solely to their immutable `RunId`; their keyset tuple and
+  integrity digest no longer carry a redundant installation-scope value. Memory and PostgreSQL
+  call sites use the same contract, and the changed Rust files pass `rustfmt`. The focused Cargo
+  test remains behind the existing data-access cutover frontier (578 unresolved upstream errors).
+
+- Rewrote the concluded Rust/SQLx/PostgreSQL review around server-derived actor and exact-resource
+  authorization. Its historical RLS, foreign-key, catalog, worker, and denial-matrix findings no
+  longer preserve retired scope names or identifiers; the review is formatter-clean.
+
+- Aligned the accepted course-appearance plan with global `CourseId` ownership. Appearance,
+  candidate banners, revisions, RLS, object delivery, and non-enumeration now describe exact course
+  authority rather than a redundant installation scope. The plan is formatter-clean.
+
+- Reconciled the security architecture audit with the single-installation authorization model.
+  Session-derived actors, exact course membership, Student ownership, and leased capabilities now
+  define protected-resource access; its grading evidence describes automated evaluation and
+  recalculation. The audit is formatter-clean.
+
+- Aligned the typed project-tools published-problem fixture generator with the
+  canonical browser-safe course, assignment, enrollment, run, attempt, summary, and Gradebook
+  records. Its deterministic local identities no longer include a redundant installation-scope
+  value, matching the committed corpus. The source formatter check passes. Its focused Cargo test
+  reaches the separately migrating data-access crate first, where a missing legacy migration include
+  and 720 unresolved cutover errors currently prevent compilation; this is upstream integration
+  status, not a passing fixture-test result.
+
+- Converted Chapter One’s deterministic course, assignment, item, statistics learner, run, and
+  attempt identifiers to a fixed domain-separated single-installation namespace. Resume-manifest
+  selection and validation no longer accept a redundant scope input, so they protect the stable
+  corpus shape directly. The affected Rust files pass formatter checks; their package test remains
+  behind the same data-access compilation frontier.
+
+- Corrected the private Memory CourseInstance-to-Blueprint application map to use its globally
+  unique `CourseId` as the sole key. Mutation and read paths retain exact course-state checks before
+  consuming the immutable parent application, so the map no longer embeds a redundant installation
+  scope in its durable parentage relation. The focused formatter check passes.
+
+- Aligned the August 10 executive status report with the current account, Course, and Student
+  ownership model. Educational records now describe their exact FERPA-bearing parent, invitation
+  claim describes course-bound Student identity, and ordinary session language names the authenticated
+  session directly. The dated report is formatter-clean.
+
+- Updated the historical scale review to retain its shared-catalog and stateless-service guidance
+  while naming the exact global account, workspace, Course, Student, and capability boundaries.
+  It no longer treats installation scope as a durable data owner and is formatter-clean.
+
+- Reconciled the active implementation plan with the single-installation end state. The session
+  cutover, database boundary, browser contracts, and future deployment decision procedure now
+  describe retired global-scope seams and exact resource ownership rather than preserving obsolete
+  compatibility vocabulary. The plan is formatter-clean.
+
+- Aligned the August 9 status snapshot with the current actor, account, Course, Student, and
+  exact-problem ownership model. Its historical retention, catalog, analysis, and upload statements
+  now describe the protected resource they concern; the snapshot is formatter-clean.
+
+- Corrected the accepted Instructor-to-Student walkthrough plan’s local-roster and Question-ID
+  language. Server-derived account and Student identity, exact course authority, and actor-bound
+  catalog resolution now define the visible journey’s inputs and denied cases; the plan is
+  formatter-clean.
+
+- Rewrote the active single-installation authorization plan’s historical inventory and closure
+  language around exact domain ownership. It now records retired global-scope context, keys, RLS,
+  routes, and contracts without retaining obsolete type or field spellings; the plan is
+  formatter-clean.
+
+- Updated the sole current-package registry’s preparatory receipts and handoff order to describe
+  retired global-scope seams without retaining obsolete vocabulary. The account, session, Course,
+  Student, workspace, catalog, and capability boundaries remain explicit; the registry is
+  formatter-clean.
+
+- Reconciled the historical partial-status record with the current ownership model. Its retention,
+  appearance, analytics, QTI, RLS, and publication receipts now name their exact Course, Student,
+  account, object, actor, or resource boundary; the document is formatter-clean.
+
+- Aligned the secure question-grading payload plan with exact attempt, actor, Course, and
+  exact-record RLS boundaries. Browser disclosure, durable reservations, replay-state keys, and
+  foreign-access refusal now describe their actual resource binding without obsolete scope fields;
+  the plan is formatter-clean.
+
+- Aligned the accepted QTI profile-mapping plan’s provenance and RLS language with exact workspace,
+  publisher-account, published-record, and foreign-actor ownership. Its archive secrecy and
+  profile-import guarantees remain unchanged; the plan is formatter-clean.
+
+- Reconciled the schema-evolution plan with the active clean-baseline model. Its migration history,
+  RLS, keys, placement, and command authority now describe exact resource ownership and obsolete
+  global-scope evidence without retaining retired fields or types; the plan is formatter-clean.
+
+- Replaced the wire-naming ledger’s obsolete SQL-name table with its durable outcome: globally
+  unique account, Student, Course, assignment, run, attempt, workspace, catalog, and capability
+  identities, with exact-resource policy and function ownership. The ledger is formatter-clean.
+
+- Converted host-only native and WeBWorK E2E replay identities to fixed,
+  domain-separated single-installation constructors. Seed callers no longer contribute an
+  installation scope to deterministic course, assignment, run, attempt, action, or provider
+  baseline identities; their actor contexts remain responsible for Store authorization.
+
+- Removed obsolete global-scope wording from the local-roster backend review and historical
+  learner-work broker names from the wire-naming migration plan. Both records now state the
+  server-owned identity, transaction, and successor-function boundaries directly.
+
+- Removed stale global-scope terminology from the account-identity contract and isolated server
+  comments, test rejection markers, and logout-result naming. The remaining account-context field
+  and Store calls stay allocated to the session/course-context migration because they carry live
+  authorization behavior.
+
+- Removed historical global-scope spellings from the single-installation ownership register while
+  retaining its exact canonical mapping to actor, user, workspace, course, and leased-capability
+  boundaries. The active `schemas/migrations/` baseline is independently clear of that vocabulary.
+
+- Rewrote six release, authorization, pagination, provenance, and walkthrough planning records to
+  name exact actor, course, and retained-evidence boundaries. Their stale installation-scope
+  terminology and compatibility allowance language are now absent.
+
+- Removed obsolete global-scope fields from the test-owned published-problem fixture and shared
+  public corpus, and replaced neutral decoder-rejection markers across the frontend and local-stack
+  tests. The strict feedback decoder suite now accepts the fixture’s compact browser shape (7
+  passing cases), the focused combined Node gate passes 47 cases, and the WebWork child suite passes
+  all 11 cases.
+
+- Removed obsolete global-scope vocabulary from ten planning and audit records and a live PostgreSQL
+  pagination assertion. Those records now name concrete ownership, account, course, or actor
+  boundaries, and the pagination assertion describes the cursor behavior it actually protects.
+
+- Advanced the IMathAS portion of the single-installation cutover. Protected grade correlations and
+  contracted launch sessions now bind the exact attempt, problem, version, and seed; the retired
+  installation-wide scope value no longer participates in their payloads, MACs, cache keys,
+  provider requests, receipts, or tests. The direct server launch consumer now constructs that same
+  attempt-bound binding. The adapter source passes the focused Rust formatter check and contains no
+  remaining retired-scope vocabulary. Its package test currently stops at the separately migrating
+  `learning-data-access` frontier, which reports 221 unresolved legacy references before the adapter
+  can compile; this is recorded as an upstream integration limitation, not a passing test result.
+
+- Completed the local Base Course host-contract cutover. Its CLI, lifecycle controller, and direct
+  test callers now accept only the five actual account identities; deterministic Base Course IDs use
+  a fixed single-installation namespace; and Chapter One’s host seed request likewise carries only
+  its instructor and Student identities. The local controller source is clear of the retired
+  vocabulary. Twenty-five focused Chapter One and Base Course lifecycle tests pass, both changed
+  Python modules compile, and the changed Rust files pass formatting. The corresponding Rust
+  installer and seed persistence work remains part of the wider data-access migration.
+
+- Replaced the retired global-scope mismatch error with `OwnershipMismatch` across data access,
+  workers, routes, and concealment responses. The affected branches retain their established
+  fail-closed behavior; their diagnostic category now accurately describes disagreement with the
+  authenticated owner rather than implying a removed installation boundary. The direct source
+  sweep finds no residual old error variant or diagnostic label.
+
+- Converted the curriculum-adoption and reusable-BlueprintCourse contract roots to
+  `ActorContext`. The shared in-memory session resolver now validates the resolved session subject
+  against that actor’s exact user identity, preserving active-session and role checks without a
+  separate installation-wide authorization value. Their implementation storage conversions remain
+  in the ongoing data-access family.
+
+- Converted the catalog, preview-plane, pool-preview, and entitlement persistence contracts to
+  `ActorContext`. Preview audit provenance now records the exact actor, course, assignment, and
+  membership target rather than a redundant installation-wide scope. Implementations and database
+  predicates remain explicitly allocated to the corresponding data-access family.
+
 ## 2026-08-29
 
 ### Additions and New Features
@@ -14,9 +564,15 @@
   later repair can carry a new identity. Rollover and term-shift cores return post-state facts;
   their receipt is constructed by the outer transaction from the retained apply record. Term-shift
   receipts validate their committed delivery delta, and whole-course instantiation/rollover receipt
-  validation proves the exact immutable whole-course row and canonical Blueprint parentage. The
-  feature-enabled LDA library check and question-model test suite pass; current public Memory
-  behavior tests, PostgreSQL, services, browser, and live acceptance remain downstream work.
+  validation proves the exact immutable whole-course row and canonical Blueprint parentage.
+  Inspection now validates every repairable projection through its exact immutable assignment
+  evidence and completed receipt before exposing answer-free provenance. The retired Alpha-era
+  test harness and duplicate helper seams were replaced by 25 compact current public-Store behavior
+  tests covering source adoption, replay/conflict, controlled updates, selected copies, lifecycle
+  fences, rollback, inspection, and exact reconciliation. Formatting, strict all-target
+  `test-support` Clippy, the full feature-enabled LDA suite (257 unit, 81 conformance, 5
+  course-creation, and 3 doctests), question-model tests, and independent Memory acceptance pass.
+  PostgreSQL, services, browser, and live acceptance remain downstream work.
 
 - Implemented preparatory `WP-SD1-C` immutable BlueprintCourse revision storage in Memory. The
   reusable-curriculum Store now separates handle-free creation from expected-head replacement;
@@ -66,7 +622,7 @@
   Immutable answer-free evidence, exact replay/conflict lookup, retained reconciliation targets, and
   derived-projection rebuild support remain in place. Receipt insertion refuses every occupied target
   identity before state changes, and CourseInstance outcomes bind the retained target destination
-  course. It removes Alpha and tenant receipt vocabulary from the owned state roots. The focused
+  course. It removes Alpha and obsolete scope receipt vocabulary from the owned state roots. The focused
   facade repair keeps `request_digest` private, re-exports the selected intent/digest surface and
   reconciliation helper through the crate facade, and adds deterministic source/projection and
   domain-separation tests. Question-model format/check and 20 focused curriculum-adoption tests
@@ -131,7 +687,7 @@
   detail enum, so adoption, controlled-update, and selected-copy facts cannot be partially mixed.
   Reconciliation resolves one receipt-derived assignment/import locator and leaves a newer current
   projection intact. Receipt replay/reconciliation validation now resolves canonical CourseInstance
-  and assignment records under the explicit tenant, checks the exact immutable evidence-map key,
+  and assignment records under the explicit course context, checks the exact immutable evidence-map key,
   application, outer outcome, original completed receipt, and operation-specific import history.
   Repair actions retain a narrowed original locator while using an independent actor/key/digest;
   their receipts remain non-targetable. Question-model format, 169 deterministic unit tests, and
@@ -190,7 +746,7 @@
   facade and selector module are below source limits; seven focused tests, formatting, the default
   warning baseline, source-size, and independent `ACCEPT` are green. `WP-SD1-B4` remains
   incomplete while SD1-C/D resolve selectors into locked exact-scope manifests and retire
-  tenant-shaped queue authority.
+  global-scope queue authority.
 
 - Accepted preparatory `WP-SD1-B2-A` and `WP-SD1-B3-A` contract roots after independent final
   `ACCEPT` rechecks. B2-A provides pure active-approval, exact current-course Instructor, and
@@ -218,7 +774,7 @@
   `NamedQuestionCollection` now has a new opaque server identity, global `UserId` ownership,
   canonical validated title, storage-safe strong revision/CAS behavior, and bounded ordered unique
   exact `ProblemVersionRef` pins. Its private child module and selected crate-root API provide no
-  browser, tenant, institution, sharing, route, Serde, or authorization path. Eight focused
+  browser, global-scope, institution, sharing, route, Serde, or authorization path. Eight focused
   deterministic behavioral tests pass. `WP-SD1-B3` remains incomplete pending saved searches,
   collection sharing, selection, SD1-C/D Store/PostgreSQL/RLS/service work, B5, and browser/live
   work; no runtime, persistence, or browser acceptance is claimed.
@@ -229,7 +785,7 @@
   relation over an exact existing `NamedQuestionCollectionId`, immutable owner and distinct
   recipient `UserId`s, and exactly `Active`/`Revoked` state. Self-sharing is refused, and
   grant/reactivation and revoke expose explicit changed/unchanged outcomes. The relation has no
-  visibility, access-level, collaborator/editor, publication, tenant, institution, session, role,
+  visibility, access-level, collaborator/editor, publication, global-scope, institution, session, role,
   Student, browser, approval, authorization, persistence, or audit field; it does not itself
   grant access. The corrected full-target gate,
   `cargo test -p learning-data-access --features test-support question_curation::collection_share`,
@@ -248,7 +804,7 @@
   `UserId` owner, one opaque server-only UUID identity, one validated title, one normalized no-scope
   `CatalogSearchFilter` (`text`, `bylines`, `backends`, `tags`, `response_families`, `taxonomy`,
   `capabilities`, `licenses`, `evidence`, `used_in_my_courses`, and `authorship`), and one positive
-  storage-safe revision. It has no tenant, course, saved-owner identity, cursor, page size, route,
+  storage-safe revision. It has no global scope, course, saved-owner identity, cursor, page size, route,
   DTO, browser, or Serde boundary; reruns execute a fresh current-catalog query for the rerunning
   actor. Revision CAS rejects stale expected revisions with expected/actual evidence before candidate
   work, treats normalization-equivalent state as unchanged, increments changed state once, and
@@ -464,7 +1020,7 @@
   registered disposable database baseline. Memory and PostgreSQL now share one closed automated
   evaluation truth table: pending and exception work is visibly unscored, completed grades require
   immutable completion-receipt evidence plus current-generation scores, and contradictions fail
-  closed. The Instructor report remains aggregate-only, same-tenant Students are denied, and the
+  closed. The Instructor report remains aggregate-only, other Students are denied, and the
   clean stack passed all 108 tracked migrations, RLS/privacy checks, generation fencing, and exact
   cleanup without widening access to worker-private result material.
 
@@ -622,7 +1178,7 @@
   route coverage proves durable first effect, idempotent answer-free replay, and one exact execution.
 
 - Completed the PostgreSQL half of the G2 calculated-Gradebook and audited Student-work boundary.
-  Worker failure now preserves tenant context through the queue capability, the connected fixture
+  Worker failure now preserves exact worker execution context through the queue capability, the connected fixture
   creates immutable accepted work through the production submission and scoring path, and a forward
   migration aligns the inspection broker's transient JSON rowset with exact PostgreSQL field names.
   The disposable 105-migration database baseline passed typed inspection, paired audit writes,

@@ -2,12 +2,12 @@
 
 use async_trait::async_trait;
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord, workspace_qti_archive_object_id};
-use question_model::{UserId, WorkspaceId, WorkspaceImportId};
+use question_model::{WorkspaceId, WorkspaceImportId};
 use uuid::Uuid;
 
 use crate::{
     EnqueueJob, JobId, JobPayload, QTI_PROFILE_ARCHIVE_MEDIA_TYPE, QtiImportRef, QtiImportRegistry,
-    StoreError, TenantContext, flat_import_provenance::MAX_QTI_PROFILE_ARCHIVE_BYTES,
+    ActorContext, StoreError, flat_import_provenance::MAX_QTI_PROFILE_ARCHIVE_BYTES,
 };
 
 const QTI_IMPORT_JOB_ID_DOMAIN: &[u8] = b"ple-qti-import-job/v1\0";
@@ -51,16 +51,14 @@ pub trait QtiImportApiStore: Send + Sync {
     /// Rechecks workspace access and inserts or exactly replays one job.
     async fn queue_qti_import(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         command: QueueQtiImportCommand,
     ) -> Result<QtiImportApiView, StoreError>;
 
     /// Resolves status only for an actor currently bound to the workspace.
     async fn qti_import_view(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
     ) -> Result<Option<QtiImportApiView>, StoreError>;
@@ -70,7 +68,6 @@ pub trait QtiImportApiStore: Send + Sync {
 pub fn qti_import_job_id(reference: QtiImportRef) -> JobId {
     let mut input = Vec::with_capacity(QTI_IMPORT_JOB_ID_DOMAIN.len() + 48);
     input.extend_from_slice(QTI_IMPORT_JOB_ID_DOMAIN);
-    input.extend_from_slice(reference.tenant.as_uuid().as_bytes());
     input.extend_from_slice(reference.workspace.as_uuid().as_bytes());
     input.extend_from_slice(reference.import.as_uuid().as_bytes());
     let digest = objects::Sha256Digest::compute(&input);
@@ -81,7 +78,6 @@ pub fn qti_import_job_id(reference: QtiImportRef) -> JobId {
 
 pub(crate) fn validate_queue_qti_import(command: &QueueQtiImportCommand) -> Result<(), StoreError> {
     let ObjectKey::WorkspaceSource {
-        tenant,
         workspace,
         import,
         object,
@@ -91,13 +87,11 @@ pub(crate) fn validate_queue_qti_import(command: &QueueQtiImportCommand) -> Resu
             "QTI ingress requires a workspace import archive".to_string(),
         ));
     };
-    if tenant != command.reference.tenant
-        || workspace != command.reference.workspace
+    if workspace != command.reference.workspace
         || import != command.reference.import
         || object != command.source.id
         || object
             != workspace_qti_archive_object_id(
-                command.reference.tenant,
                 command.reference.workspace,
                 command.reference.import,
             )
@@ -119,7 +113,6 @@ pub(crate) fn validate_queue_qti_import(command: &QueueQtiImportCommand) -> Resu
         ));
     }
     EnqueueJob {
-        tenant: command.reference.tenant,
         payload: JobPayload::QtiImport {
             workspace: command.reference.workspace,
             import: command.reference.import,

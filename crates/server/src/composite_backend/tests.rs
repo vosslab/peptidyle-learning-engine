@@ -315,7 +315,6 @@ fn native_only_registry_does_not_advertise_webwork() {
 fn attempt() -> QuestionAttempt {
     QuestionAttempt {
         id: QuestionAttemptId::from_uuid(id(5)),
-        tenant: TenantId::from_uuid(id(6)),
         run: RunId::from_uuid(id(7)),
         problem: ProblemId::from_uuid(id(1)),
         question_version: VersionId::from_uuid(id(2)),

@@ -1,6 +1,6 @@
 //! Problem lifecycle and its transitions (WP-C2, MOD-ID).
 //!
-//! A draft lives in a tenant workspace and has no [`ProblemId`]. Validation is
+//! A draft lives in a private workspace and has no [`ProblemId`]. Validation is
 //! explicit, publication is the only transition that assigns a catalog ID,
 //! and deprecated or archived versions remain exactly resolvable. Deprecation
 //! hides discovery; deprecation and archival retain exact history while blocking
@@ -21,12 +21,12 @@ use crate::identity::{ProblemId, VersionId, WorkspaceId};
 pub enum Lifecycle {
     /// Freely editable, private workspace content with no catalog identifier.
     Draft {
-        /// Tenant-owned workspace authoring the question.
+        /// Private workspace authoring the question.
         workspace: WorkspaceId,
     },
     /// Validation passed, but publication has not minted a catalog identifier.
     Validated {
-        /// Tenant-owned workspace authoring the question.
+        /// Private workspace authoring the question.
         workspace: WorkspaceId,
     },
     /// Immutable version available for discovery and ordinary new selection.

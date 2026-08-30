@@ -5,14 +5,14 @@ use base_course_installation::{
     AcceptedSubmissionSeedExecutor, AcceptedSubmissionSeedOutcome, AcceptedSubmissionSeedRequest,
     BaseCourseInstallPhase, BaseCourseInstallRequest, BaseCourseParticipants,
 };
-use question_model::{TenantId, UserId};
+use question_model::UserId;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
 use crate::postgres_store;
 
-const USAGE: &str = "usage: cargo tools base-course --tenant <UUID> --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID> --sysadmin <UUID> --lifecycle-phase <prepare|install> [--storage-receipt <canonical JSON>] (requires child-only installer, application, and accepted-submission fast-path database URLs; PLE_BASE_COURSE_DEPLOYMENT_MODE defaults to production and accepts local)";
+const USAGE: &str = "usage: cargo tools base-course --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID> --sysadmin <UUID> --lifecycle-phase <prepare|install> [--storage-receipt <canonical JSON>] (requires child-only installer, application, and accepted-submission fast-path database URLs; PLE_BASE_COURSE_DEPLOYMENT_MODE defaults to production and accepts local)";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DeploymentMode {
@@ -112,7 +112,6 @@ fn parse_arguments_with_database_urls_and_fast_path(
     fast_path_database_url: Option<String>,
     deployment_mode: Option<String>,
 ) -> Result<Arguments> {
-    let mut tenant = None;
     let mut instructor = None;
     let mut mary = None;
     let mut jack = None;
@@ -129,7 +128,6 @@ fn parse_arguments_with_database_urls_and_fast_path(
         };
         index += 1;
         match flag.as_str() {
-            "--tenant" if tenant.is_none() => tenant = Some(parse_tenant(value)?),
             "--instructor" if instructor.is_none() => {
                 instructor = Some(parse_user(value, "instructor")?);
             }
@@ -163,7 +161,6 @@ fn parse_arguments_with_database_urls_and_fast_path(
         (None, _) => bail!("base-course requires --lifecycle-phase; {USAGE}"),
     };
     let participants = BaseCourseParticipants::try_new(
-        tenant.ok_or_else(|| anyhow::anyhow!("--tenant is required; {USAGE}"))?,
         instructor.ok_or_else(|| anyhow::anyhow!("--instructor is required; {USAGE}"))?,
         mary.ok_or_else(|| anyhow::anyhow!("--mary is required; {USAGE}"))?,
         jack.ok_or_else(|| anyhow::anyhow!("--jack is required; {USAGE}"))?,
@@ -295,7 +292,6 @@ impl AcceptedSubmissionSeedExecutor for SeedExecutor {
                 )?;
                 match server_core::scoring_worker::execute_exact_assignment_scoring(
                     Arc::clone(&self.automated),
-                    context,
                     job,
                     settings,
                 )
@@ -334,12 +330,6 @@ impl AcceptedSubmissionSeedExecutor for SeedExecutor {
     }
 }
 
-fn parse_tenant(value: &str) -> Result<TenantId> {
-    Ok(TenantId::from_uuid(
-        Uuid::parse_str(value).context("tenant must be a UUID")?,
-    ))
-}
-
 fn parse_user(value: &str, name: &str) -> Result<UserId> {
     Ok(UserId::from_uuid(
         Uuid::parse_str(value).with_context(|| format!("{name} must be a UUID"))?,
@@ -352,8 +342,6 @@ mod tests {
 
     fn common_args() -> Vec<String> {
         vec![
-            "--tenant".into(),
-            "00000000-0000-0000-0000-000000000001".into(),
             "--instructor".into(),
             "00000000-0000-0000-0000-000000000002".into(),
             "--mary".into(),
@@ -397,7 +385,6 @@ mod tests {
         assert_eq!(
             parsed.participants,
             BaseCourseParticipants::try_new(
-                TenantId::from_uuid(Uuid::from_u128(1)),
                 UserId::from_uuid(Uuid::from_u128(2)),
                 UserId::from_uuid(Uuid::from_u128(3)),
                 UserId::from_uuid(Uuid::from_u128(4)),

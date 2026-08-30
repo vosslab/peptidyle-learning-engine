@@ -671,13 +671,10 @@ where
         }
         Err(_) => return passwordless_unavailable(),
     };
-    let mut roles = vec![UserRole::Student];
-    roles.extend(account.platform_roles.iter().copied());
     let subject = match learning_data_access::SessionSubject::new(
-        claimed.tenant,
         account.user,
         account.display_name,
-        roles,
+        UserRole::Student,
     ) {
         Ok(subject) => subject,
         Err(_) => return passwordless_unavailable(),
@@ -856,13 +853,10 @@ where
         CourseMembershipRole::Student => UserRole::Student,
         CourseMembershipRole::Instructor => UserRole::Instructor,
     };
-    let mut roles = vec![user_role];
-    roles.extend(account.platform_roles.iter().copied());
     let subject = match learning_data_access::SessionSubject::new(
-        context.tenant,
         account.user,
         account.display_name,
-        roles,
+        user_role,
     ) {
         Ok(subject) => subject,
         Err(_) => return passwordless_unavailable(),

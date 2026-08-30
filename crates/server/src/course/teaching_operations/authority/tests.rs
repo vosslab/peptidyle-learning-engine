@@ -378,7 +378,6 @@ async fn memory_authority_pages_traverse_course_pending_and_instructor_cursors()
             CreateCourseCommand {
                 course: CourseRecord {
                     id: second_course,
-                    tenant: TenantId::from_uuid(id(1)),
                     title: "BIOC 302".to_owned(),
                     term: question_model::CourseTerm::from_parts(
                         "2026-08-24",

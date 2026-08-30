@@ -4,16 +4,15 @@ use axum::http::Request;
 use axum::middleware;
 use axum::routing::post;
 use learning_data_access::in_memory::MemoryStore;
-use question_model::{TenantId, UserId, UserRole};
+use question_model::{UserId, UserRole};
 use tower::ServiceExt;
 use uuid::Uuid;
 
 fn subject() -> SessionSubject {
     SessionSubject::new(
-        TenantId::from_uuid(Uuid::from_u128(1)),
         UserId::from_uuid(Uuid::from_u128(2)),
         "Fixture Student",
-        vec![UserRole::Student],
+        UserRole::Student,
     )
     .expect("fixture subject")
 }
@@ -233,7 +232,7 @@ async fn production_boundary_normalizes_each_host_cookie_once_and_rejects_duplic
                 .header("origin", "https://learn.example.edu")
                 .header(
                     COOKIE,
-                    "__Host-ple_session=tenant; __Host-ple_account_session=account; \
+                    "__Host-ple_session=principal; __Host-ple_account_session=account; \
                      __Host-ple_email_binding=email; __Host-ple_webauthn_binding=webauthn",
                 )
                 .body(Body::empty())
@@ -246,7 +245,7 @@ async fn production_boundary_normalizes_each_host_cookie_once_and_rejects_duplic
         to_bytes(normalized.into_body(), 1024)
             .await
             .expect("normalized body"),
-        "ple_session=tenant; ple_account_session=account; ple_email_binding=email; ple_webauthn_binding=webauthn"
+        "ple_session=principal; ple_account_session=account; ple_email_binding=email; ple_webauthn_binding=webauthn"
     );
 
     let duplicate = app

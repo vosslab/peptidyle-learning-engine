@@ -22,7 +22,7 @@ pub mod catalog;
 pub mod composite_backend;
 /// Production dependency construction shared by the API and future worker entry points.
 pub mod composition;
-/// Tenant courses, course-local membership, and assignment routes.
+/// Course records, course-local membership, and assignment routes.
 pub mod course;
 pub mod course_appearance;
 /// Revision-bound reusable-curriculum adoption into ordinary teaching courses.
@@ -99,7 +99,7 @@ pub mod timing_worker;
 pub mod validation;
 /// Persisted-source bridge for the isolated WeBWorK renderer.
 pub mod webwork_backend;
-/// Bounded server-side execution of durable, tenant-attributed worker jobs.
+/// Bounded server-side execution of durable, target-bound worker jobs.
 pub mod worker;
 /// Author-only private unversioned workspace draft routes.
 pub mod workspace;

@@ -10,7 +10,7 @@ pub(super) fn store_error_response(error: StoreError) -> Response {
         StoreError::NotFound => error_response(StatusCode::NOT_FOUND, "record not found"),
         StoreError::AlreadyExists => error_response(StatusCode::CONFLICT, "record already exists"),
         StoreError::Conflict => error_response(StatusCode::CONFLICT, "record changed; reload it"),
-        StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::FORBIDDEN, "operation is not authorized")
         }
         // ASVS 16.5.1: Store errors retain diagnostic detail inside the

@@ -7,13 +7,13 @@ use question_model::{
 };
 
 use super::*;
-use crate::{OwnAccountReferenceView, TeachingAuthorityReferenceStore};
+use crate::{ActorContext, OwnAccountReferenceView, TeachingAuthorityReferenceStore};
 
 #[async_trait]
 impl TeachingAuthorityReferenceStore for MemoryStore {
     async fn search_sysadmin_instructor_candidates(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
         request: question_model::SysadminInstructorCandidateSearchRequest,
     ) -> Result<question_model::SysadminInstructorCandidateSearchPage, StoreError> {
@@ -82,23 +82,21 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn search_course_co_instructor_targets(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         request: question_model::CoInstructorTargetSearchRequest,
     ) -> Result<question_model::CoInstructorTargetSearchPage, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
 
         let now = state.authoritative_time;
         let query = request.query.as_str().to_lowercase();
         let excluded_instructors = state
             .course_memberships
             .iter()
-            .filter(|((record_tenant, _), membership)| {
-                *record_tenant == tenant
-                    && membership.course == course
+            .filter(|(_, membership)| {
+                membership.course == course
                     && membership.role == CourseMembershipRole::Instructor
                     && membership.status == crate::CourseMemberStatus::Active
             })
@@ -107,9 +105,8 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
         let pending_targets = state
             .co_instructor_invitations
             .iter()
-            .filter(|((record_tenant, _), stored)| {
-                *record_tenant == tenant
-                    && stored.invitation.course == course
+            .filter(|(_, stored)| {
+                stored.invitation.course == course
                     && domain::teaching_authority::invitation_state(&stored.invitation, now).ok()
                         == Some(CoInstructorInvitationState::Pending)
             })
@@ -187,7 +184,7 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn own_account_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
     ) -> Result<OwnAccountReferenceView, StoreError> {
         let mut state = self.write_state()?;
@@ -205,7 +202,7 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn resolve_account_reference_for_operator(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
         reference: AccountReference,
     ) -> Result<Option<UserId>, StoreError> {
@@ -216,18 +213,13 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn resolve_approved_account_reference_for_course(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: AccountReference,
     ) -> Result<Option<UserId>, StoreError> {
         let state = self.read_state()?;
-        super::teaching_authority::require_direct_instructor(
-            &state,
-            context.tenant_id(),
-            course,
-            actor,
-        )?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let Some(user) = state.accounts_by_reference.get(&reference).copied() else {
             return Ok(None);
         };
@@ -244,22 +236,19 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn list_course_co_instructor_invitation_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::CourseCoInstructorInvitationReferenceView>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let now = state.authoritative_time;
         let invitations = state
             .co_instructor_invitations
             .iter()
-            .filter(|((record_tenant, _), stored)| {
-                *record_tenant == tenant && stored.invitation.course == course
-            })
-            .map(|((_, id), stored)| (*id, stored.clone()))
+            .filter(|(_, stored)| stored.invitation.course == course)
+            .map(|(id, stored)| (*id, stored.clone()))
             .collect::<Vec<_>>();
         let mut records = Vec::with_capacity(invitations.len());
         for (id, stored) in invitations {
@@ -280,7 +269,7 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
             )?;
             let reference =
                 super::navigation_references::ensure_co_instructor_invitation_reference(
-                    &mut state, tenant, id,
+                    &mut state, id,
                 )?;
             records.push((
                 format!("{:010}", reference.number()),
@@ -307,12 +296,11 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn list_pending_co_instructor_invitation_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::PendingCoInstructorInvitationReferenceView>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
         let target = super::sessions::active_subject(&state, context, session)
             .ok_or(StoreError::NotFound)?
             .user();
@@ -320,25 +308,24 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
         let invitations = state
             .co_instructor_invitations
             .iter()
-            .filter(|((record_tenant, _), stored)| {
-                *record_tenant == tenant
-                    && stored.invitation.target == target
+            .filter(|(_, stored)| {
+                stored.invitation.target == target
                     && domain::teaching_authority::invitation_state(&stored.invitation, now).ok()
                         == Some(CoInstructorInvitationState::Pending)
             })
-            .map(|((_, id), stored)| (*id, stored.clone()))
+            .map(|(id, stored)| (*id, stored.clone()))
             .collect::<Vec<_>>();
         let mut records = Vec::with_capacity(invitations.len());
         for (id, stored) in invitations {
             let course_title = state
                 .courses
-                .get(&(tenant, stored.invitation.course))
+                .get(&stored.invitation.course)
                 .ok_or(StoreError::NotFound)?
                 .title
                 .clone();
             let reference =
                 super::navigation_references::ensure_co_instructor_invitation_reference(
-                    &mut state, tenant, id,
+                    &mut state, id,
                 )?;
             records.push((
                 format!("{:010}", reference.number()),
@@ -355,70 +342,63 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn list_course_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::CourseMembershipReferenceView>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let memberships = state
             .course_memberships
             .iter()
-            .filter(|((record_tenant, _), membership)| {
-                *record_tenant == tenant && membership.course == course
-            })
-            .map(|((_, id), membership)| (*id, membership.clone()))
+            .filter(|(_, membership)| membership.course == course)
+            .map(|(id, membership)| (*id, membership.clone()))
             .collect::<Vec<_>>();
-        membership_reference_page(&mut state, tenant, memberships, &page)
+        membership_reference_page(&mut state, memberships, &page)
     }
 
     async fn list_course_active_student_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::CourseMembershipReferenceView>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let memberships = state
             .course_memberships
             .iter()
-            .filter(|((record_tenant, _), membership)| {
-                *record_tenant == tenant
-                    && membership.course == course
+            .filter(|(_, membership)| {
+                membership.course == course
                     && membership.role == CourseMembershipRole::Student
                     && membership.status == crate::CourseMemberStatus::Active
             })
-            .map(|((_, id), membership)| (*id, membership.clone()))
+            .map(|(id, membership)| (*id, membership.clone()))
             .collect::<Vec<_>>();
-        membership_reference_page(&mut state, tenant, memberships, &page)
+        membership_reference_page(&mut state, memberships, &page)
     }
 
     async fn list_course_instructor_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: crate::PageRequest,
     ) -> Result<crate::CourseInstructorMembershipReferencePage, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
-        let roster_revision = super::course_roster::roster_policy(&state, tenant, course).revision;
+        require_exact_course_instructor(&state, context, course, actor)?;
+        let roster_revision = super::course_roster::roster_policy(&state, course).revision;
         let memberships = state
             .course_memberships
             .iter()
-            .filter(|((record_tenant, _), membership)| {
-                *record_tenant == tenant
-                    && membership.course == course
+            .filter(|(_, membership)| {
+                membership.course == course
                     && membership.role == CourseMembershipRole::Instructor
                     && membership.status == crate::CourseMemberStatus::Active
             })
-            .map(|((_, id), membership)| (*id, membership.clone()))
+            .map(|(id, membership)| (*id, membership.clone()))
             .collect::<Vec<_>>();
         let mut records = Vec::with_capacity(memberships.len());
         for (id, membership) in memberships {
@@ -429,9 +409,8 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
                 .ok_or(StoreError::NotFound)?
                 .display_name
                 .clone();
-            let membership = super::navigation_references::ensure_course_membership_reference(
-                &mut state, tenant, id,
-            )?;
+            let membership =
+                super::navigation_references::ensure_course_membership_reference(&mut state, id)?;
             let account = super::navigation_references::ensure_account_reference(&mut state, user)?;
             records.push((
                 format!("{:010}", membership.number()),
@@ -450,20 +429,19 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn list_course_group_membership_reference_views(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         group: question_model::CourseGroupReference,
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::CourseMembershipReferenceView>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let group = state
             .course_groups_by_reference
-            .get(&(tenant, group))
+            .get(&group)
             .copied()
-            .and_then(|id| state.course_groups.get(&(tenant, id)))
+            .and_then(|id| state.course_groups.get(&id))
             .filter(|record| record.course == course)
             .ok_or(StoreError::NotFound)?;
         let memberships = group
@@ -472,31 +450,30 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
             .filter_map(|id| {
                 state
                     .course_memberships
-                    .get(&(tenant, *id))
+                    .get(id)
                     .map(|record| (*id, record.clone()))
             })
             .collect::<Vec<_>>();
-        membership_reference_page(&mut state, tenant, memberships, &page)
+        membership_reference_page(&mut state, memberships, &page)
     }
 
     async fn course_membership_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         membership: CourseMembershipId,
     ) -> Result<Option<CourseMembershipReference>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let matches_course = state
             .course_memberships
-            .get(&(tenant, membership))
+            .get(&membership)
             .is_some_and(|record| record.course == course);
         matches_course
             .then(|| {
                 super::navigation_references::ensure_course_membership_reference(
-                    &mut state, tenant, membership,
+                    &mut state, membership,
                 )
             })
             .transpose()
@@ -504,40 +481,38 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn resolve_course_membership_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: CourseMembershipReference,
     ) -> Result<Option<CourseMembershipId>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         Ok(state
             .course_memberships_by_reference
-            .get(&(tenant, reference))
+            .get(&reference)
             .copied()
             .filter(|membership| {
                 state
                     .course_memberships
-                    .get(&(tenant, *membership))
+                    .get(membership)
                     .is_some_and(|record| record.course == course)
             }))
     }
 
     async fn resolve_active_student_target_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: CourseMembershipReference,
     ) -> Result<Option<crate::InstructorStudentTargetView>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         Ok(state
             .course_memberships_by_reference
-            .get(&(tenant, reference))
-            .and_then(|membership| state.course_memberships.get(&(tenant, *membership)))
+            .get(&reference)
+            .and_then(|membership| state.course_memberships.get(membership))
             .filter(|record| {
                 record.course == course
                     && record.role == CourseMembershipRole::Student
@@ -557,31 +532,24 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn active_student_membership_reference_view(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         student: StudentId,
     ) -> Result<Option<crate::CourseMembershipReferenceView>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
-        let Some((membership, record)) =
-            state
-                .course_memberships
-                .iter()
-                .find(|((record_tenant, _), record)| {
-                    *record_tenant == tenant
-                        && record.course == course
-                        && record.student == Some(student)
-                        && record.role == CourseMembershipRole::Student
-                        && record.status == crate::CourseMemberStatus::Active
-                })
-        else {
+        require_exact_course_instructor(&state, context, course, actor)?;
+        let Some((membership, record)) = state.course_memberships.iter().find(|(_, record)| {
+            record.course == course
+                && record.student == Some(student)
+                && record.role == CourseMembershipRole::Student
+                && record.status == crate::CourseMemberStatus::Active
+        }) else {
             return Ok(None);
         };
         let reference = state
             .course_membership_references
-            .get(&(tenant, membership.1))
+            .get(membership)
             .copied()
             .ok_or(StoreError::NotFound)?;
         let display_name = state
@@ -591,7 +559,7 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
             .or_else(|| {
                 state
                     .roster_profiles
-                    .get(&(tenant, course, membership.1))
+                    .get(&(course, *membership))
                     .map(|profile| profile.display_name.clone())
             })
             .ok_or(StoreError::NotFound)?;
@@ -605,22 +573,21 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn co_instructor_invitation_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         invitation: question_model::CoInstructorInvitationId,
     ) -> Result<Option<CoInstructorInvitationReference>, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         let matches_course = state
             .co_instructor_invitations
-            .get(&(tenant, invitation))
+            .get(&invitation)
             .is_some_and(|stored| stored.invitation.course == course);
         matches_course
             .then(|| {
                 super::navigation_references::ensure_co_instructor_invitation_reference(
-                    &mut state, tenant, invitation,
+                    &mut state, invitation,
                 )
             })
             .transpose()
@@ -628,7 +595,7 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn resolve_pending_co_instructor_invitation_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
         reference: CoInstructorInvitationReference,
     ) -> Result<Option<question_model::CoInstructorInvitationId>, StoreError> {
@@ -636,15 +603,14 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
         let target = super::sessions::active_subject(&state, context, session)
             .ok_or(StoreError::NotFound)?
             .user();
-        let tenant = context.tenant_id();
         Ok(state
             .co_instructor_invitations_by_reference
-            .get(&(tenant, reference))
+            .get(&reference)
             .copied()
             .filter(|invitation| {
                 state
                     .co_instructor_invitations
-                    .get(&(tenant, *invitation))
+                    .get(invitation)
                     .is_some_and(|stored| {
                         stored.invitation.target == target
                             && domain::teaching_authority::invitation_state(
@@ -659,22 +625,21 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
     async fn resolve_pending_course_co_instructor_invitation_reference(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: CoInstructorInvitationReference,
     ) -> Result<Option<question_model::CoInstructorInvitationId>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        super::teaching_authority::require_direct_instructor(&state, tenant, course, actor)?;
+        require_exact_course_instructor(&state, context, course, actor)?;
         Ok(state
             .co_instructor_invitations_by_reference
-            .get(&(tenant, reference))
+            .get(&reference)
             .copied()
             .filter(|invitation| {
                 state
                     .co_instructor_invitations
-                    .get(&(tenant, *invitation))
+                    .get(invitation)
                     .is_some_and(|stored| {
                         stored.invitation.course == course
                             && domain::teaching_authority::invitation_state(
@@ -690,7 +655,6 @@ impl TeachingAuthorityReferenceStore for MemoryStore {
 
 fn membership_reference_page(
     state: &mut State,
-    tenant: question_model::TenantId,
     memberships: Vec<(CourseMembershipId, crate::CourseMembershipRecord)>,
     page: &crate::PageRequest,
 ) -> Result<crate::Page<crate::CourseMembershipReferenceView>, StoreError> {
@@ -703,12 +667,12 @@ fn membership_reference_page(
             .or_else(|| {
                 state
                     .roster_profiles
-                    .get(&(tenant, membership.course, id))
+                    .get(&(membership.course, id))
                     .map(|profile| profile.display_name.clone())
             })
             .ok_or(StoreError::NotFound)?;
         let reference =
-            super::navigation_references::ensure_course_membership_reference(state, tenant, id)?;
+            super::navigation_references::ensure_course_membership_reference(state, id)?;
         records.push((
             format!("{:010}", reference.number()),
             crate::CourseMembershipReferenceView {
@@ -720,4 +684,16 @@ fn membership_reference_page(
         ));
     }
     Ok(super::catalog::page_records(records, page))
+}
+
+fn require_exact_course_instructor(
+    state: &State,
+    context: ActorContext,
+    course: CourseId,
+    actor: UserId,
+) -> Result<(), StoreError> {
+    (context.user_id() == actor)
+        .then_some(())
+        .ok_or(StoreError::NotFound)?;
+    super::teaching_authority::require_direct_instructor(state, course, actor).map(|_| ())
 }

@@ -30,7 +30,6 @@ class ChapterOneSeedRequest:
 
 	repo_root: pathlib.Path
 	database_url: str
-	tenant_id: str
 	instructor_id: str
 	student_id: str
 	s3_endpoint: str
@@ -87,7 +86,7 @@ def safe_seed_argv(request: ChapterOneSeedRequest) -> list[str]:
 	"""Build the publisher invocation without database URLs or object credentials in argv."""
 	argv = [
 		"cargo", "tools", "e2e-seed", "--chapter-one-pilot", "--apply-migrations",
-		"--tenant", request.tenant_id, "--instructor", request.instructor_id,
+		"--instructor", request.instructor_id,
 		"--student", request.student_id, "--s3-endpoint", request.s3_endpoint,
 		"--s3-region", "us-east-1", "--private-content-bucket", "private-content",
 	]

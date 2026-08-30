@@ -35,7 +35,7 @@ and connect evidence rather than stop at recall of a familiar prompt.
 
 ### Three durable levels
 
-The implemented activity model has three tenant-owned records:
+The implemented activity model has three course-owned records:
 
 | Level            | Role                                         | Important consequence                                    |
 | ---------------- | -------------------------------------------- | -------------------------------------------------------- |
@@ -259,7 +259,7 @@ See [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace),
 
 The browser presents a learning experience; it does not administer the assignment. The server:
 
-- derives tenant and learner authority from the authenticated session;
+- derives course and learner authority from the authenticated session;
 - chooses or resumes the run and assigns the run number;
 - issues attempt identifiers, seeds, deadlines, and immutable question provenance;
 - validates response format again before calling a trusted grading backend;

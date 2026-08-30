@@ -8,7 +8,6 @@ import type { RunId } from "../../../generated/api/RunId";
 import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
 import type { Seed } from "../../../generated/api/Seed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { TenantId } from "../../../generated/api/TenantId";
 import type { VersionId } from "../../../generated/api/VersionId";
 import type { StudentSubmissionStatus, SubmissionReceipt } from "../../api/contracts";
 import type { FormatValidator } from "../../wasm/index";
@@ -16,7 +15,6 @@ import type { FormatValidator } from "../../wasm/index";
 export type IdempotencyKey = string;
 
 export interface AttemptContext {
-  readonly tenantId: TenantId;
   readonly runId: RunId;
   readonly attemptId: QuestionAttemptId;
   /** Immutable question identity issued with this attempt. */
@@ -200,7 +198,7 @@ function emptyValidation(): ResponseValidation {
 }
 
 function bufferKey(context: AttemptContext): string {
-  return `ple:attempt:${context.tenantId}:${context.runId}:${context.attemptId}`;
+  return `ple:attempt:${context.runId}:${context.attemptId}`;
 }
 
 function remainingMilliseconds(context: AttemptContext, now: number): number | null {

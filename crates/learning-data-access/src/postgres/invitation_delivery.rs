@@ -1,7 +1,7 @@
 //! PostgreSQL invitation-delivery API and broker capabilities.
 
 use async_trait::async_trait;
-use question_model::{ActivityTimestamp, CourseId, TenantId};
+use question_model::{ActivityTimestamp, CourseId};
 use sqlx::Row;
 
 use super::course_roster::precheck_course_roster_authority;
@@ -52,7 +52,7 @@ impl CourseInvitationDeliveryWorkerStore for PostgresInvitationDeliveryWorkerSto
     ) -> Result<Option<PreparedCourseInvitationDelivery>, StoreError> {
         let mut transaction = self.begin_delivery_worker().await?;
         let row = sqlx::query(
-            "SELECT tenant_id, course_id, delivery_id, lease_id, delivery_email, token_hash, roster_id, idempotency_key, \
+            "SELECT course_id, delivery_id, lease_id, delivery_email, token_hash, roster_id, idempotency_key, \
                     roster_import_id, roster_import_row_number, commit_idempotency_key \
              FROM public.ple_prepare_course_invitation_delivery($1, $2)",
         )
@@ -72,7 +72,7 @@ impl CourseInvitationDeliveryWorkerStore for PostgresInvitationDeliveryWorkerSto
     ) -> Result<Vec<ClaimedCourseInvitationDelivery>, StoreError> {
         let mut transaction = self.begin_delivery_worker().await?;
         let rows = sqlx::query(
-            "SELECT tenant_id, course_id, invitation_id, delivery_id, state, attempt_count, \
+            "SELECT course_id, invitation_id, delivery_id, state, attempt_count, \
                     floor(extract(epoch FROM next_attempt_at) * 1000)::bigint AS next_attempt_at_millis, \
                     floor(extract(epoch FROM last_attempt_at) * 1000)::bigint AS last_attempt_at_millis, \
                     lease_id, floor(extract(epoch FROM lease_expires_at) * 1000)::bigint AS lease_expires_at_millis, \
@@ -155,14 +155,12 @@ fn decode_prepared(
         CourseInvitationSecretHash::from_bytes(hash.try_into().map_err(|_| {
             StoreError::Unavailable("stored invitation token hash is invalid".to_string())
         })?);
-    let tenant = TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?);
     let course = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
     let reissuance = match row
         .try_get::<Option<uuid::Uuid>, _>("roster_import_id")
         .map_err(map_sqlx_error)?
     {
         Some(import) => InvitationDeliveryReissuance::Import {
-            tenant,
             course,
             import: crate::CourseRosterImportId::from_uuid(import),
             row_number: u16::try_from(
@@ -179,7 +177,6 @@ fn decode_prepared(
             .map_err(|error| StoreError::Unavailable(error.to_string()))?,
         },
         None => InvitationDeliveryReissuance::Single {
-            tenant,
             course,
             roster_id: CourseRosterId::parse(
                 &row.try_get::<String, _>("roster_id")
@@ -205,11 +202,10 @@ fn decode_prepared(
 fn decode_claimed(
     row: sqlx::postgres::PgRow,
 ) -> Result<ClaimedCourseInvitationDelivery, StoreError> {
-    let tenant = TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?);
     let course = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
     let invitation =
         CourseInvitationId::from_uuid(row.try_get("invitation_id").map_err(map_sqlx_error)?);
-    let delivery = decode_delivery(&row, tenant, course, invitation)?;
+    let delivery = decode_delivery(&row, course, invitation)?;
     let lease = delivery
         .lease
         .ok_or_else(|| StoreError::Unavailable("claimed delivery has no lease".to_string()))?;
@@ -218,12 +214,10 @@ fn decode_claimed(
 
 fn decode_delivery(
     row: &sqlx::postgres::PgRow,
-    tenant: TenantId,
     course: CourseId,
     invitation: CourseInvitationId,
 ) -> Result<CourseInvitationDelivery, StoreError> {
     Ok(CourseInvitationDelivery {
-        tenant,
         course,
         invitation,
         id: CourseInvitationDeliveryId::from_uuid(

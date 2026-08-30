@@ -28,13 +28,13 @@ const TRANSACTION_ATTEMPTS: u8 = 3;
 /// only the NOLOGIN capabilities that the process assumes transaction-locally.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProductionLoginProfile {
-    /// Browser/API process: tenant data plus passwordless account sessions.
+    /// Browser/API process: course data plus passwordless account sessions.
     Api,
-    /// Background worker: tenant data only; never account authentication.
+    /// Background worker: course data only; never account authentication.
     Worker,
     /// Invitation delivery dispatcher: only the function-only outbox capability.
     InvitationDeliveryWorker,
-    /// Public asset publisher: no tenant/application tables, only its queue capability.
+    /// Public asset publisher: no course/application tables, only its queue capability.
     Publisher,
 }
 

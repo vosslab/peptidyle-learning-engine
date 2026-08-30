@@ -1,8 +1,9 @@
 //! PostgreSQL backend, embedded migrations, and connection handling.
 //!
-//! Every operation runs as the non-bypassing `ple_app` role. Tenant-owned
-//! operations also set `ple.tenant_id` locally inside their transaction, so a
-//! pooled connection cannot retain another request's tenant context.
+//! Every operation runs as the non-bypassing `ple_app` role. Actor-authorized
+//! operations install the resolved user and session identities locally inside
+//! their transaction, so a pooled connection cannot retain another request's
+//! authorization state.
 
 #[cfg(feature = "postgres")]
 use std::collections::{BTreeMap, BTreeSet};
@@ -64,20 +65,20 @@ use crate::run_summary_cursor::RunSummaryCursor;
 use crate::statistics::derive_statistics_contributions;
 #[cfg(feature = "postgres")]
 use crate::{
-    ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryRecord, AssetDeliveryScope,
-    AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AttemptFeedbackRecord,
-    AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord, ClearAttemptCommand,
-    CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
+    ActivityTransition, ActorContext, AddAssignmentFixedItemCommand, AssetDeliveryRecord,
+    AssetDeliveryScope, AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision,
+    AttemptFeedbackRecord, AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord,
+    ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
     CourseRetentionView, CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand,
-    DraftRecord, FeedbackReleaseRecord, ForceSubmitAttemptCommand, InstitutionRetentionPolicy,
-    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PublishedProblemRecord,
-    PublishedSourceArtifact, PutCourseGroupCommand, ReleaseAttemptFeedbackCommand,
-    RemoveAssignmentFixedItemCommand, ReplaceAssignmentFixedItemCommand,
-    ReservePrefetchedQuestionCommand, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
-    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
-    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput,
-    RunSummaryPageInput, SessionTokenHash, Store, StoreError, StoredAssignment, StoredCourseGroup,
+    DraftRecord, FeedbackReleaseRecord, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
+    Page, PageRequest, PageSize, PublishedProblemRecord, PublishedSourceArtifact,
+    PutCourseGroupCommand, ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
+    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RetentionApiStore,
+    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionPolicy,
+    RetentionRevision, RetentionScheduleStore, RetentionStore, RetentionWork,
+    RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput, RunSummaryPageInput,
+    SessionTokenHash, Store, StoreError, StoredAssignment, StoredCourseGroup,
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft, WorkspaceDraftRevision,
     assignment_content_changes_issued_work, assignment_scoring_changed, completed_run_score,
@@ -94,7 +95,7 @@ mod live_demo_installation;
 #[cfg(feature = "postgres")]
 use crate::{
     ClaimedJob, EnqueueJob, JobFailureDisposition, JobFailureKind, JobId, JobLeaseDuration,
-    JobLeaseToken, JobPayload, JobState, JobStore, QueueDepth, TenantJobView,
+    JobLeaseToken, JobPayload, JobState, JobStore, JobView, QueueDepth,
 };
 #[cfg(feature = "postgres")]
 use crate::{
@@ -223,7 +224,6 @@ mod item_analysis_publication;
 #[cfg(feature = "postgres")]
 mod jobs;
 #[cfg(feature = "postgres")]
-mod manual_grade_export;
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
@@ -296,7 +296,7 @@ const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
     e.enrollment_id, e.student_id, \
     COALESCE(profile.display_name, 'Student') AS student_name, \
     a.assignment_id, a.title AS assignment_title, a.scoring_status, \
-    sas.tenant_id AS summary_tenant_id, sas.enrollment_id AS summary_enrollment_id, \
+    sas.enrollment_id AS summary_enrollment_id, \
     sas.current_score AS summary_current_score, sas.best_score AS summary_best_score, \
     sas.latest_score AS summary_latest_score, \
     sas.completed_run_count AS summary_completed_run_count, \
@@ -520,6 +520,47 @@ impl PostgresStore {
         Ok(transaction)
     }
 
+    /// Starts an application transaction bound only to a resolved actor.
+    async fn begin_actor(
+        &self,
+        actor: ActorContext,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.begin_app().await?;
+        sqlx::query(
+            "SELECT set_config('ple.actor_user_id', $1, true), \
+                    set_config('ple.actor_session_id', $2, true)",
+        )
+        .bind(actor.user_id().as_uuid().to_string())
+        .bind(actor.session_id().as_uuid().to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
+    /// Starts a worker transaction bound to one opaque active lease.
+    async fn begin_worker(
+        &self,
+        job: JobId,
+        lease: JobLeaseToken,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_worker")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        sqlx::query(
+            "SELECT set_config('ple.worker_job_id', $1, true), \
+                    set_config('ple.worker_lease_token', $2, true)",
+        )
+        .bind(job.as_uuid().to_string())
+        .bind(lease.as_uuid().to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
     async fn begin_tenant(
         &self,
         context: TenantContext,
@@ -658,6 +699,15 @@ impl PostgresGraderStore {
         Ok(transaction)
     }
 
+    async fn begin_grader(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_grader")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
     async fn begin_sealed_reader_tenant(
         &self,
         context: TenantContext,
@@ -718,11 +768,8 @@ pub(super) fn question_statistics_disclosure_from_row(
 #[cfg(feature = "postgres")]
 #[async_trait]
 impl crate::AuthoritativeTimeStore for PostgresStore {
-    async fn authoritative_time(
-        &self,
-        context: TenantContext,
-    ) -> Result<ActivityTimestamp, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
+    async fn authoritative_time(&self) -> Result<ActivityTimestamp, StoreError> {
+        let mut transaction = self.begin_app().await?;
         let now = database_timestamp(&mut transaction).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(now)
@@ -732,22 +779,16 @@ impl crate::AuthoritativeTimeStore for PostgresStore {
 #[cfg(feature = "postgres")]
 #[async_trait]
 impl CourseRecordsAccessStore for PostgresStore {
-    async fn course_records_accessible(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-    ) -> Result<bool, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        // The function checks the tenant setting before consulting any course
-        // or retention row, so a foreign tenant cannot become an existence
-        // oracle through this no-backend precheck.
-        let accessible: bool =
-            sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
-                .bind(context.tenant_id().as_uuid())
-                .bind(course.as_uuid())
-                .fetch_one(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+    async fn course_records_accessible(&self, course: CourseId) -> Result<bool, StoreError> {
+        let mut transaction = self.begin_app().await?;
+        let accessible: bool = sqlx::query_scalar(
+            "SELECT COALESCE((SELECT public.ple_course_records_accessible(tenant_id, course_id) \
+             FROM course WHERE course_id = $1), false)",
+        )
+        .bind(course.as_uuid())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(accessible)
     }

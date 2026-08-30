@@ -105,7 +105,6 @@ async fn publish(
     scope: PublicationScope,
 ) {
     let draft = DraftRecord {
-        tenant: context.tenant_id(),
         question: question(version, workspace),
         derived_from: None,
     };
@@ -319,7 +318,7 @@ async fn fixture() -> (
     let student_object = objects
         .put(PutObject {
             key: ObjectKey::StudentRecord {
-                tenant,
+                course,
                 object: student_object_id,
             },
             bytes: b"student export".to_vec(),
@@ -336,7 +335,6 @@ async fn fixture() -> (
         intrinsic_width: None,
         intrinsic_height: None,
         scope: AssetDeliveryScope::StudentRecord {
-            tenant,
             course,
             authorized_users: vec![student],
         },
@@ -397,7 +395,6 @@ async fn prepare_archive_fence(store: &MemoryStore, tenant: TenantId, course: Co
     assert_eq!(claimed_course, course);
     store
         .prepare_retention_work(RetentionWorkerCommand {
-            tenant,
             course,
             stage,
             generation,
@@ -843,7 +840,7 @@ fn public_base_url_requires_an_exact_published_problem_asset_record() {
             object: ObjectId::from_uuid(id(715)),
         }),
         object_record(ObjectKey::StudentRecord {
-            tenant,
+            course,
             object: ObjectId::from_uuid(id(716)),
         }),
         object_record(ObjectKey::Temporary {

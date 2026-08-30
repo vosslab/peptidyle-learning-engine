@@ -1,13 +1,13 @@
-//! Tenant-owned enrollment, run, attempt, and summary records (WP-C3, MOD-RUN).
+//! Course-owned enrollment, run, attempt, and summary records (WP-C3, MOD-RUN).
 //!
 //! Completion of one run does not end an enrollment. A student can start new
 //! runs for practice, and each run owns its question attempts. The explicit
 //! three-level model keeps post-completion practice from rewriting the run
 //! that first completed an assignment.
 //!
-//! These records are educational records. Every one carries a [`TenantId`]
-//! directly so the future PostgreSQL schema can enforce row-level security on
-//! each table without relying on a join through its parent.
+//! These records are educational records. Their exact course and enrollment
+//! relationships provide their authorization scope; an installation-wide
+//! account is never an institution boundary.
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -20,11 +20,7 @@ use crate::identity::{ObjectId, ProblemId, VersionId};
 use crate::response::StudentResponse;
 use crate::run_policy::VariationPolicy;
 
-/// An institution whose educational records share one RLS boundary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct TenantId(Uuid);
-
-/// A tenant-owned assignment offered to students.
+/// A course-owned assignment offered to students.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentId(Uuid);
 
@@ -36,11 +32,11 @@ pub struct AssignmentItemId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentSelectionGroupId(Uuid);
 
-/// A tenant-owned course or section containing assignments.
+/// A course or section containing assignments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseId(Uuid);
 
-/// One current membership group inside a tenant-owned course.
+/// One current membership group inside a course.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseGroupId(Uuid);
 
@@ -102,7 +98,6 @@ macro_rules! impl_activity_identifier {
     };
 }
 
-impl_activity_identifier!(TenantId);
 impl_activity_identifier!(AssignmentId);
 impl_activity_identifier!(AssignmentItemId);
 impl_activity_identifier!(AssignmentSelectionGroupId);
@@ -149,14 +144,12 @@ pub enum EnrollmentStatus {
     Completed,
 }
 
-/// One student's tenant-owned relationship with one assignment.
+/// One student's relationship with one assignment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentEnrollment {
     /// Durable enrollment identity.
     pub id: EnrollmentId,
-    /// RLS boundary carried directly on this educational record.
-    pub tenant: TenantId,
     /// Assignment the student may run repeatedly.
     pub assignment: AssignmentId,
     /// Authenticated person authorized to act on this enrollment.
@@ -221,8 +214,6 @@ pub struct AssignmentRun {
     pub id: RunId,
     /// Stable typed locator used in application navigation.
     pub reference: RunReference,
-    /// RLS boundary carried directly on this educational record.
-    pub tenant: TenantId,
     /// Enrollment that owns this run.
     pub enrollment: EnrollmentId,
     /// One-based run number within the enrollment.
@@ -389,8 +380,6 @@ pub enum IssuedAttemptCapabilityV1 {
 pub struct QuestionAttempt {
     /// Durable question-attempt identity.
     pub id: QuestionAttemptId,
-    /// RLS boundary carried directly on this educational record.
-    pub tenant: TenantId,
     /// Run that owns this attempt.
     pub run: RunId,
     /// Stable published problem containing the attempted version.
@@ -427,8 +416,6 @@ pub struct QuestionAttempt {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssignmentSummary {
-    /// RLS boundary carried directly on this educational record.
-    pub tenant: TenantId,
     /// Enrollment summarized by this row.
     pub enrollment: EnrollmentId,
     /// Score selected by the assignment's grade policy.
@@ -449,7 +436,7 @@ pub struct StudentAssignmentSummary {
 ///
 /// This is a presentation state, not an authorization input.  The server
 /// derives it from the current assignment disclosure policy and never sends
-/// the policy, clock, enrollment, or tenant to the browser for inference.
+/// the policy, clock, or enrollment to the browser for inference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StudentScoreState {
@@ -463,8 +450,8 @@ pub enum StudentScoreState {
 
 /// Key-free Student projection of an assignment's aggregate progress.
 ///
-/// It deliberately excludes the tenant and enrollment identifiers carried by
-/// [`StudentAssignmentSummary`].  Browser routes use this type instead of the
+/// It deliberately excludes the enrollment identifier carried by
+/// [`StudentAssignmentSummary`]. Browser routes use this type instead of the
 /// storage projection so score totals are omitted while withheld.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -542,9 +529,8 @@ impl StudentAssignmentProgress {
 
 impl StudentAssignmentSummary {
     /// Creates the empty projection for a new enrollment.
-    pub fn empty(tenant: TenantId, enrollment: EnrollmentId) -> Self {
+    pub fn empty(enrollment: EnrollmentId) -> Self {
         Self {
-            tenant,
             enrollment,
             current_score: None,
             best_score: None,
@@ -564,7 +550,6 @@ mod tests {
     fn enrollment_status_comes_from_first_completion() {
         let enrollment = AssignmentEnrollment {
             id: EnrollmentId::from_uuid(Uuid::from_u128(1)),
-            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
             user: UserId::from_uuid(Uuid::from_u128(5)),
             student: StudentId::from_uuid(Uuid::from_u128(4)),
@@ -592,10 +577,7 @@ mod tests {
                 class_statistics: None,
             }
         );
-        let mut summary = StudentAssignmentSummary::empty(
-            TenantId::from_uuid(Uuid::from_u128(1)),
-            EnrollmentId::from_uuid(Uuid::from_u128(2)),
-        );
+        let mut summary = StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
         assert_eq!(
             StudentAssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current)
                 .score_state,
@@ -627,10 +609,7 @@ mod tests {
 
     #[test]
     fn student_progress_hides_scores_while_scoring_is_not_current() {
-        let mut summary = StudentAssignmentSummary::empty(
-            TenantId::from_uuid(Uuid::from_u128(1)),
-            EnrollmentId::from_uuid(Uuid::from_u128(2)),
-        );
+        let mut summary = StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
         summary.total_question_attempts = 1;
         summary.current_score = Some(0.5);
         for scoring_status in [

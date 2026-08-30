@@ -12,7 +12,7 @@ pub(crate) fn store_error_response(error: StoreError) -> Response {
             error_response(StatusCode::CONFLICT, "immutable record already exists")
         }
         StoreError::Conflict => error_response(StatusCode::CONFLICT, "record changed; reload it"),
-        StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::FORBIDDEN, "operation is not authorized")
         }
         StoreError::InvalidRecord(message) => {

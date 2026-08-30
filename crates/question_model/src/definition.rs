@@ -298,7 +298,7 @@ pub struct DraftQuestionDefinition {
     pub metadata: QuestionMetadata,
 }
 
-/// Compact browser-safe identity for one tenant-owned workspace draft.
+/// Compact browser-safe identity for one private workspace draft.
 ///
 /// The full source locator, prompt, response definition, grading policy, and
 /// asset references remain on the detail record.  In particular, this list

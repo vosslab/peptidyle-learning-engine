@@ -1,7 +1,7 @@
 use super::*;
 use question_model::Capability;
 
-fn resume_manifest(tenant: TenantId) -> ChapterOnePilotManifest {
+fn resume_manifest() -> ChapterOnePilotManifest {
     let mut question_identity = 1_u128;
     ChapterOnePilotManifest {
         chapters: pilot_chapters()
@@ -9,12 +9,8 @@ fn resume_manifest(tenant: TenantId) -> ChapterOnePilotManifest {
             .into_iter()
             .enumerate()
             .map(|(chapter_index, chapter)| ChapterManifest {
-                course_id: CourseId::from_uuid(pilot_uuid(tenant, &chapter.slug, "course")),
-                assignment_id: AssignmentId::from_uuid(pilot_uuid(
-                    tenant,
-                    &chapter.slug,
-                    "assignment",
-                )),
+                course_id: CourseId::from_uuid(pilot_uuid(&chapter.slug, "course")),
+                assignment_id: AssignmentId::from_uuid(pilot_uuid(&chapter.slug, "assignment")),
                 enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(
                     900 + chapter_index as u128,
                 )),
@@ -69,10 +65,7 @@ fn synthetic_resume_specs() -> Vec<PilotChapterSpec> {
     ]
 }
 
-fn synthetic_resume_manifest(
-    tenant: TenantId,
-    tracked: &[PilotChapterSpec],
-) -> ChapterOnePilotManifest {
+fn synthetic_resume_manifest(tracked: &[PilotChapterSpec]) -> ChapterOnePilotManifest {
     let mut identity = 1_u128;
     ChapterOnePilotManifest {
         chapters: tracked
@@ -80,12 +73,8 @@ fn synthetic_resume_manifest(
             .enumerate()
             .map(|(chapter_index, chapter)| ChapterManifest {
                 slug: chapter.slug.clone(),
-                course_id: CourseId::from_uuid(pilot_uuid(tenant, &chapter.slug, "course")),
-                assignment_id: AssignmentId::from_uuid(pilot_uuid(
-                    tenant,
-                    &chapter.slug,
-                    "assignment",
-                )),
+                course_id: CourseId::from_uuid(pilot_uuid(&chapter.slug, "course")),
+                assignment_id: AssignmentId::from_uuid(pilot_uuid(&chapter.slug, "assignment")),
                 enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(
                     900 + chapter_index as u128,
                 )),
@@ -110,13 +99,12 @@ fn synthetic_resume_manifest(
 
 #[test]
 fn resume_manifest_validation_rejects_identity_drift() {
-    let tenant = TenantId::from_uuid(Uuid::from_u128(88));
     let tracked = pilot_chapters().unwrap();
-    let valid = resume_manifest(tenant);
-    assert!(validate_resume_manifest(&valid, tenant, &tracked).is_ok());
+    let valid = resume_manifest();
+    assert!(validate_resume_manifest(&valid, &tracked).is_ok());
     let tracked = synthetic_resume_specs();
-    let valid = synthetic_resume_manifest(tenant, &tracked);
-    assert!(validate_resume_manifest(&valid, tenant, &tracked).is_ok());
+    let valid = synthetic_resume_manifest(&tracked);
+    assert!(validate_resume_manifest(&valid, &tracked).is_ok());
 
     let mut wrong = valid.clone();
     wrong
@@ -124,7 +112,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .first_mut()
         .expect("synthetic manifest has a chapter")
         .slug = "unexpected-order".to_string();
-    assert!(validate_resume_manifest(&wrong, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&wrong, &tracked).is_err());
 
     let mut wrong = valid.clone();
     wrong
@@ -132,7 +120,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .first_mut()
         .expect("synthetic manifest has a chapter")
         .course_id = CourseId::from_uuid(Uuid::from_u128(999));
-    assert!(validate_resume_manifest(&wrong, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&wrong, &tracked).is_err());
 
     let mut wrong = valid.clone();
     wrong
@@ -140,7 +128,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .first_mut()
         .expect("synthetic manifest has a chapter")
         .assignment_id = AssignmentId::from_uuid(Uuid::from_u128(999));
-    assert!(validate_resume_manifest(&wrong, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&wrong, &tracked).is_err());
 
     let mut duplicate = valid.clone();
     let enrollment = duplicate
@@ -153,7 +141,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .get_mut(1)
         .expect("synthetic manifest has another chapter");
     another_chapter.enrollment_id = enrollment;
-    assert!(validate_resume_manifest(&duplicate, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&duplicate, &tracked).is_err());
 
     let mut duplicate = valid.clone();
     let display_id = duplicate
@@ -171,7 +159,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .nth(1)
         .expect("synthetic manifest has another question")
         .display_id = display_id;
-    assert!(validate_resume_manifest(&duplicate, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&duplicate, &tracked).is_err());
 
     let mut duplicate = valid.clone();
     let (problem_id, version_id) = duplicate
@@ -189,7 +177,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .expect("synthetic manifest has another question");
     target.problem_id = problem_id;
     target.version_id = version_id;
-    assert!(validate_resume_manifest(&duplicate, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&duplicate, &tracked).is_err());
 
     let mut noncanonical = valid.clone();
     noncanonical
@@ -199,7 +187,7 @@ fn resume_manifest_validation_rejects_identity_drift() {
         .next()
         .expect("synthetic manifest has a question")
         .display_id = "cat-0001".to_string();
-    assert!(validate_resume_manifest(&noncanonical, tenant, &tracked).is_err());
+    assert!(validate_resume_manifest(&noncanonical, &tracked).is_err());
 
     let unknown =
         serde_json::from_str::<ChapterOnePilotManifest>(r#"{"chapters":[],"extra":true}"#);

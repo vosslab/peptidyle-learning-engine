@@ -59,12 +59,7 @@ pub(super) async fn require_direct_instructor_course<S>(
 where
     S: Store + CourseRecordsAccessStore,
 {
-    if !authenticated
-        .record
-        .subject
-        .roles()
-        .contains(&UserRole::Instructor)
-    {
+    if authenticated.record.subject.role() != UserRole::Instructor {
         return Err(error_response(StatusCode::NOT_FOUND, "course record not found").into());
     }
     match store
@@ -76,10 +71,7 @@ where
         .await
     {
         Ok(Some(membership)) if membership.role == CourseMembershipRole::Instructor => {
-            match store
-                .course_records_accessible(authenticated.tenant_context, course)
-                .await
-            {
+            match store.course_records_accessible(course).await {
                 Ok(true) => Ok(()),
                 Ok(false) | Err(StoreError::NotFound | StoreError::Forbidden) => {
                     Err(error_response(StatusCode::NOT_FOUND, "course record not found").into())
@@ -102,10 +94,7 @@ pub(super) async fn course_records_are_visible<S>(
 where
     S: CourseRecordsAccessStore,
 {
-    match store
-        .course_records_accessible(authenticated.tenant_context, course)
-        .await
-    {
+    match store.course_records_accessible(course).await {
         Ok(accessible) => Ok(accessible),
         Err(error) => Err(store_error_response(error).into()),
     }
@@ -121,11 +110,11 @@ pub(super) fn course_creation_authority(
 ) -> Option<CourseCreationAuthority> {
     let actor = authenticated.record.subject.user();
     let session = authenticated.session_hash;
-    let roles = authenticated.record.subject.roles();
-    if roles.contains(&UserRole::Sysadmin) {
-        return Some(CourseCreationAuthority::Sysadmin { actor, session });
+    match authenticated.record.subject.role() {
+        UserRole::Sysadmin => Some(CourseCreationAuthority::Sysadmin { actor, session }),
+        UserRole::Instructor => {
+            Some(CourseCreationAuthority::ApprovedInstructor { actor, session })
+        }
+        UserRole::Student => None,
     }
-    roles
-        .contains(&UserRole::Instructor)
-        .then_some(CourseCreationAuthority::ApprovedInstructor { actor, session })
 }

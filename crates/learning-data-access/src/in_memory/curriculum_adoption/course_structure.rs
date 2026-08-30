@@ -3,7 +3,7 @@
 use question_model::curriculum_adoption::CurriculumSemanticAssignment;
 use question_model::{
     AssignmentDefinitionSourceView, AssignmentId, CourseId, CourseInstanceBlueprintApplication,
-    ResolvedRelativeAssignmentSchedule, TenantId,
+    ResolvedRelativeAssignmentSchedule,
 };
 
 use super::destination;
@@ -27,23 +27,14 @@ pub(crate) struct RolloverInput {
     assignments: Vec<RolloverAssignmentInput>,
 }
 
-pub(crate) fn course_assignment_ids(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-) -> Vec<AssignmentId> {
+pub(crate) fn course_assignment_ids(state: &State, course: CourseId) -> Vec<AssignmentId> {
     let mut rows = state
         .assignments
         .iter()
-        .filter_map(|((record_tenant, assignment), record)| {
-            (*record_tenant == tenant && record.course_id == course).then_some(*assignment)
-        })
+        .filter_map(|(assignment, record)| (record.course_id == course).then_some(*assignment))
         .map(|assignment| {
             (
-                state
-                    .assignment_references
-                    .get(&(tenant, assignment))
-                    .copied(),
+                state.assignment_references.get(&assignment).copied(),
                 assignment,
             )
         })
@@ -57,15 +48,14 @@ pub(crate) fn course_assignment_ids(
 /// not carry authored meaning.
 pub(crate) fn course_assignment_ids_checked(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
 ) -> Result<Vec<AssignmentId>, StoreError> {
-    let mut rows = course_assignment_ids(state, tenant, course)
+    let mut rows = course_assignment_ids(state, course)
         .into_iter()
         .map(|assignment| {
             state
                 .assignment_references
-                .get(&(tenant, assignment))
+                .get(&assignment)
                 .copied()
                 .map(|reference| (reference, assignment))
                 .ok_or_else(|| destination::integrity("course assignment reference"))
@@ -77,19 +67,18 @@ pub(crate) fn course_assignment_ids_checked(
 
 pub(crate) fn rollover_input(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     target_term: &question_model::CourseTerm,
 ) -> Result<RolloverInput, StoreError> {
     let title = state
         .courses
-        .get(&(tenant, course))
+        .get(&course)
         .ok_or(StoreError::NotFound)?
         .title
         .clone();
     let blueprint_application =
-        super::authorization::course_instance_blueprint_application(state, tenant, course)?;
-    let assignments = course_assignment_ids_checked(state, tenant, course)?
+        super::authorization::course_instance_blueprint_application(state, course)?;
+    let assignments = course_assignment_ids_checked(state, course)?
         .into_iter()
         .map(|assignment| {
             let import = state
@@ -102,7 +91,7 @@ pub(crate) fn rollover_input(
                 .assignment_evidence
                 .get(&(assignment, import.import_revision))
                 .ok_or(StoreError::Conflict)?;
-            let semantic = current_with_projected_teaching_schedule(state, tenant, assignment)?;
+            let semantic = current_with_projected_teaching_schedule(state, assignment)?;
             let (schedule, corrections) =
                 crate::curriculum_adoption::preview_assignment(&semantic, target_term)
                     .map_err(semantic_error)?;
@@ -135,24 +124,23 @@ fn semantic_error(error: SemanticPlannerError) -> StoreError {
 
 pub(crate) fn current_with_projected_teaching_schedule(
     state: &State,
-    tenant: TenantId,
     assignment: AssignmentId,
 ) -> Result<CurriculumSemanticAssignment, StoreError> {
     let record = state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or(StoreError::NotFound)?;
     let policy = state
         .assignment_base_policy
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .ok_or_else(|| destination::integrity("assignment base policy"))?;
     let term = &state
         .courses
-        .get(&(tenant, record.course_id))
+        .get(&record.course_id)
         .ok_or(StoreError::NotFound)?
         .term;
     let schedule =
         question_model::RelativeAssignmentSchedule::from_base_policy(&policy.policy, term)
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    destination::current_semantic_assignment(state, tenant, assignment, schedule)
+    destination::current_semantic_assignment(state, assignment, schedule)
 }

@@ -26,11 +26,11 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// A tenant-owned instructor workspace: the place drafts live.
+/// An instructor workspace: the place drafts live.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorkspaceId(Uuid);
 
-/// One tenant-workspace-owned staged import.
+/// One workspace-owned staged import.
 ///
 /// This is deliberately neither a catalog number nor an object-store key. It
 /// identifies an import while it remains private to an instructor workspace;

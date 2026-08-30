@@ -3,12 +3,12 @@ use super::*;
 /// Portable persistence failure with no SQL type in its variants.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StoreError {
-    /// Requested record is absent in the active tenant or shared catalog.
+    /// Requested record is absent in the active ownership boundary or shared catalog.
     NotFound,
     /// Immutable identity already exists.
     AlreadyExists,
-    /// A tenant-owned record disagrees with authenticated context.
-    TenantMismatch,
+    /// A record disagrees with authenticated ownership.
+    OwnershipMismatch,
     /// Stored state changed after a caller validated its expected value.
     Conflict,
     /// PostgreSQL aborted the whole transaction due to a serialization or deadlock conflict.
@@ -30,7 +30,7 @@ impl std::fmt::Display for StoreError {
         match self {
             Self::NotFound => write!(formatter, "record not found"),
             Self::AlreadyExists => write!(formatter, "immutable record already exists"),
-            Self::TenantMismatch => write!(formatter, "record tenant does not match context"),
+            Self::OwnershipMismatch => write!(formatter, "record ownership does not match context"),
             Self::Conflict => write!(formatter, "record changed before the operation committed"),
             Self::RetryableTransaction => write!(formatter, "transaction must be retried"),
             Self::Forbidden => write!(formatter, "operation is not authorized"),

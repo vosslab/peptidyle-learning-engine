@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::{PrefetchedQuestionDescriptorV1, ReceiptNextAttempt, StudentWorkRoutingBinding};
+use crate::{
+    ActorContext, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt, StudentWorkRoutingBinding,
+};
 
 mod attempt_issuance;
 mod issued_contracts;
@@ -23,7 +25,7 @@ pub(super) use issued_contracts::{
 impl crate::RunStore for MemoryStore {
     async fn prepare_question_submission_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -44,7 +46,7 @@ impl crate::RunStore for MemoryStore {
 
     async fn student_assignment_run_items_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
@@ -52,38 +54,31 @@ impl crate::RunStore for MemoryStore {
     }
     async fn start_or_resume_run_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
         // ASVS V8.2.2/V8.3.1: the route binding is not authority. Resolve the learner's current
         // membership for its asserted course before looking up the assignment,
         // so a known assignment ID cannot select a course for the caller.
-        super::entitlement::active_membership_for(&state, tenant, binding.course, actor)
+        super::entitlement::active_membership_for(&state, binding.course, actor)
             .filter(|membership| {
                 membership.role == CourseMembershipRole::Student && membership.student.is_some()
             })
             .ok_or(StoreError::NotFound)?;
         let assignment_id = binding.assignment;
-        let assignment = assignment_record(&state, tenant, assignment_id)?;
+        let assignment = assignment_record(&state, assignment_id)?;
         if assignment.course_id != binding.course {
             return Err(StoreError::NotFound);
         }
-        require_course_records_accessible(&state, tenant, binding.course)?;
+        require_course_records_accessible(&state, binding.course)?;
         // S5 decides current access first, but a grant is not yet a receipt:
         // S3 must reject an unavailable, closed, or exhausted policy without
         // leaving enrollment evidence behind.
         let domain::entitlement::EntitlementDecision::Granted(grant) =
-            super::entitlement::evaluate_locked(
-                &state,
-                tenant,
-                actor,
-                binding.course,
-                assignment_id,
-            )?
+            super::entitlement::evaluate_locked(&state, actor, binding.course, assignment_id)?
         else {
             return Err(StoreError::NotFound);
         };
@@ -92,19 +87,17 @@ impl crate::RunStore for MemoryStore {
             .runs
             .values()
             .filter(|run| {
-                run.tenant == tenant
-                    && run.completed_at.is_some()
+                run.completed_at.is_some()
                     && state
                         .enrollments
-                        .get(&(tenant, run.enrollment))
+                        .get(&run.enrollment)
                         .is_some_and(|enrollment| {
                             enrollment.assignment == assignment_id
                                 && enrollment.student == grant.student()
                         })
             })
             .count();
-        let inputs =
-            memory_effective_policy_inputs_for_grant(&state, tenant, assignment_id, &grant)?;
+        let inputs = memory_effective_policy_inputs_for_grant(&state, assignment_id, &grant)?;
         let decision = domain::effective_assignment_policy::resolve_effective_policy(
             domain::effective_assignment_policy::ResolveEffectivePolicyInput {
                 lifecycle: domain::effective_assignment_policy::assignment_lifecycle_gate(
@@ -136,22 +129,20 @@ impl crate::RunStore for MemoryStore {
             .enrollments
             .values()
             .find(|enrollment| {
-                enrollment.tenant == tenant
-                    && enrollment.assignment == assignment_id
-                    && enrollment.student == grant.student()
+                enrollment.assignment == assignment_id && enrollment.student == grant.student()
             })
             .cloned();
         if let Some(enrollment) = &existing_enrollment {
-            if let Some(active) = state.runs.values().find(|run| {
-                run.tenant == tenant
-                    && run.enrollment == enrollment.id
-                    && run.completed_at.is_none()
-            }) {
+            if let Some(active) = state
+                .runs
+                .values()
+                .find(|run| run.enrollment == enrollment.id && run.completed_at.is_none())
+            {
                 return Ok(active.clone());
             }
             let previous = state
                 .summaries
-                .get(&(tenant, enrollment.id))
+                .get(&enrollment.id)
                 .ok_or(StoreError::NotFound)?;
             if !continued_practice_allows_run(previous, assignment.policies.continued_practice) {
                 return Err(StoreError::InvalidRecord(
@@ -159,12 +150,11 @@ impl crate::RunStore for MemoryStore {
                 ));
             }
         }
-        if state.runs.contains_key(&(tenant, proposed_run)) {
+        if state.runs.contains_key(&proposed_run) {
             return Err(StoreError::AlreadyExists);
         }
         let entitlement = super::entitlement::materialize_locked(
             &mut state,
-            tenant,
             crate::MaterializeAssignmentEntitlementCommand::for_student_action(
                 actor,
                 binding.course,
@@ -178,24 +168,23 @@ impl crate::RunStore for MemoryStore {
         let enrollment = entitlement.enrollment;
         let previous = state
             .summaries
-            .get(&(tenant, enrollment.id))
+            .get(&enrollment.id)
             .cloned()
             .ok_or(StoreError::NotFound)?;
         let run_number = state
             .runs
             .values()
-            .filter(|run| run.tenant == tenant && run.enrollment == enrollment.id)
+            .filter(|run| run.enrollment == enrollment.id)
             .map(|run| run.run_number)
             .max()
             .unwrap_or(0)
             .checked_add(1)
             .ok_or_else(|| StoreError::InvalidRecord("run number overflow".to_string()))?;
         let public_id =
-            super::navigation_references::ensure_run_reference(&mut state, tenant, proposed_run)?;
+            super::navigation_references::ensure_run_reference(&mut state, proposed_run)?;
         let run = AssignmentRun {
             id: proposed_run,
             reference: public_id,
-            tenant,
             enrollment: enrollment.id,
             run_number,
             started_at: state.authoritative_time,
@@ -213,77 +202,60 @@ impl crate::RunStore for MemoryStore {
             grade_policy(&assignment),
         )?;
         let run_items = select_assignment_run_items(&assignment, &run)?;
-        state.runs.insert((tenant, run.id), run.clone());
-        state.run_items.insert((tenant, run.id), run_items);
-        state.summaries.insert((tenant, enrollment.id), next);
+        state.runs.insert(run.id, run.clone());
+        state.run_items.insert(run.id, run_items);
+        state.summaries.insert(enrollment.id, next);
         Ok(run)
     }
     async fn assignment_run_items_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         run: RunId,
     ) -> Result<Vec<AssignmentRunItem>, StoreError> {
         let state = self.read_state()?;
-        if !state.runs.contains_key(&(context.tenant_id(), run)) {
+        if !state.runs.contains_key(&run) {
             return Err(StoreError::NotFound);
         }
-        Ok(state
-            .run_items
-            .get(&(context.tenant_id(), run))
-            .cloned()
-            .unwrap_or_default())
+        Ok(state.run_items.get(&run).cloned().unwrap_or_default())
     }
     async fn issue_or_resume_question_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: IssueQuestionAttemptCommand,
     ) -> Result<QuestionAttempt, StoreError> {
         attempt_issuance::issue_or_resume_question_attempt(self, context, command).await
     }
     async fn read_issued_attempt_evidence_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
     ) -> Result<crate::IssuedAttemptRead, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
         // Establish the live Student route authority before the opaque attempt
         // lookup, mirroring the broker-first PostgreSQL capability (ASVS
         // 1.2.4, 1.5.2, 2.2.1-2.2.3, 2.3.3, 8.2.2/8.3.1/8.4.1, 11.4.3,
         // 14.2.6, 15.4.2, and 16.5.3).
-        super::entitlement::active_membership_for(&state, tenant, binding.course, actor)
+        super::entitlement::active_membership_for(&state, binding.course, actor)
             .filter(|membership| {
                 membership.role == CourseMembershipRole::Student && membership.student.is_some()
             })
             .ok_or(StoreError::NotFound)?;
-        let assignment = assignment_record(&state, tenant, binding.assignment)?;
+        let assignment = assignment_record(&state, binding.assignment)?;
         if assignment.course_id != binding.course {
             return Err(StoreError::NotFound);
         }
-        require_course_records_accessible(&state, tenant, binding.course)?;
+        require_course_records_accessible(&state, binding.course)?;
         let domain::entitlement::EntitlementDecision::Granted(grant) =
-            super::entitlement::evaluate_locked(
-                &state,
-                tenant,
-                actor,
-                binding.course,
-                binding.assignment,
-            )?
+            super::entitlement::evaluate_locked(&state, actor, binding.course, binding.assignment)?
         else {
             return Err(StoreError::NotFound);
         };
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        let current_attempt = projected_attempt(&state, tenant, record);
-        let run = state
-            .runs
-            .get(&(tenant, record.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        let record = state.attempts.get(&attempt).ok_or(StoreError::NotFound)?;
+        let current_attempt = projected_attempt(&state, record);
+        let run = state.runs.get(&record.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
         if enrollment.assignment != binding.assignment
             || enrollment.user != actor
             || enrollment.student != grant.student()
@@ -317,12 +289,9 @@ impl crate::RunStore for MemoryStore {
                 "submitted attempt lacks its current submission time".to_string(),
             ));
         }
-        let presentation = load_issued_receipt_evidence(&state, tenant, record)?;
-        let presentation_binding = state.attempt_presentations.get(&(tenant, attempt)).copied();
-        let grading_envelope = state
-            .attempt_grading_envelopes
-            .get(&(tenant, attempt))
-            .cloned();
+        let presentation = load_issued_receipt_evidence(&state, record)?;
+        let presentation_binding = state.attempt_presentations.get(&attempt).copied();
+        let grading_envelope = state.attempt_grading_envelopes.get(&attempt).cloned();
         let receipt = crate::IssuedAttemptReceiptEvidence::new(
             presentation_binding,
             presentation,
@@ -333,7 +302,7 @@ impl crate::RunStore for MemoryStore {
                 crate::ActiveIssuedAttemptEvidence::new(receipt),
             ))),
             AttemptStatus::Submitted => {
-                let stored = state.submissions.get(&(tenant, attempt)).ok_or_else(|| {
+                let stored = state.submissions.get(&attempt).ok_or_else(|| {
                     StoreError::Unavailable(
                         "submitted attempt lacks its immutable receipt".to_string(),
                     )
@@ -365,15 +334,13 @@ impl crate::RunStore for MemoryStore {
     }
     async fn reserve_or_resume_prefetched_question_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ReservePrefetchedQuestionCommand,
     ) -> Result<PrefetchedQuestionDescriptorV1, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
         let reservation = command.reservation;
         let private_execution = command.private_execution;
-        if reservation.tenant != tenant
-            || reservation.parameter_hash.trim().is_empty()
+        if reservation.parameter_hash.trim().is_empty()
             || reservation
                 .provenance
                 .rendered_question_sha256
@@ -405,32 +372,29 @@ impl crate::RunStore for MemoryStore {
         )?;
         let run = state
             .runs
-            .get(&(tenant, reservation.run))
+            .get(&reservation.run)
             .ok_or(StoreError::NotFound)?;
         if run.completed_at.is_some() || run.score.is_some() {
             return Err(StoreError::Conflict);
         }
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
         let predecessor = state
             .attempts
-            .get(&(tenant, reservation.predecessor))
+            .get(&reservation.predecessor)
             .ok_or(StoreError::NotFound)?;
-        if predecessor.run != reservation.run
-            || state.submissions.contains_key(&(tenant, predecessor.id))
-        {
+        if predecessor.run != reservation.run || state.submissions.contains_key(&predecessor.id) {
             return Err(StoreError::Conflict);
         }
         if enrollment.assignment != command.binding.assignment {
             return Err(StoreError::NotFound);
         }
-        let assignment = assignment_record(&state, tenant, command.binding.assignment)?;
+        let assignment = assignment_record(&state, command.binding.assignment)?;
         if assignment.course_id != command.binding.course {
             return Err(StoreError::NotFound);
         }
-        require_course_records_accessible(&state, tenant, command.binding.course)?;
+        require_course_records_accessible(&state, command.binding.course)?;
         super::entitlement::require_current_enrollment_entitlement(
             &state,
-            tenant,
             command.actor,
             command.binding.course,
             command.binding.assignment,
@@ -449,14 +413,12 @@ impl crate::RunStore for MemoryStore {
             ));
         }
         if state.attempts.values().any(|attempt| {
-            attempt.tenant == tenant
-                && attempt.run == reservation.run
+            attempt.run == reservation.run
                 && attempt.assignment_position == reservation.assignment_position
         }) {
             return Err(StoreError::Conflict);
         }
         let key = (
-            tenant,
             reservation.run,
             reservation.predecessor,
             reservation.assignment_position,
@@ -478,23 +440,19 @@ impl crate::RunStore for MemoryStore {
     }
     async fn get_prefetched_question_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
     ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let state = self.read_state()?;
-        let run_record = state
-            .runs
-            .get(&(context.tenant_id(), run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, context.tenant_id(), run_record.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let run_record = state.runs.get(&run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run_record.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -502,12 +460,12 @@ impl crate::RunStore for MemoryStore {
         )?;
         Ok(state
             .prefetched_questions
-            .get(&(context.tenant_id(), run, predecessor, assignment_position))
+            .get(&(run, predecessor, assignment_position))
             .cloned())
     }
     async fn student_get_prefetched_question_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         predecessor: QuestionAttemptId,
@@ -525,7 +483,7 @@ impl crate::RunStore for MemoryStore {
     }
     async fn submission_next_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
@@ -533,39 +491,28 @@ impl crate::RunStore for MemoryStore {
         let state = self.read_state()?;
         let attempt = state
             .attempts
-            .get(&(context.tenant_id(), predecessor))
+            .get(&predecessor)
             .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(context.tenant_id(), attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
         if StudentWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
             return Err(StoreError::NotFound);
         }
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_attempt_owner(&state, context.tenant_id(), attempt, actor)?;
-        if !state
-            .submissions
-            .contains_key(&(context.tenant_id(), predecessor))
-        {
+        require_course_records_accessible(&state, assignment.course_id)?;
+        require_attempt_owner(&state, attempt, actor)?;
+        if !state.submissions.contains_key(&predecessor) {
             return Err(StoreError::Conflict);
         }
-        Ok(
-            match state
-                .submission_next_attempts
-                .get(&(context.tenant_id(), predecessor))
-            {
-                None => SubmissionNextAttempt::Pending,
-                Some(None) => SubmissionNextAttempt::None,
-                Some(Some(next)) => SubmissionNextAttempt::Issued(next.clone()),
-            },
-        )
+        Ok(match state.submission_next_attempts.get(&predecessor) {
+            None => SubmissionNextAttempt::Pending,
+            Some(None) => SubmissionNextAttempt::None,
+            Some(Some(next)) => SubmissionNextAttempt::Issued(next.clone()),
+        })
     }
     async fn pending_submission_for_run_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
@@ -573,7 +520,7 @@ impl crate::RunStore for MemoryStore {
     }
     async fn student_pending_submission_for_run_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
@@ -581,38 +528,31 @@ impl crate::RunStore for MemoryStore {
     }
     async fn finalize_submission_next_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
         let attempt = state
             .attempts
-            .get(&(tenant, predecessor))
+            .get(&predecessor)
             .ok_or(StoreError::NotFound)?
             .clone();
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
         if StudentWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
             return Err(StoreError::NotFound);
         }
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        require_attempt_owner(&state, tenant, &attempt, actor)?;
-        if !state.submissions.contains_key(&(tenant, predecessor)) {
+        require_course_records_accessible(&state, assignment.course_id)?;
+        require_attempt_owner(&state, &attempt, actor)?;
+        if !state.submissions.contains_key(&predecessor) {
             return Err(StoreError::Conflict);
         }
         let next = if let Some(next) = next {
-            let next_attempt = state
-                .attempts
-                .get(&(tenant, next))
-                .ok_or(StoreError::NotFound)?;
+            let next_attempt = state.attempts.get(&next).ok_or(StoreError::NotFound)?;
             if next_attempt.run != attempt.run {
                 return Err(StoreError::Conflict);
             }
@@ -620,36 +560,31 @@ impl crate::RunStore for MemoryStore {
         } else {
             None
         };
-        match state.submission_next_attempts.get(&(tenant, predecessor)) {
+        match state.submission_next_attempts.get(&predecessor) {
             Some(existing) if *existing != next => Err(StoreError::Conflict),
             _ => {
-                state
-                    .submission_next_attempts
-                    .insert((tenant, predecessor), next);
+                state.submission_next_attempts.insert(predecessor, next);
                 Ok(())
             }
         }
     }
     async fn list_question_attempts_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         run: RunId,
         page: PageRequest,
     ) -> Result<Page<QuestionAttempt>, StoreError> {
         let state = self.read_state()?;
-        let run_record = state
-            .runs
-            .get(&(context.tenant_id(), run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, context.tenant_id(), run_record.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let run_record = state.runs.get(&run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run_record.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         let records = state
             .attempts
             .values()
-            .filter(|attempt| attempt.tenant == context.tenant_id() && attempt.run == run)
+            .filter(|attempt| attempt.run == run)
             .map(|attempt| {
-                let projected = projected_attempt(&state, context.tenant_id(), attempt);
+                let projected = projected_attempt(&state, attempt);
                 (
                     format!(
                         "{:010}/{:020}/{}",
@@ -665,7 +600,7 @@ impl crate::RunStore for MemoryStore {
     }
     async fn student_list_question_attempts_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
         page: PageRequest,
@@ -674,39 +609,35 @@ impl crate::RunStore for MemoryStore {
     }
     async fn replay_submission_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt_id: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
     ) -> Result<crate::SubmissionReceiptRead, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
         let attempt = state
             .attempts
-            .get(&(tenant, attempt_id))
+            .get(&attempt_id)
             .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        require_attempt_owner(&state, tenant, attempt, actor)?;
-        let Some(stored) = state.submissions.get(&(tenant, attempt_id)) else {
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
+        require_attempt_owner(&state, attempt, actor)?;
+        let Some(stored) = state.submissions.get(&attempt_id) else {
             return Ok(crate::SubmissionReceiptRead::Missing);
         };
         if &stored.key != idempotency_key
-            || !super::stored_submission_matches_response(&state, tenant, attempt_id, response)?
+            || !super::stored_submission_matches_response(&state, attempt_id, response)?
         {
             return Err(StoreError::Conflict);
         }
-        load_submission_record(&state, tenant, attempt)
+        load_submission_record(&state, attempt)
     }
     async fn submission_record_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt_id: QuestionAttemptId,
     ) -> Result<crate::SubmissionReceiptRead, StoreError> {
@@ -714,27 +645,23 @@ impl crate::RunStore for MemoryStore {
     }
     async fn submit_question_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: SubmitQuestionAttemptCommand,
     ) -> Result<SubmissionRecord, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
         let attempt = state
             .attempts
-            .get(&(tenant, command.attempt))
+            .get(&command.attempt)
             .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         submit_question_attempt_locked(&mut state, context, command)
     }
     async fn force_submit_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ForceSubmitAttemptCommand,
     ) -> Result<AttemptSupportRecord, StoreError> {
         let mut state = self.write_state()?;
@@ -749,7 +676,7 @@ impl crate::RunStore for MemoryStore {
     }
     async fn clear_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ClearAttemptCommand,
     ) -> Result<AttemptSupportRecord, StoreError> {
         let mut state = self.write_state()?;
@@ -766,10 +693,9 @@ impl crate::RunStore for MemoryStore {
 
 pub(super) fn submit_question_attempt_locked(
     state: &mut State,
-    context: TenantContext,
+    context: ActorContext,
     command: SubmitQuestionAttemptCommand,
 ) -> Result<SubmissionRecord, StoreError> {
-    let tenant = context.tenant_id();
     match submission_preparation::prepare_question_submission(
         state,
         context,
@@ -785,20 +711,19 @@ pub(super) fn submit_question_attempt_locked(
     }
     let base = state
         .attempts
-        .get(&(tenant, command.attempt))
+        .get(&command.attempt)
         .cloned()
         .ok_or(StoreError::NotFound)?;
-    require_attempt_owner(state, tenant, &base, command.actor)?;
-    if let Some(stored) = state.submissions.get(&(tenant, command.attempt)) {
+    require_attempt_owner(state, &base, command.actor)?;
+    if let Some(stored) = state.submissions.get(&command.attempt) {
         let matches_request = stored.key == command.idempotency_key
             && super::stored_submission_matches_response(
                 state,
-                tenant,
                 command.attempt,
                 &command.response,
             )?;
         return if matches_request {
-            match load_submission_record(state, tenant, &base)? {
+            match load_submission_record(state, &base)? {
                 crate::SubmissionReceiptRead::Completed(record) => Ok(*record),
                 crate::SubmissionReceiptRead::AcceptedPending(_) => Err(StoreError::Conflict),
                 crate::SubmissionReceiptRead::Missing => Err(StoreError::Unavailable(
@@ -809,40 +734,39 @@ pub(super) fn submit_question_attempt_locked(
             Err(StoreError::Conflict)
         };
     }
-    if projected_attempt(state, tenant, &base).status != AttemptStatus::InProgress {
+    if projected_attempt(state, &base).status != AttemptStatus::InProgress {
         return Err(StoreError::Conflict);
     }
     // Validate the issuance-time snapshot before any receipt, attempt, or run
     // mutation. A submission only copies this owned value; it never rebuilds.
-    let presentation = load_issued_presentation(state, tenant, &base)?;
+    let presentation = load_issued_presentation(state, &base)?;
     let feedback = private_feedback_record(command.feedback.clone())?;
     let mut run = state
         .runs
-        .get(&(tenant, base.run))
+        .get(&base.run)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::Conflict);
     }
-    let mut enrollment = enrollment_record(state, tenant, run.enrollment)?;
-    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
+    let mut enrollment = enrollment_record(state, run.enrollment)?;
+    let assignment = assignment_record(state, enrollment.assignment)?;
     crate::validate_attempt_result(command.result)?;
     let submitted_at = state.authoritative_time;
-    let mut submitted = projected_attempt(state, tenant, &base);
+    let mut submitted = projected_attempt(state, &base);
     submitted.response = Some(command.response.clone());
     submitted.status = AttemptStatus::Submitted;
     submitted.result = Some(command.result);
     submitted.timer.submitted_at = Some(submitted_at);
     let disclosure = super::feedback::current_disclosure_input(
         state,
-        tenant,
         &assignment,
         command.attempt,
         submitted.timer.submitted_at,
     )?;
     let timing = state
         .attempt_timing
-        .get(&(tenant, command.attempt))
+        .get(&command.attempt)
         .ok_or_else(|| StoreError::Unavailable("issued timing authority is missing".to_string()))?;
     let effective_policy = timing
         .effective_deadline
@@ -860,10 +784,10 @@ pub(super) fn submit_question_attempt_locked(
     if verdict == TimerVerdict::TimedOut {
         return Err(StoreError::TimedOut);
     }
-    require_course_records_accessible(state, tenant, assignment.course_id)?;
+    require_course_records_accessible(state, assignment.course_id)?;
     let previous = state
         .summaries
-        .get(&(tenant, enrollment.id))
+        .get(&enrollment.id)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     let mut next = project_summary(
@@ -873,18 +797,18 @@ pub(super) fn submit_question_attempt_locked(
     )?;
     let run_items = state
         .run_items
-        .get(&(tenant, run.id))
+        .get(&run.id)
         .cloned()
         .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
     let attempts = state
         .attempts
         .values()
-        .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
+        .filter(|attempt| attempt.run == run.id)
         .map(|attempt| {
             if attempt.id == submitted.id {
                 submitted.clone()
             } else {
-                projected_attempt(state, tenant, attempt)
+                projected_attempt(state, attempt)
             }
         })
         .collect::<Vec<_>>();
@@ -908,7 +832,7 @@ pub(super) fn submit_question_attempt_locked(
     )?;
     let (scoring_generation, _) = state
         .assignment_scoring
-        .get(&(tenant, assignment.id))
+        .get(&assignment.id)
         .copied()
         .ok_or(StoreError::NotFound)?;
     let mut statistics_contributions = None;
@@ -938,7 +862,7 @@ pub(super) fn submit_question_attempt_locked(
         }
     }
     if let Some(contributions) = &statistics_contributions {
-        stage_statistics_contributions(state, tenant, enrollment.id, run.id, contributions)?;
+        stage_statistics_contributions(state, enrollment.id, run.id, contributions)?;
     }
     let record = SubmissionRecord {
         attempt: submitted,
@@ -951,7 +875,7 @@ pub(super) fn submit_question_attempt_locked(
     let private_response = StoredPrivateSubmissionResponse::from_response(command.response)?;
     let completed = completed_submission_receipt_from_record(record);
     state.submissions.insert(
-        (tenant, command.attempt),
+        command.attempt,
         StoredSubmission {
             key: command.idempotency_key,
             state: StoredSubmissionState::Completed(Box::new(completed.clone())),
@@ -959,9 +883,9 @@ pub(super) fn submit_question_attempt_locked(
     );
     state
         .private_submission_responses
-        .insert((tenant, command.attempt), private_response);
+        .insert(command.attempt, private_response);
     state.attempt_scores.insert(
-        (tenant, command.attempt),
+        command.attempt,
         MemoryAttemptScore {
             assignment: assignment.id,
             assignment_item: submitted_assignment_item,
@@ -970,14 +894,10 @@ pub(super) fn submit_question_attempt_locked(
             possible_points,
         },
     );
-    state.runs.insert((tenant, run.id), run);
-    state
-        .enrollments
-        .insert((tenant, enrollment.id), enrollment);
-    state.summaries.insert((tenant, next.enrollment), next);
-    state
-        .webwork_grade_replay
-        .remove(&(tenant, command.attempt));
-    complete_memory_attempt_timing_job(state, tenant, command.attempt);
+    state.runs.insert(run.id, run);
+    state.enrollments.insert(enrollment.id, enrollment);
+    state.summaries.insert(next.enrollment, next);
+    state.webwork_grade_replay.remove(&command.attempt);
+    complete_memory_attempt_timing_job(state, command.attempt);
     Ok(completed.into_submission_record(disclosure))
 }

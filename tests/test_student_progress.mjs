@@ -34,7 +34,7 @@ const classStatisticsAvailable = {
 
 test("Student progress is exact, key-free, and never accepts withheld totals", () => {
   assert.deepEqual(decodeStudentAssignmentProgress(available), available);
-  for (const forbidden of ["tenant", "enrollment", "policy", "evaluated_at"]) {
+  for (const forbidden of ["private_scope", "enrollment", "policy", "evaluated_at"]) {
     assert.throws(
       () => decodeStudentAssignmentProgress({ ...available, [forbidden]: "private" }),
       DecodeError,

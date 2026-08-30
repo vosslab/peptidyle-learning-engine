@@ -18,10 +18,8 @@ import { createHttpApiClient } from "../src/api/http_client.ts";
 import { consumeTokenFragment } from "../src/auth/secret_fragment.ts";
 
 const COURSE = "0198e000-0000-7000-8000-000000000014";
-const ASSIGNMENT = "0198e000-0000-7000-8000-000000000006";
 const INVITATION = "0198e000-0000-7000-8000-000000000601";
 const IMPORT = "0198e000-0000-7000-8000-000000000604";
-const EXPORT = "0198e000-0000-7000-8000-000000000606";
 const REDEMPTION_PATH = `/course-invitations/redeem#token=${"A".repeat(43)}`;
 
 function json(value, status = 200, headers = {}) {
@@ -81,7 +79,7 @@ test("passwordless and roster decoders reject authority and secret fields", () =
             courseReference: "C-1",
             title: "Biochemistry",
             role: "student",
-            tenant: "hidden",
+            privateScope: "hidden",
           },
         ],
         nextCursor: null,
@@ -354,20 +352,6 @@ test("roster mutations preserve revisions idempotency and protected export heade
           { etag: '"1"' },
         );
       }
-      if (path.endsWith(`/assignments/${ASSIGNMENT}/grade-export.csv`)) {
-        return new Response(
-          "roster_id,email,display_name,score\r\n900123456,student@example.edu,Student,\r\n",
-          {
-            status: 200,
-            headers: {
-              "cache-control": "no-store",
-              "content-type": "text/csv; charset=utf-8",
-              "content-disposition": `attachment; filename=ple-grade-export-${ASSIGNMENT}.csv`,
-              "x-ple-export-id": EXPORT,
-            },
-          },
-        );
-      }
       throw new Error(`unexpected request ${path}`);
     },
   });
@@ -379,14 +363,9 @@ test("roster mutations preserve revisions idempotency and protected export heade
     4,
     "preview-once",
   );
-  const exported = await client.createManualGradeExport(COURSE, ASSIGNMENT);
-
-  assert.equal(exported.exportId, EXPORT);
-  assert.match(exported.csv.type, /^text\/csv(?:;|$)/u);
   assert.equal(requests[0]?.init.headers["idempotency-key"], "invite-once");
   assert.equal(requests[1]?.init.headers["if-match"], '"4"');
   assert.equal(requests[1]?.init.headers["content-type"], "text/csv; charset=utf-8");
-  assert.equal(requests[2]?.init.body, undefined);
 });
 
 test("one-time URL fragments are consumed into memory and immediately removed", () => {

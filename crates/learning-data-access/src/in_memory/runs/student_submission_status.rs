@@ -5,15 +5,15 @@ use question_model::{CourseMembershipRole, SubmissionEvaluationStatus};
 
 use super::super::*;
 use crate::{
-    GradingExecutionState, StoreError, StudentSubmissionStatusRead, StudentWorkRoutingBinding,
-    SubmissionReceiptRead, TenantContext,
+    ActorContext, GradingExecutionState, StoreError, StudentSubmissionStatusRead,
+    StudentWorkRoutingBinding, SubmissionReceiptRead,
 };
 
 #[async_trait]
 impl crate::StudentSubmissionStatusStore for MemoryStore {
     async fn student_submission_status(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -26,31 +26,32 @@ impl crate::StudentSubmissionStatusStore for MemoryStore {
 /// Student-work witness under the same immutable Memory state lock.
 pub(super) async fn read(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     actor: UserId,
     binding: StudentWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
 ) -> Result<StudentSubmissionStatusRead, StoreError> {
     let state = store.read_state()?;
-    let tenant = context.tenant_id();
+    if context.user_id() != actor {
+        return Err(StoreError::NotFound);
+    }
 
     // ASVS V8.2.2/V8.3.1: route values are assertions, not authority.  Check
     // current student entitlement before the opaque attempt, then bind the
     // run and enrollment back to that exact course/assignment/actor tuple.
-    super::super::entitlement::active_membership_for(&state, tenant, binding.course, actor)
+    super::super::entitlement::active_membership_for(&state, binding.course, actor)
         .filter(|membership| {
             membership.role == CourseMembershipRole::Student && membership.student.is_some()
         })
         .ok_or(StoreError::NotFound)?;
-    let assignment = assignment_record(&state, tenant, binding.assignment)?;
+    let assignment = assignment_record(&state, binding.assignment)?;
     if assignment.course_id != binding.course {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(&state, tenant, binding.course)?;
+    require_course_records_accessible(&state, binding.course)?;
     let domain::entitlement::EntitlementDecision::Granted(grant) =
         super::super::entitlement::evaluate_locked(
             &state,
-            tenant,
             actor,
             binding.course,
             binding.assignment,
@@ -60,13 +61,10 @@ pub(super) async fn read(
     };
     let attempt = state
         .attempts
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .ok_or(StoreError::NotFound)?;
-    let run = state
-        .runs
-        .get(&(tenant, attempt.run))
-        .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+    let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(&state, run.enrollment)?;
     if enrollment.assignment != binding.assignment
         || enrollment.user != actor
         || enrollment.student != grant.student()
@@ -77,14 +75,10 @@ pub(super) async fn read(
     // `load_submission_record` is the canonical immutable receipt reader.
     // It validates a completed aggregate before disclosure and never rebuilds
     // Student work from mutable catalog state.
-    let receipt = super::load_submission_record(&state, tenant, attempt)?;
-    let execution = state
-        .automated_grading_executions
-        .get(&(tenant, attempt_id));
-    let evaluation = state
-        .automated_grading_evaluations
-        .get(&(tenant, attempt_id));
-    status_from_durable_state(&state, tenant, receipt, execution, evaluation)
+    let receipt = super::load_submission_record(&state, attempt)?;
+    let execution = state.automated_grading_executions.get(&attempt_id);
+    let evaluation = state.automated_grading_evaluations.get(&attempt_id);
+    status_from_durable_state(&state, receipt, execution, evaluation)
 }
 
 /// Retains the legacy flat receipt read while its route-bound successor owns
@@ -92,30 +86,28 @@ pub(super) async fn read(
 /// `RunStore` implementation from exceeding the repository source limit.
 pub(super) fn submission_record(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     actor: UserId,
     attempt_id: QuestionAttemptId,
 ) -> Result<SubmissionReceiptRead, StoreError> {
     let state = store.read_state()?;
-    let tenant = context.tenant_id();
+    if context.user_id() != actor {
+        return Err(StoreError::NotFound);
+    }
     let attempt = state
         .attempts
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .ok_or(StoreError::NotFound)?;
-    let run = state
-        .runs
-        .get(&(tenant, attempt.run))
-        .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-    let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-    require_course_records_accessible(&state, tenant, assignment.course_id)?;
-    require_attempt_owner(&state, tenant, attempt, actor)?;
-    super::load_submission_record(&state, tenant, attempt)
+    let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(&state, run.enrollment)?;
+    let assignment = assignment_record(&state, enrollment.assignment)?;
+    require_course_records_accessible(&state, assignment.course_id)?;
+    require_attempt_owner(&state, attempt, actor)?;
+    super::load_submission_record(&state, attempt)
 }
 
 fn status_from_durable_state(
     state: &State,
-    tenant: TenantId,
     receipt: SubmissionReceiptRead,
     execution: Option<&crate::GradingExecution>,
     evaluation: Option<&SubmissionEvaluationStatus>,
@@ -147,7 +139,7 @@ fn status_from_durable_state(
             Some(execution),
             Some(SubmissionEvaluationStatus::Graded | SubmissionEvaluationStatus::Exempt),
         ) if execution.state == GradingExecutionState::Completed => {
-            let next_pending = completed_successor_is_eligible(state, tenant, &record)?;
+            let next_pending = completed_successor_is_eligible(state, &record)?;
             Ok(StudentSubmissionStatusRead::Completed {
                 record,
                 next_pending,
@@ -167,21 +159,19 @@ fn status_from_durable_state(
 /// still permits `start_or_resume_run` to issue one; it never writes a link.
 fn completed_successor_is_eligible(
     state: &State,
-    tenant: TenantId,
     record: &crate::SubmissionRecord,
 ) -> Result<bool, StoreError> {
-    let run_items =
-        state
-            .run_items
-            .get(&(tenant, record.run.id))
-            .ok_or(StoreError::Unavailable(
-                "completed submission has no immutable run items".to_string(),
-            ))?;
+    let run_items = state
+        .run_items
+        .get(&record.run.id)
+        .ok_or(StoreError::Unavailable(
+            "completed submission has no immutable run items".to_string(),
+        ))?;
     let attempts = state
         .attempts
         .values()
-        .filter(|attempt| attempt.tenant == tenant && attempt.run == record.run.id)
-        .map(|attempt| super::super::projected_attempt(state, tenant, attempt))
+        .filter(|attempt| attempt.run == record.run.id)
+        .map(|attempt| super::super::projected_attempt(state, attempt))
         .collect::<Vec<_>>();
     let questions = run_items
         .iter()
@@ -206,7 +196,7 @@ fn completed_successor_is_eligible(
         &record.run,
         state
             .submission_next_attempts
-            .contains_key(&(tenant, record.attempt.id)),
+            .contains_key(&record.attempt.id),
         run_items,
         &attempts,
         &questions,
@@ -239,13 +229,7 @@ mod tests {
         execution: Option<&crate::GradingExecution>,
         evaluation: Option<&SubmissionEvaluationStatus>,
     ) -> Result<StudentSubmissionStatusRead, StoreError> {
-        status_from_durable_state(
-            &State::default(),
-            TenantId::from_uuid(Uuid::from_u128(94)),
-            receipt,
-            execution,
-            evaluation,
-        )
+        status_from_durable_state(&State::default(), receipt, execution, evaluation)
     }
 
     #[test]

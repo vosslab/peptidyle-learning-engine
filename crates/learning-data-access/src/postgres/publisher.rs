@@ -17,7 +17,7 @@ use super::{Pool, decode_payload_parts, encode_payload};
 use crate::{
     AssetDeliveryRecord, EnqueueJob, JobClaimFilter, JobFailureDisposition, JobFailureKind, JobId,
     JobKind, JobLeaseDuration, JobLeaseToken, JobStore, QueueDepth, StoreError, TenantContext,
-    TenantJobView,
+    JobView,
 };
 
 /// PostgreSQL store held by the public-asset publisher process only.
@@ -129,7 +129,7 @@ impl JobStore for PostgresPublicAssetPublisherStore {
         &self,
         _context: TenantContext,
         _id: JobId,
-    ) -> Result<Option<TenantJobView>, StoreError> {
+    ) -> Result<Option<JobView>, StoreError> {
         Err(Self::unsupported())
     }
 

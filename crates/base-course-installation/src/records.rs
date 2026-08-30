@@ -19,8 +19,8 @@ use question_model::run_policy::{
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
-    CourseId, PointValue, ProblemId, ProblemVersionRef, QuestionAttemptId, RunId, TenantId,
-    VersionId, WorkspaceId,
+    CourseId, PointValue, ProblemId, ProblemVersionRef, QuestionAttemptId, RunId, VersionId,
+    WorkspaceId,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -88,8 +88,8 @@ pub(crate) struct BaseCourseIds {
 }
 
 impl BaseCourseIds {
-    pub(crate) fn for_tenant(tenant: TenantId) -> Self {
-        let id = |label| deterministic_uuid(tenant, label);
+    pub(crate) fn for_installation() -> Self {
+        let id = deterministic_uuid;
         Self {
             workspace: WorkspaceId::from_uuid(id("workspace")),
             problem: ProblemId::from_uuid(id("problem")),
@@ -106,10 +106,9 @@ impl BaseCourseIds {
     }
 }
 
-pub(crate) fn deterministic_uuid(tenant: TenantId, label: &str) -> Uuid {
+pub(crate) fn deterministic_uuid(label: &str) -> Uuid {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple-installed-base-course-v1:");
-    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(b"ple-installed-base-course-v1:single-installation:");
     hasher.update(label.as_bytes());
     let digest = hasher.finalize();
     let mut bytes = [0_u8; 16];
@@ -179,17 +178,15 @@ pub(crate) fn base_course_native_draft(workspace: WorkspaceId) -> DraftQuestionD
 }
 
 pub(crate) fn base_course(
-    participants: BaseCourseParticipants,
     id: CourseId,
 ) -> Result<learning_data_access::CourseRecord, BaseCourseInstallError> {
-    course(participants, id, BASE_COURSE_TITLE)
+    course(id, BASE_COURSE_TITLE)
 }
 
 pub(crate) fn practice_course(
-    participants: BaseCourseParticipants,
     id: CourseId,
 ) -> Result<learning_data_access::CourseRecord, BaseCourseInstallError> {
-    course(participants, id, PRACTICE_COURSE_TITLE)
+    course(id, PRACTICE_COURSE_TITLE)
 }
 
 /// Builds the exact v1 recipe accepted by the closed installer capability.
@@ -201,8 +198,8 @@ pub(crate) fn installation_recipe(
     participants: BaseCourseParticipants,
     ids: BaseCourseIds,
 ) -> Result<serde_json::Value, BaseCourseInstallError> {
-    let base = base_course(participants, ids.base_course)?;
-    let practice = practice_course(participants, ids.practice_course)?;
+    let base = base_course(ids.base_course)?;
+    let practice = practice_course(ids.practice_course)?;
     Ok(serde_json::json!({
         "schemaVersion": 1,
         "participants": {
@@ -245,7 +242,6 @@ fn course_recipe(
 }
 
 fn course(
-    participants: BaseCourseParticipants,
     id: CourseId,
     title: &str,
 ) -> Result<learning_data_access::CourseRecord, BaseCourseInstallError> {
@@ -257,14 +253,12 @@ fn course(
         })?;
     Ok(learning_data_access::CourseRecord {
         id,
-        tenant: participants.tenant(),
         title: title.to_string(),
         term,
     })
 }
 
 pub(crate) fn assignment(
-    participants: BaseCourseParticipants,
     ids: BaseCourseIds,
     reference: ProblemVersionRef,
 ) -> Result<learning_data_access::AssignmentRecord, BaseCourseInstallError> {
@@ -278,7 +272,6 @@ pub(crate) fn assignment(
     })?;
     Ok(learning_data_access::AssignmentRecord {
         id: ids.assignment,
-        tenant: participants.tenant(),
         course_id: ids.base_course,
         title: ASSIGNMENT_TITLE.to_string(),
         lifecycle: question_model::AssignmentLifecycle::Published,
@@ -318,9 +311,8 @@ mod tests {
 
     use super::*;
 
-    fn participants(tenant: TenantId) -> BaseCourseParticipants {
+    fn participants() -> BaseCourseParticipants {
         BaseCourseParticipants::try_new(
-            tenant,
             UserId::from_uuid(Uuid::from_u128(10)),
             UserId::from_uuid(Uuid::from_u128(11)),
             UserId::from_uuid(Uuid::from_u128(12)),
@@ -332,9 +324,8 @@ mod tests {
 
     #[test]
     fn deterministic_ids_repeat_and_remain_disjoint() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-        let first = BaseCourseIds::for_tenant(tenant);
-        let second = BaseCourseIds::for_tenant(tenant);
+        let first = BaseCourseIds::for_installation();
+        let second = BaseCourseIds::for_installation();
 
         assert_eq!(first, second);
         assert_ne!(first.base_course.as_uuid(), first.practice_course.as_uuid());
@@ -345,16 +336,15 @@ mod tests {
 
     #[test]
     fn recipe_has_the_exact_course_assignment_and_question() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-        let participants = participants(tenant);
-        let ids = BaseCourseIds::for_tenant(tenant);
+        let participants = participants();
+        let ids = BaseCourseIds::for_installation();
         let reference = ProblemVersionRef {
             problem: ids.problem,
             version: ids.version,
         };
-        let base_course = base_course(participants, ids.base_course).unwrap();
-        let practice_course = practice_course(participants, ids.practice_course).unwrap();
-        let assignment = assignment(participants, ids, reference).unwrap();
+        let base_course = base_course(ids.base_course).unwrap();
+        let practice_course = practice_course(ids.practice_course).unwrap();
+        let assignment = assignment(ids, reference).unwrap();
         let draft = base_course_native_draft(ids.workspace);
 
         assert_eq!(base_course.title, BASE_COURSE_TITLE);
@@ -375,9 +365,8 @@ mod tests {
 
     #[test]
     fn installation_recipe_is_the_exact_closed_v1_contract() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-        let participants = participants(tenant);
-        let ids = BaseCourseIds::for_tenant(tenant);
+        let participants = participants();
+        let ids = BaseCourseIds::for_installation();
         let recipe = installation_recipe(participants, ids).unwrap();
 
         assert_eq!(
@@ -445,11 +434,9 @@ mod tests {
 
     #[test]
     fn installed_namespace_stays_separate_from_acceptance_namespace() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-        let installed = deterministic_uuid(tenant, "course");
+        let installed = deterministic_uuid("course");
         let mut hasher = Sha256::new();
         hasher.update(b"ple-replica-e2e-seed-v1:");
-        hasher.update(tenant.as_uuid().as_bytes());
         hasher.update(b"course");
         let digest = hasher.finalize();
         assert_ne!(installed.as_bytes(), &digest[..16]);

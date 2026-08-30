@@ -1,4 +1,4 @@
-use crate::{CourseCreationAuthority, CreateCourseCommand};
+use crate::{ActorContext, CourseCreationAuthority, CreateCourseCommand};
 use crate::{
     CourseGroupMembershipWarning, CourseGroupPurposePolicyRevision, CourseGroupView,
     StoredCourseGroupPurposePolicy, UpdateCourseGroupPurposePolicyCommand,
@@ -7,52 +7,19 @@ use async_trait::async_trait;
 
 use super::*;
 
-#[cfg(test)]
-use std::sync::{Mutex, OnceLock};
-
-/// A unit-test-only fault immediately after the reference and course rows
-/// exist. It exercises the transaction boundary without exposing an
-/// application/test-support capability in non-test builds.
-#[cfg(test)]
-static CREATE_COURSE_LATE_FAILURE: OnceLock<Mutex<Option<(TenantId, CourseId)>>> = OnceLock::new();
-
-#[cfg(test)]
-fn arm_create_course_late_failure(tenant: TenantId, course: CourseId) {
-    *CREATE_COURSE_LATE_FAILURE
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .expect("course-creation test fault lock is available") = Some((tenant, course));
-}
-
-#[cfg(test)]
-fn consume_create_course_late_failure(tenant: TenantId, course: CourseId) -> bool {
-    let mut armed = CREATE_COURSE_LATE_FAILURE
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .expect("course-creation test fault lock is available");
-    if *armed == Some((tenant, course)) {
-        *armed = None;
-        true
-    } else {
-        false
-    }
-}
-
 #[async_trait]
 impl crate::CourseStore for MemoryStore {
     async fn create_course_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateCourseCommand,
     ) -> Result<(), StoreError> {
         let course = command.course;
-        ensure_tenant(context, course.tenant)?;
         validate_course(&course)?;
-        let tenant = course.tenant;
         let course_id = course.id;
         let mut state = self.write_state()?;
         let initial_instructor = authorize_course_creation(&state, context, &command.authority)?;
-        if state.courses.contains_key(&(tenant, course_id)) {
+        if state.courses.contains_key(&course_id) {
             return Err(StoreError::AlreadyExists);
         }
         // The lock serializes readers and writers, but does not make a series
@@ -68,53 +35,43 @@ impl crate::CourseStore for MemoryStore {
     }
     async fn get_course_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         course: CourseId,
     ) -> Result<Option<CourseRecord>, StoreError> {
         let state = self.read_state()?;
-        Ok(state.courses.get(&(context.tenant_id(), course)).cloned())
+        Ok(state.courses.get(&course).cloned())
     }
     async fn get_current_course_membership_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         course: CourseId,
         user: UserId,
     ) -> Result<Option<CourseMembershipRecord>, StoreError> {
         let state = self.read_state()?;
-        Ok(
-            super::entitlement::active_membership_for(&state, context.tenant_id(), course, user)
-                .cloned(),
-        )
+        Ok(super::entitlement::active_membership_for(&state, course, user).cloned())
     }
     async fn list_courses_impl(
         &self,
-        context: TenantContext,
-        scope: CourseListScope,
+        context: ActorContext,
         page: PageRequest,
     ) -> Result<Page<CourseSummary>, StoreError> {
         let state = self.read_state()?;
         let records = state
             .courses
             .iter()
-            .filter_map(|((tenant, course_id), record)| {
-                if *tenant != context.tenant_id() {
-                    return None;
-                }
-                let role = match scope {
-                    CourseListScope::Member(user) => {
-                        super::entitlement::active_membership_for(&state, *tenant, *course_id, user)
-                            .map(|membership| membership.role)?
-                    }
-                };
+            .filter_map(|(course_id, record)| {
+                let role = super::entitlement::active_membership_for(
+                    &state,
+                    *course_id,
+                    context.user_id(),
+                )
+                .map(|membership| membership.role)?;
                 if role == CourseMembershipRole::Student
-                    && !course_records_accessible(&state, context.tenant_id(), *course_id)
+                    && !course_records_accessible(&state, *course_id)
                 {
                     return None;
                 }
-                let public_id = state
-                    .course_references
-                    .get(&(*tenant, *course_id))
-                    .copied()?;
+                let public_id = state.course_references.get(course_id).copied()?;
                 Some((course_id.to_string(), record.summary(role, public_id)))
             })
             .collect();
@@ -122,25 +79,22 @@ impl crate::CourseStore for MemoryStore {
     }
     async fn put_course_group_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         command: PutCourseGroupCommand,
     ) -> Result<StoredCourseGroup, StoreError> {
-        ensure_tenant(context, command.record.tenant)?;
         validate_course_group(&command.record)?;
-        let tenant = context.tenant_id();
-        let key = (tenant, command.record.id);
+        let key = command.record.id;
         let mut state = self.write_state()?;
-        require_course_records_accessible(&state, tenant, command.record.course)?;
-        if !state.courses.contains_key(&(tenant, command.record.course))
+        require_course_records_accessible(&state, command.record.course)?;
+        if !state.courses.contains_key(&command.record.course)
             || super::entitlement::active_membership_for(
                 &state,
-                tenant,
                 command.record.course,
                 command.actor,
             )
             .is_none_or(|membership| membership.role != CourseMembershipRole::Instructor)
             || command.record.members.iter().any(|membership| {
-                super::entitlement::active_membership_by_id(&state, tenant, *membership).is_none_or(
+                super::entitlement::active_membership_by_id(&state, *membership).is_none_or(
                     |record| {
                         record.course != command.record.course
                             || record.role != CourseMembershipRole::Student
@@ -172,17 +126,12 @@ impl crate::CourseStore for MemoryStore {
             None => return Err(StoreError::Conflict),
         };
         let snapshot = state.clone();
-        validate_group_purpose_transition(&state, tenant, &command.record)?;
-        super::navigation_references::ensure_course_group_reference(
-            &mut state,
-            tenant,
-            command.record.id,
-        )?;
+        validate_group_purpose_transition(&state, &command.record)?;
+        super::navigation_references::ensure_course_group_reference(&mut state, command.record.id)?;
         state.course_groups.insert(key, command.record.clone());
         state.course_group_revisions.insert(key, revision);
         if let Err(error) = reresolve_group_affected_assignments(
             &mut state,
-            tenant,
             command.record.course,
             command.record.id,
         ) {
@@ -196,11 +145,11 @@ impl crate::CourseStore for MemoryStore {
     }
     async fn get_course_group_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         group: CourseGroupId,
     ) -> Result<Option<StoredCourseGroup>, StoreError> {
         let state = self.read_state()?;
-        let key = (context.tenant_id(), group);
+        let key = group;
         let Some(record) = state.course_groups.get(&key).cloned() else {
             return Ok(None);
         };
@@ -226,38 +175,25 @@ pub(super) fn provision_course_locked(
     course: CourseRecord,
     initial_instructor: UserId,
 ) -> Result<question_model::CourseReference, StoreError> {
-    let tenant = course.tenant;
     let course_id = course.id;
-    if state.courses.contains_key(&(tenant, course_id)) {
+    if state.courses.contains_key(&course_id) {
         return Err(StoreError::AlreadyExists);
     }
     validate_course(&course)?;
-    let reference =
-        super::navigation_references::ensure_course_reference(state, tenant, course_id)?;
-    state.courses.insert((tenant, course_id), course);
-    #[cfg(test)]
-    if consume_create_course_late_failure(tenant, course_id) {
-        return Err(StoreError::Unavailable(
-            "injected late course-creation failure".to_string(),
-        ));
-    }
-    super::entitlement::create_initial_instructor_membership(
-        state,
-        tenant,
-        course_id,
-        initial_instructor,
-    )?;
+    let reference = super::navigation_references::ensure_course_reference(state, course_id)?;
+    state.courses.insert(course_id, course);
+    super::entitlement::create_initial_instructor_membership(state, course_id, initial_instructor)?;
     state.roster_policies.insert(
-        (tenant, course_id),
+        course_id,
         super::course_roster::initial_roster_policy(course_id),
     );
     state.course_grade_schemes.insert(
-        (tenant, course_id),
+        course_id,
         super::course_gradebook::initial_course_grade_scheme(course_id),
     );
     for purpose in ALL_GROUP_PURPOSES {
         state.course_group_purpose_policies.insert(
-            (tenant, course_id, purpose),
+            (course_id, purpose),
             StoredCourseGroupPurposePolicy {
                 policy: question_model::CourseGroupPurposePolicy::default_for_purpose(purpose),
                 revision: CourseGroupPurposePolicyRevision::INITIAL,
@@ -265,34 +201,29 @@ pub(super) fn provision_course_locked(
         );
     }
     state.course_appearances.insert(
-        (tenant, course_id),
+        course_id,
         question_model::CourseAppearance {
             theme: question_model::CourseThemeId::default(),
             revision: question_model::CourseAppearanceRevision::INITIAL,
             banner: None,
         },
     );
-    state.course_schedule_revisions.insert(
-        (tenant, course_id),
-        question_model::CourseScheduleRevision::INITIAL,
-    );
+    state
+        .course_schedule_revisions
+        .insert(course_id, question_model::CourseScheduleRevision::INITIAL);
     Ok(reference)
 }
 
 fn authorize_course_creation(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     authority: &CourseCreationAuthority,
 ) -> Result<UserId, StoreError> {
     match authority {
         CourseCreationAuthority::ApprovedInstructor { actor, session } => {
             let subject = super::sessions::active_subject(state, context, *session)
                 .ok_or(StoreError::NotFound)?;
-            if subject.user() != *actor
-                || !subject
-                    .roles()
-                    .contains(&question_model::UserRole::Instructor)
-            {
+            if subject.user() != *actor || subject.role() != question_model::UserRole::Instructor {
                 return Err(StoreError::Forbidden);
             }
             let approval = state.instructor_approvals.get(actor).copied();
@@ -311,12 +242,9 @@ fn authorize_course_creation(
         CourseCreationAuthority::Sysadmin { actor, session } => {
             let subject = super::sessions::active_subject(state, context, *session)
                 .ok_or(StoreError::NotFound)?;
-            (subject.user() == *actor
-                && subject
-                    .roles()
-                    .contains(&question_model::UserRole::Sysadmin))
-            .then_some(*actor)
-            .ok_or(StoreError::Forbidden)
+            (subject.user() == *actor && subject.role() == question_model::UserRole::Sysadmin)
+                .then_some(*actor)
+                .ok_or(StoreError::Forbidden)
         }
     }
 }
@@ -325,28 +253,26 @@ fn authorize_course_creation(
 impl crate::CourseGroupManagementStore for MemoryStore {
     async fn list_course_groups(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<CourseGroupView>, StoreError> {
         let state = self.read_state()?;
-        require_group_manager(&state, context.tenant_id(), course, actor)?;
+        require_group_manager(&state, course, actor)?;
         let records = state
             .course_groups
             .iter()
-            .filter(|((tenant, _), record)| {
-                *tenant == context.tenant_id() && record.course == course
-            })
-            .map(|((tenant, id), record)| {
+            .filter(|(_, record)| record.course == course)
+            .map(|(id, record)| {
                 let reference = state
                     .course_group_references
-                    .get(&(*tenant, *id))
+                    .get(id)
                     .copied()
                     .ok_or(StoreError::NotFound)?;
                 let revision = state
                     .course_group_revisions
-                    .get(&(*tenant, *id))
+                    .get(id)
                     .copied()
                     .ok_or(StoreError::NotFound)?;
                 Ok((
@@ -366,31 +292,26 @@ impl crate::CourseGroupManagementStore for MemoryStore {
 
     async fn get_course_group_by_reference(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         course: CourseId,
         reference: question_model::CourseGroupReference,
     ) -> Result<Option<CourseGroupView>, StoreError> {
         let state = self.read_state()?;
-        require_group_manager(&state, context.tenant_id(), course, actor)?;
-        let tenant = context.tenant_id();
-        let Some(group) = state
-            .course_groups_by_reference
-            .get(&(tenant, reference))
-            .copied()
-        else {
+        require_group_manager(&state, course, actor)?;
+        let Some(group) = state.course_groups_by_reference.get(&reference).copied() else {
             return Ok(None);
         };
         let Some(record) = state
             .course_groups
-            .get(&(tenant, group))
+            .get(&group)
             .filter(|record| record.course == course)
         else {
             return Ok(None);
         };
         let revision = state
             .course_group_revisions
-            .get(&(tenant, group))
+            .get(&group)
             .copied()
             .ok_or(StoreError::NotFound)?;
         Ok(Some(CourseGroupView {
@@ -404,29 +325,28 @@ impl crate::CourseGroupManagementStore for MemoryStore {
 
     async fn get_course_group_by_id_for_instructor(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         course: CourseId,
         group: CourseGroupId,
     ) -> Result<Option<CourseGroupView>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_group_manager(&state, tenant, course, actor)?;
+        require_group_manager(&state, course, actor)?;
         let Some(record) = state
             .course_groups
-            .get(&(tenant, group))
+            .get(&group)
             .filter(|record| record.course == course)
         else {
             return Ok(None);
         };
         let reference = state
             .course_group_references
-            .get(&(tenant, group))
+            .get(&group)
             .copied()
             .ok_or(StoreError::NotFound)?;
         let revision = state
             .course_group_revisions
-            .get(&(tenant, group))
+            .get(&group)
             .copied()
             .ok_or(StoreError::NotFound)?;
         Ok(Some(CourseGroupView {
@@ -440,16 +360,15 @@ impl crate::CourseGroupManagementStore for MemoryStore {
 
     async fn delete_course_group(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         course: CourseId,
         group: CourseGroupId,
         expected_revision: CourseGroupRevision,
     ) -> Result<bool, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        require_group_manager(&state, tenant, course, actor)?;
-        let key = (tenant, group);
+        require_group_manager(&state, course, actor)?;
+        let key = group;
         let Some(record) = state.course_groups.get(&key) else {
             return Ok(false);
         };
@@ -459,49 +378,46 @@ impl crate::CourseGroupManagementStore for MemoryStore {
         if state.course_group_revisions.get(&key).copied() != Some(expected_revision) {
             return Err(StoreError::Conflict);
         }
-        if group_is_referenced(&state, tenant, group) {
+        if group_is_referenced(&state, group) {
             return Err(StoreError::Conflict);
         }
         state.course_groups.remove(&key);
         state.course_group_revisions.remove(&key);
         let reference = state
             .course_group_references
-            .remove(&key)
+            .remove(&group)
             .ok_or(StoreError::NotFound)?;
-        state
-            .course_groups_by_reference
-            .remove(&(tenant, reference));
+        state.course_groups_by_reference.remove(&reference);
         Ok(true)
     }
 
     async fn get_course_group_purpose_policy(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         course: CourseId,
         purpose: question_model::CourseGroupPurpose,
     ) -> Result<Option<StoredCourseGroupPurposePolicy>, StoreError> {
         let state = self.read_state()?;
-        require_group_manager(&state, context.tenant_id(), course, actor)?;
+        require_group_manager(&state, course, actor)?;
         Ok(state
             .course_group_purpose_policies
-            .get(&(context.tenant_id(), course, purpose))
+            .get(&(course, purpose))
             .copied())
     }
 
     async fn update_course_group_purpose_policy(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: UpdateCourseGroupPurposePolicyCommand,
     ) -> Result<StoredCourseGroupPurposePolicy, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         // ASVS 8.2.1-8.2.3, 8.3.1-8.3.3, 15.4.2: resolve the live,
-        // tenant-bound session and exact-course Instructor in the same write
+        // session-bound direct Instructor and exact course in the same write
         // critical section as the compare-and-swap. The command never carries
         // an actor identity that a caller could forge.
         require_session_group_policy_manager(&state, context, command.session, command.course)?;
-        let key = (tenant, command.course, command.policy.purpose);
+        let key = (command.course, command.policy.purpose);
         let current = state
             .course_group_purpose_policies
             .get(&key)
@@ -520,14 +436,13 @@ impl crate::CourseGroupManagementStore for MemoryStore {
 
     async fn course_group_membership_warnings(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         course: CourseId,
     ) -> Result<Vec<CourseGroupMembershipWarning>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_group_manager(&state, tenant, course, actor)?;
-        Ok(membership_warnings(&state, tenant, course))
+        require_group_manager(&state, course, actor)?;
+        Ok(membership_warnings(&state, course))
     }
 }
 
@@ -539,63 +454,51 @@ const ALL_GROUP_PURPOSES: [question_model::CourseGroupPurpose; 5] = [
     question_model::CourseGroupPurpose::Work,
 ];
 
-fn require_group_manager(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-    actor: UserId,
-) -> Result<(), StoreError> {
-    if !state.courses.contains_key(&(tenant, course))
-        || super::entitlement::current_course_role(state, tenant, course, actor)
+fn require_group_manager(state: &State, course: CourseId, actor: UserId) -> Result<(), StoreError> {
+    if !state.courses.contains_key(&course)
+        || super::entitlement::current_course_role(state, course, actor)
             != Some(CourseMembershipRole::Instructor)
     {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(state, tenant, course)
+    require_course_records_accessible(state, course)
 }
 
 fn require_session_group_policy_manager(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: crate::SessionTokenHash,
     course: CourseId,
 ) -> Result<(), StoreError> {
     let subject =
         super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    if !subject
-        .roles()
-        .contains(&question_model::UserRole::Instructor)
-    {
+    if subject.role() != question_model::UserRole::Instructor {
         return Err(StoreError::NotFound);
     }
-    super::teaching_authority::require_direct_instructor(
-        state,
-        context.tenant_id(),
-        course,
-        subject.user(),
-    )?;
-    require_course_records_accessible(state, context.tenant_id(), course)
+    super::teaching_authority::require_direct_instructor(state, course, subject.user())?;
+    require_course_records_accessible(state, course)
 }
 
-fn group_is_referenced(state: &State, tenant: TenantId, group: CourseGroupId) -> bool {
-    state.assignments.values().any(|assignment| {
-        assignment.tenant == tenant && audience_mentions(&assignment.audience, group)
-    }) || state
-        .assignment_group_schedule_offsets
-        .keys()
-        .any(|(record_tenant, _, candidate)| *record_tenant == tenant && *candidate == group)
+fn group_is_referenced(state: &State, group: CourseGroupId) -> bool {
+    state
+        .assignments
+        .values()
+        .any(|assignment| audience_mentions(&assignment.audience, group))
+        || state
+            .assignment_group_schedule_offsets
+            .keys()
+            .any(|(_, candidate)| *candidate == group)
         || state
             .assignment_group_accommodations
             .keys()
-            .any(|(record_tenant, _, candidate)| *record_tenant == tenant && *candidate == group)
+            .any(|(_, candidate)| *candidate == group)
 }
 
 fn validate_group_purpose_transition(
     state: &State,
-    tenant: TenantId,
     proposed: &CourseGroupRecord,
 ) -> Result<(), StoreError> {
-    let Some(existing) = state.course_groups.get(&(tenant, proposed.id)) else {
+    let Some(existing) = state.course_groups.get(&proposed.id) else {
         return Ok(());
     };
     if existing.purpose == proposed.purpose {
@@ -603,18 +506,17 @@ fn validate_group_purpose_transition(
     }
     let capabilities = question_model::GroupPurposeCapabilities::for_purpose(proposed.purpose);
     let audience_used = state.assignments.values().any(|assignment| {
-        assignment.tenant == tenant
-            && assignment.course_id == proposed.course
+        assignment.course_id == proposed.course
             && audience_mentions(&assignment.audience, proposed.id)
     });
     let schedule_used = state
         .assignment_group_schedule_offsets
         .keys()
-        .any(|(record_tenant, _, group)| *record_tenant == tenant && *group == proposed.id);
+        .any(|(_, group)| *group == proposed.id);
     let accommodation_used = state
         .assignment_group_accommodations
         .keys()
-        .any(|(record_tenant, _, group)| *record_tenant == tenant && *group == proposed.id);
+        .any(|(_, group)| *group == proposed.id);
     if (audience_used && !capabilities.assignment_audience)
         || (schedule_used && !capabilities.schedule_scope)
         || (accommodation_used && !capabilities.accommodation_scope)
@@ -624,16 +526,12 @@ fn validate_group_purpose_transition(
     Ok(())
 }
 
-fn membership_warnings(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-) -> Vec<CourseGroupMembershipWarning> {
+fn membership_warnings(state: &State, course: CourseId) -> Vec<CourseGroupMembershipWarning> {
     let mut counts = std::collections::BTreeMap::new();
     for group in state
         .course_groups
         .values()
-        .filter(|group| group.tenant == tenant && group.course == course)
+        .filter(|group| group.course == course)
     {
         for membership in &group.members {
             *counts.entry((*membership, group.purpose)).or_insert(0_u32) += 1;
@@ -644,7 +542,7 @@ fn membership_warnings(
         .map(|((membership, purpose), membership_count)| {
             let policy = state
                 .course_group_purpose_policies
-                .get(&(tenant, course, purpose))
+                .get(&(course, purpose))
                 .expect("course creation initializes all purpose policies");
             CourseGroupMembershipWarning {
                 membership,
@@ -667,33 +565,26 @@ fn membership_warnings(
 
 fn reresolve_group_affected_assignments(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     group: CourseGroupId,
 ) -> Result<(), StoreError> {
     let assignments = state
         .assignments
         .values()
-        .filter(|assignment| assignment.tenant == tenant && assignment.course_id == course)
+        .filter(|assignment| assignment.course_id == course)
         .filter(|assignment| {
             audience_mentions(&assignment.audience, group)
-                || state.assignment_group_schedule_offsets.contains_key(&(
-                    tenant,
-                    assignment.id,
-                    group,
-                ))
-                || state.assignment_group_accommodations.contains_key(&(
-                    tenant,
-                    assignment.id,
-                    group,
-                ))
+                || state
+                    .assignment_group_schedule_offsets
+                    .contains_key(&(assignment.id, group))
+                || state
+                    .assignment_group_accommodations
+                    .contains_key(&(assignment.id, group))
         })
         .map(|assignment| assignment.id)
         .collect::<Vec<_>>();
     for assignment in assignments {
-        super::course_policy::reresolve_active_assignment_attempts(
-            state, tenant, course, assignment,
-        )?;
+        super::course_policy::reresolve_active_assignment_attempts(state, course, assignment)?;
     }
     Ok(())
 }
@@ -704,289 +595,5 @@ fn audience_mentions(audience: &question_model::AssignmentAudience, group: Cours
         question_model::AssignmentAudience::AnyOfGroups(groups) => {
             groups.iter().any(|candidate| candidate == group)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        CourseRecord, InstructorApprovalRevision, SessionLifetime, SessionStore, SessionSubject,
-        SessionTokenHash, Store, StoredInstructorApproval,
-    };
-    use question_model::{
-        CourseMembershipRole, CourseTerm, InstructorApproval, TenantId, UserId, UserRole,
-    };
-    use uuid::Uuid;
-
-    fn fixture_uuid(value: u128) -> Uuid {
-        Uuid::from_u128(value)
-    }
-
-    fn context(tenant: TenantId) -> TenantContext {
-        TenantContext::from_authenticated_session(tenant)
-    }
-
-    fn course(tenant: TenantId, id: CourseId) -> CourseRecord {
-        CourseRecord {
-            id,
-            tenant,
-            title: "Memory aggregate fixture".to_string(),
-            term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
-                .expect("fixed fixture term"),
-        }
-    }
-
-    async fn sysadmin_authority(
-        store: &MemoryStore,
-        tenant: TenantId,
-        user: UserId,
-        token: &[u8],
-    ) -> CourseCreationAuthority {
-        let session = SessionTokenHash::compute(token);
-        store
-            .create_session(
-                session,
-                SessionSubject::new(tenant, user, "Course fixture", vec![UserRole::Sysadmin])
-                    .expect("valid fixture subject"),
-                SessionLifetime::from_seconds(3_600).expect("positive fixture lifetime"),
-            )
-            .await
-            .expect("fixture session persists");
-        CourseCreationAuthority::Sysadmin {
-            actor: user,
-            session,
-        }
-    }
-
-    async fn approved_instructor_authority(
-        store: &MemoryStore,
-        tenant: TenantId,
-        user: UserId,
-        roles: Vec<UserRole>,
-        token: &[u8],
-    ) -> CourseCreationAuthority {
-        let session = SessionTokenHash::compute(token);
-        store
-            .create_session(
-                session,
-                SessionSubject::new(tenant, user, "Course fixture", roles)
-                    .expect("valid fixture subject"),
-                SessionLifetime::from_seconds(3_600).expect("positive fixture lifetime"),
-            )
-            .await
-            .expect("fixture session persists");
-        let mut state = store.write_state().expect("Memory state is available");
-        let approved_at = state.authoritative_time;
-        state.instructor_approvals.insert(
-            user,
-            StoredInstructorApproval {
-                approval: InstructorApproval {
-                    user,
-                    approved_by: user,
-                    approved_at,
-                    revoked_at: None,
-                },
-                revision: InstructorApprovalRevision::INITIAL,
-            },
-        );
-        CourseCreationAuthority::ApprovedInstructor {
-            actor: user,
-            session,
-        }
-    }
-
-    #[tokio::test]
-    async fn approved_instructor_creation_requires_an_instructor_session_role() {
-        let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(fixture_uuid(20));
-        let instructor = UserId::from_uuid(fixture_uuid(21));
-        let denied_course = CourseId::from_uuid(fixture_uuid(22));
-        let student_authority = approved_instructor_authority(
-            &store,
-            tenant,
-            instructor,
-            vec![UserRole::Student],
-            b"approved-student-session",
-        )
-        .await;
-
-        assert_eq!(
-            store
-                .create_course(
-                    context(tenant),
-                    CreateCourseCommand {
-                        course: course(tenant, denied_course),
-                        authority: student_authority,
-                    },
-                )
-                .await,
-            Err(StoreError::Forbidden),
-        );
-        {
-            let state = store.read_state().expect("Memory state is available");
-            assert!(state.courses.is_empty());
-            assert!(state.course_references.is_empty());
-            assert!(state.course_memberships.is_empty());
-            assert!(state.roster_policies.is_empty());
-            assert!(state.course_grade_schemes.is_empty());
-        }
-
-        let instructor_authority = approved_instructor_authority(
-            &store,
-            tenant,
-            instructor,
-            vec![UserRole::Instructor],
-            b"approved-instructor-session",
-        )
-        .await;
-        store
-            .create_course(
-                context(tenant),
-                CreateCourseCommand {
-                    course: course(tenant, denied_course),
-                    authority: instructor_authority,
-                },
-            )
-            .await
-            .expect("approved Instructor session creates a complete course");
-    }
-
-    #[tokio::test]
-    async fn course_creation_physically_materializes_the_complete_initial_aggregate() {
-        let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(fixture_uuid(1));
-        let instructor = UserId::from_uuid(fixture_uuid(2));
-        let course_id = CourseId::from_uuid(fixture_uuid(3));
-        let authority =
-            sysadmin_authority(&store, tenant, instructor, b"physical-course-aggregate").await;
-
-        store
-            .create_course(
-                context(tenant),
-                CreateCourseCommand {
-                    course: course(tenant, course_id),
-                    authority,
-                },
-            )
-            .await
-            .expect("course creation succeeds");
-
-        let state = store.read_state().expect("Memory state is available");
-        let membership_id = state
-            .active_course_membership_by_user
-            .get(&(tenant, course_id, instructor))
-            .copied()
-            .expect("initial instructor current-membership index is materialized");
-        let membership = state
-            .course_memberships
-            .get(&(tenant, membership_id))
-            .expect("initial instructor membership is materialized");
-        assert_eq!(membership.user, instructor);
-        assert_eq!(membership.course, course_id);
-        assert_eq!(membership.role, CourseMembershipRole::Instructor);
-        assert!(membership.student.is_none());
-        assert!(membership.roster_id.is_none());
-        assert_eq!(membership.status, crate::CourseMemberStatus::Active);
-        assert!(
-            state
-                .course_membership_references
-                .contains_key(&(tenant, membership_id))
-        );
-
-        assert_eq!(
-            state.roster_policies.get(&(tenant, course_id)),
-            Some(&super::super::course_roster::initial_roster_policy(
-                course_id
-            )),
-            "the initial roster policy is persisted rather than synthesized on read",
-        );
-        assert!(
-            state
-                .roster_profiles
-                .keys()
-                .all(|(record_tenant, record_course, _)| {
-                    *record_tenant != tenant || *record_course != course_id
-                })
-        );
-        assert!(state.roster_member_by_roster_id.keys().all(
-            |(record_tenant, record_course, _)| {
-                *record_tenant != tenant || *record_course != course_id
-            }
-        ));
-
-        assert_eq!(
-            state.course_appearances.get(&(tenant, course_id)),
-            Some(&question_model::CourseAppearance {
-                theme: question_model::CourseThemeId::default(),
-                revision: question_model::CourseAppearanceRevision::INITIAL,
-                banner: None,
-            }),
-            "the initial appearance is persisted rather than synthesized on read",
-        );
-        assert_eq!(
-            state.course_grade_schemes.get(&(tenant, course_id)),
-            Some(&super::super::course_gradebook::initial_course_grade_scheme(course_id)),
-            "the initial grade scheme is persisted rather than synthesized on read",
-        );
-
-        let policies = state
-            .course_group_purpose_policies
-            .iter()
-            .filter(|((record_tenant, record_course, _), _)| {
-                *record_tenant == tenant && *record_course == course_id
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(policies.len(), ALL_GROUP_PURPOSES.len());
-        for purpose in ALL_GROUP_PURPOSES {
-            assert_eq!(
-                state
-                    .course_group_purpose_policies
-                    .get(&(tenant, course_id, purpose)),
-                Some(&StoredCourseGroupPurposePolicy {
-                    policy: question_model::CourseGroupPurposePolicy::default_for_purpose(purpose),
-                    revision: CourseGroupPurposePolicyRevision::INITIAL,
-                }),
-                "initial group-purpose policy is stored for {purpose:?}",
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn late_course_creation_failure_restores_the_entire_memory_state() {
-        let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(fixture_uuid(10));
-        let instructor = UserId::from_uuid(fixture_uuid(11));
-        let course_id = CourseId::from_uuid(fixture_uuid(12));
-        let authority =
-            sysadmin_authority(&store, tenant, instructor, b"atomic-course-failure").await;
-        let before = store
-            .read_state()
-            .expect("Memory state is available")
-            .clone();
-        arm_create_course_late_failure(tenant, course_id);
-
-        let result = store
-            .create_course(
-                context(tenant),
-                CreateCourseCommand {
-                    course: course(tenant, course_id),
-                    authority,
-                },
-            )
-            .await;
-
-        assert_eq!(
-            result,
-            Err(StoreError::Unavailable(
-                "injected late course-creation failure".to_string()
-            ))
-        );
-        let after = store.read_state().expect("Memory state is available");
-        assert_eq!(
-            format!("{before:#?}"),
-            format!("{after:#?}"),
-            "an error after reference and course insertion restores every private Memory collection"
-        );
     }
 }

@@ -6,7 +6,7 @@ use question_model::{
     TeachingOperationRevision, UserId,
 };
 
-use crate::{StoreError, TenantContext};
+use crate::{ActorContext, StoreError};
 
 /// Executes one authorized pool sample without creating learner work or
 /// evidence. The supplied nonce is freshly minted by the trusted server and
@@ -25,7 +25,7 @@ pub struct PoolPreviewCommand {
 pub trait PoolPreviewStore: Send + Sync {
     async fn preview_pool_draw(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: PoolPreviewCommand,
     ) -> Result<PoolDrawPreview, StoreError>;
 }

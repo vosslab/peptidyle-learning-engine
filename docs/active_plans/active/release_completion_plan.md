@@ -16,20 +16,20 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 
 ### In-scope decision ledger
 
-| Topic | Binding decision | Owner |
-| --- | --- | --- |
-| Installation and roles | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership/Student ownership, not an institution or tenant boundary. Sysadmin provisioning assigns an approved Instructor account and creates no Sysadmin membership; support is explicit and audited. | WP-SD1 |
-| Reusable courses | A revisioned `BlueprintCourse` owns reusable ordered structure. Every `CourseInstance` has one immutable Blueprint parent and applied revision; it alone owns Students, deadlines, releases, accommodations, grades, and delivery state. | WP-SD1-B--G |
-| Published questions | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionVersion` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically. | WP-R2, WP-SD1 |
-| Question stewardship | Moderate owner edits, validated exact-base Change Proposals, full private-draft forks, and audited Sysadmin ForcedQuestionCorrections preserve attribution, compatible CC licensing, history, and exact pins. UI label: **Suggest an improvement**. | WP-R2, WP-SD1 |
-| Native questions | Closed PLE flat JSON v2 is the native source for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Public projections are answer-free; grading remains server-owned. | WP-RC4, WP-RC5 |
-| Variation and grades | New runs use `newSeeds`; resumed issued attempts retain their seed. The grade default is `highest`. | WP-RC0, WP-PROF-T5, WP-PROF-G1--G5 |
-| Retention | CourseInstance Student records notify at 30 days, archive at 100, delete at 365; course-owned assignment definitions remain. Aggregate publication requires k >= 5. | WP-RC0, WP-SD1 |
-| Adapters | QTI profiles are strict and lossless or refuse. Canvas/Blackboard export is background work. H5P is ungraded practice unless translated losslessly into the protected native model. | WP-RC6 |
-| Objects | Database records define intended bytes; inventory proves storage. Reconciliation uses two observations and reference rechecks. A dedicated publisher alone activates immutable public copies. | WP-RC7 |
-| Identity and enrollment | Email code is canonical; passkeys are optional convenience credentials on the same global account. Invitations create exact course membership and Student records atomically. | WP-RC8 |
-| LTI | LTI 1.3 launch and AGS passback use verified server credentials and summary-derived grades only. | WP-RC9 |
-| Deployment and traffic | OpenTofu owns disposable AWS infrastructure. Anonymous landing traffic terminates at static edge storage; authenticated requests have bounded cost and no client analytics. | WP-RC10, WP-RC11 |
+| Topic                   | Binding decision                                                                                                                                                                                                                                                                                                                                                            | Owner                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Installation and roles  | One PLE installation has global accounts. Each account has one immutable Student, Instructor, or Sysadmin role; people needing multiple roles use separate accounts. Course authority is matching exact membership and Student ownership. Sysadmin provisioning assigns an approved Instructor account and creates no Sysadmin membership; support is explicit and audited. | WP-SD1                             |
+| Reusable courses        | A revisioned `BlueprintCourse` owns reusable ordered structure. Every `CourseInstance` has one immutable Blueprint parent and applied revision; it alone owns Students, deadlines, releases, accommodations, grades, and delivery state.                                                                                                                                    | WP-SD1-B--G                        |
+| Published questions     | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionVersion` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically.                                                                                                                                                                                 | WP-R2, WP-SD1                      |
+| Question stewardship    | Moderate owner edits, validated exact-base Change Proposals, full private-draft forks, and audited Sysadmin ForcedQuestionCorrections preserve attribution, compatible CC licensing, history, and exact pins. UI label: **Suggest an improvement**.                                                                                                                         | WP-R2, WP-SD1                      |
+| Native questions        | Closed PLE flat JSON v2 is the native source for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Public projections are answer-free; grading remains server-owned.                                                                                                                                                                                                  | WP-RC4, WP-RC5                     |
+| Variation and grades    | New runs use `newSeeds`; resumed issued attempts retain their seed. The grade default is `highest`.                                                                                                                                                                                                                                                                         | WP-RC0, WP-PROF-T5, WP-PROF-G1--G5 |
+| Retention               | CourseInstance Student records notify at 30 days, archive at 100, delete at 365; course-owned assignment definitions remain. Aggregate publication requires k >= 5.                                                                                                                                                                                                         | WP-RC0, WP-SD1                     |
+| Adapters                | QTI profiles are strict and lossless or refuse. Canvas/Blackboard export is background work. H5P is ungraded practice unless translated losslessly into the protected native model.                                                                                                                                                                                         | WP-RC6                             |
+| Objects                 | Database records define intended bytes; inventory proves storage. Reconciliation uses two observations and reference rechecks. A dedicated publisher alone activates immutable public copies.                                                                                                                                                                               | WP-RC7                             |
+| Identity and enrollment | Email code is canonical; passkeys are optional convenience credentials on the same global account. Invitations create exact course membership and Student records atomically.                                                                                                                                                                                               | WP-RC8                             |
+| LTI                     | LTI 1.3 launch and AGS passback use verified server credentials and summary-derived grades only.                                                                                                                                                                                                                                                                            | WP-RC9                             |
+| Deployment and traffic  | OpenTofu owns disposable AWS infrastructure. Anonymous landing traffic terminates at static edge storage; authenticated requests have bounded cost and no client analytics.                                                                                                                                                                                                 | WP-RC10, WP-RC11                   |
 
 ### Out-of-scope decisions
 
@@ -56,35 +56,35 @@ it while atomically creating the bound CourseInstance and initial Instructor mem
 records; `2026082930` owns forced RLS for CourseInstance roots and dependent private state.
 `2026082906` owns the shared Rust
 actor-transaction installer. Curriculum adoption has exactly seven operations and never creates a
-blank CourseInstance. An apply receives scope only from session-derived `ActorContext`; neither
-adapter nor broker accepts a tenant.
+blank CourseInstance. An apply receives scope only from session-derived `ActorContext`; adapters
+and brokers receive no client-supplied installation scope.
 
 No current product type, route, Store capability, PostgreSQL table/function/policy, generated contract, live-demo resource, or screenshot may use Alpha as a Peptidyle product concept. Historical migrations, changelogs, and ADAPT comparison material remain evidence rather than compatibility contracts. Fresh SD1-C allocations belong only in [implementation_status.md](../implementation_status.md).
 
 ### Cutover evidence boundary
 
-| Claim | Evidence |
-| --- | --- |
-| Aggregate normalization, revision races, propagation, and private delivery state | Permanent focused Rust/Memory/Node behavior and contract tests |
-| Global published-catalog visibility, CourseInstance isolation, broker authority, and fresh/no-op migration | Disposable PostgreSQL/RLS acceptance |
-| Create, revise, publish, select, instantiate, update, and release workflows | Production HTTPS browser acceptance through `run_playwright_tests.sh --build` |
-| Hierarchy, release state, recovery, focus, contrast, and product vocabulary | Rendered screenshots plus independent visual review |
-| Complete material tree | `source source_me.sh && ./all_test.sh`, with every required lane passing |
+| Claim                                                                                                      | Evidence                                                                      |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Aggregate normalization, revision races, propagation, and private delivery state                           | Permanent focused Rust/Memory/Node behavior and contract tests                |
+| Global published-catalog visibility, CourseInstance isolation, broker authority, and fresh/no-op migration | Disposable PostgreSQL/RLS acceptance                                          |
+| Create, revise, publish, select, instantiate, update, and release workflows                                | Production HTTPS browser acceptance through `run_playwright_tests.sh --build` |
+| Hierarchy, release state, recovery, focus, contrast, and product vocabulary                                | Rendered screenshots plus independent visual review                           |
+| Complete material tree                                                                                     | `source source_me.sh && ./all_test.sh`, with every required lane passing      |
 
 ## Architecture and ownership
 
-| Boundary | Owner | Rule |
-| --- | --- | --- |
-| Product decisions | `docs/HUMAN_GUIDANCE.md` and this plan | Human Guidance remains terse owner intent; settled engineering interpretation belongs here or in [DESIGN_DECISIONS.md](../../DESIGN_DECISIONS.md). |
-| Public question contracts | `crates/question_model` | Generate answer-free TypeScript contracts. |
-| Source adapters | `crates/adapters/{native,qti,webwork,h5p,imathas}` | One strict versioned adapter per format. |
-| Grading | `crates/grading` plus server-only adapter capabilities | No browser, generated TypeScript, or Wasm grading authority. |
-| Persistence | `crates/learning-data-access`, `schemas/migrations` | Memory/PostgreSQL parity; PostgreSQL is production authority. |
-| Objects | `crates/objects` | Typed keys, checksums, role-based delivery, inventory, reconciliation. |
-| HTTP and workers | `crates/server` | Bounded same-origin requests; durable jobs carry explicit least authority. |
-| Browser | `src/` | Strict decoders, accessible visible workflows, no source archive parsing. |
-| Local stack | `local_stack_control/`, `containers/` | Python owns complex orchestration; shell entry points are direct facades. |
-| Deployment | `deploy/opentofu/` | Declarative, reviewable, disposable before activation. |
+| Boundary                  | Owner                                                  | Rule                                                                                                                                               |
+| ------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product decisions         | `docs/HUMAN_GUIDANCE.md` and this plan                 | Human Guidance remains terse owner intent; settled engineering interpretation belongs here or in [DESIGN_DECISIONS.md](../../DESIGN_DECISIONS.md). |
+| Public question contracts | `crates/question_model`                                | Generate answer-free TypeScript contracts.                                                                                                         |
+| Source adapters           | `crates/adapters/{native,qti,webwork,h5p,imathas}`     | One strict versioned adapter per format.                                                                                                           |
+| Grading                   | `crates/grading` plus server-only adapter capabilities | No browser, generated TypeScript, or Wasm grading authority.                                                                                       |
+| Persistence               | `crates/learning-data-access`, `schemas/migrations`    | Memory/PostgreSQL parity; PostgreSQL is production authority.                                                                                      |
+| Objects                   | `crates/objects`                                       | Typed keys, checksums, role-based delivery, inventory, reconciliation.                                                                             |
+| HTTP and workers          | `crates/server`                                        | Bounded same-origin requests; durable jobs carry explicit least authority.                                                                         |
+| Browser                   | `src/`                                                 | Strict decoders, accessible visible workflows, no source archive parsing.                                                                          |
+| Local stack               | `local_stack_control/`, `containers/`                  | Python owns complex orchestration; shell entry points are direct facades.                                                                          |
+| Deployment                | `deploy/opentofu/`                                     | Declarative, reviewable, disposable before activation.                                                                                             |
 
 ## Dependency order
 
@@ -120,14 +120,14 @@ source source_me.sh && ./all_test.sh
 
 `all_test.sh` owns `check_rust.sh`, `check_codebase.sh`, repository pytest, and `local_stack.py acceptance`. The controller runs one `run_playwright_tests.sh --build` browser lane plus distinct database/RLS, course-appearance, WebWork renderer, and replica-restart service oracles. `tests/e2e/e2e_run_all.sh` is an explicit non-browser bulk E2E owner, never a second aggregate. Development SKIP output names a missing prerequisite; release evidence requires PASS.
 
-| Evidence class | Owner | Claim |
-| --- | --- | --- |
-| Permanent offline | `all_test.sh` | Stable Rust, TypeScript, Node, Python, generated-contract, security, and hygiene behavior |
-| Real service acceptance | `local_stack.py acceptance` | PostgreSQL/RLS, objects, renderer, replica, and real-browser boundaries |
-| Production browser | `run_playwright_tests.sh --build` | Built bundle through HTTPS gateway and real UI-created state |
-| Screenshot publication | `capture_screenshots.sh` | Rendered production-origin states when UI, corpus, or viewport contracts change |
-| One-time evidence | Graphify and direct probes | Narrow decision/migration/config disposition, not permanent tests |
-| Human acceptance | Independent review and walkthrough | Teaching workflow, accessibility, visual sense-making, legal/activation decisions |
+| Evidence class          | Owner                              | Claim                                                                                     |
+| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| Permanent offline       | `all_test.sh`                      | Stable Rust, TypeScript, Node, Python, generated-contract, security, and hygiene behavior |
+| Real service acceptance | `local_stack.py acceptance`        | PostgreSQL/RLS, objects, renderer, replica, and real-browser boundaries                   |
+| Production browser      | `run_playwright_tests.sh --build`  | Built bundle through HTTPS gateway and real UI-created state                              |
+| Screenshot publication  | `capture_screenshots.sh`           | Rendered production-origin states when UI, corpus, or viewport contracts change           |
+| One-time evidence       | Graphify and direct probes         | Narrow decision/migration/config disposition, not permanent tests                         |
+| Human acceptance        | Independent review and walkthrough | Teaching workflow, accessibility, visual sense-making, legal/activation decisions         |
 
 The final handoff records command, date, material-tree state, environment, receipt path, and limitations for every required evidence class.
 
@@ -137,18 +137,18 @@ The shared migration ledger in [implementation_status.md](../implementation_stat
 
 ## Risk register
 
-| Risk | Owner | Control |
-| --- | --- | --- |
-| Documentation substitutes for product evidence | Release integrator | Package acceptance requires working behavior and evidence. |
-| Adapter output leaks answers or unsafe markup | Adapter owner | Strict translation, sanitization, private network, browser trace. |
-| New family exposes answer material | Family owner | Public/private compilation, DTO scans, server-only grading. |
-| Reconciliation deletes valid concurrent bytes | Object owner | Two observations, quarantine, reference recheck, idempotency. |
-| Role/membership disagreement selects course authority | Auth owner | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
-| Published bytes escape before commit | Object owner | Transactional pending registry and dedicated publisher. |
-| External dispatch outcome is unknown | External-tool owner | Durable lease-bound marker and explicit operator resolution. |
-| Deployment exposes secrets or broad destroy | Deployment owner | Secret references, unique tags, reviewed plan, bounded destroy. |
-| Bot protection harms legitimate users | Edge owner | Count mode, accessible recovery, versioned legitimate corpus, rollback. |
-| Pilot begins before activation evidence | Product owner | Separate signed production-activation checklist. |
+| Risk                                                  | Owner               | Control                                                                                                                    |
+| ----------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Documentation substitutes for product evidence        | Release integrator  | Package acceptance requires working behavior and evidence.                                                                 |
+| Adapter output leaks answers or unsafe markup         | Adapter owner       | Strict translation, sanitization, private network, browser trace.                                                          |
+| New family exposes answer material                    | Family owner        | Public/private compilation, DTO scans, server-only grading.                                                                |
+| Reconciliation deletes valid concurrent bytes         | Object owner        | Two observations, quarantine, reference recheck, idempotency.                                                              |
+| Role/membership disagreement selects course authority | Auth owner          | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
+| Published bytes escape before commit                  | Object owner        | Transactional pending registry and dedicated publisher.                                                                    |
+| External dispatch outcome is unknown                  | External-tool owner | Durable lease-bound marker and explicit operator resolution.                                                               |
+| Deployment exposes secrets or broad destroy           | Deployment owner    | Secret references, unique tags, reviewed plan, bounded destroy.                                                            |
+| Bot protection harms legitimate users                 | Edge owner          | Count mode, accessible recovery, versioned legitimate corpus, rollback.                                                    |
+| Pilot begins before activation evidence               | Product owner       | Separate signed production-activation checklist.                                                                           |
 
 ## Rollout and closeout
 

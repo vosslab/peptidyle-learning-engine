@@ -113,7 +113,7 @@ fn accepted_submission_fast_path_error_class(error: &StoreError) -> &'static str
     match error {
         StoreError::NotFound => "not_found",
         StoreError::AlreadyExists => "already_exists",
-        StoreError::TenantMismatch => "tenant_mismatch",
+        StoreError::OwnershipMismatch => "ownership_mismatch",
         StoreError::Conflict => "conflict",
         StoreError::RetryableTransaction => "retryable_transaction",
         StoreError::Forbidden => "forbidden",

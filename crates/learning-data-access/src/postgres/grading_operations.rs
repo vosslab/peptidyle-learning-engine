@@ -86,7 +86,6 @@ impl AutomatedGradingStore for PostgresStore {
             })?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(AcceptedSubmission {
-            tenant: TenantId::from_uuid(row.try_get("accepted_tenant_id").map_err(map_sqlx_error)?),
             course: CourseId::from_uuid(row.try_get("accepted_course_id").map_err(map_sqlx_error)?),
             assignment: AssignmentId::from_uuid(
                 row.try_get("accepted_assignment_id")
@@ -199,7 +198,7 @@ impl AcceptedSubmissionExecutionCore {
 
         let accepted = decode_accepted_submission_row(&row)
             .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
-        if accepted.tenant != tenant || accepted.submission != claim.submission {
+        if accepted.submission != claim.submission {
             return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         let response_canonical_json: String = row
@@ -218,7 +217,7 @@ impl AcceptedSubmissionExecutionCore {
         let prepared =
             super::submission_preparation::decode_prepared_accepted_submission_execution(&row)
                 .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
-        if prepared.attempt.tenant != accepted.tenant || prepared.attempt.id != accepted.attempt {
+        if prepared.attempt.tenant != tenant || prepared.attempt.id != accepted.attempt {
             return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
@@ -665,7 +664,6 @@ fn decode_worker_claim(
         .try_get::<i64, _>("execution_generation")
         .map_err(map_sqlx_error)?;
     Ok(AcceptedSubmissionExecutionClaim {
-        tenant: TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?),
         job: crate::JobId::from_uuid(row.try_get("worker_job_id").map_err(map_sqlx_error)?),
         lease_token: JobLeaseToken::from_uuid(returned_lease),
         submission: AcceptedSubmissionId::from_uuid(
@@ -748,7 +746,6 @@ fn decode_accepted_submission_row(
         StoreError::InvalidRecord("invalid stored accepted-submission digest".to_string())
     })?;
     Ok(AcceptedSubmission {
-        tenant: TenantId::from_uuid(row.try_get("accepted_tenant_id").map_err(map_sqlx_error)?),
         course: CourseId::from_uuid(row.try_get("accepted_course_id").map_err(map_sqlx_error)?),
         assignment: AssignmentId::from_uuid(
             row.try_get("accepted_assignment_id")

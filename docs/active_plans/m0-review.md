@@ -9,7 +9,7 @@
 
 The goal is to implement the Peptidyle Learning Engine against
 `docs/active_plans/implementation_plan.md` as source of truth, in milestone order, preserving
-server-only grading, tenant isolation, immutable published content, and the
+server-only grading, actor-scoped access, immutable published content, and the
 TypeScript/Solid/Rust/WASM/PostgreSQL/object-storage/container architecture.
 
 Work so far is the M0 foundation: a 13-crate Cargo workspace (128 lines of Rust, all stubs), a
@@ -28,27 +28,27 @@ gap is that the foundation was staged and reported without ever passing a gate.
 
 ## M0 work package status
 
-| WP | Acceptance | Status | Evidence |
-| --- | --- | --- | --- |
-| WP-F1 | Every crate exists and compiles empty; current edition; `Cargo.lock` committed | FAIL | 4 crates have syntax errors; `edition = 2021` not 2024; `Cargo.lock` committed (328 packages) |
-| WP-F2 | `wasm-bindgen` output to gitignored staging dir; trivial export callable from Node; toolchain pinned | FAIL | No staging dir, no Node call path, no `rust-toolchain.toml` |
-| WP-F3 | Build delegates to `node pipeline/build.mjs` with `esbuild-plugin-solid`; tsconfig jsx fields; `src/log.ts`; placeholders filled; `clean` fixed | FAIL | Every sub-criterion unmet; `pipeline/build.mjs` is 0 bytes |
-| WP-F4 | `containers/Containerfile.api`, `containers/compose.yaml`, `/health` behind real `SELECT 1` + bucket probe | NOT STARTED | No `containers/` directory |
-| WP-F5 | `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace` in `check_codebase.sh` | NOT STARTED | `check_codebase.sh` still has 5 TypeScript-only steps |
-| WP-F6 | README first paragraph passing its test; `docs/CODE_ARCHITECTURE.md`; `pytest tests/` green | FAIL | `README.md` is 0 bytes; no `docs/CODE_ARCHITECTURE.md` |
+| WP    | Acceptance                                                                                                                                      | Status      | Evidence                                                                                      |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------- |
+| WP-F1 | Every crate exists and compiles empty; current edition; `Cargo.lock` committed                                                                  | FAIL        | 4 crates have syntax errors; `edition = 2021` not 2024; `Cargo.lock` committed (328 packages) |
+| WP-F2 | `wasm-bindgen` output to gitignored staging dir; trivial export callable from Node; toolchain pinned                                            | FAIL        | No staging dir, no Node call path, no `rust-toolchain.toml`                                   |
+| WP-F3 | Build delegates to `node pipeline/build.mjs` with `esbuild-plugin-solid`; tsconfig jsx fields; `src/log.ts`; placeholders filled; `clean` fixed | FAIL        | Every sub-criterion unmet; `pipeline/build.mjs` is 0 bytes                                    |
+| WP-F4 | `containers/Containerfile.api`, `containers/compose.yaml`, `/health` behind real `SELECT 1` + bucket probe                                      | NOT STARTED | No `containers/` directory                                                                    |
+| WP-F5 | `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace` in `check_codebase.sh`                                             | NOT STARTED | `check_codebase.sh` still has 5 TypeScript-only steps                                         |
+| WP-F6 | README first paragraph passing its test; `docs/CODE_ARCHITECTURE.md`; `pytest tests/` green                                                     | FAIL        | `README.md` is 0 bytes; no `docs/CODE_ARCHITECTURE.md`                                        |
 
 ## Blockers: the workspace does not compile
 
 Each of these is a hard `rustc` error, not a lint.
 
-| File:line | Defect | Fix |
-| --- | --- | --- |
-| `crates/objects/src/lib.rs:4` | `pub mod memory;    / MemoryObjectStore ...` - a single `/` is not a comment token | `//` |
-| `crates/learning-data-access/src/lib.rs:4-5` | `pub mod postgres;   # pg_backend ...` - Python comment syntax in Rust, two lines | `//` |
-| `crates/export/src/lib.rs:3-4` | `pub mod docx;   Microsoft Word format output` - bare prose, no comment marker | `//` |
-| `crates/server/src/main.rs:7` | Literal `\n` escape pasted into source outside any string | Real newline |
-| `crates/server/src/main.rs:6` | `-> anyhow::Result<()>` but `anyhow` is absent from `crates/server/Cargo.toml` | Declare `anyhow` in the workspace and the crate, or return `Result<(), std::io::Error>` |
-| `crates/server/src/main.rs:7` | `addr` bound and never used - fails `clippy -D warnings` even after the syntax fix | Use it in the axum bind, or drop it until MOD-API lands |
+| File:line                                    | Defect                                                                             | Fix                                                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `crates/objects/src/lib.rs:4`                | `pub mod memory;    / MemoryObjectStore ...` - a single `/` is not a comment token | `//`                                                                                    |
+| `crates/learning-data-access/src/lib.rs:4-5` | `pub mod postgres;   # pg_backend ...` - Python comment syntax in Rust, two lines  | `//`                                                                                    |
+| `crates/export/src/lib.rs:3-4`               | `pub mod docx;   Microsoft Word format output` - bare prose, no comment marker     | `//`                                                                                    |
+| `crates/server/src/main.rs:7`                | Literal `\n` escape pasted into source outside any string                          | Real newline                                                                            |
+| `crates/server/src/main.rs:6`                | `-> anyhow::Result<()>` but `anyhow` is absent from `crates/server/Cargo.toml`     | Declare `anyhow` in the workspace and the crate, or return `Result<(), std::io::Error>` |
+| `crates/server/src/main.rs:7`                | `addr` bound and never used - fails `clippy -D warnings` even after the syntax fix | Use it in the axum bind, or drop it until MOD-API lands                                 |
 
 The same four files also carry 24 trailing-whitespace lines across 11 `.rs` files, so
 `cargo fmt --check` fails independently of the syntax errors.
@@ -69,7 +69,7 @@ The same four files also carry 24 trailing-whitespace lines across 11 `.rs` file
   cover `{ts,tsx,mts,cts,js,mjs,cjs}` - `.jsx` is in neither, so the app's only component file sits
   outside every gate. Rename to `src/app.tsx` (snake_case per `docs/TYPESCRIPT_STYLE.md`).
 - `tsconfig.json:24` is `include: ["**/*.ts"]`, which excludes `.tsx` entirely, so `npx tsc
-  --noEmit` never type-checks the entry point. WP-F3 also requires `"jsx": "preserve"`,
+--noEmit` never type-checks the entry point. WP-F3 also requires `"jsx": "preserve"`,
   `"jsxImportSource": "solid-js"`, and an `exclude` for `OTHER_REPOS` and `target`.
 - `src/index.html:8` loads `/main.js` with a leading slash, which 404s on a GitHub Pages project
   subpath. Use `main.js`.
@@ -87,7 +87,7 @@ The plan's crate table (`implementation_plan.md:359-369`) is the contract. Devia
   features, which includes `clock` and therefore `Utc::now()`. The plan's load-bearing property is
   that domain "has no clock and no database ... time and storage arrive as parameters"
   (`implementation_plan.md:371-373`). Use `chrono = { version = "0.4", default-features = false,
-  features = ["serde"] }` so the absence is structural, exactly as WP-F1 asks ("real absences, not
+features = ["serde"] }` so the absence is structural, exactly as WP-F1 asks ("real absences, not
   comments").
 - **The database driver sits in the wrong crate.** `sqlx` is declared in
   `crates/server/Cargo.toml:18` and nowhere in `crates/learning-data-access`, but the plan gives `crates/learning-data-access`
@@ -113,7 +113,7 @@ The plan's crate table (`implementation_plan.md:359-369`) is the contract. Devia
 ## Repository and git-state findings
 
 - **16 empty junk directories at the repo root**: `dy/ e/ ea/ g-e/ gi/ i/ in/ LE/ le-l/ MS/ n/ ne/
-  pt/ rc/ rn/ ROB/`, plus `ne/s` and `MS/p`. The fragments spell pieces of the repo path, so a
+pt/ rc/ rn/ ROB/`, plus `ne/s` and `MS/p`. The fragments spell pieces of the repo path, so a
   mangled `mkdir` produced them. Git cannot see empty directories, so they will never show in
   `git status` and will silently persist.
 - **Temp files in the index**: `crates/adapters/webwork/CARGOFILEtmp.txt`,
@@ -152,7 +152,7 @@ Follow the plan's own patch sequence. Do not start M1 (WP-C1) until the M0 exit 
    2024 and inherit `rust-version`; make `chrono` `default-features = false`; move `sqlx` to
    `crates/learning-data-access`; collapse `xml-rs`/`sqlx` onto `workspace = true`; delete the unused internal
    aliases from the root workspace table; commit `crates/server/src/auth.rs` or drop the `pub mod
-   auth;` line; delete `crates/learning-data-access/src/rls.rs` until MOD-SCHEMA needs it. Add
+auth;` line; delete `crates/learning-data-access/src/rls.rs` until MOD-SCHEMA needs it. Add
    `rust-toolchain.toml`, the `wasm-bindgen` staging dir (gitignored), and one trivial export
    callable from Node.
 2. **Git hygiene, same patch.** Unstage the three temp files, reconcile the ten staged-deleted
@@ -160,7 +160,7 @@ Follow the plan's own patch sequence. Do not start M1 (WP-C1) until the M0 exit 
    intended work.
 3. **Patch 2 rework - WP-F3.** Write `pipeline/build.mjs` around `esbuild.build()` with
    `esbuild-plugin-solid`; add that dependency; point `build_github_pages.sh` at `node
-   pipeline/build.mjs`; fix `src/main.tsx` to `render(() => <App />, el)`; rename `src/App.jsx` to
+pipeline/build.mjs`; fix `src/main.tsx` to `render(() => <App />, el)`; rename `src/App.jsx` to
    `src/app.tsx`; add the tsconfig `jsx`, `jsxImportSource`, and `exclude` fields and widen
    `include` to `.tsx`; add `src/log.ts`; fix `src/index.html` to relative `main.js`; fill the
    `package.json` placeholders from `VERSION`; repoint `clean` at `devel/dist_clean.sh`; move
@@ -173,7 +173,7 @@ Follow the plan's own patch sequence. Do not start M1 (WP-C1) until the M0 exit 
 5. **Patch 4 - WP-F6.** Write `README.md` (first paragraph pure prose, under 250 characters);
    add `docs/CODE_ARCHITECTURE.md` with the container, boundary, bucket, and crate tables; strip
    the `.toml` trailing whitespace; file the active-plans docs into their subdirectories with `git
-   mv` and fix the misspellings; add the missing `docs/CHANGELOG.md` entries, including the AGPL
+mv` and fix the misspellings; add the missing `docs/CHANGELOG.md` entries, including the AGPL
    decision.
 
 ## Verification

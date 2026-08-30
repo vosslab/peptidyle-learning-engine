@@ -19,11 +19,11 @@ Review date: 2026-08-18. Tree identity at review:
 
 Evidence classes state what a finding rests on, and each class carries different weight.
 
-| Class | Rests on | Carries | Defers |
-| --- | --- | --- | --- |
-| Source | Reading current source | Structure, wiring, route and role declarations | Runtime behavior |
-| Corpus | The committed screenshot corpus | Rendered layout and copy at capture time | Anything the corpus is too old to show |
-| Tooling | A command run during this review | What that command reported | Anything it did not execute |
+| Class   | Rests on                         | Carries                                        | Defers                                 |
+| ------- | -------------------------------- | ---------------------------------------------- | -------------------------------------- |
+| Source  | Reading current source           | Structure, wiring, route and role declarations | Runtime behavior                       |
+| Corpus  | The committed screenshot corpus  | Rendered layout and copy at capture time       | Anything the corpus is too old to show |
+| Tooling | A command run during this review | What that command reported                     | Anything it did not execute            |
 
 Dispositions: **confirmed** in current source or by a command run here; **unresolved** with the
 missing observation named; **retired** when evidence withdrew it.
@@ -34,10 +34,10 @@ ownership and staleness, and those results are recorded as confirmed.
 
 ## Access and authorization
 
-| ID | Finding | Class | Disposition |
-| --- | --- | --- | --- |
-| SEC-1 | Catalog read routes carry no role requirement | Source | Confirmed |
-| SEC-2 | Student reach across routes has no single declaration | Source | Confirmed |
+| ID    | Finding                                               | Class  | Disposition |
+| ----- | ----------------------------------------------------- | ------ | ----------- |
+| SEC-1 | Catalog read routes carry no role requirement         | Source | Confirmed   |
+| SEC-2 | Student reach across routes has no single declaration | Source | Confirmed   |
 
 **SEC-1.** `crates/server/src/catalog/routes.rs:25-53` mounts `/api/problems`,
 `/api/problems/search`, `/api/problems/by-id/{reference}`, `/api/problems/by-id/{reference}/detail`,
@@ -64,14 +64,14 @@ pathnames rather than deriving them from the route contract.
 
 ## Student interaction
 
-| ID | Finding | Class | Disposition |
-| --- | --- | --- | --- |
-| STU-1 | No time limit shown before a timed run starts | Source | Resolved |
-| STU-2 | No learner mastery view | Source | Resolved |
-| STU-3 | Implementation vocabulary shown to students | Source | Resolved |
-| STU-4 | Three verbs enter the same practice loop | Source | Resolved |
-| STU-5 | Student assignment rows carry no state | Source | Resolved |
-| STU-6 | Completeness copy leaks pagination and breaks grammar | Source | Resolved |
+| ID    | Finding                                               | Class  | Disposition |
+| ----- | ----------------------------------------------------- | ------ | ----------- |
+| STU-1 | No time limit shown before a timed run starts         | Source | Resolved    |
+| STU-2 | No learner mastery view                               | Source | Resolved    |
+| STU-3 | Implementation vocabulary shown to students           | Source | Resolved    |
+| STU-4 | Three verbs enter the same practice loop              | Source | Resolved    |
+| STU-5 | Student assignment rows carry no state                | Source | Resolved    |
+| STU-6 | Completeness copy leaks pagination and breaks grammar | Source | Resolved    |
 
 **STU-1.** This original repair used the now-retired `assignmentTiming` projection. WP-INST-T1
 supersedes it: `src/pages/assignment_overview_page.tsx` reads only the dedicated learner-safe detail
@@ -111,15 +111,15 @@ and the recovery messages now describe the already visible items with singular/p
 
 ## Instructor interaction
 
-| ID | Finding | Class | Disposition |
-| --- | --- | --- | --- |
-| INS-1 | Item analysis is implemented with no interface | Source | Confirmed |
-| INS-2 | Gradebook is a flat cross-product list | Source | Confirmed |
-| INS-3 | Four surfaces render a constant where a fact belongs | Source | Confirmed |
-| INS-4 | Library cannot show a question's family | Source | Confirmed |
-| INS-5 | Assignment editor has no direct position control | Source | Confirmed |
-| INS-6 | Terminology forks four ways for people, two for content | Source | Confirmed |
-| INS-7 | A development-only capability appears in shared copy | Source | Confirmed |
+| ID    | Finding                                                 | Class  | Disposition |
+| ----- | ------------------------------------------------------- | ------ | ----------- |
+| INS-1 | Item analysis is implemented with no interface          | Source | Confirmed   |
+| INS-2 | Gradebook is a flat cross-product list                  | Source | Confirmed   |
+| INS-3 | Four surfaces render a constant where a fact belongs    | Source | Confirmed   |
+| INS-4 | Library cannot show a question's family                 | Source | Confirmed   |
+| INS-5 | Assignment editor has no direct position control        | Source | Confirmed   |
+| INS-6 | Terminology forks four ways for people, two for content | Source | Confirmed   |
+| INS-7 | A development-only capability appears in shared copy    | Source | Confirmed   |
 
 **INS-1.** `crates/server/src/item_analysis.rs`, its worker
 (`crates/server/src/composition/worker.rs:15`), router mount
@@ -161,17 +161,17 @@ the local-file development adapter appearing in shared copy.
 
 ## Evidence integrity
 
-| ID | Finding | Class | Disposition |
-| --- | --- | --- | --- |
-| EVD-1 | The corpus had two owners and no shared declaration | Tooling | Confirmed and repaired |
-| EVD-2 | One committed image is owned by neither pipeline | Tooling | Confirmed |
-| EVD-3 | The entire corpus predates current browser sources | Tooling | Confirmed |
-| EVD-4 | No tablet artifact exists for any student surface | Tooling | Confirmed |
-| EVD-5 | README ships images showing replaced identity schemes | Corpus | Confirmed |
-| EVD-6 | A design review cites an image for the opposite of what it shows | Corpus | Confirmed |
-| EVD-7 | The palette audit measures colors its source has replaced | Source | Confirmed |
-| EVD-8 | The two public guides name one assignment differently | Source | Confirmed |
-| EVD-9 | A random run suffix appears in a course name in public evidence | Corpus | Confirmed |
+| ID    | Finding                                                          | Class   | Disposition            |
+| ----- | ---------------------------------------------------------------- | ------- | ---------------------- |
+| EVD-1 | The corpus had two owners and no shared declaration              | Tooling | Confirmed and repaired |
+| EVD-2 | One committed image is owned by neither pipeline                 | Tooling | Confirmed              |
+| EVD-3 | The entire corpus predates current browser sources               | Tooling | Confirmed              |
+| EVD-4 | No tablet artifact exists for any student surface                | Tooling | Confirmed              |
+| EVD-5 | README ships images showing replaced identity schemes            | Corpus  | Confirmed              |
+| EVD-6 | A design review cites an image for the opposite of what it shows | Corpus  | Confirmed              |
+| EVD-7 | The palette audit measures colors its source has replaced        | Source  | Confirmed              |
+| EVD-8 | The two public guides name one assignment differently            | Source  | Confirmed              |
+| EVD-9 | A random run suffix appears in a course name in public evidence  | Corpus  | Confirmed              |
 
 **EVD-1.** `tests/playwright/capture_docs_screenshots.mjs:9-21` held 11 image names from the
 real-stack walkthrough and `capture_instructor_page_visuals.mjs:9-23` held 13 from a mock-backed
@@ -230,15 +230,15 @@ Genetics Course qorg6t".
 
 ## Documentation and contract drift
 
-| ID | Finding | Class | Disposition |
-| --- | --- | --- | --- |
-| DOC-1 | Reserved migration versions are already overtaken | Source | Confirmed |
-| DOC-2 | Retention authority is stated three ways | Source | Confirmed |
-| DOC-3 | Eleven migrations appear in no schema document | Source | Confirmed |
-| DOC-4 | Migration counts disagree four ways | Source | Confirmed |
-| DOC-5 | A removed flat-question reader is documented as live | Source | Confirmed |
-| DOC-6 | Accepted identity work is described as pending | Source | Confirmed |
-| DOC-7 | Container queries are documented and unused | Source | Confirmed |
+| ID    | Finding                                              | Class  | Disposition |
+| ----- | ---------------------------------------------------- | ------ | ----------- |
+| DOC-1 | Reserved migration versions are already overtaken    | Source | Confirmed   |
+| DOC-2 | Retention authority is stated three ways             | Source | Confirmed   |
+| DOC-3 | Eleven migrations appear in no schema document       | Source | Confirmed   |
+| DOC-4 | Migration counts disagree four ways                  | Source | Confirmed   |
+| DOC-5 | A removed flat-question reader is documented as live | Source | Confirmed   |
+| DOC-6 | Accepted identity work is described as pending       | Source | Confirmed   |
+| DOC-7 | Container queries are documented and unused          | Source | Confirmed   |
 
 **DOC-1.** `docs/DATABASE_STRUCTURE.md:90-92` reserves `2026080910`, `2026080911`, and `2026080912`
 as "no migration file yet", restated in
@@ -278,18 +278,18 @@ no matches across `src/`.
 
 ## Engineering structure
 
-| ID | Finding | Class | Disposition |
-| --- | --- | --- | --- |
-| ENG-1 | No SQL is compile-time checked | Source | Confirmed |
-| ENG-2 | `Store` is a delegating facade over segregated traits | Source | Confirmed |
-| ENG-3 | One adapter reaches persistence for a single type | Source | Confirmed |
-| ENG-4 | Two types are duplicated across crate boundaries | Source | Confirmed |
-| ENG-5 | The line cap reshaped the module system | Source | Confirmed |
-| ENG-6 | The mock API client ships in the production bundle | Source | Confirmed |
-| ENG-7 | A second HTTP transport bypasses the shared client | Source | Confirmed |
-| ENG-8 | CSS-in-TS carries colors outside the token system | Source | Confirmed |
-| ENG-9 | Increased contrast overrides inline theme styles | Source | Confirmed |
-| ENG-10 | A pre-existing type error keeps a repository gate red | Tooling | Confirmed |
+| ID     | Finding                                               | Class   | Disposition |
+| ------ | ----------------------------------------------------- | ------- | ----------- |
+| ENG-1  | No SQL is compile-time checked                        | Source  | Confirmed   |
+| ENG-2  | `Store` is a delegating facade over segregated traits | Source  | Confirmed   |
+| ENG-3  | One adapter reaches persistence for a single type     | Source  | Confirmed   |
+| ENG-4  | Two types are duplicated across crate boundaries      | Source  | Confirmed   |
+| ENG-5  | The line cap reshaped the module system               | Source  | Confirmed   |
+| ENG-6  | The mock API client ships in the production bundle    | Source  | Confirmed   |
+| ENG-7  | A second HTTP transport bypasses the shared client    | Source  | Confirmed   |
+| ENG-8  | CSS-in-TS carries colors outside the token system     | Source  | Confirmed   |
+| ENG-9  | Increased contrast overrides inline theme styles      | Source  | Confirmed   |
+| ENG-10 | A pre-existing type error keeps a repository gate red | Tooling | Confirmed   |
 
 **ENG-1.** No `sqlx::query!` use appears workspace-wide although the `macros` feature is enabled
 (`Cargo.toml:100-109`). Roughly 450 queries are inline strings with hand row decoding through
@@ -360,7 +360,7 @@ Recorded so the recommendation is read against an accurate picture of the system
 - Publication immutability is enforced in PostgreSQL. Six catalog tables carry triggers raising
   `published catalog content is immutable`
   (`schemas/migrations/2026080802_catalog_authoring.sql:1322-1327,1547-1569`).
-- **Historical pre-SD1 evidence:** `TenantContext` had one production constructor and no `Default`
+- **Historical pre-SD1 evidence:** the legacy request scope had one production constructor and no `Default`
   (`crates/learning-data-access/src/rls.rs:9-27`); transactions set `ple_app` then the legacy
   context GUC (`crates/learning-data-access/src/postgres.rs:330-350`). The current authority is
   the fresh epoch's global `ActorContext` and forced actor-scoped RLS in
@@ -392,19 +392,19 @@ current browser sources, so each is **unresolved** until a regenerated corpus is
 missing observation is the same for all of them: a capture of the current interface at the viewport
 named.
 
-| ID | Observation in the corpus | Contract it would breach |
-| --- | --- | --- |
-| VIS-1 | A dark ring surrounds the whole page content region in three images | `docs/HUMAN_GUIDANCE.md:59-61` |
-| VIS-2 | The theme chooser shows three small swatches per theme | `docs/UI_DESIGN_GUIDE.md:121-123` |
-| VIS-3 | An empty state is a dashed placeholder box | `docs/UI_DESIGN_GUIDE.md:102-104` |
-| VIS-4 | Page titles wrap to two lines on three surfaces | `docs/UI_DESIGN_GUIDE.md:22` |
-| VIS-5 | Instructor pages leave 40 to 60 percent of the canvas unused | `docs/HUMAN_GUIDANCE.md:44-47` |
-| VIS-6 | Course home renders unthemed while sibling course pages are themed | `docs/UI_DESIGN_GUIDE.md:106-115` |
-| VIS-7 | The workspace policy chip clips and reads "immediateFull feedback" | Presentation defect |
-| VIS-8 | The published question detail renders `{{residue}}` unsubstituted | `docs/HUMAN_GUIDANCE.md:507-509` |
-| VIS-9 | Create-assignment shows two phrasings of one requirement | `docs/UI_DESIGN_GUIDE.md:25-26` |
-| VIS-10 | Run policies double-label four fieldsets | `docs/UI_DESIGN_GUIDE.md:96-98` |
-| VIS-11 | Single-line inputs stretch to roughly 1220 pixels | `docs/HUMAN_GUIDANCE.md:44-47` |
+| ID     | Observation in the corpus                                           | Contract it would breach          |
+| ------ | ------------------------------------------------------------------- | --------------------------------- |
+| VIS-1  | A dark ring surrounds the whole page content region in three images | `docs/HUMAN_GUIDANCE.md:59-61`    |
+| VIS-2  | The theme chooser shows three small swatches per theme              | `docs/UI_DESIGN_GUIDE.md:121-123` |
+| VIS-3  | An empty state is a dashed placeholder box                          | `docs/UI_DESIGN_GUIDE.md:102-104` |
+| VIS-4  | Page titles wrap to two lines on three surfaces                     | `docs/UI_DESIGN_GUIDE.md:22`      |
+| VIS-5  | Instructor pages leave 40 to 60 percent of the canvas unused        | `docs/HUMAN_GUIDANCE.md:44-47`    |
+| VIS-6  | Course home renders unthemed while sibling course pages are themed  | `docs/UI_DESIGN_GUIDE.md:106-115` |
+| VIS-7  | The workspace policy chip clips and reads "immediateFull feedback"  | Presentation defect               |
+| VIS-8  | The published question detail renders `{{residue}}` unsubstituted   | `docs/HUMAN_GUIDANCE.md:507-509`  |
+| VIS-9  | Create-assignment shows two phrasings of one requirement            | `docs/UI_DESIGN_GUIDE.md:25-26`   |
+| VIS-10 | Run policies double-label four fieldsets                            | `docs/UI_DESIGN_GUIDE.md:96-98`   |
+| VIS-11 | Single-line inputs stretch to roughly 1220 pixels                   | `docs/HUMAN_GUIDANCE.md:44-47`    |
 
 VIS-8 also has a source component: the template placeholder reaches a rendered instructor surface,
 which is visible in the corpus and worth confirming against current source during recapture.

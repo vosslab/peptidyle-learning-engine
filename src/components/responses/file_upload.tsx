@@ -11,7 +11,7 @@ function acceptedExtensions(definition: FileUploadDefinition): string {
     : definition.acceptedExtensions.join(", ");
 }
 
-/** Refuse uploads until a tenant-scoped upload-slot contract exists. */
+/** Refuse uploads until a course-bound upload-slot contract exists. */
 export function FileUploadResponse(props: WidgetBodyProps<FileUploadDefinition>): JSX.Element {
   return (
     <section
@@ -38,7 +38,7 @@ export function FileUploadResponse(props: WidgetBodyProps<FileUploadDefinition>)
         role="status"
         aria-live="polite"
       >
-        A secure, tenant-scoped upload slot is required before a file can be submitted.
+        A secure, course-bound upload slot is required before a file can be submitted.
       </p>
       <Actions disabled onSubmit={() => undefined} onEscape={props.onEscape} />
     </section>

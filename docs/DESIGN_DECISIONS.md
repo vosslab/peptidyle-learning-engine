@@ -555,7 +555,29 @@ relationship lands with its visible workflow, revocation, audit, and privacy con
 
 **Owner.** [USER_ROLES.md](USER_ROLES.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and
-[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
+[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). The accountable-course-assignment evidence is
+the binding [single-installation scope register](active_plans/active/single_installation_scope_register.md).
+
+### Course accountability is assigned and transferable
+
+**Decision.** Each CourseInstance records one accountable assigned Instructor from its current
+Instructor memberships. Every current co-Instructor keeps the same teaching and FERPA predicates.
+An audited atomic course-administration operation transfers the assignment only after the successor
+holds a current Instructor membership.
+
+**Why.** An accountable Instructor gives course creation, handoff, and support records one clear
+human responsibility without turning one ordinary co-Instructor into a broader authority class.
+
+**Consequence.** The CourseInstance stores the assigned Instructor as a validated Instructor
+account reference. A deferred integrity check requires that account's current Instructor membership
+at transaction commit, including after revocation or transfer. Course creation inserts the assigned
+Instructor's first ordinary membership in the same transaction. Authorization continues to evaluate
+the same predicate for every current co-Instructor; only accountability and audit identify the
+assigned Instructor.
+
+**Owner.** The binding
+[single-installation scope register](active_plans/active/single_installation_scope_register.md),
+course-membership schema, and teaching-authority Store contract.
 
 ### APIs are stateless; durable state is shared
 
@@ -758,6 +780,51 @@ otherwise identical white pages. Derived roles preserve recognizable color while
 and accessibility needs.
 
 ## Demonstration and release evidence
+
+### Exact owners bind authorization decisions
+
+**Decision.** The single-installation ownership map is the binding authorization
+contract for actor identity, catalog publication, course records, private
+authoring, workers, objects, exports, retention, observer relationships, and
+Sysadmin support. Each protected operation resolves its actor from the active
+session and checks the durable owner and exact predicate recorded in that map.
+
+**Why.** Every authorization decision needs an object that names its real scope.
+That keeps global catalog access, course records, private work, and worker leases
+independently reviewable without relying on an ambient installation boundary.
+
+**Consequence.** Baseline relations, Store contracts, brokers, and acceptance
+cases derive their parent identifiers and predicates from the map. Observer and
+support relations remain narrow recorded grants, workers keep immutable typed
+targets and leases, and object delivery verifies its actual catalog, workspace,
+course, enrollment, or lease parent.
+
+**Owner.** `docs/active_plans/audits/single_installation_ownership_map.md`.
+
+### Locked job targets carry authorization ownership
+
+**Decision.** Every durable job has one server-resolved immutable typed target
+in addition to its closed handler kind, generation fence, and opaque current
+lease. Course work records its exact `CourseId` and assignment or attempt;
+workspace work records its `WorkspaceId` and import when applicable; catalog
+work records its exact immutable `ProblemVersionRef`; exports record their
+`ExportId`, course, frozen manifest, and expected artifact identities. A worker
+broker compares handler kind, typed target, generation, unexpired lease, and
+the requested transition before preparation, reads, writes, retry, cancellation,
+or finalization.
+
+**Why.** An object identifier alone cannot establish the authorization parent
+for export or import work. Persisting the resolved target at enqueue time
+makes a claim self-contained, prevents work from following mutable surrounding
+state, and gives each retry and revocation path one exact boundary to verify.
+
+**Consequence.** The baseline schema adds the locked target to each job row.
+The enqueue transaction resolves it from currently authorized records; a new
+generation creates new work rather than changing a claim's target. The
+acceptance suite proves rejection for foreign targets, stale generations,
+mismatched handler families, expired leases, and client-supplied scope values.
+**Owner.** `docs/active_plans/audits/single_installation_ownership_map.md`,
+`crates/learning-data-access/src/jobs.rs`, and the baseline job broker.
 
 ### Seed data represents ordinary teaching
 

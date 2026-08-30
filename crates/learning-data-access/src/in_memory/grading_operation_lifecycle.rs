@@ -6,7 +6,7 @@
 
 use question_model::{
     AssignmentId, CourseId, GradingOperationAction, GradingOperationReason, GradingOperationState,
-    ScoringGeneration, ScoringStatus, TenantId,
+    ScoringGeneration, ScoringStatus,
 };
 
 use super::State;
@@ -17,16 +17,13 @@ use crate::{GradingOperation, StoreError};
 /// worker-owned execution rather than to an Instructor request.
 pub(super) fn close_completed_submission_operation(
     state: &mut State,
-    tenant: TenantId,
     submission: crate::AcceptedSubmissionId,
 ) -> Result<(), StoreError> {
     let references = state
         .automated_grading_operations
         .iter()
-        .filter_map(|((stored_tenant, reference), operation)| {
-            (*stored_tenant == tenant
-                && operation.target
-                    == crate::GradingOperationTarget::SubmissionRecovery { submission }
+        .filter_map(|(reference, operation)| {
+            (operation.target == crate::GradingOperationTarget::SubmissionRecovery { submission }
                 && operation.state == GradingOperationState::ActionInProgress)
                 .then_some(*reference)
         })
@@ -34,7 +31,7 @@ pub(super) fn close_completed_submission_operation(
     for reference in references {
         let operation = state
             .automated_grading_operations
-            .get_mut(&(tenant, reference))
+            .get_mut(&reference)
             .expect("selected grading operation remains present");
         operation.revision = next_revision(operation.revision)?;
         operation.state = GradingOperationState::Completed;
@@ -49,7 +46,6 @@ pub(super) fn close_completed_submission_operation(
 /// that locks and refreshes the existing target before accepting a new row.
 pub(super) fn reopen_submission_operation(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     submission: crate::AcceptedSubmissionId,
@@ -58,9 +54,8 @@ pub(super) fn reopen_submission_operation(
     let references = state
         .automated_grading_operations
         .iter()
-        .filter_map(|((stored_tenant, reference), operation)| {
-            (*stored_tenant == tenant
-                && operation.course == course
+        .filter_map(|(reference, operation)| {
+            (operation.course == course
                 && operation.assignment == assignment
                 && operation.target
                     == crate::GradingOperationTarget::SubmissionRecovery { submission })
@@ -75,7 +70,7 @@ pub(super) fn reopen_submission_operation(
     if let Some(reference) = references.first().copied() {
         let operation = state
             .automated_grading_operations
-            .get_mut(&(tenant, reference))
+            .get_mut(&reference)
             .expect("selected grading operation remains present");
         operation.revision = next_revision(operation.revision)?;
         operation.reason = reason;
@@ -84,11 +79,10 @@ pub(super) fn reopen_submission_operation(
         return Ok(());
     }
 
-    let reference = next_operation_reference(state, tenant)?;
+    let reference = next_operation_reference(state)?;
     state.automated_grading_operations.insert(
-        (tenant, reference),
+        reference,
         GradingOperation {
-            tenant,
             course,
             assignment,
             reference,
@@ -107,7 +101,6 @@ pub(super) fn reopen_submission_operation(
 /// have no Instructor thread remain purely worker-owned and create no UI work.
 pub(super) fn project_assignment_scoring_operation(
     state: &mut State,
-    tenant: TenantId,
     assignment: AssignmentId,
     generation: ScoringGeneration,
     status: ScoringStatus,
@@ -118,9 +111,8 @@ pub(super) fn project_assignment_scoring_operation(
     let references = state
         .automated_grading_operations
         .iter()
-        .filter_map(|((stored_tenant, reference), operation)| {
-            (*stored_tenant == tenant
-                && operation.assignment == assignment
+        .filter_map(|(reference, operation)| {
+            (operation.assignment == assignment
                 && operation.target
                     == crate::GradingOperationTarget::AssignmentScoringGeneration {
                         requested_generation: generation,
@@ -132,7 +124,7 @@ pub(super) fn project_assignment_scoring_operation(
     for reference in references {
         let operation = state
             .automated_grading_operations
-            .get_mut(&(tenant, reference))
+            .get_mut(&reference)
             .expect("selected grading operation remains present");
         operation.revision = next_revision(operation.revision)?;
         match status {
@@ -153,14 +145,11 @@ pub(super) fn project_assignment_scoring_operation(
 
 pub(super) fn next_operation_reference(
     state: &State,
-    tenant: TenantId,
 ) -> Result<question_model::GradingOperationReference, StoreError> {
     state
         .automated_grading_operations
         .keys()
-        .filter_map(|(stored_tenant, reference)| {
-            (*stored_tenant == tenant).then_some(reference.number())
-        })
+        .map(|reference| reference.number())
         .max()
         .unwrap_or(0)
         .checked_add(1)

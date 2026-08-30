@@ -19,6 +19,10 @@ use std::path::Path;
 use serde::Deserialize;
 use url::Url;
 
+mod sd1_staged_database;
+
+pub use sd1_staged_database::Sd1StagedDatabaseRuntime;
+
 const MANIFEST_NAME: &str = "runtime.yaml";
 const MAX_MANIFEST_BYTES: usize = 4_096;
 const MAX_URL_BYTES: usize = 4_096;

@@ -23,7 +23,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             assignment,
             title,
         } = command;
-        let draft = new_assignment_draft(context.tenant_id(), course, assignment, title);
+        let draft = new_assignment_draft(course, assignment, title);
         validate_assignment(&draft.record)?;
         let mut transaction = self.begin_tenant(context).await?;
         let creation_witness = assignment_definition_capability::prepare_creation(
@@ -127,7 +127,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .await?;
         let assignment = AssignmentRecord {
             id: assignment,
-            tenant: context.tenant_id(),
             course_id: course,
             title: update.title.clone(),
             lifecycle: previous.lifecycle,

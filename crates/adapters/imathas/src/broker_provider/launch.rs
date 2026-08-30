@@ -3,7 +3,7 @@
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::generation::Seed;
-use question_model::{ActivityTimestamp, ProblemId, QuestionAttemptId, TenantId};
+use question_model::{ActivityTimestamp, ProblemId, QuestionAttemptId};
 use sha2::Sha256;
 use uuid::Uuid;
 
@@ -38,7 +38,7 @@ impl ContractedLaunchExpectation {
     }
 }
 
-/// Opaque non-serde launch state for protected tenant-owned storage.
+/// Opaque non-serde launch state for protected server storage.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PersistedContractedLaunchSession(String);
 
@@ -189,7 +189,6 @@ impl LaunchSessionCodec {
 
 fn write_binding(data: &mut Vec<u8>, binding: GradeBinding) {
     for id in [
-        binding.tenant.as_uuid(),
         binding.attempt.as_uuid(),
         binding.problem.as_uuid(),
         binding.version.as_uuid(),
@@ -209,7 +208,6 @@ fn read_binding(cursor: &mut Cursor<'_>) -> Result<GradeBinding, ImathasAdapterE
         ))
     };
     Ok(GradeBinding {
-        tenant: TenantId::from_uuid(id(cursor)?),
         attempt: QuestionAttemptId::from_uuid(id(cursor)?),
         problem: ProblemId::from_uuid(id(cursor)?),
         version: question_model::VersionId::from_uuid(id(cursor)?),

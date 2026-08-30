@@ -3,17 +3,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
-use question_model::{ProblemId, TenantId, UserId, VersionId, WorkspaceId, WorkspaceImportId};
+use question_model::{ProblemId, UserId, VersionId, WorkspaceId, WorkspaceImportId};
 
 use super::{MemoryStore, State};
 use crate::{
-    FlatImportProvenanceStore, PublishedFlatImportOrigin, QtiImportItemStatus,
-    QtiProfileFlatConversionCommand, QtiProfileImportEvidence, StoreError, TenantContext,
-    WorkspaceDraftRevision, WorkspaceDraftRole, WorkspaceFlatImportOrigin,
-    WorkspaceFlatQuestionSource, ensure_tenant,
+    ActorContext, FlatImportProvenanceStore, PublishedFlatImportOrigin, QtiImportItemStatus,
+    QtiProfileFlatConversionCommand, QtiProfileImportEvidence, StoreError, WorkspaceDraftRevision,
+    WorkspaceDraftRole, WorkspaceFlatImportOrigin, WorkspaceFlatQuestionSource,
 };
 
-type ProfileEvidenceKey = (TenantId, WorkspaceId, WorkspaceImportId, String);
+type ProfileEvidenceKey = (WorkspaceId, WorkspaceImportId, String);
 
 #[derive(Clone, Default)]
 pub(super) struct QtiProfileImportEvidences(BTreeMap<ProfileEvidenceKey, QtiProfileImportEvidence>);
@@ -37,8 +36,7 @@ impl QtiProfileImportEvidences {
         import: crate::QtiImportRef,
     ) -> impl Iterator<Item = &QtiProfileImportEvidence> {
         self.0.iter().filter_map(move |(key, evidence)| {
-            (key.0 == import.tenant && key.1 == import.workspace && key.2 == import.import)
-                .then_some(evidence)
+            (key.0 == import.workspace && key.1 == import.import).then_some(evidence)
         })
     }
 
@@ -50,11 +48,10 @@ impl QtiProfileImportEvidences {
     /// with their workspace draft. Committed evidence remains durable.
     pub(super) fn remove_prepared_imports(
         &mut self,
-        imports: &BTreeSet<(TenantId, WorkspaceId, WorkspaceImportId)>,
+        imports: &BTreeSet<(WorkspaceId, WorkspaceImportId)>,
     ) {
-        self.0.retain(|(tenant, workspace, import, _), _| {
-            !imports.contains(&(*tenant, *workspace, *import))
-        });
+        self.0
+            .retain(|(workspace, import, _), _| !imports.contains(&(*workspace, *import)));
     }
 
     /// A recognized registry is not ready to expose until its private item
@@ -106,9 +103,7 @@ impl QtiProfileImportEvidences {
 }
 
 #[derive(Clone, Default)]
-pub(super) struct WorkspaceFlatImportOrigins(
-    BTreeMap<(TenantId, WorkspaceId), WorkspaceFlatImportOrigin>,
-);
+pub(super) struct WorkspaceFlatImportOrigins(BTreeMap<WorkspaceId, WorkspaceFlatImportOrigin>);
 
 impl std::fmt::Debug for WorkspaceFlatImportOrigins {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -120,22 +115,15 @@ impl std::fmt::Debug for WorkspaceFlatImportOrigins {
 }
 
 impl WorkspaceFlatImportOrigins {
-    pub(super) fn get(&self, key: &(TenantId, WorkspaceId)) -> Option<&WorkspaceFlatImportOrigin> {
+    pub(super) fn get(&self, key: &WorkspaceId) -> Option<&WorkspaceFlatImportOrigin> {
         self.0.get(key)
     }
 
-    pub(super) fn insert(
-        &mut self,
-        key: (TenantId, WorkspaceId),
-        origin: WorkspaceFlatImportOrigin,
-    ) {
+    pub(super) fn insert(&mut self, key: WorkspaceId, origin: WorkspaceFlatImportOrigin) {
         self.0.insert(key, origin);
     }
 
-    pub(super) fn remove(
-        &mut self,
-        key: &(TenantId, WorkspaceId),
-    ) -> Option<WorkspaceFlatImportOrigin> {
+    pub(super) fn remove(&mut self, key: &WorkspaceId) -> Option<WorkspaceFlatImportOrigin> {
         self.0.remove(key)
     }
 }
@@ -172,18 +160,12 @@ impl PublishedFlatImportOrigins {
 impl FlatImportProvenanceStore for MemoryStore {
     async fn stage_qti_profile_import_evidence(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         evidence: QtiProfileImportEvidence,
     ) -> Result<(), StoreError> {
         let parts = evidence.persistence_parts();
-        ensure_tenant(context, parts.import.tenant)?;
-        let import_key = (
-            parts.import.tenant,
-            parts.import.workspace,
-            parts.import.import,
-        );
+        let import_key = (parts.import.workspace, parts.import.import);
         let evidence_key = (
-            parts.import.tenant,
             parts.import.workspace,
             parts.import.import,
             parts.source_item_identifier.to_string(),
@@ -229,7 +211,7 @@ impl FlatImportProvenanceStore for MemoryStore {
 
     async fn convert_qti_profile_item_to_flat(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         command: QtiProfileFlatConversionCommand,
     ) -> Result<WorkspaceFlatQuestionSource, StoreError> {
@@ -242,14 +224,13 @@ impl FlatImportProvenanceStore for MemoryStore {
             command.grading,
             command.origin,
         )?;
-        ensure_tenant(context, command.draft.tenant)?;
         if command.origin.acknowledged_by() != actor {
             return Err(StoreError::InvalidRecord(
                 "flat-import acknowledgement actor must match the authenticated actor".to_string(),
             ));
         }
 
-        let key = (command.draft.tenant, command.draft.question.workspace);
+        let key = command.draft.question.workspace;
         let mut state = self.write_state()?;
         let is_new = !state.drafts.contains_key(&key);
         let revision = conversion_revision(&state, context, actor, &command, key, is_new)?;
@@ -264,7 +245,6 @@ impl FlatImportProvenanceStore for MemoryStore {
             }
         };
         let source = WorkspaceFlatQuestionSource::new(
-            command.draft.tenant,
             command.draft.question.workspace,
             revision,
             source_family,
@@ -283,7 +263,7 @@ impl FlatImportProvenanceStore for MemoryStore {
         if is_new {
             state
                 .draft_access
-                .insert((key.0, key.1, actor), WorkspaceDraftRole::Owner);
+                .insert((key, actor), WorkspaceDraftRole::Owner);
         }
         state.flat_question_sources.insert(key, source.clone());
         state
@@ -294,16 +274,13 @@ impl FlatImportProvenanceStore for MemoryStore {
 
     async fn workspace_flat_import_origin(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceFlatImportOrigin>, StoreError> {
         let state = self.read_state()?;
-        let key = (context.tenant_id(), workspace);
-        if !state
-            .draft_access
-            .contains_key(&(context.tenant_id(), workspace, actor))
-        {
+        let key = workspace;
+        if !state.draft_access.contains_key(&(workspace, actor)) {
             return Ok(None);
         }
         Ok(state.workspace_flat_import_origins.get(&key).cloned())
@@ -312,10 +289,10 @@ impl FlatImportProvenanceStore for MemoryStore {
 
 fn conversion_revision(
     state: &State,
-    context: TenantContext,
+    _context: ActorContext,
     actor: UserId,
     command: &QtiProfileFlatConversionCommand,
-    key: (TenantId, WorkspaceId),
+    key: WorkspaceId,
     is_new: bool,
 ) -> Result<WorkspaceDraftRevision, StoreError> {
     if is_new {
@@ -327,7 +304,7 @@ fn conversion_revision(
     if !matches!(
         state
             .draft_access
-            .get(&(context.tenant_id(), command.draft.question.workspace, actor)),
+            .get(&(command.draft.question.workspace, actor)),
         Some(WorkspaceDraftRole::Owner | WorkspaceDraftRole::Collaborator)
     ) {
         return Err(StoreError::Forbidden);
@@ -348,7 +325,7 @@ fn validate_committed_profile_item(
     let reference = command.origin.import();
     let registry = state
         .qti_imports
-        .get(&(reference.tenant, reference.workspace, reference.import))
+        .get(&(reference.workspace, reference.import))
         .ok_or(StoreError::Conflict)?;
     let source_item_identifier = command.origin.source_item_identifier();
     if registry.reference != reference || registry.source != *command.origin.source_archive() {
@@ -364,7 +341,6 @@ fn validate_committed_profile_item(
         return Err(StoreError::Conflict);
     }
     let evidence_key = (
-        reference.tenant,
         reference.workspace,
         reference.import,
         source_item_identifier.to_string(),

@@ -46,7 +46,7 @@ The central architecture remains sound:
 - authenticated attempts bind learner, course, assignment, immutable version, seed, timing, and
   backend authority;
 - drafts remain private workspace state while publication creates immutable shared versions;
-- educational records remain tenant-owned under forced PostgreSQL row-level security;
+- educational records remain course- and Student-owned under forced PostgreSQL row-level security;
 - canonical sources and protected artifacts use typed object identities and checksums;
 - API replicas remain stateless over PostgreSQL, object storage, and private backend capabilities;
 - the browser receives answer-free render projections and a browser-safe Wasm closure; and
@@ -155,7 +155,7 @@ account-to-course context selection. Course managers can page the roster, set ex
 domains, create or revoke a single invitation, copy its one-time link for trusted-LMS delivery,
 optionally send it through the established SMTP adapter, preview and atomically commit a bounded
 `email,roster_id` CSV, revoke learner access, and download a synchronous no-store grade CSV.
-Invitation claim atomically creates or reuses the tenant learner identity, course membership, every
+Invitation claim atomically creates or reuses the course-bound Student identity, course membership, every
 current assignment enrollment, and every empty summary; assignment creation applies the same
 cross-product invariant to current learners.
 
@@ -185,7 +185,7 @@ account; it is an external configuration and acceptance dependency, not a missin
 implementation.
 
 The local walkthrough has one explicit session boundary. Local-file sign-in creates the
-tenant-scoped `ple_session` used by ordinary course APIs; invitation redemption requires a persisted
+authenticated `ple_session` used by ordinary course APIs; invitation redemption requires a persisted
 PLE account and `ple_account_session`. Passkey registration starts from that account and therefore
 cannot bootstrap it. The intended learner walkthrough uses canonical email authentication before
 invitation redemption, but the current process startup root always selects local-file development
@@ -209,22 +209,22 @@ production deployment.
 
 ## Status dashboard
 
-| Area | Current status | Boundary |
-| --- | --- | --- |
-| WP-RC1 course appearance | Accepted | Fifteen measured themes, Grass default, exact entry banner, persistence, cleanup, browser and visual gates |
-| WP-RC2 production seams | Accepted | Concrete production module/capability names and no hidden native-renderer placeholder |
-| WP-RC3 WeBWorK | Accepted, bounded | One immutable RadioButtons PGML path through live PLE render, cache, grade, outage, recovery, and keyboard evidence |
-| WP-RC3R standalone renderer | Accepted, bounded | External stateless `/render-api`, no WebWork2 or MariaDB, identity-bound cache and persisted grading, live Podman/browser gate, and independent closeout |
-| WP-ARCH1 source ownership | Accepted | Capability owners and stable facades remain below the permanent 1,000-line boundary |
-| WP-RC4 flat JSON v2 | Implemented, acceptance open | Eight native runtime/source families exist; independent contract/security closeout remains |
-| WP-P1 through WP-P6 payload | Decision accepted; offline persistence slice implemented | Codec, migration, exact replay binding, and one-call normal WeBWorK grading exist; complete API/browser/live cutover and independent evidence remain |
-| WP-RC5 and WP-RC6 content/interchange | Planned and owned | Visual family authoring, integrated storage, Chapter 1 content, QTI export, and honest H5P closeout |
-| WP-RC7 data hardening | Planned and owned | Object inventory, twice-observed orphan quarantine, missing-reference alerts, and combined M2-M5 gate |
-| WP-RC8 identity/enrollment | Source implemented, acceptance open | Generic account/roster routes, optional passkeys, no-store copy-link/optional-SMTP invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export exist; production composition must wire canonical PLE account entry, then provider, optional-passkey/replica, and independent evidence remain |
-| WP-RC9 LTI | Planned and owned | LTI 1.3 launch and AGS passback; optional institutional SSO remains a non-blocking future account-linking integration |
-| WP-FU1 through WP-FU6 uploads | Planned and fail-closed | Server-issued, inspected, attempt-bound learner upload capability |
-| WP-RC10 and WP-RC11 operations | Planned and owned | OpenTofu deployment/recovery/scale, then measured bot-cost controls |
-| WP-RC12 release | Not started | Complete local and disposable production evidence plus independent multi-discipline audit |
+| Area                                  | Current status                                           | Boundary                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WP-RC1 course appearance              | Accepted                                                 | Fifteen measured themes, Grass default, exact entry banner, persistence, cleanup, browser and visual gates                                                                                                                                                                                                                  |
+| WP-RC2 production seams               | Accepted                                                 | Concrete production module/capability names and no hidden native-renderer placeholder                                                                                                                                                                                                                                       |
+| WP-RC3 WeBWorK                        | Accepted, bounded                                        | One immutable RadioButtons PGML path through live PLE render, cache, grade, outage, recovery, and keyboard evidence                                                                                                                                                                                                         |
+| WP-RC3R standalone renderer           | Accepted, bounded                                        | External stateless `/render-api`, no WebWork2 or MariaDB, identity-bound cache and persisted grading, live Podman/browser gate, and independent closeout                                                                                                                                                                    |
+| WP-ARCH1 source ownership             | Accepted                                                 | Capability owners and stable facades remain below the permanent 1,000-line boundary                                                                                                                                                                                                                                         |
+| WP-RC4 flat JSON v2                   | Implemented, acceptance open                             | Eight native runtime/source families exist; independent contract/security closeout remains                                                                                                                                                                                                                                  |
+| WP-P1 through WP-P6 payload           | Decision accepted; offline persistence slice implemented | Codec, migration, exact replay binding, and one-call normal WeBWorK grading exist; complete API/browser/live cutover and independent evidence remain                                                                                                                                                                        |
+| WP-RC5 and WP-RC6 content/interchange | Planned and owned                                        | Visual family authoring, integrated storage, Chapter 1 content, QTI export, and honest H5P closeout                                                                                                                                                                                                                         |
+| WP-RC7 data hardening                 | Planned and owned                                        | Object inventory, twice-observed orphan quarantine, missing-reference alerts, and combined M2-M5 gate                                                                                                                                                                                                                       |
+| WP-RC8 identity/enrollment            | Source implemented, acceptance open                      | Generic account/roster routes, optional passkeys, no-store copy-link/optional-SMTP invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export exist; production composition must wire canonical PLE account entry, then provider, optional-passkey/replica, and independent evidence remain |
+| WP-RC9 LTI                            | Planned and owned                                        | LTI 1.3 launch and AGS passback; optional institutional SSO remains a non-blocking future account-linking integration                                                                                                                                                                                                       |
+| WP-FU1 through WP-FU6 uploads         | Planned and fail-closed                                  | Server-issued, inspected, attempt-bound learner upload capability                                                                                                                                                                                                                                                           |
+| WP-RC10 and WP-RC11 operations        | Planned and owned                                        | OpenTofu deployment/recovery/scale, then measured bot-cost controls                                                                                                                                                                                                                                                         |
+| WP-RC12 release                       | Not started                                              | Complete local and disposable production evidence plus independent multi-discipline audit                                                                                                                                                                                                                                   |
 
 ## Product capabilities
 
@@ -242,10 +242,10 @@ production deployment.
 
 - Durable UUIDs identify long-lived entities; compact rendered-item IDs keep learner submissions
   small without weakening authoritative identity.
-- Course and learner records are tenant-owned. Shared published versions are immutable and reusable
+- Course and learner records are course-owned. Shared published versions are immutable and reusable
   without copying content into every course.
 - A PLE account is keyed by one opaque global `UserId`; verified email is the mutable canonical
-  sign-in attribute, while course authorization and tenant-scoped `StudentId` mappings isolate
+  sign-in attribute, while course authorization and course-bound `StudentId` mappings isolate
   educational records. Course-scoped roster email and roster ID exist only for instruction and
   manual grade export.
 - PostgreSQL startup verifies the migration ledger through a least-privilege projection and never

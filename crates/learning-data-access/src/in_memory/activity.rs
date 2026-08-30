@@ -1,33 +1,28 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::StudentAssignmentSummarySnapshot;
+use crate::{ActorContext, StudentAssignmentSummarySnapshot};
 
 #[async_trait]
 impl crate::ActivityStore for MemoryStore {
     async fn instructor_get_enrollment_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state
-            .enrollments
-            .get(&(context.tenant_id(), enrollment))
-            .cloned()
-        else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(record) = state.enrollments.get(&enrollment).cloned() else {
             return Ok(None);
         };
-        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        let instructor = super::entitlement::active_membership_for(
-            &state,
-            context.tenant_id(),
-            assignment.course_id,
-            actor,
-        )
-        .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor);
+        let assignment = assignment_record(&state, record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
+        let instructor =
+            super::entitlement::active_membership_for(&state, assignment.course_id, actor)
+                .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor);
         if instructor {
             Ok(Some(record))
         } else {
@@ -36,23 +31,21 @@ impl crate::ActivityStore for MemoryStore {
     }
     async fn student_get_enrollment_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state
-            .enrollments
-            .get(&(context.tenant_id(), enrollment))
-            .cloned()
-        else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(record) = state.enrollments.get(&enrollment).cloned() else {
             return Ok(None);
         };
-        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let assignment = assignment_record(&state, record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -66,15 +59,17 @@ impl crate::ActivityStore for MemoryStore {
     }
     async fn student_get_enrollment_for_assignment_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         assignment: AssignmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let state = self.read_state()?;
+        if context.user_id() != actor {
+            return Ok(None);
+        }
         let current_student = super::entitlement::active_membership_for(
             &state,
-            context.tenant_id(),
-            assignment_record(&state, context.tenant_id(), assignment)?.course_id,
+            assignment_record(&state, assignment)?.course_id,
             actor,
         )
         .and_then(|membership| membership.student);
@@ -89,11 +84,10 @@ impl crate::ActivityStore for MemoryStore {
         else {
             return Ok(None);
         };
-        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let assignment = assignment_record(&state, record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -107,20 +101,22 @@ impl crate::ActivityStore for MemoryStore {
     }
     async fn student_get_run_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         run: RunId,
     ) -> Result<Option<AssignmentRun>, StoreError> {
         let state = self.read_state()?;
-        let Some(run) = state.runs.get(&(context.tenant_id(), run)).cloned() else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(run) = state.runs.get(&run).cloned() else {
             return Ok(None);
         };
-        let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -134,26 +130,24 @@ impl crate::ActivityStore for MemoryStore {
     }
     async fn apply_activity_transition_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         transition: ActivityTransition,
     ) -> Result<StudentAssignmentSummary, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
 
         let (enrollment_id, assignment, domain_transition) = match &transition {
             ActivityTransition::StartRun { run } => {
-                ensure_tenant(context, run.tenant)?;
                 if run.run_number == 0 || run.completed_at.is_some() || run.score.is_some() {
                     return Err(StoreError::InvalidRecord(
                         "new run must be one-based and incomplete".to_string(),
                     ));
                 }
-                if state.runs.contains_key(&(tenant, run.id)) {
+                if state.runs.contains_key(&run.id) {
                     return Err(StoreError::AlreadyExists);
                 }
-                let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-                let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-                require_course_records_accessible(&state, tenant, assignment.course_id)?;
+                let enrollment = enrollment_record(&state, run.enrollment)?;
+                let assignment = assignment_record(&state, enrollment.assignment)?;
+                require_course_records_accessible(&state, assignment.course_id)?;
                 let expected_mode = match enrollment.status() {
                     EnrollmentStatus::InProgress => RunMode::Assigned,
                     EnrollmentStatus::Completed => RunMode::Practice,
@@ -169,9 +163,7 @@ impl crate::ActivityStore for MemoryStore {
                     ));
                 }
                 if state.runs.values().any(|existing| {
-                    existing.tenant == tenant
-                        && existing.enrollment == run.enrollment
-                        && existing.completed_at.is_none()
+                    existing.enrollment == run.enrollment && existing.completed_at.is_none()
                 }) {
                     return Err(StoreError::InvalidRecord(
                         "an enrollment cannot have two in-progress runs".to_string(),
@@ -180,9 +172,7 @@ impl crate::ActivityStore for MemoryStore {
                 let expected_run_number = state
                     .runs
                     .values()
-                    .filter(|existing| {
-                        existing.tenant == tenant && existing.enrollment == run.enrollment
-                    })
+                    .filter(|existing| existing.enrollment == run.enrollment)
                     .map(|existing| existing.run_number)
                     .max()
                     .unwrap_or(0)
@@ -196,33 +186,25 @@ impl crate::ActivityStore for MemoryStore {
                 (enrollment.id, assignment, summary_transition(&transition))
             }
             ActivityTransition::RecordQuestionAttempt { attempt } => {
-                ensure_tenant(context, attempt.tenant)?;
-                if state.attempts.contains_key(&(tenant, attempt.id)) {
+                if state.attempts.contains_key(&attempt.id) {
                     return Err(StoreError::AlreadyExists);
                 }
-                let run = state
-                    .runs
-                    .get(&(tenant, attempt.run))
-                    .ok_or(StoreError::NotFound)?;
+                let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
                 if run.completed_at.is_some() || run.score.is_some() {
                     return Err(StoreError::InvalidRecord(
                         "question attempts cannot be added to a completed run".to_string(),
                     ));
                 }
-                let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-                let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-                require_course_records_accessible(&state, tenant, assignment.course_id)?;
-                let matches_run_item =
-                    state
-                        .run_items
-                        .get(&(tenant, attempt.run))
-                        .is_some_and(|items| {
-                            items.iter().any(|item| {
-                                item.issued_position == attempt.assignment_position
-                                    && item.reference.problem == attempt.problem
-                                    && item.reference.version == attempt.question_version
-                            })
-                        });
+                let enrollment = enrollment_record(&state, run.enrollment)?;
+                let assignment = assignment_record(&state, enrollment.assignment)?;
+                require_course_records_accessible(&state, assignment.course_id)?;
+                let matches_run_item = state.run_items.get(&attempt.run).is_some_and(|items| {
+                    items.iter().any(|item| {
+                        item.issued_position == attempt.assignment_position
+                            && item.reference.problem == attempt.problem
+                            && item.reference.version == attempt.question_version
+                    })
+                });
                 if !matches_run_item {
                     return Err(StoreError::InvalidRecord(
                         "question attempt must match an immutable run item".to_string(),
@@ -231,21 +213,18 @@ impl crate::ActivityStore for MemoryStore {
                 (enrollment.id, assignment, summary_transition(&transition))
             }
             ActivityTransition::CompleteRun { run, .. } => {
-                let run_record = state
-                    .runs
-                    .get(&(tenant, *run))
-                    .ok_or(StoreError::NotFound)?;
+                let run_record = state.runs.get(run).ok_or(StoreError::NotFound)?;
                 if run_record.completed_at.is_some() || run_record.score.is_some() {
                     return Err(StoreError::InvalidRecord(
                         "completed run cannot be completed again".to_string(),
                     ));
                 }
-                let enrollment = enrollment_record(&state, tenant, run_record.enrollment)?;
+                let enrollment = enrollment_record(&state, run_record.enrollment)?;
                 (
                     enrollment.id,
                     {
-                        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-                        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+                        let assignment = assignment_record(&state, enrollment.assignment)?;
+                        require_course_records_accessible(&state, assignment.course_id)?;
                         assignment
                     },
                     summary_transition(&transition),
@@ -253,7 +232,8 @@ impl crate::ActivityStore for MemoryStore {
             }
         };
 
-        let summary_key = (tenant, enrollment_id);
+        let summary_key = enrollment_id;
+        let enrollment_key = enrollment_id;
         let previous = state
             .summaries
             .get(&summary_key)
@@ -272,24 +252,21 @@ impl crate::ActivityStore for MemoryStore {
         match transition {
             ActivityTransition::StartRun { run } => {
                 let run_items = select_assignment_run_items(&assignment, &run)?;
-                state.run_items.insert((tenant, run.id), run_items);
-                state.runs.insert((tenant, run.id), run);
+                state.run_items.insert(run.id, run_items);
+                state.runs.insert(run.id, run);
             }
             ActivityTransition::RecordQuestionAttempt { attempt } => {
-                state.attempts.insert((tenant, attempt.id), *attempt);
+                state.attempts.insert(attempt.id, *attempt);
             }
             ActivityTransition::CompleteRun { run, score, at } => {
                 {
-                    let run_record = state
-                        .runs
-                        .get_mut(&(tenant, run))
-                        .ok_or(StoreError::NotFound)?;
+                    let run_record = state.runs.get_mut(&run).ok_or(StoreError::NotFound)?;
                     run_record.completed_at = Some(at);
                     run_record.score = Some(score);
                 }
                 let enrollment = state
                     .enrollments
-                    .get_mut(&summary_key)
+                    .get_mut(&enrollment_key)
                     .ok_or(StoreError::NotFound)?;
                 project_enrollment_completion(enrollment, &previous, grade, run, score, at);
             }
@@ -299,60 +276,59 @@ impl crate::ActivityStore for MemoryStore {
     }
     async fn get_run_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         run: RunId,
     ) -> Result<Option<AssignmentRun>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.runs.get(&(context.tenant_id(), run)).cloned() else {
+        let Some(record) = state.runs.get(&run).cloned() else {
             return Ok(None);
         };
-        let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        if !course_records_accessible(&state, context.tenant_id(), assignment.course_id) {
+        let enrollment = enrollment_record(&state, record.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        if !course_records_accessible(&state, assignment.course_id) {
             return Ok(None);
         }
         Ok(Some(record))
     }
     async fn list_runs_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         enrollment: EnrollmentId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRun>, StoreError> {
         let state = self.read_state()?;
         let enrollment_record = state
             .enrollments
-            .get(&(context.tenant_id(), enrollment))
+            .get(&enrollment)
             .ok_or(StoreError::NotFound)?;
-        let assignment =
-            assignment_record(&state, context.tenant_id(), enrollment_record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let assignment = assignment_record(&state, enrollment_record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         let records = state
             .runs
             .iter()
-            .filter(|((tenant, _), run)| {
-                *tenant == context.tenant_id() && run.enrollment == enrollment
-            })
-            .map(|((_, run_id), run)| (format!("{:010}/{run_id}", run.run_number), run.clone()))
+            .filter(|(_, run)| run.enrollment == enrollment)
+            .map(|(run_id, run)| (format!("{:010}/{run_id}", run.run_number), run.clone()))
             .collect();
         Ok(page_records(records, &page))
     }
     async fn instructor_list_runs_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
         page: PageRequest,
     ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(record) = state.enrollments.get(&enrollment) else {
             return Ok(None);
         };
-        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let assignment = assignment_record(&state, record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -362,42 +338,38 @@ impl crate::ActivityStore for MemoryStore {
         {
             return Ok(None);
         }
-        let instructor = super::entitlement::active_membership_for(
-            &state,
-            context.tenant_id(),
-            assignment.course_id,
-            actor,
-        )
-        .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor);
+        let instructor =
+            super::entitlement::active_membership_for(&state, assignment.course_id, actor)
+                .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor);
         if !instructor {
             return Ok(None);
         }
         let records = state
             .runs
             .iter()
-            .filter(|((tenant, _), run)| {
-                *tenant == context.tenant_id() && run.enrollment == enrollment
-            })
-            .map(|((_, id), run)| (format!("{:010}/{}", run.run_number, id), run.clone()))
+            .filter(|(_, run)| run.enrollment == enrollment)
+            .map(|(id, run)| (format!("{:010}/{}", run.run_number, id), run.clone()))
             .collect();
         Ok(Some(page_records(records, &page)))
     }
     async fn student_list_runs_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
         page: PageRequest,
     ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(record) = state.enrollments.get(&enrollment) else {
             return Ok(None);
         };
-        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let assignment = assignment_record(&state, record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -410,53 +382,47 @@ impl crate::ActivityStore for MemoryStore {
         let records = state
             .runs
             .iter()
-            .filter(|((tenant, _), run)| {
-                *tenant == context.tenant_id() && run.enrollment == enrollment
-            })
-            .map(|((_, id), run)| (format!("{:010}/{}", run.run_number, id), run.clone()))
+            .filter(|(_, run)| run.enrollment == enrollment)
+            .map(|(id, run)| (format!("{:010}/{}", run.run_number, id), run.clone()))
             .collect();
         Ok(Some(page_records(records, &page)))
     }
     async fn get_question_attempt_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         attempt: QuestionAttemptId,
     ) -> Result<Option<QuestionAttempt>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.attempts.get(&(context.tenant_id(), attempt)) else {
+        let Some(record) = state.attempts.get(&attempt) else {
             return Ok(None);
         };
-        let run = state
-            .runs
-            .get(&(context.tenant_id(), record.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        if !course_records_accessible(&state, context.tenant_id(), assignment.course_id) {
+        let run = state.runs.get(&record.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        if !course_records_accessible(&state, assignment.course_id) {
             return Ok(None);
         }
-        Ok(Some(projected_attempt(&state, context.tenant_id(), record)))
+        Ok(Some(projected_attempt(&state, record)))
     }
     async fn student_get_question_attempt_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         attempt: QuestionAttemptId,
     ) -> Result<Option<QuestionAttempt>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.attempts.get(&(context.tenant_id(), attempt)).cloned() else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(record) = state.attempts.get(&attempt).cloned() else {
             return Ok(None);
         };
-        let run = state
-            .runs
-            .get(&(context.tenant_id(), record.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let run = state.runs.get(&record.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -466,51 +432,44 @@ impl crate::ActivityStore for MemoryStore {
         {
             return Ok(None);
         }
-        Ok(Some(projected_attempt(
-            &state,
-            context.tenant_id(),
-            &record,
-        )))
+        Ok(Some(projected_attempt(&state, &record)))
     }
     async fn get_summary_impl(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         enrollment: EnrollmentId,
     ) -> Result<Option<StudentAssignmentSummary>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state
-            .summaries
-            .get(&(context.tenant_id(), enrollment))
-            .cloned()
-        else {
+        let Some(record) = state.summaries.get(&enrollment).cloned() else {
             return Ok(None);
         };
         let enrollment_record = state
             .enrollments
-            .get(&(context.tenant_id(), enrollment))
+            .get(&enrollment)
             .ok_or(StoreError::NotFound)?;
-        let assignment =
-            assignment_record(&state, context.tenant_id(), enrollment_record.assignment)?;
-        if !course_records_accessible(&state, context.tenant_id(), assignment.course_id) {
+        let assignment = assignment_record(&state, enrollment_record.assignment)?;
+        if !course_records_accessible(&state, assignment.course_id) {
             return Ok(None);
         }
         Ok(Some(record))
     }
     async fn student_get_summary_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<StudentAssignmentSummarySnapshot>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
+        if context.user_id() != actor {
+            return Ok(None);
+        }
+        let Some(record) = state.enrollments.get(&enrollment) else {
             return Ok(None);
         };
-        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let assignment = assignment_record(&state, record.assignment)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         if super::entitlement::require_current_enrollment_entitlement(
             &state,
-            context.tenant_id(),
             actor,
             assignment.course_id,
             assignment.id,
@@ -520,16 +479,12 @@ impl crate::ActivityStore for MemoryStore {
         {
             return Ok(None);
         }
-        let Some(summary) = state
-            .summaries
-            .get(&(context.tenant_id(), enrollment))
-            .cloned()
-        else {
+        let Some(summary) = state.summaries.get(&enrollment).cloned() else {
             return Ok(None);
         };
         let scoring_status = state
             .assignment_scoring
-            .get(&(context.tenant_id(), assignment.id))
+            .get(&assignment.id)
             .ok_or(StoreError::NotFound)?
             .1;
         Ok(Some(StudentAssignmentSummarySnapshot {
@@ -586,20 +541,19 @@ pub(super) fn add_seconds(
 
 pub(super) fn require_attempt_owner(
     state: &State,
-    tenant: TenantId,
     attempt: &QuestionAttempt,
     actor: UserId,
 ) -> Result<(), StoreError> {
-    let run = state
-        .runs
-        .get(&(tenant, attempt.run))
+    let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(state, run.enrollment)?;
+    let assignment = assignment_record(state, enrollment.assignment)?;
+    state
+        .courses
+        .contains_key(&assignment.course_id)
+        .then_some(())
         .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(state, tenant, run.enrollment)?;
-    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-    require_course_records_accessible(state, tenant, assignment.course_id)?;
     super::entitlement::require_current_enrollment_entitlement(
         state,
-        tenant,
         actor,
         assignment.course_id,
         assignment.id,
@@ -608,34 +562,42 @@ pub(super) fn require_attempt_owner(
     .map(|_| ())
 }
 
+/// Confirms an attempt belongs to the installation scope represented by its
+/// authoritative run record. The attempt identity itself is globally unique.
+pub(super) fn attempt_belongs_to_course(state: &State, attempt_id: QuestionAttemptId) -> bool {
+    state
+        .attempts
+        .get(&attempt_id)
+        .is_some_and(|attempt| state.runs.contains_key(&attempt.run))
+}
+
 pub(super) fn apply_memory_attempt_support(
     state: &mut State,
-    context: TenantContext,
+    context: ActorContext,
     action_id: AttemptSupportActionId,
     actor: UserId,
     attempt_id: QuestionAttemptId,
     action: AttemptSupportAction,
 ) -> Result<AttemptSupportRecord, StoreError> {
-    let tenant = context.tenant_id();
+    if context.user_id() != actor {
+        return Err(StoreError::NotFound);
+    }
     let base = state
         .attempts
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .cloned()
         .ok_or(StoreError::NotFound)?;
-    let run = state
-        .runs
-        .get(&(tenant, base.run))
-        .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(state, tenant, run.enrollment)?;
-    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-    require_course_records_accessible(state, tenant, assignment.course_id)?;
-    if !state.courses.contains_key(&(tenant, assignment.course_id))
-        || !super::entitlement::active_membership_for(state, tenant, assignment.course_id, actor)
+    let run = state.runs.get(&base.run).ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(state, run.enrollment)?;
+    let assignment = assignment_record(state, enrollment.assignment)?;
+    require_course_records_accessible(state, assignment.course_id)?;
+    if !state.courses.contains_key(&assignment.course_id)
+        || !super::entitlement::active_membership_for(state, assignment.course_id, actor)
             .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor)
     {
         return Err(StoreError::NotFound);
     }
-    if let Some(existing) = state.attempt_support_actions.get(&(tenant, action_id)) {
+    if let Some(existing) = state.attempt_support_actions.get(&action_id) {
         return if existing.actor == actor
             && existing.attempt == attempt_id
             && existing.kind == action
@@ -646,7 +608,7 @@ pub(super) fn apply_memory_attempt_support(
         };
     }
 
-    let previous = projected_attempt(state, tenant, &base);
+    let previous = projected_attempt(state, &base);
     let resulting_status = match action {
         // ASVS 2.2.1-2.2.3, 2.3.1-2.3.4: force-submit has one authorized,
         // answer-free terminal transition. The support-action receipt preserves
@@ -674,7 +636,6 @@ pub(super) fn apply_memory_attempt_support(
     let requires_scoring_invalidation =
         action == AttemptSupportAction::Clear && previous.result.is_some();
     let record = AttemptSupportRecord {
-        tenant,
         action: action_id,
         actor,
         attempt: attempt_id,
@@ -687,7 +648,6 @@ pub(super) fn apply_memory_attempt_support(
     if requires_scoring_invalidation {
         super::scoring_invalidation::request_scoring_invalidation(
             state,
-            tenant,
             assignment.course_id,
             assignment.id,
             crate::ScoringInvalidationOrigin::student_support(
@@ -697,23 +657,17 @@ pub(super) fn apply_memory_attempt_support(
             crate::JobId::from_uuid(action_id.as_uuid()),
         )?;
     }
-    state.attempt_current.insert((tenant, attempt_id), current);
-    state.webwork_grade_replay.remove(&(tenant, attempt_id));
-    complete_memory_attempt_timing_job(state, tenant, attempt_id);
-    state
-        .attempt_support_actions
-        .insert((tenant, action_id), record);
+    state.attempt_current.insert(attempt_id, current);
+    state.webwork_grade_replay.remove(&attempt_id);
+    complete_memory_attempt_timing_job(state, attempt_id);
+    state.attempt_support_actions.insert(action_id, record);
     Ok(record)
 }
 
-pub(super) fn complete_memory_attempt_timing_job(
-    state: &mut State,
-    tenant: TenantId,
-    attempt: QuestionAttemptId,
-) {
+pub(super) fn complete_memory_attempt_timing_job(state: &mut State, attempt: QuestionAttemptId) {
     let job = state
         .attempt_timing
-        .get_mut(&(tenant, attempt))
+        .get_mut(&attempt)
         .and_then(|timing| timing.job.take());
     let Some(job) = job else {
         return;
@@ -727,24 +681,20 @@ pub(super) fn complete_memory_attempt_timing_job(
     }
 }
 
-pub(super) fn projected_attempt(
-    state: &State,
-    tenant: TenantId,
-    attempt: &QuestionAttempt,
-) -> QuestionAttempt {
+pub(super) fn projected_attempt(state: &State, attempt: &QuestionAttempt) -> QuestionAttempt {
     let mut projected = state
         .attempt_current
-        .get(&(tenant, attempt.id))
+        .get(&attempt.id)
         .cloned()
         .or_else(|| {
             state
                 .submissions
-                .get(&(tenant, attempt.id))
+                .get(&attempt.id)
                 .and_then(|stored| stored.completed_record_opt())
                 .map(|record| record.attempt.clone())
         })
         .unwrap_or_else(|| attempt.clone());
-    if let Some(timing) = state.attempt_timing.get(&(tenant, attempt.id)) {
+    if let Some(timing) = state.attempt_timing.get(&attempt.id) {
         projected.timer.deadline = timing.effective_deadline;
     }
     projected

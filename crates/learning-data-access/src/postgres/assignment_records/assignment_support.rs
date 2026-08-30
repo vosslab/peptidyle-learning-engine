@@ -32,7 +32,6 @@ pub(crate) fn decode_postgres_enrollment_row(
 ) -> Result<AssignmentEnrollment, StoreError> {
     Ok(AssignmentEnrollment {
         id: EnrollmentId::from_uuid(row.try_get("enrollment_id").map_err(map_sqlx_error)?),
-        tenant: TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?),
         assignment: AssignmentId::from_uuid(row.try_get("assignment_id").map_err(map_sqlx_error)?),
         user: UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?),
         student: StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?),

@@ -6,7 +6,7 @@
 use question_model::UserRole;
 
 use super::*;
-use crate::SessionSubject;
+use crate::{ActorContext, SessionSubject};
 
 #[cfg(test)]
 mod tests;
@@ -16,43 +16,33 @@ mod worker;
 impl RetentionStore for MemoryStore {
     async fn configure_retention_policy(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
-        policy: InstitutionRetentionPolicy,
+        policy: RetentionPolicy,
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
-        if !subject.roles().contains(&UserRole::Sysadmin) {
+        if subject.role() != UserRole::Sysadmin {
             return Err(StoreError::Forbidden);
         }
-        state.retention_policies.insert(context.tenant_id(), policy);
+        state.retention_policy = Some(policy);
         Ok(())
     }
 
     async fn end_course_retention(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseRetentionRecord, StoreError> {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
-        ensure_retention_course_authority(
-            &state,
-            context,
-            subject.user(),
-            subject.roles(),
-            course,
-        )?;
-        let key = (context.tenant_id(), course);
+        ensure_retention_course_authority(&state, context, subject.user(), subject.role(), course)?;
+        let key = course;
         if let Some(existing) = state.course_retention.get(&key).copied() {
             return Ok(existing);
         }
-        let policy = state
-            .retention_policies
-            .get(&context.tenant_id())
-            .copied()
-            .unwrap_or_default();
+        let policy = state.retention_policy.unwrap_or_default();
         let snapshot = CourseRetentionSnapshot::new(
             state.authoritative_time,
             policy,
@@ -77,7 +67,7 @@ impl RetentionStore for MemoryStore {
                 .due_at(state.authoritative_time, stage)
                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
             state.retention_stages.insert(
-                (context.tenant_id(), course, stage, 1),
+                (course, stage, 1),
                 StoredRetentionStage {
                     due_at,
                     state: RetentionStageWorkState::Scheduled,
@@ -91,7 +81,7 @@ impl RetentionStore for MemoryStore {
 
     async fn course_retention(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<CourseRetentionRecord>, StoreError> {
@@ -101,17 +91,14 @@ impl RetentionStore for MemoryStore {
             &state,
             context,
             subject.user(),
-            subject.roles(),
+            subject.role(),
             course,
         )
         .is_err()
         {
             return Ok(None);
         }
-        Ok(state
-            .course_retention
-            .get(&(context.tenant_id(), course))
-            .copied())
+        Ok(state.course_retention.get(&course).copied())
     }
 }
 
@@ -124,7 +111,7 @@ impl RetentionScheduleStore for MemoryStore {
         let mut state = self.write_state()?;
         let now = state.authoritative_time;
         let mut candidates = Vec::new();
-        for (key @ (tenant, course, stage, generation), stored) in &state.retention_stages {
+        for (key @ (course, stage, generation), stored) in &state.retention_stages {
             if candidates.len() >= usize::from(batch.get())
                 || stored.state != RetentionStageWorkState::Scheduled
                 || stored.due_at > now
@@ -132,7 +119,7 @@ impl RetentionScheduleStore for MemoryStore {
             {
                 continue;
             }
-            let Some(record) = state.course_retention.get(&(*tenant, *course)) else {
+            let Some(record) = state.course_retention.get(course) else {
                 continue;
             };
             if record.snapshot.generation() != *generation
@@ -150,9 +137,9 @@ impl RetentionScheduleStore for MemoryStore {
                 *key,
                 crate::JobId::generate()?,
                 JobPayload::Retention {
-                    course: key.1,
+                    course: key.0,
                     stage: *stage,
-                    generation: key.3,
+                    generation: key.2,
                 },
             ));
         }
@@ -160,7 +147,6 @@ impl RetentionScheduleStore for MemoryStore {
             state.jobs.insert(
                 *id,
                 StoredJob {
-                    tenant: key.0,
                     payload: payload.clone(),
                     state: JobState::Ready,
                     available_at: now,
@@ -180,23 +166,22 @@ impl RetentionScheduleStore for MemoryStore {
 
     async fn extend_course_retention(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         additional_days: RetentionDays,
     ) -> Result<CourseRetentionRecord, StoreError> {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
-        if !subject.roles().contains(&UserRole::Sysadmin) {
+        if subject.role() != UserRole::Sysadmin {
             return Err(StoreError::Forbidden);
         }
-        let key = (context.tenant_id(), course);
-        if !state.courses.contains_key(&key) {
+        if !state.courses.contains_key(&course) {
             return Err(StoreError::Forbidden);
         }
         let record = state
             .course_retention
-            .get(&key)
+            .get(&course)
             .copied()
             // An existing course with no ended schedule is a lifecycle conflict,
             // while the preceding existence guard keeps a missing course
@@ -219,7 +204,7 @@ impl RetentionScheduleStore for MemoryStore {
             .map(|stage| {
                 state
                     .retention_stages
-                    .get(&(key.0, key.1, *stage, old_generation))
+                    .get(&(course, *stage, old_generation))
                     .copied()
                     .ok_or(StoreError::Conflict)
                     .map(|stored| (*stage, stored))
@@ -268,7 +253,7 @@ impl RetentionScheduleStore for MemoryStore {
             replacement.push((*stage, next));
         }
         for (stage, stored) in &old {
-            let old_key = (key.0, key.1, *stage, old_generation);
+            let old_key = (course, *stage, old_generation);
             if stored.state == RetentionStageWorkState::Scheduled {
                 if let Some(job) = state.retention_dispatches.get(&old_key).copied()
                     && let Some(job) = state.jobs.get_mut(&job)
@@ -299,40 +284,32 @@ impl RetentionScheduleStore for MemoryStore {
                 record.status.assignment_definitions,
             ),
         };
-        state.course_retention.insert(key, updated);
+        state.course_retention.insert(course, updated);
         for (stage, stored) in replacement {
             state
                 .retention_stages
-                .insert((key.0, key.1, stage, new_generation), stored);
+                .insert((course, stage, new_generation), stored);
         }
         Ok(updated)
     }
 
     async fn set_archive_disposition(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         disposition: AssignmentDefinitionDisposition,
     ) -> Result<CourseRetentionRecord, StoreError> {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
-        ensure_retention_course_authority(
-            &state,
-            context,
-            subject.user(),
-            subject.roles(),
-            course,
-        )?;
-        let key = (context.tenant_id(), course);
+        ensure_retention_course_authority(&state, context, subject.user(), subject.role(), course)?;
         let record = state
             .course_retention
-            .get(&key)
+            .get(&course)
             .copied()
             .ok_or(StoreError::Conflict)?;
         let archive_key = (
-            key.0,
-            key.1,
+            course,
             crate::RetentionStage::ArchiveStudentRecords,
             record.snapshot.generation(),
         );
@@ -355,7 +332,7 @@ impl RetentionScheduleStore for MemoryStore {
                 disposition,
             ),
         };
-        state.course_retention.insert(key, updated);
+        state.course_retention.insert(course, updated);
         Ok(updated)
     }
 }
@@ -364,7 +341,7 @@ impl RetentionScheduleStore for MemoryStore {
 impl RetentionApiStore for MemoryStore {
     async fn retention_view(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<CourseRetentionView>, StoreError> {
@@ -374,7 +351,7 @@ impl RetentionApiStore for MemoryStore {
             &state,
             context,
             subject.user(),
-            subject.roles(),
+            subject.role(),
             course,
         )
         .is_err()
@@ -383,7 +360,7 @@ impl RetentionApiStore for MemoryStore {
         }
         state
             .course_retention
-            .get(&(context.tenant_id(), course))
+            .get(&course)
             .copied()
             .map(|record| {
                 record
@@ -395,7 +372,7 @@ impl RetentionApiStore for MemoryStore {
 
     async fn retention_notification(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<crate::RetentionNotificationView>, StoreError> {
@@ -405,7 +382,7 @@ impl RetentionApiStore for MemoryStore {
             &state,
             context,
             subject.user(),
-            subject.roles(),
+            subject.role(),
             course,
         )
         .is_err()
@@ -415,16 +392,14 @@ impl RetentionApiStore for MemoryStore {
         Ok(state
             .retention_notifications
             .iter()
-            .filter(|((tenant, notification_course, _), _)| {
-                *tenant == context.tenant_id() && *notification_course == course
-            })
-            .max_by_key(|((_, _, generation), notification)| (*generation, notification.created_at))
+            .filter(|((notification_course, _), _)| *notification_course == course)
+            .max_by_key(|((_, generation), notification)| (*generation, notification.created_at))
             .map(|(_, notification)| *notification))
     }
 
     async fn extend_retention_if_revision(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -443,7 +418,7 @@ impl RetentionApiStore for MemoryStore {
 
     async fn request_retention_archive_if_revision(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -464,7 +439,7 @@ impl RetentionApiStore for MemoryStore {
 
     async fn request_retention_delete_if_revision(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -486,7 +461,7 @@ impl RetentionApiStore for MemoryStore {
 impl MemoryStore {
     fn mutate_retention_api(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -495,15 +470,14 @@ impl MemoryStore {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
         let actor = subject.user();
-        let sysadmin = subject.roles().contains(&UserRole::Sysadmin);
-        ensure_retention_course_authority(&state, context, actor, subject.roles(), course)?;
+        let sysadmin = subject.role() == UserRole::Sysadmin;
+        ensure_retention_course_authority(&state, context, actor, subject.role(), course)?;
         if matches!(action, RetentionApiAction::Extend(_)) && !sysadmin {
             return Err(StoreError::Forbidden);
         }
-        let key = (context.tenant_id(), course);
         if let Some(receipt) = state
             .retention_api_receipts
-            .get(&(key.0, key.1, expected.value()))
+            .get(&(course, expected.value()))
             .copied()
         {
             if receipt.actor != actor || receipt.action != action {
@@ -511,7 +485,7 @@ impl MemoryStore {
             }
             let stage = state
                 .retention_stages
-                .get(&(key.0, key.1, receipt.stage, receipt.resulting_generation))
+                .get(&(course, receipt.stage, receipt.resulting_generation))
                 .copied()
                 .ok_or(StoreError::Conflict)?;
             let outcome = match stage.state {
@@ -522,7 +496,7 @@ impl MemoryStore {
             };
             let retention = state
                 .course_retention
-                .get(&key)
+                .get(&course)
                 .copied()
                 .ok_or(StoreError::Conflict)?
                 .safe_view()
@@ -534,7 +508,7 @@ impl MemoryStore {
         }
         let record = state
             .course_retention
-            .get(&key)
+            .get(&course)
             .copied()
             .ok_or(StoreError::Conflict)?;
         // The returned revision is also a valid replay key for a queued
@@ -545,19 +519,21 @@ impl MemoryStore {
         if matches!(
             action,
             RetentionApiAction::Archive(_) | RetentionApiAction::Delete
-        ) && let Some(receipt) = state.retention_api_receipts.iter().find_map(
-            |((tenant, receipt_course, _), receipt)| {
-                (*tenant == key.0
-                    && *receipt_course == key.1
-                    && receipt.resulting_generation == expected.value()
-                    && receipt.actor == actor
-                    && receipt.action == action)
-                    .then_some(*receipt)
-            },
-        ) {
+        ) && let Some(receipt) =
+            state
+                .retention_api_receipts
+                .iter()
+                .find_map(|((receipt_course, _), receipt)| {
+                    (*receipt_course == course
+                        && receipt.resulting_generation == expected.value()
+                        && receipt.actor == actor
+                        && receipt.action == action)
+                        .then_some(*receipt)
+                })
+        {
             let stage = state
                 .retention_stages
-                .get(&(key.0, key.1, receipt.stage, receipt.resulting_generation))
+                .get(&(course, receipt.stage, receipt.resulting_generation))
                 .copied()
                 .ok_or(StoreError::Conflict)?;
             let outcome = match stage.state {
@@ -592,7 +568,7 @@ impl MemoryStore {
             .map(|stage| {
                 state
                     .retention_stages
-                    .get(&(key.0, key.1, *stage, old_generation))
+                    .get(&(course, *stage, old_generation))
                     .copied()
                     .ok_or(StoreError::Conflict)
                     .map(|stored| (*stage, stored))
@@ -626,7 +602,7 @@ impl MemoryStore {
             if stored.state == RetentionStageWorkState::Scheduled
                 && state
                     .retention_dispatches
-                    .contains_key(&(key.0, key.1, stage, old_generation))
+                    .contains_key(&(course, stage, old_generation))
             {
                 if matches!(action, RetentionApiAction::Archive(disposition) if disposition != record.status.assignment_definitions)
                 {
@@ -709,7 +685,7 @@ impl MemoryStore {
             ));
         }
         for (stage, stored) in old {
-            let old_key = (key.0, key.1, stage, old_generation);
+            let old_key = (course, stage, old_generation);
             if stored.state == RetentionStageWorkState::Scheduled {
                 if let Some(job_id) = state.retention_dispatches.get(&old_key).copied()
                     && let Some(job) = state.jobs.get_mut(&job_id)
@@ -740,20 +716,19 @@ impl MemoryStore {
                 next_disposition,
             ),
         };
-        state.course_retention.insert(key, updated);
+        state.course_retention.insert(course, updated);
         for (stage, stored) in replacements {
             state
                 .retention_stages
-                .insert((key.0, key.1, stage, new_generation), stored);
+                .insert((course, stage, new_generation), stored);
         }
         if let Some(stage) = immediate_stage {
-            let dispatch_key = (key.0, key.1, stage, new_generation);
+            let dispatch_key = (course, stage, new_generation);
             let job_id = crate::JobId::generate()?;
             let available_at = state.authoritative_time;
             state.jobs.insert(
                 job_id,
                 StoredJob {
-                    tenant: key.0,
                     payload: JobPayload::Retention {
                         course,
                         stage,
@@ -770,7 +745,7 @@ impl MemoryStore {
             );
             state.retention_dispatches.insert(dispatch_key, job_id);
             state.retention_api_receipts.insert(
-                (key.0, key.1, expected.value()),
+                (course, expected.value()),
                 RetentionApiReceipt {
                     actor,
                     action,
@@ -790,14 +765,11 @@ impl MemoryStore {
 
 fn active_retention_session(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Result<&SessionSubject, StoreError> {
     let stored = state.sessions.get(&session).ok_or(StoreError::Forbidden)?;
-    if stored.revoked
-        || stored.record.expires_at <= state.authoritative_time
-        || stored.record.subject.tenant() != context.tenant_id()
-    {
+    if stored.revoked || stored.record.expires_at <= state.authoritative_time {
         return Err(StoreError::Forbidden);
     }
     Ok(&stored.record.subject)
@@ -805,17 +777,14 @@ fn active_retention_session(
 
 fn ensure_retention_course_authority(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     user: UserId,
-    roles: &[UserRole],
+    role: UserRole,
     course: CourseId,
 ) -> Result<(), StoreError> {
-    state
-        .courses
-        .get(&(context.tenant_id(), course))
-        .ok_or(StoreError::Forbidden)?;
-    if roles.contains(&UserRole::Sysadmin)
-        || super::entitlement::current_course_role(state, context.tenant_id(), course, user)
+    state.courses.get(&course).ok_or(StoreError::Forbidden)?;
+    if role == UserRole::Sysadmin
+        || super::entitlement::current_course_role(state, course, user)
             == Some(CourseMembershipRole::Instructor)
     {
         Ok(())

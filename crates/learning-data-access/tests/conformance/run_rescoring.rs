@@ -85,7 +85,7 @@ where
         generation,
     };
     store
-        .prepare_assignment_scoring(context, scoring_command)
+        .prepare_assignment_scoring(scoring_command)
         .await
         .expect("scoring generation stages privately");
     assert!(matches!(
@@ -121,9 +121,7 @@ where
         .expect("a newer scoring definition supersedes staged work");
     assert!(superseding.scoring_generation > generation);
     assert!(matches!(
-        store
-            .commit_assignment_scoring(context, scoring_command)
-            .await,
+        store.commit_assignment_scoring(scoring_command).await,
         Ok(AssignmentScoringCommitOutcome::Superseded)
     ));
     let still_pending = store
@@ -168,7 +166,7 @@ where
         generation: current_generation,
     };
     store
-        .prepare_assignment_scoring(context, current_command)
+        .prepare_assignment_scoring(current_command)
         .await
         .expect("current scoring generation stages privately");
     let concurrent_run = store
@@ -235,20 +233,16 @@ where
         .await
         .expect("submission may commit while recalculation is pending");
     assert_eq!(
-        store
-            .commit_assignment_scoring(context, current_command)
-            .await,
+        store.commit_assignment_scoring(current_command).await,
         Err(StoreError::Conflict),
         "staging prepared before a new submission must not publish an incomplete generation"
     );
     store
-        .prepare_assignment_scoring(context, current_command)
+        .prepare_assignment_scoring(current_command)
         .await
         .expect("same live claim restages after concurrent activity");
     assert_eq!(
-        store
-            .commit_assignment_scoring(context, current_command)
-            .await,
+        store.commit_assignment_scoring(current_command).await,
         Ok(AssignmentScoringCommitOutcome::Committed)
     );
     let current_assignment = store

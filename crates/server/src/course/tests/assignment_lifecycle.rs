@@ -793,7 +793,6 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     };
     store
         .prepare_retention_work(RetentionWorkerCommand {
-            tenant,
             course,
             stage,
             generation,

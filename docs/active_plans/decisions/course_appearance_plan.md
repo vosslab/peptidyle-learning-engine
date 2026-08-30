@@ -9,7 +9,7 @@ scope question remains, and WP-RC3 is the next dependency.
 ## Decisions
 
 - Keep the accepted 15-theme catalog and Roosevelt-inspired `grass` default.
-- Store one authoritative tenant-owned appearance revision per course.
+- Store one authoritative course-owned appearance revision per course.
 - Normalize every banner to one 1200 by 328 pixel WebP center crop; browsers scale that exact
   derivative without recropping.
 - Expire an unconsumed candidate 60 minutes after creation. Limit any protected object delivery grant
@@ -19,13 +19,13 @@ scope question remains, and WP-RC3 is the next dependency.
 
 ## Objectives
 
-- Let an instructor or tenant administrator choose one reviewed course theme and save it with
+- Let an Instructor or Sysadmin with an explicit course-support grant choose one reviewed course theme and save it with
   compare-and-swap conflict protection.
 - Let an instructor upload, preview, replace, or remove one centered course-entry banner without
   exposing object keys or leaving two banners current.
 - Apply the selected three-color palette to every learner and instructor page in that course while
   keeping global PLE pages and semantic status colors stable.
-- Preserve tenant isolation, retention ownership, accessibility, answer secrecy, and the existing
+- Preserve exact course authorization, retention ownership, accessibility, answer secrecy, and the existing
   grading and Wasm boundaries.
 - Keep the implementation compartmentalized into small contract, object, persistence, API, and
   browser owners that can be implemented and reviewed independently.
@@ -45,7 +45,7 @@ between courses.
 
 The durable owner guidance is intentionally small: one preconfigured three-color biome or habitat
 theme across every page inside a course, plus one small centered banner at the course entry page.
-This plan translates that guidance into a bounded, tenant-owned course capability. It does not make
+This plan translates that guidance into a bounded, course-owned capability. It does not make
 the instructor a graphic designer and does not recolor authored scientific content or semantic
 grading states.
 
@@ -67,7 +67,7 @@ at the existing 1200-pixel PLE width cap; the browser only scales that derivativ
 
 - Define a closed `CourseThemeId`, revisioned browser-safe appearance projection, banner alternative
   text choice, and strict update command.
-- Persist tenant-owned course appearance separately from course membership replacement.
+- Persist course-owned appearance separately from course membership replacement.
 - Add a protected course-banner object and delivery class with one current course pointer.
 - Add authenticated read, candidate upload, atomic save, removal, and current-banner delivery paths.
 - Add one instructor appearance page and one course-scoped Solid theme provider.
@@ -95,9 +95,9 @@ at the existing 1200-pixel PLE width cap; the browser only scales that derivativ
   boundaries, not Blackboard's broader menu/structure styling.
 - `CourseRecord` and `CourseSummary` carry course identity, title, role, and memberships, but no
   appearance.
-- PostgreSQL has tenant-leading forced-RLS `course` and `course_member` rows, but no appearance row
+- PostgreSQL has forced-RLS `course` and `course_member` rows, but no appearance row
   or revision.
-- The object contract has no tenant-owned `CourseBanner` class. Current signed delivery knows only
+- The object contract has no course-owned `CourseBanner` class. Current signed delivery knows only
   catalog and student-record assets.
 - The browser has a fail-closed route-scoped appearance provider across all seven course-owned
   surfaces and a working instructor settings page with keyboard, conflict, responsive, and
@@ -123,7 +123,7 @@ banner presentation. It never contains a bucket/key, checksum, filename, source 
 metadata, signed URL, grading data, or answer-bearing content. The banner presentation contains a
 same-origin asset ID/route and either explicit informative text or the decorative state.
 
-One `course_appearance` row is keyed by `(tenant_id, course_id)` and contains the stable theme ID,
+One `course_appearance` row is keyed by globally unique `course_id` and contains the stable theme ID,
 optional current banner delivery ID, banner alternative-text state, revision, and update time. It is
 created transactionally with a new course. Every mutation uses the current strong ETag and advances
 one revision. PostgreSQL creates the default row through an `AFTER INSERT` course trigger; the Memory
@@ -133,13 +133,13 @@ course-creation seams.
 A separate private `course_banner_candidate` relation owns candidate object identity, normalized
 checksum and dimensions, creator, expiry, deterministic promoted-object identity, and consumed/
 cleanup state. It is never a course summary, asset-delivery row, or browser DTO. Its only readers and
-writers are the narrow appearance promotion/cleanup capabilities under the same tenant/course and
+writers are the narrow appearance promotion/cleanup capabilities under the same course and
 persisted-role checks.
 
 Banner replacement uses a two-step internal lifecycle:
 
 1. A bounded author-only upload writes normalized bytes to a non-signable
-   `CourseBannerCandidate` key and persists a tenant/course/actor-bound candidate row with checksum,
+   `CourseBannerCandidate` key and persists a course/actor-bound candidate row with checksum,
    expiry, and a deterministic future current-object identity.
 2. One JSON appearance save locks that candidate and revision, copies/verifies bytes first into the
    protected immutable `CourseBanner` key, then atomically selects the theme, registers delivery,
@@ -153,8 +153,8 @@ No candidate is learner-deliverable. A superseded current banner becomes immedia
 non-deliverable because authorization verifies the course's current pointer before issuing access.
 Managers may read retained course branding; students may read it only while
 `ple_course_records_accessible` is true. Mutations require persisted instructor/administrator
-authority. Outsiders and foreign tenants receive concealed 404 behavior. Banner delivery enforces
-the same split rather than relying on tenant-only RLS.
+authority. Outsiders and actors without course authority receive concealed 404 behavior. Banner
+delivery enforces the same split rather than relying on course-unaware RLS.
 
 ### Mapping (milestones / workstreams -> components / patches)
 
@@ -173,7 +173,7 @@ the same split rather than relying on tenant-only RLS.
 | M   | Title                       | Summary                                                          | Goal                                                            |
 | --- | --------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
 | CA1 | Freeze the contract         | Lock types, palettes, route shape, image policy, and defaults    | Every later owner implements one unambiguous boundary           |
-| CA2 | Build secure storage        | Add banner object/delivery and revisioned Store/schema behavior  | Tenant-safe CAS and object lifecycle pass backend parity        |
+| CA2 | Build secure storage        | Add banner object/delivery and revisioned Store/schema behavior  | Course-safe CAS and object lifecycle pass backend parity        |
 | CA3 | Add the server capability   | Normalize uploads and expose protected appearance operations     | One atomic, recoverable instructor save works over HTTP         |
 | CA4 | Build the course experience | Add the route-scoped theme and instructor settings surface       | Theme follows every course page and the banner stays entry-only |
 | CA5 | Prove the package           | Run permanent and live security, accessibility, and visual gates | Independent review reports no P0/P1 finding                     |
@@ -198,7 +198,7 @@ the same split rather than relying on tenant-only RLS.
 - Workstreams: WS-B, then WS-C.
 - Entry criteria: CA1 contract gate green.
 - Exit criteria: exact object classification and signing tests pass; Store conformance proves CAS,
-  one current banner, current-pointer authorization, and foreign-tenant non-enumeration; fresh and
+  one current banner, current-pointer authorization, and foreign-course non-enumeration; fresh and
   no-op migration gates pass.
 - Parallel-plan ready: no. WS-C consumes WP-CA2's frozen object identity and owns all asset-delivery,
   schema, Store, cleanup, and shared re-export seams so those persistence owners cannot race.
@@ -381,8 +381,8 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
 - Touch points: typed object keys and object conformance tests only.
 - Depends on: WP-CA1.
 - Acceptance criteria:
-  - Add tenant/course-bound candidate and current `CourseBanner` keys with no caller-supplied path.
-  - Classify current banners as protected tenant course content, never source or student records.
+  - Add course/actor-bound candidate and current `CourseBanner` keys with no caller-supplied path.
+  - Classify current banners as protected course content, never source or Student records.
   - Make candidates non-signable. Permit current banner signing at the typed-object layer while
     requiring WP-CA3 current-pointer authorization before any delivery record is usable.
   - Preserve every existing source-signing refusal and student-record retention rule.
@@ -403,11 +403,11 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
 - Depends on: WP-CA1 and the WP-CA2 delivery identity.
 - Acceptance criteria:
   - Create appearance with the course through one PostgreSQL `AFTER INSERT` trigger and the same
-    atomic Memory `upsert_course` write lock; use tenant-leading keys and `FORCE ROW LEVEL SECURITY`,
+    atomic Memory `upsert_course` write lock; use globally unique course keys and `FORCE ROW LEVEL SECURITY`,
     and constrain the closed theme ID and positive revision.
   - Make every mutation accept the authenticated actor and transactionally revalidate persisted
     instructor/administrator authority. Managers may read retained branding; students may read only
-    while `ple_course_records_accessible` is true; outsiders/foreign tenants are non-enumerating.
+    while `ple_course_records_accessible` is true; outsiders and foreign-course actors are non-enumerating.
   - Persist candidate checksum/expiry/future-current identity, perform bytes-first idempotent
     promotion, enforce one exact current banner pointer, and provide race-safe cleanup that rechecks
     references before deleting expired candidate or unreferenced promoted bytes.
@@ -442,8 +442,8 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
   - Provide author-only candidate upload, strict atomic JSON save, current banner read, and no-store
     responses with strong ETags.
   - Return 412 for stale `If-Match`, 413 for size, 415 for unsupported media, 422 for decoded/image/
-    theme/alt validation, 403 for a student mutation, and concealed 404 for outsiders/foreign
-    tenants. Preserve the old appearance on every failure.
+    theme/alt validation, 403 for a Student mutation, and concealed 404 for outsiders and actors
+    without course authority. Preserve the old appearance on every failure.
 - Evidence or review, when useful: hostile image corpus, focused route tests, and bytes-first object
   failure tests.
 - Next dependency: the generated-contract owner updates strict client contracts before WP-CA6.
@@ -532,7 +532,7 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
 - Accessibility gate: all rendered normal-text pairs meet the 5.5:1 house target; large text,
   controls, icons, selected outlines, and two-color focus indicators meet 3:1; axe reports no
   critical/serious findings.
-- Tenant/object gate: forced RLS and current-pointer authorization hide foreign, outsider,
+- Course/object gate: forced RLS and current-pointer authorization hide foreign, outsider,
   candidate, and superseded banners; no object key/checksum/source URL enters a DTO or log.
 - Integration gate: focused Rust/Node/Playwright suites plus disposable PostgreSQL and MinIO oracles
   pass before `./check_codebase.sh` and the built Playwright suite.
@@ -605,8 +605,6 @@ theme-card counts, or exact error prose. Assert stable behavior and named IDs in
 - Durable architecture: update `docs/CODE_ARCHITECTURE.md`, `docs/FILE_STRUCTURE.md`,
   `docs/FRONTEND_ARCHITECTURE.md`, `docs/SOLID_MODEL.md`, `docs/CONTRACTS.md`, and object/retention
   documentation where behavior changes.
-- Closure: add `docs/active_plans/workstreams/course_appearance_implementation.md` with exact gates,
-  artifact paths, accepted tradeoffs, and independent review result.
 
 ## Patch plan and reporting format
 
@@ -635,7 +633,7 @@ verification artifact.
 - Show one centered banner only on the course entry page; theme every course-owned route.
 - Use one exact 1200 by 328 pixel server-owned center crop with ratio-preserving browser previews
   instead of manual crop controls, client recropping, or multiple responsive derivatives.
-- Treat appearance as authoritative tenant-owned server state with strong revisions, never a browser
+- Treat appearance as authoritative course-owned server state with strong revisions, never a browser
   preference.
 - Expire an unconsumed candidate after 60 minutes. Limit a protected course-banner object grant to
   60 minutes and retain the current-pointer authorization check as the actual access boundary.

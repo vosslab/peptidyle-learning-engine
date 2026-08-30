@@ -339,7 +339,7 @@ fn protected_delivery_response(url: String) -> Response {
 fn store_error_response(error: StoreError) -> Response {
     match error {
         StoreError::NotFound => error_response(StatusCode::NOT_FOUND, "asset not found"),
-        StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "asset not found")
         }
         StoreError::AlreadyExists

@@ -294,7 +294,6 @@ fn attempt_id() -> QuestionAttemptId {
 
 fn claim() -> AcceptedSubmissionExecutionClaim {
     AcceptedSubmissionExecutionClaim {
-        tenant: tenant_id(),
         job: JobId::from_uuid(Uuid::from_u128(3)),
         lease_token: JobLeaseToken::generate().expect("lease token"),
         submission: learning_data_access::AcceptedSubmissionId::from_uuid(Uuid::from_u128(5)),
@@ -306,7 +305,6 @@ fn claim() -> AcceptedSubmissionExecutionClaim {
 fn target() -> AcceptedSubmissionExecutionTarget {
     let claim = claim();
     AcceptedSubmissionExecutionTarget {
-        tenant: claim.tenant,
         attempt: attempt_id(),
         submission: claim.submission,
         job: claim.job,
@@ -342,7 +340,6 @@ fn execution() -> AcceptedSubmissionExecution {
     };
     let attempt = QuestionAttempt {
         id: attempt_id(),
-        tenant: tenant_id(),
         run: RunId::from_uuid(Uuid::from_u128(11)),
         problem: question.problem,
         question_version: question.version,
@@ -376,7 +373,6 @@ fn execution() -> AcceptedSubmissionExecution {
     };
     AcceptedSubmissionExecution {
         accepted: AcceptedSubmission {
-            tenant: tenant_id(),
             course: question_model::CourseId::from_uuid(Uuid::from_u128(14)),
             assignment: question_model::AssignmentId::from_uuid(Uuid::from_u128(15)),
             attempt: attempt.id,

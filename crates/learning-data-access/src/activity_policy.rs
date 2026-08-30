@@ -4,7 +4,7 @@ use crate::score_precision;
 use crate::{
     ActivityTransition, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord,
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseGroupRecord, CourseRecord, StoreError,
-    TenantContext, current_attempt_points,
+    current_attempt_points,
 };
 use domain::completion::{RequiredQuestionState, derive_within_run_completion};
 use domain::run::RunModelError;
@@ -13,7 +13,7 @@ use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord};
 use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentItemId, AssignmentRunItem, AttemptResult,
     GradePolicy, QuestionAttempt, QuestionAttemptId, RunCompletionStatus, RunId,
-    StudentAssignmentSummary, TenantId,
+    StudentAssignmentSummary,
 };
 
 pub(crate) fn grade_policy(assignment: &AssignmentRecord) -> GradePolicy {
@@ -36,18 +36,6 @@ pub(crate) fn summary_transition(transition: &ActivityTransition) -> RunTransiti
             score: *score,
             at: *at,
         },
-    }
-}
-
-/// Refuses a tenant-owned record outside the authenticated context.
-pub(crate) fn ensure_tenant(
-    context: TenantContext,
-    record_tenant: TenantId,
-) -> Result<(), StoreError> {
-    if context.tenant_id() == record_tenant {
-        Ok(())
-    } else {
-        Err(StoreError::TenantMismatch)
     }
 }
 
@@ -193,7 +181,7 @@ mod tests {
     use crate::new_assignment_draft;
     use objects::Sha256Digest;
     use question_model::{
-        AssetId, AssignmentId, CourseBannerId, CourseId, ObjectId, ProblemId, TenantId, VersionId,
+        AssetId, AssignmentId, CourseBannerId, CourseId, ObjectId, ProblemId, VersionId,
         WorkspaceId, WorkspaceImportId,
     };
     use uuid::Uuid;
@@ -207,7 +195,6 @@ mod tests {
     #[test]
     fn empty_draft_is_structurally_valid_but_cannot_publish() {
         let mut assignment = new_assignment_draft(
-            TenantId::from_uuid(id(1)),
             CourseId::from_uuid(id(2)),
             AssignmentId::from_uuid(id(3)),
             "Protein structure practice".to_string(),
@@ -279,12 +266,10 @@ mod tests {
 
     #[test]
     fn pending_public_asset_accepts_only_typed_private_workspace_assets() {
-        let tenant = TenantId::from_uuid(id(10));
         let workspace = WorkspaceId::from_uuid(id(11));
         let asset = AssetId::from_uuid(id(12));
         let imported = source_record(
             ObjectKey::WorkspaceAsset {
-                tenant,
                 workspace,
                 import: WorkspaceImportId::from_uuid(id(13)),
                 asset,
@@ -296,7 +281,6 @@ mod tests {
 
         let native = source_record(
             ObjectKey::WorkspaceQuestionAsset {
-                tenant,
                 workspace,
                 asset,
                 object: ObjectId::from_uuid(id(15)),
@@ -308,11 +292,9 @@ mod tests {
 
     #[test]
     fn pending_public_asset_rejects_student_and_temporary_sources() {
-        let tenant = TenantId::from_uuid(id(20));
         for source in [
             source_record(
                 ObjectKey::StudentRecord {
-                    tenant,
                     object: ObjectId::from_uuid(id(21)),
                 },
                 ObjectCategory::Export,
@@ -334,7 +316,6 @@ mod tests {
 
     #[test]
     fn pending_public_asset_rejects_private_non_authoring_and_public_sources() {
-        let tenant = TenantId::from_uuid(id(30));
         let workspace = WorkspaceId::from_uuid(id(31));
         let problem = ProblemId::from_uuid(id(32));
         let version = VersionId::from_uuid(id(33));
@@ -342,7 +323,6 @@ mod tests {
         for source in [
             source_record(
                 ObjectKey::CourseBanner {
-                    tenant,
                     course: CourseId::from_uuid(id(35)),
                     banner: CourseBannerId::from_uuid(id(36)),
                 },
@@ -368,7 +348,6 @@ mod tests {
             ),
             source_record(
                 ObjectKey::WorkspaceQuestionAsset {
-                    tenant,
                     workspace,
                     asset,
                     object: ObjectId::from_uuid(id(39)),
@@ -463,16 +442,15 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             && record.object.category == ObjectCategory::Asset => {}
         (
             AssetDeliveryScope::StudentRecord {
-                tenant,
-                course: _,
+                course,
                 authorized_users,
             },
             ObjectKey::StudentRecord {
-                tenant: key_tenant,
+                course: key_course,
                 object,
             },
         ) if record.id == AssetDeliveryId::from_object(*object)
-            && *tenant == *key_tenant
+            && *course == *key_course
             && record.object.bucket == Bucket::StudentRecords
             && record.object.category == ObjectCategory::Export =>
         {
@@ -489,18 +467,12 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             }
         }
         (
-            AssetDeliveryScope::CourseBanner {
-                tenant,
-                course,
-                banner,
-            },
+            AssetDeliveryScope::CourseBanner { course, banner },
             ObjectKey::CourseBanner {
-                tenant: key_tenant,
                 course: key_course,
                 banner: key_banner,
             },
         ) if record.id == AssetDeliveryId::from_course_banner(*banner)
-            && *tenant == *key_tenant
             && *course == *key_course
             && *banner == *key_banner
             && record.object.bucket == Bucket::PrivateContent
@@ -522,7 +494,7 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
 ///
 /// The pending target is a public catalog object, but its source remains a
 /// private authoring object until the catalog transaction and outbox commit.
-/// Only the two typed workspace-asset key families carry the tenant, workspace,
+/// Only the two typed workspace-asset key families carry the workspace,
 /// logical asset, and physical-object provenance required for that bridge:
 /// imported QTI assets and native workspace-question assets.  In particular,
 /// a private bucket alone is not authority to publish: restricted catalog,

@@ -19,7 +19,6 @@ struct RecordedProvider {
 
 #[derive(Clone, Copy)]
 enum Mismatch {
-    Tenant,
     Attempt,
     Problem,
     Version,
@@ -73,7 +72,6 @@ impl ImathasProvider for RecordedProvider {
                 points_earned: 1.0,
                 points_possible: 1.0,
             },
-            request.tenant(),
             request.attempt(),
             request.problem(),
             request.version(),
@@ -81,7 +79,6 @@ impl ImathasProvider for RecordedProvider {
             request.correlation(),
         );
         match self.mismatch {
-            Some(Mismatch::Tenant) => verdict.tenant = TenantId::from_uuid(Uuid::from_u128(99)),
             Some(Mismatch::Attempt) => {
                 verdict.attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(99))
             }
@@ -263,7 +260,6 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
         .grade(
             &question,
             &source,
-            TenantId::from_uuid(Uuid::from_u128(5)),
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             Seed::new(17),
             &correlation(&question, Seed::new(17)),
@@ -324,7 +320,6 @@ async fn snapshot_mutation_wrong_binding_and_outage_refuse_without_fabricating_i
         .grade(
             &question,
             &source,
-            TenantId::from_uuid(Uuid::from_u128(5)),
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             Seed::new(17),
             &correlation(&question, Seed::new(17)),
@@ -358,7 +353,6 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let store = MemoryObjectStore::default();
     let (question, source, _) = stored_source(&store).await;
     for mismatch in [
-        Mismatch::Tenant,
         Mismatch::Attempt,
         Mismatch::Problem,
         Mismatch::Version,
@@ -378,7 +372,6 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
                 .grade(
                     &question,
                     &source,
-                    TenantId::from_uuid(Uuid::from_u128(5)),
                     QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                     Seed::new(17),
                     &correlation(&question, Seed::new(17)),
@@ -390,7 +383,6 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     }
     let issuer = CorrelationIssuer::from_server_secret([8; 32]);
     let binding = GradeBinding {
-        tenant: TenantId::from_uuid(Uuid::from_u128(5)),
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         problem: question.problem,
         version: question.version,
@@ -403,14 +395,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let adapter = ImathasAdapter::new(store.clone(), provider(), [profile()]);
     assert!(
         adapter
-            .grade(
-                &question,
-                &source,
-                binding.tenant,
-                binding.attempt,
-                binding.seed,
-                &restored,
-            )
+            .grade(&question, &source, binding.attempt, binding.seed, &restored,)
             .await
             .unwrap()
             .result()
@@ -482,7 +467,6 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
             .grade(
                 &question,
                 &source,
-                TenantId::from_uuid(Uuid::from_u128(5)),
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 Seed::new(17),
                 &correlation(&question, Seed::new(17)),
@@ -523,7 +507,6 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
 fn correlation(question: &QuestionDefinition, seed: Seed) -> ServerCorrelation {
     let issuer = CorrelationIssuer::from_server_secret([7; 32]);
     let binding = GradeBinding {
-        tenant: TenantId::from_uuid(Uuid::from_u128(5)),
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         problem: question.problem,
         version: question.version,

@@ -54,7 +54,6 @@ cargo test -p server_core --bin server_core \
 cargo test -p server_core auth::tests::cookie_attributes_match_the_selected_transport -- --exact
 cargo clippy -p server_core --all-targets --all-features -- -D warnings
 source source_me.sh && python3 tests/check_ascii_compliance.py -i \
-  docs/active_plans/workstreams/wp_rc8_production_account_composition.md
 source source_me.sh && python3 -m pytest tests/test_markdown_links.py -q
 git diff --check -- crates/server/src/composition.rs \
   crates/server/src/composition/backend.rs crates/server/src/composition/router.rs \
@@ -69,7 +68,6 @@ check and ASCII check were clean.
 
 ### P2: workstream evidence counts six commands as four
 
-- File: [wp_rc8_production_account_composition.md](../workstreams/wp_rc8_production_account_composition.md):44
 - Evidence: the fenced command block at lines 35-41 contains six commands,
   while line 44 says "All four commands passed."
 - Fix: change "four" to "six" (or reduce the block to the four intended

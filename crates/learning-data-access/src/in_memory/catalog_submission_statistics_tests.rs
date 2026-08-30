@@ -98,10 +98,9 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     {
         let mut state = store.write_state().expect("statistics fixture state");
         state.courses.insert(
-            (tenant, assignment.course_id),
+            assignment.course_id,
             CourseRecord {
                 id: assignment.course_id,
-                tenant,
                 title: "Statistics fixture course".to_string(),
                 term: question_model::CourseTerm::from_parts(
                     "2026-08-24",
@@ -113,7 +112,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         );
         let membership = CourseMembershipId::from_uuid(Uuid::from_u128(72_008));
         state.course_memberships.insert(
-            (tenant, membership),
+            membership,
             CourseMembershipRecord {
                 id: membership,
                 tenant,
@@ -129,27 +128,25 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         );
         state
             .active_course_membership_by_user
-            .insert((tenant, assignment.course_id, actor), membership);
+            .insert((assignment.course_id, actor), membership);
         state
             .published
             .insert((published_a.problem, published_a.version), published_a);
         state
             .published
             .insert((published_b.problem, published_b.version), published_b);
-        state
-            .assignments
-            .insert((tenant, assignment_id), assignment);
+        state.assignments.insert(assignment_id, assignment);
         state.assignment_scoring.insert(
-            (tenant, assignment_id),
+            assignment_id,
             (ScoringGeneration::INITIAL, ScoringStatus::Current),
         );
         state
             .enrollments
             .insert((tenant, enrollment_id), enrollment);
-        state.runs.insert((tenant, assigned_run), run);
-        state.run_items.insert((tenant, assigned_run), run_items);
+        state.runs.insert(assigned_run, run);
+        state.run_items.insert(assigned_run, run_items);
         state.summaries.insert(
-            (tenant, enrollment_id),
+            enrollment_id,
             StudentAssignmentSummary::empty(tenant, enrollment_id),
         );
         for (number, snapshot) in [
@@ -164,10 +161,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             (72_203, issued_snapshot_a.clone()),
         ] {
             state.attempt_issued_question_snapshots.insert(
-                (
-                    tenant,
-                    QuestionAttemptId::from_uuid(Uuid::from_u128(number)),
-                ),
+                QuestionAttemptId::from_uuid(Uuid::from_u128(number)),
                 snapshot,
             );
         }
@@ -195,7 +189,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         let mut state = store.write_state().expect("missing timing fixture state");
         state.authoritative_time = ActivityTimestamp::from_unix_millis(1_500);
         insert_statistics_issued_authority(&mut state, &missing_timing);
-        state.attempt_timing.remove(&(tenant, missing_timing.id));
+        state.attempt_timing.remove(&missing_timing.id);
         state
             .attempts
             .insert((tenant, missing_timing.id), missing_timing.clone());
@@ -214,7 +208,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             Err(StoreError::Unavailable(_))
         ));
         assert!(
-            !state.submissions.contains_key(&(tenant, missing_timing.id)),
+            !state.submissions.contains_key(&missing_timing.id),
             "missing issued timing must fail before receipt mutation"
         );
     }
@@ -229,12 +223,12 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             submit_question_attempt_locked(&mut state, context, regressive_command),
             Err(StoreError::InvalidRecord(_))
         ));
-        assert!(!state.submissions.contains_key(&(tenant, regressive.id)));
+        assert!(!state.submissions.contains_key(&regressive.id));
         assert_eq!(
-            state.summaries[&(tenant, enrollment_id)],
+            state.summaries[&enrollment_id],
             StudentAssignmentSummary::empty(tenant, enrollment_id)
         );
-        assert_eq!(state.runs[&(tenant, assigned_run)].completed_at, None);
+        assert_eq!(state.runs[&assigned_run].completed_at, None);
         assert!(state.question_statistics.is_empty());
         assert!(state.question_statistics_receipts.is_empty());
     }
@@ -332,7 +326,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     let practice_run = RunId::from_uuid(Uuid::from_u128(72_200));
     {
         let mut state = store.write_state().expect("practice statistics state");
-        let practice_items = state.run_items[&(tenant, assigned_run)]
+        let practice_items = state.run_items[&assigned_run]
             .iter()
             .cloned()
             .map(|mut item| {

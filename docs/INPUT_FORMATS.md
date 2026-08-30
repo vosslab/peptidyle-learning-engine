@@ -76,13 +76,6 @@ and [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
 ## Implemented CSV exports
 
-### Assignment grades
-
-`POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` requires an empty body and
-returns synchronous, no-store `text/csv; charset=utf-8` attachment data. Headers are
-`roster_id,email,display_name,score`; rows contain only course-scoped roster identity and the
-selected assignment score. The CSV object is not persisted.
-
 ### Course totals
 
 `POST /api/courses/{course}/grade-export.csv` also requires an empty body and returns synchronous,

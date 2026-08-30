@@ -94,7 +94,7 @@ enhancement, not a replacement for the accessible path.
 2. Accept the implemented family-specific instructor authoring controls without widening the closed
    source decoder.
 3. Run one complete Memory/PostgreSQL/object-store author-to-learner path for every family, including
-   correct, incorrect, retry, retention, cleanup, and tenant-refusal behavior.
+   correct, incorrect, retry, retention, cleanup, and foreign-actor refusal behavior.
 4. Add the exact Chapter 1 genetics and biochemistry content and the separate WeBWorK MATCH path.
 5. Complete keyboard and screen-reader review, canonical 1280 by 800 laptop evidence,
    representative 800 by 1280 student/tablet evidence, one narrow-phone no-overflow guard, zoom,

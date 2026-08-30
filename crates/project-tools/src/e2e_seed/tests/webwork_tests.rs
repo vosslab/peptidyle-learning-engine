@@ -50,8 +50,7 @@ fn webwork_pilot_draft_uses_immutable_source_and_declared_capabilities() {
 
 #[test]
 fn webwork_pilot_source_key_binds_fresh_publication_identity() {
-    let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-    let ids = WebworkPilotSeedIds::fresh_for_tenant(tenant);
+    let ids = WebworkPilotSeedIds::fresh_for_installation();
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,
@@ -74,10 +73,9 @@ fn webwork_pilot_source_key_binds_fresh_publication_identity() {
 
 #[test]
 fn webwork_pilot_keeps_scaffold_stable_while_publication_ids_are_fresh() {
-    let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-    let first = WebworkPilotSeedIds::fresh_for_tenant(tenant);
-    let second = WebworkPilotSeedIds::fresh_for_tenant(tenant);
-    let native = SeedIds::fresh_for_tenant(tenant);
+    let first = WebworkPilotSeedIds::fresh_for_installation();
+    let second = WebworkPilotSeedIds::fresh_for_installation();
+    let native = SeedIds::fresh_for_installation();
     assert_eq!(first.assignment, second.assignment);
     assert_ne!(first.problem.as_uuid(), first.source_object.as_uuid());
     assert_ne!(first.problem.as_uuid(), native.problem.as_uuid());
@@ -87,10 +85,9 @@ fn webwork_pilot_keeps_scaffold_stable_while_publication_ids_are_fresh() {
 
 #[test]
 fn webwork_catalog_baseline_uses_only_deterministic_provider_identities() {
-    let tenant = TenantId::from_uuid(Uuid::from_u128(24));
-    let first = WebworkCatalogBaselineIds::for_tenant(tenant);
-    let second = WebworkCatalogBaselineIds::for_tenant(tenant);
-    let pilot = WebworkPilotSeedIds::fresh_for_tenant(tenant);
+    let first = WebworkCatalogBaselineIds::for_installation();
+    let second = WebworkCatalogBaselineIds::for_installation();
+    let pilot = WebworkPilotSeedIds::fresh_for_installation();
     assert_eq!(first.workspace, second.workspace);
     assert_eq!(first.problem, second.problem);
     assert_eq!(first.version, second.version);
@@ -153,7 +150,7 @@ async fn webwork_catalog_baseline_reconciles_one_publication_without_product_sta
     let instructor = UserId::from_uuid(Uuid::from_u128(95));
     let student = UserId::from_uuid(Uuid::from_u128(96));
     let context = TenantContext::from_authenticated_session(tenant);
-    let ids = WebworkCatalogBaselineIds::for_tenant(tenant);
+    let ids = WebworkCatalogBaselineIds::for_installation();
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,
@@ -213,7 +210,7 @@ async fn webwork_catalog_baseline_reconciles_one_publication_without_product_sta
         .collect::<Vec<_>>();
     assert_eq!(receipt_keys, vec!["questionId", "title"]);
 
-    let product_ids = WebworkPilotSeedIds::fresh_for_tenant(tenant);
+    let product_ids = WebworkPilotSeedIds::fresh_for_installation();
     assert!(
         store
             .get_course(context, product_ids.course)
@@ -244,7 +241,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     let instructor = UserId::from_uuid(Uuid::from_u128(92));
     let student = UserId::from_uuid(Uuid::from_u128(93));
     let context = TenantContext::from_authenticated_session(tenant);
-    let ids = WebworkPilotSeedIds::fresh_for_tenant(tenant);
+    let ids = WebworkPilotSeedIds::fresh_for_installation();
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,

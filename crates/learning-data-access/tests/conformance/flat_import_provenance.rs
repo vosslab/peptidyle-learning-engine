@@ -208,14 +208,12 @@ impl ConversionFixture {
 
     fn published_archive(&self, reference: ProblemVersionRef) -> ObjectRecord {
         let object = published_import_archive_object_id(
-            self.tenant,
             reference.problem,
             reference.version,
             self.import,
             self.origin.source_archive().sha256,
         );
         let key = ObjectKey::PublishedImportArchive {
-            tenant: self.tenant,
             problem: reference.problem,
             version: reference.version,
             import: self.import,

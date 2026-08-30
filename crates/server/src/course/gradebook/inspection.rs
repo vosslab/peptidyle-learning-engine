@@ -74,7 +74,7 @@ where
     {
         Ok(Some(value)) => value,
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch) => {
+        | Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
             inspection_refused("course_reference");
             return inspection_unavailable();
         }
@@ -138,7 +138,7 @@ where
         .await
     {
         Ok(detail) => no_store(Json(InspectedStudentWorkDetailView::from(detail)).into_response()),
-        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch) => {
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
             inspection_refused("evidence");
             inspection_unavailable()
         }

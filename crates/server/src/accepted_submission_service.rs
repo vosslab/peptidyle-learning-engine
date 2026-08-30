@@ -129,7 +129,6 @@ where
         .await?;
     let result = match fast_path
         .execute_accepted_submission(learning_data_access::AcceptedSubmissionExecutionTarget {
-            tenant: accepted.tenant,
             attempt: accepted.attempt,
             submission: accepted.submission,
             job: execution_job,

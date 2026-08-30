@@ -277,7 +277,6 @@ pub(super) struct LockedCompletionSource {
 /// SQL aliases so the worker boundary cannot silently drop either identity.
 #[derive(Debug, PartialEq)]
 pub(super) struct LockedCompletionSummaryRow {
-    pub(super) summary_tenant_id: Uuid,
     pub(super) summary_enrollment_id: Uuid,
     pub(super) summary_current_score: Option<f64>,
     pub(super) summary_best_score: Option<f64>,
@@ -291,7 +290,6 @@ fn decode_locked_completion_source_summary(
     row: LockedCompletionSummaryRow,
 ) -> Result<question_model::StudentAssignmentSummary, StoreError> {
     super::summary::decode_summary_values(super::summary::SummaryRowValues {
-        tenant_id: row.summary_tenant_id,
         enrollment_id: row.summary_enrollment_id,
         current_score: row.summary_current_score,
         best_score: row.summary_best_score,
@@ -306,7 +304,6 @@ fn decode_locked_completion_source_summary_row(
     row: &sqlx::postgres::PgRow,
 ) -> Result<question_model::StudentAssignmentSummary, StoreError> {
     decode_locked_completion_source_summary(LockedCompletionSummaryRow {
-        summary_tenant_id: row.try_get("summary_tenant_id").map_err(map_sqlx_error)?,
         summary_enrollment_id: row
             .try_get("summary_enrollment_id")
             .map_err(map_sqlx_error)?,
@@ -368,7 +365,6 @@ pub(super) fn decode_locked_completion_source(
     }
     let enrollment = question_model::AssignmentEnrollment {
         id: enrollment_id,
-        tenant: claim.tenant,
         assignment: assignment_id,
         user: UserId::from_uuid(row.try_get("enrollment_user_id").map_err(map_sqlx_error)?),
         student: question_model::StudentId::from_uuid(
@@ -389,7 +385,7 @@ pub(super) fn decode_locked_completion_source(
             .map(question_model::RunId::from_uuid),
     };
     let summary = decode_locked_completion_source_summary_row(row)?;
-    if summary.tenant != claim.tenant || summary.enrollment != enrollment_id {
+    if summary.enrollment != enrollment_id {
         return Err(StoreError::Unavailable(
             "completion lock summary evidence is incoherent".to_string(),
         ));
@@ -622,10 +618,8 @@ mod tests {
 
     #[test]
     fn decode_locked_completion_source_preserves_scalar_summary_row() {
-        let tenant = Uuid::from_u128(0x1111);
         let enrollment = Uuid::from_u128(0x2222);
         let lock_row = LockedCompletionSummaryRow {
-            summary_tenant_id: tenant,
             summary_enrollment_id: enrollment,
             summary_current_score: Some(0.875),
             summary_best_score: Some(0.9375),
@@ -641,7 +635,6 @@ mod tests {
         assert_eq!(
             summary,
             question_model::StudentAssignmentSummary {
-                tenant: TenantId::from_uuid(tenant),
                 enrollment: question_model::EnrollmentId::from_uuid(enrollment),
                 current_score: Some(0.875),
                 best_score: Some(0.9375),

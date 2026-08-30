@@ -9,14 +9,14 @@ use objects::Sha256Digest;
 use question_model::{
     ActivityTimestamp, AssignmentId, AttemptResult, CourseId, GradingOperationAction,
     GradingOperationReason, GradingOperationReference, GradingOperationState, QuestionAttemptId,
-    ScoringGeneration, StudentResponse, SubmissionEvaluationStatus, TenantId, UserId,
+    ScoringGeneration, StudentResponse, SubmissionEvaluationStatus, UserId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    JobId, JobLeaseToken, PreparedQuestionSubmission, StoreError, SubmissionIdempotencyKey,
-    TenantContext,
+    ActorContext, JobId, JobLeaseToken, PreparedQuestionSubmission, StoreError,
+    SubmissionIdempotencyKey,
 };
 
 /// Worker-attempt budget shared by initial and Instructor-retried accepted submissions.
@@ -128,7 +128,6 @@ pub enum GradingOperationReceiptSafeCategory {
 /// Immutable accepted-input metadata. The private response is intentionally absent.
 #[derive(Clone, PartialEq)]
 pub struct AcceptedSubmission {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub attempt: QuestionAttemptId,
@@ -143,7 +142,6 @@ pub struct AcceptedSubmission {
 impl std::fmt::Debug for AcceptedSubmission {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AcceptedSubmission")
-            .field("tenant", &self.tenant)
             .field("course", &self.course)
             .field("assignment", &self.assignment)
             .field("attempt", &self.attempt)
@@ -207,7 +205,6 @@ impl GradingOperationActionId {
 /// Metadata-only current recovery-thread projection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GradingOperation {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub reference: GradingOperationReference,
@@ -225,8 +222,6 @@ pub struct GradingOperation {
 /// diagnostics (ASVS V2.3: bind multi-step work to its exact claim).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AcceptedSubmissionExecutionClaim {
-    /// Tenant fence carried through every private worker operation.
-    pub tenant: TenantId,
     pub job: JobId,
     pub lease_token: JobLeaseToken,
     pub submission: AcceptedSubmissionId,
@@ -242,7 +237,6 @@ pub struct AcceptedSubmissionExecutionClaim {
 /// after it wins the shared state transition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AcceptedSubmissionExecutionTarget {
-    pub tenant: TenantId,
     pub attempt: QuestionAttemptId,
     pub submission: AcceptedSubmissionId,
     pub job: JobId,
@@ -251,7 +245,6 @@ pub struct AcceptedSubmissionExecutionTarget {
 impl std::fmt::Debug for AcceptedSubmissionExecutionClaim {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AcceptedSubmissionExecutionClaim")
-            .field("tenant", &self.tenant)
             .field("job", &self.job)
             .field("lease_token", &"[REDACTED]")
             .field("submission", &self.submission)
@@ -521,17 +514,17 @@ pub fn canonical_student_response_json(response: &StudentResponse) -> Result<Str
 pub trait AutomatedGradingStore: Send + Sync {
     async fn accept_automated_submission(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: AcceptedSubmissionCommand,
     ) -> Result<AcceptedSubmission, StoreError>;
     async fn automated_grading_execution(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         submission: AcceptedSubmissionId,
     ) -> Result<Option<GradingExecution>, StoreError>;
     async fn record_automated_grading_execution_receipt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         receipt: GradingExecutionReceipt,
         resulting_evaluation: SubmissionEvaluationStatus,
     ) -> Result<(), StoreError>;
@@ -547,13 +540,11 @@ pub trait AutomatedGradingStore: Send + Sync {
 pub trait AcceptedSubmissionExecutionStore: Send + Sync {
     async fn load_accepted_submission_for_execution(
         &self,
-        context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
     ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError>;
 
     async fn commit_or_fail_accepted_submission_execution(
         &self,
-        context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
         outcome: AcceptedSubmissionExecutionOutcome,
     ) -> Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError>;

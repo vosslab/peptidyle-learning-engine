@@ -5,23 +5,24 @@ use question_model::{QuestionAttemptId, RunId, UserId};
 use super::super::{
     MemoryStore, assignment_record, enrollment_record, require_course_records_accessible,
 };
-use crate::{StoreError, TenantContext};
+use crate::{ActorContext, StoreError};
 
 pub(super) async fn pending_submission_for_run(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     actor: UserId,
     run: RunId,
 ) -> Result<Option<QuestionAttemptId>, StoreError> {
     let state = store.read_state()?;
-    let tenant = context.tenant_id();
-    let run_record = state.runs.get(&(tenant, run)).ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(&state, tenant, run_record.enrollment)?;
-    let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-    require_course_records_accessible(&state, tenant, assignment.course_id)?;
+    if context.user_id() != actor {
+        return Err(StoreError::NotFound);
+    }
+    let run_record = state.runs.get(&run).ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(&state, run_record.enrollment)?;
+    let assignment = assignment_record(&state, enrollment.assignment)?;
+    require_course_records_accessible(&state, assignment.course_id)?;
     super::super::entitlement::require_current_enrollment_entitlement(
         &state,
-        tenant,
         actor,
         assignment.course_id,
         assignment.id,
@@ -31,15 +32,12 @@ pub(super) async fn pending_submission_for_run(
         .attempts
         .values()
         .filter(|attempt| {
-            attempt.tenant == tenant
-                && attempt.run == run
+            attempt.run == run
                 && state
                     .submissions
-                    .get(&(tenant, attempt.id))
+                    .get(&attempt.id)
                     .is_some_and(|submission| submission.completed_record_opt().is_some())
-                && !state
-                    .submission_next_attempts
-                    .contains_key(&(tenant, attempt.id))
+                && !state.submission_next_attempts.contains_key(&attempt.id)
         })
         .map(|attempt| attempt.id)
         .take(2)

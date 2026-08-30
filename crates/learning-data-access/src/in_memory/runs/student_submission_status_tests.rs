@@ -79,13 +79,12 @@ async fn student_submission_status_projects_completed_attention_and_closed_contr
         let mut state = store.write_state().expect("injected Memory state");
         state
             .automated_grading_executions
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .expect("execution")
             .state = GradingExecutionState::Exception;
-        state.automated_grading_evaluations.insert(
-            (tenant, attempt),
-            SubmissionEvaluationStatus::AutomatedException,
-        );
+        state
+            .automated_grading_evaluations
+            .insert(attempt, SubmissionEvaluationStatus::AutomatedException);
     }
     assert!(matches!(
         store
@@ -99,7 +98,7 @@ async fn student_submission_status_projects_completed_attention_and_closed_contr
             .expect("injected contradictory Memory state");
         state
             .automated_grading_executions
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .expect("execution")
             .state = GradingExecutionState::Ready;
     }

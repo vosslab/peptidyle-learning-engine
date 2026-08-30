@@ -6,9 +6,10 @@ use authority::{CurationPrincipal, can_read_collection, curation_principal, requ
 
 use super::{MemoryStore, State, catalog_record_visible};
 use crate::{
-    Cursor, Page, PageRequest, ProblemCollectionMembersPage, ProblemCollectionReplacementTarget,
-    ProblemCurationCapability, ProblemCurationStore, ReplaceProblemCollectionCommand,
-    ReplaceSavedProblemSearchCommand, SessionTokenHash, StoreError, TenantContext, UserId,
+    ActorContext, Cursor, Page, PageRequest, ProblemCollectionMembersPage,
+    ProblemCollectionReplacementTarget, ProblemCurationCapability, ProblemCurationStore,
+    ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand, SessionTokenHash,
+    StoreError, UserId,
 };
 use async_trait::async_trait;
 use question_model::{
@@ -47,7 +48,6 @@ pub(super) struct StoredSavedProblemSearch {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct StoredProblemCurationCursor {
-    tenant: question_model::TenantId,
     principal: CurationPrincipal,
     scope: String,
     after_key: u32,
@@ -57,7 +57,7 @@ pub(super) struct StoredProblemCurationCursor {
 impl ProblemCurationStore for MemoryStore {
     async fn preflight_problem_curation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         capability: ProblemCurationCapability,
     ) -> Result<(), StoreError> {
@@ -75,29 +75,22 @@ impl ProblemCurationStore for MemoryStore {
 
     async fn get_or_create_favorites(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
     ) -> Result<ProblemCollectionSummaryView, StoreError> {
         let mut state = self.write_state()?;
         let actor = require_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
-        let id = ensure_favorites(&mut state, tenant, actor)?;
+        let id = ensure_favorites(&mut state, actor)?;
         let collection = state
             .problem_collections
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or(StoreError::NotFound)?;
-        collection_summary(
-            &state,
-            tenant,
-            id,
-            collection,
-            CurationPrincipal::Instructor(actor),
-        )
+        collection_summary(&state, id, collection, CurationPrincipal::Instructor(actor))
     }
 
     async fn list_problem_collections(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<ProblemCollectionSummaryView>, StoreError> {
@@ -106,11 +99,9 @@ impl ProblemCurationStore for MemoryStore {
         let mut collections = state
             .problem_collections
             .iter()
-            .filter(|((tenant, _), collection)| {
-                *tenant == context.tenant_id() && can_read_collection(principal, collection)
-            })
-            .map(|((tenant, id), collection)| {
-                collection_summary(&state, *tenant, *id, collection, principal)
+            .filter(|(_, collection)| can_read_collection(principal, collection))
+            .map(|(id, collection)| {
+                collection_summary(&state, *id, collection, principal)
                     .map(|summary| (summary.reference.number(), summary))
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -119,54 +110,45 @@ impl ProblemCurationStore for MemoryStore {
             &mut state,
             collections,
             page,
-            cursor_scope("collections", context.tenant_id(), principal, None, None),
-            context.tenant_id(),
+            cursor_scope("collections", principal, None, None),
             principal,
         )
     }
 
     async fn get_problem_collection_summary(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemCollectionReference,
     ) -> Result<Option<ProblemCollectionSummaryView>, StoreError> {
         let state = self.read_state()?;
         let principal = curation_principal(&state, context, session)?;
-        let tenant = context.tenant_id();
-        let Some(id) = state
-            .problem_collections_by_reference
-            .get(&(tenant, reference))
-        else {
+        let Some(id) = state.problem_collections_by_reference.get(&reference) else {
             return Ok(None);
         };
-        let Some(collection) = state.problem_collections.get(&(tenant, *id)) else {
+        let Some(collection) = state.problem_collections.get(id) else {
             return Err(StoreError::InvalidRecord(
                 "problem collection reference is not reconciled".to_string(),
             ));
         };
         can_read_collection(principal, collection)
-            .then(|| collection_summary(&state, tenant, *id, collection, principal))
+            .then(|| collection_summary(&state, *id, collection, principal))
             .transpose()
     }
 
     async fn list_problem_collection_members(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemCollectionReference,
         page: PageRequest,
     ) -> Result<Option<ProblemCollectionMembersPage>, StoreError> {
         let mut state = self.write_state()?;
         let principal = curation_principal(&state, context, session)?;
-        let tenant = context.tenant_id();
-        let Some(id) = state
-            .problem_collections_by_reference
-            .get(&(tenant, reference))
-        else {
+        let Some(id) = state.problem_collections_by_reference.get(&reference) else {
             return Ok(None);
         };
-        let Some(collection) = state.problem_collections.get(&(tenant, *id)) else {
+        let Some(collection) = state.problem_collections.get(id) else {
             return Err(StoreError::InvalidRecord(
                 "problem collection reference is not reconciled".to_string(),
             ));
@@ -186,23 +168,21 @@ impl ProblemCurationStore for MemoryStore {
                         )
                     })
                     .and_then(|position| {
-                        member_view(&state, tenant, member).map(|member| (position + 1, member))
+                        member_view(&state, member).map(|member| (position + 1, member))
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let collection = collection_summary(&state, tenant, *id, collection, principal)?;
+        let collection = collection_summary(&state, *id, collection, principal)?;
         let members = page_rows(
             &mut state,
             members,
             page,
             cursor_scope(
                 "members",
-                tenant,
                 principal,
                 Some(reference),
                 Some(collection.revision),
             ),
-            tenant,
             principal,
         )?;
         Ok(Some(ProblemCollectionMembersPage {
@@ -213,20 +193,19 @@ impl ProblemCurationStore for MemoryStore {
 
     async fn replace_problem_collection(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: ReplaceProblemCollectionCommand,
     ) -> Result<ProblemCollectionSummaryView, StoreError> {
         let mut state = self.write_state()?;
         let actor = require_instructor(&state, context, session)?;
         validate_collection_command(&command)?;
-        let tenant = context.tenant_id();
-        let members = resolve_members(&state, self, tenant, &command.question_ids)?;
+        let members = resolve_members(&state, self, &command.question_ids)?;
 
         let (id, created) = match command.target {
             ProblemCollectionReplacementTarget::Favorites => {
-                let created = favorite_id(&state, tenant, actor).is_none();
-                (ensure_favorites(&mut state, tenant, actor)?, created)
+                let created = favorite_id(&state, actor).is_none();
+                (ensure_favorites(&mut state, actor)?, created)
             }
             ProblemCollectionReplacementTarget::NewNamed => (
                 ProblemCollectionId(random_uuid("problem collection")?),
@@ -235,7 +214,7 @@ impl ProblemCurationStore for MemoryStore {
             ProblemCollectionReplacementTarget::Existing(reference) => {
                 let id = *state
                     .problem_collections_by_reference
-                    .get(&(tenant, reference))
+                    .get(&reference)
                     .ok_or(StoreError::NotFound)?;
                 (id, false)
             }
@@ -251,13 +230,12 @@ impl ProblemCurationStore for MemoryStore {
             ) {
                 let collection = state
                     .problem_collections
-                    .get_mut(&(tenant, id))
+                    .get_mut(&id)
                     .ok_or(StoreError::NotFound)?;
                 collection.members = members;
                 let collection = collection.clone();
                 return collection_summary(
                     &state,
-                    tenant,
                     id,
                     &collection,
                     CurationPrincipal::Instructor(actor),
@@ -277,14 +255,14 @@ impl ProblemCurationStore for MemoryStore {
                 }
             };
             if kind == ProblemCollectionKind::Named
-                && named_collection_count(&state, tenant, actor) >= MAX_NAMED_PROBLEM_COLLECTIONS
+                && named_collection_count(&state, actor) >= MAX_NAMED_PROBLEM_COLLECTIONS
             {
                 return Err(StoreError::InvalidRecord(
                     "named problem collection limit exceeded".to_string(),
                 ));
             }
-            ensure_unique_named_title(&state, tenant, actor, &title, None)?;
-            let reference = allocate_collection_reference(&mut state, tenant, id)?;
+            ensure_unique_named_title(&state, actor, &title, None)?;
+            let reference = allocate_collection_reference(&mut state, id)?;
             let collection = StoredProblemCollection {
                 owner: actor,
                 kind,
@@ -293,16 +271,13 @@ impl ProblemCurationStore for MemoryStore {
                 revision: ProblemCollectionRevision::INITIAL,
                 members,
             };
-            state
-                .problem_collections
-                .insert((tenant, id), collection.clone());
+            state.problem_collections.insert(id, collection.clone());
             debug_assert_eq!(
-                state.problem_collection_references.get(&(tenant, id)),
+                state.problem_collection_references.get(&id),
                 Some(&reference)
             );
             return collection_summary(
                 &state,
-                tenant,
                 id,
                 &collection,
                 CurationPrincipal::Instructor(actor),
@@ -311,7 +286,7 @@ impl ProblemCurationStore for MemoryStore {
 
         let existing = state
             .problem_collections
-            .get(&(tenant, id))
+            .get(&id)
             .cloned()
             .ok_or(StoreError::NotFound)?;
         if existing.owner != actor {
@@ -327,18 +302,12 @@ impl ProblemCurationStore for MemoryStore {
                 command.visibility.expect("validated named visibility"),
             ),
         };
-        ensure_unique_named_title(&state, tenant, actor, &title, Some(id))?;
+        ensure_unique_named_title(&state, actor, &title, Some(id))?;
         if existing.title == title
             && existing.visibility == visibility
             && existing.members == members
         {
-            return collection_summary(
-                &state,
-                tenant,
-                id,
-                &existing,
-                CurationPrincipal::Instructor(actor),
-            );
+            return collection_summary(&state, id, &existing, CurationPrincipal::Instructor(actor));
         }
         let replacement = StoredProblemCollection {
             title,
@@ -349,12 +318,9 @@ impl ProblemCurationStore for MemoryStore {
             })?,
             ..existing
         };
-        state
-            .problem_collections
-            .insert((tenant, id), replacement.clone());
+        state.problem_collections.insert(id, replacement.clone());
         collection_summary(
             &state,
-            tenant,
             id,
             &replacement,
             CurationPrincipal::Instructor(actor),
@@ -363,24 +329,23 @@ impl ProblemCurationStore for MemoryStore {
 
     async fn delete_problem_collection(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemCollectionReference,
         expected_revision: ProblemCollectionRevision,
     ) -> Result<bool, StoreError> {
         let mut state = self.write_state()?;
         let actor = require_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
         let Some(id) = state
             .problem_collections_by_reference
-            .get(&(tenant, reference))
+            .get(&reference)
             .copied()
         else {
             return Ok(false);
         };
         let collection = state
             .problem_collections
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or(StoreError::NotFound)?;
         if collection.owner != actor {
             return Ok(false);
@@ -393,32 +358,26 @@ impl ProblemCurationStore for MemoryStore {
         if collection.revision != expected_revision {
             return Err(StoreError::Conflict);
         }
-        state.problem_collections.remove(&(tenant, id));
-        state
-            .problem_collections_by_reference
-            .remove(&(tenant, reference));
-        state.problem_collection_references.remove(&(tenant, id));
+        state.problem_collections.remove(&id);
+        state.problem_collections_by_reference.remove(&reference);
+        state.problem_collection_references.remove(&id);
         Ok(true)
     }
 
     async fn list_saved_problem_searches(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<SavedProblemSearchView>, StoreError> {
         let mut state = self.write_state()?;
         let actor = require_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
         let mut searches = state
             .saved_problem_searches
             .iter()
-            .filter(|((stored_tenant, _), search)| {
-                *stored_tenant == tenant && search.owner == actor
-            })
-            .map(|((_, id), search)| {
-                saved_search_view(&state, tenant, *id, search)
-                    .map(|view| (view.reference.number(), view))
+            .filter(|(_, search)| search.owner == actor)
+            .map(|(id, search)| {
+                saved_search_view(&state, *id, search).map(|view| (view.reference.number(), view))
             })
             .collect::<Result<Vec<_>, _>>()?;
         searches.sort_by_key(|search| search.0);
@@ -426,46 +385,35 @@ impl ProblemCurationStore for MemoryStore {
             &mut state,
             searches,
             page,
-            cursor_scope(
-                "searches",
-                tenant,
-                CurationPrincipal::Instructor(actor),
-                None,
-                None,
-            ),
-            tenant,
+            cursor_scope("searches", CurationPrincipal::Instructor(actor), None, None),
             CurationPrincipal::Instructor(actor),
         )
     }
 
     async fn get_saved_problem_search(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: SavedProblemSearchReference,
     ) -> Result<Option<SavedProblemSearchView>, StoreError> {
         let state = self.read_state()?;
         let actor = require_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
-        let Some(id) = state
-            .saved_problem_searches_by_reference
-            .get(&(tenant, reference))
-        else {
+        let Some(id) = state.saved_problem_searches_by_reference.get(&reference) else {
             return Ok(None);
         };
-        let Some(search) = state.saved_problem_searches.get(&(tenant, *id)) else {
+        let Some(search) = state.saved_problem_searches.get(id) else {
             return Err(StoreError::InvalidRecord(
                 "saved problem search reference is not reconciled".to_string(),
             ));
         };
         (search.owner == actor)
-            .then(|| saved_search_view(&state, tenant, *id, search))
+            .then(|| saved_search_view(&state, *id, search))
             .transpose()
     }
 
     async fn replace_saved_problem_search(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: ReplaceSavedProblemSearchCommand,
     ) -> Result<SavedProblemSearchView, StoreError> {
@@ -476,12 +424,11 @@ impl ProblemCurationStore for MemoryStore {
             .filter
             .normalized()
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let tenant = context.tenant_id();
         let (id, created) = match command.reference {
             Some(reference) => (
                 *state
                     .saved_problem_searches_by_reference
-                    .get(&(tenant, reference))
+                    .get(&reference)
                     .ok_or(StoreError::NotFound)?,
                 false,
             ),
@@ -494,27 +441,25 @@ impl ProblemCurationStore for MemoryStore {
             if command.expected_revision.is_some() {
                 return Err(StoreError::Conflict);
             }
-            if saved_search_count(&state, tenant, actor) >= MAX_SAVED_PROBLEM_SEARCHES {
+            if saved_search_count(&state, actor) >= MAX_SAVED_PROBLEM_SEARCHES {
                 return Err(StoreError::InvalidRecord(
                     "saved problem search limit exceeded".to_string(),
                 ));
             }
-            ensure_unique_saved_search_title(&state, tenant, actor, &command.title, None)?;
-            allocate_saved_search_reference(&mut state, tenant, id)?;
+            ensure_unique_saved_search_title(&state, actor, &command.title, None)?;
+            allocate_saved_search_reference(&mut state, id)?;
             let search = StoredSavedProblemSearch {
                 owner: actor,
                 title: command.title,
                 filter,
                 revision: SavedProblemSearchRevision::INITIAL,
             };
-            state
-                .saved_problem_searches
-                .insert((tenant, id), search.clone());
-            return saved_search_view(&state, tenant, id, &search);
+            state.saved_problem_searches.insert(id, search.clone());
+            return saved_search_view(&state, id, &search);
         }
         let existing = state
             .saved_problem_searches
-            .get(&(tenant, id))
+            .get(&id)
             .cloned()
             .ok_or(StoreError::NotFound)?;
         if existing.owner != actor {
@@ -523,9 +468,9 @@ impl ProblemCurationStore for MemoryStore {
         if command.expected_revision != Some(existing.revision) {
             return Err(StoreError::Conflict);
         }
-        ensure_unique_saved_search_title(&state, tenant, actor, &command.title, Some(id))?;
+        ensure_unique_saved_search_title(&state, actor, &command.title, Some(id))?;
         if existing.title == command.title && existing.filter == filter {
-            return saved_search_view(&state, tenant, id, &existing);
+            return saved_search_view(&state, id, &existing);
         }
         let replacement = StoredSavedProblemSearch {
             title: command.title,
@@ -535,32 +480,29 @@ impl ProblemCurationStore for MemoryStore {
             })?,
             ..existing
         };
-        state
-            .saved_problem_searches
-            .insert((tenant, id), replacement.clone());
-        saved_search_view(&state, tenant, id, &replacement)
+        state.saved_problem_searches.insert(id, replacement.clone());
+        saved_search_view(&state, id, &replacement)
     }
 
     async fn delete_saved_problem_search(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: SavedProblemSearchReference,
         expected_revision: SavedProblemSearchRevision,
     ) -> Result<bool, StoreError> {
         let mut state = self.write_state()?;
         let actor = require_instructor(&state, context, session)?;
-        let tenant = context.tenant_id();
         let Some(id) = state
             .saved_problem_searches_by_reference
-            .get(&(tenant, reference))
+            .get(&reference)
             .copied()
         else {
             return Ok(false);
         };
         let search = state
             .saved_problem_searches
-            .get(&(tenant, id))
+            .get(&id)
             .ok_or(StoreError::NotFound)?;
         if search.owner != actor {
             return Ok(false);
@@ -568,11 +510,9 @@ impl ProblemCurationStore for MemoryStore {
         if search.revision != expected_revision {
             return Err(StoreError::Conflict);
         }
-        state.saved_problem_searches.remove(&(tenant, id));
-        state
-            .saved_problem_searches_by_reference
-            .remove(&(tenant, reference));
-        state.saved_problem_search_references.remove(&(tenant, id));
+        state.saved_problem_searches.remove(&id);
+        state.saved_problem_searches_by_reference.remove(&reference);
+        state.saved_problem_search_references.remove(&id);
         Ok(true)
     }
 }
@@ -622,7 +562,6 @@ fn title_error(_: ProblemCurationTitleError) -> StoreError {
 fn resolve_members(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     question_ids: &[QuestionId],
 ) -> Result<Vec<ProblemVersionRef>, StoreError> {
     question_ids
@@ -636,7 +575,7 @@ fn resolve_members(
                 .values()
                 .find(|record| &record.question_id == question_id)
                 .ok_or(StoreError::NotFound)?;
-            (catalog_record_visible(state, tenant, record)
+            (catalog_record_visible(record)
                 && record.lifecycle.is_eligible_for_ordinary_new_selection())
             .then_some(ProblemVersionRef {
                 problem: record.problem,
@@ -647,33 +586,23 @@ fn resolve_members(
         .collect()
 }
 
-fn favorite_id(
-    state: &State,
-    tenant: question_model::TenantId,
-    actor: UserId,
-) -> Option<ProblemCollectionId> {
+fn favorite_id(state: &State, actor: UserId) -> Option<ProblemCollectionId> {
     state
         .problem_collections
         .iter()
-        .find_map(|((stored_tenant, id), collection)| {
-            (*stored_tenant == tenant
-                && collection.owner == actor
-                && collection.kind == ProblemCollectionKind::Favorites)
+        .find_map(|(id, collection)| {
+            (collection.owner == actor && collection.kind == ProblemCollectionKind::Favorites)
                 .then_some(*id)
         })
 }
-fn ensure_favorites(
-    state: &mut State,
-    tenant: question_model::TenantId,
-    actor: UserId,
-) -> Result<ProblemCollectionId, StoreError> {
-    if let Some(id) = favorite_id(state, tenant, actor) {
+fn ensure_favorites(state: &mut State, actor: UserId) -> Result<ProblemCollectionId, StoreError> {
+    if let Some(id) = favorite_id(state, actor) {
         return Ok(id);
     }
     let id = ProblemCollectionId(random_uuid("problem collection")?);
-    allocate_collection_reference(state, tenant, id)?;
+    allocate_collection_reference(state, id)?;
     state.problem_collections.insert(
-        (tenant, id),
+        id,
         StoredProblemCollection {
             owner: actor,
             kind: ProblemCollectionKind::Favorites,
@@ -685,14 +614,12 @@ fn ensure_favorites(
     );
     Ok(id)
 }
-fn named_collection_count(state: &State, tenant: question_model::TenantId, actor: UserId) -> usize {
+fn named_collection_count(state: &State, actor: UserId) -> usize {
     state
         .problem_collections
         .iter()
-        .filter(|((stored_tenant, _), collection)| {
-            *stored_tenant == tenant
-                && collection.owner == actor
-                && collection.kind == ProblemCollectionKind::Named
+        .filter(|(_, collection)| {
+            collection.owner == actor && collection.kind == ProblemCollectionKind::Named
         })
         .count()
 }
@@ -701,16 +628,15 @@ fn random_uuid(label: &str) -> Result<Uuid, StoreError> {
         StoreError::Unavailable(format!("{label} randomness is unavailable: {error}"))
     })
 }
-fn saved_search_count(state: &State, tenant: question_model::TenantId, actor: UserId) -> usize {
+fn saved_search_count(state: &State, actor: UserId) -> usize {
     state
         .saved_problem_searches
         .iter()
-        .filter(|((stored_tenant, _), search)| *stored_tenant == tenant && search.owner == actor)
+        .filter(|(_, search)| search.owner == actor)
         .count()
 }
 fn ensure_unique_saved_search_title(
     state: &State,
-    tenant: question_model::TenantId,
     actor: UserId,
     title: &str,
     except: Option<SavedProblemSearchId>,
@@ -719,18 +645,14 @@ fn ensure_unique_saved_search_title(
     state
         .saved_problem_searches
         .iter()
-        .any(|((stored_tenant, id), search)| {
-            *stored_tenant == tenant
-                && Some(*id) != except
-                && search.owner == actor
-                && search.title.to_lowercase() == title
+        .any(|(id, search)| {
+            Some(*id) != except && search.owner == actor && search.title.to_lowercase() == title
         })
         .then_some(())
         .map_or(Ok(()), |_| Err(StoreError::AlreadyExists))
 }
 fn ensure_unique_named_title(
     state: &State,
-    tenant: question_model::TenantId,
     actor: UserId,
     title: &str,
     except: Option<ProblemCollectionId>,
@@ -739,9 +661,8 @@ fn ensure_unique_named_title(
     state
         .problem_collections
         .iter()
-        .any(|((stored_tenant, id), collection)| {
-            *stored_tenant == tenant
-                && Some(*id) != except
+        .any(|(id, collection)| {
+            Some(*id) != except
                 && collection.owner == actor
                 && collection.kind == ProblemCollectionKind::Named
                 && collection.title.to_lowercase() == title
@@ -751,7 +672,6 @@ fn ensure_unique_named_title(
 }
 fn allocate_collection_reference(
     state: &mut State,
-    tenant: question_model::TenantId,
     id: ProblemCollectionId,
 ) -> Result<ProblemCollectionReference, StoreError> {
     state.next_problem_collection_reference = state
@@ -765,17 +685,12 @@ fn allocate_collection_reference(
             .ok_or_else(|| {
                 StoreError::Unavailable("problem collection reference exhausted".to_string())
             })?;
-    state
-        .problem_collection_references
-        .insert((tenant, id), reference);
-    state
-        .problem_collections_by_reference
-        .insert((tenant, reference), id);
+    state.problem_collection_references.insert(id, reference);
+    state.problem_collections_by_reference.insert(reference, id);
     Ok(reference)
 }
 fn allocate_saved_search_reference(
     state: &mut State,
-    tenant: question_model::TenantId,
     id: SavedProblemSearchId,
 ) -> Result<SavedProblemSearchReference, StoreError> {
     state.next_saved_problem_search_reference = state
@@ -789,24 +704,21 @@ fn allocate_saved_search_reference(
             .ok_or_else(|| {
                 StoreError::Unavailable("saved problem search reference exhausted".to_string())
             })?;
-    state
-        .saved_problem_search_references
-        .insert((tenant, id), reference);
+    state.saved_problem_search_references.insert(id, reference);
     state
         .saved_problem_searches_by_reference
-        .insert((tenant, reference), id);
+        .insert(reference, id);
     Ok(reference)
 }
 fn collection_summary(
     state: &State,
-    tenant: question_model::TenantId,
     id: ProblemCollectionId,
     collection: &StoredProblemCollection,
     principal: CurationPrincipal,
 ) -> Result<ProblemCollectionSummaryView, StoreError> {
     let reference = *state
         .problem_collection_references
-        .get(&(tenant, id))
+        .get(&id)
         .ok_or_else(|| {
             StoreError::InvalidRecord(
                 "problem collection is missing its public reference".to_string(),
@@ -831,7 +743,6 @@ fn collection_summary(
 }
 fn member_view(
     state: &State,
-    tenant: question_model::TenantId,
     member: &ProblemVersionRef,
 ) -> Result<ProblemCollectionMemberView, StoreError> {
     let record = state
@@ -845,7 +756,7 @@ fn member_view(
     Ok(ProblemCollectionMemberView {
         question_id: record.question_id.clone(),
         summary: record.summary(),
-        selection_availability: if catalog_record_visible(state, tenant, record)
+        selection_availability: if catalog_record_visible(record)
             && record.lifecycle.is_eligible_for_ordinary_new_selection()
         {
             ProblemCollectionSelectionAvailability::Available
@@ -856,7 +767,6 @@ fn member_view(
 }
 fn cursor_scope(
     kind: &str,
-    tenant: question_model::TenantId,
     principal: CurationPrincipal,
     collection: Option<ProblemCollectionReference>,
     revision: Option<ProblemCollectionRevision>,
@@ -866,7 +776,7 @@ fn cursor_scope(
         CurationPrincipal::Sysadmin(actor) => actor.as_uuid().to_string(),
     };
     format!(
-        "{kind}:{tenant}:{actor}:{}:{}",
+        "{kind}:{actor}:{}:{}",
         collection.map_or_else(|| "-".to_string(), |reference| reference.to_string()),
         revision.map_or_else(|| "-".to_string(), |revision| revision.to_string()),
     )
@@ -876,7 +786,6 @@ fn page_rows<T: Clone>(
     rows: Vec<(u32, T)>,
     page: PageRequest,
     scope: String,
-    tenant: question_model::TenantId,
     principal: CurationPrincipal,
 ) -> Result<Page<T>, StoreError> {
     let after_key = match page.after {
@@ -890,7 +799,7 @@ fn page_rows<T: Clone>(
                         "problem curation cursor is malformed or expired".to_string(),
                     )
                 })?;
-            if stored.tenant != tenant || stored.principal != principal || stored.scope != scope {
+            if stored.principal != principal || stored.scope != scope {
                 return Err(StoreError::InvalidRecord(
                     "problem curation cursor is not authorized for this view".to_string(),
                 ));
@@ -916,7 +825,6 @@ fn page_rows<T: Clone>(
         state.problem_curation_cursors.insert(
             token.clone(),
             StoredProblemCurationCursor {
-                tenant,
                 principal,
                 scope,
                 after_key: rows[end - 1].0,
@@ -933,13 +841,12 @@ fn page_rows<T: Clone>(
 }
 fn saved_search_view(
     state: &State,
-    tenant: question_model::TenantId,
     id: SavedProblemSearchId,
     search: &StoredSavedProblemSearch,
 ) -> Result<SavedProblemSearchView, StoreError> {
     let reference = *state
         .saved_problem_search_references
-        .get(&(tenant, id))
+        .get(&id)
         .ok_or_else(|| {
             StoreError::InvalidRecord(
                 "saved problem search is missing its public reference".to_string(),

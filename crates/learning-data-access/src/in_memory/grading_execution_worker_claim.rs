@@ -32,15 +32,12 @@ impl MemoryStore {
             else {
                 return None;
             };
-            let execution = state
-                .automated_grading_executions
-                .get(&(job.tenant, attempt))?;
+            let execution = state.automated_grading_executions.get(&attempt)?;
             let identity_matches = execution.submission == submission
                 && execution.generation == execution_generation
                 && execution.job == *job_id;
             let target_matches = target.is_none_or(|target| {
-                target.tenant == job.tenant
-                    && target.attempt == attempt
+                target.attempt == attempt
                     && target.submission == submission
                     && target.job == *job_id
             });
@@ -60,10 +57,9 @@ impl MemoryStore {
                 }
                 JobState::Completed | JobState::Dead => false,
             };
-            (identity_matches && target_matches && eligible)
-                .then_some((*job_id, job.tenant, attempt))
+            (identity_matches && target_matches && eligible).then_some((*job_id, attempt))
         });
-        let Some((job_id, tenant, attempt)) = candidate else {
+        let Some((job_id, attempt)) = candidate else {
             return Ok(None);
         };
         let job = state.jobs.get_mut(&job_id).ok_or(StoreError::NotFound)?;
@@ -85,15 +81,15 @@ impl MemoryStore {
         job.failure = None;
         let execution = state
             .automated_grading_executions
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .expect("eligible execution retains its record");
         execution.state = crate::GradingExecutionState::Running;
         state
             .automated_grading_execution_workers
-            .insert((tenant, attempt), worker);
+            .insert(attempt, worker);
         state
             .automated_grading_execution_receipts
-            .entry((tenant, attempt))
+            .entry(attempt)
             .or_default()
             .push(GradingExecutionReceipt {
                 submission,
@@ -105,7 +101,6 @@ impl MemoryStore {
                 occurred_at: now,
             });
         Ok(Some(AcceptedSubmissionExecutionClaim {
-            tenant,
             job: job_id,
             lease_token: token,
             submission,

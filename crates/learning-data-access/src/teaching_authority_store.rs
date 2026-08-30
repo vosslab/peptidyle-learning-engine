@@ -9,7 +9,7 @@ use question_model::{
     InstructorApproval, UserId,
 };
 
-use crate::{Page, PageRequest, RosterRevision, SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, Page, PageRequest, RosterRevision, SessionTokenHash, StoreError};
 
 macro_rules! positive_revision {
     ($name:ident, $description:literal) => {
@@ -149,50 +149,50 @@ pub struct RemoveDirectInstructorMembership {
 pub trait TeachingAuthorityStore: Send + Sync {
     async fn approve_instructor_account(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ApproveInstructorAccount,
     ) -> Result<StoredInstructorApproval, StoreError>;
     async fn revoke_instructor_approval(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RevokeInstructorApproval,
     ) -> Result<StoredInstructorApproval, StoreError>;
     async fn create_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateCoInstructorInvitation,
     ) -> Result<StoredCoInstructorInvitation, StoreError>;
     async fn list_course_co_instructor_invitations(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<StoredCoInstructorInvitation>, StoreError>;
     async fn list_pending_co_instructor_invitations(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<StoredCoInstructorInvitation>, StoreError>;
     async fn accept_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RespondToCoInstructorInvitation,
     ) -> Result<DirectInstructorMembershipView, StoreError>;
     async fn decline_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RespondToCoInstructorInvitation,
     ) -> Result<(), StoreError>;
     async fn revoke_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RevokeCoInstructorInvitation,
     ) -> Result<(), StoreError>;
     async fn remove_direct_instructor_membership(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RemoveDirectInstructorMembership,
     ) -> Result<(), StoreError>;
 }

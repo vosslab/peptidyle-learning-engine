@@ -25,7 +25,6 @@ pub(super) fn validate_workspace_archive(
     reference: QtiImportRef,
 ) -> Result<(), StoreError> {
     let ObjectKey::WorkspaceSource {
-        tenant,
         workspace,
         import,
         object,
@@ -35,8 +34,7 @@ pub(super) fn validate_workspace_archive(
             "flat-import origin requires a workspace import archive".to_string(),
         ));
     };
-    if tenant != reference.tenant
-        || workspace != reference.workspace
+    if workspace != reference.workspace
         || import != reference.import
         || object != record.id
         || record.bucket != Bucket::PrivateContent
@@ -62,7 +60,6 @@ pub(super) fn validate_published_archive(
     record: &ObjectRecord,
 ) -> Result<(), StoreError> {
     let ObjectKey::PublishedImportArchive {
-        tenant,
         problem,
         version,
         import,
@@ -74,14 +71,12 @@ pub(super) fn validate_published_archive(
         ));
     };
     let expected_object = published_import_archive_object_id(
-        current.import.tenant,
         reference.problem,
         reference.version,
         current.import.import,
         current.source_archive.sha256,
     );
-    if tenant != current.import.tenant
-        || problem != reference.problem
+    if problem != reference.problem
         || version != reference.version
         || import != current.import.import
         || object != expected_object
@@ -109,7 +104,7 @@ pub(super) fn validate_conversion_inputs(
     grading: &FlatQuestionGradingPayload,
     origin: &WorkspaceFlatImportOrigin,
 ) -> Result<(), StoreError> {
-    if draft.tenant != origin.import.tenant || draft.question.workspace != origin.import.workspace {
+    if draft.question.workspace != origin.import.workspace {
         return Err(StoreError::InvalidRecord(
             "flat-import origin does not match the draft workspace".to_string(),
         ));
@@ -122,11 +117,7 @@ pub(super) fn validate_conversion_inputs(
             "flat-import conversion requires the flat single-choice family".to_string(),
         ));
     }
-    crate::flat_question::validate_workspace_flat_source_record(
-        &draft.tenant,
-        &draft.question.workspace,
-        source,
-    )?;
+    crate::flat_question::validate_workspace_flat_source_record(&draft.question.workspace, source)?;
     if source.sha256.to_string() != canonical_source_sha256
         || source.sha256 != origin.evidence.mapped_canonical_source_sha256
         || grading.public_binding_sha256() != public_binding_sha256

@@ -24,7 +24,6 @@ import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import type { TenantId } from "../../generated/api/TenantId";
 import type { UserId } from "../../generated/api/UserId";
 import type { UserRole } from "../../generated/api/UserRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
@@ -69,7 +68,7 @@ export interface CourseRouteData {
 }
 
 /**
- * The instructor-only editable projection of a tenant-owned assignment.
+ * The instructor-only editable projection of a course-owned assignment.
  *
  * This intentionally carries immutable published references rather than
  * question definitions: authoring an assignment never transfers question
@@ -160,7 +159,6 @@ export interface CursorPage<T> {
 /** Signed-in identity projection. Session credentials remain in an HttpOnly cookie. */
 export interface AuthSession {
   readonly authenticated: true;
-  readonly tenant: TenantId;
   readonly user: {
     readonly id: UserId;
     readonly displayName: string;

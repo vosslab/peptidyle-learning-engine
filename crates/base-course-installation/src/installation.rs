@@ -83,18 +83,13 @@ async fn install_locked(
 ) -> Result<BaseCourseInstallOutput, BaseCourseInstallError> {
     let (participants, phase) = request.into_parts();
     let object_manifest = serde_json::json!([]);
-    let ids = BaseCourseIds::for_tenant(participants.tenant());
+    let ids = BaseCourseIds::for_installation();
     let recipe = installation_recipe(participants, ids)?;
     let state_before = lock.read_state().await.map_err(|source| {
         BaseCourseInstallError::persistence("reading the Base Course lifecycle state", source)
     })?;
     let state = lock
-        .prepare(
-            participants.tenant(),
-            BASELINE_VERSION,
-            &object_manifest,
-            &recipe,
-        )
+        .prepare(BASELINE_VERSION, &object_manifest, &recipe)
         .await
         .map_err(|source| {
             BaseCourseInstallError::persistence("claiming the Base Course lifecycle state", source)
@@ -201,13 +196,12 @@ async fn complete_installation(
     publication::verify_installer_courses(
         store,
         pending.participants,
-        base_course(pending.participants, pending.ids.base_course)?,
-        practice_course(pending.participants, pending.ids.practice_course)?,
+        base_course(pending.ids.base_course)?,
+        practice_course(pending.ids.practice_course)?,
     )
     .await?;
     let verified = publication::converge(store, seed_executor, pending.participants).await?;
     let expectation = BaseCourseCompletionExpectation::new(
-        pending.participants.tenant(),
         pending.generation,
         pending.recipe_sha256,
         BaseCourseCompletionCourseExpectation {
@@ -249,7 +243,6 @@ async fn complete_installation(
     );
     let completion_receipt = lock
         .mark_complete(
-            pending.participants.tenant(),
             BASELINE_VERSION,
             pending.generation,
             &pending.object_manifest,

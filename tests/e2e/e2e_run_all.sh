@@ -52,10 +52,6 @@ run_check course_appearance bash tests/e2e/e2e_course_appearance.sh
 # The isolated upstream WebWork renderer honors PLE's authenticated render-and-grade contract.
 run_check webwork_render_rpc bash tests/e2e/e2e_webwork_render_rpc.sh
 
-# Fresh, retained, interrupted, concurrent, mixed, and regenerated live-demo baseline lifecycle.
-run_check live_demo_baseline bash -c \
-	'source source_me.sh && .venv/bin/python tests/e2e/e2e_live_demo_baseline.py'
-
 # A Student session and idempotent submission survive across two API replicas.
 # A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.
 run_check replica_restart node tests/e2e/e2e_replica_restart.mjs

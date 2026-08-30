@@ -180,12 +180,25 @@ impl CourseItemAnalysisStore for PostgresStore {
 impl CourseItemAnalysisWorkerStore for PostgresStore {
     async fn prepare_course_item_analysis(
         &self,
-        context: TenantContext,
         command: CourseItemAnalysisWorkerCommand,
     ) -> Result<(), StoreError> {
-        let tenant = context.tenant_id();
         let expected_payload = analysis_payload(command.assignment, command.generation)?;
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
+        let tenant: Option<TenantId> = sqlx::query_scalar(
+            "SELECT tenant_id FROM worker_job \\
+             WHERE job_id = $1 AND state = 'leased' \\
+               AND lease_token = $2 AND lease_expires_at > transaction_timestamp() \\
+               AND payload = $3",
+        )
+        .bind(command.job.as_uuid())
+        .bind(command.lease.as_uuid())
+        .bind(&expected_payload)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let Some(tenant) = tenant else {
+            return Err(StoreError::Conflict);
+        };
         if !analysis_claim_active(&mut transaction, tenant, command, expected_payload).await? {
             return Err(StoreError::Conflict);
         }
@@ -245,12 +258,25 @@ impl CourseItemAnalysisWorkerStore for PostgresStore {
 
     async fn commit_course_item_analysis(
         &self,
-        context: TenantContext,
         command: CourseItemAnalysisWorkerCommand,
     ) -> Result<CourseItemAnalysisCommitOutcome, StoreError> {
-        let tenant = context.tenant_id();
         let expected_payload = analysis_payload(command.assignment, command.generation)?;
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
+        let tenant: Option<TenantId> = sqlx::query_scalar(
+            "SELECT tenant_id FROM worker_job \\
+             WHERE job_id = $1 AND state = 'leased' \\
+               AND lease_token = $2 AND lease_expires_at > transaction_timestamp() \\
+               AND payload = $3",
+        )
+        .bind(command.job.as_uuid())
+        .bind(command.lease.as_uuid())
+        .bind(&expected_payload)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let Some(tenant) = tenant else {
+            return Ok(CourseItemAnalysisCommitOutcome::ClaimNoLongerActive);
+        };
 
         let assignment =
             analysis_assignment_state(&mut transaction, tenant, command.assignment).await?;

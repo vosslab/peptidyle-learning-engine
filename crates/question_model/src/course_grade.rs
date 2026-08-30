@@ -223,7 +223,7 @@ pub enum CourseGradeOutcomeView {
     },
 }
 
-/// Protected instructor roster row. It intentionally excludes email, tenant,
+/// Protected instructor roster row. It intentionally excludes email, institution,
 /// user, student, and enrollment identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

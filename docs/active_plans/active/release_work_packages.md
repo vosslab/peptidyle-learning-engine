@@ -49,8 +49,7 @@ architecture/privacy ACCEPT. No later entry advances it or claims implementation
 
 ### WP-RC1: Complete course appearance
 
-- **Owner/status:** UI/UX owner then integrator; accepted 2026-08-09. Detailed evidence is in
-  [course_appearance_implementation.md](../workstreams/course_appearance_implementation.md).
+- **Owner/status:** UI/UX owner then integrator; accepted 2026-08-09.
 - **Files:** `src/features/course_appearance/`, route/API/decoder contracts, course-appearance
   Playwright/E2E, and its architecture/contract/status/changelog consumers.
 - **Behavior:** keyboard-complete theme selection, responsive previews, save/conflict recovery,
@@ -61,8 +60,7 @@ architecture/privacy ACCEPT. No later entry advances it or claims implementation
 
 ### WP-RC2: Remove placeholder production seams
 
-- **Owner/status:** Rust and documentation owners; accepted 2026-08-09. Evidence is in
-  [production_seam_closure.md](../workstreams/production_seam_closure.md).
+- **Owner/status:** Rust and documentation owners; accepted 2026-08-09.
 - **Files:** H5P/QTI/WeBWorK adapters, Store backends, server run handling, and contract/map docs.
 - **Behavior:** maintained modules name concrete responsibilities; catalog resolve/search is required;
   current feedback follows current assignment disclosure; explicit limited adapters stay test/local
@@ -72,8 +70,7 @@ architecture/privacy ACCEPT. No later entry advances it or claims implementation
 
 ### WP-RC3: Integrate upstream WeBWorK as shipped
 
-- **Owner/status:** adapter, container integrator, security reviewer; accepted 2026-08-10. Historical
-  evidence: [webwork_shipped_integration.md](../workstreams/webwork_shipped_integration.md).
+- **Owner/status:** adapter, container integrator, security reviewer; accepted 2026-08-10.
 - **Files:** WebWork renderer adapter/server backend; historical private Compose topology; immutable
   licensed pilot fixture/provenance; seed, E2E, Playwright, and contract docs.
 - **Behavior:** strict private render/grade translation reconstructs only server-side maps, sanitizes

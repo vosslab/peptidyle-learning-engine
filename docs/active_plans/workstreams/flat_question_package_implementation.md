@@ -67,8 +67,7 @@ stored canonical private bytes, retrieved them only through the dedicated
 grader capability, and evaluated `blue` as correct/right and `red` as
 incorrect/wrong. The complete static/package gates and the Podman-backed
 baseline were rerun after the integrity remediation. The independent re-review
-is recorded in
-[`flat_question_package_review.md`](flat_question_package_review.md).
+is retained in the accepted package record.
 
 ## Successor package
 

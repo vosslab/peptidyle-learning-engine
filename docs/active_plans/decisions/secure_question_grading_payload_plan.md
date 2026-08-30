@@ -40,7 +40,7 @@ matching mode are not render inputs; the v1 public schema replaces them with ren
 widget constraints. Tolerances, normalization, answer keys, weights, and partial-credit rubrics stay
 server-only.
 
-The active browser does not need the attempt's tenant, problem, parameter hash, prior response,
+The active browser does not need the attempt's installation scope, problem, parameter hash, prior response,
 adapter/renderer/generator identities, source-artifact object identity, asset object identities,
 grading implementation, or full provenance. It needs the attempt ID, learner-visible deadline, the
 presentation digest, and the answer-free envelope. Course and assignment shell identity and run
@@ -56,7 +56,7 @@ first render. V1 replaces it with one purpose-built learner run-screen projectio
 Current submission already uses authenticated `POST /api/submissions/{attemptId}` with an
 `Idempotency-Key`. A small MC request resembles
 `{"response":{"kind":"multipleChoice","selected":["amide"]}}`. After loading the attempt, the
-server already knows its learner, tenant, course, assignment, version, seed, timing state, expected
+server already knows its learner, exact Course, assignment, version, seed, timing state, expected
 response family, and grading backend. Therefore the submission `kind`, question ID, version, seed,
 backend, and course/assignment IDs are redundant learner assertions; v1 removes them rather than
 trusting or cross-checking them. The internal Rust and browser draft models remain tagged. Only the
@@ -67,19 +67,19 @@ fields the browser already received, plus feedback and next-attempt data. V1 ret
 committed attempt ID, policy-permitted outcome/feedback, and a minimal next descriptor. In the same
 fixture, an illustrative recorded-only compact receipt is 125 bytes rather than 1,039 bytes.
 
-| Current field group                                                               | Needed by active browser? | Decision                                                                                                |
-| --------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Envelope `version`, `seed`, title, prompt, public asset references/checksums      | Yes                       | Keep once in the public presentation. Fetch asset bytes separately.                                     |
-| Response/content-block `kind` and public widget constraints                       | Yes                       | Keep as render discriminants. These are not learner claims.                                             |
-| Durable choice/slot IDs                                                           | No                        | Replace on the wire with presentation-scoped four-hex rendered IDs.                                     |
-| Numeric tolerance, text match mode, answer/rubric/weights                         | No                        | Keep in the server grading definition; expose only input constraints and displayed unit.                |
-| Attempt ID and effective deadline                                                 | Yes                       | Keep in the minimal active descriptor.                                                                  |
-| Attempt tenant/problem/parameter hash/status/result/provenance/implementation IDs | No                        | Remove from active learner routes and receipts.                                                         |
-| Course/assignment IDs, course theme, run number/mode                              | Yes                       | Return once in the consolidated run-screen shell.                                                       |
-| Full enrollment, assignment items/policies, course role/tenant                    | No                        | Resolve server-side; use separate authorized resource routes where another screen genuinely needs them. |
+| Current field group                                                              | Needed by active browser? | Decision                                                                                                |
+| -------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Envelope `version`, `seed`, title, prompt, public asset references/checksums     | Yes                       | Keep once in the public presentation. Fetch asset bytes separately.                                     |
+| Response/content-block `kind` and public widget constraints                      | Yes                       | Keep as render discriminants. These are not learner claims.                                             |
+| Durable choice/slot IDs                                                          | No                        | Replace on the wire with presentation-scoped four-hex rendered IDs.                                     |
+| Numeric tolerance, text match mode, answer/rubric/weights                        | No                        | Keep in the server grading definition; expose only input constraints and displayed unit.                |
+| Attempt ID and effective deadline                                                | Yes                       | Keep in the minimal active descriptor.                                                                  |
+| Attempt scope/problem/parameter hash/status/result/provenance/implementation IDs | No                        | Remove from active learner routes and receipts.                                                         |
+| Course/assignment IDs, course theme, run number/mode                             | Yes                       | Return once in the consolidated run-screen shell.                                                       |
+| Full enrollment, assignment items/policies, course role/installation scope       | No                        | Resolve server-side; use separate authorized resource routes where another screen genuinely needs them. |
 
 Current prefetch is a bodyless, authenticated request for the next unattempted position. The server
-chooses the fresh seed, creates a tenant/actor/run/predecessor-bound durable reservation, renders it,
+chooses the fresh seed, creates an actor/run/predecessor-bound durable reservation, renders it,
 and returns only its answer-free public envelope. The browser cannot choose a source, backend, seed,
 or grading state. This plan retains that server authority and narrows when a prepared envelope may be
 revealed for timed work.
@@ -127,7 +127,7 @@ stage times and representative sizes before making an optimization claim.
 | ---------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Initial active render        | At least seven browser GETs in four dependent waves before asset bodies.               | One learner-screen GET; fetch independently cacheable asset bytes by logical asset URL.                        |
 | Native submit                | One small browser request; parsing and native grading are local to PLE.                | Keep one request; do not optimize away clear field names for single-digit byte savings.                        |
-| WeBWorK submit               | PLE validates issued snapshot/private mapping and makes one private grade RPC. | Missing or mismatched receipt-era state fails closed; never rerender to repair it. |
+| WeBWorK submit               | PLE validates issued snapshot/private mapping and makes one private grade RPC.         | Missing or mismatched receipt-era state fails closed; never rerender to repair it.                             |
 | Immutable source/cache reads | WeBWorK source and safe render cache are server-side; materiality is not yet measured. | Instrument first; consider bounded immutable-object caching only if evidence warrants it.                      |
 | Images and other assets      | Binary media can dwarf JSON and requires independent decode/readiness.                 | Keep IDs/checksums in JSON, immutable HTTP caching, bounded one-question prefetch, and no base64 inline media. |
 | Result                       | Current receipt repeats a full attempt/provenance projection.                          | Return a compact policy-projected receipt and next descriptor.                                                 |
@@ -137,7 +137,7 @@ stage times and representative sizes before making an optimization claim.
 | Question                                                    | Decision                                                                                                                                            |
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Does render `kind` remain?                                  | Yes. Response-schema and content-block discriminants are required to choose safe browser components.                                                |
-| Does submission `kind` remain?                              | No. The RLS-visible attempt and issued public snapshot response schema select the strict answer decoder.                                             |
+| Does submission `kind` remain?                              | No. The RLS-visible attempt and issued public snapshot response schema select the strict answer decoder.                                            |
 | Are four-character CRC16 item IDs accepted?                 | Yes. They are attempt-presentation-scoped routing/consistency IDs, globally unique within one question presentation, with nonce retry on collision. |
 | Does CRC16 replace security or the full digest?             | No. Session, attempt ownership, lifecycle, RLS, idempotency, and SHA-256 descriptor binding remain authoritative.                                   |
 | Is smaller answer JSON the main latency target?             | No. The answer remains under roughly 100 bytes; run-screen request fan-out and private WeBWorK execution are material.                              |
@@ -225,7 +225,7 @@ envelope:
 }
 ```
 
-The run ID is already in the request path. Tenant, enrollment, problem, assignment policies, full
+The run ID is already in the request path. Installation scope, enrollment, problem, assignment policies, full
 course/assignment records, attempt status/provenance, and duplicate version/seed are absent. A
 completed run uses the existing policy-redacted summary route rather than manufacturing an active
 attempt. Learner history uses the bounded run summary and never receives raw `QuestionAttempt`
@@ -242,7 +242,7 @@ that exact digest before reuse. This permits safe deterministic prefetch without
 descriptor is an authorization token.
 
 Browser draft recovery keys by `QuestionAttemptId` plus `presentationDigest`; it does not repeat
-tenant, run, version, or seed in the storage key. A recovered draft is accepted only when its exact
+installation scope, run, version, or seed in the storage key. A recovered draft is accepted only when its exact
 answer shape and every rendered item ID remain valid for the refreshed same-attempt presentation.
 
 ### PresentationDescriptorV1 codec
@@ -501,18 +501,18 @@ interpretation; contract `1` means the canonical typed request digest defined ab
 hash. Tests replay a pre-migration row unchanged and prove a v1 same-key/different-digest request
 returns `409` before grading.
 
-It creates capability-specific `webwork_grade_replay_state` with `tenant_id`, `attempt_id`,
+It creates capability-specific `webwork_grade_replay_state` with an exact attempt-scope column, `attempt_id`,
 `attempt_occurred_at`, `course_id`, immutable problem/version/`source_object_id` and SHA-256, `seed`,
 renderer ID/version, presentation digest, `state_version`, bounded mapping JSONB, mapping SHA-256,
-and `created_at`. `(tenant_id, attempt_id, attempt_occurred_at)` is a composite foreign key to the
+and `created_at`. The exact attempt-scope/attempt/timestamp tuple is a composite foreign key to the
 partitioned `question_attempt` and uses `ON DELETE CASCADE`; `course_id` is server-bound and foreign
-key constrained. Its primary key is `(tenant_id, attempt_id, attempt_occurred_at)` and its retention
-lookup index is `(tenant_id, course_id, created_at)`. Mapping JSONB is at most 32,768 bytes and v1
+key constrained. Its primary key is the exact attempt-scope/attempt/timestamp tuple and its retention
+lookup index is the exact attempt-scope/Course/timestamp tuple. Mapping JSONB is at most 32,768 bytes and v1
 permits at most 32 choices, group/name values at most 128 bytes, and each upstream value at most
 512 bytes. It represents only rendered ID to upstream field/value data and contains no source,
 credential, session key, correct answer, or raw response.
 
-The table has forced tenant RLS, the existing `ple_bind_course_from_attempt` course-binding function,
+The table has forced exact-record RLS, the existing `ple_bind_course_from_attempt` course-binding function,
 the existing `ple_fence_learner_record_write` retention/write fence, and backup/restore coverage.
 `ple_app` receives exactly `SELECT`, `INSERT`, and `DELETE`; it receives no `UPDATE`, so state is
 immutable and is replaced only by delete-plus-insert after exact binding validation. No
@@ -593,7 +593,7 @@ still a WP-RC5 dependency; this receipt contract does not claim that its issuanc
 - Files: `2026080908_secure_question_grading_payloads.sql`, Store interface, Memory/PostgreSQL
   implementations, prefetch promotion, retention/backup/restore owners, and conformance tests.
 - Behavior: store descriptor binding and private replay state exactly as specified above.
-- Success: RLS refuses foreign tenant access, constraints reject malformed bindings/state, retention
+- Success: RLS refuses foreign-actor access, constraints reject malformed bindings/state, retention
   cascades cleanly, and Memory/PostgreSQL conformance agrees.
 - Validation: fresh/no-op migration, forced-RLS, Store parity, replay bounds, backup/restore, and
   independent PostgreSQL review.
@@ -699,14 +699,14 @@ explicitly recreated; production data is never recreated as a shortcut.
 
 ## Risk register
 
-| Risk                     | Trigger                                     | Owner    | Control                                                                   |
-| ------------------------ | ------------------------------------------- | -------- | ------------------------------------------------------------------------- |
-| Codec divergence         | Vector mismatch                             | WP-P1    | Rust owns codec; Wasm is the only browser implementation.                 |
-| CRC duplicate            | Issuance detects duplicate                  | WP-P1    | Global uniqueness, OS nonce retry, bounded fail-closed issue.             |
-| Render disagreement      | Digest mismatch                             | WP-P3/P5 | Same-attempt recovery, preserved draft, no grade/mutation.                |
-| Replay/legacy data leak | Private state or broad read exposes protected input | WP-P2 | Narrow record, RLS, consumer migration, grant reduction, and review. |
-| Timed-content exposure   | Envelope arrives early                      | WP-P5    | Server-only pre-render for timed policies; Untimed-only browser prefetch. |
-| False latency claim      | Metrics attribute speed to JSON bytes alone | WP-P6    | Stage measurements and no numeric SLO before pilot evidence.              |
+| Risk                    | Trigger                                             | Owner    | Control                                                                   |
+| ----------------------- | --------------------------------------------------- | -------- | ------------------------------------------------------------------------- |
+| Codec divergence        | Vector mismatch                                     | WP-P1    | Rust owns codec; Wasm is the only browser implementation.                 |
+| CRC duplicate           | Issuance detects duplicate                          | WP-P1    | Global uniqueness, OS nonce retry, bounded fail-closed issue.             |
+| Render disagreement     | Digest mismatch                                     | WP-P3/P5 | Same-attempt recovery, preserved draft, no grade/mutation.                |
+| Replay/legacy data leak | Private state or broad read exposes protected input | WP-P2    | Narrow record, RLS, consumer migration, grant reduction, and review.      |
+| Timed-content exposure  | Envelope arrives early                              | WP-P5    | Server-only pre-render for timed policies; Untimed-only browser prefetch. |
+| False latency claim     | Metrics attribute speed to JSON bytes alone         | WP-P6    | Stage measurements and no numeric SLO before pilot evidence.              |
 
 ## Documentation close-out
 

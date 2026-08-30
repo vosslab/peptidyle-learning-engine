@@ -86,7 +86,6 @@ pub(crate) fn seed_complete_issued_execution(
         75_007, tenant, run_id, reference, 0, 900,
     );
     let accepted = AcceptedSubmission {
-        tenant,
         course,
         assignment: assignment_id,
         attempt: attempt_id,
@@ -100,10 +99,9 @@ pub(crate) fn seed_complete_issued_execution(
     let mut state = store.write_state().expect("fixture state");
     state.authoritative_time = accepted.accepted_at;
     state.courses.insert(
-        (tenant, course),
+        course,
         CourseRecord {
             id: course,
-            tenant,
             title: "Worker completion course".to_string(),
             term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                 .expect("valid course term"),
@@ -111,7 +109,7 @@ pub(crate) fn seed_complete_issued_execution(
     );
     let membership = CourseMembershipId::from_uuid(Uuid::from_u128(75_013));
     state.course_memberships.insert(
-        (tenant, membership),
+        membership,
         CourseMembershipRecord {
             id: membership,
             tenant,
@@ -127,36 +125,36 @@ pub(crate) fn seed_complete_issued_execution(
     );
     state
         .active_course_membership_by_user
-        .insert((tenant, course, actor), membership);
+        .insert((course, actor), membership);
     state
         .assignments
         .insert((tenant, assignment_id), assignment.clone());
     state
         .enrollments
         .insert((tenant, enrollment_id), enrollment);
-    state.runs.insert((tenant, run_id), run.clone());
+    state.runs.insert(run_id, run.clone());
     state.run_items.insert(
         (tenant, run_id),
         select_assignment_run_items(&assignment, &run).expect("valid issued item"),
     );
     state.summaries.insert(
-        (tenant, enrollment_id),
+        enrollment_id,
         StudentAssignmentSummary::empty(tenant, enrollment_id),
     );
-    state.attempts.insert((tenant, attempt_id), attempt.clone());
+    state.attempts.insert(attempt_id, attempt.clone());
     state
         .published
         .insert((published.problem, published.version), published);
     super::super::catalog_search_tests::insert_statistics_issued_authority(&mut state, &attempt);
     state.submissions.insert(
-        (tenant, attempt_id),
+        attempt_id,
         StoredSubmission {
             key: accepted.idempotency_key.clone(),
             state: StoredSubmissionState::AcceptedPending(accepted),
         },
     );
     state.automated_grading_executions.insert(
-        (tenant, attempt_id),
+        attempt_id,
         GradingExecution {
             submission,
             generation: GradingExecutionGeneration::INITIAL,
@@ -165,12 +163,11 @@ pub(crate) fn seed_complete_issued_execution(
             retry_count: 0,
         },
     );
-    state.automated_grading_evaluations.insert(
-        (tenant, attempt_id),
-        SubmissionEvaluationStatus::AutomatedPending,
-    );
+    state
+        .automated_grading_evaluations
+        .insert(attempt_id, SubmissionEvaluationStatus::AutomatedPending);
     state.assignment_scoring.insert(
-        (tenant, assignment_id),
+        assignment_id,
         (ScoringGeneration::INITIAL, ScoringStatus::Current),
     );
     state.jobs.insert(
@@ -221,16 +218,15 @@ async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations
         let mut state = store.write_state().expect("fixture state");
         state
             .course_memberships
-            .get_mut(&(tenant, membership))
+            .get_mut(&membership)
             .expect("membership")
             .role = CourseMembershipRole::Instructor;
-        state.assignment_revisions.insert(
-            (tenant, assignment),
-            question_model::AssignmentRevision::INITIAL,
-        );
+        state
+            .assignment_revisions
+            .insert(assignment, question_model::AssignmentRevision::INITIAL);
         state
             .automated_grading_executions
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .expect("execution")
             .state = crate::GradingExecutionState::Exception;
         state.automated_grading_operations.insert(
@@ -249,7 +245,6 @@ async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations
         );
     }
     let command = RetryGradingOperationCommand {
-        tenant,
         session,
         course,
         assignment,
@@ -271,7 +266,7 @@ async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations
     );
     {
         let state = store.read_state().expect("retried state");
-        let execution = state.automated_grading_executions[&(tenant, attempt)];
+        let execution = state.automated_grading_executions[&attempt];
         assert_eq!(execution.generation.as_u64(), 2);
         let expected_job = crate::JobId::from_uuid(command.action.as_uuid());
         assert_eq!(execution.job, expected_job);
@@ -282,7 +277,7 @@ async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations
         .write_state()
         .expect("revoke state")
         .course_memberships
-        .get_mut(&(tenant, membership))
+        .get_mut(&membership)
         .expect("membership")
         .status = CourseMemberStatus::Revoked;
     assert_eq!(
@@ -290,7 +285,6 @@ async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations
             .list_instructor_grading_operations(
                 context,
                 ListInstructorGradingOperationsCommand {
-                    tenant,
                     session,
                     course,
                     assignment,
@@ -309,8 +303,7 @@ async fn instructor_retry_is_replayed_exactly_and_revocation_conceals_operations
 async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculation() {
     let store = MemoryStore::default();
     let (tenant, actor, attempt, submission) = seed_complete_issued_execution(&store);
-    let issued_attempt =
-        store.read_state().expect("issued state").attempts[&(tenant, attempt)].clone();
+    let issued_attempt = store.read_state().expect("issued state").attempts[&attempt].clone();
     let worker = WorkerId::from_uuid(Uuid::from_u128(75_014));
     let claim = store
         .claim_next_accepted_submission_execution(
@@ -372,11 +365,10 @@ async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculat
 
     let state = store.read_state().expect("completed state");
     assert_eq!(
-        state.attempts[&(tenant, attempt)],
-        issued_attempt,
+        state.attempts[&attempt], issued_attempt,
         "worker completion preserves the immutable issuance snapshot"
     );
-    let receipt = state.submissions[&(tenant, attempt)]
+    let receipt = state.submissions[&attempt]
         .completed_record_opt()
         .expect("worker wrote immutable receipt");
     // ASVS 14.2.6: the replayable learner receipt excludes accepted answers;
@@ -388,28 +380,26 @@ async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculat
             && receipt.feedback.content() == &feedback
     );
     assert_eq!(
-        state
-            .automated_grading_result_evidence
-            .get(&(tenant, attempt)),
+        state.automated_grading_result_evidence.get(&attempt),
         Some(&grade.evidence)
     );
     assert_eq!(
-        state.automated_grading_evaluations[&(tenant, attempt)],
+        state.automated_grading_evaluations[&attempt],
         SubmissionEvaluationStatus::Graded,
         "the automated worker can persist only a graded successful evaluation"
     );
     assert!(
-        state.runs[&(tenant, receipt.run.id)].completed_at.is_some()
-            && state.summaries[&(tenant, receipt.summary.enrollment)].completed_run_count == 1
-            && state.enrollments[&(tenant, receipt.run.enrollment)]
+        state.runs[&receipt.run.id].completed_at.is_some()
+            && state.summaries[&receipt.summary.enrollment].completed_run_count == 1
+            && state.enrollments[&receipt.run.enrollment]
                 .first_completed_at
                 .is_some()
-            && !state.attempt_scores.contains_key(&(tenant, attempt))
+            && !state.attempt_scores.contains_key(&attempt)
     );
     assert_eq!(
         state
             .assignment_scoring
-            .get(&(tenant, AssignmentId::from_uuid(Uuid::from_u128(75_004)),)),
+            .get(&AssignmentId::from_uuid(Uuid::from_u128(75_004))),
         Some(&(
             ScoringGeneration::new(2).expect("next generation"),
             ScoringStatus::Recalculating,
@@ -434,7 +424,7 @@ async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculat
             if record.attempt.response.is_none() && record.attempt.result == Some(result)
     ));
     assert_eq!(
-        state.automated_grading_executions[&(tenant, attempt)].submission,
+        state.automated_grading_executions[&attempt].submission,
         submission
     );
 }
@@ -528,12 +518,12 @@ async fn worker_outcomes_project_the_exact_instructor_operation_threads() {
         generation,
     };
     store
-        .prepare_assignment_scoring(TenantContext::from_authenticated_session(tenant), command)
+        .prepare_assignment_scoring(command)
         .await
         .expect("scoring preparation");
     assert_eq!(
         store
-            .commit_assignment_scoring(TenantContext::from_authenticated_session(tenant), command)
+            .commit_assignment_scoring(command)
             .await
             .expect("scoring publication"),
         crate::AssignmentScoringCommitOutcome::Committed
@@ -611,7 +601,7 @@ async fn scoring_worker_retires_a_generation_superseded_before_preparation() {
         let mut state = store.write_state().expect("memory state");
         let now = state.authoritative_time;
         state.assignment_scoring.insert(
-            (tenant, assignment),
+            assignment,
             (current_generation, ScoringStatus::Recalculating),
         );
         state.jobs.insert(
@@ -650,14 +640,14 @@ async fn scoring_worker_retires_a_generation_superseded_before_preparation() {
 
     assert_eq!(
         store
-            .prepare_assignment_scoring(TenantContext::from_authenticated_session(tenant), command,)
+            .prepare_assignment_scoring(command)
             .await
             .expect("valid stale claim has a terminal preparation outcome"),
         AssignmentScoringPreparationOutcome::Superseded
     );
     assert_eq!(
         store
-            .commit_assignment_scoring(TenantContext::from_authenticated_session(tenant), command,)
+            .commit_assignment_scoring(command)
             .await
             .expect("superseded scoring job retires normally"),
         crate::AssignmentScoringCommitOutcome::Superseded
@@ -680,10 +670,9 @@ async fn terminal_scoring_failure_reopens_the_exact_recalculation_thread() {
     {
         let mut state = store.write_state().expect("memory state");
         let now = state.authoritative_time;
-        state.assignment_scoring.insert(
-            (tenant, assignment),
-            (generation, ScoringStatus::Recalculating),
-        );
+        state
+            .assignment_scoring
+            .insert(assignment, (generation, ScoringStatus::Recalculating));
         state.jobs.insert(
             job,
             StoredJob {
@@ -729,12 +718,7 @@ async fn terminal_scoring_failure_reopens_the_exact_recalculation_thread() {
         .expect("recalculation is queued");
     assert_eq!(
         store
-            .fail_job(
-                TenantContext::from_authenticated_session(tenant),
-                job,
-                claim.lease_token,
-                crate::JobFailureKind::Permanent,
-            )
+            .fail_job(job, claim.lease_token, crate::JobFailureKind::Permanent,)
             .await
             .expect("terminal failure"),
         crate::JobFailureDisposition::Dead
@@ -742,7 +726,7 @@ async fn terminal_scoring_failure_reopens_the_exact_recalculation_thread() {
 
     let state = store.read_state().expect("failed state");
     assert_eq!(
-        state.assignment_scoring[&(tenant, assignment)],
+        state.assignment_scoring[&assignment],
         (generation, ScoringStatus::Failed)
     );
     let operation = state.automated_grading_operations[&(tenant, operation)];
@@ -782,12 +766,12 @@ async fn mixed_version_result_evidence_preserves_the_active_execution_aggregate(
     let before = {
         let state = store.read_state().expect("claimed state");
         (
-            state.attempts[&(tenant, attempt)].clone(),
-            state.runs[&(tenant, RunId::from_uuid(Uuid::from_u128(75_006)))].clone(),
-            state.summaries[&(tenant, EnrollmentId::from_uuid(Uuid::from_u128(75_005)))].clone(),
-            state.enrollments[&(tenant, EnrollmentId::from_uuid(Uuid::from_u128(75_005)))].clone(),
-            state.assignment_scoring[&(tenant, AssignmentId::from_uuid(Uuid::from_u128(75_004)))],
-            state.automated_grading_executions[&(tenant, attempt)],
+            state.attempts[&attempt].clone(),
+            state.runs[&RunId::from_uuid(Uuid::from_u128(75_006))].clone(),
+            state.summaries[&EnrollmentId::from_uuid(Uuid::from_u128(75_005))].clone(),
+            state.enrollments[&EnrollmentId::from_uuid(Uuid::from_u128(75_005))].clone(),
+            state.assignment_scoring[&AssignmentId::from_uuid(Uuid::from_u128(75_004))],
+            state.automated_grading_executions[&attempt],
             state.jobs[&claim.job].state,
             state.jobs[&claim.job].available_at,
             state.jobs[&claim.job].lease_token.is_some(),
@@ -795,7 +779,7 @@ async fn mixed_version_result_evidence_preserves_the_active_execution_aggregate(
             state.jobs[&claim.job].attempt_count,
             state
                 .automated_grading_result_evidence
-                .get(&(tenant, attempt))
+                .get(&attempt)
                 .cloned(),
         )
     };
@@ -815,12 +799,12 @@ async fn mixed_version_result_evidence_preserves_the_active_execution_aggregate(
 
     let state = store.read_state().expect("rejected state");
     let after = (
-        state.attempts[&(tenant, attempt)].clone(),
-        state.runs[&(tenant, RunId::from_uuid(Uuid::from_u128(75_006)))].clone(),
-        state.summaries[&(tenant, EnrollmentId::from_uuid(Uuid::from_u128(75_005)))].clone(),
-        state.enrollments[&(tenant, EnrollmentId::from_uuid(Uuid::from_u128(75_005)))].clone(),
-        state.assignment_scoring[&(tenant, AssignmentId::from_uuid(Uuid::from_u128(75_004)))],
-        state.automated_grading_executions[&(tenant, attempt)],
+        state.attempts[&attempt].clone(),
+        state.runs[&RunId::from_uuid(Uuid::from_u128(75_006))].clone(),
+        state.summaries[&EnrollmentId::from_uuid(Uuid::from_u128(75_005))].clone(),
+        state.enrollments[&EnrollmentId::from_uuid(Uuid::from_u128(75_005))].clone(),
+        state.assignment_scoring[&AssignmentId::from_uuid(Uuid::from_u128(75_004))],
+        state.automated_grading_executions[&attempt],
         state.jobs[&claim.job].state,
         state.jobs[&claim.job].available_at,
         state.jobs[&claim.job].lease_token.is_some(),
@@ -828,15 +812,11 @@ async fn mixed_version_result_evidence_preserves_the_active_execution_aggregate(
         state.jobs[&claim.job].attempt_count,
         state
             .automated_grading_result_evidence
-            .get(&(tenant, attempt))
+            .get(&attempt)
             .cloned(),
     );
     assert_eq!(after, before);
-    assert!(
-        state.submissions[&(tenant, attempt)]
-            .completed_record_opt()
-            .is_none()
-    );
+    assert!(state.submissions[&attempt].completed_record_opt().is_none());
     assert_eq!(
         state
             .jobs
@@ -846,5 +826,5 @@ async fn mixed_version_result_evidence_preserves_the_active_execution_aggregate(
         0,
         "rejected evidence does not schedule score recalculation"
     );
-    assert!(!state.attempt_scores.contains_key(&(tenant, attempt)));
+    assert!(!state.attempt_scores.contains_key(&attempt));
 }

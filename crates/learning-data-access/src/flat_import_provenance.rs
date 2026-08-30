@@ -13,10 +13,10 @@
 
 use async_trait::async_trait;
 use objects::{ObjectRecord, Sha256Digest};
-use question_model::{ActivityTimestamp, ProblemVersionRef, TenantId, UserId, WorkspaceId};
+use question_model::{ActivityTimestamp, ProblemVersionRef, UserId, WorkspaceId};
 
 use crate::{
-    DraftRecord, FlatQuestionGradingPayload, QtiImportRef, StoreError, TenantContext,
+    ActorContext, DraftRecord, FlatQuestionGradingPayload, QtiImportRef, StoreError,
     WorkspaceDraftRevision, WorkspaceFlatQuestionSource,
 };
 
@@ -456,10 +456,9 @@ impl std::fmt::Debug for FlatImportPublicationPromotion {
     }
 }
 
-/// Immutable tenant-owned lineage copied from the locked current origin.
+/// Immutable published lineage copied from the locked current origin.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PublishedFlatImportOrigin {
-    owner_tenant: TenantId,
     reference: ProblemVersionRef,
     import: question_model::WorkspaceImportId,
     published_archive: ObjectRecord,
@@ -475,16 +474,11 @@ impl PublishedFlatImportOrigin {
     ) -> Result<Self, StoreError> {
         validate_published_archive(current, reference, &published_archive)?;
         Ok(Self {
-            owner_tenant: current.import.tenant,
             reference,
             import: current.import.import,
             published_archive,
             evidence: current.evidence.clone(),
         })
-    }
-
-    pub fn owner_tenant(&self) -> TenantId {
-        self.owner_tenant
     }
 
     pub fn reference(&self) -> ProblemVersionRef {
@@ -554,7 +548,6 @@ impl std::fmt::Debug for QtiProfileFlatConversionCommand {
         formatter
             .debug_struct("QtiProfileFlatConversionCommand")
             .field("expected_revision", &self.expected_revision)
-            .field("tenant", &self.draft.tenant)
             .field("workspace", &self.draft.question.workspace)
             .field("source", &"[redacted]")
             .field("origin", &"[redacted]")
@@ -573,7 +566,7 @@ pub trait FlatImportProvenanceStore: Send + Sync {
     /// evidence only after the import has committed.
     async fn stage_qti_profile_import_evidence(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         evidence: QtiProfileImportEvidence,
     ) -> Result<(), StoreError>;
 
@@ -586,7 +579,7 @@ pub trait FlatImportProvenanceStore: Send + Sync {
     /// precedes releasing any replaced import pin.
     async fn convert_qti_profile_item_to_flat(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         command: QtiProfileFlatConversionCommand,
     ) -> Result<WorkspaceFlatQuestionSource, StoreError>;
@@ -595,7 +588,7 @@ pub trait FlatImportProvenanceStore: Send + Sync {
     /// actor. Foreign, inaccessible, and absent origins are non-enumerating.
     async fn workspace_flat_import_origin(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceFlatImportOrigin>, StoreError>;

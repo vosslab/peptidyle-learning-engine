@@ -49,7 +49,13 @@ async fn inspection_refuses_missing_immutable_assignment_evidence() {
             .destination
             .assignments()[0]
             .assignment;
-        let assignment = state.assignments_by_reference[&(scenario.tenant, assignment_reference)];
+        let assignment = state
+            .assignments_by_reference
+            .iter()
+            .find_map(|((_, stored_reference), assignment)| {
+                (*stored_reference == assignment_reference).then_some(*assignment)
+            })
+            .expect("fixture assignment reference");
         let import_revision = state.curriculum_adoption.import_records[&assignment].import_revision;
         state
             .curriculum_adoption

@@ -36,13 +36,13 @@ use crate::curriculum_adoption::{
     CanonicalCurriculumAdoptionIntentV1, CurriculumAdoptionOperation, reconciliation_target_digest,
 };
 use crate::in_memory::{MemoryStore, State};
-use crate::{SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, SessionTokenHash, StoreError};
 
 #[async_trait]
 impl crate::CurriculumAdoptionStore for MemoryStore {
     async fn preflight_curriculum_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
     ) -> Result<(), StoreError> {
         let state = self.read_state()?;
@@ -51,7 +51,7 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
 
     async fn preview_curriculum_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         request: CurriculumAdoptionPreviewRequest,
     ) -> Result<CurriculumAdoptionPreview, StoreError> {
@@ -108,25 +108,19 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
 
     async fn apply_curriculum_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         intent: CurriculumAdoptionApplyIntent,
     ) -> Result<CurriculumAdoptionCompleted, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let actor = authorized_actor(&state, context, session)?;
         let operation = operation_for_request(&intent.request);
         let canonical =
             CanonicalCurriculumAdoptionIntentV1::new(operation, actor, &intent.request)?;
         let digest = canonical.request_digest();
-        if let Some(outcome) = lookup_replay_or_conflict(
-            &state,
-            tenant,
-            actor,
-            &intent.idempotency_key,
-            operation,
-            digest,
-        )? {
+        if let Some(outcome) =
+            lookup_replay_or_conflict(&state, actor, &intent.idempotency_key, operation, digest)?
+        {
             return completed_response(&outcome, true);
         }
         let snapshot = state.clone();
@@ -136,7 +130,7 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
 
     async fn inspect_course_instance_blueprint_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: question_model::CourseReference,
     ) -> Result<Option<question_model::CourseInstanceBlueprintInspectionView>, StoreError> {
@@ -148,18 +142,16 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
 
     async fn reconcile_course_instance_adoption(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         intent: ReconcileCourseInstanceAdoptionIntent,
     ) -> Result<ReconcileCourseInstanceAdoptionCompleted, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let actor = authorized_actor(&state, context, session)?;
-        let target = resolve_reconciliation_target(&state, tenant, &intent.target)?;
+        let target = resolve_reconciliation_target(&state, &intent.target)?;
         let digest = reconciliation_target_digest(actor, &target);
         if let Some(outcome) = lookup_replay_or_conflict(
             &state,
-            tenant,
             actor,
             &intent.idempotency_key,
             CurriculumAdoptionOperation::ReconcileCourseInstanceAdoption,
@@ -171,9 +163,9 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
         }
         let snapshot = state.clone();
         let result = (|| {
-            let course = resolve_course(&state, tenant, target.destination().course)?;
-            require_course_instructor(&state, tenant, course, actor)?;
-            let application = course_instance_blueprint_application(&state, tenant, course)?;
+            let course = resolve_course(&state, target.destination().course)?;
+            require_course_instructor(&state, course, actor)?;
+            let application = course_instance_blueprint_application(&state, course)?;
             let record = ReconcileCourseInstanceAdoptionApplyRecord::new(
                 target.clone(),
                 application,
@@ -187,7 +179,6 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
                 ReconcileCourseInstanceAdoptionCommand::from_server_record(record.clone());
             let completed = assignment_update::reconcile_course_instance_adoption_locked(
                 &mut state,
-                tenant,
                 actor,
                 command.receipt(),
             )?;
@@ -209,7 +200,7 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
                 },
                 evidence: MemoryCurriculumAdoptionEvidence::CourseInstanceReceipt(Box::new(target)),
             };
-            store_completed_receipt(&mut state, tenant, receipt)?;
+            store_completed_receipt(&mut state, receipt)?;
             Ok(completed)
         })();
         restore_on_error(&mut state, snapshot, result)
@@ -219,24 +210,16 @@ impl crate::CurriculumAdoptionStore for MemoryStore {
 fn apply_locked(
     store: &MemoryStore,
     state: &mut State,
-    context: TenantContext,
+    context: ActorContext,
     actor: question_model::UserId,
     intent: CurriculumAdoptionApplyIntent,
     digest: crate::curriculum_adoption::CurriculumAdoptionRequestDigest,
 ) -> Result<CurriculumAdoptionCompleted, StoreError> {
-    let tenant = context.tenant_id();
     let key = intent.idempotency_key;
     let operation = operation_for_request(&intent.request);
     let applied = match intent.request {
         CurriculumAdoptionPreviewRequest::ForkBlueprintCourse { request } => {
-            validate_blueprint_source(
-                state,
-                store,
-                tenant,
-                actor,
-                request.source,
-                &request.replacements,
-            )?;
+            validate_blueprint_source(state, store, actor, request.source, &request.replacements)?;
             let reserved =
                 BlueprintReference::new(u64::from(state.next_blueprint_course_reference) + 1)
                     .ok_or(StoreError::Conflict)?;
@@ -260,14 +243,13 @@ fn apply_locked(
             )?
         }
         CurriculumAdoptionPreviewRequest::AdoptBlueprintAssignment { request } => {
-            let course = resolve_course(state, tenant, request.course)?;
-            require_course_instructor(state, tenant, course, actor)?;
-            let destination = course_witness(state, tenant, course)?;
-            let application = course_instance_blueprint_application(state, tenant, course)?;
+            let course = resolve_course(state, request.course)?;
+            require_course_instructor(state, course, actor)?;
+            let destination = course_witness(state, course)?;
+            let application = course_instance_blueprint_application(state, course)?;
             validate_assignment_source(
                 state,
                 store,
-                tenant,
                 actor,
                 request.source,
                 &request.replacements,
@@ -287,18 +269,10 @@ fn apply_locked(
             )?
         }
         CurriculumAdoptionPreviewRequest::InstantiateBlueprintCourse { request } => {
-            validate_blueprint_source(
-                state,
-                store,
-                tenant,
-                actor,
-                request.source,
-                &request.replacements,
-            )?;
+            validate_blueprint_source(state, store, actor, request.source, &request.replacements)?;
             let snapshot = super::super::source_snapshot_with_replacements(
                 state,
                 store,
-                tenant,
                 actor,
                 request.source,
                 &request.replacements,
@@ -336,12 +310,11 @@ fn apply_locked(
             )?
         }
         CurriculumAdoptionPreviewRequest::RolloverCourseInstance { request } => {
-            let source_course = resolve_course(state, tenant, request.source_course)?;
-            require_course_instructor(state, tenant, source_course, actor)?;
-            let witness = course_witness(state, tenant, source_course)?;
-            let application = course_instance_blueprint_application(state, tenant, source_course)?;
-            let input =
-                super::super::rollover_input(state, tenant, source_course, &request.target_term)?;
+            let source_course = resolve_course(state, request.source_course)?;
+            require_course_instructor(state, source_course, actor)?;
+            let witness = course_witness(state, source_course)?;
+            let application = course_instance_blueprint_application(state, source_course)?;
+            let input = super::super::rollover_input(state, source_course, &request.target_term)?;
             let manifest = course_lifecycle::manifest(&input)?;
             let creation = CourseInstanceCreationWitness::for_rollover(
                 witness.clone(),
@@ -380,19 +353,15 @@ fn apply_locked(
             }
         }
         CurriculumAdoptionPreviewRequest::ShiftCourseInstanceTerm { request } => {
-            let course = resolve_course(state, tenant, request.course)?;
-            require_course_instructor(state, tenant, course, actor)?;
-            let destination = course_witness(state, tenant, course)?;
-            let application = course_instance_blueprint_application(state, tenant, course)?;
-            if super::super::course_has_any_run(state, tenant, course) {
+            let course = resolve_course(state, request.course)?;
+            require_course_instructor(state, course, actor)?;
+            let destination = course_witness(state, course)?;
+            let application = course_instance_blueprint_application(state, course)?;
+            if super::super::course_has_any_run(state, course) {
                 return Err(StoreError::Conflict);
             }
-            let schedules = course_lifecycle::shift_schedules(
-                state,
-                tenant,
-                &destination,
-                &request.target_term,
-            )?;
+            let schedules =
+                course_lifecycle::shift_schedules(state, &destination, &request.target_term)?;
             let record = ShiftCourseInstanceTermApplyRecord::new(
                 CourseInstanceApplicationBinding::new(destination, application),
                 request.target_term,
@@ -421,19 +390,14 @@ fn apply_locked(
             }
         }
         CurriculumAdoptionPreviewRequest::ControlledUpdateBlueprintAssignment { request } => {
-            let course = resolve_course(state, tenant, request.course)?;
-            require_course_instructor(state, tenant, course, actor)?;
-            let destination = course_witness(state, tenant, course)?;
-            let application = course_instance_blueprint_application(state, tenant, course)?;
-            let import = assignment_update::current_import_witness(
-                state,
-                tenant,
-                course,
-                request.assignment,
-            )?;
+            let course = resolve_course(state, request.course)?;
+            require_course_instructor(state, course, actor)?;
+            let destination = course_witness(state, course)?;
+            let application = course_instance_blueprint_application(state, course)?;
+            let import =
+                assignment_update::current_import_witness(state, course, request.assignment)?;
             let eligibility = assignment_update::controlled_update_eligibility(
                 state,
-                tenant,
                 actor,
                 &destination,
                 &import,
@@ -471,14 +435,13 @@ fn apply_locked(
             }
         }
         CurriculumAdoptionPreviewRequest::CreateSelectedBlueprintAssignment { request } => {
-            let course = resolve_course(state, tenant, request.course)?;
-            require_course_instructor(state, tenant, course, actor)?;
-            let destination = course_witness(state, tenant, course)?;
-            let application = course_instance_blueprint_application(state, tenant, course)?;
+            let course = resolve_course(state, request.course)?;
+            require_course_instructor(state, course, actor)?;
+            let destination = course_witness(state, course)?;
+            let application = course_instance_blueprint_application(state, course)?;
             validate_assignment_source(
                 state,
                 store,
-                tenant,
                 actor,
                 request.source,
                 &request.replacements,
@@ -487,7 +450,6 @@ fn apply_locked(
             let source = super::super::assignment_source_snapshot_with_replacements(
                 state,
                 store,
-                tenant,
                 actor,
                 request.source,
                 &request.replacements,
@@ -498,11 +460,7 @@ fn apply_locked(
             else {
                 return Err(StoreError::Conflict);
             };
-            let term = &state
-                .courses
-                .get(&(tenant, course))
-                .ok_or(StoreError::NotFound)?
-                .term;
+            let term = &state.courses.get(&course).ok_or(StoreError::NotFound)?.term;
             let (schedule, corrections) =
                 crate::curriculum_adoption::preview_assignment(&assignment, term)
                     .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -550,34 +508,26 @@ fn apply_locked(
         outcome: applied.outcome.clone(),
         evidence: applied.evidence,
     };
-    validate_receipt_evidence(state, tenant, &receipt)?;
-    store_completed_receipt(state, tenant, receipt)?;
+    validate_receipt_evidence(state, &receipt)?;
+    store_completed_receipt(state, receipt)?;
     completed_response(&applied.outcome, false)
 }
 
 fn validate_blueprint_source(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     actor: question_model::UserId,
     source: question_model::ObservedBlueprintSource,
     replacements: &question_model::CurriculumPinReplacements,
 ) -> Result<(), StoreError> {
-    let snapshot = super::super::source_snapshot_with_replacements(
-        state,
-        store,
-        tenant,
-        actor,
-        source,
-        replacements,
-    )?;
-    validate_destination_pins(state, tenant, &snapshot.payload).map_err(|_| StoreError::Conflict)
+    let snapshot =
+        super::super::source_snapshot_with_replacements(state, store, actor, source, replacements)?;
+    validate_destination_pins(state, &snapshot.payload).map_err(|_| StoreError::Conflict)
 }
 
 fn validate_assignment_source(
     state: &State,
     store: &MemoryStore,
-    tenant: question_model::TenantId,
     actor: question_model::UserId,
     source: question_model::AssignmentDefinitionSourceView,
     replacements: &question_model::CurriculumPinReplacements,
@@ -586,23 +536,17 @@ fn validate_assignment_source(
     let snapshot = super::super::assignment_source_snapshot_with_replacements(
         state,
         store,
-        tenant,
         actor,
         source,
         replacements,
     )?;
-    validate_destination_pins(state, tenant, &snapshot.payload)
-        .map_err(|_| StoreError::Conflict)?;
+    validate_destination_pins(state, &snapshot.payload).map_err(|_| StoreError::Conflict)?;
     let question_model::curriculum_adoption::CurriculumSemanticPayload::Assignment(assignment) =
         snapshot.payload
     else {
         return Err(StoreError::Conflict);
     };
-    let term = &state
-        .courses
-        .get(&(tenant, course))
-        .ok_or(StoreError::NotFound)?
-        .term;
+    let term = &state.courses.get(&course).ok_or(StoreError::NotFound)?.term;
     let (_, corrections) = crate::curriculum_adoption::preview_assignment(&assignment, term)
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
     corrections

@@ -322,17 +322,16 @@ impl AccountIdentityStore for MemoryStore {
         let records = state
             .courses
             .iter()
-            .filter_map(|((tenant, course), record)| {
-                let role = super::entitlement::current_course_role(&state, *tenant, *course, user)?;
+            .filter_map(|(course, record)| {
+                let role = super::entitlement::current_course_role(&state, *course, user)?;
                 if role == CourseMembershipRole::Student
-                    && !super::course_records_accessible(&state, *tenant, *course)
+                    && !super::course_records_accessible(&state, *course)
                 {
                     return None;
                 }
                 Some((
-                    format!("{tenant}/{course}"),
+                    course.to_string(),
                     AccountCourseContext {
-                        tenant: *tenant,
                         course: *course,
                         title: record.title.clone(),
                         role,
@@ -349,27 +348,22 @@ impl AccountIdentityStore for MemoryStore {
         course: CourseId,
     ) -> Result<Option<AccountCourseContext>, StoreError> {
         let state = self.read_state()?;
-        let mut matches = state
-            .courses
-            .iter()
-            .filter_map(|((tenant, stored_course), record)| {
-                if *stored_course != course {
-                    return None;
-                }
-                let role =
-                    super::entitlement::current_course_role(&state, *tenant, *stored_course, user)?;
-                if role == CourseMembershipRole::Student
-                    && !super::course_records_accessible(&state, *tenant, *stored_course)
-                {
-                    return None;
-                }
-                Some(AccountCourseContext {
-                    tenant: *tenant,
-                    course: *stored_course,
-                    title: record.title.clone(),
-                    role,
-                })
-            });
+        let mut matches = state.courses.iter().filter_map(|(stored_course, record)| {
+            if *stored_course != course {
+                return None;
+            }
+            let role = super::entitlement::current_course_role(&state, *stored_course, user)?;
+            if role == CourseMembershipRole::Student
+                && !super::course_records_accessible(&state, *stored_course)
+            {
+                return None;
+            }
+            Some(AccountCourseContext {
+                course: *stored_course,
+                title: record.title.clone(),
+                role,
+            })
+        });
         let result = matches.next();
         if matches.next().is_some() {
             return Err(StoreError::Unavailable(

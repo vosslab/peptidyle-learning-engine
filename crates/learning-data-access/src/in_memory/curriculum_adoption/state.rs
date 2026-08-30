@@ -21,10 +21,8 @@ pub(in crate::in_memory) struct CurriculumAdoptionState {
     pub(super) whole_course_adoptions:
         BTreeMap<question_model::CourseId, StoredWholeCourseAdoption>,
     /// Canonical immutable parent binding for every CourseInstance.
-    pub(super) course_instance_blueprint_applications: BTreeMap<
-        (question_model::TenantId, question_model::CourseId),
-        CourseInstanceBlueprintApplication,
-    >,
+    pub(super) course_instance_blueprint_applications:
+        BTreeMap<question_model::CourseId, CourseInstanceBlueprintApplication>,
     pub(super) receipt_targets:
         BTreeMap<(UserId, CurriculumAdoptionIdempotencyKey), CourseInstanceReceiptTarget>,
 }

@@ -2,10 +2,11 @@
 
 use super::*;
 use crate::{
-    ApproveInstructorAccount, CoInstructorInvitationRevision, CreateCoInstructorInvitation,
-    DirectInstructorMembershipView, InstructorApprovalRevision, RemoveDirectInstructorMembership,
-    RespondToCoInstructorInvitation, RevokeCoInstructorInvitation, RevokeInstructorApproval,
-    StoredCoInstructorInvitation, StoredInstructorApproval, TeachingAuthorityStore,
+    ActorContext, ApproveInstructorAccount, CoInstructorInvitationRevision,
+    CreateCoInstructorInvitation, DirectInstructorMembershipView, InstructorApprovalRevision,
+    RemoveDirectInstructorMembership, RespondToCoInstructorInvitation,
+    RevokeCoInstructorInvitation, RevokeInstructorApproval, StoredCoInstructorInvitation,
+    StoredInstructorApproval, TeachingAuthorityStore,
 };
 use async_trait::async_trait;
 use question_model::{
@@ -17,7 +18,7 @@ use question_model::{
 impl TeachingAuthorityStore for MemoryStore {
     async fn approve_instructor_account(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ApproveInstructorAccount,
     ) -> Result<StoredInstructorApproval, StoreError> {
         let mut state = self.write_state()?;
@@ -57,7 +58,7 @@ impl TeachingAuthorityStore for MemoryStore {
 
     async fn revoke_instructor_approval(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RevokeInstructorApproval,
     ) -> Result<StoredInstructorApproval, StoreError> {
         let mut state = self.write_state()?;
@@ -86,10 +87,9 @@ impl TeachingAuthorityStore for MemoryStore {
 
     async fn create_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateCoInstructorInvitation,
     ) -> Result<StoredCoInstructorInvitation, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let session_actor = super::sessions::active_subject(&state, context, command.session)
             .ok_or(StoreError::NotFound)?
@@ -97,16 +97,15 @@ impl TeachingAuthorityStore for MemoryStore {
         if session_actor != command.actor {
             return Err(StoreError::NotFound);
         }
-        let invited_by = require_direct_instructor(&state, tenant, command.course, command.actor)?;
+        let invited_by = require_direct_instructor(&state, command.course, command.actor)?;
         if !state.accounts.contains_key(&command.target) {
             return Err(StoreError::NotFound);
         }
         let now = state.authoritative_time;
         let approval = state.instructor_approvals.get(&command.target).copied();
         require_current_approval(approval, command.target, now)?;
-        for ((record_tenant, _), stored) in &state.co_instructor_invitations {
-            if *record_tenant == tenant
-                && stored.invitation.course == command.course
+        for stored in state.co_instructor_invitations.values() {
+            if stored.invitation.course == command.course
                 && stored.invitation.target == command.target
                 && domain::teaching_authority::invitation_state(&stored.invitation, now)
                     .map_err(domain_error)?
@@ -142,34 +141,31 @@ impl TeachingAuthorityStore for MemoryStore {
         };
         state
             .co_instructor_invitations
-            .insert((tenant, invitation.id), stored.clone());
+            .insert(invitation.id, stored.clone());
         Ok(stored)
     }
 
     async fn list_course_co_instructor_invitations(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<StoredCoInstructorInvitation>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        require_direct_instructor(&state, tenant, course, actor)?;
+        require_direct_instructor(&state, course, actor)?;
         let records = state
             .co_instructor_invitations
             .iter()
-            .filter(|((record_tenant, _), stored)| {
-                *record_tenant == tenant && stored.invitation.course == course
-            })
-            .map(|((_, id), stored)| (id.as_uuid().to_string(), stored.clone()))
+            .filter(|(_, stored)| stored.invitation.course == course)
+            .map(|(id, stored)| (id.as_uuid().to_string(), stored.clone()))
             .collect();
         Ok(page_records(records, &page))
     }
 
     async fn list_pending_co_instructor_invitations(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<StoredCoInstructorInvitation>, StoreError> {
@@ -181,23 +177,21 @@ impl TeachingAuthorityStore for MemoryStore {
         let records = state
             .co_instructor_invitations
             .iter()
-            .filter(|((tenant, _), stored)| {
-                *tenant == context.tenant_id()
-                    && stored.invitation.target == target
+            .filter(|(_, stored)| {
+                stored.invitation.target == target
                     && domain::teaching_authority::invitation_state(&stored.invitation, now).ok()
                         == Some(CoInstructorInvitationState::Pending)
             })
-            .map(|((_, id), stored)| (id.as_uuid().to_string(), stored.clone()))
+            .map(|(id, stored)| (id.as_uuid().to_string(), stored.clone()))
             .collect();
         Ok(page_records(records, &page))
     }
 
     async fn accept_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RespondToCoInstructorInvitation,
     ) -> Result<DirectInstructorMembershipView, StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let snapshot = state.clone();
         let session_actor = super::sessions::active_subject(&state, context, command.session)
@@ -207,7 +201,7 @@ impl TeachingAuthorityStore for MemoryStore {
             return Err(StoreError::NotFound);
         }
         let now = state.authoritative_time;
-        let key = (tenant, command.invitation);
+        let key = command.invitation;
         let stored = state
             .co_instructor_invitations
             .get(&key)
@@ -220,7 +214,7 @@ impl TeachingAuthorityStore for MemoryStore {
             if command.actor != stored.invitation.target {
                 return Err(StoreError::NotFound);
             }
-            return invitation_acceptance_view(&state, tenant, command.invitation);
+            return invitation_acceptance_view(&state, command.invitation);
         }
         if stored.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -242,7 +236,6 @@ impl TeachingAuthorityStore for MemoryStore {
         }
         let membership = match super::entitlement::active_membership_for(
             &state,
-            tenant,
             stored.invitation.course,
             stored.invitation.target,
         ) {
@@ -250,7 +243,6 @@ impl TeachingAuthorityStore for MemoryStore {
             Some(_) => return Err(StoreError::Conflict),
             None => match create_direct_instructor(
                 &mut state,
-                tenant,
                 stored.invitation.course,
                 stored.invitation.target,
             ) {
@@ -271,22 +263,21 @@ impl TeachingAuthorityStore for MemoryStore {
             }
         };
         let course = accepted.invitation.course;
+        let acceptance_key = accepted.invitation.id;
         state.co_instructor_invitations.insert(key, accepted);
         state
             .co_instructor_invitation_acceptances
-            .insert(key, membership);
-        if let Err(error) =
-            super::course_roster::bump_roster_revision(&mut state, tenant, course, None)
-        {
+            .insert(acceptance_key, membership);
+        if let Err(error) = super::course_roster::bump_roster_revision(&mut state, course, None) {
             *state = snapshot;
             return Err(error);
         }
-        invitation_acceptance_view(&state, tenant, command.invitation)
+        invitation_acceptance_view(&state, command.invitation)
     }
 
     async fn decline_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RespondToCoInstructorInvitation,
     ) -> Result<(), StoreError> {
         mutate_target_invitation(
@@ -300,10 +291,9 @@ impl TeachingAuthorityStore for MemoryStore {
 
     async fn revoke_co_instructor_invitation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RevokeCoInstructorInvitation,
     ) -> Result<(), StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let session_actor = super::sessions::active_subject(&state, context, command.session)
             .ok_or(StoreError::NotFound)?
@@ -311,8 +301,8 @@ impl TeachingAuthorityStore for MemoryStore {
         if session_actor != command.actor {
             return Err(StoreError::NotFound);
         }
-        require_direct_instructor(&state, tenant, command.course, command.actor)?;
-        let key = (tenant, command.invitation);
+        require_direct_instructor(&state, command.course, command.actor)?;
+        let key = command.invitation;
         let mut stored = state
             .co_instructor_invitations
             .get(&key)
@@ -335,14 +325,13 @@ impl TeachingAuthorityStore for MemoryStore {
 
     async fn remove_direct_instructor_membership(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: RemoveDirectInstructorMembership,
     ) -> Result<(), StoreError> {
-        let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let snapshot = state.clone();
-        require_direct_instructor(&state, tenant, command.course, command.actor)?;
-        let key = (tenant, command.membership);
+        require_direct_instructor(&state, command.course, command.actor)?;
+        let key = command.membership;
         let current = state
             .course_memberships
             .get(&key)
@@ -351,8 +340,7 @@ impl TeachingAuthorityStore for MemoryStore {
         if current.course != command.course || current.role != CourseMembershipRole::Instructor {
             return Err(StoreError::NotFound);
         }
-        let roster_revision =
-            super::course_roster::roster_policy(&state, tenant, command.course).revision;
+        let roster_revision = super::course_roster::roster_policy(&state, command.course).revision;
         if roster_revision != command.expected_roster_revision {
             return Err(StoreError::Conflict);
         }
@@ -360,8 +348,7 @@ impl TeachingAuthorityStore for MemoryStore {
             .course_memberships
             .values()
             .filter(|record| {
-                record.tenant == tenant
-                    && record.course == command.course
+                record.course == command.course
                     && record.role == CourseMembershipRole::Instructor
                     && record.status == crate::CourseMemberStatus::Active
             })
@@ -381,10 +368,9 @@ impl TeachingAuthorityStore for MemoryStore {
         record.revoked_at = Some(now);
         state
             .active_course_membership_by_user
-            .remove(&(tenant, command.course, removed_user));
+            .remove(&(command.course, removed_user));
         if let Err(error) = super::course_roster::bump_roster_revision(
             &mut state,
-            tenant,
             command.course,
             Some(roster_revision),
         ) {
@@ -397,11 +383,10 @@ impl TeachingAuthorityStore for MemoryStore {
 
 async fn mutate_target_invitation(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     command: RespondToCoInstructorInvitation,
     terminal: CoInstructorInvitationState,
 ) -> Result<(), StoreError> {
-    let tenant = context.tenant_id();
     let mut state = store.write_state()?;
     let session_actor = super::sessions::active_subject(&state, context, command.session)
         .ok_or(StoreError::NotFound)?
@@ -409,7 +394,7 @@ async fn mutate_target_invitation(
     if session_actor != command.actor {
         return Err(StoreError::NotFound);
     }
-    let key = (tenant, command.invitation);
+    let key = command.invitation;
     let mut stored = state
         .co_instructor_invitations
         .get(&key)
@@ -441,25 +426,22 @@ async fn mutate_target_invitation(
 
 pub(super) fn require_session_sysadmin(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: crate::SessionTokenHash,
 ) -> Result<UserId, StoreError> {
     let subject =
         super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    subject
-        .roles()
-        .contains(&UserRole::Sysadmin)
+    (subject.role() == UserRole::Sysadmin)
         .then_some(subject.user())
         .ok_or(StoreError::Forbidden)
 }
 
 pub(super) fn require_direct_instructor(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     actor: UserId,
 ) -> Result<CourseMembershipId, StoreError> {
-    let record = super::entitlement::active_membership_for(state, tenant, course, actor)
+    let record = super::entitlement::active_membership_for(state, course, actor)
         .filter(|record| record.role == CourseMembershipRole::Instructor)
         .ok_or(StoreError::NotFound)?;
     Ok(record.id)
@@ -481,23 +463,20 @@ fn require_current_approval(
 
 fn create_direct_instructor(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
     user: UserId,
 ) -> Result<CourseMembershipId, StoreError> {
-    super::entitlement::create_initial_instructor_membership(state, tenant, course, user)
+    super::entitlement::create_initial_instructor_membership(state, course, user)
 }
 
 fn membership_view(
     state: &State,
-    tenant: TenantId,
     membership: CourseMembershipId,
 ) -> Result<DirectInstructorMembershipView, StoreError> {
-    let record = super::entitlement::active_membership_by_id(state, tenant, membership)
+    let record = super::entitlement::active_membership_by_id(state, membership)
         .filter(|record| record.role == CourseMembershipRole::Instructor)
         .ok_or(StoreError::NotFound)?;
-    let roster_revision =
-        super::course_roster::roster_policy(state, tenant, record.course).revision;
+    let roster_revision = super::course_roster::roster_policy(state, record.course).revision;
     Ok(DirectInstructorMembershipView {
         membership,
         course: record.course,
@@ -508,17 +487,16 @@ fn membership_view(
 
 fn invitation_acceptance_view(
     state: &State,
-    tenant: TenantId,
     invitation: CoInstructorInvitationId,
 ) -> Result<DirectInstructorMembershipView, StoreError> {
     let membership = state
         .co_instructor_invitation_acceptances
-        .get(&(tenant, invitation))
+        .get(&invitation)
         .copied()
         .ok_or(StoreError::Unavailable(
             "accepted invitation lacks membership receipt".to_string(),
         ))?;
-    membership_view(state, tenant, membership)
+    membership_view(state, membership)
 }
 
 fn fresh_invitation_id() -> Result<CoInstructorInvitationId, StoreError> {

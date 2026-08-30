@@ -6,7 +6,7 @@ use axum::routing::{get, post, put};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseGradebookStore, CourseGroupManagementStore,
     CourseInvitationDeliveryStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
-    CourseRosterStore, GradingOperationStore, ManualGradeExportStore, NavigationReferenceStore,
+    CourseRosterStore, GradingOperationStore, NavigationReferenceStore,
     PoolPreviewStore, PreviewPlaneStore, SessionStore, Store, StudentWorkInspectionStore,
     TeachingAuthorityReferenceStore, TeachingAuthorityStore,
 };
@@ -36,7 +36,6 @@ where
         + CourseRecordsAccessStore
         + CourseRosterStore
         + CourseInvitationDeliveryStore
-        + ManualGradeExportStore
         + CourseGradebookStore
         + CourseGroupManagementStore
         + GradingOperationStore
@@ -62,7 +61,6 @@ where
         + CourseRecordsAccessStore
         + CourseRosterStore
         + CourseInvitationDeliveryStore
-        + ManualGradeExportStore
         + CourseGradebookStore
         + CourseGroupManagementStore
         + GradingOperationStore

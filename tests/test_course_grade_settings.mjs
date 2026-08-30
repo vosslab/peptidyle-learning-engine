@@ -90,8 +90,8 @@ test("course-grade read and write decoders keep server titles out of strict writ
   );
 
   const unsafeRead = structuredClone(weightedView);
-  unsafeRead.assignments[0].tenant = "tenant leak";
-  assert.throws(() => decodeCourseGradeSchemeView(unsafeRead), /tenant.*known field/u);
+  unsafeRead.assignments[0].privateScope = "private leak";
+  assert.throws(() => decodeCourseGradeSchemeView(unsafeRead), /known field/u);
 });
 
 test("course-grade decoder rejects noncanonical mappings, weights, and private total fields", () => {

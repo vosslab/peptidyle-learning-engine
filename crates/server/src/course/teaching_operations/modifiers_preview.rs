@@ -517,7 +517,7 @@ where
             .into_response(),
         );
     };
-    let now = match state.store.authoritative_time(auth.tenant_context).await {
+    let now = match state.store.authoritative_time().await {
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };

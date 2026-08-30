@@ -30,12 +30,12 @@ The review traced authority and data through:
 
 - browser, Solid UI, TypeScript DTO decoders, URL fragments, browser storage, and the Rust/Wasm
   boundary;
-- email/passwordless and passkey ceremonies, account and tenant sessions, cookies, logout,
+- email/passwordless and passkey ceremonies, account sessions, cookies, logout,
   invitations, rate limits, Host/Origin handling, CSRF, CSP, and unsafe methods;
 - Rust routes, service composition, store capabilities, authorization failure responses, grading,
   replay/idempotency, concurrent state transitions, workers, and telemetry;
 - PostgreSQL TLS/login attestation, role membership, capability roles, RLS, broker functions,
-  transaction-local tenant context, learner/instructor authority, and retention;
+  transaction-local actor and resource context, learner/instructor authority, and retention;
 - QTI/flat content, ZIP/XML/image decoding, source checksums, publication, asset registry,
   object keys, signed delivery, CDN exposure, SSE-KMS, IAM, and retention;
 - iMathAS and WebWork boundaries, opaque-origin sandboxing, provider activity/finalization,
@@ -50,35 +50,35 @@ or exercise a released HTTP edge. Those omissions are explicit live gates, not s
 
 ## Threat actors and protected assets
 
-| Actor or failure mode | Relevant goal | Principal design response |
-| --- | --- | --- |
-| Anonymous browser, bot, or malicious page | Consume compute, enumerate identities, fixate a session, or cause CSRF | Uniform passwordless start, scoped quotas, pre-allocation passkey limit, exact Host/Origin, and non-GET mutation policy |
-| Authenticated Student or Instructor | Cross tenant, course, role, or retention boundary | Session-derived tenant/actor, Store-level active-membership/direct-Instructor predicates, RLS, opaque concealment, and atomic state transitions |
-| Malicious browser, extension, or authored markup | Read answers, execute script, steal a token, or abuse a privileged API | Answer-free DTO/Wasm boundary, strict runtime decoders, inert markup projection, restrictive CSP, no raw secrets in browser storage |
-| Concurrent request or replica | Double submit, use revoked authority, publish an orphan, or duplicate an external effect | Database locks/conditional state, request-bound idempotency, leases, pending publication outbox, and indeterminate provider fence |
-| Compromised API, worker, renderer, or external provider | Confused deputy, broad database/object/cloud access, SSRF, or secret disclosure | Fixed service contracts, isolated roles/domains, dedicated publisher, no-NAT production design, narrow egress, and disabled renderer activation until attested |
-| Deployment/configuration error | Downgrade TLS, grant extra role/IAM power, expose origin/private assets, or leak backup | Fail-closed production settings and attestation, four storage/KMS domains, edge-only HSTS, explicit AWS policies, and release probes |
+| Actor or failure mode                                   | Relevant goal                                                                            | Principal design response                                                                                                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anonymous browser, bot, or malicious page               | Consume compute, enumerate identities, fixate a session, or cause CSRF                   | Uniform passwordless start, scoped quotas, pre-allocation passkey limit, exact Host/Origin, and non-GET mutation policy                                        |
+| Authenticated Student or Instructor                     | Cross-account, course, role, or retention boundary                                       | Server-derived actor plus exact membership and ownership predicates, RLS, opaque concealment, and atomic state transitions                                     |
+| Malicious browser, extension, or authored markup        | Read answers, execute script, steal a token, or abuse a privileged API                   | Answer-free DTO/Wasm boundary, strict runtime decoders, inert markup projection, restrictive CSP, no raw secrets in browser storage                            |
+| Concurrent request or replica                           | Double submit, use revoked authority, publish an orphan, or duplicate an external effect | Database locks/conditional state, request-bound idempotency, leases, pending publication outbox, and indeterminate provider fence                              |
+| Compromised API, worker, renderer, or external provider | Confused deputy, broad database/object/cloud access, SSRF, or secret disclosure          | Fixed service contracts, isolated roles/domains, dedicated publisher, no-NAT production design, narrow egress, and disabled renderer activation until attested |
+| Deployment/configuration error                          | Downgrade TLS, grant extra role/IAM power, expose origin/private assets, or leak backup  | Fail-closed production settings and attestation, four storage/KMS domains, edge-only HSTS, explicit AWS policies, and release probes                           |
 
-Protected assets include account/session authorities; tenant, roster, run, response, and grade data;
+Protected assets include account/session authorities; course, roster, run, response, and grade data;
 answer keys and private feedback; unpublished sources/import archives; private and student-record
 objects; immutable published bytes; object/KMS/IAM authority; provider launch state; operational
 secrets; and forensic/audit records.
 
 ## Trust boundaries and current guarantees
 
-| Boundary | Enforced design | Evidence tier and remaining limit |
-| --- | --- | --- |
-| Browser to API | Production requires one configured HTTPS Host, one exact Origin for cookie-authenticated mutations, `__Host-` sensitive cookies, duplicate rejection, no-store, and a fail-closed method inventory. | Code tests cover hostile Host/Origin/cookies and route policy. Actual CDN/ALB headers and error paths need live proof. |
-| Browser/Wasm to grading | Browser DTOs and Wasm exports are answer-free; server re-resolves immutable grading context and issues receipts. | Code and answer-free corpus/parity tests. A future export still requires the same review. |
-| Account session to tenant/role | Opaque hashed account/session rows and persisted membership derive tenant and actor; browser claims do not select either. | Code and store conformance evidence. Live passwordless delivery/WebAuthn relying-party setup remains required. |
-| Student/Instructor/Sysadmin to records | Student capabilities require active Student membership; Instructor teaching paths require direct course membership. Sysadmin has only closed audited roster support and payload-free retention operations, never general FERPA-record authority. PostgreSQL locks membership with `FOR KEY SHARE`. | Memory/PostgreSQL parity and route tests. Real PostgreSQL revocation interleavings remain a live gate. |
-| API to PostgreSQL | Production URLs require `sslmode=verify-full`; fixed logins and capability roles are attested for flags, direct membership, and delegation metadata. Tenant work uses `SET LOCAL ROLE` and transaction-local context. The database table map marks direct and linkage-bearing FERPA relations radioactive and carries the label into derived or recovery copies. | Unit/migration/conformance evidence. Disposable production-login/RLS execution and deployed backup-access evidence are still required. |
-| API to objects/CDN | Typed keys, four storage domains, exact public URL parser, Post-only protected delivery, checksum/KMS validation, and immutable tagged public assets constrain access. | Code and static AWS policy evidence. Real IAM/KMS/S3/CloudFront denial probes remain required. |
-| Publication to public delivery | A private source and registry/outbox transaction create `Pending`; only dedicated publisher authority writes the immutable public copy and activates it. Pending objects are concealed before audit or signing. | Code, migration, policy, and independent re-review evidence. Live publisher task/IAM proof remains required. |
-| API/worker to provider | Deployment-configured but process-fixed HTTPS endpoints, fixed paths, redirects/cookies disabled, bounded responses, and no request-selected destination. | Code evidence. Live DNS/egress/provider behavior and renderer attestation remain required. |
-| Browser to external tool | POST creates launch; GET is an inert shell. Opaque-origin `Origin: null` is allowed only for the exact capability-bound activity POST; route rechecks tenant, actor, attempt, proof, and lease. | Code and conformance evidence. Real LMS/provider browser flow remains required. |
-| API/worker/renderer containers | Non-root/read-only/capability-free/no-new-privileges profiles, bounded tmpfs/resources, private networks, digest-pinned renderer default, server-generated safe telemetry, and graceful drain. | Static Compose tests and an implementation-time socket probe. Timing-driven probes were not retained in the permanent fast suite; live Podman/image provenance proof remains required. |
-| Internet edge to private workloads | OpenTofu specifies CloudFront-to-ALB origin authentication, private Fargate, no NAT, VPC endpoints, separate task roles, restrictive security groups, WAF observation, and edge-owned HSTS. | Static configuration and policy tests only; direct-origin, cache/parser, TLS, egress, and WAF behavior need live proof. |
+| Boundary                               | Enforced design                                                                                                                                                                                                                                                                                                                                                                        | Evidence tier and remaining limit                                                                                                                                                      |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser to API                         | Production requires one configured HTTPS Host, one exact Origin for cookie-authenticated mutations, `__Host-` sensitive cookies, duplicate rejection, no-store, and a fail-closed method inventory.                                                                                                                                                                                    | Code tests cover hostile Host/Origin/cookies and route policy. Actual CDN/ALB headers and error paths need live proof.                                                                 |
+| Browser/Wasm to grading                | Browser DTOs and Wasm exports are answer-free; server re-resolves immutable grading context and issues receipts.                                                                                                                                                                                                                                                                       | Code and answer-free corpus/parity tests. A future export still requires the same review.                                                                                              |
+| Account session to actor/role          | Opaque hashed account/session rows derive the actor; persisted membership supplies the exact authorized resource relationship. Browser claims select neither.                                                                                                                                                                                                                          | Code and store conformance evidence. Live passwordless delivery/WebAuthn relying-party setup remains required.                                                                         |
+| Student/Instructor/Sysadmin to records | Student capabilities require active Student membership; Instructor teaching paths require direct course membership. Sysadmin has only closed audited roster support and payload-free retention operations, never general FERPA-record authority. PostgreSQL locks membership with `FOR KEY SHARE`.                                                                                     | Memory/PostgreSQL parity and route tests. Real PostgreSQL revocation interleavings remain a live gate.                                                                                 |
+| API to PostgreSQL                      | Production URLs require `sslmode=verify-full`; fixed logins and capability roles are attested for flags, direct membership, and delegation metadata. Protected work uses `SET LOCAL ROLE` and transaction-local actor and resource context. The database table map marks direct and linkage-bearing FERPA relations radioactive and carries the label into derived or recovery copies. | Unit/migration/conformance evidence. Disposable production-login/RLS execution and deployed backup-access evidence are still required.                                                 |
+| API to objects/CDN                     | Typed keys, four storage domains, exact public URL parser, Post-only protected delivery, checksum/KMS validation, and immutable tagged public assets constrain access.                                                                                                                                                                                                                 | Code and static AWS policy evidence. Real IAM/KMS/S3/CloudFront denial probes remain required.                                                                                         |
+| Publication to public delivery         | A private source and registry/outbox transaction create `Pending`; only dedicated publisher authority writes the immutable public copy and activates it. Pending objects are concealed before audit or signing.                                                                                                                                                                        | Code, migration, policy, and independent re-review evidence. Live publisher task/IAM proof remains required.                                                                           |
+| API/worker to provider                 | Deployment-configured but process-fixed HTTPS endpoints, fixed paths, redirects/cookies disabled, bounded responses, and no request-selected destination.                                                                                                                                                                                                                              | Code evidence. Live DNS/egress/provider behavior and renderer attestation remain required.                                                                                             |
+| Browser to external tool               | POST creates launch; GET is an inert shell. Opaque-origin `Origin: null` is allowed only for the exact capability-bound activity POST; route rechecks actor, attempt, proof, and lease.                                                                                                                                                                                                | Code and conformance evidence. Real LMS/provider browser flow remains required.                                                                                                        |
+| API/worker/renderer containers         | Non-root/read-only/capability-free/no-new-privileges profiles, bounded tmpfs/resources, private networks, digest-pinned renderer default, server-generated safe telemetry, and graceful drain.                                                                                                                                                                                         | Static Compose tests and an implementation-time socket probe. Timing-driven probes were not retained in the permanent fast suite; live Podman/image provenance proof remains required. |
+| Internet edge to private workloads     | OpenTofu specifies CloudFront-to-ALB origin authentication, private Fargate, no NAT, VPC endpoints, separate task roles, restrictive security groups, WAF observation, and edge-owned HSTS.                                                                                                                                                                                            | Static configuration and policy tests only; direct-origin, cache/parser, TLS, egress, and WAF behavior need live proof.                                                                |
 
 ## Verified security guarantees
 
@@ -89,8 +89,8 @@ secrets; and forensic/audit records.
   binding cannot burn a valid challenge. Correct concurrent completion still has one winner.
 - Production mounts session resolution and complete logout with the passwordless routes, while the
   local credential provider stays behind an opt-in Rust feature and local image target. The ordinary
-  browser artifact also excludes the local form and login transport. Logout revokes tenant and
-  account sessions before clearing account/session/binding cookies; path-scoped launch proofs become
+  browser artifact also excludes the local form and login transport. Logout revokes account
+  sessions before clearing account/session/binding cookies; path-scoped launch proofs become
   unusable through that revocation. Failure leaves cookies for a truthful retry.
 - Scoped HMAC-based email, network, principal, and service budgets prevent a recipient-only quota
   from becoming the sole mail-denial control. Successful mailbox proof clears only its own email
@@ -101,21 +101,21 @@ secrets; and forensic/audit records.
   CSP fallback; route-owned nonce CSP is preserved rather than overwritten. HSTS is intentionally
   owned by the HTTPS edge, not API middleware.
 
-### Authorization, tenancy, and grading
+### Authorization, resource ownership, and grading
 
-- Tenant context comes only from the opaque server session. Course context derives from persisted
-  account membership, not a browser tenant/role claim. Object, run, attempt, enrollment, and
-  receipt authorization re-resolve the server-owned relationship and conceal foreign access.
-- Tenant tables use forced RLS except deliberate public catalog and tenant-free aggregate
-  projections. Grader-only functions have fixed search paths and no public execution. RLS is a
-  tenant fence, not a substitute for per-actor route/store authorization.
+- The opaque server session resolves the actor. Course context derives from persisted account
+  membership, not a browser role claim. Object, run, attempt, enrollment, and receipt
+  authorization re-resolve the server-owned relationship and conceal foreign access.
+- FERPA-bearing tables use forced RLS except deliberate public catalog and aggregate projections.
+  Grader-only functions have fixed search paths and no public execution. RLS enforces exact-resource
+  boundaries alongside per-actor route and Store authorization.
 - Every learner-visible Store read or mutation rechecks active Student membership and accessible
   course state. PostgreSQL serializes that check against roster revocation. Separate Instructor
   capabilities preserve legitimate direct-course historical access without a Student fallback or
   a Sysadmin bypass.
-- Manual grading returns response-bearing evidence only through one current-instructor,
+- Automated grading returns response-bearing evidence only through one current-instructor,
   retention-checked Store operation; it does not authorize, then perform a raw second read.
-- Submission, invitation, run issuance, manual grade revision, and worker/publication transitions
+- Submission, invitation, run issuance, grade recalculation, and worker/publication transitions
   bind durable identity/idempotency/locks to the invariant being changed. The browser never receives
   answer keys or grading implementations.
 
@@ -169,34 +169,34 @@ secrets; and forensic/audit records.
 Severity is the risk at discovery. `Resolved` means the repository now enforces the design and has
 the listed code/static evidence. It does not turn a live deployment gate into a completed probe.
 
-| ID | Discovery severity | Root design problem | Final status |
-| --- | --- | --- | --- |
-| AS-01 | Medium | Browser binding was checked after deleting an email/WebAuthn ceremony, enabling availability denial. | **Resolved.** Binding is in the atomic consume predicate in Memory/PostgreSQL; wrong binding cannot consume it. |
-| AS-02 | Low | Recipient-only passwordless quotas enabled targeted mail denial and authenticated mail abuse. | **Resolved.** Independent email/network/principal/service scopes and recovery-safe quota clearing are enforced. |
-| SD-01 | High | Production did not compose full session/logout lifecycle; account session could survive tenant logout. | **Resolved.** One production identity graph owns session and dual-session revocation; local provider login is excluded. |
-| SD-02 | High | Client network identity was a spoofable browser-visible custom header. | **Resolved.** Trusted peer/CIDR XFF policy walks right-to-left, bounds malformed chains, and normalizes IPv4/IPv6. |
-| SD-03 | High | PostgreSQL URL, login, effective capability role, and delegable membership drift were not fail-closed. | **Resolved.** Verified TLS/fixed identities and exact NOLOGIN/non-privileged/non-delegable capability attestation now gate production pools. |
-| SD-04/OI-01/OI-02 | Critical | One mixed storage/KMS domain and static credentials made CDN/IAM separation conventional. | **Resolved in repository design.** Four typed domains, workload identity, SSE-KMS checks, narrow IAM, and a separate public publisher replace the convention. |
-| SD-05 | High | Anonymous passkey start could allocate persistent work without application cost control. | **Resolved.** Trusted coarse-network budget runs before persistence; deployment WAF/load calibration remains live work. |
-| SD-06/SD-09 | High | Cookie/Host/Origin/security-header boundary was incomplete and HSTS was assigned to the API. | **Resolved in code/configuration.** Exact browser boundary and headers are central; HSTS moved to the edge contract. |
-| SD-07 | High feature blocker | Embedded `SameSite=None` sessions had no origin-bound mutation defense. | **Resolved by removal.** No embedded credential mode remains; narrow sandbox `Origin: null` is capability-bound. |
-| SD-08 | High feature blocker | Provider HMAC secrets accepted arbitrary nonempty bytes. | **Resolved.** Strict canonical 32-byte decoding and fixed HTTPS transports are required. |
-| GET-CSRF launch | High | GET created external launch state under Lax cookies. | **Resolved.** POST alone creates launch; GET is inert and proof-bound; legacy path is absent. |
-| GET capability delivery | High | GET authorized/audited and minted protected object bearer URLs. | **Resolved.** Protected issuance is exact-Origin POST; public GET is immutable redirect only. |
-| External lease/finalization | High | Provider activity could race revocation/finalization or be released by stale replicas. | **Resolved.** Durable hashed leases, exact release, verification/finalization fences, and atomic commit/revoke serialize the state machine. |
-| EXT-01 | High | A process crash/timeout after a non-idempotent upstream POST could permit a duplicate retry. | **Resolved with fail-closed recovery.** A live-lease pre-dispatch marker permanently fences uncertain attempts; only safe GET result retrieval is retryable. Provider-specific operator reconciliation is deferred. |
-| CI-01/DOI-04 | High/P1 | QTI and native image paths differed; JPEG trailer acceptance was not proven. | **Resolved.** One strict still-image ingress validator fully decodes and rejects unsupported/animated/trailing containers. |
-| Prototype pollution | Low | Generic dictionary decoding admitted prototype-control keys. | **Resolved.** Null prototype, own-property checks, and dangerous-key refusal are permanent behavior. |
-| DOI-01 | P0 | Institution content could physically use the CDN-readable public key/bucket. | **Resolved.** Immutable publication scope selects public versus restricted typed key; inverse records refuse. |
-| Public orphan | P1 | Candidate public bytes could exist before database publication and remain CDN-visible after a failure. | **Resolved.** Private source plus post-commit pending/outbox publisher prevents pre-activation public bytes. |
-| DOI-02/03/05 | P0/P1 | IAM prefixes drifted from typed paths, public-tag policy initially denied writes, and local/e2e names were stale. | **Resolved.** Exact operation/prefix policies, public-tag SDK behavior, local domain configuration, and publisher-only public writes are tested. |
-| Human role ambiguity | P1 | Coarse Administrator/Publisher roles and broad Sysadmin course bypasses could grant ambient access to FERPA records. | **Resolved.** The closed human set is Student, Instructor, and Sysadmin. Direct membership owns teaching access; Sysadmin crosses only audited roster-support and payload-free retention boundaries. Publisher is a service identity/action. |
-| Learner authority | P1 | Retained enrollment/attempt records could outlive active Student authority; some reads were route-convention only. | **Resolved.** Actor-scoped Store capabilities enforce active membership/accessibility and serialize revocation; Instructor history is explicit. |
-| Manual grade read | P2 | Instructor authorization and response retrieval occurred in separate transactions. | **Resolved.** One locked current-instructor Store read returns evaluation and projected response atomically. |
-| Export authority | Medium | Export requester identity/roster authority could be a route-level convention. | **Resolved.** Session-derived actor, roster lock, atomic request/job creation, and requester-only status are enforced. |
-| DN-01/DN-02 | High | API/worker/renderer containment was image convention rather than runtime policy. | **Resolved in configuration.** Rootless hardening, private networks, limits, and immutable renderer default are declarative and tested. |
-| DN-03/DN-04 | High | Production edge, IAM, egress, and parser controls were absent. | **Resolved in declarative design.** OpenTofu defines private/no-NAT workloads, edge origin defense, scoped IAM/KMS/secrets/egress, and cache/header policy. Live proof remains required. |
-| SD-11/SD-12 | Medium | Telemetry could expose attacker data and termination had no deterministic bounded-drain proof. | **Resolved.** Safe server-minted IDs/metadata-only telemetry are tested. Bounded graceful-drain behavior was exercised during implementation; its real socket/timing probe is one-time evidence rather than a permanent fast test. |
+| ID                          | Discovery severity   | Root design problem                                                                                                  | Final status                                                                                                                                                                                                                                 |
+| --------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AS-01                       | Medium               | Browser binding was checked after deleting an email/WebAuthn ceremony, enabling availability denial.                 | **Resolved.** Binding is in the atomic consume predicate in Memory/PostgreSQL; wrong binding cannot consume it.                                                                                                                              |
+| AS-02                       | Low                  | Recipient-only passwordless quotas enabled targeted mail denial and authenticated mail abuse.                        | **Resolved.** Independent email/network/principal/service scopes and recovery-safe quota clearing are enforced.                                                                                                                              |
+| SD-01                       | High                 | Production did not compose the full session/logout lifecycle; an account session could survive global logout.        | **Resolved.** One production identity graph owns session and account-session revocation; local provider login is excluded.                                                                                                                   |
+| SD-02                       | High                 | Client network identity was a spoofable browser-visible custom header.                                               | **Resolved.** Trusted peer/CIDR XFF policy walks right-to-left, bounds malformed chains, and normalizes IPv4/IPv6.                                                                                                                           |
+| SD-03                       | High                 | PostgreSQL URL, login, effective capability role, and delegable membership drift were not fail-closed.               | **Resolved.** Verified TLS/fixed identities and exact NOLOGIN/non-privileged/non-delegable capability attestation now gate production pools.                                                                                                 |
+| SD-04/OI-01/OI-02           | Critical             | One mixed storage/KMS domain and static credentials made CDN/IAM separation conventional.                            | **Resolved in repository design.** Four typed domains, workload identity, SSE-KMS checks, narrow IAM, and a separate public publisher replace the convention.                                                                                |
+| SD-05                       | High                 | Anonymous passkey start could allocate persistent work without application cost control.                             | **Resolved.** Trusted coarse-network budget runs before persistence; deployment WAF/load calibration remains live work.                                                                                                                      |
+| SD-06/SD-09                 | High                 | Cookie/Host/Origin/security-header boundary was incomplete and HSTS was assigned to the API.                         | **Resolved in code/configuration.** Exact browser boundary and headers are central; HSTS moved to the edge contract.                                                                                                                         |
+| SD-07                       | High feature blocker | Embedded `SameSite=None` sessions had no origin-bound mutation defense.                                              | **Resolved by removal.** No embedded credential mode remains; narrow sandbox `Origin: null` is capability-bound.                                                                                                                             |
+| SD-08                       | High feature blocker | Provider HMAC secrets accepted arbitrary nonempty bytes.                                                             | **Resolved.** Strict canonical 32-byte decoding and fixed HTTPS transports are required.                                                                                                                                                     |
+| GET-CSRF launch             | High                 | GET created external launch state under Lax cookies.                                                                 | **Resolved.** POST alone creates launch; GET is inert and proof-bound; legacy path is absent.                                                                                                                                                |
+| GET capability delivery     | High                 | GET authorized/audited and minted protected object bearer URLs.                                                      | **Resolved.** Protected issuance is exact-Origin POST; public GET is immutable redirect only.                                                                                                                                                |
+| External lease/finalization | High                 | Provider activity could race revocation/finalization or be released by stale replicas.                               | **Resolved.** Durable hashed leases, exact release, verification/finalization fences, and atomic commit/revoke serialize the state machine.                                                                                                  |
+| EXT-01                      | High                 | A process crash/timeout after a non-idempotent upstream POST could permit a duplicate retry.                         | **Resolved with fail-closed recovery.** A live-lease pre-dispatch marker permanently fences uncertain attempts; only safe GET result retrieval is retryable. Provider-specific operator reconciliation is deferred.                          |
+| CI-01/DOI-04                | High/P1              | QTI and native image paths differed; JPEG trailer acceptance was not proven.                                         | **Resolved.** One strict still-image ingress validator fully decodes and rejects unsupported/animated/trailing containers.                                                                                                                   |
+| Prototype pollution         | Low                  | Generic dictionary decoding admitted prototype-control keys.                                                         | **Resolved.** Null prototype, own-property checks, and dangerous-key refusal are permanent behavior.                                                                                                                                         |
+| DOI-01                      | P0                   | Institution content could physically use the CDN-readable public key/bucket.                                         | **Resolved.** Immutable publication scope selects public versus restricted typed key; inverse records refuse.                                                                                                                                |
+| Public orphan               | P1                   | Candidate public bytes could exist before database publication and remain CDN-visible after a failure.               | **Resolved.** Private source plus post-commit pending/outbox publisher prevents pre-activation public bytes.                                                                                                                                 |
+| DOI-02/03/05                | P0/P1                | IAM prefixes drifted from typed paths, public-tag policy initially denied writes, and local/e2e names were stale.    | **Resolved.** Exact operation/prefix policies, public-tag SDK behavior, local domain configuration, and publisher-only public writes are tested.                                                                                             |
+| Human role ambiguity        | P1                   | Coarse Administrator/Publisher roles and broad Sysadmin course bypasses could grant ambient access to FERPA records. | **Resolved.** The closed human set is Student, Instructor, and Sysadmin. Direct membership owns teaching access; Sysadmin crosses only audited roster-support and payload-free retention boundaries. Publisher is a service identity/action. |
+| Learner authority           | P1                   | Retained enrollment/attempt records could outlive active Student authority; some reads were route-convention only.   | **Resolved.** Actor-scoped Store capabilities enforce active membership/accessibility and serialize revocation; Instructor history is explicit.                                                                                              |
+| Grade-evidence read         | P2                   | Instructor authorization and response retrieval occurred in separate transactions.                                   | **Resolved.** One locked current-instructor Store read returns evaluation and projected response atomically.                                                                                                                                 |
+| Export authority            | Medium               | Export requester identity/roster authority could be a route-level convention.                                        | **Resolved.** Session-derived actor, roster lock, atomic request/job creation, and requester-only status are enforced.                                                                                                                       |
+| DN-01/DN-02                 | High                 | API/worker/renderer containment was image convention rather than runtime policy.                                     | **Resolved in configuration.** Rootless hardening, private networks, limits, and immutable renderer default are declarative and tested.                                                                                                      |
+| DN-03/DN-04                 | High                 | Production edge, IAM, egress, and parser controls were absent.                                                       | **Resolved in declarative design.** OpenTofu defines private/no-NAT workloads, edge origin defense, scoped IAM/KMS/secrets/egress, and cache/header policy. Live proof remains required.                                                     |
+| SD-11/SD-12                 | Medium               | Telemetry could expose attacker data and termination had no deterministic bounded-drain proof.                       | **Resolved.** Safe server-minted IDs/metadata-only telemetry are tested. Bounded graceful-drain behavior was exercised during implementation; its real socket/timing probe is one-time evidence rather than a permanent fast test.           |
 
 The initial independent reviews correctly identified the GET, mixed-storage, external timeout,
 membership, publication, JPEG, and IAM defects. Later implementation and independent re-reviews
@@ -209,7 +209,7 @@ became inconvenient; the stronger pre-production design was implemented instead.
    browser boundary, revocable sessions, atomic ceremonies, and composite abuse controls.
 2. Added a fail-closed route/method policy and removed every reviewed state-changing GET.
 3. Moved Student, Instructor, export, grading, and external authorization to Store/database
-   capabilities that receive session-derived actor/tenant authority, not route conventions.
+   capabilities that receive a session-derived actor and exact resource input, not route conventions.
 4. Attested real PostgreSQL effective authority, not only a connection's login name; made transport
    validation, capability roles, and membership delegation explicit.
 5. Split object data into four KMS/IAM domains, made physical public/restricted scope typed, and
@@ -353,11 +353,11 @@ It informed the checks for
 
 Three local books informed the architecture-level reasoning:
 
-- *The Tangled Web* (origin, cookie, parser, and active-content sections) informed exact browser
+- _The Tangled Web_ (origin, cookie, parser, and active-content sections) informed exact browser
   authority, fragment-token hygiene, markup handling, and proxy/cache skepticism.
-- *Threat Modeling* (data-flow diagram, trust-boundary, and STRIDE sections) informed the actor,
+- _Threat Modeling_ (data-flow diagram, trust-boundary, and STRIDE sections) informed the actor,
   asset, storage, and deployment boundary inventory rather than a route-only review.
-- *Security Engineering*, third edition (authentication/revocation, least authority, recovery, and
+- _Security Engineering_, third edition (authentication/revocation, least authority, recovery, and
   assurance sections) informed one-use bound ceremonies, role/KMS separation, idempotent recovery,
   telemetry, and the decision against blanket application encryption.
 
@@ -365,7 +365,7 @@ Three local books informed the architecture-level reasoning:
 
 Security does not oppose [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) in this audit. Its
 pre-production clean-break instruction enabled removal of weak compatibility paths; its server-only
-grading, immutable publication, tenant-owned records, encrypted recovery, keyboard access, and
+grading, immutable publication, Course- and Student-owned records, encrypted recovery, keyboard access, and
 behavior-focused evidence requirements reinforce the security model.
 
 The review retained three deliberate, visible tradeoffs:
@@ -377,7 +377,7 @@ The review retained three deliberate, visible tradeoffs:
   shared-campus and accessibility use cases.
 - Authorization concealment returns generic not-found/unavailable results for protected objects and
   uncertain provider effects. Accessible recovery text and an instructor/support path must explain
-  the next safe action without revealing whether another tenant's resource exists.
+  the next safe action without revealing whether another account can access the protected resource.
 
 The last point is a guardrail: concealment that leaves a legitimate learner without a comprehensible
 recovery path would conflict with human guidance. Current recovery contracts preserve that guidance
@@ -386,7 +386,7 @@ while keeping the attacker-facing response non-oracular.
 ## Re-audit verdict
 
 The stale audit's repository design weaknesses have been remediated and independently re-audited.
-Peptidyle now has stronger explicit enforcement at its browser, authorization, tenancy, storage,
+Peptidyle now has stronger explicit enforcement at its browser, authorization, resource ownership, storage,
 publication, provider, and deployment-design boundaries than the stale baseline documented.
 
 The correct final claim is therefore: **repository security architecture remediation is complete;

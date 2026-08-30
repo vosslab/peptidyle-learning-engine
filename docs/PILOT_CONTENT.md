@@ -13,7 +13,7 @@ The authoritative human-readable inventory is
 question slugs, titles, subject and course display names, point values, families, and source paths
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
 second human-visible catalog. The instructor UI presents one canonical `AAA-BBBB` Crockford
-Question ID for each question. Server-side checksum validation and tenant/actor authorization
+Question ID for each question. Server-side checksum validation and actor authorization
 resolve that exact assigned question subject to lifecycle policy; internal UUIDs and immutable
 snapshots remain hidden for grading and provenance.
 

@@ -1,7 +1,7 @@
 //! Strict browser/server contracts for the WP-INST-T2 teaching operations.
 //!
 //! The types here use only human route references and display labels.  They
-//! deliberately exclude tenant IDs, UUIDs, email, policy inputs, jobs, object
+//! deliberately exclude institution IDs, UUIDs, email, policy inputs, jobs, object
 //! keys, recipient lists, answer material, and clock authority.  A server maps
 //! its authorized Store/domain result into these values after resolving S5/S3.
 

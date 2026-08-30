@@ -77,7 +77,7 @@ async fn published_assignment_keeps_editor_private_and_student_projection_safe()
     assert_eq!(student.status(), StatusCode::OK);
     let student_json = response_json(student).await;
     for forbidden in [
-        "tenant",
+        "privateScope",
         "courseId",
         "disclosurePolicy",
         "policies",

@@ -1,24 +1,22 @@
 use super::super::*;
 
 use crate::{
-    ProblemCollectionReplacementTarget, ProblemCurationStore, ReplaceProblemCollectionCommand,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, StoreError, TenantContext,
+    ActorContext, ProblemCollectionReplacementTarget, ProblemCurationStore,
+    ReplaceProblemCollectionCommand, SessionLifetime, SessionStore, SessionSubject,
+    SessionTokenHash, StoreError,
 };
 use question_model::{
     ActivityTimestamp, ProblemCollectionReference, ProblemCollectionRevision,
-    ProblemCollectionSummaryView, ProblemCollectionVisibility, QuestionId, TenantId, UserId,
-    UserRole,
+    ProblemCollectionSummaryView, ProblemCollectionVisibility, QuestionId, UserId, UserRole,
 };
 use uuid::Uuid;
 
 pub(super) const ELENA: u128 = 930_001;
 pub(super) const MORGAN: u128 = 930_002;
 pub(super) const ADA: u128 = 930_003;
-pub(super) const OTHER_TENANT: u128 = 930_004;
 
 pub(super) struct Fixture {
     pub(super) store: MemoryStore,
-    pub(super) context: TenantContext,
     pub(super) elena: SessionTokenHash,
     pub(super) morgan: SessionTokenHash,
     pub(super) ada: SessionTokenHash,
@@ -28,8 +26,6 @@ pub(super) struct Fixture {
 impl Fixture {
     pub(super) async fn new(question_count: u128) -> Self {
         let store = MemoryStore::default();
-        let tenant = tenant(ELENA);
-        let context = TenantContext::from_authenticated_session(tenant);
         let elena = token("d2-elena");
         let morgan = token("d2-morgan");
         let ada = token("d2-ada");
@@ -46,15 +42,15 @@ impl Fixture {
             approve(&mut state, user(ELENA));
             approve(&mut state, user(ADA));
         }
-        for (session, actor, roles, label) in [
-            (elena, user(ELENA), vec![UserRole::Instructor], "Elena"),
-            (morgan, user(MORGAN), vec![UserRole::Sysadmin], "Morgan"),
-            (ada, user(ADA), vec![UserRole::Instructor], "Ada"),
+        for (session, actor, role, label) in [
+            (elena, user(ELENA), UserRole::Instructor, "Elena"),
+            (morgan, user(MORGAN), UserRole::Sysadmin, "Morgan"),
+            (ada, user(ADA), UserRole::Instructor, "Ada"),
         ] {
             store
                 .create_session(
                     session,
-                    SessionSubject::new(tenant, actor, label, roles).expect("valid session"),
+                    SessionSubject::new(actor, label, role).expect("valid session"),
                     SessionLifetime::from_seconds(600).expect("positive lifetime"),
                 )
                 .await
@@ -62,16 +58,11 @@ impl Fixture {
         }
         Self {
             store,
-            context,
             elena,
             morgan,
             ada,
             question_ids,
         }
-    }
-
-    pub(super) fn context_for(&self, tenant: TenantId) -> TenantContext {
-        TenantContext::from_authenticated_session(tenant)
     }
 
     pub(super) async fn named(
@@ -83,7 +74,7 @@ impl Fixture {
     ) -> Result<ProblemCollectionSummaryView, StoreError> {
         self.store
             .replace_problem_collection(
-                self.context,
+                self.context_for(session).await,
                 session,
                 ReplaceProblemCollectionCommand {
                     target: ProblemCollectionReplacementTarget::NewNamed,
@@ -107,7 +98,7 @@ impl Fixture {
     ) -> Result<ProblemCollectionSummaryView, StoreError> {
         self.store
             .replace_problem_collection(
-                self.context,
+                self.context_for(session).await,
                 session,
                 ReplaceProblemCollectionCommand {
                     target: ProblemCollectionReplacementTarget::Existing(reference),
@@ -119,11 +110,19 @@ impl Fixture {
             )
             .await
     }
+
+    async fn context_for(&self, session: SessionTokenHash) -> ActorContext {
+        ActorContext::from_session_record(
+            &self
+                .store
+                .resolve_session(session)
+                .await
+                .expect("fixture session read")
+                .expect("fixture active session"),
+        )
+    }
 }
 
-pub(super) fn tenant(number: u128) -> TenantId {
-    TenantId::from_uuid(Uuid::from_u128(number))
-}
 pub(super) fn user(number: u128) -> UserId {
     UserId::from_uuid(Uuid::from_u128(number))
 }

@@ -29,7 +29,7 @@ scheduled work stale.
 
 The deployment operator may configure any strictly increasing, whole-day notify, archive, and
 delete windows from 1 through 36,500 days. This is installation-wide deployment or explicit product
-configuration; it is not an institution selector, account setting, tenant identity, or
+configuration; it is not an institution selector, account setting, installation identity, or
 authorization boundary. When no explicit configuration is present, PLE uses these privacy-first
 defaults:
 
@@ -58,7 +58,7 @@ Sysadmin operation may extend a schedule. Instructor authority derives from the
 global account session and stored membership in the exact CourseInstance;
 Sysadmin support authority derives from the closed registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry).
-There is no institution or tenant lookup. A missing, foreign, expired, revoked,
+There is no institution lookup. A missing, foreign, expired, revoked,
 or wrong-family capability and a missing, foreign, archived, or revoked
 CourseInstance/Student relationship fail closed and are concealed. A request
 never supplies actor, course, Student, role, or support-capability authority.

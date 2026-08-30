@@ -59,7 +59,7 @@ fn store_failure(error: StoreError) -> JobFailureKind {
         StoreError::RetryableTransaction | StoreError::Unavailable(_) => JobFailureKind::Transient,
         StoreError::NotFound
         | StoreError::AlreadyExists
-        | StoreError::TenantMismatch
+        | StoreError::OwnershipMismatch
         | StoreError::Conflict
         | StoreError::Forbidden
         | StoreError::InvalidRecord(_)
@@ -245,7 +245,7 @@ fn exact_output_record(
 async fn put_artifact<O: ObjectStore>(
     objects: &O,
     execution: &JobExecution,
-    tenant: question_model::TenantId,
+    course: question_model::CourseId,
     object: ObjectId,
     kind: ExportArtifactKind,
     artifact: ExportArtifact,
@@ -254,7 +254,7 @@ async fn put_artifact<O: ObjectStore>(
     if artifact.media_type != kind.media_type() {
         return Err(JobFailureKind::Permanent);
     }
-    let key = ObjectKey::StudentRecord { tenant, object };
+    let key = ObjectKey::StudentRecord { course, object };
     let bytes = artifact.bytes;
     let media_type = artifact.media_type.to_string();
     let record = match cancellable(
@@ -403,15 +403,14 @@ where
         if execution.cancellation_requested() {
             return Err(JobFailureKind::TimedOut);
         }
-        let created_at =
-            map_store(cancellable(&execution, self.store.authoritative_time(context)).await)?;
+        let created_at = map_store(cancellable(&execution, self.store.authoritative_time()).await)?;
         if execution.cancellation_requested() {
             return Err(JobFailureKind::TimedOut);
         }
         let docx = put_artifact(
             self.objects.as_ref(),
             &execution,
-            export.tenant,
+            export.course,
             output_ids[&ExportArtifactKind::Docx],
             ExportArtifactKind::Docx,
             bundle.docx,
@@ -424,7 +423,7 @@ where
         let pdf = put_artifact(
             self.objects.as_ref(),
             &execution,
-            export.tenant,
+            export.course,
             output_ids[&ExportArtifactKind::Pdf],
             ExportArtifactKind::Pdf,
             bundle.pdf,
@@ -437,7 +436,7 @@ where
         let accessible_docx = put_artifact(
             self.objects.as_ref(),
             &execution,
-            export.tenant,
+            export.course,
             output_ids[&ExportArtifactKind::AccessibleDocx],
             ExportArtifactKind::AccessibleDocx,
             bundle.accessible_docx,
@@ -450,7 +449,7 @@ where
         let accessible_pdf = put_artifact(
             self.objects.as_ref(),
             &execution,
-            export.tenant,
+            export.course,
             output_ids[&ExportArtifactKind::AccessiblePdf],
             ExportArtifactKind::AccessiblePdf,
             bundle.accessible_pdf,
@@ -794,11 +793,11 @@ mod tests {
     }
 
     #[test]
-    fn private_export_object_must_match_the_tenant_bound_target_and_bytes() {
-        let owner_tenant = tenant(10);
+    fn private_export_object_must_match_the_course_bound_target_and_bytes() {
+        let owner_course = question_model::CourseId::from_uuid(id(10));
         let object = object(11);
         let key = ObjectKey::StudentRecord {
-            tenant: owner_tenant,
+            course: owner_course,
             object,
         };
         let bytes = b"verified export";
@@ -825,7 +824,7 @@ mod tests {
             .is_ok()
         );
         let foreign_key = ObjectKey::StudentRecord {
-            tenant: tenant(12),
+            course: question_model::CourseId::from_uuid(id(12)),
             object,
         };
         assert_eq!(
@@ -876,7 +875,7 @@ mod tests {
         objects
             .put(PutObject {
                 key: ObjectKey::StudentRecord {
-                    tenant: context.tenant_id(),
+                    course: export.course,
                     object,
                 },
                 bytes: b"wrong immutable output".to_vec(),
@@ -897,7 +896,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worker_commits_one_closed_private_bundle_and_keeps_delivery_tenant_owned() {
+    async fn worker_commits_one_closed_private_bundle_and_keeps_delivery_course_owned() {
         let (store, objects, context, requester, queued) = export_fixture().await;
         let handler: Arc<dyn JobHandler> = Arc::new(ExportJobHandler::new(
             Arc::clone(&store),
@@ -937,7 +936,7 @@ mod tests {
                 .expect("requester is authorized and access is audited");
             assert!(matches!(
                 authorized.record.object.key,
-                ObjectKey::StudentRecord { tenant, .. } if tenant == context.tenant_id()
+                ObjectKey::StudentRecord { .. }
             ));
             assert_eq!(
                 store

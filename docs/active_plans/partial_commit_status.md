@@ -9,7 +9,7 @@ review remediation, the manual-grading and course-item-analysis packages, Store/
 extraction, the score precision/display package, the refreshed README, QTI import hardening,
 family-filtered production worker activation, and the strengthened live PostgreSQL acceptance
 gate with measured partition-pruning, current-summary gradebook evidence, and a one-time
-production-worker tenant-purge validation, followed by a clean-cluster encrypted logical restore and
+production-worker Course/Student-record purge validation, followed by a clean-cluster encrypted logical restore and
 the maintained three-part local whole-system gate, the first executable PLE flat-question JSON
 contract, and its completed persistence/publication/runtime package.
 
@@ -30,7 +30,7 @@ The owner's Blackboard-inspired course appearance guidance is accepted through t
 themes (`woodland` consolidated into `forest`), one revisioned centered course-entry banner, and
 course-root theming with security, accessibility, object-lifecycle, and visual gates. WP-CA1 is
 accepted: the Rust/generated browser contract and executable instructor route passed focused, full,
-and built-browser gates without widening Wasm. WP-CA2 is also accepted: tenant/course-bound banner
+and built-browser gates without widening Wasm. WP-CA2 is also accepted: course-bound banner
 candidate/current object identities passed classification, signing/refusal, memory conformance,
 S3-feature compilation, and full repository gates. WP-CA3 is accepted as well: one forward migration
 and the Memory/PostgreSQL owners now enforce revision CAS, persisted session authority, bytes-first
@@ -147,7 +147,7 @@ now completes the package through the production Store: one normal automatic sub
 response-bearing manual submission remain unpublished while manual review is pending; a grade is
 corrected from `0.25` to exact `NUMERIC` `0.5`; the prepared old generation is superseded; and only
 the corrected generation publishes the `0.75` mixed score, original first-completion timestamp,
-and current/best run pointers. Student, unrelated-student, and foreign-tenant probes cannot
+and current/best run pointers. Student, unrelated-student, and foreign-course probes cannot
 enumerate the evaluation. The disposable baseline runner invokes this fixture on every live run.
 
 That live path found and closed two production-only defects. Immutable successor-link creation no
@@ -160,7 +160,7 @@ consumes only the current published scoring state, as described below.
 
 ## Course item-analysis checkpoint
 
-Course-local item analysis is now a separate tenant-owned, current-only projection rather than an
+Course-local item analysis is now a separate Course-owned, current-only projection rather than an
 extension of the identity-free global catalog statistics. The pure reducer and both Store backends
 select each enrollment's newest run, suppress prior completed work while that newest run is active,
 and use the newest current attempt per immutable assignment item and problem version. Graded items
@@ -176,9 +176,9 @@ overtakes prepared analysis completes the old job as superseded. Analysis failur
 roll back a current learner-visible grade. The production registry now claims this family only
 because its handler and atomic committer are both present.
 
-The instructor-only route derives direct-course-instructor or tenant-administrator authority from
+The instructor-only route derives direct-course-instructor or Sysadmin authority from
 the persisted active session inside the Store boundary. Its DTO contains aggregate metrics only:
-no tenant or course identifiers, learner or attempt identity, raw response, object key, answer key,
+no installation-scope or course identifiers, learner or attempt identity, raw response, object key, answer key,
 feedback, or grading implementation. Current and staging tables use forced RLS, course binding,
 retention fences, purge ordering, and least-privilege grants.
 
@@ -306,12 +306,10 @@ and Blackboard profile tuples, the server conversion version, current and immuta
 origin types, opaque private payload handling, fail-closed promotion, and one atomic conversion
 command. The contract preserves current origin through ordinary editor saves, replaces it only
 through a provenance-aware conversion, and fixes the workspace-draft/import/origin/source/
-publication lock order. `PublishedImportArchive` is a distinct tenant-bound, non-signable object
+publication lock order. `PublishedImportArchive` is a distinct published-record-bound, non-signable object
 key with a deterministic SHA-256-derived identity and published-retention semantics. Focused
 adapter, data-access, and object tests passed; strict formatting, Clippy, crate-boundary,
 whitespace, and diff checks passed. Independent review reported PASS with no P0/P1 finding.
-Evidence is recorded in
-`docs/active_plans/workstreams/qti_provenance_contract_implementation.md`.
 
 Q5/WP-QTI-7, the QTI provenance schema/RLS/object-binding gate, has refreshed implementation
 evidence after the choice-map checksum repair; final independent checksum re-review reported PASS
@@ -342,8 +340,7 @@ payload and promotes only the locked stored value after origin promotion. Postgr
 forced-RLS provenance and grading brokers and performs no direct Store read of private grading,
 choice-map, or provenance secret tables. `Sha256Digest` now has strict lowercase 64-hex JSON serde.
 Shared conformance, PostgreSQL feature coverage, the full fresh database baseline, and independent
-review passed; review reported no P0/P1 finding. Evidence is recorded in
-`docs/active_plans/workstreams/qti_memory_postgres_implementation.md`.
+review passed; review reported no P0/P1 finding.
 
 WP-QTI-9 is complete and independently accepted. Author upload stores the exact bounded ZIP in a
 deterministic private workspace object and creates one deterministic `qtiImport` job; exact replay
@@ -377,13 +374,12 @@ WP-QTI-11 is complete. A fresh isolated PostgreSQL 17 database applied and verif
 baseline, processed a minimized mixed accepted/rejected Canvas archive through the real upload and
 worker path, converted and published the accepted item as native flat content, and graded correct
 and incorrect responses through the isolated PostgreSQL grader. Real application, student, grader,
-and foreign-tenant probes enforced RLS and protected-capability boundaries. Current and published
+and foreign-account probes enforced RLS and protected-capability boundaries. Current and published
 archive/provenance checksums agreed; workspace cleanup removed current private state while immutable
 published provenance remained. The complete disposable database gate, all 11 repository checks, 51
 built Playwright scenarios, and 1,644 Python tests passed. WP-QTI-12 then ran six separate review
 passes, corrected stale README and profile-to-native owner-map documentation, and passed re-review
-with no remaining P0/P1 finding. Evidence is in
-`docs/active_plans/workstreams/qti_live_acceptance_implementation.md`.
+with no remaining P0/P1 finding.
 
 The accepted
 `docs/active_plans/decisions/qti_profile_mapping_plan.md` defines the completed
@@ -416,11 +412,11 @@ putting answers or archive bytes into a browser DTO.
 The permanent hostile-package and partial-success adapter tests, Store
 conformance, server worker test, and disposable PostgreSQL oracle cover this
 boundary. The live test found and closed two older production-only gaps: the
-QTI staging broker could not call the tenant-context predicate, and queue SQL
+QTI staging broker could not call the actor-context predicate, and queue SQL
 expected camel-case export/import fields even though the durable Rust enum
 intentionally serializes its fields in snake case. The corrected live path
 proves hidden preparation, exact lease-bound commit, accepted/rejected rows,
-provenance, warning persistence, answer secrecy, and foreign-tenant
+provenance, warning persistence, answer secrecy, and foreign-account
 non-enumeration.
 
 ## PLE flat-question JSON checkpoint
@@ -494,7 +490,7 @@ untouched. The complete six-migration/RLS gate remains green.
 The root README no longer describes an M0 stub. It now states the active, non-production-ready
 status before onboarding; names the implemented Rust, browser, Wasm, PostgreSQL, adapter, export,
 manual-grading, item-analysis, and container boundaries; preserves the server-only grading and
-tenant/content guarantees; explains one assignment-to-analysis flow; uses unfrozen success output;
+Course/content guarantees; explains one assignment-to-analysis flow; uses unfrozen success output;
 and routes readers to current evidence. Remaining database operations gates stay visible as
 adoption blockers; the worker row now records the active six-family production registry and its two
 reserved variants.
@@ -587,13 +583,13 @@ migration. The disposable acceptance container/database was removed after final 
   partitions, exact one-month pruning, bounded current-summary gradebook planning, serialization
   retry, concurrent family-filtered queue claims, QTI partial import, mixed automatic/manual
   scoring, and course item analysis: passed.
-- One-time isolated tenant-purge validation through the production worker and typed object store:
+- One-time isolated Course/Student-record purge validation through the production worker and typed object store:
   passed. The populated learner graph and student-record object were absent; the assignment,
   instructor membership, published catalog/version/source, workspace draft, and anonymous global
   statistics remained. Its temporary reconstruction harness was removed after evidence capture.
 - One-time encrypted logical backup/restore into a separate empty PostgreSQL 17 cluster: passed.
   The restored six-migration ledger, logical fingerprint, role attributes without password hashes,
-  function owners, grants, forced RLS, tenant isolation, application write, and broker call all
+  function owners, grants, forced RLS, exact-resource isolation, application write, and broker call all
   matched the source contract. Backup and restore each took one second for the small fixture; this
   does not claim deployed managed PITR, object-store recovery, or a production recovery objective.
 - Maintained local whole-system runner: 3 passed, 0 failed. The Wasm bridge, complete disposable

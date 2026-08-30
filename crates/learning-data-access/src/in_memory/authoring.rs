@@ -6,19 +6,18 @@ use super::*;
 impl crate::AuthoringStore for MemoryStore {
     async fn upsert_draft_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         expected_revision: Option<WorkspaceDraftRevision>,
         draft: DraftRecord,
     ) -> Result<WorkspaceDraft, StoreError> {
-        ensure_tenant(context, draft.tenant)?;
+        let actor = actor.user_id();
         validate_draft(&draft)?;
         let mut state = self.write_state()?;
-        let key = (draft.tenant, draft.question.workspace);
+        let key = draft.question.workspace;
         if state.drafts.contains_key(&key) {
             let role = state
                 .draft_access
-                .get(&(draft.tenant, draft.question.workspace, actor));
+                .get(&(draft.question.workspace, actor));
             if !matches!(
                 role,
                 Some(WorkspaceDraftRole::Owner | WorkspaceDraftRole::Collaborator)
@@ -46,18 +45,22 @@ impl crate::AuthoringStore for MemoryStore {
         if expected_revision.is_some() {
             return Err(StoreError::Conflict);
         }
+        if state.workspace_references.contains_key(&key)
+            && state.draft_access.get(&(key, actor)) != Some(&WorkspaceDraftRole::Owner)
+        {
+            return Err(StoreError::Forbidden);
+        }
         let revision = WorkspaceDraftRevision::INITIAL;
         super::navigation_references::ensure_workspace_reference(
             &mut state,
-            draft.tenant,
             draft.question.workspace,
         )?;
         state.drafts.insert(key, draft.clone());
         state.draft_revisions.insert(key, revision);
-        state.draft_access.insert(
-            (draft.tenant, draft.question.workspace, actor),
-            WorkspaceDraftRole::Owner,
-        );
+        state
+            .draft_access
+            .entry((draft.question.workspace, actor))
+            .or_insert(WorkspaceDraftRole::Owner);
         state.flat_question_sources.remove(&key);
         state.workspace_flat_question_grading.remove(&key);
         Ok(WorkspaceDraft {
@@ -67,16 +70,13 @@ impl crate::AuthoringStore for MemoryStore {
     }
     async fn get_draft_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceDraft>, StoreError> {
+        let actor = actor.user_id();
         let state = self.read_state()?;
-        let key = (context.tenant_id(), workspace);
-        if !state
-            .draft_access
-            .contains_key(&(context.tenant_id(), workspace, actor))
-        {
+        let key = workspace;
+        if !state.draft_access.contains_key(&(workspace, actor)) {
             return Ok(None);
         }
         let Some(record) = state.drafts.get(&key).cloned() else {
@@ -93,31 +93,28 @@ impl crate::AuthoringStore for MemoryStore {
     }
     async fn list_drafts_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         page: PageRequest,
     ) -> Result<Page<question_model::WorkspaceDraftSummary>, StoreError> {
+        let actor = actor.user_id();
         let after = page
             .after
             .as_ref()
             .map(|cursor| {
-                crate::decode_workspace_draft_cursor(cursor.as_str(), context.tenant_id())
+                crate::decode_workspace_draft_cursor(cursor.as_str(), actor)
             })
             .transpose()?;
         let state = self.read_state()?;
         let mut drafts: Vec<_> = state
             .drafts
             .iter()
-            .filter(|((tenant, workspace), _)| {
-                *tenant == context.tenant_id()
-                    && state
-                        .draft_access
-                        .contains_key(&(context.tenant_id(), *workspace, actor))
+            .filter(|(workspace, _)| {
+                state.draft_access.contains_key(&(*workspace, actor))
             })
-            .filter_map(|((tenant, workspace), draft)| {
+            .filter_map(|(workspace, draft)| {
                 let reference = state
                     .workspace_references
-                    .get(&(*tenant, *workspace))
+                    .get(workspace)
                     .copied()?;
                 Some((*workspace, draft.question.workspace_summary(reference)))
             })
@@ -137,7 +134,7 @@ impl crate::AuthoringStore for MemoryStore {
         let next_cursor = if has_more {
             selected.last().map(|(workspace, _)| {
                 Cursor::from_stable_key(crate::encode_workspace_draft_cursor(
-                    context.tenant_id(),
+                    actor,
                     *workspace,
                 ))
             })
@@ -151,19 +148,22 @@ impl crate::AuthoringStore for MemoryStore {
     }
     async fn delete_draft_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         expected_revision: WorkspaceDraftRevision,
     ) -> Result<bool, StoreError> {
+        let actor = actor.user_id();
         let mut state = self.write_state()?;
-        let key = (context.tenant_id(), workspace);
+        let key = workspace;
         if !state.drafts.contains_key(&key) {
+            return Ok(false);
+        }
+        if !state.draft_access.contains_key(&(workspace, actor)) {
             return Ok(false);
         }
         if state
             .draft_access
-            .get(&(context.tenant_id(), workspace, actor))
+            .get(&(workspace, actor))
             != Some(&WorkspaceDraftRole::Owner)
         {
             return Err(StoreError::Forbidden);
@@ -177,16 +177,16 @@ impl crate::AuthoringStore for MemoryStore {
         let prepared_imports = state
             .prepared_qti_imports
             .keys()
-            .filter(|(tenant, workspace, _)| (*tenant, *workspace) == key)
+            .filter(|(workspace, _)| *workspace == key)
             .copied()
             .collect::<BTreeSet<_>>();
         state
             .prepared_qti_imports
-            .retain(|(tenant, workspace, _), _| (*tenant, *workspace) != key);
+            .retain(|(workspace, _), _| *workspace != key);
         state
             .prepared_qti_grading
-            .retain(|(tenant, workspace, import, _), _| {
-                !prepared_imports.contains(&(*tenant, *workspace, *import))
+            .retain(|(workspace, import, _), _| {
+                !prepared_imports.contains(&(*workspace, *import))
             });
         state
             .qti_profile_import_evidence
@@ -197,39 +197,35 @@ impl crate::AuthoringStore for MemoryStore {
         state.workspace_flat_question_grading.remove(&key);
         state.workspace_flat_import_origins.remove(&key);
         state.jobs.retain(|_, job| {
-            job.tenant != key.0
-                || !matches!(
+            !matches!(
                     job.payload,
-                    JobPayload::QtiImport { workspace, .. } if workspace == key.1
+                    JobPayload::QtiImport { workspace, .. } if workspace == key
                 )
         });
-        state
-            .draft_access
-            .retain(|(tenant, candidate, _), _| (*tenant, *candidate) != key);
         Ok(true)
     }
     async fn grant_draft_collaborator_impl(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         collaborator: UserId,
     ) -> Result<(), StoreError> {
+        let actor = actor.user_id();
         let mut state = self.write_state()?;
-        let key = (context.tenant_id(), workspace);
-        if !state.drafts.contains_key(&key) {
+        let key = workspace;
+        if !state.workspace_references.contains_key(&key) {
             return Err(StoreError::NotFound);
         }
         if state
             .draft_access
-            .get(&(context.tenant_id(), workspace, actor))
+            .get(&(workspace, actor))
             != Some(&WorkspaceDraftRole::Owner)
         {
             return Err(StoreError::Forbidden);
         }
         if collaborator != actor {
             state.draft_access.insert(
-                (context.tenant_id(), workspace, collaborator),
+                (workspace, collaborator),
                 WorkspaceDraftRole::Collaborator,
             );
         }

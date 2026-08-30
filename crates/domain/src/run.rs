@@ -83,14 +83,11 @@ pub(crate) fn validate_fraction(value: f64) -> Result<(), ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{EnrollmentId, StudentAssignmentSummary, TenantId};
+    use question_model::{EnrollmentId, StudentAssignmentSummary};
     use uuid::Uuid;
 
     fn empty_summary() -> StudentAssignmentSummary {
-        StudentAssignmentSummary::empty(
-            TenantId::from_uuid(Uuid::from_u128(1)),
-            EnrollmentId::from_uuid(Uuid::from_u128(2)),
-        )
+        StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)))
     }
 
     #[test]

@@ -213,14 +213,13 @@ impl CourseAppearanceStore for PostgresStore {
                 {
                     return Err(StoreError::NotFound);
                 }
-                validate_promoted(context, course, &stored, promoted_object)?;
+                validate_promoted(course, &stored, promoted_object)?;
                 let delivery = AssetDeliveryRecord {
                     id: AssetDeliveryId::from_course_banner(stored.banner),
                     object: promoted_object.clone(),
                     intrinsic_width: Some(COURSE_BANNER_WIDTH),
                     intrinsic_height: Some(COURSE_BANNER_HEIGHT),
                     scope: AssetDeliveryScope::CourseBanner {
-                        tenant: context.tenant_id(),
                         course,
                         banner: stored.banner,
                     },
@@ -228,7 +227,7 @@ impl CourseAppearanceStore for PostgresStore {
                     pending_source: None,
                 };
                 validate_asset_delivery(&delivery)?;
-                persist_course_banner_delivery(&mut transaction, &delivery).await?;
+                persist_course_banner_delivery(&mut transaction, context, &delivery).await?;
                 let (payload, checksum) = encode_payload(promoted_object)?;
                 if let Some(existing) = &stored.promoted {
                     if existing != promoted_object {
@@ -379,7 +378,6 @@ impl CourseAppearanceStore for PostgresStore {
         let course = CourseId::from_uuid(course_uuid);
         let authorized_at = database_timestamp(&mut transaction).await?;
         let event = AssetAccessEvent {
-            tenant: context.tenant_id(),
             actor,
             delivery: AssetDeliveryId::from_course_banner(banner),
             object: record.object.id,
@@ -452,11 +450,8 @@ impl CourseAppearanceStore for PostgresStore {
             .await
             .map_err(map_sqlx_error)?;
             let promoted: Option<ObjectRecord> = decode_optional_promoted(&row)?;
-            let candidate_object = (!candidate_deleted).then(|| ObjectKey::CourseBannerCandidate {
-                tenant: context.tenant_id(),
-                course,
-                candidate,
-            });
+            let candidate_object = (!candidate_deleted)
+                .then(|| ObjectKey::CourseBannerCandidate { course, candidate });
             let promoted_object = promoted.filter(|_| !current).map(|record| record.key);
             if candidate_object.is_none() && promoted_object.is_none() {
                 continue;
@@ -532,7 +527,6 @@ impl CourseAppearanceStore for PostgresStore {
         .map_err(map_sqlx_error)?;
         let expected_candidate =
             (!stored.candidate_deleted).then(|| ObjectKey::CourseBannerCandidate {
-                tenant: context.tenant_id(),
                 course: claim.course,
                 candidate: claim.candidate,
             });
@@ -659,9 +653,10 @@ async fn course_for_banner(
 
 async fn persist_course_banner_delivery(
     transaction: &mut Transaction<'_, Postgres>,
+    context: TenantContext,
     record: &AssetDeliveryRecord,
 ) -> Result<(), StoreError> {
-    let AssetDeliveryScope::CourseBanner { tenant, course, .. } = record.scope else {
+    let AssetDeliveryScope::CourseBanner { course, .. } = record.scope else {
         return Err(StoreError::InvalidRecord(
             "appearance promotion requires a course-banner delivery".to_string(),
         ));
@@ -675,7 +670,7 @@ async fn persist_course_banner_delivery(
          ON CONFLICT (delivery_id) DO NOTHING",
     )
     .bind(record.id.as_uuid())
-    .bind(tenant.as_uuid())
+    .bind(context.tenant_id().as_uuid())
     .bind(course.as_uuid())
     .bind(record.object.id.as_uuid())
     .bind(payload)
@@ -849,13 +844,11 @@ fn validate_candidate(
 }
 
 fn validate_promoted(
-    context: TenantContext,
     course: CourseId,
     candidate: &StoredCandidate,
     promoted: &ObjectRecord,
 ) -> Result<(), StoreError> {
     let ObjectKey::CourseBanner {
-        tenant,
         course: key_course,
         banner,
     } = promoted.key
@@ -864,8 +857,7 @@ fn validate_promoted(
             "promoted banner must use its typed immutable key".to_string(),
         ));
     };
-    if tenant != context.tenant_id()
-        || key_course != course
+    if key_course != course
         || banner != candidate.banner
         || promoted.id != candidate.future_object_id
         || promoted.id != promoted.key.object_id()

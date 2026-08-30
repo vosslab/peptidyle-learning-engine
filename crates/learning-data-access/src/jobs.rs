@@ -1,8 +1,8 @@
-//! Durable, tenant-attributed background-work queue contract.
+//! Durable background-work queue contract with exact typed ownership.
 //!
 //! A job is deliberately not a closure or a generic JSON command.  Its
 //! payload contains only immutable identifiers that a server-side handler can
-//! resolve under the returned tenant context.  Credentials, answer keys,
+//! resolve under the returned worker lease. Credentials, answer keys,
 //! arbitrary URLs, and raw bytes never enter this durable queue.
 
 use crate::RetentionStage;
@@ -10,20 +10,20 @@ use async_trait::async_trait;
 use objects::ObjectRecord;
 use question_model::{
     AssignmentId, CourseId, ObjectId, ProblemVersionRef, QuestionAttemptId, ScoringGeneration,
-    TenantId, UserId, WorkspaceId, WorkspaceImportId,
+    UserId, WorkspaceId, WorkspaceImportId,
 };
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AcceptedSubmissionId, GradingExecutionGeneration, StoreError, TenantContext};
+use crate::{AcceptedSubmissionId, ActorContext, GradingExecutionGeneration, StoreError};
 
 mod target_selector;
 
 pub use target_selector::JobTargetSelector;
 
-/// Opaque tenant-owned identifier for one assignment-export request.
+/// Opaque assignment-owned identifier for one export request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ExportId(Uuid);
 
@@ -90,7 +90,7 @@ impl ExportArtifactKind {
 /// A server-only request to freeze an assignment and enqueue one bundle job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CreateAssignmentExport {
-    /// Tenant-owned assignment selected by the authenticated route.
+    /// Exact assignment selected by the authenticated route.
     pub assignment: AssignmentId,
     /// Bounded queue retry budget.
     pub max_attempts: u16,
@@ -141,8 +141,6 @@ pub struct StudentExportView {
 pub struct StudentExportJob {
     /// Immutable request identity.
     pub id: ExportId,
-    /// Tenant inherited from the active queue lease.
-    pub tenant: TenantId,
     /// Assignment selected at request creation.
     pub assignment: AssignmentId,
     /// Course that owned the assignment at request creation.
@@ -263,7 +261,7 @@ impl std::fmt::Debug for JobLeaseToken {
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum JobPayload {
     /// Grade one previously accepted, server-private learner response.
-    /// The handler reloads the response under its tenant lease; it never comes
+    /// The handler reloads the response under its worker lease; it never comes
     /// from HTTP or the durable queue payload.
     GradeAcceptedSubmission {
         attempt: QuestionAttemptId,
@@ -273,12 +271,12 @@ pub enum JobPayload {
     /// Rebuild all current computed scores for one assignment generation.
     /// Student, attempt, response, and grade data remain out of the queue.
     RecalculateAssignment {
-        /// Tenant-owned assignment resolved by the worker under its claim context.
+        /// Assignment resolved by the worker under its claim context.
         assignment: AssignmentId,
         /// Stale-work fence; only this still-current generation may commit.
         generation: ScoringGeneration,
     },
-    /// Rebuild the current tenant-owned course item analysis after scoring
+    /// Rebuild the current course item analysis after scoring
     /// publication. The worker derives every learner record under its lease.
     RecalculateCourseItemAnalysis {
         assignment: AssignmentId,
@@ -288,7 +286,7 @@ pub enum JobPayload {
     /// The worker rechecks the current timing generation and never carries a
     /// response, grade, student identity, or authored answer material.
     AutoSubmitAttempt {
-        /// Tenant-owned attempt resolved under the queue claim context.
+        /// Exact attempt resolved under the queue claim context.
         attempt: QuestionAttemptId,
         /// Stale-work fence advanced by every active timing-policy change.
         timing_generation: u64,
@@ -311,9 +309,9 @@ pub enum JobPayload {
         /// Server-generated instance seed.
         seed: u64,
     },
-    /// Produce a tenant-authorized export whose target record already exists.
+    /// Produce an authorized export whose target record already exists.
     Export {
-        /// Immutable tenant-owned target object identity.
+        /// Immutable target object identity.
         delivery_object: ObjectId,
     },
     /// Import a previously stored, immutable source object.
@@ -456,12 +454,10 @@ impl JobClaimFilter {
     }
 }
 
-/// Validated request to enqueue one job under the current tenant.
+/// Validated request to enqueue one job with a closed durable target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EnqueueJob {
-    /// Tenant is explicit so a producer cannot accidentally enqueue globally.
-    pub tenant: TenantId,
     /// Closed, key-free immutable work reference.
     pub payload: JobPayload,
     /// Total claim attempts allowed before a job becomes dead.
@@ -505,8 +501,6 @@ impl JobLeaseDuration {
 pub struct ClaimedJob {
     /// Durable queue identity.
     pub id: JobId,
-    /// Required context for every handler-side storage operation.
-    pub tenant: TenantId,
     /// Safe immutable work reference.
     pub payload: JobPayload,
     /// Opaque capability for this lease only.
@@ -554,9 +548,9 @@ pub struct QueueDepth {
     pub ready: u64,
 }
 
-/// Tenant-safe inspection projection. It excludes claim tokens and failure text.
+/// Narrow inspection projection. It excludes claim tokens and failure text.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TenantJobView {
+pub struct JobView {
     /// Durable queue identity.
     pub id: JobId,
     /// Immutable safe work reference.
@@ -567,7 +561,7 @@ pub struct TenantJobView {
     pub attempt_count: u16,
 }
 
-/// Small stable lifecycle vocabulary for tenant inspection.
+/// Small stable lifecycle vocabulary for job inspection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JobState {
     /// Eligible when its availability timestamp is reached.
@@ -583,14 +577,14 @@ pub enum JobState {
 /// Queue storage kept separate from [`crate::Store`].
 #[async_trait]
 pub trait JobStore: Send + Sync {
-    /// Atomically inserts a tenant-attributed ready job.
+    /// Atomically inserts a ready job with a typed target.
     async fn enqueue_job(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         job: EnqueueJob,
     ) -> Result<JobId, StoreError>;
 
-    /// Claims one eligible job across tenants through the dedicated queue broker.
+    /// Claims one eligible job through the dedicated queue broker.
     async fn claim_next_job(
         &self,
         filter: &JobClaimFilter,
@@ -615,21 +609,16 @@ pub trait JobStore: Send + Sync {
     /// Completes the current claim only; stale tokens are rejected.
     async fn complete_job(&self, id: JobId, token: JobLeaseToken) -> Result<(), StoreError>;
 
-    /// Applies bounded backoff or marks the current tenant's claim dead.
+    /// Applies bounded backoff or marks the current claim dead.
     async fn fail_job(
         &self,
-        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
     ) -> Result<JobFailureDisposition, StoreError>;
 
-    /// Reads only an active tenant's own job, never a queue listing.
-    async fn get_job(
-        &self,
-        context: TenantContext,
-        id: JobId,
-    ) -> Result<Option<TenantJobView>, StoreError>;
+    /// Reads one authorized job, never a queue listing.
+    async fn get_job(&self, id: JobId) -> Result<Option<JobView>, StoreError>;
 
     /// Returns operational backlog through the narrow queue broker.
     async fn ready_queue_depth(&self, filter: &JobClaimFilter) -> Result<QueueDepth, StoreError>;
@@ -646,16 +635,16 @@ pub trait ExportJobStore: Send + Sync {
     /// four object identities, and atomically creates its one queue job.
     async fn create_assignment_export(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         // Resolved at the same storage boundary as assignment authority.
         session: crate::SessionTokenHash,
         request: CreateAssignmentExport,
     ) -> Result<StudentExportView, StoreError>;
 
-    /// Reads a tenant-owned browser-safe status projection.
+    /// Reads a browser-safe status projection for an exact export.
     async fn get_assignment_export(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         export: ExportId,
     ) -> Result<Option<StudentExportView>, StoreError>;
 
@@ -664,15 +653,15 @@ pub trait ExportJobStore: Send + Sync {
     /// consequence of knowing an export ID.
     async fn get_assignment_export_for_requester(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         export: ExportId,
         requester: UserId,
     ) -> Result<Option<StudentExportView>, StoreError>;
 
-    /// Resolves private frozen worker input for one claimed tenant and manifest.
+    /// Resolves private frozen worker input for one claimed job and manifest.
     async fn load_export_job(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         manifest: ObjectId,
     ) -> Result<Option<StudentExportJob>, StoreError>;
 
@@ -680,7 +669,7 @@ pub trait ExportJobStore: Send + Sync {
     /// completes the matching active lease. Same-job exact replay returns `AlreadyCommitted`.
     async fn commit_export_effect(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         commit: ExportJobCommit,
     ) -> Result<ExportCommitDisposition, StoreError>;
 }
@@ -736,7 +725,7 @@ mod tests {
     #[test]
     fn enqueue_command_rejects_unknown_wire_fields() {
         let value = json!({
-            "tenant": "00000000-0000-0000-0000-000000000003",
+            "unexpectedScope": "00000000-0000-0000-0000-000000000003",
             "payload": {
                 "kind": "import",
                 "sourceObject": "00000000-0000-0000-0000-000000000004"

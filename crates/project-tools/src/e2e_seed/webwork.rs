@@ -18,7 +18,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
         .context("applying embedded migrations for WebWork E2E seed")?;
     let store = crate::postgres_store::configured_postgres_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
-    let marker = WebworkPilotSeedIds::fresh_for_tenant(arguments.tenant);
+    let marker = WebworkPilotSeedIds::fresh_for_installation();
     let existing_course = store
         .get_course(context, marker.course)
         .await
@@ -58,11 +58,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
                 .await
                 .context("reading retained WebWork source binding")?
                 .context("retained WebWork publication has no source binding")?;
-            let ids = WebworkPilotSeedIds::from_published(
-                arguments.tenant,
-                &published,
-                artifact.object.id,
-            );
+            let ids = WebworkPilotSeedIds::from_published(&published, artifact.object.id);
             let expected_course = webwork_pilot_course(arguments, ids.course);
             if !webwork_pilot_course_seed_matches(&course, &expected_course) {
                 bail!("WebWork seed course marker differs from the reviewed host seed");
@@ -75,7 +71,6 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
                 context,
                 arguments.instructor,
                 DraftRecord {
-                    tenant: arguments.tenant,
                     question: webwork_pilot_draft(ids.workspace),
                     derived_from: None,
                 },
@@ -135,7 +130,6 @@ async fn publish_fresh_webwork(
     let source_record =
         put_webwork_pilot_source(store, context, storage, reference, ids.source_object).await?;
     let draft = DraftRecord {
-        tenant: arguments.tenant,
         question: webwork_pilot_draft(ids.workspace),
         derived_from: None,
     };
@@ -160,7 +154,6 @@ async fn publish_fresh_webwork(
 fn webwork_pilot_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
     CourseRecord {
         id: course,
-        tenant: arguments.tenant,
         title: "PLE WebWork pilot E2E course".to_string(),
         term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
             .expect("explicit fixture course term"),
@@ -174,7 +167,6 @@ fn webwork_pilot_assignment(
 ) -> AssignmentRecord {
     AssignmentRecord {
         id: ids.assignment,
-        tenant: arguments.tenant,
         course_id: ids.course,
         title: "PLE WebWork pilot E2E assignment".to_string(),
         lifecycle: question_model::AssignmentLifecycle::Published,
@@ -246,7 +238,7 @@ pub(super) async fn put_webwork_pilot_source(
         license: "CC-BY-4.0".to_string(),
         provenance: WEBWORK_PILOT_SOURCE_PROVENANCE.to_string(),
         created_at: store
-            .authoritative_time(context)
+            .authoritative_time()
             .await
             .context("reading database time for WebWork source provenance")?,
     };

@@ -4,7 +4,7 @@ use super::*;
 impl ExportJobStore for MemoryStore {
     async fn create_assignment_export(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: crate::SessionTokenHash,
         request: CreateAssignmentExport,
     ) -> Result<StudentExportView, StoreError> {
@@ -23,12 +23,9 @@ impl ExportJobStore for MemoryStore {
         let mut state = self.write_state()?;
         let assignment = state
             .assignments
-            .get(&(context.tenant_id(), request.assignment))
+            .get(&request.assignment)
             .ok_or(StoreError::NotFound)?;
-        if assignment.tenant != context.tenant_id() {
-            return Err(StoreError::NotFound);
-        }
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        require_course_records_accessible(&state, assignment.course_id)?;
         let requested_by = super::course_roster::require_course_instructor(
             &state,
             context,
@@ -47,12 +44,11 @@ impl ExportJobStore for MemoryStore {
             expected,
             artifacts: None,
         };
-        state.exports.insert((context.tenant_id(), export), record);
+        state.exports.insert(export, record);
         let available_at = state.authoritative_time;
         state.jobs.insert(
             job,
             StoredJob {
-                tenant: context.tenant_id(),
                 payload: JobPayload::Export {
                     delivery_object: manifest,
                 },
@@ -75,51 +71,47 @@ impl ExportJobStore for MemoryStore {
 
     async fn get_assignment_export(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         export: ExportId,
     ) -> Result<Option<StudentExportView>, StoreError> {
         let state = self.read_state()?;
         Ok(state
             .exports
-            .get(&(context.tenant_id(), export))
-            .filter(|stored| course_records_accessible(&state, context.tenant_id(), stored.course))
+            .get(&export)
+            .filter(|stored| course_records_accessible(&state, stored.course))
             .map(|stored| export_view(export, stored)))
     }
 
     async fn get_assignment_export_for_requester(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         export: ExportId,
         requester: UserId,
     ) -> Result<Option<StudentExportView>, StoreError> {
         let state = self.read_state()?;
         Ok(state
             .exports
-            .get(&(context.tenant_id(), export))
+            .get(&export)
             .filter(|stored| {
-                stored.requested_by == requester
-                    && course_records_accessible(&state, context.tenant_id(), stored.course)
+                stored.requested_by == requester && course_records_accessible(&state, stored.course)
             })
             .map(|stored| export_view(export, stored)))
     }
 
     async fn load_export_job(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         manifest: question_model::ObjectId,
     ) -> Result<Option<StudentExportJob>, StoreError> {
         let state = self.read_state()?;
         Ok(state
             .exports
             .iter()
-            .find(|((tenant, _), stored)| {
-                *tenant == context.tenant_id()
-                    && stored.manifest == manifest
-                    && course_records_accessible(&state, *tenant, stored.course)
+            .find(|(_, stored)| {
+                stored.manifest == manifest && course_records_accessible(&state, stored.course)
             })
-            .map(|((tenant, export), stored)| StudentExportJob {
+            .map(|(export, stored)| StudentExportJob {
                 id: *export,
-                tenant: *tenant,
                 assignment: stored.assignment,
                 course: stored.course,
                 title: stored.title.clone(),
@@ -136,20 +128,21 @@ impl ExportJobStore for MemoryStore {
 
     async fn commit_export_effect(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         commit: ExportJobCommit,
     ) -> Result<ExportCommitDisposition, StoreError> {
-        validate_export_artifacts(context.tenant_id(), &commit.artifacts)?;
         let mut state = self.write_state()?;
         let (export, stored) = state
             .exports
             .iter()
-            .find(|((tenant, _), stored)| {
-                *tenant == context.tenant_id() && stored.manifest == commit.manifest
+            .find(|(_, stored)| {
+                stored.manifest == commit.manifest
+                    && course_records_accessible(&state, stored.course)
             })
-            .map(|((_, export), stored)| (*export, stored.clone()))
+            .map(|(export, stored)| (*export, stored.clone()))
             .ok_or(StoreError::NotFound)?;
-        require_course_records_accessible(&state, context.tenant_id(), stored.course)?;
+        validate_export_artifacts(stored.course, &commit.artifacts)?;
+        require_course_records_accessible(&state, stored.course)?;
         if stored.job != commit.job {
             return Err(StoreError::Conflict);
         }
@@ -163,11 +156,10 @@ impl ExportJobStore for MemoryStore {
         validate_expected_export_artifacts(&stored.expected, &commit.artifacts)?;
         let now = state.authoritative_time;
         let job = state.jobs.get(&commit.job).ok_or(StoreError::NotFound)?;
-        if job.tenant != context.tenant_id()
-            || job.payload
-                != (JobPayload::Export {
-                    delivery_object: commit.manifest,
-                })
+        if job.payload
+            != (JobPayload::Export {
+                delivery_object: commit.manifest,
+            })
             || job.state != JobState::Leased
             || job.lease_token != Some(commit.lease)
             || !job.lease_expires_at.is_some_and(|expiry| expiry > now)
@@ -181,7 +173,6 @@ impl ExportJobStore for MemoryStore {
                 intrinsic_width: None,
                 intrinsic_height: None,
                 scope: crate::AssetDeliveryScope::StudentRecord {
-                    tenant: context.tenant_id(),
                     course: stored.course,
                     authorized_users: vec![stored.requested_by],
                 },
@@ -203,7 +194,6 @@ impl ExportJobStore for MemoryStore {
                     intrinsic_width: None,
                     intrinsic_height: None,
                     scope: crate::AssetDeliveryScope::StudentRecord {
-                        tenant: context.tenant_id(),
                         course: stored.course,
                         authorized_users: vec![stored.requested_by],
                     },
@@ -214,7 +204,7 @@ impl ExportJobStore for MemoryStore {
         }
         let stored = state
             .exports
-            .get_mut(&(context.tenant_id(), export))
+            .get_mut(&export)
             .expect("export selected from this state remains present");
         stored.state = StudentExportState::Ready;
         stored.artifacts = Some(commit.artifacts);
@@ -256,7 +246,7 @@ fn export_view(export: ExportId, stored: &StoredExport) -> StudentExportView {
 }
 
 fn validate_export_artifacts(
-    tenant: TenantId,
+    course: CourseId,
     artifacts: &[ExportArtifactRecord],
 ) -> Result<(), StoreError> {
     if artifacts.len() != ExportArtifactKind::ALL.len() {
@@ -282,8 +272,8 @@ fn validate_export_artifacts(
             || artifact.object.media_type != artifact.kind.media_type()
             || !matches!(
                 artifact.object.key,
-                objects::ObjectKey::StudentRecord { tenant: key_tenant, object }
-                    if key_tenant == tenant && object == artifact.object.id
+                objects::ObjectKey::StudentRecord { course: key_course, object }
+                    if key_course == course && object == artifact.object.id
             )
         {
             return Err(StoreError::InvalidRecord(

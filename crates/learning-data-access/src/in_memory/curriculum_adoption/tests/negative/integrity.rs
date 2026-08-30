@@ -6,7 +6,6 @@ use question_model::{
     ShiftCourseInstanceTermPreviewRequest,
 };
 
-use super::super::super::resolve_course;
 use super::super::adoption_inputs::key;
 use super::super::scenario::CurriculumAdoptionScenario;
 
@@ -15,10 +14,14 @@ async fn missing_course_schedule_witness_fails_closed_without_repairing_state() 
     let scenario = CurriculumAdoptionScenario::new().await;
     {
         let mut state = scenario.store.write_state().expect("state");
-        let course = resolve_course(&state, scenario.tenant, scenario.course).expect("course");
+        let course = state
+            .courses
+            .keys()
+            .find_map(|(_, course)| (*course == scenario.course).then_some(*course))
+            .expect("course");
         state
             .course_schedule_revisions
-            .remove(&(scenario.tenant, course))
+            .remove(&course)
             .expect("course schedule witness");
     }
     let before = lifecycle_state(&scenario);

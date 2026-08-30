@@ -94,7 +94,7 @@ standards documents:
 This package follows the repository's stated engineering philosophies:
 
 - **Focus on important issues.** Preserve grading meaning, source evidence, answer secrecy, and
-  tenant isolation before expanding the number of accepted XML constructs.
+  exact-resource isolation before expanding the number of accepted XML constructs.
 - **Fix the design, not the symptom.** Add explicit profiles and a native conversion boundary rather
   than adding Canvas and Blackboard special cases to the generic parser.
 - **Scientific method.** Derive each accepted shape from a retained fixture, state the hypothesis,
@@ -154,7 +154,7 @@ This package follows the repository's stated engineering philosophies:
 - `crates/learning-data-access/src/qti.rs` separates answer-free import results from the dedicated
   `QtiGradingStore` capability.
 - Memory and PostgreSQL persist committed imports, per-item results, warnings, assets, and private
-  grader values under tenant scope.
+  grader values under their exact protected resource scope.
 - `crates/server/src/qti_publication.rs` re-reads the exact archive and validates the selected item
   before publishing the existing QTI backend.
 - `adapter_native::flat_question::FlatQuestionDocument` already canonicalizes and compiles PLE
@@ -518,11 +518,11 @@ digest set even when the browser acknowledgement is current.
   checksum, warning digest, acknowledging actor/time, and private ordered choice-map checksum/payload.
 - Preserve the origin through later flat editor saves in the same workspace; a different import
   conversion atomically replaces it under compare-and-swap.
-- Add tenant-owned `published_flat_import_origin`, immutable per problem/version and hidden from
-  other tenants even when the answer-free version is public.
+- Add protected `published_flat_import_origin`, immutable per problem/version and hidden from
+  other accounts even when the answer-free version is public.
 - Add the distinct non-signable object key
-  `PublishedImportArchive { tenant, problem, version, import, object }`. Derive its object identity
-  from SHA-256 of the fixed v1 domain separator plus tenant, problem, version, import, and archive
+  `PublishedImportArchive { publisher, problem, version, import, object }`. Derive its object identity
+  from SHA-256 of the fixed v1 domain separator plus publisher, problem, version, import, and archive
   digest, truncated through the repository's deterministic UUID rule.
 - Copy the original ZIP to that exact candidate before catalog commit. Exact `AlreadyExists` replay
   re-reads and accepts only identical key, category, media type, size, and digest.
@@ -568,7 +568,7 @@ digest set even when the browser acknowledgement is current.
 - Convert the accepted item, edit or review it, publish as native flat, and grade correct/incorrect
   responses through the isolated flat grader.
 - Prove the original archive, current origin, immutable origin, canonical source, and checksums agree.
-- Probe `ple_app`, `ple_student`, grader roles, foreign tenant, and direct table/object access.
+- Probe `ple_app`, `ple_student`, grader roles, a foreign account, and direct table/object access.
 - Scan every safe DTO and serialized report for correct choice, feedback, archive bytes, object keys,
   grader payload, and private choice maps.
 - Run an independent P0/P1 review after executable gates pass.
@@ -620,17 +620,16 @@ digest set even when the browser acknowledgement is current.
   origin types, server conversion version, fail-closed publication promotion, atomic conversion
   command, lifecycle, and lock order are frozen. `PublishedImportArchive` has a distinct
   deterministic non-signable key and golden identity. No backend or schema mutation is included.
-- Evidence: [qti_provenance_contract_implementation.md](../workstreams/qti_provenance_contract_implementation.md).
 
 ### WP-QTI-7 schema and objects
 
 - Owner: PostgreSQL/schema owner.
 - Depends on: WP-QTI-6 frozen types.
-- Acceptance: fresh apply/no-op/verify, tenant-leading RLS/grants/retention, no signed provenance URL,
+- Acceptance: fresh apply/no-op/verify, exact-resource RLS/grants/retention, no signed provenance URL,
   pin/release/published-retention behavior, and live role probe.
 - Status: complete and independently reviewed on 2026-08-09. The SQL relations and protected
   capabilities bind every accepted origin to the committed import's full typed `ObjectRecord`, not
-  a caller-supplied archive summary. Six tenant-owned relations hold current/published origins,
+  a caller-supplied archive summary. Six protected relations hold current/published origins,
   private choice maps, and committed profile/item evidence; each has forced RLS. A dedicated
   `ple_qti_provenance_broker` is `NOLOGIN`, `NOINHERIT`, and `NOBYPASSRLS`; its narrowly granted
   `SECURITY DEFINER` functions own staging, reading, replacement, promotion, and release.
@@ -663,7 +662,6 @@ digest set even when the browser acknowledgement is current.
   application Store path performs no direct reads of private grading, choice-map, or provenance
   secret tables. `Sha256Digest` now serializes as and strictly accepts only lowercase 64-character
   hexadecimal text, which keeps JSON evidence typed without widening its accepted form.
-- Evidence: `docs/active_plans/workstreams/qti_memory_postgres_implementation.md`.
 
 ### WP-QTI-9 server routes
 
@@ -718,10 +716,9 @@ digest set even when the browser acknowledgement is current.
 - Status: complete on 2026-08-09. A fresh isolated PostgreSQL 17 database applied and verified the
   six migrations, processed one mixed accepted/rejected Canvas profile archive through the real
   upload route and worker, converted and published the accepted item as native flat content, graded
-  correct and incorrect responses, enforced application/student/grader/foreign-tenant boundaries,
+  correct and incorrect responses, enforced application/student/grader/foreign-account boundaries,
   verified current and published archive/provenance checksums, and removed only the exact disposable
   project. Full Rust, TypeScript, Node, Playwright, Python, and repository gates passed.
-- Evidence: `docs/active_plans/workstreams/qti_live_acceptance_implementation.md`.
 
 ### WP-QTI-12 independent review and docs
 
@@ -761,9 +758,9 @@ digest set even when the browser acknowledgement is current.
 - The converted question opens in the existing flat editor and remains answer-free in learner
   preview.
 
-### Security and tenancy
+### Security and ownership
 
-- Import upload, report, conversion, and provenance are author-only and tenant-scoped.
+- Import upload, report, conversion, and provenance are author-only and workspace-scoped.
 - Inaccessible workspace/import/item relationships are non-enumerating.
 - Original and published provenance archives are never signable or directly browser-deliverable.
 - RLS is enabled and forced; least-privilege grants are tested using real roles.
@@ -791,7 +788,7 @@ digest set even when the browser acknowledgement is current.
   collision extension, safe markup, resource limits, and partial package success.
 - Native unit test comparing imported factory output with canonical hand-authored flat source.
 - Data-access conformance for atomic conversion, stale CAS, report/mapping/warning digest mismatch,
-  origin preservation, publication copy, tenant isolation, and retention.
+  origin preservation, publication copy, exact-resource isolation, and retention.
 - Server route tests for upload exact replay/divergence, body/media refusal, worker result, safe GET,
   conversion, no-store, ETag, and non-enumeration.
 - TypeScript tests for strict safe DTOs, state recovery, warning acknowledgement, and no archive
@@ -803,7 +800,7 @@ digest set even when the browser acknowledgement is current.
 
 - Apply the six baseline migrations in an isolated PostgreSQL 17 project.
 - Upload and commit one minimized profile archive through the real worker.
-- Verify one accepted/rejected report, exact retry, and foreign-tenant non-enumeration.
+- Verify one accepted/rejected report, exact retry, and foreign-actor non-enumeration.
 - Convert accepted content, publish native flat, and grade one correct and one incorrect response.
 - Verify current and published provenance rows plus exact archive and canonical checksums.
 - Verify direct application/student reads of grading and provenance archive material fail.
@@ -851,8 +848,8 @@ git diff --cached --check
   archive digests are immutable evidence.
 - Workspace origin is current state; published origin is immutable history attached to the
   published version. No grade or publication event-history table is introduced.
-- Published origin retains the publisher tenant as its RLS owner even when the answer-free catalog
-  version is institution-visible or public. Other tenants can use the published question but cannot
+- Published origin retains the publisher account as its RLS owner even when the answer-free catalog
+  version is Instructor-visible or public. Other accounts can use the published question but cannot
   enumerate its private vendor archive or import mapping.
 - Future profile expansion adds a new version. It does not reinterpret an existing v1 result.
 

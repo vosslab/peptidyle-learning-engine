@@ -27,7 +27,7 @@ pub mod capability;
 /// Shared catalog metadata, visibility, lineage, and browse projections.
 pub mod catalog;
 mod catalog_facets;
-/// Tenant-owned course and assignment browser projections.
+/// Course and assignment browser projections.
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
@@ -81,7 +81,7 @@ pub use crate::activity::{
     CourseMembershipId, EnrollmentId, EnrollmentStatus, ImplementationVersion,
     IssuedAttemptCapabilityV1, QuestionAttempt, QuestionAttemptId, RunCompletionStatus, RunId,
     RunMode, SourceArtifact, StudentAssignmentProgress, StudentAssignmentSummary, StudentId,
-    StudentScoreState, TenantId,
+    StudentScoreState,
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentInstructions,

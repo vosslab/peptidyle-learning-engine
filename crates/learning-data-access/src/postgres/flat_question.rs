@@ -12,13 +12,11 @@ use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
 use crate::{
-    FlatQuestionGradingPayload, FlatQuestionStore, StoreError, TenantContext,
-    UpsertFlatQuestionCommand, WorkspaceDraftRevision, WorkspaceFlatQuestionSource, ensure_tenant,
+    ActorContext, FlatQuestionGradingPayload, FlatQuestionStore, StoreError,
+    UpsertFlatQuestionCommand, WorkspaceDraftRevision, WorkspaceFlatQuestionSource,
 };
 
-use super::{
-    PostgresGraderStore, PostgresStore, decode_payload_row_named, encode_payload, map_sqlx_error,
-};
+use super::{PostgresGraderStore, PostgresStore, map_sqlx_error};
 
 pub(super) const FLAT_SOURCE_PAYLOAD_SIZE_BYTES: usize = 65_536;
 
@@ -42,56 +40,42 @@ impl std::fmt::Debug for FlatQuestionGradingAnswerKeyPayload {
 impl FlatQuestionStore for PostgresStore {
     async fn upsert_flat_question(
         &self,
-        context: TenantContext,
-        actor: crate::UserId,
+        actor: ActorContext,
         command: UpsertFlatQuestionCommand,
     ) -> Result<WorkspaceFlatQuestionSource, StoreError> {
         ensure_upsert_inputs(&command)?;
-        ensure_tenant(context, command.draft.tenant)?;
+        let actor_user = actor.user_id();
         let source_family = flat_source_family(&command.draft.question.source)?;
-        let (draft_payload, draft_checksum) = encode_payload(&command.draft)?;
-        let mut transaction = self.begin_tenant(context).await?;
-        let current: Option<i64> = sqlx::query(
-            "SELECT revision FROM workspace_draft \
-             WHERE tenant_id = $1 AND workspace_id = $2 FOR UPDATE",
+        let title = command.draft.question.metadata.title.clone();
+        let definition = serde_json::to_value(&command.draft)
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        let workspace = command.draft.question.workspace;
+        let mut transaction = self.begin_actor(actor).await?;
+        let current: Option<i64> = sqlx::query_scalar(
+            "SELECT revision::bigint FROM ple_private.workspace_draft_question \
+             WHERE workspace_id = $1 FOR UPDATE",
         )
-        .bind(command.draft.tenant.as_uuid())
-        .bind(command.draft.question.workspace.as_uuid())
+        .bind(workspace.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
-        .map_err(map_sqlx_error)?
-        .map(|row| row.try_get("revision").map_err(map_sqlx_error))
-        .transpose()?;
+        .map_err(map_sqlx_error)?;
         let revision = match current {
             Some(value) => {
                 let current = WorkspaceDraftRevision::from_stored(value)?;
-                let role: Option<String> = sqlx::query_scalar(
-                    "SELECT role FROM workspace_draft_access \
-                     WHERE tenant_id = $1 AND workspace_id = $2 AND user_id = $3",
-                )
-                .bind(command.draft.tenant.as_uuid())
-                .bind(command.draft.question.workspace.as_uuid())
-                .bind(actor.as_uuid())
-                .fetch_optional(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-                if !matches!(role.as_deref(), Some("owner") | Some("collaborator")) {
-                    return Err(StoreError::Forbidden);
-                }
                 if command.expected_revision != Some(current) {
                     return Err(StoreError::Conflict);
                 }
                 let next = current.next()?;
                 sqlx::query(
-                    "UPDATE workspace_draft SET payload = $3, payload_sha256 = $4, \
-                     revision = $5, updated_at = transaction_timestamp() \
-                     WHERE tenant_id = $1 AND workspace_id = $2",
+                    "UPDATE ple_private.workspace_draft_question \
+                     SET title = $2, definition = $3, revision = $4, \
+                         updated_at = transaction_timestamp() \
+                     WHERE workspace_id = $1",
                 )
-                .bind(command.draft.tenant.as_uuid())
-                .bind(command.draft.question.workspace.as_uuid())
-                .bind(draft_payload)
-                .bind(&draft_checksum)
-                .bind(i64::try_from(next.value()).map_err(|_| {
+                .bind(workspace.as_uuid())
+                .bind(title)
+                .bind(definition)
+                .bind(i32::try_from(next.value()).map_err(|_| {
                     StoreError::Unavailable("workspace draft revision limit reached".to_string())
                 })?)
                 .execute(&mut *transaction)
@@ -103,32 +87,38 @@ impl FlatQuestionStore for PostgresStore {
                 if command.expected_revision.is_some() {
                     return Err(StoreError::Conflict);
                 }
-                sqlx::query(
-                    "INSERT INTO workspace_draft \
-                     (tenant_id, workspace_id, payload, payload_sha256, revision) \
-                     VALUES ($1, $2, $3, $4, $5)",
+                let (can_access, owns_workspace): (bool, bool) = sqlx::query_as(
+                    "SELECT ple_api.current_actor_can_access_workspace($1), \
+                            ple_api.current_actor_owns_workspace($1)",
                 )
-                .bind(command.draft.tenant.as_uuid())
-                .bind(command.draft.question.workspace.as_uuid())
-                .bind(draft_payload)
-                .bind(&draft_checksum)
-                .bind(
-                    i64::try_from(WorkspaceDraftRevision::INITIAL.value()).map_err(|_| {
-                        StoreError::Unavailable(
-                            "workspace draft revision limit reached".to_string(),
-                        )
-                    })?,
-                )
-                .execute(&mut *transaction)
+                .bind(workspace.as_uuid())
+                .fetch_one(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
+                if can_access && !owns_workspace {
+                    return Err(StoreError::Forbidden);
+                }
+                if !can_access {
+                    sqlx::query(
+                        "INSERT INTO ple_private.authoring_workspace \
+                         (workspace_id, owner_user_id, created_at) \
+                         VALUES ($1, $2, transaction_timestamp())",
+                    )
+                    .bind(workspace.as_uuid())
+                    .bind(actor_user.as_uuid())
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
+                }
                 sqlx::query(
-                    "INSERT INTO workspace_draft_access \
-                     (tenant_id, workspace_id, user_id, role) VALUES ($1, $2, $3, 'owner')",
+                    "INSERT INTO ple_private.workspace_draft_question \
+                     (draft_id, workspace_id, revision, title, definition, created_at, updated_at) \
+                     VALUES ($1, $2, 1, $3, $4, transaction_timestamp(), transaction_timestamp())",
                 )
-                .bind(command.draft.tenant.as_uuid())
-                .bind(command.draft.question.workspace.as_uuid())
-                .bind(actor.as_uuid())
+                .bind(workspace.as_uuid())
+                .bind(workspace.as_uuid())
+                .bind(title)
+                .bind(definition)
                 .execute(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -138,7 +128,6 @@ impl FlatQuestionStore for PostgresStore {
 
         let source_payload = command.source.clone();
         let source = WorkspaceFlatQuestionSource::new(
-            command.draft.tenant,
             command.draft.question.workspace,
             revision,
             source_family,
@@ -146,52 +135,80 @@ impl FlatQuestionStore for PostgresStore {
             command.canonical_source_sha256.clone(),
             command.public_binding_sha256.clone(),
         )?;
-        let (payload_json, payload_checksum) = encode_payload(&source_payload)?;
-        let payload_bytes = serde_json::to_vec(&payload_json).map_err(|error| {
+        let source_record = serde_json::to_value(&source_payload).map_err(|error| {
             StoreError::Unavailable(format!(
-                "serialized flat-question source payload is invalid: {error}"
+                "serialized flat-question source record is invalid: {error}"
             ))
         })?;
-        if payload_bytes.len() > FLAT_SOURCE_PAYLOAD_SIZE_BYTES {
+        if serde_json::to_vec(&source_record)
+            .map_err(|error| StoreError::Unavailable(error.to_string()))?
+            .len()
+            > FLAT_SOURCE_PAYLOAD_SIZE_BYTES
+        {
             return Err(StoreError::InvalidRecord(
                 "flat-question source payload exceeds metadata size limit".to_string(),
             ));
         }
-
-        // Updating a draft activates the schema trigger that deletes the old
-        // source binding. The app role has no UPDATE grant on that binding.
         sqlx::query(
-            "INSERT INTO workspace_flat_question_source \
-             (tenant_id, workspace_id, draft_revision, draft_payload_sha256, \
-              source_object_id, source_payload, source_payload_sha256, \
-              canonical_source_sha256, public_binding_sha256) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "INSERT INTO ple_private.workspace_flat_question_source \
+             (workspace_id, draft_revision, source_family, source_record, \
+              canonical_source_sha256, public_binding_sha256, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), transaction_timestamp()) \
+             ON CONFLICT (workspace_id) DO UPDATE \
+             SET draft_revision = EXCLUDED.draft_revision, source_family = EXCLUDED.source_family, \
+                 source_record = EXCLUDED.source_record, \
+                 canonical_source_sha256 = EXCLUDED.canonical_source_sha256, \
+                 public_binding_sha256 = EXCLUDED.public_binding_sha256, \
+                 updated_at = transaction_timestamp()",
         )
-        .bind(command.draft.tenant.as_uuid())
-        .bind(command.draft.question.workspace.as_uuid())
+        .bind(workspace.as_uuid())
         .bind(i64::try_from(revision.value()).map_err(|_| {
             StoreError::Unavailable(
                 "workspace draft revision does not fit database integer".to_string(),
             )
         })?)
-        .bind(&draft_checksum)
-        .bind(source_payload.id.as_uuid())
-        .bind(payload_json)
-        .bind(&payload_checksum)
+        .bind(&source.source_family)
+        .bind(source_record)
         .bind(&source.canonical_source_sha256)
         .bind(&source.public_binding_sha256)
         .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
 
-        stage_flat_question_grading(
-            &mut transaction,
-            &source,
-            &draft_checksum,
-            &payload_checksum,
-            &command.grading,
+        let (grading_payload, grading_checksum) = encode_flat_question_grading_payload(&command.grading)?;
+        let updated = sqlx::query(
+            "UPDATE ple_private.workspace_flat_question_grading \
+             SET draft_revision = $2, public_binding_sha256 = $3, payload = $4, \
+                 payload_sha256 = $5, updated_at = transaction_timestamp() \
+             WHERE workspace_id = $1",
         )
-        .await?;
+        .bind(workspace.as_uuid())
+        .bind(i64::try_from(revision.value()).map_err(|_| {
+            StoreError::Unavailable("workspace draft revision does not fit database integer".to_string())
+        })?)
+        .bind(&source.public_binding_sha256)
+        .bind(&grading_payload)
+        .bind(&grading_checksum)
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        if updated.rows_affected() == 0 {
+            sqlx::query(
+                "INSERT INTO ple_private.workspace_flat_question_grading \
+                 (workspace_id, draft_revision, public_binding_sha256, payload, payload_sha256, created_at, updated_at) \
+                 VALUES ($1, $2, $3, $4, $5, transaction_timestamp(), transaction_timestamp())",
+            )
+            .bind(workspace.as_uuid())
+            .bind(i64::try_from(revision.value()).map_err(|_| {
+                StoreError::Unavailable("workspace draft revision does not fit database integer".to_string())
+            })?)
+            .bind(&source.public_binding_sha256)
+            .bind(grading_payload)
+            .bind(grading_checksum)
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        }
 
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(source)
@@ -199,28 +216,16 @@ impl FlatQuestionStore for PostgresStore {
 
     async fn flat_question_source(
         &self,
-        context: TenantContext,
-        actor: crate::UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceFlatQuestionSource>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        let has_access: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM workspace_draft_access\n              WHERE tenant_id = $1 AND workspace_id = $2 AND user_id = $3)",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(workspace.as_uuid())
-        .bind(actor.as_uuid())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if !has_access {
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(None);
-        }
+        let mut transaction = self.begin_actor(actor).await?;
         let row = sqlx::query(
-            "SELECT d.payload, d.payload_sha256, d.revision,\n                    s.source_payload, s.source_payload_sha256,\n                    s.canonical_source_sha256, s.public_binding_sha256\n             FROM workspace_flat_question_source AS s\n             JOIN workspace_draft AS d\n               ON d.tenant_id = s.tenant_id AND d.workspace_id = s.workspace_id\n             WHERE s.tenant_id = $1 AND s.workspace_id = $2",
+            "SELECT draft_revision::bigint AS draft_revision, source_family, source_record, \
+                    canonical_source_sha256, public_binding_sha256 \
+             FROM ple_private.workspace_flat_question_source \
+             WHERE workspace_id = $1",
         )
-        .bind(context.tenant_id().as_uuid())
         .bind(workspace.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
@@ -232,7 +237,20 @@ impl FlatQuestionStore for PostgresStore {
                 return Ok(None);
             }
         };
-        let source = decode_workspace_flat_source_row(context.tenant_id(), workspace, &row)?;
+        let source_record: ObjectRecord = serde_json::from_value(
+            row.try_get("source_record").map_err(map_sqlx_error)?,
+        )
+        .map_err(|error| StoreError::Unavailable(error.to_string()))?;
+        let source = WorkspaceFlatQuestionSource::new(
+            workspace,
+            WorkspaceDraftRevision::from_stored(
+                row.try_get("draft_revision").map_err(map_sqlx_error)?,
+            )?,
+            row.try_get("source_family").map_err(map_sqlx_error)?,
+            source_record,
+            row.try_get("canonical_source_sha256").map_err(map_sqlx_error)?,
+            row.try_get("public_binding_sha256").map_err(map_sqlx_error)?,
+        )?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(Some(source))
     }
@@ -243,15 +261,14 @@ impl FlatQuestionStore for PostgresStore {
 impl crate::FlatQuestionGradingStore for PostgresGraderStore {
     async fn flat_question_published_grading(
         &self,
-        context: TenantContext,
         reference: question_model::ProblemVersionRef,
     ) -> Result<Option<FlatQuestionGradingPayload>, StoreError> {
-        let mut transaction = self.begin_grader_tenant(context).await?;
+        let mut transaction = self.begin_grader().await?;
         let row = sqlx::query(
-            "SELECT key_payload, key_sha256 \
-             FROM ple_flat_question_grading_material($1, $2, $3)",
+            "SELECT payload AS key_payload, payload_sha256 AS key_sha256 \
+             FROM ple_private.published_flat_question_grading \
+             WHERE problem_id = $1 AND version_id = $2",
         )
-        .bind(context.tenant_id().as_uuid())
         .bind(reference.problem.as_uuid())
         .bind(reference.version.as_uuid())
         .fetch_optional(&mut *transaction)
@@ -289,69 +306,44 @@ fn flat_source_family(source: &DraftQuestionSource) -> Result<String, StoreError
 pub(super) async fn stage_flat_question_grading(
     transaction: &mut Transaction<'_, Postgres>,
     source: &WorkspaceFlatQuestionSource,
-    draft_payload_sha256: &str,
-    source_payload_sha256: &str,
+    _draft_payload_sha256: &str,
+    _source_payload_sha256: &str,
     grading: &FlatQuestionGradingPayload,
 ) -> Result<(), StoreError> {
     let (grading_payload, grading_checksum) = encode_flat_question_grading_payload(grading)?;
-    let staged: bool = sqlx::query_scalar(
-        "SELECT ple_stage_flat_question_grading(\
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+    let revision = i64::try_from(source.workspace_revision.value()).map_err(|_| {
+        StoreError::Unavailable("workspace draft revision does not fit database integer".to_string())
+    })?;
+    let updated = sqlx::query(
+        "UPDATE ple_private.workspace_flat_question_grading \
+         SET draft_revision = $2, public_binding_sha256 = $3, payload = $4, \
+             payload_sha256 = $5, updated_at = transaction_timestamp() \
+         WHERE workspace_id = $1",
     )
-    .bind(source.tenant.as_uuid())
     .bind(source.workspace.as_uuid())
-    .bind(
-        i64::try_from(source.workspace_revision.value()).map_err(|_| {
-            StoreError::Unavailable(
-                "workspace draft revision does not fit database integer".to_string(),
-            )
-        })?,
-    )
-    .bind(draft_payload_sha256)
-    .bind(source.source_record.id.as_uuid())
-    .bind(source_payload_sha256)
-    .bind(&source.canonical_source_sha256)
+    .bind(revision)
     .bind(&source.public_binding_sha256)
-    .bind(grading_payload)
-    .bind(grading_checksum)
-    .fetch_one(&mut **transaction)
+    .bind(&grading_payload)
+    .bind(&grading_checksum)
+    .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    if !staged {
-        return Err(StoreError::Conflict);
+    if updated.rows_affected() == 0 {
+        sqlx::query(
+            "INSERT INTO ple_private.workspace_flat_question_grading \
+             (workspace_id, draft_revision, public_binding_sha256, payload, payload_sha256, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, transaction_timestamp(), transaction_timestamp())",
+        )
+        .bind(source.workspace.as_uuid())
+        .bind(revision)
+        .bind(&source.public_binding_sha256)
+        .bind(grading_payload)
+        .bind(grading_checksum)
+        .execute(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?;
     }
     Ok(())
-}
-
-fn decode_workspace_flat_source_row(
-    tenant: question_model::TenantId,
-    workspace: WorkspaceId,
-    row: &PgRow,
-) -> Result<WorkspaceFlatQuestionSource, StoreError> {
-    let draft_revision =
-        WorkspaceDraftRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
-    let draft: crate::DraftRecord = decode_payload_row_named(row, "payload", "payload_sha256")?;
-    let source_record: ObjectRecord =
-        decode_payload_row_named(row, "source_payload", "source_payload_sha256")?;
-    let source_family = match draft.question.source {
-        DraftQuestionSource::Native { family } => family,
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "flat-question source family is not native".to_string(),
-            ));
-        }
-    };
-    WorkspaceFlatQuestionSource::new(
-        tenant,
-        workspace,
-        draft_revision,
-        source_family,
-        source_record,
-        row.try_get("canonical_source_sha256")
-            .map_err(map_sqlx_error)?,
-        row.try_get("public_binding_sha256")
-            .map_err(map_sqlx_error)?,
-    )
 }
 
 fn decode_flat_question_grading_payload(

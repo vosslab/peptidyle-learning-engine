@@ -9,13 +9,12 @@ use super::{
     CurriculumAdoptionState, MemoryCurriculumAdoptionEvidence, MemoryCurriculumAdoptionOutcome,
     MemoryCurriculumAdoptionReceipt, StoredAssignmentAdoptionEvidence, StoredAssignmentImport,
 };
+use crate::StoreError;
 use crate::in_memory::State;
-use crate::{StoreError, TenantId};
 
 /// Returns an exact replay, refusing a reused global actor/key with another meaning.
 pub(crate) fn lookup_replay_or_conflict(
     state: &State,
-    tenant: TenantId,
     actor: UserId,
     key: &CurriculumAdoptionIdempotencyKey,
     operation: CurriculumAdoptionOperation,
@@ -28,7 +27,7 @@ pub(crate) fn lookup_replay_or_conflict(
     else {
         return Ok(None);
     };
-    validate_receipt_evidence(state, tenant, receipt)?;
+    validate_receipt_evidence(state, receipt)?;
     if receipt.operation != operation || receipt.request_digest != digest {
         return Err(StoreError::Conflict);
     }
@@ -38,10 +37,9 @@ pub(crate) fn lookup_replay_or_conflict(
 /// Stores one validated immutable receipt; occupied receipt identities remain conflicts.
 pub(crate) fn store_completed_receipt(
     state: &mut State,
-    tenant: TenantId,
     receipt: MemoryCurriculumAdoptionReceipt,
 ) -> Result<(), StoreError> {
-    validate_receipt_evidence(state, tenant, &receipt)?;
+    validate_receipt_evidence(state, &receipt)?;
     let identity = (receipt.actor, receipt.idempotency_key.clone());
     if state.curriculum_adoption.receipts.contains_key(&identity)
         || state
@@ -64,7 +62,6 @@ pub(crate) fn store_completed_receipt(
 /// Validates only immutable receipt-to-evidence binding before replay or repair.
 pub(crate) fn validate_receipt_evidence(
     state: &State,
-    tenant: TenantId,
     receipt: &MemoryCurriculumAdoptionReceipt,
 ) -> Result<(), StoreError> {
     if receipt.operation != receipt.outcome.operation() {
@@ -98,7 +95,7 @@ pub(crate) fn validate_receipt_evidence(
                 applied_assignment,
                 import_revision,
             }
-            .validate(state, tenant)? =>
+            .validate(state)? =>
         {
             Ok(())
         }
@@ -111,7 +108,6 @@ pub(crate) fn validate_receipt_evidence(
             },
         ) if *course == destination.course => validate_whole_course_receipt(
             state,
-            tenant,
             receipt,
             destination,
             *blueprint_application,
@@ -122,11 +118,10 @@ pub(crate) fn validate_receipt_evidence(
                 == Some(target.destination().course) =>
         {
             validate_receipt_target(receipt, target)?;
-            validate_assignment_receipt_target(state, tenant, target)?;
+            validate_assignment_receipt_target(state, target)?;
             if let CourseInstanceReceiptTarget::Rollover(rollover) = target.as_ref() {
                 validate_whole_course_receipt(
                     state,
-                    tenant,
                     receipt,
                     rollover.created_course_instance(),
                     rollover.created_blueprint_application(),
@@ -146,7 +141,6 @@ pub(crate) fn validate_receipt_evidence(
 /// provenance. Any missing or contradictory server-owned fact is an integrity failure.
 pub(crate) fn validate_assignment_import_projection<'a>(
     state: &'a State,
-    tenant: TenantId,
     course: question_model::CourseReference,
     assignment: question_model::AssignmentId,
     assignment_reference: question_model::AssignmentReference,
@@ -182,7 +176,7 @@ pub(crate) fn validate_assignment_import_projection<'a>(
     {
         return Err(inspection_integrity("assignment import receipt identity"));
     }
-    validate_receipt_evidence(state, tenant, receipt)
+    validate_receipt_evidence(state, receipt)
         .map_err(|_| inspection_integrity("completed assignment import receipt evidence"))?;
     if !receipt_identifies_assignment_import(
         receipt,
@@ -348,7 +342,6 @@ fn inspection_integrity(missing: &str) -> StoreError {
 /// Proves that a course-level materialization has its exact immutable Memory row.
 fn validate_whole_course_receipt(
     state: &State,
-    tenant: TenantId,
     receipt: &MemoryCurriculumAdoptionReceipt,
     destination: &question_model::CourseInstanceWitness,
     application: question_model::CourseInstanceBlueprintApplication,
@@ -357,8 +350,8 @@ fn validate_whole_course_receipt(
     if source != Some(application.source) {
         return Err(StoreError::Conflict);
     }
-    let course = super::resolve_course(state, tenant, destination.course)?;
-    if super::course_instance_blueprint_application(state, tenant, course)? != application {
+    let course = super::resolve_course(state, destination.course)?;
+    if super::course_instance_blueprint_application(state, course)? != application {
         return Err(StoreError::Conflict);
     }
     let stored = state
@@ -394,7 +387,6 @@ fn course_instance_outcome_course(
 /// Resolves an exact retained reconciliation target without accepting a forged substitute.
 pub(crate) fn resolve_reconciliation_target(
     state: &State,
-    tenant: TenantId,
     target: &CourseInstanceReceiptTarget,
 ) -> Result<CourseInstanceReceiptTarget, StoreError> {
     let identity = (target.authorized_actor(), target.idempotency_key().clone());
@@ -411,7 +403,7 @@ pub(crate) fn resolve_reconciliation_target(
         .receipts
         .get(&identity)
         .ok_or(StoreError::Conflict)?;
-    validate_receipt_evidence(state, tenant, receipt)?;
+    validate_receipt_evidence(state, receipt)?;
     Ok(stored.clone())
 }
 
@@ -508,17 +500,16 @@ fn validate_receipt_target(
 /// so a receipt cannot be accepted with partial or cross-operation evidence.
 fn validate_assignment_receipt_target(
     state: &State,
-    tenant: TenantId,
     target: &CourseInstanceReceiptTarget,
 ) -> Result<(), StoreError> {
-    let course = super::resolve_course(state, tenant, target.destination().course)?;
-    if super::course_instance_blueprint_application(state, tenant, course)?
+    let course = super::resolve_course(state, target.destination().course)?;
+    if super::course_instance_blueprint_application(state, course)?
         != target.blueprint_application()
     {
         return Err(StoreError::Conflict);
     }
     if let CourseInstanceReceiptTarget::Reconcile(receipt) = target {
-        return validate_reconciliation_original_import(state, tenant, receipt);
+        return validate_reconciliation_original_import(state, receipt);
     }
     let Some(locator) = target.assignment_import_target() else {
         return Ok(());
@@ -526,7 +517,7 @@ fn validate_assignment_receipt_target(
     if locator.course() != target.destination().course {
         return Err(StoreError::Conflict);
     }
-    let assignment = assignment_id_for_reference(state, tenant, course, locator.assignment())?;
+    let assignment = assignment_id_for_reference(state, course, locator.assignment())?;
     let evidence = state
         .curriculum_adoption
         .assignment_evidence
@@ -588,14 +579,13 @@ fn validate_assignment_receipt_target(
 
 fn validate_reconciliation_original_import(
     state: &State,
-    tenant: TenantId,
     receipt: &question_model::ReconcileCourseInstanceAdoptionReceipt,
 ) -> Result<(), StoreError> {
     let locator = receipt.original_import_target();
     if locator.course() != receipt.binding().outcome().course {
         return Err(StoreError::Conflict);
     }
-    let course = super::resolve_course(state, tenant, locator.course())?;
+    let course = super::resolve_course(state, locator.course())?;
     let original_identity = (locator.receipt_actor(), locator.receipt_key().clone());
     let original_target = state
         .curriculum_adoption
@@ -610,8 +600,8 @@ fn validate_reconciliation_original_import(
         .receipts
         .get(&original_identity)
         .ok_or(StoreError::Conflict)?;
-    validate_receipt_evidence(state, tenant, original_receipt)?;
-    let assignment = assignment_id_for_reference(state, tenant, course, locator.assignment())?;
+    validate_receipt_evidence(state, original_receipt)?;
+    let assignment = assignment_id_for_reference(state, course, locator.assignment())?;
     let evidence = state
         .curriculum_adoption
         .assignment_evidence
@@ -643,12 +633,11 @@ struct AdoptAssignmentReceiptEvidence<'a> {
 }
 
 impl AdoptAssignmentReceiptEvidence<'_> {
-    fn validate(&self, state: &State, tenant: TenantId) -> Result<bool, StoreError> {
-        let course = super::resolve_course(state, tenant, self.outcome.course)?;
-        let _blueprint_application =
-            super::course_instance_blueprint_application(state, tenant, course)?;
+    fn validate(&self, state: &State) -> Result<bool, StoreError> {
+        let course = super::resolve_course(state, self.outcome.course)?;
+        let _blueprint_application = super::course_instance_blueprint_application(state, course)?;
         let assignment =
-            assignment_id_for_reference(state, tenant, course, self.applied_assignment.assignment)?;
+            assignment_id_for_reference(state, course, self.applied_assignment.assignment)?;
         let Some(evidence) = state
             .curriculum_adoption
             .assignment_evidence
@@ -678,17 +667,16 @@ impl AdoptAssignmentReceiptEvidence<'_> {
 
 fn assignment_id_for_reference(
     state: &State,
-    tenant: TenantId,
     course: question_model::CourseId,
     reference: question_model::AssignmentReference,
 ) -> Result<question_model::AssignmentId, StoreError> {
     let assignment = *state
         .assignments_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .ok_or(StoreError::NotFound)?;
     state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .filter(|record| record.course_id == course)
         .map(|_| assignment)
         .ok_or(StoreError::NotFound)

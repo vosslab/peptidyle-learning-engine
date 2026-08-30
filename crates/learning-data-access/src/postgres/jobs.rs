@@ -101,14 +101,26 @@ impl JobStore for PostgresStore {
 
     async fn fail_job(
         &self,
-        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
     ) -> Result<JobFailureDisposition, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_worker(id, token).await?;
+        let tenant: Option<question_model::TenantId> = sqlx::query_scalar(
+            "SELECT tenant_id FROM worker_job \
+             WHERE job_id = $1 AND state = 'leased' \
+               AND lease_token = $2 AND lease_expires_at > transaction_timestamp()",
+        )
+        .bind(id.as_uuid())
+        .bind(token.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let Some(tenant) = tenant else {
+            return Err(StoreError::Conflict);
+        };
         let row = sqlx::query("SELECT ple_fail_worker_job($1, $2, $3, $4) AS disposition")
-            .bind(context.tenant_id().as_uuid())
+            .bind(tenant.as_uuid())
             .bind(id.as_uuid())
             .bind(token.as_uuid())
             .bind(failure.as_db())
@@ -130,12 +142,8 @@ impl JobStore for PostgresStore {
         Ok(result)
     }
 
-    async fn get_job(
-        &self,
-        context: TenantContext,
-        id: JobId,
-    ) -> Result<Option<TenantJobView>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
+    async fn get_job(&self, id: JobId) -> Result<Option<JobView>, StoreError> {
+        let mut transaction = self.begin_app().await?;
         let row =
             sqlx::query("SELECT payload, state, attempt_count FROM worker_job WHERE job_id = $1")
                 .bind(id.as_uuid())
@@ -144,7 +152,7 @@ impl JobStore for PostgresStore {
                 .map_err(map_sqlx_error)?;
         let view = row
             .as_ref()
-            .map(|row| decode_tenant_job_view(row, id))
+            .map(|row| decode_job_view(row, id))
             .transpose()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(view)
@@ -174,33 +182,30 @@ impl JobStore for PostgresStore {
 impl crate::AttemptAutoSubmitWorkerStore for PostgresStore {
     async fn commit_attempt_auto_submit(
         &self,
-        context: TenantContext,
         command: crate::AttemptAutoSubmitWorkerCommand,
     ) -> Result<crate::AttemptAutoSubmitCommitOutcome, StoreError> {
-        let tenant = context.tenant_id();
         let expected_payload = serde_json::to_value(JobPayload::AutoSubmitAttempt {
             attempt: command.attempt,
             timing_generation: command.timing_generation,
         })
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let mut transaction = self.begin_tenant(context).await?;
-        let claim_active: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM worker_job \
-             WHERE job_id = $1 AND tenant_id = $2 AND state = 'leased' \
-               AND lease_token = $3 AND lease_expires_at > transaction_timestamp() \
-               AND payload = $4)",
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
+        let tenant: Option<question_model::TenantId> = sqlx::query_scalar(
+            "SELECT tenant_id FROM worker_job \
+             WHERE job_id = $1 AND state = 'leased' \
+               AND lease_token = $2 AND lease_expires_at > transaction_timestamp() \
+               AND payload = $3",
         )
         .bind(command.job.as_uuid())
-        .bind(tenant.as_uuid())
         .bind(command.lease.as_uuid())
         .bind(expected_payload)
-        .fetch_one(&mut *transaction)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        if !claim_active {
+        let Some(tenant) = tenant else {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(crate::AttemptAutoSubmitCommitOutcome::ClaimNoLongerActive);
-        }
+        };
         let attempt =
             load_attempt_for_external_update(&mut transaction, tenant, command.attempt).await?;
         let timing_row = sqlx::query(
@@ -336,32 +341,29 @@ pub(super) async fn complete_postgres_claimed_job(
 impl crate::AssignmentScoringWorkerStore for PostgresStore {
     async fn prepare_assignment_scoring(
         &self,
-        context: TenantContext,
         command: crate::AssignmentScoringWorkerCommand,
     ) -> Result<crate::AssignmentScoringPreparationOutcome, StoreError> {
-        let tenant = context.tenant_id();
         let expected_payload = serde_json::to_value(JobPayload::RecalculateAssignment {
             assignment: command.assignment,
             generation: command.generation,
         })
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let mut transaction = self.begin_tenant(context).await?;
-        let claim_active: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM worker_job \
-             WHERE job_id = $1 AND tenant_id = $2 AND state = 'leased' \
-               AND lease_token = $3 AND lease_expires_at > transaction_timestamp() \
-               AND payload = $4)",
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
+        let tenant: Option<question_model::TenantId> = sqlx::query_scalar(
+            "SELECT tenant_id FROM worker_job \
+             WHERE job_id = $1 AND state = 'leased' \
+               AND lease_token = $2 AND lease_expires_at > transaction_timestamp() \
+               AND payload = $3",
         )
         .bind(command.job.as_uuid())
-        .bind(tenant.as_uuid())
         .bind(command.lease.as_uuid())
         .bind(expected_payload)
-        .fetch_one(&mut *transaction)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        if !claim_active {
+        let Some(tenant) = tenant else {
             return Err(StoreError::Conflict);
-        }
+        };
         let assignment = load_assignment(&mut transaction, tenant, command.assignment).await?;
         let generation = i64::try_from(command.generation.value()).map_err(|_| {
             StoreError::InvalidRecord("scoring generation is too large".to_string())
@@ -655,10 +657,8 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
 
     async fn commit_assignment_scoring(
         &self,
-        context: TenantContext,
         command: crate::AssignmentScoringWorkerCommand,
     ) -> Result<crate::AssignmentScoringCommitOutcome, StoreError> {
-        let tenant = context.tenant_id();
         let expected_payload = serde_json::to_value(JobPayload::RecalculateAssignment {
             assignment: command.assignment,
             generation: command.generation,
@@ -667,24 +667,23 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         let generation = i64::try_from(command.generation.value()).map_err(|_| {
             StoreError::InvalidRecord("scoring generation is too large".to_string())
         })?;
-        let mut transaction = self.begin_tenant(context).await?;
-        let claim_active: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM worker_job \
-             WHERE job_id = $1 AND tenant_id = $2 AND state = 'leased' \
-               AND lease_token = $3 AND lease_expires_at > transaction_timestamp() \
-               AND payload = $4)",
+        let mut transaction = self.begin_worker(command.job, command.lease).await?;
+        let tenant: Option<question_model::TenantId> = sqlx::query_scalar(
+            "SELECT tenant_id FROM worker_job \
+             WHERE job_id = $1 AND state = 'leased' \
+               AND lease_token = $2 AND lease_expires_at > transaction_timestamp() \
+               AND payload = $3",
         )
         .bind(command.job.as_uuid())
-        .bind(tenant.as_uuid())
         .bind(command.lease.as_uuid())
         .bind(expected_payload)
-        .fetch_one(&mut *transaction)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        if !claim_active {
+        let Some(tenant) = tenant else {
             transaction.rollback().await.map_err(map_sqlx_error)?;
             return Ok(crate::AssignmentScoringCommitOutcome::ClaimNoLongerActive);
-        }
+        };
         let (current_generation, current_status): (i64, String) = sqlx::query_as(
             "SELECT scoring_generation, scoring_status FROM assignment \
              WHERE tenant_id = $1 AND assignment_id = $2",
@@ -884,7 +883,6 @@ pub(super) fn decode_claimed_job(
     let attempt_count: i32 = row.try_get("attempt_count").map_err(map_sqlx_error)?;
     Ok(ClaimedJob {
         id: JobId::from_uuid(row.try_get("job_id").map_err(map_sqlx_error)?),
-        tenant: TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?),
         payload: decode_job_payload(payload)?,
         lease_token: JobLeaseToken::from_uuid(stored_token),
         attempt_count: u16::try_from(attempt_count).map_err(|_| {
@@ -894,7 +892,7 @@ pub(super) fn decode_claimed_job(
 }
 
 #[cfg(feature = "postgres")]
-fn decode_tenant_job_view(row: &PgRow, id: JobId) -> Result<TenantJobView, StoreError> {
+fn decode_job_view(row: &PgRow, id: JobId) -> Result<JobView, StoreError> {
     let Json(payload): Json<Value> = row.try_get("payload").map_err(map_sqlx_error)?;
     let state: String = row.try_get("state").map_err(map_sqlx_error)?;
     let state = match state.as_str() {
@@ -909,7 +907,7 @@ fn decode_tenant_job_view(row: &PgRow, id: JobId) -> Result<TenantJobView, Store
         }
     };
     let attempt_count: i32 = row.try_get("attempt_count").map_err(map_sqlx_error)?;
-    Ok(TenantJobView {
+    Ok(JobView {
         id,
         payload: decode_job_payload(payload)?,
         state,

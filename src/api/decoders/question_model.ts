@@ -385,7 +385,7 @@ export function decodeGradingDefinition(
   }
 }
 
-/** Strict compact projection for a tenant-owned, unversioned workspace draft. */
+/** Strict compact projection for an instructor-owned, unversioned workspace draft. */
 export function decodeWorkspaceDraftSummary(
   value: unknown,
   path = "response",

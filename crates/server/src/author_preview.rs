@@ -124,7 +124,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         // The author-presentation endpoint is a private exact-workspace
         // surface.  Returning the same result as a missing binding prevents a
         // student from using it as an existence oracle.
@@ -146,7 +146,7 @@ where
         .await
     {
         Ok(Some(draft)) => draft,
-        Ok(None) | Err(StoreError::TenantMismatch | StoreError::Forbidden) => {
+        Ok(None) | Err(StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             return error_response(StatusCode::NOT_FOUND, "workspace not found");
         }
         Err(error) => return store_error_response(error),
@@ -219,15 +219,13 @@ where
     }
 }
 
-fn may_author_workspaces(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_author_workspaces(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 fn store_error_response(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "workspace not found")
         }
         StoreError::RetryableTransaction | StoreError::Unavailable(_) => error_response(

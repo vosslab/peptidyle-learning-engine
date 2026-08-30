@@ -648,7 +648,6 @@ async fn generic_submission_cannot_commit_verified_pending_without_launch_proof(
 fn stored_correlation_round_trips_only_with_its_exact_mac_binding() {
     let issuer = CorrelationIssuer::from_server_secret([7; 32]);
     let binding = GradeBinding {
-        tenant: TenantId::from_uuid(id(1)),
         attempt: QuestionAttemptId::from_uuid(id(2)),
         problem: ProblemId::from_uuid(id(3)),
         version: VersionId::from_uuid(id(4)),

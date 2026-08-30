@@ -121,11 +121,11 @@ is a compile-graph violation rather than a code-review judgment call. The bridge
 work: parameter generation, answer-format validation, timer display, and state transitions, none of
 which carry information about correctness.
 
-**Published content is shared and immutable; educational records are tenant-owned.** One published
-problem version serves many instructors without being copied, while every course, enrollment, run,
-attempt, and grade carries a tenant ID protected by database-enforced row-level security. That one
-boundary is also the privacy boundary: deleting a course's student records destroys no reusable
-content, because assignments reference shared problem versions instead of owning copies.
+**Published content is shared and immutable; educational records are course-owned.** One published
+problem version serves many instructors without being copied. Exact course membership, Student
+ownership, workspace relation, observer grants, and worker leases are the database-enforced privacy
+boundaries. Deleting a course's Student records destroys no reusable content because assignments
+reference shared problem versions instead of owning copies.
 
 ## Architecture at a glance
 
@@ -156,7 +156,7 @@ convention:
 | `crates/domain`               | Attempt state machine, runs, timing, seeded generation, capability validation | `question_model`                                 |
 | `crates/grading`              | Answer keys, checkers, correctness decisions (server only)                    | `question_model`, `domain`                       |
 | `crates/objects`              | Object store trait, S3 and MinIO backends, keys, checksums                    | `question_model`                                 |
-| `crates/learning-data-access` | Learning data access: contracts, PostgreSQL, migrations, and tenant isolation | `question_model`, `domain`, `objects`            |
+| `crates/learning-data-access` | Learning data access: contracts, PostgreSQL, migrations, and direct ownership | `question_model`, `domain`, `objects`            |
 | `crates/adapters/native`      | First-party generated questions and strict static PLE JSON                    | `question_model`, `domain`, `grading`            |
 | `crates/adapters/webwork`     | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
 | `crates/adapters/qti`         | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
@@ -271,7 +271,7 @@ metadata and receipts, not learner responses or answer keys.
 | API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                |
-| Curriculum adoption                  | Accepted preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities                                                                                                            |
+| Curriculum adoption                  | Current BlueprintCourse/CourseInstance contract and Memory behavior cover preview, explicit adoption, rollover, term shifting, provenance, controlled updates, and divergence recovery. PostgreSQL/RLS, server, browser, and live acceptance remain SD1 cutover work.                                       |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                  |
@@ -304,7 +304,7 @@ The full architecture and milestone plan remain in
   out of scope because the accepted version already supplies safe, accessible course identity without
   active-content or styling injection.
 - File-upload responses deliberately fail closed until the server-issued,
-  tenant/learner/attempt-bound capability described in the
+  course/Student/attempt-bound capability described in the
   [secure Student file-upload plan](docs/active_plans/active/secure_student_file_upload_plan.md)
   is implemented and verified.
 - The local container topology is not a production security or deployment configuration.

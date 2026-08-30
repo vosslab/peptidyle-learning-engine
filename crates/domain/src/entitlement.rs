@@ -2,8 +2,7 @@
 
 use question_model::{
     AssignmentAudience, AssignmentId, CourseGroupId, CourseGroupPurpose, CourseId,
-    CourseMembershipId, GroupPurposeCapabilities, MaterializationBasis, StudentId, TenantId,
-    UserId,
+    CourseMembershipId, GroupPurposeCapabilities, MaterializationBasis, StudentId, UserId,
 };
 
 /// Evaluator-approved policy scopes. Only this module can create one from
@@ -45,7 +44,6 @@ pub enum EntitlementDenial {
 /// evaluator can mint a grant or evaluator-approved scopes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntitlementGrant {
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     student_user: UserId,
@@ -56,9 +54,6 @@ pub struct EntitlementGrant {
 }
 
 impl EntitlementGrant {
-    pub fn tenant(&self) -> TenantId {
-        self.tenant
-    }
     pub fn course(&self) -> CourseId {
         self.course
     }
@@ -95,7 +90,6 @@ pub enum EntitlementDecision {
 /// membership, or persisted student record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntheticPreviewEntitlementFacts {
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     audience: AssignmentAudience,
@@ -104,14 +98,12 @@ pub struct SyntheticPreviewEntitlementFacts {
 
 impl SyntheticPreviewEntitlementFacts {
     pub fn new(
-        tenant: TenantId,
         course: CourseId,
         assignment: AssignmentId,
         audience: AssignmentAudience,
         selected_groups: Vec<(CourseGroupId, CourseGroupPurpose)>,
     ) -> Self {
         Self {
-            tenant,
             course,
             assignment,
             audience,
@@ -124,7 +116,6 @@ impl SyntheticPreviewEntitlementFacts {
 /// private so only this module can approve policy scopes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntheticPreviewEntitlementGrant {
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     basis: MaterializationBasis,
@@ -132,9 +123,6 @@ pub struct SyntheticPreviewEntitlementGrant {
 }
 
 impl SyntheticPreviewEntitlementGrant {
-    pub fn tenant(&self) -> TenantId {
-        self.tenant
-    }
     pub fn course(&self) -> CourseId {
         self.course
     }
@@ -158,7 +146,6 @@ pub enum SyntheticPreviewEntitlementDecision {
 /// All normalized facts the Store must load under its transaction boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntitlementFacts {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub student_user: UserId,
@@ -183,7 +170,6 @@ pub fn evaluate_assignment_entitlement(facts: EntitlementFacts) -> EntitlementDe
     let basis = materialization_basis(facts.audience, &facts.current_groups);
     match basis {
         Some(basis) => EntitlementDecision::Granted(EntitlementGrant {
-            tenant: facts.tenant,
             course: facts.course,
             assignment: facts.assignment,
             student_user: facts.student_user,
@@ -208,7 +194,6 @@ pub fn evaluate_synthetic_preview_entitlement(
     match basis {
         Some(basis) => {
             SyntheticPreviewEntitlementDecision::Granted(SyntheticPreviewEntitlementGrant {
-                tenant: facts.tenant,
                 course: facts.course,
                 assignment: facts.assignment,
                 basis,
@@ -253,7 +238,6 @@ mod tests {
     #[test]
     fn group_audience_is_or_and_work_never_becomes_a_policy_scope() {
         let decision = evaluate_assignment_entitlement(EntitlementFacts {
-            tenant: TenantId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
             student_user: UserId::from_uuid(id(4)),
@@ -275,7 +259,6 @@ mod tests {
     fn section_audience_grants_and_scopes_are_deduplicated() {
         let section = CourseGroupId::from_uuid(id(7));
         let decision = evaluate_assignment_entitlement(EntitlementFacts {
-            tenant: TenantId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
             student_user: UserId::from_uuid(id(4)),
@@ -319,7 +302,6 @@ mod tests {
         ] {
             let decision =
                 evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
-                    TenantId::from_uuid(id(1)),
                     CourseId::from_uuid(id(2)),
                     AssignmentId::from_uuid(id(3)),
                     audience,
@@ -337,7 +319,6 @@ mod tests {
         let required = CourseGroupId::from_uuid(id(7));
         let decision =
             evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
-                TenantId::from_uuid(id(1)),
                 CourseId::from_uuid(id(2)),
                 AssignmentId::from_uuid(id(3)),
                 AssignmentAudience::any_of_groups(vec![required]).expect("nonempty audience"),

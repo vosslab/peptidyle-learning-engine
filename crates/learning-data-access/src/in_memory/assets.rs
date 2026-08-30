@@ -8,16 +8,16 @@ use super::{
     require_course_records_accessible,
 };
 use crate::{
-    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
-    AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, StoreError, TenantContext,
-    ensure_tenant, validate_asset_delivery, validate_catalog_asset_delivery_scope,
+    ActorContext, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope,
+    AssetPublication, AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, StoreError,
+    validate_asset_delivery, validate_catalog_asset_delivery_scope,
 };
 
 #[async_trait]
 impl AssetStore for MemoryStore {
     async fn register_asset_delivery(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         record: AssetDeliveryRecord,
     ) -> Result<(), StoreError> {
         validate_asset_delivery(&record)?;
@@ -29,13 +29,12 @@ impl AssetStore for MemoryStore {
                     .get(&(reference.problem, reference.version))
                     .ok_or(StoreError::NotFound)?;
                 validate_catalog_asset_delivery_scope(&record, published.scope)?;
-                if !catalog_record_visible(&state, context.tenant_id(), published) {
+                if !catalog_record_visible(published) {
                     return Err(StoreError::NotFound);
                 }
             }
-            AssetDeliveryScope::StudentRecord { tenant, course, .. } => {
-                ensure_tenant(context, *tenant)?;
-                require_course_records_accessible(&state, *tenant, *course)?;
+            AssetDeliveryScope::StudentRecord { course, .. } => {
+                require_course_records_accessible(&state, *course)?;
             }
             AssetDeliveryScope::CourseBanner { .. } => {
                 return Err(StoreError::InvalidRecord(
@@ -72,14 +71,14 @@ impl AssetStore for MemoryStore {
 
     async fn catalog_asset_bindings(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         reference: ProblemVersionRef,
     ) -> Result<Vec<CatalogAssetBinding>, StoreError> {
         let state = self.read_state()?;
         let Some(published) = state.published.get(&(reference.problem, reference.version)) else {
             return Ok(Vec::new());
         };
-        if !catalog_record_visible(&state, context.tenant_id(), published) {
+        if !catalog_record_visible(published) {
             return Ok(Vec::new());
         }
 
@@ -114,7 +113,7 @@ impl AssetStore for MemoryStore {
 
     async fn authorize_asset_delivery(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         delivery: AssetDeliveryId,
     ) -> Result<AuthorizedAssetDelivery, StoreError> {
@@ -134,27 +133,19 @@ impl AssetStore for MemoryStore {
                     && state
                         .published
                         .get(&(reference.problem, reference.version))
-                        .is_some_and(|published| {
-                            catalog_record_visible(&state, context.tenant_id(), published)
-                        })
+                        .is_some_and(|published| catalog_record_visible(published))
             }
             AssetDeliveryScope::StudentRecord {
-                tenant,
                 course,
                 authorized_users,
-            } => {
-                *tenant == context.tenant_id()
-                    && course_records_accessible(&state, *tenant, *course)
-                    && authorized_users.contains(&actor)
-            }
+            } => course_records_accessible(&state, *course) && authorized_users.contains(&actor),
             AssetDeliveryScope::CourseBanner { .. } => false,
         };
-        if !authorized {
+        if context.user_id() != actor || !authorized {
             return Err(StoreError::NotFound);
         }
         let authorized_at = state.authoritative_time;
         state.asset_access_events.push(AssetAccessEvent {
-            tenant: context.tenant_id(),
             actor,
             delivery,
             object: record.object.id,

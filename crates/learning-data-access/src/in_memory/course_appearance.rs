@@ -10,11 +10,11 @@ use question_model::{
 use super::sessions::active_subject;
 use super::{MemoryStore, State, course_records_accessible};
 use crate::{
-    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope,
+    ActorContext, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope,
     AuthorizedAssetDelivery, COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore,
     CourseBannerCleanupBatch, CourseBannerCleanupClaim, CourseBannerCleanupToken,
     CourseBannerPromotion, RegisterCourseBannerCandidate, SaveCourseAppearance, SessionSubject,
-    SessionTokenHash, StoreError, TenantContext, validate_asset_delivery,
+    SessionTokenHash, StoreError, validate_asset_delivery,
 };
 
 const CLEANUP_CLAIM_MILLIS: i64 = 5 * 60 * 1_000;
@@ -35,7 +35,7 @@ pub(super) struct StoredCourseBannerCandidate {
 impl CourseAppearanceStore for MemoryStore {
     async fn course_appearance(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<CourseAppearance>, StoreError> {
@@ -47,25 +47,21 @@ impl CourseAppearanceStore for MemoryStore {
         if role.is_none() {
             return Ok(None);
         }
-        if role == Some(CourseMembershipRole::Student)
-            && !course_records_accessible(&state, context.tenant_id(), course)
+        if role == Some(CourseMembershipRole::Student) && !course_records_accessible(&state, course)
         {
             return Ok(None);
         }
-        Ok(state
-            .course_appearances
-            .get(&(context.tenant_id(), course))
-            .cloned())
+        Ok(state.course_appearances.get(&course).cloned())
     }
 
     async fn register_course_banner_candidate(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         command: RegisterCourseBannerCandidate,
     ) -> Result<(), StoreError> {
-        validate_candidate(context, course, &command)?;
+        validate_candidate(course, &command)?;
         let mut state = self.write_state()?;
         let actor = require_appearance_authority(&state, context, session, course)?;
         if command.expires_at <= state.authoritative_time {
@@ -73,7 +69,7 @@ impl CourseAppearanceStore for MemoryStore {
                 "course banner candidate expiry must be in the future".to_string(),
             ));
         }
-        let key = (context.tenant_id(), course, command.candidate);
+        let key = (course, command.candidate);
         if state.course_banner_candidates.contains_key(&key) {
             return Err(StoreError::AlreadyExists);
         }
@@ -95,7 +91,7 @@ impl CourseAppearanceStore for MemoryStore {
 
     async fn course_banner_promotion(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         candidate: question_model::CourseBannerCandidateId,
@@ -104,7 +100,7 @@ impl CourseAppearanceStore for MemoryStore {
         let actor = require_appearance_authority(&state, context, session, course)?;
         let stored = state
             .course_banner_candidates
-            .get(&(context.tenant_id(), course, candidate))
+            .get(&(course, candidate))
             .ok_or(StoreError::NotFound)?;
         if stored.creator != actor
             || stored.cleanup.is_some()
@@ -126,14 +122,14 @@ impl CourseAppearanceStore for MemoryStore {
 
     async fn save_course_appearance(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         command: SaveCourseAppearance,
     ) -> Result<CourseAppearance, StoreError> {
         let mut state = self.write_state()?;
         let actor = require_appearance_authority(&state, context, session, course)?;
-        let key = (context.tenant_id(), course);
+        let key = course;
         let current = state
             .course_appearances
             .get(&key)
@@ -142,7 +138,7 @@ impl CourseAppearanceStore for MemoryStore {
 
         let replacement = match (&command.update.banner, &command.promoted_object) {
             (CourseBannerMutation::Replace { candidate, .. }, Some(promoted_object)) => {
-                let candidate_key = (context.tenant_id(), course, *candidate);
+                let candidate_key = (course, *candidate);
                 let stored = state
                     .course_banner_candidates
                     .get(&candidate_key)
@@ -151,14 +147,13 @@ impl CourseAppearanceStore for MemoryStore {
                 if stored.creator != actor || stored.cleanup.is_some() {
                     return Err(StoreError::NotFound);
                 }
-                validate_promoted(context, course, &stored, promoted_object)?;
+                validate_promoted(course, &stored, promoted_object)?;
                 let delivery = AssetDeliveryRecord {
                     id: AssetDeliveryId::from_course_banner(stored.banner),
                     object: promoted_object.clone(),
                     intrinsic_width: Some(COURSE_BANNER_WIDTH),
                     intrinsic_height: Some(COURSE_BANNER_HEIGHT),
                     scope: AssetDeliveryScope::CourseBanner {
-                        tenant: context.tenant_id(),
                         course,
                         banner: stored.banner,
                     },
@@ -235,7 +230,7 @@ impl CourseAppearanceStore for MemoryStore {
                 }
                 state
                     .course_banner_candidates
-                    .get_mut(&(context.tenant_id(), course, candidate))
+                    .get_mut(&(course, candidate))
                     .ok_or(StoreError::NotFound)?
                     .consumed = true;
                 Some(CourseBannerPresentation {
@@ -255,7 +250,7 @@ impl CourseAppearanceStore for MemoryStore {
 
     async fn authorize_course_banner_delivery(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         banner: question_model::CourseBannerId,
     ) -> Result<AuthorizedAssetDelivery, StoreError> {
@@ -270,27 +265,24 @@ impl CourseAppearanceStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         let AssetDeliveryScope::CourseBanner {
-            tenant,
             course,
             banner: scoped_banner,
         } = record.scope
         else {
             return Err(StoreError::NotFound);
         };
-        if tenant != context.tenant_id() || scoped_banner != banner {
+        if scoped_banner != banner {
             return Err(StoreError::NotFound);
         }
         let Some(role) = appearance_role(&state, context, &subject, course) else {
             return Err(StoreError::NotFound);
         };
-        if role == CourseMembershipRole::Student
-            && !course_records_accessible(&state, context.tenant_id(), course)
-        {
+        if role == CourseMembershipRole::Student && !course_records_accessible(&state, course) {
             return Err(StoreError::NotFound);
         }
         let current = state
             .course_appearances
-            .get(&(context.tenant_id(), course))
+            .get(&course)
             .and_then(|appearance| appearance.banner.as_ref())
             .is_some_and(|presentation| presentation.id == banner);
         if !current {
@@ -298,7 +290,6 @@ impl CourseAppearanceStore for MemoryStore {
         }
         let authorized_at = state.authoritative_time;
         state.asset_access_events.push(AssetAccessEvent {
-            tenant: context.tenant_id(),
             actor: subject.user(),
             delivery: delivery_id,
             object: record.object.id,
@@ -314,26 +305,24 @@ impl CourseAppearanceStore for MemoryStore {
 
     async fn claim_course_banner_cleanup(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         batch: CourseBannerCleanupBatch,
     ) -> Result<Vec<CourseBannerCleanupClaim>, StoreError> {
         let mut state = self.write_state()?;
         let now = state.authoritative_time;
-        let tenant = context.tenant_id();
         let keys = state
             .course_banner_candidates
             .keys()
-            .filter(|(candidate_tenant, _, _)| *candidate_tenant == tenant)
             .copied()
             .collect::<Vec<_>>();
         let mut claims = Vec::new();
-        for key @ (_, course, candidate) in keys {
+        for key @ (course, candidate) in keys {
             if claims.len() >= usize::from(batch.get()) {
                 break;
             }
             let current_banner = state
                 .course_appearances
-                .get(&(tenant, course))
+                .get(&course)
                 .and_then(|appearance| appearance.banner.as_ref())
                 .map(|presentation| presentation.id);
             let stored = state
@@ -378,14 +367,14 @@ impl CourseAppearanceStore for MemoryStore {
 
     async fn complete_course_banner_cleanup(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         claim: CourseBannerCleanupClaim,
     ) -> Result<bool, StoreError> {
         let mut state = self.write_state()?;
-        let key = (context.tenant_id(), claim.course, claim.candidate);
+        let key = (claim.course, claim.candidate);
         let current_banner = state
             .course_appearances
-            .get(&(context.tenant_id(), claim.course))
+            .get(&claim.course)
             .and_then(|appearance| appearance.banner.as_ref())
             .map(|presentation| presentation.id);
         let stored = state
@@ -439,31 +428,23 @@ impl CourseAppearanceStore for MemoryStore {
 
 fn appearance_role(
     state: &State,
-    context: TenantContext,
+    _context: ActorContext,
     subject: &SessionSubject,
     course: CourseId,
 ) -> Option<CourseMembershipRole> {
-    state.courses.get(&(context.tenant_id(), course))?;
-    super::entitlement::current_course_role(state, context.tenant_id(), course, subject.user())
+    state.courses.get(&course)?;
+    super::entitlement::current_course_role(state, course, subject.user())
 }
 
 fn require_appearance_authority(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     course: CourseId,
 ) -> Result<UserId, StoreError> {
     let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    state
-        .courses
-        .get(&(context.tenant_id(), course))
-        .ok_or(StoreError::NotFound)?;
-    match super::entitlement::current_course_role(
-        state,
-        context.tenant_id(),
-        course,
-        subject.user(),
-    ) {
+    state.courses.get(&course).ok_or(StoreError::NotFound)?;
+    match super::entitlement::current_course_role(state, course, subject.user()) {
         Some(CourseMembershipRole::Instructor) => Ok(subject.user()),
         Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
         None => Err(StoreError::NotFound),
@@ -471,12 +452,10 @@ fn require_appearance_authority(
 }
 
 fn validate_candidate(
-    context: TenantContext,
     course: CourseId,
     command: &RegisterCourseBannerCandidate,
 ) -> Result<(), StoreError> {
     let ObjectKey::CourseBannerCandidate {
-        tenant,
         course: key_course,
         candidate,
     } = command.object.key
@@ -485,8 +464,7 @@ fn validate_candidate(
             "banner candidate must use its typed temporary key".to_string(),
         ));
     };
-    if tenant != context.tenant_id()
-        || key_course != course
+    if key_course != course
         || candidate != command.candidate
         || command.object.id != command.object.key.object_id()
         || command.object.bucket != Bucket::TempProcessing
@@ -505,13 +483,11 @@ fn validate_candidate(
 }
 
 fn validate_promoted(
-    context: TenantContext,
     course: CourseId,
     candidate: &StoredCourseBannerCandidate,
     promoted: &ObjectRecord,
 ) -> Result<(), StoreError> {
     let ObjectKey::CourseBanner {
-        tenant,
         course: key_course,
         banner,
     } = promoted.key
@@ -520,8 +496,7 @@ fn validate_promoted(
             "promoted banner must use its typed immutable key".to_string(),
         ));
     };
-    if tenant != context.tenant_id()
-        || key_course != course
+    if key_course != course
         || banner != candidate.banner
         || promoted.id != promoted.key.object_id()
         || promoted.bucket != Bucket::PrivateContent

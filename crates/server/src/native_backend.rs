@@ -111,7 +111,7 @@ where
                 )
             })?;
             let payload = grader
-                .flat_question_published_grading(context, reference)
+                .flat_question_published_grading(reference)
                 .await
                 .map_err(map_store_error)?
                 .ok_or_else(|| {
@@ -304,7 +304,7 @@ where
             RunBackendError::Unavailable("flat-question private grading is unavailable".to_string())
         })?;
         let payload = grader
-            .flat_question_published_grading(context, reference)
+            .flat_question_published_grading(reference)
             .await
             .map_err(map_store_error)?
             .ok_or_else(|| {

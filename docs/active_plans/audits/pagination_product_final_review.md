@@ -50,7 +50,7 @@ and the cursor continuation request both use B, never the stale A cursor.
   native Tab, Enter, or Space.
 - MemoryStore conformance creates 51 assignments/enrollments, traverses both
   default and 17-item pages, checks stable order/no duplicates/cursor progress,
-  and verifies foreign-tenant concealment. It is correctly described as
+  and verifies foreign-course concealment. It is correctly described as
   MemoryStore conformance, not false live-PostgreSQL coverage.
 
 ## Validation evidence

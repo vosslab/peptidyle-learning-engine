@@ -51,10 +51,9 @@ pub(super) fn is_catalog_statistics_fixture(question: &PilotQuestionSpec) -> boo
     question.slug == CHAPTER_ONE_STATISTICS_FIXTURE_SLUG
 }
 
-pub(super) fn pilot_uuid(tenant: TenantId, slug: &str, purpose: &str) -> Uuid {
+pub(super) fn pilot_uuid(slug: &str, purpose: &str) -> Uuid {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple-chapter-one-pilot-v1:");
-    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(b"ple-single-installation-chapter-one-pilot-v1:");
     hasher.update(slug.as_bytes());
     hasher.update(b":");
     hasher.update(purpose.as_bytes());

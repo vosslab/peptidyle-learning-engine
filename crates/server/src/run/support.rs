@@ -309,7 +309,7 @@ pub(crate) async fn student_assignment_progress<
     // Even an empty summary must pass both S5 and S3: DuringAttempt may
     // disclose class statistics before the learner has submitted work.
     let now = store
-        .authoritative_time(authenticated.tenant_context)
+        .authoritative_time()
         .await
         .map_err(store_error_response)?;
     let resolution = store
@@ -446,7 +446,7 @@ pub(super) fn store_error_response(error: StoreError) -> Response {
         StoreError::AlreadyExists | StoreError::Conflict => {
             error_response(StatusCode::CONFLICT, "record changed or already exists")
         }
-        StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::FORBIDDEN, "operation is not authorized")
         }
         StoreError::InvalidRecord(message) => {

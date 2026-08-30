@@ -3,15 +3,13 @@ use super::*;
 mod selection;
 pub(crate) use selection::{select_assignment_group_candidates, select_assignment_run_items};
 
-/// Tenant-owned course. Direct access lives exclusively in
+/// Course aggregate. Direct access lives exclusively in
 /// [`CourseMembershipRecord`], never in this aggregate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseRecord {
     /// Durable course identity.
     pub id: CourseId,
-    /// Direct RLS boundary.
-    pub tenant: TenantId,
     /// Human-facing course or section title.
     pub title: String,
     /// Required inclusive term bounds and authoritative scheduling zone.
@@ -109,7 +107,6 @@ pub struct StudentCourseRecordAuthorizationScope {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseMembershipRecord {
     pub id: question_model::CourseMembershipId,
-    pub tenant: TenantId,
     pub course: CourseId,
     pub user: UserId,
     /// Learner identity for student episodes; instructors deliberately have
@@ -134,7 +131,6 @@ impl CourseRecord {
         CourseSummary {
             id: self.id,
             reference,
-            tenant: self.tenant,
             title: self.title.clone(),
             term: self.term.clone(),
             role,
@@ -149,14 +145,12 @@ pub enum CourseListScope {
     Member(UserId),
 }
 
-/// Tenant-owned assignment that references shared immutable content.
+/// Course-owned assignment that references shared immutable content.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssignmentRecord {
     /// Durable assignment identity.
     pub id: AssignmentId,
-    /// Direct RLS boundary.
-    pub tenant: TenantId,
-    /// Tenant-owned course containing the assignment.
+    /// Course containing the assignment.
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: String,
@@ -205,7 +199,6 @@ pub struct NewAssignmentDraft {
 
 /// Creates the one authoritative incomplete Draft aggregate.
 pub fn new_assignment_draft(
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     title: String,
@@ -213,7 +206,6 @@ pub fn new_assignment_draft(
     NewAssignmentDraft {
         record: AssignmentRecord {
             id: assignment,
-            tenant,
             course_id: course,
             title,
             lifecycle: question_model::AssignmentLifecycle::Draft,
@@ -268,9 +260,9 @@ pub struct AssignmentUpdate {
 /// Authenticated instructor command that creates an assignment definition and
 /// its base policy in the same persistence transaction.
 ///
-/// Authority deliberately belongs to the command rather than the tenant
-/// context: the latter selects an RLS boundary and cannot authenticate a
-/// writer.
+/// Authority deliberately belongs to the command rather than a caller-supplied
+/// scope: the Store derives its authorization from the actor and exact course
+/// relationship.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CreateAssignmentCommand {
     pub actor: UserId,
@@ -360,7 +352,7 @@ pub struct DeleteAndRegradeAssignmentItemCommand {
 pub struct ReplaceAssignmentFixedItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
     pub actor: UserId,
-    /// Tenant-owned course that authorizes the edit.
+    /// Course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition will change.
     pub assignment: AssignmentId,
@@ -382,7 +374,7 @@ pub struct ReplaceAssignmentFixedItemCommand {
 pub struct AddAssignmentFixedItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
     pub actor: UserId,
-    /// Tenant-owned course that authorizes the edit.
+    /// Course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition gains an item.
     pub assignment: AssignmentId,
@@ -402,7 +394,7 @@ pub struct AddAssignmentFixedItemCommand {
 pub struct RemoveAssignmentFixedItemCommand {
     /// Authenticated direct Instructor authorized inside the write boundary.
     pub actor: UserId,
-    /// Tenant-owned course that authorizes the edit.
+    /// Course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition loses an item.
     pub assignment: AssignmentId,
@@ -486,7 +478,6 @@ impl AssignmentRecord {
         AssignmentSummary {
             id: self.id,
             reference,
-            tenant: self.tenant,
             course_id: self.course_id,
             title: self.title.clone(),
             items,

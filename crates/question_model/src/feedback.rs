@@ -1,7 +1,7 @@
 //! Server-owned teaching feedback and its browser-safe projection.
 //!
 //! [`FeedbackContent`] is deliberately not serializable. It belongs only to a
-//! trusted backend and, once persistence lands, to tenant-owned private
+//! trusted backend and, once persistence lands, to course-owned private
 //! storage. In contrast, [`DisclosedFeedback`] is the small, policy-redacted
 //! response DTO. Keeping the two shapes separate makes it impossible for the
 //! TypeScript generator to accidentally add private teaching material to the

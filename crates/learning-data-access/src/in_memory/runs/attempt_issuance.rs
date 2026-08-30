@@ -1,8 +1,8 @@
 use question_model::{AttemptStatus, AttemptTimerRecord, QuestionAttempt};
 
 use crate::{
-    IssueQuestionAttemptCommand, JobId, JobPayload, JobState, ReceiptNextAttempt, StoreError,
-    TenantContext, issued_attempt_capability_from_issue, validate_issued_flat_grading,
+    ActorContext, IssueQuestionAttemptCommand, JobId, JobPayload, JobState, ReceiptNextAttempt,
+    StoreError, issued_attempt_capability_from_issue, validate_issued_flat_grading,
     validate_issued_presentation, validate_issued_qti_grading, validate_issued_webwork_grading,
     validate_issued_webwork_replay, webwork_replay_state_from_issue,
 };
@@ -16,16 +16,14 @@ use super::super::{
 
 pub(super) async fn issue_or_resume_question_attempt(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     command: IssueQuestionAttemptCommand,
 ) -> Result<QuestionAttempt, StoreError> {
     let mut state = store.write_state()?;
-    let tenant = context.tenant_id();
     // Match the PostgreSQL 1817 boundary: verify the trusted route and active
     // Student self authority before an opaque run or attempt can be observed.
     let membership = super::super::entitlement::active_membership_for(
         &state,
-        tenant,
         command.binding.course,
         command.actor,
     )
@@ -33,15 +31,17 @@ pub(super) async fn issue_or_resume_question_attempt(
         membership.role == crate::CourseMembershipRole::Student && membership.student.is_some()
     })
     .ok_or(StoreError::NotFound)?;
-    let assignment = assignment_record(&state, tenant, command.binding.assignment)?;
+    let assignment = assignment_record(&state, command.binding.assignment)?;
     if assignment.course_id != command.binding.course {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(&state, tenant, command.binding.course)?;
+    if context.user_id() != command.actor {
+        return Err(StoreError::NotFound);
+    }
+    require_course_records_accessible(&state, command.binding.course)?;
     let domain::entitlement::EntitlementDecision::Granted(grant) =
         super::super::entitlement::evaluate_locked(
             &state,
-            tenant,
             command.actor,
             command.binding.course,
             command.binding.assignment,
@@ -54,13 +54,11 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     let run = state
         .runs
-        .get(&(tenant, command.run))
+        .get(&command.run)
         .cloned()
         .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-    if enrollment.assignment != command.binding.assignment
-        || grant.student() != enrollment.student
-        || run.tenant != tenant
+    let enrollment = enrollment_record(&state, run.enrollment)?;
+    if enrollment.assignment != command.binding.assignment || grant.student() != enrollment.student
     {
         return Err(StoreError::NotFound);
     }
@@ -71,7 +69,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     let run_items = state
         .run_items
-        .get(&(tenant, command.run))
+        .get(&command.run)
         .ok_or(StoreError::NotFound)?;
     let expected = run_items
         .iter()
@@ -90,13 +88,11 @@ pub(super) async fn issue_or_resume_question_attempt(
     let prefetched = command.prefetched.as_ref();
     if let Some(prefetched) = prefetched {
         let key = (
-            tenant,
             command.run,
             prefetched.predecessor,
             command.assignment_position,
         );
-        if prefetched.tenant != tenant
-            || prefetched.run != command.run
+        if prefetched.run != command.run
             || command.predecessor_submission != Some(prefetched.predecessor)
             || prefetched.assignment_position != command.assignment_position
             || prefetched.problem != command.problem
@@ -110,9 +106,7 @@ pub(super) async fn issue_or_resume_question_attempt(
             || prefetched.webwork_grading_capability != command.webwork_grading_capability
             || prefetched.qti_grading_capability != command.qti_grading_capability
             || state.prefetched_questions.get(&key) != Some(prefetched)
-            || !state
-                .submissions
-                .contains_key(&(tenant, prefetched.predecessor))
+            || !state.submissions.contains_key(&prefetched.predecessor)
         {
             return Err(StoreError::Conflict);
         }
@@ -122,68 +116,50 @@ pub(super) async fn issue_or_resume_question_attempt(
         .attempts
         .values()
         .filter(|attempt| {
-            attempt.tenant == tenant
-                && attempt.run == run.id
-                && projected_attempt(&state, tenant, attempt).status == AttemptStatus::InProgress
+            attempt.run == run.id
+                && projected_attempt(&state, attempt).status == AttemptStatus::InProgress
         })
         .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id));
     if let Some(active) = unresolved.cloned() {
         if active.assignment_position == command.assignment_position {
-            if state
-                .attempt_presentation_capabilities
-                .get(&(tenant, active.id))
+            if state.attempt_presentation_capabilities.get(&active.id)
                 != Some(&command.presentation_capability)
             {
                 return Err(StoreError::Conflict);
             }
-            if state
-                .attempt_issued_question_snapshots
-                .get(&(tenant, active.id))
+            if state.attempt_issued_question_snapshots.get(&active.id)
                 != Some(&command.issued_question_snapshot)
             {
                 return Err(StoreError::Conflict);
             }
-            if state.attempt_presentations.get(&(tenant, active.id))
-                != command.presentation.as_ref()
-            {
+            if state.attempt_presentations.get(&active.id) != command.presentation.as_ref() {
                 return Err(StoreError::Conflict);
             }
-            if state
-                .attempt_presentation_snapshots
-                .get(&(tenant, active.id))
+            if state.attempt_presentation_snapshots.get(&active.id)
                 != command.presentation_snapshot.as_ref()
             {
                 return Err(StoreError::Conflict);
             }
-            if state.attempt_grading_envelopes.get(&(tenant, active.id))
-                != command.grading_envelope.as_ref()
+            if state.attempt_grading_envelopes.get(&active.id) != command.grading_envelope.as_ref()
             {
                 return Err(StoreError::Conflict);
             }
-            if state.attempt_flat_grading.get(&(tenant, active.id)) != command.flat_grading.as_ref()
-            {
+            if state.attempt_flat_grading.get(&active.id) != command.flat_grading.as_ref() {
                 return Err(StoreError::Conflict);
             }
-            if state
-                .attempt_flat_grading_capabilities
-                .get(&(tenant, active.id))
+            if state.attempt_flat_grading_capabilities.get(&active.id)
                 != Some(&command.flat_grading_capability)
             {
                 return Err(StoreError::Conflict);
             }
-            if state.attempt_webwork_grading.get(&(tenant, active.id))
-                != command.webwork_grading.as_ref()
-                || state
-                    .attempt_webwork_grading_capabilities
-                    .get(&(tenant, active.id))
+            if state.attempt_webwork_grading.get(&active.id) != command.webwork_grading.as_ref()
+                || state.attempt_webwork_grading_capabilities.get(&active.id)
                     != Some(&command.webwork_grading_capability)
             {
                 return Err(StoreError::Conflict);
             }
-            if state.attempt_qti_grading.get(&(tenant, active.id)) != command.qti_grading.as_ref()
-                || state
-                    .attempt_qti_grading_capabilities
-                    .get(&(tenant, active.id))
+            if state.attempt_qti_grading.get(&active.id) != command.qti_grading.as_ref()
+                || state.attempt_qti_grading_capabilities.get(&active.id)
                     != Some(&command.qti_grading_capability)
             {
                 return Err(StoreError::Conflict);
@@ -191,7 +167,7 @@ pub(super) async fn issue_or_resume_question_attempt(
             if let Some(mapping) = command.webwork_replay.as_ref()
                 && state
                     .webwork_grade_replay
-                    .get(&(tenant, active.id))
+                    .get(&active.id)
                     .map(|value| &value.mapping)
                     != Some(mapping)
             {
@@ -200,28 +176,27 @@ pub(super) async fn issue_or_resume_question_attempt(
             if let Some(predecessor) = command.predecessor_submission {
                 if state
                     .attempts
-                    .get(&(tenant, predecessor))
+                    .get(&predecessor)
                     .is_none_or(|value| value.run != command.run)
                 {
                     return Err(StoreError::Conflict);
                 }
-                if !state.submissions.contains_key(&(tenant, predecessor)) {
+                if !state.submissions.contains_key(&predecessor) {
                     return Err(StoreError::Conflict);
                 }
-                match state.submission_next_attempts.get(&(tenant, predecessor)) {
+                match state.submission_next_attempts.get(&predecessor) {
                     Some(Some(existing)) if existing.id != active.id => {
                         return Err(StoreError::Conflict);
                     }
                     Some(None) => return Err(StoreError::Conflict),
                     _ => {
-                        state.submission_next_attempts.insert(
-                            (tenant, predecessor),
-                            Some(ReceiptNextAttempt::from_attempt(&active)),
-                        );
+                        state
+                            .submission_next_attempts
+                            .insert(predecessor, Some(ReceiptNextAttempt::from_attempt(&active)));
                     }
                 }
             }
-            return Ok(projected_attempt(&state, tenant, &active));
+            return Ok(projected_attempt(&state, &active));
         }
         return Err(StoreError::InvalidRecord(
             "another question attempt is already active in this run".to_string(),
@@ -231,17 +206,16 @@ pub(super) async fn issue_or_resume_question_attempt(
         .attempts
         .values()
         .filter(|attempt| {
-            attempt.tenant == tenant
-                && attempt.run == run.id
+            attempt.run == run.id
                 && attempt.assignment_position == command.assignment_position
                 && !matches!(
-                    projected_attempt(&state, tenant, attempt).status,
+                    projected_attempt(&state, attempt).status,
                     AttemptStatus::Cleared | AttemptStatus::Exempt
                 )
         })
         .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id));
     if latest_for_position.is_some_and(|latest| {
-        projected_attempt(&state, tenant, latest)
+        projected_attempt(&state, latest)
             .result
             .is_some_and(|result| result.correct)
     }) {
@@ -249,7 +223,7 @@ pub(super) async fn issue_or_resume_question_attempt(
             "a correct question position cannot be retried".to_string(),
         ));
     }
-    if state.attempts.contains_key(&(tenant, command.attempt)) {
+    if state.attempts.contains_key(&command.attempt) {
         return Err(StoreError::AlreadyExists);
     }
     let (seed, parameter_hash, provenance) = match prefetched {
@@ -328,7 +302,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     )?;
     let authored_grace_seconds =
         timing_policy_grace_seconds(issued_question_snapshot.question().timing_policy);
-    let inputs = memory_effective_policy_inputs_for_grant(&state, tenant, assignment.id, &grant)?;
+    let inputs = memory_effective_policy_inputs_for_grant(&state, assignment.id, &grant)?;
     let decision = domain::effective_assignment_policy::resolve_effective_policy(
         domain::effective_assignment_policy::ResolveEffectivePolicyInput {
             lifecycle: domain::effective_assignment_policy::assignment_lifecycle_gate(
@@ -380,7 +354,6 @@ pub(super) async fn issue_or_resume_question_attempt(
         Some((
             job,
             StoredJob {
-                tenant,
                 payload: JobPayload::AutoSubmitAttempt {
                     attempt: command.attempt,
                     timing_generation,
@@ -399,7 +372,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     };
     let attempt = QuestionAttempt {
         id: command.attempt,
-        tenant,
         run: run.id,
         problem: command.problem,
         question_version: command.question_version,
@@ -450,15 +422,15 @@ pub(super) async fn issue_or_resume_question_attempt(
     if let Some(predecessor) = command.predecessor_submission {
         if state
             .attempts
-            .get(&(tenant, predecessor))
+            .get(&predecessor)
             .is_none_or(|value| value.run != command.run)
         {
             return Err(StoreError::Conflict);
         }
-        if !state.submissions.contains_key(&(tenant, predecessor)) {
+        if !state.submissions.contains_key(&predecessor) {
             return Err(StoreError::Conflict);
         }
-        match state.submission_next_attempts.get(&(tenant, predecessor)) {
+        match state.submission_next_attempts.get(&predecessor) {
             Some(Some(existing)) if existing.id != attempt.id => {
                 return Err(StoreError::Conflict);
             }
@@ -468,7 +440,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     let materialized = super::super::entitlement::materialize_locked(
         &mut state,
-        tenant,
         crate::MaterializeAssignmentEntitlementCommand::for_student_action(
             command.actor,
             assignment.course_id,
@@ -484,7 +455,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     if let Some(prefetched) = prefetched {
         state.prefetched_questions.remove(&(
-            tenant,
             command.run,
             prefetched.predecessor,
             command.assignment_position,
@@ -492,7 +462,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     if let Some(predecessor) = command.predecessor_submission {
         state.submission_next_attempts.insert(
-            (tenant, predecessor),
+            predecessor,
             Some(ReceiptNextAttempt::from_attempt(&attempt)),
         );
     }
@@ -501,7 +471,7 @@ pub(super) async fn issue_or_resume_question_attempt(
         state.jobs.insert(job, queued);
     }
     state.attempt_timing.insert(
-        (tenant, attempt.id),
+        attempt.id,
         MemoryAttemptTiming {
             assignment: assignment.id,
             authored_deadline: authored_timer.deadline,
@@ -513,57 +483,53 @@ pub(super) async fn issue_or_resume_question_attempt(
             job: timing_job_id,
         },
     );
-    store_issued_effective_policy_receipt(&mut state, tenant, attempt.id, *policy)?;
-    state.attempts.insert((tenant, attempt.id), attempt.clone());
+    store_issued_effective_policy_receipt(&mut state, attempt.id, *policy)?;
+    state.attempts.insert(attempt.id, attempt.clone());
     state
         .attempt_issued_question_snapshots
-        .insert((tenant, attempt.id), issued_question_snapshot.clone());
+        .insert(attempt.id, issued_question_snapshot.clone());
     state
         .attempt_presentation_capabilities
-        .insert((tenant, attempt.id), presentation_capability);
+        .insert(attempt.id, presentation_capability);
     state
         .attempt_flat_grading_capabilities
-        .insert((tenant, attempt.id), flat_grading_capability);
+        .insert(attempt.id, flat_grading_capability);
     state
         .attempt_webwork_grading_capabilities
-        .insert((tenant, attempt.id), webwork_grading_capability);
+        .insert(attempt.id, webwork_grading_capability);
     state
         .attempt_qti_grading_capabilities
-        .insert((tenant, attempt.id), qti_grading_capability);
+        .insert(attempt.id, qti_grading_capability);
     if let Some(presentation) = presentation {
-        state
-            .attempt_presentations
-            .insert((tenant, attempt.id), presentation);
+        state.attempt_presentations.insert(attempt.id, presentation);
     }
     if let Some(snapshot) = presentation_snapshot {
         state
             .attempt_presentation_snapshots
-            .insert((tenant, attempt.id), snapshot);
+            .insert(attempt.id, snapshot);
     }
     if let Some(grading_envelope) = grading_envelope {
         state
             .attempt_grading_envelopes
-            .insert((tenant, attempt.id), grading_envelope.clone());
+            .insert(attempt.id, grading_envelope.clone());
     }
     if let Some(flat_grading) = flat_grading {
         state
             .attempt_flat_grading
-            .insert((tenant, attempt.id), flat_grading.clone());
+            .insert(attempt.id, flat_grading.clone());
     }
     if let Some(webwork_grading) = webwork_grading {
         state
             .attempt_webwork_grading
-            .insert((tenant, attempt.id), webwork_grading.clone());
+            .insert(attempt.id, webwork_grading.clone());
     }
     if let Some(qti_grading) = qti_grading {
         state
             .attempt_qti_grading
-            .insert((tenant, attempt.id), qti_grading.clone());
+            .insert(attempt.id, qti_grading.clone());
     }
     if let Some(replay) = webwork_replay {
-        state
-            .webwork_grade_replay
-            .insert((tenant, attempt.id), replay);
+        state.webwork_grade_replay.insert(attempt.id, replay);
     }
     Ok(attempt)
 }

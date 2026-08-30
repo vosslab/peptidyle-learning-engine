@@ -110,7 +110,7 @@ pub(super) async fn no_store_response(response: Response) -> Response {
 
 pub(super) fn route_store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch => {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => {
             error_response(StatusCode::NOT_FOUND, "course retention not found")
         }
         StoreError::Conflict | StoreError::TimedOut | StoreError::AlreadyExists => {

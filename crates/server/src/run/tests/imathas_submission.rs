@@ -401,7 +401,6 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
         response_sha256: Sha256Digest::compute(&serde_json::to_vec(&response).expect("response")),
     };
     let grade_binding = GradeBinding {
-        tenant: fixture.context.tenant_id(),
         attempt: fixture.attempt.id,
         problem: fixture.question.problem,
         version: fixture.question.version,

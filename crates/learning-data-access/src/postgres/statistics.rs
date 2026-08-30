@@ -6,10 +6,9 @@ use super::*;
 impl crate::StatisticsStore for PostgresStore {
     async fn question_statistics_impl(
         &self,
-        context: TenantContext,
         reference: ProblemVersionRef,
     ) -> Result<QuestionStatisticsDisclosure, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
+        let mut transaction = self.begin_app().await?;
         let row = sqlx::query(
             "SELECT cohort_size, difficulty_index, attempts_mean, time_median_seconds_estimate, \
                     discrimination_index \
@@ -25,7 +24,7 @@ impl crate::StatisticsStore for PostgresStore {
     }
     async fn list_gradebook_rows_impl(
         &self,
-        context: TenantContext,
+        actor: ActorContext,
         course: CourseId,
         page: PageRequest,
     ) -> Result<Page<question_model::GradebookSummaryRow>, StoreError> {
@@ -35,20 +34,33 @@ impl crate::StatisticsStore for PostgresStore {
             .map(GradebookCursor::decode)
             .transpose()?;
         let limit = i64::from(page.size.get()) + 1;
-        let mut transaction = self.begin_tenant(context).await?;
-        let course_exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM course WHERE tenant_id = $1 AND course_id = $2)",
+        let mut transaction = self.begin_app().await?;
+        let tenants = sqlx::query_scalar("SELECT tenant_id FROM course WHERE course_id = $1")
+            .bind(course.as_uuid())
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        let [tenant] = tenants.as_slice() else {
+            return Err(StoreError::NotFound);
+        };
+        let role = sqlx::query_scalar::<_, String>(
+            "SELECT role FROM course_member \
+             WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 \
+               AND status = 'active'",
         )
-        .bind(context.tenant_id().as_uuid())
+        .bind(*tenant)
         .bind(course.as_uuid())
-        .fetch_one(&mut *transaction)
+        .bind(actor.user_id().as_uuid())
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        if !course_exists {
-            return Err(StoreError::NotFound);
+        match role.as_deref() {
+            Some("instructor") => {}
+            Some("student") => return Err(StoreError::Forbidden),
+            Some(_) | None => return Err(StoreError::NotFound),
         }
         let rows = sqlx::query(GRADEBOOK_SUMMARY_PAGE_SQL)
-            .bind(context.tenant_id().as_uuid())
+            .bind(*tenant)
             .bind(course.as_uuid())
             .bind(cursor.map(|value| value.assignment))
             .bind(cursor.map(|value| value.enrollment))
@@ -70,7 +82,6 @@ impl crate::StatisticsStore for PostgresStore {
                         enrollment: enrollment_id.as_uuid(),
                     },
                     question_model::GradebookSummaryRow {
-                        tenant: context.tenant_id(),
                         course_id: course,
                         enrollment_id,
                         student_id: question_model::StudentId::from_uuid(

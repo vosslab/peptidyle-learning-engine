@@ -16,6 +16,17 @@ where
     let assignment_id = AssignmentId::from_uuid(uuid(8));
     let course_id = CourseId::from_uuid(uuid(17));
     let course_user = UserId::from_uuid(uuid(18));
+    let course_actor = ActorContext::from_session_record(
+        &store
+            .create_session(
+                SessionTokenHash::compute(b"core-store-gradebook-instructor"),
+                SessionSubject::new(course_user, "Course instructor", UserRole::Instructor)
+                    .expect("valid instructor session subject"),
+                SessionLifetime::from_seconds(3_600).expect("valid session lifetime"),
+            )
+            .await
+            .expect("course instructor session"),
+    );
     let course_creation_authority =
         sysadmin_course_creation_authority(store, tenant, course_id, course_user).await;
     let run_id = RunId::from_uuid(uuid(10));
@@ -596,7 +607,7 @@ where
         .enrollment;
     let first_gradebook_page = store
         .list_gradebook_rows(
-            context,
+            course_actor,
             course_id,
             PageRequest::first(PageSize::new(1).expect("one is a valid page size")),
         )
@@ -604,7 +615,7 @@ where
         .expect("summary-only gradebook page should load");
     let second_gradebook_page = store
         .list_gradebook_rows(
-            context,
+            course_actor,
             course_id,
             PageRequest::after(
                 first_gradebook_page
@@ -628,7 +639,6 @@ where
         .chain(second_gradebook_page.items.iter())
         .find(|row| row.enrollment_id == enrollment_id)
         .expect("completed enrollment should appear in the gradebook");
-    assert_eq!(first_gradebook_row.tenant, tenant);
     assert_eq!(first_gradebook_row.course_id, course_id);
     assert_eq!(first_gradebook_row.assignment_id, assignment_id);
     assert_eq!(first_gradebook_row.assignment_title, "Molar mass mastery");
@@ -636,7 +646,7 @@ where
     assert!(matches!(
         store
             .list_gradebook_rows(
-                context,
+                course_actor,
                 course_id,
                 PageRequest::after(
                     Cursor::parse("not-a-gradebook-cursor".to_string())
@@ -647,19 +657,7 @@ where
             .await,
         Err(StoreError::InvalidRecord(message)) if message == "invalid gradebook cursor"
     ));
-    assert_eq!(
-        store
-            .list_gradebook_rows(
-                foreign_context,
-                course_id,
-                PageRequest::first(PageSize::new(1).expect("one is a valid page size")),
-            )
-            .await,
-        Err(StoreError::NotFound),
-        "a foreign tenant cannot discover this course or its summary rows"
-    );
-
-    let tenant_mismatch = store
+    let ownership_mismatch = store
         .upsert_draft(
             foreign_context,
             publisher,
@@ -773,7 +771,7 @@ where
         ),
         (Some(ActivityTimestamp::from_unix_millis(130)), problem, 2,)
     );
-    assert_eq!(tenant_mismatch, Err(StoreError::TenantMismatch));
+    assert_eq!(ownership_mismatch, Err(StoreError::OwnershipMismatch));
     assert_eq!(
         store.get_draft(foreign_context, publisher, workspace).await,
         Ok(None)

@@ -258,8 +258,6 @@ async function activeAttempt(client: ApiClient, runId: RunId): Promise<StudentQu
 function verifyRunEnrollment(run: AssignmentRun, enrollment: EnrollmentView): void {
   if (enrollment.enrollment.id !== run.enrollment)
     throw new ApiProtocolError("Run screen enrollment records are inconsistent");
-  if (run.tenant !== enrollment.enrollment.tenant)
-    throw new ApiProtocolError("Run screen enrollment records cross tenant boundaries");
 }
 function verifyRunScreen(screen: RunScreenData): void {
   if (screen.run.id !== screen.attempt.run)
@@ -534,11 +532,7 @@ export function createResponseClient(
           initial.error.message === `Run ${runId} has no active question attempt`;
         if (!noActive || run.completedAt !== null) throw initial.error;
         const resumed = await client.startRun(assignmentRoute.courseId, assignment.id);
-        if (
-          resumed.id !== runId ||
-          resumed.tenant !== run.tenant ||
-          resumed.enrollment !== run.enrollment
-        )
+        if (resumed.id !== runId || resumed.enrollment !== run.enrollment)
           throw new ApiProtocolError("Run screen recovery did not resume the requested run");
         attempt = await activeAttempt(client, runId);
       }
@@ -560,8 +554,6 @@ export function createResponseClient(
         attempt,
         issuedQuestion,
       };
-      if (attempt.tenant !== run.tenant)
-        throw new ApiProtocolError("Run screen attempt crosses a tenant boundary");
       verifyRunScreen(screen);
       return screen;
     },

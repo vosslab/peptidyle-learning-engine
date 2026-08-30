@@ -15,8 +15,8 @@ use question_model::{
 use uuid::Uuid;
 
 use crate::{
-    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, StoreError, StudentWorkRoutingBinding,
-    SubmissionIdempotencyKey, SubmissionRecord, TenantContext,
+    ActorContext, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, StoreError,
+    StudentWorkRoutingBinding, SubmissionIdempotencyKey, SubmissionRecord,
 };
 
 /// Exact immutable binding for one server-mediated external-tool exchange.
@@ -270,25 +270,25 @@ pub struct CommitVerifiedExternalToolSubmissionCommand {
 pub trait ExternalToolBrokerStore: Send + Sync {
     async fn begin_or_resume_external_grade(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: BeginExternalToolGradeCommand,
     ) -> Result<ExternalToolBegin, StoreError>;
 
     async fn stage_external_tool_verification(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: StageExternalToolVerificationCommand,
     ) -> Result<(), StoreError>;
 
     async fn commit_external_tool_submission(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CommitExternalToolSubmissionCommand,
     ) -> Result<SubmissionRecord, StoreError>;
 
     async fn commit_verified_external_tool_submission(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CommitVerifiedExternalToolSubmissionCommand,
     ) -> Result<SubmissionRecord, StoreError>;
 }
@@ -577,7 +577,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     /// Prepares one exact active external-tool attempt before provider work.
     async fn prepare_external_tool_attempt(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -585,7 +585,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
 
     async fn create_external_tool_launch_session(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateExternalToolLaunchSessionCommand,
     ) -> Result<CreatedExternalToolLaunchSession, StoreError>;
 
@@ -594,7 +594,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     #[allow(clippy::too_many_arguments)]
     async fn claim_external_tool_activity(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -608,7 +608,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     #[allow(clippy::too_many_arguments)]
     async fn claim_and_begin_external_tool_activity_dispatch(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -622,7 +622,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     /// finalization fence blocks every other provider request for the attempt.
     async fn claim_external_tool_finalization_activity(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: ClaimExternalToolFinalizationActivityCommand,
     ) -> Result<ExternalToolActivityClaim, StoreError>;
 
@@ -630,7 +630,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     /// call after expiry: it can never release a newer holder's lease.
     async fn release_external_tool_activity(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -643,7 +643,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     /// crash after this point is indeterminate and cannot be reclaimed.
     async fn begin_external_tool_activity_dispatch(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -655,7 +655,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     /// response was received. There is intentionally no browser retry path.
     async fn complete_external_tool_activity_dispatch(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -667,7 +667,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
     /// unknown upstream effect into an automatic retry.
     async fn fence_indeterminate_external_tool_activity(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,
@@ -677,7 +677,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
 
     async fn revoke_external_tool_launch_session(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         actor: UserId,
         student_work_binding: StudentWorkRoutingBinding,
         attempt: QuestionAttemptId,

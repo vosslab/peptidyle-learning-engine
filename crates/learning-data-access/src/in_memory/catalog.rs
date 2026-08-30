@@ -1,4 +1,5 @@
 use super::*;
+use crate::ActorContext;
 
 mod search;
 
@@ -7,7 +8,6 @@ const MAX_CATALOG_USAGE_SNAPSHOTS_PER_ACTOR: usize = 8;
 
 #[derive(Debug, Clone)]
 pub(super) struct CatalogUsageSnapshot {
-    tenant: TenantId,
     actor: UserId,
     created_at_millis: u64,
     expires_at_millis: u64,
@@ -19,11 +19,10 @@ pub(super) struct CatalogUsageSnapshot {
 impl CatalogStore for MemoryStore {
     async fn publish_draft(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         command: PublishDraftCommand,
     ) -> Result<PublishedProblemRecord, StoreError> {
-        ensure_tenant(context, command.expected_draft.tenant)?;
         validate_draft(&command.expected_draft)?;
         crate::validate_publication_source(&command.expected_draft, &command.published_source)?;
         crate::validate_source_artifact_for_publication(
@@ -82,16 +81,12 @@ impl CatalogStore for MemoryStore {
             && (qti_promotion.is_some_and(|promotion| !promotion.assets.is_empty())
                 || flat_promotion.is_some_and(|promotion| !promotion.assets.is_empty()));
         let mut state = self.write_state()?;
-        let draft_key = (
-            context.tenant_id(),
-            command.expected_draft.question.workspace,
-        );
+        let draft_key = command.expected_draft.question.workspace;
         if command.publisher != actor
-            || state.draft_access.get(&(
-                context.tenant_id(),
-                command.expected_draft.question.workspace,
-                actor,
-            )) != Some(&WorkspaceDraftRole::Owner)
+            || state
+                .draft_access
+                .get(&(command.expected_draft.question.workspace, actor))
+                != Some(&WorkspaceDraftRole::Owner)
         {
             return Err(StoreError::Forbidden);
         }
@@ -112,13 +107,9 @@ impl CatalogStore for MemoryStore {
         let qti_grading = if let Some(promotion) = qti_promotion {
             let registry = state
                 .qti_imports
-                .get(&(
-                    promotion.staging.tenant,
-                    promotion.staging.workspace,
-                    promotion.staging.import,
-                ))
+                .get(&(promotion.staging.workspace, promotion.staging.import))
                 .ok_or(StoreError::NotFound)?;
-            validate_qti_publication_promotion(context, &command, promotion, registry)?;
+            validate_qti_publication_promotion(&command, promotion, registry)?;
             let question_model::DraftQuestionSource::Qti { item_id, .. } =
                 &command.expected_draft.question.source
             else {
@@ -127,7 +118,6 @@ impl CatalogStore for MemoryStore {
             let material = state
                 .qti_grading
                 .get(&(
-                    promotion.staging.tenant,
                     promotion.staging.workspace,
                     promotion.staging.import,
                     item_id.clone(),
@@ -151,16 +141,13 @@ impl CatalogStore for MemoryStore {
         let (flat_grading, published_flat_import_origin) = if let Some(promotion) = flat_promotion {
             let staged_source = state
                 .flat_question_sources
-                .get(&(
-                    context.tenant_id(),
-                    command.expected_draft.question.workspace,
-                ))
+                .get(&command.expected_draft.question.workspace)
                 .ok_or(StoreError::NotFound)?;
             let stored_grading = state
                 .workspace_flat_question_grading
                 .get(&draft_key)
                 .ok_or(StoreError::Conflict)?;
-            crate::validate_flat_question_publication(context, &command, staged_source)?;
+            crate::validate_flat_question_publication(&command, staged_source)?;
             let published_grading =
                 crate::publication_validation::validate_flat_question_publication_grading(
                     &command,
@@ -232,7 +219,7 @@ impl CatalogStore for MemoryStore {
                 .published
                 .get(&(source.problem, source.version))
                 .ok_or(StoreError::NotFound)?;
-            if !catalog_record_visible(&state, context.tenant_id(), source_record) {
+            if !catalog_record_visible(source_record) {
                 return Err(StoreError::NotFound);
             }
         }
@@ -280,15 +267,6 @@ impl CatalogStore for MemoryStore {
             published_at: state.authoritative_time,
         };
         validate_published(&record)?;
-        if record.scope == PublicationScope::Institution {
-            state
-                .catalog_grants
-                .insert((context.tenant_id(), record.problem, record.version));
-        }
-        state
-            .problem_owner_tenants
-            .entry(record.problem)
-            .or_insert(context.tenant_id());
         let catalog_sequence = state.next_catalog_publication_sequence;
         state.next_catalog_publication_sequence = state
             .next_catalog_publication_sequence
@@ -340,7 +318,6 @@ impl CatalogStore for MemoryStore {
             let replaced = state.jobs.insert(
                 job,
                 StoredJob {
-                    tenant: context.tenant_id(),
                     payload: JobPayload::PublishPublicAssets {
                         reference: publication,
                     },
@@ -359,7 +336,7 @@ impl CatalogStore for MemoryStore {
         state.draft_revisions.remove(&draft_key);
         state
             .draft_access
-            .retain(|(tenant, workspace, _), _| (*tenant, *workspace) != draft_key);
+            .retain(|(workspace, _), _| *workspace != draft_key);
         state.flat_question_sources.remove(&draft_key);
         state.workspace_flat_question_grading.remove(&draft_key);
         state.workspace_flat_import_origins.remove(&draft_key);
@@ -368,20 +345,20 @@ impl CatalogStore for MemoryStore {
 
     async fn get_catalog_problem(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
         let state = self.read_state()?;
         Ok(state
             .published
             .get(&(reference.problem, reference.version))
-            .filter(|record| catalog_record_visible(&state, context.tenant_id(), record))
+            .filter(|record| catalog_record_visible(record))
             .cloned())
     }
 
     async fn resolve_catalog_problem(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         reference: question_model::ProblemDisplayRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
         self.catalog_resolution_calls
@@ -396,14 +373,14 @@ impl CatalogStore for MemoryStore {
             .find(|record| {
                 record.question_id == reference.question_id
                     && record.lifecycle.is_resolvable_by_stable_question_id()
-                    && catalog_record_visible(&state, context.tenant_id(), record)
+                    && catalog_record_visible(record)
             })
             .cloned())
     }
 
     async fn list_catalog(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         page: PageRequest,
     ) -> Result<Page<CatalogProblemSummary>, StoreError> {
         let state = self.read_state()?;
@@ -411,8 +388,7 @@ impl CatalogStore for MemoryStore {
             .published
             .iter()
             .filter(|(_, record)| {
-                record.lifecycle.is_discoverable()
-                    && catalog_record_visible(&state, context.tenant_id(), record)
+                record.lifecycle.is_discoverable() && catalog_record_visible(record)
             })
             .map(|((problem, version), record)| (format!("{problem}/{version}"), record.summary()))
             .collect();
@@ -421,15 +397,16 @@ impl CatalogStore for MemoryStore {
 
     async fn list_catalog_taxonomy(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         page: PageRequest,
     ) -> Result<Page<TaxonomyTerm>, StoreError> {
         let state = self.read_state()?;
         let mut distinct = BTreeMap::new();
-        for record in state.published.values().filter(|record| {
-            record.lifecycle.is_discoverable()
-                && catalog_record_visible(&state, context.tenant_id(), record)
-        }) {
+        for record in state
+            .published
+            .values()
+            .filter(|record| record.lifecycle.is_discoverable() && catalog_record_visible(record))
+        {
             for term in &record.question.metadata.taxonomy {
                 distinct
                     .entry(taxonomy_cursor_key(term))
@@ -441,7 +418,7 @@ impl CatalogStore for MemoryStore {
 
     async fn search_catalog(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError> {
@@ -450,7 +427,7 @@ impl CatalogStore for MemoryStore {
 
     async fn get_catalog_detail(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemVersionRef,
     ) -> Result<Option<CatalogProblemDetail>, StoreError> {
@@ -459,7 +436,7 @@ impl CatalogStore for MemoryStore {
         let Some(record) = state
             .published
             .get(&(reference.problem, reference.version))
-            .filter(|record| catalog_record_visible(&state, context.tenant_id(), record))
+            .filter(|record| catalog_record_visible(record))
         else {
             return Ok(None);
         };
@@ -473,13 +450,13 @@ impl CatalogStore for MemoryStore {
                 state_catalog_snapshot_boundary(&state),
             )
             .0,
-            usage: catalog_usage_detail(&state, context.tenant_id(), actor, reference),
+            usage: catalog_usage_detail(&state, actor, reference),
         }))
     }
 
     async fn transition_catalog_problem(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         actor: UserId,
         reference: ProblemVersionRef,
         transition: CatalogTransition,
@@ -489,10 +466,8 @@ impl CatalogStore for MemoryStore {
         let visible = state
             .published
             .get(&key)
-            .is_some_and(|record| catalog_record_visible(&state, context.tenant_id(), record));
-        if !visible
-            || state.problem_owner_tenants.get(&reference.problem) != Some(&context.tenant_id())
-        {
+            .is_some_and(catalog_record_visible);
+        if !visible {
             return Err(StoreError::NotFound);
         }
         let record = state.published.get_mut(&key).ok_or(StoreError::NotFound)?;
@@ -521,14 +496,12 @@ impl CatalogStore for MemoryStore {
 
 fn catalog_usage_detail(
     state: &State,
-    tenant: TenantId,
     actor: UserId,
     reference: ProblemVersionRef,
 ) -> CatalogUsageDetail {
     let assignment_uses = state
         .assignments
         .values()
-        .filter(|assignment| assignment.tenant == tenant)
         .filter(|assignment| assignment_references(assignment, reference))
         .collect::<Vec<_>>();
     let institution_courses = assignment_uses
@@ -539,11 +512,10 @@ fn catalog_usage_detail(
         .course_memberships
         .values()
         .filter(|membership| {
-            membership.tenant == tenant
-                && membership.user == actor
+            membership.user == actor
                 && membership.role == CourseMembershipRole::Instructor
                 && membership.status == CourseMemberStatus::Active
-                && super::course_records_accessible(state, tenant, membership.course)
+                && super::course_records_accessible(state, membership.course)
         })
         .map(|membership| membership.course)
         .collect::<BTreeSet<_>>();
@@ -551,8 +523,8 @@ fn catalog_usage_detail(
         .iter()
         .filter(|course| own_course_ids.contains(course))
         .filter_map(|course| {
-            let record = state.courses.get(&(tenant, *course))?;
-            let reference = state.course_references.get(&(tenant, *course)).copied()?;
+            let record = state.courses.get(course)?;
+            let reference = state.course_references.get(course).copied()?;
             let assignment_count = assignment_uses
                 .iter()
                 .filter(|assignment| assignment.course_id == *course)
@@ -586,22 +558,15 @@ fn catalog_usage_detail(
 
 fn catalog_search_actor(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Result<UserId, StoreError> {
     let subject =
         super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    if subject
-        .roles()
-        .contains(&question_model::UserRole::Sysadmin)
-    {
-        return Ok(subject.user());
-    }
-    if !subject
-        .roles()
-        .contains(&question_model::UserRole::Instructor)
-    {
-        return Err(StoreError::Forbidden);
+    match subject.role() {
+        question_model::UserRole::Sysadmin => return Ok(subject.user()),
+        question_model::UserRole::Instructor => {}
+        question_model::UserRole::Student => return Err(StoreError::Forbidden),
     }
     let approval = state
         .instructor_approvals
@@ -622,26 +587,26 @@ fn catalog_search_actor(
 
 fn catalog_usage_snapshot_values(
     state: &State,
-    tenant: TenantId,
     actor: UserId,
 ) -> (BTreeSet<(ProblemId, VersionId)>, BTreeSet<CourseId>) {
     let own_course_ids = state
         .course_memberships
         .values()
         .filter(|membership| {
-            membership.tenant == tenant
-                && membership.user == actor
+            membership.user == actor
                 && membership.role == CourseMembershipRole::Instructor
                 && membership.status == CourseMemberStatus::Active
-                && super::course_records_accessible(state, tenant, membership.course)
+                && super::course_records_accessible(state, membership.course)
         })
         .map(|membership| membership.course)
         .collect::<BTreeSet<_>>();
     let mut used = BTreeSet::new();
     let mut used_courses = BTreeSet::new();
-    for assignment in state.assignments.values().filter(|assignment| {
-        assignment.tenant == tenant && own_course_ids.contains(&assignment.course_id)
-    }) {
+    for assignment in state
+        .assignments
+        .values()
+        .filter(|assignment| own_course_ids.contains(&assignment.course_id))
+    {
         let mut assignment_has_active_reference = false;
         for item in assignment
             .items
@@ -669,15 +634,13 @@ fn catalog_usage_snapshot_values(
 
 fn catalog_snapshot_courses_are_authorized(
     state: &State,
-    tenant: TenantId,
     actor: UserId,
     courses: &BTreeSet<CourseId>,
 ) -> bool {
     courses.iter().all(|course| {
-        state.courses.contains_key(&(tenant, *course))
+        state.courses.contains_key(course)
             && state.course_memberships.values().any(|membership| {
-                membership.tenant == tenant
-                    && membership.course == *course
+                membership.course == *course
                     && membership.user == actor
                     && membership.role == CourseMembershipRole::Instructor
                     && membership.status == CourseMemberStatus::Active
@@ -687,7 +650,6 @@ fn catalog_snapshot_courses_are_authorized(
 
 fn catalog_usage_snapshot_token(
     fingerprint: &str,
-    tenant: TenantId,
     actor: UserId,
     expires_at_millis: u64,
     publications: &BTreeSet<(ProblemId, VersionId)>,
@@ -695,8 +657,6 @@ fn catalog_usage_snapshot_token(
 ) -> [u8; 32] {
     let mut canonical = String::new();
     canonical.push_str(fingerprint);
-    canonical.push('|');
-    canonical.push_str(&tenant.as_uuid().to_string());
     canonical.push('|');
     canonical.push_str(&actor.as_uuid().to_string());
     canonical.push('|');
@@ -751,14 +711,14 @@ pub(super) fn catalog_discovery_evidence(
 impl CatalogSourceStore for MemoryStore {
     async fn catalog_source_artifact(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedSourceArtifact>, StoreError> {
         let state = self.read_state()?;
         let Some(published) = state.published.get(&(reference.problem, reference.version)) else {
             return Ok(None);
         };
-        if !catalog_record_visible(&state, context.tenant_id(), published) {
+        if !catalog_record_visible(published) {
             return Ok(None);
         }
         Ok(state
@@ -768,18 +728,11 @@ impl CatalogSourceStore for MemoryStore {
     }
 }
 
-pub(super) fn catalog_record_visible(
-    state: &State,
-    tenant: TenantId,
-    record: &PublishedProblemRecord,
-) -> bool {
+pub(super) fn catalog_record_visible(record: &PublishedProblemRecord) -> bool {
     // Exact-version reads intentionally retain deprecated and archived content
-    // for historical assignments. This is the same scope/grant predicate used
-    // by PostgreSQL RLS and the published-QTI grader capability.
-    record.scope == PublicationScope::Public
-        || state
-            .catalog_grants
-            .contains(&(tenant, record.problem, record.version))
+    // for historical assignments. Published records share one catalog state.
+    let _ = record;
+    true
 }
 
 /// Converts the wire-owned bounded search request into the shared pagination

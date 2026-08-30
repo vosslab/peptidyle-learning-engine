@@ -22,7 +22,7 @@ private draft
   -> validate and preview
   -> publish immutable version
   -> select exact version for assignment
-  -> create or resume tenant-owned run
+  -> create or resume course-owned run
   -> issue one server-owned attempt
   -> render active attempt and optionally reserve next
   -> submit compact learner response exactly once
@@ -36,8 +36,8 @@ private draft
 
 The arrow is an ownership change, not merely a screen change. A browser can
 read an answer-free projection and propose a response; it cannot choose a
-tenant, published version, seed, deadline, grading backend, score, or deletion
-scope. The server derives those facts from authenticated, tenant-owned records.
+installation, published version, seed, deadline, grading backend, score, or deletion
+scope. The server derives those facts from authenticated course-owned records.
 
 ## Ownership and identities
 
@@ -47,8 +47,8 @@ PLE keeps four related but different things separate:
 | --- | --- | --- |
 | Draft | Instructor workspace; private and mutable | `WorkspaceId` |
 | Published question | Shared immutable catalog content | `ProblemId` and `VersionId` |
-| Assignment activity | One tenant/course's teaching configuration | Course and assignment IDs |
-| Learner activity | Tenant-owned educational record | Enrollment, run, and attempt IDs |
+| Assignment activity | One course's teaching configuration | Course and assignment IDs |
+| Learner activity | Course-owned educational record | Enrollment, run, and attempt IDs |
 
 Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
@@ -88,7 +88,7 @@ repeats it before writing a durable transition.
 
 ### 3. Commit an immutable publication
 
-The server resolves the tenant-owned draft, validates it, mints a fresh Question
+The server resolves the workspace-owned draft, validates it, mints a fresh Question
 ID and hidden `(ProblemId, VersionId)` pair only after success, and commits
 immutable metadata, public payload, private grader material or source binding,
 visibility grant, and draft removal as one transaction. A publication never
@@ -118,8 +118,8 @@ policies are intentionally independent in the domain model.
 The instructor UI can present teaching-oriented assignment types while storing
 their explicit policy values.
 
-The assignment belongs to one tenant course. Enrolling a student creates a
-tenant-owned educational relationship, not a copy of shared question content.
+The assignment belongs to one course. Enrolling a student creates a
+course-owned educational relationship, not a copy of shared question content.
 The authenticated session supplies the user identity; the server verifies that
 the enrollment owns that user rather than assuming `UserId` and `StudentId` are
 interchangeable.
@@ -147,7 +147,7 @@ unlimited later runs, new seeds, and five assignment disclosure fields set to
 ### 6. Issue exactly one active attempt
 
 The run service issues at most one unresolved attempt at a time. The attempt
-binds the authenticated learner and tenant through its enrollment and run, the
+binds the authenticated learner and course through its enrollment and run, the
 assignment position, immutable version, seed, policy, timing state, grader
 backend, and provenance. Resume returns the stored attempt and stored seed; it
 does not generate a different problem mid-attempt.
@@ -177,7 +177,7 @@ and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_D
 ### 8. Reserve one next question safely
 
 When policy allows it, PLE may prepare one next question while the learner is
-working. A prefetch reservation is tenant-, learner-, run-, predecessor-, and
+working. A prefetch reservation is course-, learner-, run-, predecessor-, and
 position-bound. It has no attempt ID, response, grade, or started timer.
 
 At the secure-payload target boundary, an untimed-practice browser may hold the
@@ -287,7 +287,7 @@ bounded RC3 contract and its release scope are in
 
 External-tool questions remain deliberately sparse in the generic model. The
 provider is not allowed to widen an ordinary learner response into a token or
-raw payload. Broker sessions and transcripts are tenant-owned student records
+raw payload. Broker sessions and transcripts are course-owned student records
 with their own authorization and retention handling.
 
 ## Failure and recovery semantics
@@ -312,7 +312,7 @@ and [CONTRACTS.md](CONTRACTS.md).
 
 ## Retain records, keep learning
 
-Learner records are tenant-owned and privacy-sensitive. Course policy first
+Learner records are course-owned and privacy-sensitive. Course policy first
 notifies, then archives and fences learner access, then permanently deletes the
 complete learner graph and typed student-record objects. The deletion path uses
 a frozen manifest, idempotent object deletion, lease and generation fencing,

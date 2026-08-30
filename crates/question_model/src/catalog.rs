@@ -186,14 +186,14 @@ pub struct ProblemVersionRef {
 
 /// Visibility of immutable published content.
 ///
-/// Private content remains a tenant-owned draft and therefore has no variant
+/// Private content remains a workspace-owned draft and therefore has no variant
 /// here and no `ProblemId`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PublicationScope {
     /// Discoverable only by the publishing institution.
     Institution,
-    /// Discoverable across every tenant.
+    /// Discoverable across the installation.
     Public,
 }
 

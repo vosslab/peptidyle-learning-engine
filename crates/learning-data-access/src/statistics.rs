@@ -289,8 +289,7 @@ mod tests {
     use super::*;
     use question_model::{
         ActivityTimestamp, AssignmentItemId, AttemptProvenance, AttemptTimerRecord,
-        ImplementationVersion, ProblemId, QuestionAttemptId, RunId, StudentResponse, TenantId,
-        VersionId,
+        ImplementationVersion, ProblemId, QuestionAttemptId, RunId, StudentResponse, VersionId,
     };
     use uuid::Uuid;
 
@@ -343,7 +342,6 @@ mod tests {
         };
         QuestionAttempt {
             id: QuestionAttemptId::from_uuid(id(3_000 + number)),
-            tenant: TenantId::from_uuid(id(2_002)),
             run: RunId::from_uuid(id(2_004)),
             problem: reference.problem,
             question_version: reference.version,

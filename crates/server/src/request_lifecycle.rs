@@ -32,7 +32,7 @@ pub fn apply_request_lifecycle(router: Router) -> Router {
 
 /// Mints a request ID locally and emits a deliberately low-cardinality,
 /// answer-free completion event. Client supplied request identifiers are never
-/// reflected or trusted, preventing log injection and cross-tenant correlation.
+/// reflected or trusted, preventing log injection and cross-course correlation.
 pub async fn request_lifecycle(request: Request, next: Next) -> Response {
     let request_id = match mint_request_id() {
         Ok(value) => value,

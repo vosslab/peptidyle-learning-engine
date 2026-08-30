@@ -3,7 +3,7 @@
 use crate::{
     AssetDeliveryScope, CreateQtiImportCommand, DraftRecord, ObjectRecord, PublishDraftCommand,
     PublishedProblemRecord, PublishedSourceArtifact, QtiImportItemStatus, QtiImportRef,
-    QtiImportRegistry, QtiPublicationPromotion, StoreError, TenantContext, validate_asset_delivery,
+    QtiImportRegistry, QtiPublicationPromotion, StoreError, validate_asset_delivery,
 };
 use objects::{Bucket, ObjectCategory, ObjectKey};
 use question_model::{
@@ -290,7 +290,6 @@ fn validate_qti_warning(feature: &crate::QtiUnsupportedFeature) -> Result<(), St
 /// publication route. The caller separately loads `registry` from committed
 /// private staging while holding its publication transaction open.
 pub(crate) fn validate_qti_publication_promotion(
-    context: TenantContext,
     command: &PublishDraftCommand,
     promotion: &QtiPublicationPromotion,
     registry: &QtiImportRegistry,
@@ -314,7 +313,6 @@ pub(crate) fn validate_qti_publication_promotion(
         ));
     };
     if item_id != draft_item
-        || promotion.staging.tenant != context.tenant_id()
         || promotion.staging.workspace != command.expected_draft.question.workspace
         || promotion.staging.import != *draft_import
         || registry.reference != promotion.staging
@@ -409,8 +407,8 @@ fn validate_workspace_source(
         || record.version.is_some()
         || record.key.version_id().is_some()
         || record.media_type != "application/zip"
-        || !matches!(record.key, ObjectKey::WorkspaceSource { tenant, workspace, import, .. }
-            if tenant == reference.tenant && workspace == reference.workspace && import == reference.import)
+        || !matches!(record.key, ObjectKey::WorkspaceSource { workspace, import, .. }
+            if workspace == reference.workspace && import == reference.import)
     {
         return Err(StoreError::InvalidRecord(
             "QTI source record is not an exact workspace ZIP".to_string(),
@@ -431,8 +429,8 @@ fn validate_workspace_asset(
         || record.version.is_some()
         || record.key.version_id().is_some()
         || record.media_type.is_empty()
-        || !matches!(record.key, ObjectKey::WorkspaceAsset { tenant, workspace, import, .. }
-            if tenant == reference.tenant && workspace == reference.workspace && import == reference.import)
+        || !matches!(record.key, ObjectKey::WorkspaceAsset { workspace, import, .. }
+            if workspace == reference.workspace && import == reference.import)
     {
         return Err(StoreError::InvalidRecord(
             "QTI asset record is not an exact workspace asset".to_string(),
@@ -449,7 +447,7 @@ fn validate_object_annotations(record: &ObjectRecord) -> Result<(), StoreError> 
 
 /// Ensures the server-prepared immutable source is for the exact draft being
 /// published. This prevents a caller from attaching a snapshot from another
-/// backend or iMathAS item while the draft is still tenant-owned.
+/// backend or iMathAS item while the draft remains private to its workspace.
 pub(crate) fn validate_publication_source(
     draft: &DraftRecord,
     source: &question_model::QuestionSource,
@@ -603,7 +601,6 @@ pub(crate) fn validate_source_artifact_for_publication(
 /// current origin. A present selector reaches that locked comparison only
 /// after its published archive is revalidated against this publication.
 pub(crate) fn validate_flat_import_publication_promotion(
-    context: TenantContext,
     publication: ProblemVersionRef,
     promotion: Option<&crate::FlatImportPublicationPromotion>,
 ) -> Result<(), StoreError> {
@@ -612,7 +609,6 @@ pub(crate) fn validate_flat_import_publication_promotion(
     };
     let archive = promotion.published_archive();
     let ObjectKey::PublishedImportArchive {
-        tenant,
         problem,
         version,
         import,
@@ -623,15 +619,9 @@ pub(crate) fn validate_flat_import_publication_promotion(
             "flat-import publication requires a published archive key".to_string(),
         ));
     };
-    let expected_object = objects::published_import_archive_object_id(
-        *tenant,
-        *problem,
-        *version,
-        *import,
-        archive.sha256,
-    );
-    if *tenant != context.tenant_id()
-        || *problem != publication.problem
+    let expected_object =
+        objects::published_import_archive_object_id(*problem, *version, *import, archive.sha256);
+    if *problem != publication.problem
         || *version != publication.version
         || *object != expected_object
         || archive.id != expected_object

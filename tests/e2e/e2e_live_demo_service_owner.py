@@ -42,7 +42,6 @@ SEED_MANIFEST_MAXIMUM_BYTES = 16_384
 PROCESS_GROUP_DRAIN_TIMEOUT_SECONDS = 5.0
 PROCESS_GROUP_DRAIN_INTERVAL_SECONDS = 0.05
 QUESTION_ID_PATTERN = re.compile(r"^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$")
-TENANT_ID = local_stack_control.lifecycle.LOCAL_TENANT_ID
 ELENA_ID = local_stack_control.lifecycle.LOCAL_INSTRUCTOR_ID
 MARY_ID = local_stack_control.lifecycle.LOCAL_MARY_ID
 OWNER_RUNTIME_ENVIRONMENT_NAMES = (
@@ -531,8 +530,6 @@ def _seed_argv(oracle: str, minio_port: int) -> list[str]:
 		"tools",
 		"e2e-seed",
 		"--apply-migrations",
-		"--tenant",
-		TENANT_ID,
 		"--instructor",
 		ELENA_ID,
 		"--student",

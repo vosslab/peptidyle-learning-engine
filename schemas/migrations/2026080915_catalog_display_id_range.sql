@@ -1,2 +1,0 @@
--- WP-R2 ledger entry: the former numeric catalog locator was removed before
--- this unreleased baseline. Question ID is the sole human question identity.

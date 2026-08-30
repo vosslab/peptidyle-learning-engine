@@ -14,10 +14,7 @@
     ],
     "metadata": {
       "title": "Peptide bond resonance and planarity",
-      "tags": [
-        "biochemistry",
-        "protein-structure"
-      ],
+      "tags": ["biochemistry", "protein-structure"],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -31,9 +28,7 @@
       "language": "en-US"
     },
     "byline": {
-      "names": [
-        "Fixture Instructor"
-      ]
+      "names": ["Fixture Instructor"]
     },
     "scope": "public",
     "lifecycle": {
@@ -121,11 +116,7 @@
       "parameters": {
         "residue": {
           "kind": "choice",
-          "options": [
-            "glycine",
-            "alanine",
-            "proline"
-          ]
+          "options": ["glycine", "alanine", "proline"]
         }
       }
     },
@@ -135,10 +126,7 @@
     },
     "metadata": {
       "title": "Peptide bond resonance and planarity",
-      "tags": [
-        "biochemistry",
-        "protein-structure"
-      ],
+      "tags": ["biochemistry", "protein-structure"],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -230,11 +218,7 @@
       "parameters": {
         "residue": {
           "kind": "choice",
-          "options": [
-            "glycine",
-            "alanine",
-            "proline"
-          ]
+          "options": ["glycine", "alanine", "proline"]
         }
       }
     },
@@ -244,10 +228,7 @@
     },
     "metadata": {
       "title": "Draft: peptide resonance wording revision",
-      "tags": [
-        "biochemistry",
-        "protein-structure"
-      ],
+      "tags": ["biochemistry", "protein-structure"],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -280,7 +261,6 @@
   "course": {
     "id": "0198e000-0000-7000-8000-000000000014",
     "reference": "C-1",
-    "tenant": "0198e000-0000-7000-8000-000000000001",
     "title": "BIOC 301: Biochemistry",
     "term": {
       "startDate": "2026-08-24",
@@ -292,7 +272,6 @@
   "assignment": {
     "id": "0198e000-0000-7000-8000-000000000006",
     "reference": "A-1",
-    "tenant": "0198e000-0000-7000-8000-000000000001",
     "courseId": "0198e000-0000-7000-8000-000000000014",
     "title": "Peptide bond mastery",
     "items": [
@@ -335,7 +314,6 @@
   },
   "enrollment": {
     "id": "0198e000-0000-7000-8000-000000000007",
-    "tenant": "0198e000-0000-7000-8000-000000000001",
     "assignment": "0198e000-0000-7000-8000-000000000006",
     "user": "0198e000-0000-7000-8000-000000000016",
     "student": "0198e000-0000-7000-8000-000000000008",
@@ -347,7 +325,6 @@
     {
       "id": "0198e000-0000-7000-8000-000000000020",
       "reference": "R-1",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 1,
       "startedAt": 1786000001000,
@@ -359,7 +336,6 @@
     {
       "id": "0198e000-0000-7000-8000-000000000021",
       "reference": "R-2",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 2,
       "startedAt": 1786000002000,
@@ -371,7 +347,6 @@
     {
       "id": "0198e000-0000-7000-8000-000000000022",
       "reference": "R-3",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 3,
       "startedAt": 1786000003000,
@@ -383,7 +358,6 @@
     {
       "id": "0198e000-0000-7000-8000-000000000023",
       "reference": "R-4",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 4,
       "startedAt": 1786000004000,
@@ -396,7 +370,6 @@
   "attempts": [
     {
       "id": "0198e000-0000-7000-8000-000000000030",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "run": "0198e000-0000-7000-8000-000000000020",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
@@ -405,9 +378,7 @@
       "parameterHash": "33c6a11b3eadacaac5d49a752148884e27c8815c803ace157c9f58ac9dbe416d",
       "response": {
         "kind": "multipleChoice",
-        "selected": [
-          "carbonyl"
-        ]
+        "selected": ["carbonyl"]
       },
       "status": "submitted",
       "result": {
@@ -445,7 +416,6 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000031",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "run": "0198e000-0000-7000-8000-000000000021",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
@@ -454,9 +424,7 @@
       "parameterHash": "5b19c155569205c9bda96ab6ca1058f70cd06121238e1ff198dd9d6cada2adce",
       "response": {
         "kind": "multipleChoice",
-        "selected": [
-          "amide"
-        ]
+        "selected": ["amide"]
       },
       "status": "submitted",
       "result": {
@@ -494,7 +462,6 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000032",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "run": "0198e000-0000-7000-8000-000000000022",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
@@ -503,9 +470,7 @@
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
       "response": {
         "kind": "multipleChoice",
-        "selected": [
-          "carbonyl"
-        ]
+        "selected": ["carbonyl"]
       },
       "status": "submitted",
       "result": {
@@ -543,7 +508,6 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000033",
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "run": "0198e000-0000-7000-8000-000000000023",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
@@ -583,7 +547,6 @@
     }
   ],
   "summary": {
-    "tenant": "0198e000-0000-7000-8000-000000000001",
     "enrollment": "0198e000-0000-7000-8000-000000000007",
     "currentScore": 1.0,
     "bestScore": 1.0,
@@ -594,7 +557,6 @@
   },
   "gradebook": [
     {
-      "tenant": "0198e000-0000-7000-8000-000000000001",
       "course_id": "0198e000-0000-7000-8000-000000000014",
       "enrollment_id": "0198e000-0000-7000-8000-000000000007",
       "student_id": "0198e000-0000-7000-8000-000000000008",
@@ -602,7 +564,6 @@
       "assignment_id": "0198e000-0000-7000-8000-000000000006",
       "assignment_title": "Peptide bond mastery",
       "summary": {
-        "tenant": "0198e000-0000-7000-8000-000000000001",
         "enrollment": "0198e000-0000-7000-8000-000000000007",
         "currentScore": 1.0,
         "bestScore": 1.0,

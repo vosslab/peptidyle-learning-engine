@@ -8,9 +8,7 @@
 
 use async_trait::async_trait;
 use question_model::generation::Seed;
-use question_model::{
-    ActivityTimestamp, QuestionAttemptId, QuestionDefinition, QuestionSource, TenantId,
-};
+use question_model::{ActivityTimestamp, QuestionAttemptId, QuestionDefinition, QuestionSource};
 use sha2::{Digest, Sha256};
 
 use crate::scored_embed::{
@@ -442,7 +440,6 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         &self,
         question: &QuestionDefinition,
         source: &ImathasSource,
-        tenant: TenantId,
         attempt: QuestionAttemptId,
         seed: Seed,
         correlation: ServerCorrelation,
@@ -481,7 +478,6 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             return Err(ImathasAdapterError::SourceChecksumMismatch);
         }
         let binding = GradeBinding {
-            tenant,
             attempt,
             problem: question.problem,
             version: question.version,

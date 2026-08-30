@@ -138,16 +138,28 @@ async fn update_selected_copy(
         .clone()
 }
 
+fn assignment_id(
+    scenario: &CurriculumAdoptionScenario,
+    assignment_reference: AssignmentReference,
+) -> question_model::AssignmentId {
+    scenario
+        .store
+        .read_state()
+        .expect("fixture state")
+        .assignments_by_reference
+        .iter()
+        .find_map(|((_, stored_reference), assignment)| {
+            (*stored_reference == assignment_reference).then_some(*assignment)
+        })
+        .expect("selected-copy assignment reference")
+}
+
 #[tokio::test]
 async fn already_consistent_reconciliation_is_audited_without_changing_the_projection() {
     let scenario = CurriculumAdoptionScenario::new().await;
     let (assignment_reference, target) =
         create_selected_copy(&scenario, "reconcile-consistent-source").await;
-    let assignment = scenario
-        .store
-        .read_state()
-        .expect("fixture state")
-        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let assignment = assignment_id(&scenario, assignment_reference);
     let before = scenario
         .store
         .read_state()
@@ -191,11 +203,7 @@ async fn reconciliation_restores_the_missing_exact_derived_projection() {
     let scenario = CurriculumAdoptionScenario::new().await;
     let (assignment_reference, target) =
         create_selected_copy(&scenario, "reconcile-restore-source").await;
-    let assignment = scenario
-        .store
-        .read_state()
-        .expect("fixture state")
-        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let assignment = assignment_id(&scenario, assignment_reference);
     let expected = scenario
         .store
         .write_state()
@@ -240,11 +248,7 @@ async fn reconciliation_preserves_a_newer_superseding_projection() {
         "reconcile-superseding-update",
     )
     .await;
-    let assignment = scenario
-        .store
-        .read_state()
-        .expect("fixture state")
-        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let assignment = assignment_id(&scenario, assignment_reference);
     let newer = scenario
         .store
         .read_state()
@@ -284,11 +288,7 @@ async fn reconciliation_refuses_a_contradictory_older_projection_atomically() {
         create_selected_copy(&scenario, "reconcile-older-source").await;
     let updated_target =
         update_selected_copy(&scenario, assignment_reference, "reconcile-older-update").await;
-    let assignment = scenario
-        .store
-        .read_state()
-        .expect("fixture state")
-        .assignments_by_reference[&(scenario.tenant, assignment_reference)];
+    let assignment = assignment_id(&scenario, assignment_reference);
     let original_revision = original_target
         .assignment_import_target()
         .expect("selected-copy import target")

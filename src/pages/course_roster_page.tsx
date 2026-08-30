@@ -1,11 +1,10 @@
-// Instructor course-level roster, invitation, import, policy, and manual export workflow.
+// Instructor course-level roster, invitation, import, and policy workflow.
 
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import "./instructor_data_tables.css";
 import "./course_roster_page.css";
 
-import type { StudentAssignmentLandingSummary } from "../api/contracts";
 import type {
   AllowedEmailDomain,
   CourseInvitationEmailDelivery,
@@ -35,7 +34,6 @@ type RosterState =
   | {
       readonly kind: "ready";
       readonly roster: CourseRosterPage;
-      readonly assignments: ReadonlyArray<StudentAssignmentLandingSummary>;
     }
   | { readonly kind: "error"; readonly message: string };
 
@@ -131,7 +129,6 @@ export function CourseRosterPage(): JSX.Element {
     [],
   );
   const [selectedRows, setSelectedRows] = createSignal<ReadonlySet<number>>(new Set());
-  const [selectedAssignment, setSelectedAssignment] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [announcement, setAnnouncement] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
@@ -158,16 +155,10 @@ export function CourseRosterPage(): JSX.Element {
     setState({ kind: "loading" });
     setError(null);
     try {
-      const [roster, assignments] = await Promise.all([
-        runtime.client.listCourseRoster(courseId),
-        runtime.client.listAssignments(courseId),
-      ]);
-      setState({ kind: "ready", roster, assignments: assignments.items });
+      const roster = await runtime.client.listCourseRoster(courseId);
+      setState({ kind: "ready", roster });
       setPolicyDomains(policyLines(roster.allowedEmailDomains));
       setSignupPosture(roster.signupPosture);
-      if (selectedAssignment().length === 0 && assignments.items[0] !== undefined) {
-        setSelectedAssignment(assignments.items[0].id);
-      }
       setAnnouncement(
         `Roster loaded with ${roster.members.length} member${roster.members.length === 1 ? "" : "s"} and ${roster.pendingInvitations.length} pending invitation${roster.pendingInvitations.length === 1 ? "" : "s"}.`,
       );
@@ -396,21 +387,6 @@ export function CourseRosterPage(): JSX.Element {
       await load();
     } catch {
       setError("The preview changed or expired before commit. Preview the file again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function exportGrades(): Promise<void> {
-    if (courseId === undefined || selectedAssignment().length === 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const exported = await runtime.client.createManualGradeExport(courseId, selectedAssignment());
-      downloadExport(exported.filename, exported.csv);
-      setAnnouncement("Protected grade export downloaded.");
-    } catch {
-      setError("The grade export could not be prepared. Choose an assignment and try again.");
     } finally {
       setBusy(false);
     }
@@ -816,32 +792,6 @@ export function CourseRosterPage(): JSX.Element {
                   </div>
                 )}
               </Show>
-            </section>
-
-            <section class="roster-section auth-panel" aria-labelledby="grade-export-heading">
-              <h2 id="grade-export-heading">Manual LMS grade export</h2>
-              <p>
-                The download contains only course roster ID, roster email, display name, and the
-                selected score for one assignment.
-              </p>
-              <label for="grade-export-assignment">Assignment</label>
-              <select
-                id="grade-export-assignment"
-                value={selectedAssignment()}
-                onChange={(event) => setSelectedAssignment(event.currentTarget.value)}
-              >
-                <For each={current().assignments}>
-                  {(assignment) => <option value={assignment.id}>{assignment.title}</option>}
-                </For>
-              </select>
-              <button
-                class="primary-action"
-                type="button"
-                disabled={busy() || selectedAssignment().length === 0}
-                onClick={() => void exportGrades()}
-              >
-                Download grade CSV
-              </button>
             </section>
           </>
         )}

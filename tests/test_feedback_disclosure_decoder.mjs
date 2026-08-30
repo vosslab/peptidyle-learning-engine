@@ -122,7 +122,7 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
     () =>
       decodeRunSummaryResponse({
         ...summary,
-        summary: { ...summary.summary, tenant: "0198e000-0000-7000-8000-000000000099" },
+        summary: { ...summary.summary, privateScope: "0198e000-0000-7000-8000-000000000099" },
       }),
     DecodeError,
   );

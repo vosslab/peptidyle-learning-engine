@@ -455,7 +455,6 @@ async fn memory_account_course_context_derives_tenant_and_role_from_membership()
             .expect("course context lookup")
             .expect("student context"),
         learning_data_access::AccountCourseContext {
-            tenant: tenant_b,
             course: course_b,
             title: "Genetics".to_string(),
             role: CourseMembershipRole::Student,

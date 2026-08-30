@@ -45,7 +45,7 @@ function assertNever(value: never): never {
 
 /** Exhaustive dispatch point for every browser-safe ResponseDefinition variant. */
 export function ResponseWidget(props: ResponseWidgetProps): JSX.Element {
-  // File uploads remain unavailable until their secure, tenant-scoped upload slot contract exists.
+  // File uploads remain unavailable until their secure, course-bound upload slot contract exists.
   let body: JSX.Element;
   switch (props.definition.kind) {
     case "numeric":

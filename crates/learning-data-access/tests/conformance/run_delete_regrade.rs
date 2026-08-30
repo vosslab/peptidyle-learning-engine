@@ -200,13 +200,11 @@ where
         generation: delete_generation,
     };
     store
-        .prepare_assignment_scoring(context, delete_scoring)
+        .prepare_assignment_scoring(delete_scoring)
         .await
         .expect("Delete and Regrade scoring stages");
     assert_eq!(
-        store
-            .commit_assignment_scoring(context, delete_scoring)
-            .await,
+        store.commit_assignment_scoring(delete_scoring).await,
         Ok(AssignmentScoringCommitOutcome::Committed)
     );
     assert!(

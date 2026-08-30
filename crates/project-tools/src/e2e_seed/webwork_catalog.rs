@@ -54,7 +54,7 @@ pub(super) async fn seed_webwork_catalog_baseline(
         .context("applying embedded migrations for WebWork catalog baseline")?;
     let store = crate::postgres_store::configured_postgres_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
-    let ids = WebworkCatalogBaselineIds::for_tenant(arguments.tenant);
+    let ids = WebworkCatalogBaselineIds::for_installation();
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,
@@ -64,7 +64,6 @@ pub(super) async fn seed_webwork_catalog_baseline(
             .await
             .context("reconciling immutable WebWork catalog baseline source")?;
     let draft = DraftRecord {
-        tenant: arguments.tenant,
         question: webwork_pilot_draft(ids.workspace),
         derived_from: None,
     };

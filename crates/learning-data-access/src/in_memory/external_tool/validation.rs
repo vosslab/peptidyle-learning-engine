@@ -1,7 +1,7 @@
 //! In-memory external-tool request and launch validation.
 
 use objects::Sha256Digest;
-use question_model::{QuestionAttemptId, StudentResponse, TenantId, UserId};
+use question_model::{QuestionAttemptId, StudentResponse, UserId};
 use uuid::Uuid;
 
 use super::super::{State, StoredExternalToolExchange};
@@ -45,7 +45,6 @@ pub(super) fn validate_external_response(
 
 pub(super) fn validate_active_external_launch(
     state: &State,
-    tenant: TenantId,
     actor: UserId,
     student_work_binding: StudentWorkRoutingBinding,
     attempt: QuestionAttemptId,
@@ -54,7 +53,7 @@ pub(super) fn validate_active_external_launch(
 ) -> Result<(), StoreError> {
     let session = state
         .external_tool_launch_sessions
-        .get(&(tenant, proof.session_id))
+        .get(&proof.session_id)
         .ok_or(StoreError::Conflict)?;
     if session.actor != actor
         || session.attempt != attempt
@@ -74,12 +73,11 @@ pub(super) fn validate_active_external_launch(
 
 pub(super) fn revoke_external_launch(
     state: &mut State,
-    tenant: TenantId,
     session_id: Uuid,
 ) -> Result<(), StoreError> {
     let session = state
         .external_tool_launch_sessions
-        .get_mut(&(tenant, session_id))
+        .get_mut(&session_id)
         .ok_or(StoreError::Conflict)?;
     if session.revoked
         || session

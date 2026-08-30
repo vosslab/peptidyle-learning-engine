@@ -1,11 +1,9 @@
 //! Backend-neutral persistence contract (WP-C4, MOD-STO).
 //!
-//! Globally public content needs no tenant context. Institution-visible
-//! catalog content goes through [`CatalogStore`], whose reads require
-//! [`TenantContext`]. Every educational-record operation also requires that
-//! non-defaultable context. Lists require a bounded [`PageRequest`]; the trait
-//! has no unbounded or positional paging method. No SQL type appears in this
-//! contract.
+//! Shared catalog content and protected educational records are authorized by
+//! a resolved global actor plus exact durable course or workspace relationships.
+//! Lists require a bounded [`PageRequest`]; the trait has no unbounded or
+//! positional paging method. No SQL type appears in this contract.
 
 use async_trait::async_trait;
 use base64::Engine;
@@ -23,8 +21,8 @@ use question_model::{
     PoolDrawBasis, PresentationBindingV1, PresentationEnvelopeV1, ProblemId, PublicationScope,
     QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
     QuestionStatisticsDisclosure, RunId, RunPolicies, ScoringGeneration, ScoringStatus,
-    SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse, TenantId, UserId,
-    VersionId, WorkspaceDraftSummary, WorkspaceId,
+    SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse, UserId, VersionId,
+    WorkspaceDraftSummary, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -57,7 +55,6 @@ mod item_analysis;
 /// Background-job contracts shared by queue implementations.
 pub mod jobs;
 mod live_demo_installation;
-mod manual_grade_export;
 mod navigation_references;
 /// Cursor and bounded-page types shared by every list method.
 pub mod pagination;
@@ -75,7 +72,7 @@ pub mod question_stewardship;
 mod random_uuid;
 /// Pure retention lifecycle policy; persistence and worker execution land in MOD-RETENTION R2+.
 pub mod retention;
-/// Explicit tenant context used by every educational-record operation.
+/// Transaction-local actor installation for protected PostgreSQL operations.
 pub mod rls;
 mod run_summary_cursor;
 mod score_precision;
@@ -246,14 +243,10 @@ pub use crate::jobs::{
     ClaimedJob, CreateAssignmentExport, EnqueueJob, ExportArtifactKind, ExportArtifactRecord,
     ExportCommitDisposition, ExportId, ExportJobCommit, ExportJobStore, JobClaimFilter,
     JobFailureDisposition, JobFailureKind, JobId, JobKind, JobLeaseDuration, JobLeaseToken,
-    JobPayload, JobState, JobStore, QueueDepth, StudentExportArtifactView, StudentExportJob,
-    StudentExportState, StudentExportView, TenantJobView,
+    JobPayload, JobState, JobStore, JobView, QueueDepth, StudentExportArtifactView,
+    StudentExportJob, StudentExportState, StudentExportView,
 };
 pub use crate::live_demo_installation::LiveDemoInstallationStore;
-pub use crate::manual_grade_export::{
-    CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS, ManualGradeExport, ManualGradeExportId,
-    ManualGradeExportRow, ManualGradeExportStore,
-};
 pub use crate::navigation_references::{
     AssignmentRouteIdentity, NavigationReferenceStore, RunRouteIdentity,
 };
@@ -289,13 +282,12 @@ pub use crate::retention::{
     AssignmentDefinitionDisposition, CourseRetentionRecord, CourseRetentionSnapshot,
     CourseRetentionState, CourseRetentionStatus, CourseRetentionView,
     DEFAULT_RETENTION_ARCHIVE_DAYS, DEFAULT_RETENTION_DELETE_DAYS, DEFAULT_RETENTION_NOTIFY_DAYS,
-    InstitutionRetentionPolicy, MAX_RETENTION_DAYS, MAX_RETENTION_DISPATCH_BATCH,
-    RETENTION_ARCHIVE_NOTIFICATION_COPY, RETENTION_JOB_MAX_ATTEMPTS, RetentionCleanupManifest,
-    RetentionDays, RetentionDispatchBatch, RetentionNotificationIntent, RetentionNotificationView,
-    RetentionPolicyError, RetentionRequestOutcome, RetentionRequestResult, RetentionRevision,
-    RetentionStage, RetentionWork, RetentionWorkerCommand,
+    MAX_RETENTION_DAYS, MAX_RETENTION_DISPATCH_BATCH, RETENTION_ARCHIVE_NOTIFICATION_COPY,
+    RETENTION_JOB_MAX_ATTEMPTS, RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch,
+    RetentionNotificationIntent, RetentionNotificationView, RetentionPolicy, RetentionPolicyError,
+    RetentionRequestOutcome, RetentionRequestResult, RetentionRevision, RetentionStage,
+    RetentionWork, RetentionWorkerCommand,
 };
-pub use crate::rls::TenantContext;
 pub use crate::session::{
     ActorContext, SessionId, SessionLifetime, SessionRecord, SessionStore, SessionSubject,
     SessionSubjectError, SessionTokenHash, SessionTokenHashParseError,

@@ -1,5 +1,5 @@
 use super::*;
-use crate::JobKind;
+use crate::{ActorContext, JobKind};
 
 fn mark_export_failed(state: &mut State, job: JobId) {
     for export in state.exports.values_mut() {
@@ -10,7 +10,7 @@ fn mark_export_failed(state: &mut State, job: JobId) {
 }
 
 fn mark_assignment_scoring_failed(state: &mut State, job: JobId) -> Result<(), StoreError> {
-    let Some((tenant, assignment, generation)) = state.jobs.get(&job).and_then(|stored| {
+    let Some((assignment, generation)) = state.jobs.get(&job).and_then(|stored| {
         let JobPayload::RecalculateAssignment {
             assignment,
             generation,
@@ -18,18 +18,18 @@ fn mark_assignment_scoring_failed(state: &mut State, job: JobId) -> Result<(), S
         else {
             return None;
         };
-        Some((stored.tenant, assignment, generation))
+        Some((assignment, generation))
     }) else {
         return Ok(());
     };
-    let key = (tenant, assignment);
-    if state.assignment_scoring.get(&key) == Some(&(generation, ScoringStatus::Recalculating)) {
+    if state.assignment_scoring.get(&assignment)
+        == Some(&(generation, ScoringStatus::Recalculating))
+    {
         state
             .assignment_scoring
-            .insert(key, (generation, ScoringStatus::Failed));
+            .insert(assignment, (generation, ScoringStatus::Failed));
         super::grading_operation_lifecycle::project_assignment_scoring_operation(
             state,
-            tenant,
             assignment,
             generation,
             ScoringStatus::Failed,
@@ -59,10 +59,9 @@ pub(super) fn add_job_seconds(
 impl JobStore for MemoryStore {
     async fn enqueue_job(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         job: EnqueueJob,
     ) -> Result<JobId, StoreError> {
-        ensure_tenant(context, job.tenant)?;
         job.validate()?;
         let id = JobId::generate()?;
         let mut state = self.write_state()?;
@@ -70,7 +69,6 @@ impl JobStore for MemoryStore {
         state.jobs.insert(
             id,
             StoredJob {
-                tenant: job.tenant,
                 payload: job.payload,
                 state: JobState::Ready,
                 available_at,
@@ -147,7 +145,6 @@ impl JobStore for MemoryStore {
         job.failure = None;
         Ok(Some(ClaimedJob {
             id,
-            tenant: job.tenant,
             payload: job.payload.clone(),
             lease_token: token,
             attempt_count: job.attempt_count,
@@ -198,7 +195,6 @@ impl JobStore for MemoryStore {
         job.failure = None;
         Ok(Some(ClaimedJob {
             id,
-            tenant: job.tenant,
             payload: job.payload.clone(),
             lease_token: token,
             attempt_count: job.attempt_count,
@@ -223,7 +219,6 @@ impl JobStore for MemoryStore {
 
     async fn fail_job(
         &self,
-        context: TenantContext,
         id: JobId,
         token: JobLeaseToken,
         failure: JobFailureKind,
@@ -231,8 +226,7 @@ impl JobStore for MemoryStore {
         let mut state = self.write_state()?;
         let now = state.authoritative_time;
         let job = state.jobs.get_mut(&id).ok_or(StoreError::NotFound)?;
-        if job.tenant != context.tenant_id()
-            || job.state != JobState::Leased
+        if job.state != JobState::Leased
             || job.lease_token != Some(token)
             || !job.lease_expires_at.is_some_and(|expiry| expiry > now)
         {
@@ -253,22 +247,14 @@ impl JobStore for MemoryStore {
         Ok(JobFailureDisposition::Retrying)
     }
 
-    async fn get_job(
-        &self,
-        context: TenantContext,
-        id: JobId,
-    ) -> Result<Option<TenantJobView>, StoreError> {
+    async fn get_job(&self, id: JobId) -> Result<Option<JobView>, StoreError> {
         let state = self.read_state()?;
-        Ok(state
-            .jobs
-            .get(&id)
-            .filter(|job| job.tenant == context.tenant_id())
-            .map(|job| TenantJobView {
-                id,
-                payload: job.payload.clone(),
-                state: job.state,
-                attempt_count: job.attempt_count,
-            }))
+        Ok(state.jobs.get(&id).map(|job| JobView {
+            id,
+            payload: job.payload.clone(),
+            state: job.state,
+            attempt_count: job.attempt_count,
+        }))
     }
 
     async fn ready_queue_depth(
@@ -295,19 +281,16 @@ impl JobStore for MemoryStore {
 impl crate::AttemptAutoSubmitWorkerStore for MemoryStore {
     async fn commit_attempt_auto_submit(
         &self,
-        context: TenantContext,
         command: crate::AttemptAutoSubmitWorkerCommand,
     ) -> Result<crate::AttemptAutoSubmitCommitOutcome, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
         let now = state.authoritative_time;
         let expected_payload = JobPayload::AutoSubmitAttempt {
             attempt: command.attempt,
             timing_generation: command.timing_generation,
         };
         let claim_active = state.jobs.get(&command.job).is_some_and(|job| {
-            job.tenant == tenant
-                && job.state == JobState::Leased
+            job.state == JobState::Leased
                 && job.lease_token == Some(command.lease)
                 && job.lease_expires_at.is_some_and(|expiry| expiry > now)
                 && job.payload == expected_payload
@@ -316,13 +299,10 @@ impl crate::AttemptAutoSubmitWorkerStore for MemoryStore {
             return Ok(crate::AttemptAutoSubmitCommitOutcome::ClaimNoLongerActive);
         }
 
-        let timing = state
-            .attempt_timing
-            .get(&(tenant, command.attempt))
-            .copied();
-        let base = state.attempts.get(&(tenant, command.attempt)).cloned();
+        let timing = state.attempt_timing.get(&command.attempt).copied();
+        let base = state.attempts.get(&command.attempt).cloned();
         let active = base.as_ref().is_some_and(|attempt| {
-            projected_attempt(&state, tenant, attempt).status == AttemptStatus::InProgress
+            projected_attempt(&state, attempt).status == AttemptStatus::InProgress
         });
         let current_job = timing.and_then(|value| value.job);
         if !active || current_job != Some(command.job) {
@@ -332,7 +312,7 @@ impl crate::AttemptAutoSubmitWorkerStore for MemoryStore {
         let timing = timing.expect("active timing job has a timing row");
         let Some(auto_submit_at) = timing.auto_submit_at else {
             complete_memory_job(&mut state, command.job)?;
-            if let Some(current) = state.attempt_timing.get_mut(&(tenant, command.attempt)) {
+            if let Some(current) = state.attempt_timing.get_mut(&command.attempt) {
                 current.job = None;
             }
             return Ok(crate::AttemptAutoSubmitCommitOutcome::Superseded);
@@ -356,16 +336,13 @@ impl crate::AttemptAutoSubmitWorkerStore for MemoryStore {
 
         let mut current = projected_attempt(
             &state,
-            tenant,
             base.as_ref().expect("active attempt remains present"),
         );
         current.status = AttemptStatus::AutoSubmitted;
         current.timer.deadline = timing.effective_deadline;
         current.timer.submitted_at = Some(now);
-        state
-            .attempt_current
-            .insert((tenant, command.attempt), current);
-        if let Some(current_timing) = state.attempt_timing.get_mut(&(tenant, command.attempt)) {
+        state.attempt_current.insert(command.attempt, current);
+        if let Some(current_timing) = state.attempt_timing.get_mut(&command.attempt) {
             current_timing.job = None;
         }
         complete_memory_job(&mut state, command.job)?;
@@ -385,13 +362,11 @@ pub(super) fn complete_memory_job(state: &mut State, job: JobId) -> Result<(), S
 impl crate::AssignmentScoringWorkerStore for MemoryStore {
     async fn prepare_assignment_scoring(
         &self,
-        context: TenantContext,
         command: crate::AssignmentScoringWorkerCommand,
     ) -> Result<crate::AssignmentScoringPreparationOutcome, StoreError> {
         let mut state = self.write_state()?;
         let job = state.jobs.get(&command.job).ok_or(StoreError::NotFound)?;
-        if job.tenant != context.tenant_id()
-            || job.state != JobState::Leased
+        if job.state != JobState::Leased
             || job.lease_token != Some(command.lease)
             || !job
                 .lease_expires_at
@@ -404,33 +379,25 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
-        if state
-            .assignment_scoring
-            .get(&(context.tenant_id(), command.assignment))
+        if state.assignment_scoring.get(&command.assignment)
             != Some(&(command.generation, ScoringStatus::Recalculating))
         {
             state.assignment_score_staging.remove(&command.job);
             return Ok(crate::AssignmentScoringPreparationOutcome::Superseded);
         }
-        let prepared = build_memory_assignment_scoring(
-            &state,
-            context.tenant_id(),
-            command.assignment,
-            command.generation,
-        )?;
+        let prepared =
+            build_memory_assignment_scoring(&state, command.assignment, command.generation)?;
         state.assignment_score_staging.insert(command.job, prepared);
         Ok(crate::AssignmentScoringPreparationOutcome::Prepared)
     }
 
     async fn commit_assignment_scoring(
         &self,
-        context: TenantContext,
         command: crate::AssignmentScoringWorkerCommand,
     ) -> Result<crate::AssignmentScoringCommitOutcome, StoreError> {
         let mut state = self.write_state()?;
         let claim_active = state.jobs.get(&command.job).is_some_and(|job| {
-            job.tenant == context.tenant_id()
-                && job.state == JobState::Leased
+            job.state == JobState::Leased
                 && job.lease_token == Some(command.lease)
                 && job
                     .lease_expires_at
@@ -444,10 +411,9 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
         if !claim_active {
             return Ok(crate::AssignmentScoringCommitOutcome::ClaimNoLongerActive);
         }
-        let key = (context.tenant_id(), command.assignment);
         let current = state
             .assignment_scoring
-            .get(&key)
+            .get(&command.assignment)
             .copied()
             .ok_or(StoreError::NotFound)?;
         let superseded = current != (command.generation, ScoringStatus::Recalculating);
@@ -458,8 +424,7 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
                 .assignment_score_staging
                 .remove(&command.job)
                 .ok_or(StoreError::Conflict)?;
-            if prepared.tenant != context.tenant_id()
-                || prepared.assignment != command.assignment
+            if prepared.assignment != command.assignment
                 || prepared.generation != command.generation
             {
                 return Err(StoreError::Conflict);
@@ -472,28 +437,26 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
                     let Some(record) = submission.completed_record_opt() else {
                         return false;
                     };
-                    let attempt = projected_attempt(&state, context.tenant_id(), &record.attempt);
-                    attempt.tenant == context.tenant_id()
-                        && attempt.result.is_some()
+                    let attempt = projected_attempt(&state, &record.attempt);
+                    attempt.result.is_some()
                         && !matches!(
                             attempt.status,
                             AttemptStatus::Cleared | AttemptStatus::Exempt
                         )
                         && state
                             .runs
-                            .get(&(context.tenant_id(), attempt.run))
-                            .and_then(|run| {
-                                state
-                                    .enrollments
-                                    .get(&(context.tenant_id(), run.enrollment))
-                            })
+                            .get(&attempt.run)
+                            .and_then(|run| state.enrollments.get(&run.enrollment))
                             .is_some_and(|enrollment| enrollment.assignment == command.assignment)
                 })
                 .count();
             if prepared.attempts.len() != current_attempt_count {
                 return Err(StoreError::Conflict);
             }
-            let assignment = state.assignments.get(&key).ok_or(StoreError::NotFound)?;
+            let assignment = state
+                .assignments
+                .get(&command.assignment)
+                .ok_or(StoreError::NotFound)?;
             if prepared.attempts.values().any(|score| {
                 score.assignment != command.assignment
                     || score.generation != command.generation
@@ -513,31 +476,27 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
             }) {
                 return Err(StoreError::Conflict);
             }
-            state.attempt_scores.retain(|(tenant, _), score| {
-                *tenant != context.tenant_id() || score.assignment != command.assignment
-            });
+            state
+                .attempt_scores
+                .retain(|_, score| score.assignment != command.assignment);
             state.attempt_scores.extend(
                 prepared
                     .attempts
                     .into_iter()
-                    .map(|(attempt, score)| ((context.tenant_id(), attempt), score)),
+                    .map(|(attempt, score)| (attempt, score)),
             );
             for (enrollment, record) in prepared.enrollments {
-                state
-                    .enrollments
-                    .insert((context.tenant_id(), enrollment), record);
+                state.enrollments.insert(enrollment, record);
             }
             for (enrollment, summary) in prepared.summaries {
-                state
-                    .summaries
-                    .insert((context.tenant_id(), enrollment), summary);
+                state.summaries.insert(enrollment, summary);
             }
-            state
-                .assignment_scoring
-                .insert(key, (command.generation, ScoringStatus::Current));
+            state.assignment_scoring.insert(
+                command.assignment,
+                (command.generation, ScoringStatus::Current),
+            );
             super::grading_operation_lifecycle::project_assignment_scoring_operation(
                 &mut state,
-                context.tenant_id(),
                 command.assignment,
                 command.generation,
                 ScoringStatus::Current,
@@ -545,7 +504,6 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
             super::item_analysis::enqueue_course_item_analysis_after_scoring(
                 &mut state,
                 analysis_job,
-                context.tenant_id(),
                 command.assignment,
                 command.generation,
             )?;
@@ -567,29 +525,28 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
 
 fn build_memory_assignment_scoring(
     state: &State,
-    tenant: TenantId,
     assignment_id: AssignmentId,
     generation: ScoringGeneration,
 ) -> Result<PreparedAssignmentScoring, StoreError> {
     let assignment = state
         .assignments
-        .get(&(tenant, assignment_id))
+        .get(&assignment_id)
         .ok_or(StoreError::NotFound)?;
-    if state.assignment_scoring.get(&(tenant, assignment_id))
+    if state.assignment_scoring.get(&assignment_id)
         != Some(&(generation, ScoringStatus::Recalculating))
     {
         return Err(StoreError::Conflict);
     }
     let mut attempts = BTreeMap::new();
     let mut latest_by_position = BTreeMap::new();
-    for (key, submission) in &state.submissions {
-        if key.0 != tenant {
+    for (attempt_id, submission) in &state.submissions {
+        if !super::activity::attempt_belongs_to_course(state, *attempt_id) {
             continue;
         }
         let Some(record) = submission.completed_record_opt() else {
             continue;
         };
-        let attempted = projected_attempt(state, tenant, &record.attempt);
+        let attempted = projected_attempt(state, &record.attempt);
         if matches!(
             attempted.status,
             AttemptStatus::Cleared | AttemptStatus::Exempt
@@ -599,10 +556,10 @@ fn build_memory_assignment_scoring(
         let Some(result) = attempted.result else {
             continue;
         };
-        let Some(run) = state.runs.get(&(tenant, attempted.run)) else {
+        let Some(run) = state.runs.get(&attempted.run) else {
             continue;
         };
-        let Some(enrollment) = state.enrollments.get(&(tenant, run.enrollment)) else {
+        let Some(enrollment) = state.enrollments.get(&run.enrollment) else {
             continue;
         };
         if enrollment.assignment != assignment_id {
@@ -610,7 +567,7 @@ fn build_memory_assignment_scoring(
         }
         let run_item = state
             .run_items
-            .get(&(tenant, run.id))
+            .get(&run.id)
             .and_then(|items| {
                 items
                     .iter()
@@ -652,13 +609,15 @@ fn build_memory_assignment_scoring(
     for enrollment in state
         .enrollments
         .values()
-        .filter(|record| record.tenant == tenant && record.assignment == assignment_id)
+        .filter(|record| record.assignment == assignment_id)
     {
         let mut completed = Vec::new();
         let mut first_completed_at: Option<ActivityTimestamp> = None;
-        for run in state.runs.values().filter(|run| {
-            run.tenant == tenant && run.enrollment == enrollment.id && run.completed_at.is_some()
-        }) {
+        for run in state
+            .runs
+            .values()
+            .filter(|run| run.enrollment == enrollment.id && run.completed_at.is_some())
+        {
             let (earned, possible) = latest_by_position
                 .iter()
                 .filter(|((candidate_run, _), _)| *candidate_run == run.id)
@@ -693,7 +652,7 @@ fn build_memory_assignment_scoring(
         }
         let summary = state
             .summaries
-            .get(&(tenant, enrollment.id))
+            .get(&enrollment.id)
             .cloned()
             .ok_or(StoreError::NotFound)?;
         let (enrollment, summary) = crate::recalculated_enrollment_projection(
@@ -707,7 +666,6 @@ fn build_memory_assignment_scoring(
         summaries.insert(summary.enrollment, summary);
     }
     Ok(PreparedAssignmentScoring {
-        tenant,
         assignment: assignment_id,
         generation,
         attempts,
@@ -719,28 +677,29 @@ fn build_memory_assignment_scoring(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{AssignmentId, TenantId};
+    use question_model::AssignmentId;
     use uuid::Uuid;
 
     #[tokio::test]
     async fn exact_claim_grants_one_lease_for_one_ready_job() {
         let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(Uuid::from_u128(91));
-        let context = TenantContext::from_authenticated_session(tenant);
-        let job = store
-            .enqueue_job(
-                context,
-                EnqueueJob {
-                    tenant,
-                    payload: JobPayload::RecalculateAssignment {
-                        assignment: AssignmentId::from_uuid(Uuid::from_u128(92)),
-                        generation: question_model::ScoringGeneration::INITIAL,
-                    },
-                    max_attempts: 3,
+        let job = JobId::from_uuid(Uuid::from_u128(91));
+        store.write_state().expect("seed queue state").jobs.insert(
+            job,
+            StoredJob {
+                payload: JobPayload::RecalculateAssignment {
+                    assignment: AssignmentId::from_uuid(Uuid::from_u128(92)),
+                    generation: question_model::ScoringGeneration::INITIAL,
                 },
-            )
-            .await
-            .expect("ready job");
+                state: JobState::Ready,
+                available_at: ActivityTimestamp::from_unix_millis(0),
+                lease_token: None,
+                lease_expires_at: None,
+                attempt_count: 0,
+                max_attempts: 3,
+                failure: None,
+            },
+        );
         let lease = JobLeaseDuration::from_seconds(30).expect("bounded lease");
 
         let first = store

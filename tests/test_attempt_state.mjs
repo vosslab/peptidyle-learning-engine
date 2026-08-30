@@ -19,7 +19,6 @@ function createStorage() {
 
 function createContext(overrides = {}) {
   return {
-    tenantId: "tenant-a",
     runId: "run-a",
     attemptId: "attempt-a",
     questionVersion: "version-a",
@@ -35,7 +34,6 @@ function receipt() {
     accepted: true,
     attempt: {
       id: "attempt-a",
-      tenant: "tenant-a",
       run: "run-a",
       problem: "problem-a",
       questionVersion: "version-a",
@@ -225,7 +223,7 @@ test("an acknowledged pending submission clears its replay and checks status wit
   await fixture.machine.submit();
   assert.equal(fixture.machine.state().phase, "acceptedPending");
   assert.deepEqual(fixture.machine.state().response, numericResponse(11));
-  assert.equal(fixture.storage.value("ple:attempt:tenant-a:run-a:attempt-a"), null);
+  assert.equal(fixture.storage.value("ple:attempt:run-a:attempt-a"), null);
 
   await fixture.machine.submit();
   await fixture.machine.checkGradingStatus();
@@ -352,22 +350,22 @@ test("reload restores the saved response and its existing replay key", async () 
 
 test("run exit clears only the active attempt buffer", () => {
   const storage = createStorage();
-  const otherAttemptKey = "ple:attempt:tenant-a:run-a:attempt-b";
+  const otherAttemptKey = "ple:attempt:run-a:attempt-b";
   storage.setItem(otherAttemptKey, "other-attempt-buffer");
   const fixture = createMachine({ storage });
   ready(fixture.machine, numericResponse(12));
 
-  assert.notEqual(storage.getItem("ple:attempt:tenant-a:run-a:attempt-a"), null);
+  assert.notEqual(storage.getItem("ple:attempt:run-a:attempt-a"), null);
   fixture.machine.dispose();
 
-  assert.equal(storage.getItem("ple:attempt:tenant-a:run-a:attempt-a"), null);
+  assert.equal(storage.getItem("ple:attempt:run-a:attempt-a"), null);
   assert.equal(storage.getItem(otherAttemptKey), "other-attempt-buffer");
 });
 
 test("a hostile saved multiple-choice response is discarded before it reaches an uneditable control", async () => {
   const storage = createStorage();
   storage.setItem(
-    "ple:attempt:tenant-a:run-a:attempt-a",
+    "ple:attempt:run-a:attempt-a",
     JSON.stringify({
       response: { kind: "multipleChoice", selected: ["known", "forged", "known"] },
       idempotencyKey: "hostile-key",
@@ -386,7 +384,7 @@ test("a hostile saved multiple-choice response is discarded before it reaches an
   assert.equal(fixture.machine.state().phase, "answering");
   assert.equal(fixture.machine.state().response, null);
   assert.match(fixture.machine.state().storageWarning ?? "", /not valid for this question/);
-  assert.equal(storage.getItem("ple:attempt:tenant-a:run-a:attempt-a"), null);
+  assert.equal(storage.getItem("ple:attempt:run-a:attempt-a"), null);
 });
 
 test("a hostile saved ordering is discarded and a valid saved permutation retains its replay key", async () => {
@@ -399,7 +397,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
   };
   const hostileStorage = createStorage();
   hostileStorage.setItem(
-    "ple:attempt:tenant-a:run-a:attempt-a",
+    "ple:attempt:run-a:attempt-a",
     JSON.stringify({
       response: { kind: "ordering", order: ["first", "forged"] },
       idempotencyKey: "hostile-order-key",
@@ -415,7 +413,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
 
   const validStorage = createStorage();
   validStorage.setItem(
-    "ple:attempt:tenant-a:run-a:attempt-a",
+    "ple:attempt:run-a:attempt-a",
     JSON.stringify({
       response: { kind: "ordering", order: ["second", "first"] },
       idempotencyKey: "saved-order-key",
@@ -719,7 +717,7 @@ test("a withheld receipt is explicitly awaiting and never infers a grade from at
 test("an injected external-tool local buffer with provider data is discarded", () => {
   const storage = createStorage();
   storage.setItem(
-    "ple:attempt:tenant-a:run-a:attempt-a",
+    "ple:attempt:run-a:attempt-a",
     JSON.stringify({
       response: { kind: "externalTool", score: 100, token: "forged" },
       idempotencyKey: "key-forged",
@@ -733,7 +731,7 @@ test("an injected external-tool local buffer with provider data is discarded", (
 test("a marker-only external-tool local buffer restores unchanged", () => {
   const storage = createStorage();
   storage.setItem(
-    "ple:attempt:tenant-a:run-a:attempt-a",
+    "ple:attempt:run-a:attempt-a",
     JSON.stringify({ response: { kind: "externalTool" }, idempotencyKey: "key-external" }),
   );
   const fixture = createMachine({ storage });

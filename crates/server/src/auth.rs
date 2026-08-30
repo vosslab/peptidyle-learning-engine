@@ -2,8 +2,8 @@
 //!
 //! A credential provider establishes [`SessionSubject`]. This module then
 //! mints a 256-bit opaque cookie credential, persists only its SHA-256 hash,
-//! and resolves the tenant from the database row. Request parameters, headers,
-//! and bodies never construct [`TenantContext`].
+//! and resolves an actor from the database row. Request parameters, headers,
+//! and bodies never construct [`ActorContext`].
 
 use std::sync::Arc;
 
@@ -15,10 +15,10 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
 use learning_data_access::{
-    AccountSessionStore, SessionLifetime, SessionRecord, SessionStore, SessionSubject, StoreError,
-    TenantContext,
+    AccountSessionStore, ActorContext, SessionLifetime, SessionRecord, SessionStore,
+    SessionSubject, StoreError,
 };
-use question_model::{TenantId, UserId, UserRole};
+use question_model::{UserId, UserRole};
 use serde::Serialize;
 
 #[path = "auth/browser_boundary.rs"]
@@ -111,13 +111,13 @@ impl std::fmt::Debug for IssuedSession {
     }
 }
 
-/// Authenticated principal and its derived tenant boundary.
+/// Authenticated principal and its server-derived actor identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedSession {
     /// Active session metadata resolved from shared storage.
     pub record: SessionRecord,
-    /// RLS context derived only from the resolved record.
-    pub tenant_context: TenantContext,
+    /// Actor identity derived only from the resolved record.
+    pub actor: ActorContext,
     /// Request-derived private session capability carried by trusted server
     /// operations. It never enters a browser DTO.
     pub(crate) session_hash: learning_data_access::SessionTokenHash,
@@ -129,9 +129,7 @@ pub struct AuthenticatedSession {
 pub struct AuthSessionResponse {
     /// Literal true for this authenticated response shape.
     pub authenticated: bool,
-    /// Tenant established by the session row.
-    pub tenant: TenantId,
-    /// Browser-safe identity with coarse roles and no credential.
+    /// Browser-safe identity with one immutable role and no credential.
     pub user: AuthUserResponse,
 }
 
@@ -143,8 +141,8 @@ pub struct AuthUserResponse {
     pub id: UserId,
     /// Provider-established display label.
     pub display_name: String,
-    /// Coarse route-authorization roles.
-    pub roles: Vec<UserRole>,
+    /// Immutable account role.
+    pub role: UserRole,
 }
 
 impl AuthenticatedSession {
@@ -226,7 +224,7 @@ pub async fn issue_session(
     ))
 }
 
-/// Resolves a cookie against shared storage and derives tenant context.
+/// Resolves a cookie against shared storage and derives actor identity.
 pub async fn resolve_session(
     sessions: &dyn SessionStore,
     cookie_header: Option<&str>,
@@ -237,10 +235,10 @@ pub async fn resolve_session(
         .await
         .map_err(|error| AuthError::Unavailable(error.to_string()))?
         .ok_or(AuthError::Unauthenticated)?;
-    let tenant_context = TenantContext::from_authenticated_session(record.subject.tenant());
+    let actor = ActorContext::from_session_record(&record);
     Ok(AuthenticatedSession {
         record,
-        tenant_context,
+        actor,
         session_hash: token.hash(),
     })
 }
@@ -316,10 +314,10 @@ where
     S: SessionStore + AccountSessionStore + 'static,
 {
     let cookie_header = joined_cookie_header(&headers);
-    let tenant_result = revoke_session(state.sessions.as_ref(), cookie_header.as_deref()).await;
+    let session_result = revoke_session(state.sessions.as_ref(), cookie_header.as_deref()).await;
     let account_result =
         passwordless::revoke_presented_account_session(state.sessions.as_ref(), &headers).await;
-    let (mut response, revoked) = match (tenant_result, account_result) {
+    let (mut response, revoked) = match (session_result, account_result) {
         (Ok(()), Ok(())) => (
             Json(SignedOutResponse {
                 authenticated: false,
@@ -349,11 +347,10 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
     let subject = &record.subject;
     AuthSessionResponse {
         authenticated: true,
-        tenant: subject.tenant(),
         user: AuthUserResponse {
             id: subject.user(),
             display_name: subject.display_name().to_string(),
-            roles: subject.roles().to_vec(),
+            role: subject.role(),
         },
     }
 }

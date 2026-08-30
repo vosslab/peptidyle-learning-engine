@@ -4,13 +4,13 @@ use async_trait::async_trait;
 use base64::Engine as _;
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, ProblemVersionRef, QuestionDefinition, TenantId,
+    DraftQuestionDefinition, DraftQuestionSource, ProblemVersionRef, QuestionDefinition,
     WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::FlatImportPublicationPromotion;
-use crate::{AssetDeliveryRecord, DraftRecord, StoreError, TenantContext, WorkspaceDraftRevision};
+use crate::{ActorContext, AssetDeliveryRecord, DraftRecord, StoreError, WorkspaceDraftRevision};
 
 /// Canonical source media type for workspace and published flat-question objects.
 pub const FLAT_QUESTION_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-question+json";
@@ -189,8 +189,6 @@ impl std::fmt::Debug for FlatQuestionGradingPayload {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceFlatQuestionSource {
-    /// Source tenant.
-    pub tenant: TenantId,
     /// Author workspace that owns the staged source.
     pub workspace: WorkspaceId,
     /// Draft revision this binding currently describes.
@@ -207,7 +205,6 @@ pub struct WorkspaceFlatQuestionSource {
 
 impl WorkspaceFlatQuestionSource {
     pub fn new(
-        tenant: TenantId,
         workspace: WorkspaceId,
         workspace_revision: WorkspaceDraftRevision,
         source_family: String,
@@ -217,7 +214,7 @@ impl WorkspaceFlatQuestionSource {
     ) -> Result<Self, StoreError> {
         validate_sha256_lower_hex(&canonical_source_sha256)?;
         validate_sha256_lower_hex(&public_binding_sha256)?;
-        validate_workspace_flat_source_record(&tenant, &workspace, &source_record)?;
+        validate_workspace_flat_source_record(&workspace, &source_record)?;
         if source_record.sha256.to_string() != canonical_source_sha256 {
             return Err(StoreError::InvalidRecord(
                 "flat-question canonical checksum must match the source object".to_string(),
@@ -229,7 +226,6 @@ impl WorkspaceFlatQuestionSource {
             ));
         }
         Ok(Self {
-            tenant,
             workspace,
             workspace_revision,
             source_family,
@@ -255,12 +251,10 @@ fn validate_sha256_lower_hex(value: &str) -> Result<(), StoreError> {
 }
 
 pub(crate) fn validate_workspace_flat_source_record(
-    tenant: &TenantId,
     workspace: &WorkspaceId,
     record: &ObjectRecord,
 ) -> Result<(), StoreError> {
     let ObjectKey::WorkspaceQuestionSource {
-        tenant: source_tenant,
         workspace: source_workspace,
         object,
     } = &record.key
@@ -269,7 +263,7 @@ pub(crate) fn validate_workspace_flat_source_record(
             "flat-question source must use the workspace question source key".to_string(),
         ));
     };
-    if source_tenant != tenant || source_workspace != workspace || record.id != *object {
+    if source_workspace != workspace || record.id != *object {
         return Err(StoreError::InvalidRecord(
             "flat-question source key must match the workspace source record identity".to_string(),
         ));
@@ -382,7 +376,6 @@ impl std::fmt::Debug for UpsertFlatQuestionCommand {
         formatter
             .debug_struct("UpsertFlatQuestionCommand")
             .field("expected_revision", &self.expected_revision)
-            .field("tenant", &self.draft.tenant)
             .field("workspace", &self.draft.question.workspace)
             .field("source", &"[redacted]")
             .field("source_family", &source_family)
@@ -422,10 +415,9 @@ pub(crate) fn validate_upsert_flat_question_command(
 #[async_trait]
 pub trait FlatQuestionGradingStore: Send + Sync {
     /// Returns private flat-question grading material for visible published
-    /// problems. Returns `None` when the tenant lacks catalog access.
+    /// problems. Returns `None` when the caller lacks catalog access.
     async fn flat_question_published_grading(
         &self,
-        context: TenantContext,
         reference: ProblemVersionRef,
     ) -> Result<Option<FlatQuestionGradingPayload>, StoreError>;
 }
@@ -440,16 +432,14 @@ pub trait FlatQuestionStore: Send + Sync {
     /// provenance is preserved unchanged.
     async fn upsert_flat_question(
         &self,
-        context: TenantContext,
-        actor: crate::UserId,
+        actor: ActorContext,
         command: UpsertFlatQuestionCommand,
     ) -> Result<WorkspaceFlatQuestionSource, StoreError>;
 
     /// Returns the current binding for authorized workspace actors, if present.
     async fn flat_question_source(
         &self,
-        context: TenantContext,
-        actor: crate::UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
     ) -> Result<Option<WorkspaceFlatQuestionSource>, StoreError>;
 }
@@ -466,7 +456,7 @@ mod tests {
     use question_model::taxonomy::License;
     use question_model::{
         DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
-        ResponseDefinition, TenantId, WorkspaceId, WorkspaceImportId,
+        ResponseDefinition, WorkspaceId, WorkspaceImportId,
     };
     use uuid::Uuid;
 
@@ -481,10 +471,6 @@ mod tests {
             .expect("fixture should compile")
             .into_parts()
             .1
-    }
-
-    fn tenant() -> TenantId {
-        TenantId::from_uuid(Uuid::nil())
     }
 
     fn workspace() -> WorkspaceId {
@@ -547,7 +533,6 @@ mod tests {
     #[test]
     fn flat_question_source_rejects_wrong_key() {
         let key = ObjectKey::WorkspaceSource {
-            tenant: tenant(),
             workspace: workspace(),
             import: WorkspaceImportId::from_uuid(Uuid::nil()),
             object: ObjectId::from_uuid(Uuid::nil()),
@@ -566,7 +551,6 @@ mod tests {
             created_at: question_model::ActivityTimestamp::from_unix_millis(0),
         };
         let err = WorkspaceFlatQuestionSource::new(
-            tenant(),
             workspace(),
             WorkspaceDraftRevision::INITIAL,
             "flat_single_choice_v2".to_string(),
@@ -581,7 +565,6 @@ mod tests {
     #[test]
     fn flat_question_source_rejects_bad_media_type() {
         let key = ObjectKey::WorkspaceQuestionSource {
-            tenant: tenant(),
             workspace: workspace(),
             object: ObjectId::from_uuid(Uuid::nil()),
         };
@@ -600,7 +583,6 @@ mod tests {
         };
         assert!(
             WorkspaceFlatQuestionSource::new(
-                tenant(),
                 workspace(),
                 WorkspaceDraftRevision::INITIAL,
                 "flat_single_choice_v2".to_string(),
@@ -618,7 +600,6 @@ mod tests {
             id: ObjectId::from_uuid(Uuid::nil()),
             bucket: objects::Bucket::PrivateContent,
             key: ObjectKey::WorkspaceQuestionSource {
-                tenant: tenant(),
                 workspace: workspace(),
                 object: ObjectId::from_uuid(Uuid::nil()),
             },
@@ -633,7 +614,6 @@ mod tests {
         };
         let source_sha256 = source.sha256.to_string();
         let draft = DraftRecord {
-            tenant: tenant(),
             question: question(),
             derived_from: None,
         };

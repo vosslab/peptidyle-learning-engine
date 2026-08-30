@@ -12,13 +12,12 @@
 //! cargo tools bindgen <input.wasm> <web|node> <out-dir> <out-name>
 //! cargo tools fixtures <--check|--write>
 //! cargo tools tsgen [out-dir]
-//! cargo tools base-course --database-url <URL> --apply-migrations --tenant <UUID>
-//! --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID>
-//! --sysadmin <UUID>
-//! cargo tools e2e-seed --database-url <URL> --apply-migrations --tenant <UUID> --instructor <UUID> --student <UUID>
+//! cargo tools base-course --instructor <UUID> --mary <UUID> --jack <UUID>
+//! --approval-candidate <UUID> --sysadmin <UUID> --lifecycle-phase <prepare|install>
+//! cargo tools e2e-seed --database-url <URL> --apply-migrations --instructor <UUID> --student <UUID>
 //! # Explicit renderer-acceptance fixture only (not normal local-stack seeding):
 //! cargo tools e2e-seed --webwork-pilot --database-url <URL> --apply-migrations
-//! --tenant <UUID> --instructor <UUID> --student <UUID> --s3-endpoint <URL>
+//! --instructor <UUID> --student <UUID> --s3-endpoint <URL>
 //! --s3-region <REGION> --private-content-bucket <BUCKET>
 //! ```
 

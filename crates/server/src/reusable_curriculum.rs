@@ -197,7 +197,7 @@ where
     {
         Ok(Some(value)) => blueprint_response(StatusCode::OK, value),
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             record_not_found()
         }
         Err(error) => store_error(error),
@@ -320,7 +320,7 @@ where
     {
         Ok(true) => no_store(StatusCode::NO_CONTENT.into_response()),
         Ok(false)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             record_not_found()
         }
         Err(error) => store_error(error),
@@ -438,7 +438,7 @@ where
     {
         Ok(Some(value)) => alpha_course_response(StatusCode::OK, value),
         Ok(None)
-        | Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+        | Err(StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden) => {
             record_not_found()
         }
         Err(error) => store_error(error),
@@ -644,7 +644,7 @@ where
 
 fn authority_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             error_response(StatusCode::FORBIDDEN, "curriculum is not authorized")
         }
         StoreError::RetryableTransaction | StoreError::TimedOut | StoreError::Unavailable(_) => {
@@ -661,7 +661,7 @@ fn authority_error(error: StoreError) -> Response {
 
 fn store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             record_not_found()
         }
         StoreError::Conflict => error_response(

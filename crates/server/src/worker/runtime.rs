@@ -138,7 +138,7 @@ fn safe_error_kind(error: &StoreError) -> &'static str {
         StoreError::Forbidden => "forbidden",
         StoreError::NotFound => "not_found",
         StoreError::AlreadyExists => "already_exists",
-        StoreError::TenantMismatch => "tenant_mismatch",
+        StoreError::OwnershipMismatch => "ownership_mismatch",
         StoreError::InvalidRecord(_) => "invalid_record",
         StoreError::RunModel(_) => "run_model",
     }
@@ -202,7 +202,6 @@ mod tests {
     impl JobHandler for SettlingHandler {
         async fn prepare(
             &self,
-            _: TenantContext,
             _: JobPayload,
             _: JobExecution,
         ) -> Result<PreparedJobEffect, learning_data_access::JobFailureKind> {
@@ -253,7 +252,6 @@ mod tests {
             .enqueue_job(
                 context,
                 EnqueueJob {
-                    tenant,
                     payload: JobPayload::Render {
                         reference: ProblemVersionRef {
                             problem: ProblemId::from_uuid(Uuid::from_u128(2)),
@@ -284,12 +282,7 @@ mod tests {
             .await
             .expect("shutdown");
         assert_eq!(
-            store
-                .get_job(context, job)
-                .await
-                .expect("view")
-                .expect("job")
-                .state,
+            store.get_job(job).await.expect("view").expect("job").state,
             learning_data_access::JobState::Completed
         );
     }

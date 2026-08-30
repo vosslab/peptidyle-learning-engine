@@ -35,7 +35,7 @@ use question_model::{
     AssignmentSummary, AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary,
     CatalogResponseFamily, CourseId, CourseMembershipRole, CourseSummary, EnrollmentId,
     GradebookSummaryRow, PointValue, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId, TenantId, UserId,
+    QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId, UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -152,7 +152,6 @@ pub fn run(fixture_dir: &Path, mode: Mode) -> Result<Report> {
 }
 
 fn build_corpus() -> Result<FixtureCorpus> {
-    let tenant = tenant_id("0198e000-0000-7000-8000-000000000001");
     let workspace = workspace_id("0198e000-0000-7000-8000-000000000002");
     let problem = problem_id("0198e000-0000-7000-8000-000000000003");
     let version = version_id("0198e000-0000-7000-8000-000000000004");
@@ -241,7 +240,6 @@ fn build_corpus() -> Result<FixtureCorpus> {
                 u64::try_from(index + 1).expect("four fixture runs fit u64"),
             )
             .expect("four fixture public run IDs are valid"),
-            tenant,
             enrollment: enrollment_id,
             run_number: u32::try_from(index + 1).expect("four fixture runs fit u32"),
             started_at: timestamp(
@@ -263,20 +261,11 @@ fn build_corpus() -> Result<FixtureCorpus> {
         .enumerate()
         .map(|(index, run)| {
             let seed = 1_001 + u64::try_from(index).expect("fixture index fits u64");
-            question_attempt(
-                &adapter,
-                index,
-                tenant,
-                *run,
-                &published_problem,
-                seed,
-                &assets,
-            )
+            question_attempt(&adapter, index, *run, &published_problem, seed, &assets)
         })
         .collect::<Result<Vec<_>>>()?;
 
     let summary = StudentAssignmentSummary {
-        tenant,
         enrollment: enrollment_id,
         current_score: Some(1.0),
         best_score: Some(1.0),
@@ -296,7 +285,6 @@ fn build_corpus() -> Result<FixtureCorpus> {
         course: CourseSummary {
             id: course_id,
             reference: question_model::CourseReference::new(1).expect("valid course reference"),
-            tenant,
             title: "BIOC 301: Biochemistry".to_string(),
             term: question_model::CourseTerm::from_parts(
                 "2026-08-24",
@@ -310,7 +298,6 @@ fn build_corpus() -> Result<FixtureCorpus> {
             id: assignment_id,
             reference: question_model::AssignmentReference::new(1)
                 .expect("valid assignment reference"),
-            tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
             disclosure_policy: question_model::StudentDisclosurePolicy::default(),
@@ -330,7 +317,6 @@ fn build_corpus() -> Result<FixtureCorpus> {
         },
         enrollment: AssignmentEnrollment {
             id: enrollment_id,
-            tenant,
             assignment: assignment_id,
             user,
             student,
@@ -341,7 +327,6 @@ fn build_corpus() -> Result<FixtureCorpus> {
         runs,
         attempts,
         gradebook: vec![GradebookSummaryRow {
-            tenant,
             course_id,
             enrollment_id,
             student_id: student,
@@ -447,7 +432,6 @@ fn choice(id: &str, markdown: &str) -> ChoiceOption {
 fn question_attempt(
     adapter: &NativeAdapter,
     index: usize,
-    tenant: TenantId,
     run: RunId,
     question: &QuestionDefinition,
     seed: u64,
@@ -484,7 +468,6 @@ fn question_attempt(
             2 => "0198e000-0000-7000-8000-000000000032",
             _ => "0198e000-0000-7000-8000-000000000033",
         }),
-        tenant,
         run,
         problem: question.problem,
         question_version: question.version,
@@ -587,7 +570,6 @@ id_constructor!(problem_id, ProblemId);
 id_constructor!(question_attempt_id, QuestionAttemptId);
 id_constructor!(run_id, RunId);
 id_constructor!(student_id, StudentId);
-id_constructor!(tenant_id, TenantId);
 id_constructor!(version_id, VersionId);
 id_constructor!(workspace_id, WorkspaceId);
 

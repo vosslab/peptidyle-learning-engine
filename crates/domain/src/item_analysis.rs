@@ -5,7 +5,7 @@
 
 use question_model::{
     ActivityTimestamp, AssignmentId, AssignmentItemId, CourseId, ProblemVersionRef,
-    ScoringGeneration, TenantId,
+    ScoringGeneration,
 };
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,6 @@ impl ItemAnalysisResponseDistribution {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AssignmentItemAnalysis {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub assignment_item: AssignmentItemId,
@@ -76,7 +75,6 @@ pub struct AssignmentItemAnalysis {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CourseItemAnalysisReport {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub source_scoring_generation: ScoringGeneration,

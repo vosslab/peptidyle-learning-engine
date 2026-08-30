@@ -775,7 +775,6 @@ mod tests {
     ) -> QuestionAttempt {
         QuestionAttempt {
             id: QuestionAttemptId::from_uuid(Uuid::from_u128(41)),
-            tenant: TenantId::from_uuid(Uuid::from_u128(42)),
             run: RunId::from_uuid(Uuid::from_u128(43)),
             problem: ProblemId::from_uuid(Uuid::from_u128(44)),
             question_version: VersionId::from_uuid(Uuid::from_u128(45)),

@@ -1,6 +1,5 @@
 // Passwordless account and course-roster browser contracts.
 
-import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseReference } from "../../generated/api/CourseReference";
 import {
@@ -177,13 +176,6 @@ export interface RosterImportDelivery {
   readonly outcome: CourseInvitationEmailDelivery;
 }
 
-export interface ManualGradeExport {
-  readonly assignmentId: AssignmentId;
-  readonly exportId: string;
-  readonly filename: string;
-  readonly csv: Blob;
-}
-
 export interface CourseRosterClient {
   readonly getAccountPresentation: () => Promise<AccountPresentationPreference>;
   readonly saveAccountPresentation: (
@@ -246,10 +238,6 @@ export interface CourseRosterClient {
     rowNumbers: ReadonlyArray<number>,
     idempotencyKey: string,
   ) => Promise<RosterImportCommitResult>;
-  readonly createManualGradeExport: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-  ) => Promise<ManualGradeExport>;
 }
 
 function field(record: Record<string, unknown>, key: string, path: string): unknown {

@@ -165,14 +165,13 @@ def test_replica_count_command_uses_profile_scoped_parameters(
 	tmp_path: pathlib.Path,
 ) -> None:
 	"""The closed child capability binds scoped UUIDs without interpolating them into SQL."""
-	tenant = "00000000-0000-0000-0000-000000000100"
 	attempt = "00000000-0000-4000-8000-000000000200"
 	argv, environment, sql = local_stack_control.consumer.postgresql_count_command(
-		fixed_replica_target(tmp_path), tenant, attempt
+		fixed_replica_target(tmp_path), attempt
 	)
-	assert f"tenant_id={tenant}" in argv and f"attempt_id={attempt}" in argv
-	assert tenant not in sql and attempt not in sql
-	assert ":'tenant_id'::uuid" in sql and ":'attempt_id'::uuid" in sql
+	assert f"attempt_id={attempt}" in argv
+	assert attempt not in sql
+	assert ":'attempt_id'::uuid" in sql
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 
 
@@ -187,7 +186,6 @@ def test_postgresql_count_rejects_other_fixed_profiles(
 	):
 		local_stack_control.consumer.postgresql_count_command(
 			target,
-			"00000000-0000-0000-0000-000000000100",
 			"00000000-0000-4000-8000-000000000200",
 		)
 
@@ -198,8 +196,7 @@ def test_postgresql_count_rejects_noncanonical_uuid(tmp_path: pathlib.Path) -> N
 	with pytest.raises(local_stack_control.models.ControllerError, match="canonical UUID"):
 		local_stack_control.consumer.postgresql_count_command(
 			fixed_replica_target(tmp_path),
-			"00000000-0000-0000-0000-000000000100'::uuid; SELECT 1; --",
-			"00000000-0000-4000-8000-000000000200",
+			"00000000-0000-4000-8000-000000000200'::uuid; SELECT 1; --",
 		)
 
 
@@ -211,7 +208,6 @@ def test_postgresql_count_cli_rejects_generic_sql_or_compose_tail() -> None:
 			[
 				"postgresql-count",
 				"--manifest", "/private/manifest",
-				"--tenant-id", "00000000-0000-0000-0000-000000000100",
 				"--attempt-id", "00000000-0000-4000-8000-000000000200",
 				"--sql", "DROP TABLE private_data",
 			]
@@ -235,7 +231,6 @@ def test_postgresql_count_cli_emits_only_the_five_counts(
 	result = local_stack_control._consumer_cli.run_postgresql_count(
 		runner,
 		target,
-		"00000000-0000-0000-0000-000000000100",
 		"00000000-0000-4000-8000-000000000200",
 	)
 	assert result == 0 and capsys.readouterr().out == "1|1|1|1|1\n"
@@ -261,6 +256,5 @@ def test_postgresql_count_cli_rejects_malformed_result(
 		local_stack_control._consumer_cli.run_postgresql_count(
 			CountRunner("1|1|1|1"),
 			target,
-			"00000000-0000-0000-0000-000000000100",
 			"00000000-0000-4000-8000-000000000200",
 		)

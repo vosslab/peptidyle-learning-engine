@@ -1,25 +1,23 @@
 //! In-memory atomic QTI queueing and status projection.
 
 use async_trait::async_trait;
-use question_model::{UserId, WorkspaceId, WorkspaceImportId};
+use question_model::{WorkspaceId, WorkspaceImportId};
 
 use super::{MemoryStore, State, StoredJob};
 use crate::{
     JobPayload, JobState, QtiImportApiState, QtiImportApiStore, QtiImportApiView, QtiImportRef,
-    QueueQtiImportCommand, StoreError, TenantContext, WorkspaceDraftRole, ensure_tenant,
+    ActorContext, QueueQtiImportCommand, StoreError, WorkspaceDraftRole,
     qti_import_job_id, validate_queue_qti_import,
 };
 
 fn actor_can_access_workspace(
     state: &State,
-    context: TenantContext,
-    actor: UserId,
+    actor: ActorContext,
     workspace: WorkspaceId,
 ) -> bool {
-    let tenant = context.tenant_id();
-    state.drafts.contains_key(&(tenant, workspace))
+    state.drafts.contains_key(&workspace)
         && matches!(
-            state.draft_access.get(&(tenant, workspace, actor)),
+            state.draft_access.get(&(workspace, actor.user_id())),
             Some(WorkspaceDraftRole::Owner | WorkspaceDraftRole::Collaborator)
         )
 }
@@ -36,17 +34,16 @@ fn import_view(
         workspace: reference.workspace,
         import: reference.import,
         source_object: objects::workspace_qti_archive_object_id(
-            reference.tenant,
             reference.workspace,
             reference.import,
         ),
     };
-    if job.tenant != reference.tenant || job.payload != expected_payload {
+    if job.payload != expected_payload {
         return Err(StoreError::Unavailable(
             "deterministic QTI job identity is bound to different work".to_string(),
         ));
     }
-    let key = (reference.tenant, reference.workspace, reference.import);
+    let key = (reference.workspace, reference.import);
     let registry = state.qti_imports.get(&key).cloned();
     let api_state = derive_api_state(job.state, registry.is_some())?;
     Ok(Some(QtiImportApiView {
@@ -75,14 +72,12 @@ fn derive_api_state(
 impl QtiImportApiStore for MemoryStore {
     async fn queue_qti_import(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         command: QueueQtiImportCommand,
     ) -> Result<QtiImportApiView, StoreError> {
-        ensure_tenant(context, command.reference.tenant)?;
         validate_queue_qti_import(&command)?;
         let mut state = self.write_state()?;
-        if !actor_can_access_workspace(&state, context, actor, command.reference.workspace) {
+        if !actor_can_access_workspace(&state, actor, command.reference.workspace) {
             return Err(StoreError::NotFound);
         }
         let job_id = qti_import_job_id(command.reference);
@@ -92,8 +87,7 @@ impl QtiImportApiStore for MemoryStore {
             source_object: command.source.id,
         };
         if let Some(existing) = state.jobs.get(&job_id) {
-            if existing.tenant != command.reference.tenant
-                || existing.payload != payload
+            if existing.payload != payload
                 || existing.max_attempts != command.max_attempts
             {
                 return Err(StoreError::Conflict);
@@ -107,7 +101,6 @@ impl QtiImportApiStore for MemoryStore {
         state.jobs.insert(
             job_id,
             StoredJob {
-                tenant: command.reference.tenant,
                 payload,
                 state: JobState::Ready,
                 available_at,
@@ -125,19 +118,17 @@ impl QtiImportApiStore for MemoryStore {
 
     async fn qti_import_view(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
     ) -> Result<Option<QtiImportApiView>, StoreError> {
         let state = self.read_state()?;
-        if !actor_can_access_workspace(&state, context, actor, workspace) {
+        if !actor_can_access_workspace(&state, actor, workspace) {
             return Ok(None);
         }
         import_view(
             &state,
             QtiImportRef {
-                tenant: context.tenant_id(),
                 workspace,
                 import,
             },

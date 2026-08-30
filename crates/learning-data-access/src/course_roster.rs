@@ -1,22 +1,19 @@
-//! Tenant-owned course roster, invitation, and learner-identity contract.
+//! Course roster, invitation, and learner-identity contract.
 //!
 //! Account credentials remain behind [`crate::AccountIdentityStore`]. This
 //! module owns only the protected operational metadata needed to invite a
-//! learner, authorize course activity, and match manual grade exports.
+//! learner and authorize course activity.
 
 use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Digest;
-use question_model::{ActivityTimestamp, CourseId, StudentId, TenantId, UserId};
+use question_model::{ActivityTimestamp, CourseId, StudentId, UserId};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    AuthenticationEmail, EmailDomain, Page, PageRequest, SessionTokenHash, StoreError,
-    TenantContext,
-};
+use crate::{ActorContext, AuthenticationEmail, EmailDomain, Page, PageRequest, StoreError};
 
 #[path = "course_roster/import.rs"]
 mod import;
@@ -197,7 +194,6 @@ pub enum CourseMemberStatus {
 #[derive(Clone, PartialEq, Eq)]
 pub struct CourseRosterMember {
     pub id: CourseMemberId,
-    pub tenant: TenantId,
     pub course: CourseId,
     pub user: UserId,
     pub student: StudentId,
@@ -216,7 +212,6 @@ impl std::fmt::Debug for CourseRosterMember {
         formatter
             .debug_struct("CourseRosterMember")
             .field("id", &self.id)
-            .field("tenant", &self.tenant)
             .field("course", &self.course)
             .field("user", &self.user)
             .field("student", &self.student)
@@ -243,7 +238,6 @@ pub enum CourseInvitationStatus {
 #[derive(Clone, PartialEq, Eq)]
 pub struct CourseInvitation {
     pub id: CourseInvitationId,
-    pub tenant: TenantId,
     pub course: CourseId,
     pub email: AuthenticationEmail,
     pub roster_id: CourseRosterId,
@@ -259,7 +253,6 @@ impl std::fmt::Debug for CourseInvitation {
         formatter
             .debug_struct("CourseInvitation")
             .field("id", &self.id)
-            .field("tenant", &self.tenant)
             .field("course", &self.course)
             .field("email", &"[protected]")
             .field("roster_id", &"[protected]")
@@ -397,7 +390,6 @@ pub struct UpsertCourseMember {
 /// Atomic claim result; no credential or unrelated course state is included.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedCourseMembership {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub member: CourseRosterMember,
     pub roster_revision: RosterRevision,
@@ -446,7 +438,6 @@ pub enum CourseRosterSupportAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseRosterSupportAudit {
-    pub tenant: TenantId,
     pub course: CourseId,
     pub actor: UserId,
     pub action: CourseRosterSupportAction,
@@ -466,7 +457,7 @@ impl std::fmt::Display for CourseRosterError {
 
 impl std::error::Error for CourseRosterError {}
 
-/// Focused tenant roster persistence and atomic claim boundary.
+/// Focused course-roster persistence and atomic claim boundary.
 ///
 /// Direct Instructors own these operations. The list/invite/policy/revoke/
 /// import methods also accept the closed Sysadmin roster-support authority and
@@ -478,27 +469,24 @@ impl std::error::Error for CourseRosterError {}
 pub trait CourseRosterStore: Send + Sync {
     async fn list_course_roster(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         course: CourseId,
         page: PageRequest,
     ) -> Result<CourseRosterPage, StoreError>;
 
     async fn create_course_invitation(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         command: CreateCourseInvitation,
     ) -> Result<CourseInvitation, StoreError>;
 
     async fn replace_course_enrollment_policy(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         command: ReplaceCourseEnrollmentPolicy,
     ) -> Result<CourseEnrollmentPolicy, StoreError>;
 
-    /// Resolves tenant/course only from the hashed invitation capability.
+    /// Resolves the course only from the hashed invitation capability.
     async fn claim_course_invitation(
         &self,
         command: ClaimCourseInvitation,
@@ -506,36 +494,31 @@ pub trait CourseRosterStore: Send + Sync {
 
     async fn upsert_course_member(
         &self,
-        context: TenantContext,
-        actor: UserId,
+        actor: ActorContext,
         command: UpsertCourseMember,
     ) -> Result<ClaimedCourseMembership, StoreError>;
 
     async fn revoke_course_member(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         command: RevokeCourseMember,
     ) -> Result<RosterRevision, StoreError>;
 
     async fn revoke_course_invitation(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         command: RevokeCourseInvitation,
     ) -> Result<RosterRevision, StoreError>;
 
     async fn stage_course_roster_import(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         command: StageCourseRosterImport,
     ) -> Result<CourseRosterImportPreview, StoreError>;
 
     async fn commit_course_roster_import(
         &self,
-        context: TenantContext,
-        session: SessionTokenHash,
+        actor: ActorContext,
         command: CommitCourseRosterImport,
     ) -> Result<CommittedCourseRosterImport, StoreError>;
 }

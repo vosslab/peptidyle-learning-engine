@@ -8,7 +8,6 @@ fn uuid(value: u128) -> Uuid {
 
 fn context() -> AnalysisReportContext {
     AnalysisReportContext {
-        tenant: TenantId::from_uuid(uuid(1)),
         course: CourseId::from_uuid(uuid(2)),
         assignment: AssignmentId::from_uuid(uuid(3)),
         generation: ScoringGeneration::INITIAL,

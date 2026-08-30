@@ -4,29 +4,26 @@ use super::*;
 /// routes must not consult a process wall clock because replicas can disagree.
 #[async_trait]
 pub trait AuthoritativeTimeStore: Send + Sync {
-    async fn authoritative_time(
-        &self,
-        context: TenantContext,
-    ) -> Result<ActivityTimestamp, StoreError>;
+    async fn authoritative_time(&self) -> Result<ActivityTimestamp, StoreError>;
 }
 
 /// Retention persistence boundary. Every mutator authenticates the supplied
 /// stored session and derives sysadmin or course-instructor authority
-/// from persisted session/course data; no request supplies a role or tenant.
+/// from persisted session/course data; no request supplies a role or scope.
 #[async_trait]
 pub trait RetentionStore: Send + Sync {
-    /// Updates this tenant's future-course policy after stored-Sysadmin validation.
+    /// Updates the installation-wide future-course policy after stored-Sysadmin validation.
     async fn configure_retention_policy(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
-        policy: InstitutionRetentionPolicy,
+        policy: RetentionPolicy,
     ) -> Result<(), StoreError>;
 
     /// Ends a course at the backend authoritative time and snapshots its policy.
     async fn end_course_retention(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseRetentionRecord, StoreError>;
@@ -34,7 +31,7 @@ pub trait RetentionStore: Send + Sync {
     /// Reads an ended course's retention record after stored-session/course authorization.
     async fn course_retention(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<CourseRetentionRecord>, StoreError>;
@@ -43,7 +40,7 @@ pub trait RetentionStore: Send + Sync {
 /// Private schedule-control boundary for the retention service.
 ///
 /// The dispatcher accepts only a validated batch size: no caller can name a
-/// tenant, course, stage, timestamp, generation, job, or object key. The two
+/// course, stage, timestamp, generation, job, or object key. The two
 /// authenticated mutators derive all authority from the persisted session.
 #[async_trait]
 pub trait RetentionScheduleStore: Send + Sync {
@@ -56,7 +53,7 @@ pub trait RetentionScheduleStore: Send + Sync {
     /// Extends only unstarted current stages after stored-sysadmin validation.
     async fn extend_course_retention(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         additional_days: RetentionDays,
@@ -65,7 +62,7 @@ pub trait RetentionScheduleStore: Send + Sync {
     /// Records the explicit archive-time assignment-definition choice.
     async fn set_archive_disposition(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         disposition: AssignmentDefinitionDisposition,
@@ -82,7 +79,7 @@ pub trait RetentionApiStore: Send + Sync {
     /// Reads the key-free retention projection for an authorized course actor.
     async fn retention_view(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<CourseRetentionView>, StoreError>;
@@ -90,7 +87,7 @@ pub trait RetentionApiStore: Send + Sync {
     /// Reads the current durable in-app notification intent, if one exists.
     async fn retention_notification(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<RetentionNotificationView>, StoreError>;
@@ -98,7 +95,7 @@ pub trait RetentionApiStore: Send + Sync {
     /// Conditionally extends an active schedule after an exact revision match.
     async fn extend_retention_if_revision(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -108,7 +105,7 @@ pub trait RetentionApiStore: Send + Sync {
     /// Conditionally requests immediate archive work through the closed broker.
     async fn request_retention_archive_if_revision(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -118,7 +115,7 @@ pub trait RetentionApiStore: Send + Sync {
     /// Conditionally requests immediate permanent-delete work through the broker.
     async fn request_retention_delete_if_revision(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         expected: RetentionRevision,
@@ -181,14 +178,12 @@ pub trait AssignmentScoringWorkerStore: Send + Sync {
     /// Rebuilds private staging rows without changing learner-visible scores.
     async fn prepare_assignment_scoring(
         &self,
-        context: TenantContext,
         command: AssignmentScoringWorkerCommand,
     ) -> Result<AssignmentScoringPreparationOutcome, StoreError>;
 
     /// Conditionally replaces current rows and completes the exact queue lease.
     async fn commit_assignment_scoring(
         &self,
-        context: TenantContext,
         command: AssignmentScoringWorkerCommand,
     ) -> Result<AssignmentScoringCommitOutcome, StoreError>;
 }
@@ -222,7 +217,6 @@ pub trait AttemptAutoSubmitWorkerStore: Send + Sync {
     /// reschedules the exact leased job in one transaction.
     async fn commit_attempt_auto_submit(
         &self,
-        context: TenantContext,
         command: AttemptAutoSubmitWorkerCommand,
     ) -> Result<AttemptAutoSubmitCommitOutcome, StoreError>;
 }
@@ -231,15 +225,10 @@ pub trait AttemptAutoSubmitWorkerStore: Send + Sync {
 ///
 /// This deliberately returns only a boolean: lifecycle stages and retention
 /// schedule details remain Store-private. Implementations must evaluate the
-/// course existence and current retention fence in the same backend security
-/// context as the later record operation.
+/// course existence and current retention fence from the exact course identity.
 #[async_trait]
 pub trait CourseRecordsAccessStore: Send + Sync {
-    /// Returns false for a missing course, a foreign tenant, an archived or
-    /// deleted course, or a current-generation archive stage already started.
-    async fn course_records_accessible(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-    ) -> Result<bool, StoreError>;
+    /// Returns false for a missing, archived, or deleted course, or a current
+    /// generation archive stage already started.
+    async fn course_records_accessible(&self, course: CourseId) -> Result<bool, StoreError>;
 }

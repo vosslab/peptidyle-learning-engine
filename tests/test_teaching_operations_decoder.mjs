@@ -203,7 +203,7 @@ test("Sysadmin candidate search keeps approval eligibility distinct from account
         candidates: [
           {
             ...candidates.candidates[0],
-            account: { ...candidates.candidates[0].account, tenant: "private" },
+            account: { ...candidates.candidates[0].account, privateScope: "private" },
           },
         ],
       }),

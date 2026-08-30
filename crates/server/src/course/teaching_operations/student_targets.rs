@@ -145,7 +145,7 @@ fn student(
 
 fn student_target_error(error: StoreError) -> Response {
     match error {
-        StoreError::Forbidden | StoreError::TenantMismatch | StoreError::NotFound => {
+        StoreError::Forbidden | StoreError::OwnershipMismatch | StoreError::NotFound => {
             error_response(StatusCode::NOT_FOUND, "student targets not found")
         }
         other => store_error_response(other),

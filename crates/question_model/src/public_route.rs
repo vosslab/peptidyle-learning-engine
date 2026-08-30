@@ -1,7 +1,7 @@
 //! Human-facing typed route references.
 //!
 //! These strings locate records; they are never authority.  The server resolves one inside the
-//! authenticated tenant and membership boundary before using its internal identity.
+//! authenticated course membership boundary before using its internal identity.
 
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;

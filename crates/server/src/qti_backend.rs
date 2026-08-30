@@ -234,7 +234,7 @@ where
         let resolved = self.resolve(context, reference, question, seed).await?;
         let payload = self
             .grader
-            .qti_publication_grading(context, reference, &resolved.item_id)
+            .qti_publication_grading(reference, &resolved.item_id)
             .await
             .map_err(map_store_error)?
             .ok_or_else(|| {

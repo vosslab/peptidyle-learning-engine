@@ -5,8 +5,8 @@ use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    CatalogStore, CourseListScope, CourseRecord, CourseRecordsAccessStore, CreateCourseCommand,
-    Cursor, PageRequest, PageSize, PaginationError, SessionStore, Store,
+    CatalogStore, CourseRecord, CourseRecordsAccessStore, CreateCourseCommand, Cursor, PageRequest,
+    PageSize, PaginationError, SessionStore, Store,
 };
 use question_model::{CourseId, CourseMembershipRole};
 
@@ -36,12 +36,7 @@ where
         Ok(page) => page,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
     };
-    let scope = CourseListScope::Member(authenticated.record.subject.user());
-    match state
-        .store
-        .list_courses(authenticated.tenant_context, scope, page)
-        .await
-    {
+    match state.store.list_courses(authenticated.actor, page).await {
         Ok(page) => no_store(Json(page).into_response()),
         Err(error) => store_error_response(error),
     }
@@ -109,14 +104,13 @@ where
     };
     let course = CourseRecord {
         id: CourseId::generate(),
-        tenant: authenticated.tenant_context.tenant_id(),
         title: request.title,
         term: request.term,
     };
     match state
         .store
         .create_course(
-            authenticated.tenant_context,
+            authenticated.actor,
             CreateCourseCommand {
                 course: course.clone(),
                 authority,
@@ -161,11 +155,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    let record = match state
-        .store
-        .get_course(authenticated.tenant_context, course)
-        .await
-    {
+    let record = match state.store.get_course(authenticated.actor, course).await {
         Ok(Some(record)) => record,
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
         Err(error) => return store_error_response(error),
@@ -173,7 +163,7 @@ where
     let role = match state
         .store
         .get_current_course_membership(
-            authenticated.tenant_context,
+            authenticated.actor,
             course,
             authenticated.record.subject.user(),
         )
@@ -231,7 +221,7 @@ where
     let member_role = match state
         .store
         .get_current_course_membership(
-            authenticated.tenant_context,
+            authenticated.actor,
             course,
             authenticated.record.subject.user(),
         )

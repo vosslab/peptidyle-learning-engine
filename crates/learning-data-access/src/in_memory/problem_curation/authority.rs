@@ -3,7 +3,7 @@
 use question_model::{ProblemCollectionVisibility, UserRole};
 
 use super::StoredProblemCollection;
-use crate::{SessionTokenHash, StoreError, TenantContext, UserId};
+use crate::{ActorContext, SessionTokenHash, StoreError, UserId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum CurationPrincipal {
@@ -13,31 +13,23 @@ pub(super) enum CurationPrincipal {
 
 pub(super) fn curation_principal(
     state: &crate::in_memory::State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Result<CurationPrincipal, StoreError> {
     let subject = crate::in_memory::sessions::active_subject(state, context, session)
         .ok_or(StoreError::NotFound)?;
-    // A dual-role session intentionally uses the Instructor path, preserving its personal state.
-    if subject.roles().contains(&UserRole::Instructor) {
-        match approved_instructor(state, subject.user()) {
-            Ok(actor) => return Ok(CurationPrincipal::Instructor(actor)),
-            Err(_) if subject.roles().contains(&UserRole::Sysadmin) => {
-                return Ok(CurationPrincipal::Sysadmin(subject.user()));
-            }
-            Err(error) => return Err(error),
+    match subject.role() {
+        UserRole::Instructor => {
+            approved_instructor(state, subject.user()).map(CurationPrincipal::Instructor)
         }
+        UserRole::Sysadmin => Ok(CurationPrincipal::Sysadmin(subject.user())),
+        UserRole::Student => Err(StoreError::Forbidden),
     }
-    subject
-        .roles()
-        .contains(&UserRole::Sysadmin)
-        .then_some(CurationPrincipal::Sysadmin(subject.user()))
-        .ok_or(StoreError::Forbidden)
 }
 
 pub(super) fn require_instructor(
     state: &crate::in_memory::State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Result<UserId, StoreError> {
     match curation_principal(state, context, session)? {

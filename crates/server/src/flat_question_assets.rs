@@ -103,7 +103,7 @@ where
         Ok(value) => value,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return workspace_not_found();
     }
     if !workspace_is_visible(
@@ -148,7 +148,7 @@ where
         Ok(value) => value,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return workspace_not_found();
     }
     if !workspace_is_visible(
@@ -185,18 +185,13 @@ where
             return error_response(StatusCode::UNPROCESSABLE_ENTITY, error.user_message());
         }
     };
-    let created_at = match state
-        .store
-        .authoritative_time(authenticated.tenant_context)
-        .await
-    {
+    let created_at = match state.store.authoritative_time().await {
         Ok(value) => value,
         Err(error) => return asset_store_error(error),
     };
     let asset = AssetId::generate();
     let object = ObjectId::generate();
     let key = ObjectKey::WorkspaceQuestionAsset {
-        tenant: authenticated.tenant_context.tenant_id(),
         workspace,
         asset,
         object,
@@ -214,7 +209,6 @@ where
         Err(error) => return object_error_response(error),
     };
     let descriptor = match WorkspaceFlatQuestionAsset::new(
-        authenticated.tenant_context.tenant_id(),
         workspace,
         asset,
         object,
@@ -326,10 +320,8 @@ where
     asset_store_error(error)
 }
 
-fn may_author(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_author(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 fn workspace_not_found() -> Response {
@@ -338,7 +330,7 @@ fn workspace_not_found() -> Response {
 
 fn asset_store_error(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             workspace_not_found()
         }
         StoreError::AlreadyExists | StoreError::Conflict | StoreError::TimedOut => error_response(

@@ -11,7 +11,7 @@ use question_model::{
     RolloverCourseInstancePreviewRequest, ShiftCourseInstanceTermPreviewRequest,
 };
 
-use super::super::{course_witness, resolve_course};
+use super::super::course_witness;
 use super::adoption_inputs::{definition, key};
 use super::scenario::CurriculumAdoptionScenario;
 
@@ -49,10 +49,7 @@ async fn rollover_retains_ordered_source_parent_and_target_schedule_evidence() {
         panic!("rollover operation returned another completion variant");
     };
     let state = scenario.store.read_state().expect("state");
-    let destination_id = resolve_course(&state, scenario.tenant, completed.course)
-        .expect("rollover destination course");
-    let current = course_witness(&state, scenario.tenant, destination_id)
-        .expect("rollover destination witness");
+    let current = witness(&scenario, completed.course);
     let CourseInstanceReceiptTarget::Rollover(receipt) =
         &state.curriculum_adoption.receipt_targets[&(scenario.actor, receipt_key)]
     else {
@@ -227,8 +224,11 @@ fn witness(
     course: CourseReference,
 ) -> question_model::CourseInstanceWitness {
     let state = scenario.store.read_state().expect("state");
-    let course = resolve_course(&state, scenario.tenant, course).expect("course");
-    course_witness(&state, scenario.tenant, course).expect("course witness")
+    let course_id = *state
+        .courses_by_reference
+        .get(&course)
+        .expect("course reference");
+    course_witness(&state, course_id).expect("course witness")
 }
 
 fn spring_term() -> CourseTerm {

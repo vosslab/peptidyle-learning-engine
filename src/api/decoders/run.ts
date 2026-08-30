@@ -103,7 +103,6 @@ const SCORING_STATUSES = [
 
 const QUESTION_ATTEMPT_FIELDS = [
   "id",
-  "tenant",
   "run",
   "problem",
   "questionVersion",
@@ -197,7 +196,6 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
   requireOnlyFields(record, path, QUESTION_ATTEMPT_FIELDS);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     run: decodeIdentifier(field(record, "run", path), `${path}.run`),
     problem: decodeIdentifier(field(record, "problem", path), `${path}.problem`),
     questionVersion: decodeIdentifier(
@@ -268,7 +266,6 @@ export function decodeAssignmentRun(value: unknown, path = "response"): Assignme
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeRunReference(field(record, "reference", path), `${path}.reference`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     enrollment: decodeIdentifier(field(record, "enrollment", path), `${path}.enrollment`),
     runNumber: decodePositiveInteger(field(record, "runNumber", path), `${path}.runNumber`),
     startedAt: decodeTimestamp(field(record, "startedAt", path), `${path}.startedAt`),
@@ -293,7 +290,6 @@ function decodeStrictAssignmentRun(value: unknown, path: string): AssignmentRun 
   requireOnlyFields(record, path, [
     "id",
     "reference",
-    "tenant",
     "enrollment",
     "runNumber",
     "startedAt",
@@ -309,7 +305,6 @@ function decodeAssignmentEnrollment(value: unknown, path: string): AssignmentEnr
   const record = decodeRecord(value, path);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     assignment: decodeIdentifier(field(record, "assignment", path), `${path}.assignment`),
     user: decodeIdentifier(field(record, "user", path), `${path}.user`),
     student: decodeIdentifier(field(record, "student", path), `${path}.student`),
@@ -380,7 +375,6 @@ export function decodeStudentAssignmentSummary(
 ): StudentAssignmentSummary {
   const record = decodeRecord(value, path);
   const decoded = {
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     enrollment: decodeIdentifier(field(record, "enrollment", path), `${path}.enrollment`),
     currentScore: decodeNullable(
       field(record, "currentScore", path),
@@ -416,7 +410,7 @@ export function decodeStudentAssignmentSummary(
 
 /**
  * Decodes the Student-only aggregate projection. Unlike the storage summary,
- * this exact wire contract has no tenant or enrollment identifiers and sends no
+ * this exact wire contract has no account or enrollment identifiers and sends no
  * score totals unless the current assignment settings permit their disclosure.
  */
 export function decodeStudentAssignmentProgress(
@@ -580,12 +574,11 @@ export function decodeFeedbackReleaseResponse(
 
 export function decodeAuthSession(value: unknown, path = "response"): AuthSession {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["authenticated", "tenant", "user"]);
+  requireOnlyFields(record, path, ["authenticated", "user"]);
   const user = decodeRecord(field(record, "user", path), `${path}.user`);
   requireOnlyFields(user, `${path}.user`, ["id", "displayName", "roles"]);
   const decoded = {
     authenticated: decodeTrue(field(record, "authenticated", path), `${path}.authenticated`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     user: {
       id: decodeIdentifier(field(user, "id", `${path}.user`), `${path}.user.id`),
       displayName: decodeNonemptyString(

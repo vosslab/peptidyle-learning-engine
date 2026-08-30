@@ -1,9 +1,7 @@
 //! PostgreSQL passwordless-account persistence through `ple_auth`.
 
 use async_trait::async_trait;
-use question_model::{
-    ActivityTimestamp, CourseId, CourseMembershipRole, TenantId, UserId, UserRole,
-};
+use question_model::{ActivityTimestamp, CourseId, CourseMembershipRole, UserId, UserRole};
 use serde_json::Value;
 use sqlx::postgres::PgRow;
 use sqlx::types::{Json, Uuid};
@@ -226,19 +224,18 @@ impl AccountIdentityStore for PostgresStore {
         user: UserId,
         page: PageRequest,
     ) -> Result<Page<AccountCourseContext>, StoreError> {
-        let (after_tenant, after_course) = page
+        let after_course = page
             .after
             .as_ref()
             .map(|cursor| decode_account_course_cursor(cursor.as_str()))
-            .transpose()?
-            .unzip();
+            .transpose()?;
         let mut transaction = self.begin_auth().await?;
         let rows = sqlx::query(
             "SELECT tenant_id, course_id, title, role \
              FROM public.ple_account_course_context_page($1, $2, $3, $4)",
         )
         .bind(user.as_uuid())
-        .bind(after_tenant.map(|tenant| tenant.as_uuid()))
+        .bind(Option::<Uuid>::None)
         .bind(after_course.map(|course| course.as_uuid()))
         .bind(i32::from(page.size.get()) + 1)
         .fetch_all(&mut *transaction)
@@ -790,7 +787,6 @@ fn decode_account_course_context(row: &PgRow) -> Result<AccountCourseContext, St
         }
     };
     Ok(AccountCourseContext {
-        tenant: TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?),
         course: CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?),
         title: row.try_get("title").map_err(map_sqlx_error)?,
         role,
@@ -798,26 +794,15 @@ fn decode_account_course_context(row: &PgRow) -> Result<AccountCourseContext, St
 }
 
 fn account_course_cursor(context: &AccountCourseContext) -> String {
-    format!("{}/{}", context.tenant, context.course)
+    context.course.to_string()
 }
 
-fn decode_account_course_cursor(value: &str) -> Result<(TenantId, CourseId), StoreError> {
-    let (tenant, course) = value
-        .split_once('/')
-        .ok_or_else(|| StoreError::InvalidRecord("account course cursor is invalid".to_string()))?;
-    if course.contains('/') {
-        return Err(StoreError::InvalidRecord(
-            "account course cursor is invalid".to_string(),
-        ));
-    }
-    Ok((
-        TenantId::from_uuid(Uuid::parse_str(tenant).map_err(|_| {
+fn decode_account_course_cursor(value: &str) -> Result<CourseId, StoreError> {
+    CourseId::from_uuid(
+        Uuid::parse_str(value).map_err(|_| {
             StoreError::InvalidRecord("account course cursor is invalid".to_string())
-        })?),
-        CourseId::from_uuid(Uuid::parse_str(course).map_err(|_| {
-            StoreError::InvalidRecord("account course cursor is invalid".to_string())
-        })?),
-    ))
+        })?,
+    )
 }
 
 fn decode_account_session(row: &PgRow) -> Result<AccountSessionRecord, StoreError> {

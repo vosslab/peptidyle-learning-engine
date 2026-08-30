@@ -4,7 +4,6 @@
 // the browser source tree, and every production build artifact. It carries no
 // answer key, provider credential, object key, or private asset body.
 
-const tenant = "0198e000-0000-7000-8000-000000000001";
 const workspace = "0198e000-0000-7000-8000-000000000002";
 const problem = "0198e000-0000-7000-8000-000000000003";
 const version = "0198e000-0000-7000-8000-000000000004";
@@ -96,7 +95,6 @@ function attempt(
   const submitted = selected !== undefined;
   return {
     id,
-    tenant,
     run,
     problem,
     questionVersion: version,
@@ -163,7 +161,6 @@ export const publishedProblemFixture = {
   course: {
     id: courseId,
     reference: "C-1",
-    tenant,
     title: "BIOC 301: Biochemistry",
     term: { startDate: "2026-08-24", endDate: "2026-12-18", timeZone: "America/Chicago" },
     role: "student",
@@ -171,7 +168,6 @@ export const publishedProblemFixture = {
   assignment: {
     id: assignmentId,
     reference: "A-1",
-    tenant,
     courseId,
     title: "Peptide bond mastery",
     items: [
@@ -210,7 +206,6 @@ export const publishedProblemFixture = {
   },
   enrollment: {
     id: enrollmentId,
-    tenant,
     assignment: assignmentId,
     user: "0198e000-0000-7000-8000-000000000016",
     student: studentId,
@@ -222,7 +217,6 @@ export const publishedProblemFixture = {
     {
       id: "0198e000-0000-7000-8000-000000000020",
       reference: "R-1",
-      tenant,
       enrollment: enrollmentId,
       runNumber: 1,
       startedAt: 1786000001000,
@@ -234,7 +228,6 @@ export const publishedProblemFixture = {
     {
       id: "0198e000-0000-7000-8000-000000000021",
       reference: "R-2",
-      tenant,
       enrollment: enrollmentId,
       runNumber: 2,
       startedAt: 1786000002000,

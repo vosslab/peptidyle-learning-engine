@@ -13,7 +13,7 @@ use question_model::{
     MaterializationDisposition, StudentAssignmentSummary, UserId,
 };
 
-use crate::{AssignmentRecord, Page, PageRequest, StoreError, TenantContext};
+use crate::{ActorContext, AssignmentRecord, Page, PageRequest, StoreError};
 
 /// One Student action that may require an educational receipt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,7 +154,7 @@ pub trait EntitlementStore: Send + Sync {
     /// callers cannot turn a historical enrollment into list visibility.
     async fn list_student_entitled_assignments_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         student_user: UserId,
         course: CourseId,
         page: PageRequest,
@@ -165,7 +165,7 @@ pub trait EntitlementStore: Send + Sync {
     /// receipt or reconstruct roster/group policy themselves.
     async fn evaluate_assignment_entitlement_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         student_user: UserId,
         course: CourseId,
         assignment: AssignmentId,
@@ -175,7 +175,7 @@ pub trait EntitlementStore: Send + Sync {
     /// Student actions materialize internally in their owning Store transaction.
     async fn issue_assignment_entitlement_impl(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: MaterializeAssignmentEntitlementCommand,
     ) -> Result<AssignmentEntitlementMaterialization, StoreError>;
 }

@@ -99,12 +99,12 @@ use learning_data_access::{
     CourseInvitationDeliveryState, CourseInvitationDeliveryStore,
     CourseInvitationDeliveryWorkerStore, CourseInvitationLifetime, CourseInvitationSecretHash,
     CourseRosterId, CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
-    CourseRosterSupportAction, CreateCourseInvitation, CreateManualGradeExport, CredentialIdHash,
+    CourseRosterSupportAction, CreateCourseInvitation, CredentialIdHash,
     EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-    InvitationDeliveryReissuance, ManualGradeExportStore, PasskeyId, PasskeyRecord,
-    RegisterPasskey, RevokeCourseInvitation, RevokeCourseMember, RosterIdempotencyKey,
-    RosterImportInvitation, RosterImportRowStatus, RosterRevision, StageCourseRosterImport,
-    UpsertCourseMember, WebauthnState, validated_passkey_label,
+    InvitationDeliveryReissuance, PasskeyId, PasskeyRecord, RegisterPasskey,
+    RevokeCourseInvitation, RevokeCourseMember, RosterIdempotencyKey, RosterImportInvitation,
+    RosterImportRowStatus, RosterRevision, StageCourseRosterImport, UpsertCourseMember,
+    WebauthnState, validated_passkey_label,
 };
 use learning_data_access::{
     ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryId, AssetDeliveryRecord,

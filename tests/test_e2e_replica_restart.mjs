@@ -65,7 +65,7 @@ test("replica seed manifest requires the exact scoped course and assignment shap
     versionId: "00000000-0000-4000-8000-000000000205",
   };
   assert.deepEqual(decodeSeedManifest(value), value);
-  assert.throws(() => decodeSeedManifest({ ...value, tenantId: "private" }), /invalid shape/u);
+  assert.throws(() => decodeSeedManifest({ ...value, privateScope: "private" }), /invalid shape/u);
 });
 
 test("localhost TLS dispatcher is request-local and refuses foreign requests", async () => {

@@ -385,7 +385,7 @@ export interface ApiClient
   readonly getSession: () => Promise<AuthSession>;
   /** Resolves a compact visible reference inside the current authorization boundary. */
   readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
-  /** Revokes both account and tenant credentials for this browser. */
+  /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
   readonly listWorkspaceDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
   readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;

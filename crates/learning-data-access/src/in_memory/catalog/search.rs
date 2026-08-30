@@ -1,8 +1,9 @@
 use super::*;
+use crate::ActorContext;
 
 pub(super) async fn search_catalog(
     store: &MemoryStore,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
     query: CatalogSearchQuery,
 ) -> Result<CatalogSearchPage, StoreError> {
@@ -47,7 +48,7 @@ pub(super) async fn search_catalog(
                     "catalog actor-usage snapshot must be restarted".to_string(),
                 )
             })?;
-            if snapshot.tenant != context.tenant_id() || snapshot.actor != actor {
+            if snapshot.actor != actor {
                 return Err(StoreError::InvalidRecord(
                     "catalog actor-usage snapshot is not authorized".to_string(),
                 ));
@@ -59,7 +60,6 @@ pub(super) async fn search_catalog(
             }
             if !super::catalog_snapshot_courses_are_authorized(
                 &state,
-                context.tenant_id(),
                 actor,
                 &snapshot.instructor_courses,
             ) {
@@ -74,7 +74,7 @@ pub(super) async fn search_catalog(
             )
         } else {
             let (used_publications, instructor_courses) =
-                super::catalog_usage_snapshot_values(&state, context.tenant_id(), actor);
+                super::catalog_usage_snapshot_values(&state, actor);
             if used_publications.len() > MAX_CATALOG_USAGE_SNAPSHOT_ROWS {
                 return Err(StoreError::Unavailable(
                     "catalog actor-usage snapshot exceeds its bound".to_string(),
@@ -83,14 +83,12 @@ pub(super) async fn search_catalog(
             let expires_at_millis = now_millis.saturating_add(60_000);
             let actor_usage_snapshot = super::catalog_usage_snapshot_token(
                 &fingerprint,
-                context.tenant_id(),
                 actor,
                 expires_at_millis,
                 &used_publications,
                 &instructor_courses,
             );
             let snapshot = CatalogUsageSnapshot {
-                tenant: context.tenant_id(),
                 actor,
                 created_at_millis: now_millis,
                 expires_at_millis,
@@ -103,9 +101,7 @@ pub(super) async fn search_catalog(
             snapshots.retain(|_, existing| existing.expires_at_millis > now_millis);
             let actor_snapshots = snapshots
                 .iter()
-                .filter(|(_, existing)| {
-                    existing.tenant == context.tenant_id() && existing.actor == actor
-                })
+                .filter(|(_, existing)| existing.actor == actor)
                 .map(|(token, existing)| (*token, existing.created_at_millis))
                 .collect::<Vec<_>>();
             if actor_snapshots.len() >= MAX_CATALOG_USAGE_SNAPSHOTS_PER_ACTOR {
@@ -129,9 +125,7 @@ pub(super) async fn search_catalog(
             {
                 return None;
             }
-            if !record.lifecycle.is_discoverable()
-                || !super::catalog_record_visible(&state, context.tenant_id(), record)
-            {
+            if !record.lifecycle.is_discoverable() || !super::catalog_record_visible(record) {
                 return None;
             }
             let (evidence, quality) =

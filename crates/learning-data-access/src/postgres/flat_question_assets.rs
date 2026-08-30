@@ -4,9 +4,7 @@ use async_trait::async_trait;
 use question_model::{AssetId, WorkspaceId};
 
 use super::{PostgresStore, decode_payload_row, map_sqlx_error, retry_transaction};
-use crate::{
-    FlatQuestionAssetStore, StoreError, TenantContext, WorkspaceFlatQuestionAsset, ensure_tenant,
-};
+use crate::{FlatQuestionAssetStore, StoreError, TenantContext, WorkspaceFlatQuestionAsset};
 
 #[async_trait]
 impl FlatQuestionAssetStore for PostgresStore {
@@ -15,7 +13,6 @@ impl FlatQuestionAssetStore for PostgresStore {
         context: TenantContext,
         descriptor: WorkspaceFlatQuestionAsset,
     ) -> Result<WorkspaceFlatQuestionAsset, StoreError> {
-        ensure_tenant(context, descriptor.tenant)?;
         descriptor.validate()?;
         retry_transaction(|| {
             let descriptor = descriptor.clone();
@@ -94,7 +91,7 @@ impl PostgresStore {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) \
              ON CONFLICT DO NOTHING",
         )
-        .bind(descriptor.tenant.as_uuid())
+        .bind(context.tenant_id().as_uuid())
         .bind(descriptor.workspace.as_uuid())
         .bind(descriptor.asset.as_uuid())
         .bind(descriptor.object.id.as_uuid())

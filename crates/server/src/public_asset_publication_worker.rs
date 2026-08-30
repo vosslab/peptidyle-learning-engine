@@ -10,7 +10,7 @@ use std::{future::Future, sync::Arc};
 use async_trait::async_trait;
 use learning_data_access::{
     AssetDeliveryRecord, AssetDeliveryScope, AssetPublication, JobFailureKind, JobPayload,
-    PublicAssetPublicationStore, StoreError, TenantContext,
+    PublicAssetPublicationStore, StoreError,
 };
 use objects::{ObjectKey, ObjectStore, ObjectStoreError, PutObject, Sha256Digest};
 use question_model::ProblemVersionRef;
@@ -48,7 +48,7 @@ fn store_failure(error: StoreError) -> JobFailureKind {
         StoreError::RetryableTransaction | StoreError::Unavailable(_) => JobFailureKind::Transient,
         StoreError::NotFound
         | StoreError::AlreadyExists
-        | StoreError::TenantMismatch
+        | StoreError::OwnershipMismatch
         | StoreError::Conflict
         | StoreError::Forbidden
         | StoreError::InvalidRecord(_)
@@ -185,7 +185,6 @@ where
 {
     async fn prepare(
         &self,
-        _context: TenantContext,
         payload: JobPayload,
         execution: JobExecution,
     ) -> Result<PreparedJobEffect, JobFailureKind> {
@@ -242,7 +241,7 @@ mod tests {
 
     use learning_data_access::{AssetDeliveryId, JobId, JobLeaseToken};
     use objects::{ObjectCategory, ObjectRecord, memory::MemoryObjectStore};
-    use question_model::{ActivityTimestamp, AssetId, ObjectId, ProblemId, TenantId, VersionId};
+    use question_model::{ActivityTimestamp, AssetId, ObjectId, ProblemId, VersionId};
 
     use super::*;
 
@@ -303,7 +302,6 @@ mod tests {
         };
         let asset = AssetId::from_uuid(id(3));
         let source_key = ObjectKey::WorkspaceQuestionAsset {
-            tenant: TenantId::from_uuid(id(4)),
             workspace: question_model::WorkspaceId::from_uuid(id(5)),
             asset,
             object: ObjectId::from_uuid(id(6)),
@@ -359,7 +357,6 @@ mod tests {
         let handler = PublicAssetPublicationHandler::new(Arc::clone(&store), Arc::clone(&objects));
         let effect = handler
             .prepare(
-                TenantContext::from_authenticated_session(TenantId::from_uuid(id(4))),
                 JobPayload::PublishPublicAssets { reference },
                 JobExecution::new().with_test_claim(JobCommitClaim::new(
                     JobId::generate().expect("job"),
@@ -378,7 +375,6 @@ mod tests {
         );
         let retry = handler
             .prepare(
-                TenantContext::from_authenticated_session(TenantId::from_uuid(id(4))),
                 JobPayload::PublishPublicAssets { reference },
                 JobExecution::new().with_test_claim(JobCommitClaim::new(
                     JobId::generate().expect("job"),

@@ -4,9 +4,9 @@ PostgreSQL and object storage are separate durable systems. PLE never claims a d
 
 The binding target is the single-installation model in the [single-installation authorization
 plan](active_plans/active/single_installation_authorization_plan.md). The currently checked-in
-pre-SD1 source still contains historical `TenantId`, `TenantContext`, and tenant-shaped object and
+pre-SD1 source still contains historical installation-scope types and legacy object and
 retention fields. SD1-C owns replacing those source and schema shapes with exact domain scopes. This
-document does not authorize a compatibility alias, a dual key, or a parallel tenant model while that
+document does not authorize a compatibility alias, a dual key, or a parallel installation model while that
 dependency is open.
 
 ## Authority and vocabulary
@@ -91,9 +91,9 @@ typed object records; they are never a bucket prefix or a caller-selected path. 
 relational deletion do not claim completion until the required manifest checks succeed. Shared
 published content, private authoring, and anonymous aggregates are outside a learner-record purge.
 
-The current pre-SD1 retention source still carries tenant fields in its worker command and manifest
+The current pre-SD1 retention source still carries legacy scope fields in its worker command and manifest
 storage. SD1-C owns the source/schema replacement with the exact course/stage/generation scope above;
-no compatibility tenant field is added here.
+no compatibility scope field is added here.
 
 General bucket-to-database reconciliation is not yet implemented. Until it is, operators must preserve missing/mismatched reference evidence and investigate the backing store; application code must not silently delete references or serve unregistered bytes. Production backup restore, KMS rotation, Object Lock retention, lifecycle policy, and cross-region/failover claims need live deployment evidence.
 

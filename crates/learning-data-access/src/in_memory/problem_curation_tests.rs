@@ -38,10 +38,8 @@ fn curation_references_and_saved_filter_use_browser_safe_contracts() {
 }
 
 #[tokio::test]
-async fn approved_dual_role_mutates_and_unapproved_dual_role_reads_institution_only() {
+async fn approved_instructor_mutates_and_sysadmin_reads_shared_collection() {
     let store = MemoryStore::default();
-    let tenant = TenantId::from_uuid(Uuid::from_u128(91_001));
-    let context = TenantContext::from_authenticated_session(tenant);
     let elena = UserId::from_uuid(Uuid::from_u128(91_002));
     let morgan = UserId::from_uuid(Uuid::from_u128(91_003));
     let elena_session = SessionTokenHash::compute(b"curation-elena");
@@ -66,28 +64,36 @@ async fn approved_dual_role_mutates_and_unapproved_dual_role_reads_institution_o
             },
         );
     }
-    for (token, user, label) in [
-        (elena_session, elena, "Elena"),
-        (morgan_session, morgan, "Morgan"),
+    for (token, user, role, label) in [
+        (elena_session, elena, UserRole::Instructor, "Elena"),
+        (morgan_session, morgan, UserRole::Sysadmin, "Morgan"),
     ] {
         store
             .create_session(
                 token,
-                SessionSubject::new(
-                    tenant,
-                    user,
-                    label,
-                    vec![UserRole::Instructor, UserRole::Sysadmin],
-                )
-                .expect("role session"),
+                SessionSubject::new(user, label, role).expect("role session"),
                 SessionLifetime::from_seconds(60).expect("session lifetime"),
             )
             .await
             .expect("session stored");
     }
+    let elena_context = ActorContext::from_session_record(
+        &store
+            .resolve_session(elena_session)
+            .await
+            .expect("Elena session read")
+            .expect("Elena active session"),
+    );
+    let morgan_context = ActorContext::from_session_record(
+        &store
+            .resolve_session(morgan_session)
+            .await
+            .expect("Morgan session read")
+            .expect("Morgan active session"),
+    );
     let collection = store
         .replace_problem_collection(
-            context,
+            elena_context,
             elena_session,
             ReplaceProblemCollectionCommand {
                 target: ProblemCollectionReplacementTarget::NewNamed,
@@ -100,7 +106,7 @@ async fn approved_dual_role_mutates_and_unapproved_dual_role_reads_institution_o
         .await
         .expect("Elena mutates through active Instructor authority");
     let morgan_view = store
-        .get_problem_collection_summary(context, morgan_session, collection.reference)
+        .get_problem_collection_summary(morgan_context, morgan_session, collection.reference)
         .await
         .expect("Morgan read")
         .expect("institution collection visible");
@@ -111,7 +117,7 @@ async fn approved_dual_role_mutates_and_unapproved_dual_role_reads_institution_o
     assert!(matches!(
         store
             .replace_problem_collection(
-                context,
+                morgan_context,
                 morgan_session,
                 ReplaceProblemCollectionCommand {
                     target: ProblemCollectionReplacementTarget::Existing(collection.reference),
@@ -126,7 +132,7 @@ async fn approved_dual_role_mutates_and_unapproved_dual_role_reads_institution_o
     ));
     let page = store
         .list_problem_collections(
-            context,
+            morgan_context,
             morgan_session,
             PageRequest::first(PageSize::new(50).expect("bounded page")),
         )
@@ -138,8 +144,6 @@ async fn approved_dual_role_mutates_and_unapproved_dual_role_reads_institution_o
 #[tokio::test]
 async fn favorites_materializes_once_for_the_approved_instructor() {
     let store = MemoryStore::default();
-    let tenant = TenantId::from_uuid(Uuid::from_u128(92_001));
-    let context = TenantContext::from_authenticated_session(tenant);
     let elena = UserId::from_uuid(Uuid::from_u128(92_002));
     let session = SessionTokenHash::compute(b"favorites-elena");
     {
@@ -160,12 +164,18 @@ async fn favorites_materializes_once_for_the_approved_instructor() {
     store
         .create_session(
             session,
-            SessionSubject::new(tenant, elena, "Elena", vec![UserRole::Instructor])
-                .expect("instructor session"),
+            SessionSubject::new(elena, "Elena", UserRole::Instructor).expect("instructor session"),
             SessionLifetime::from_seconds(60).expect("session lifetime"),
         )
         .await
         .expect("session stored");
+    let context = ActorContext::from_session_record(
+        &store
+            .resolve_session(session)
+            .await
+            .expect("Elena session read")
+            .expect("Elena active session"),
+    );
     let first = store
         .get_or_create_favorites(context, session)
         .await

@@ -14,7 +14,7 @@ conversion and object-copy orchestration remain WP-QTI-8.
 ## Persisted boundary
 
 - `ple_qti_provenance_broker` is a dedicated `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` role.
-- Six tenant-owned provenance relations store current/published origins, private choice maps, and
+- Six course-owned provenance relations store current/published origins, private choice maps, and
   committed profile/item evidence. RLS is enabled and forced on each relation.
 - Protected `SECURITY DEFINER` capabilities use the explicit `pg_catalog, public, pg_temp` search
   path, revoke `PUBLIC` execution, and grant only the named roles needed for staging, reading,
@@ -34,7 +34,7 @@ conversion and object-copy orchestration remain WP-QTI-8.
 - Current lineage pins its committed import. A pinned import cannot regress, delete, or be cleaned
   until current provenance is released.
 - Ordinary workspace-draft cleanup releases current lineage only. Published origins and choice maps
-  are immutable, tenant-owned retained evidence; cleanup proceeds child-first after release.
+  are immutable, course-owned retained evidence; cleanup proceeds child-first after release.
 - Current and published archive provenance remains non-signable by the typed object contract; no
   provenance relation contains a browser-deliverable URL.
 - SQL matches the Rust 1,024-Unicode-scalar bound for import item, result, grading, published

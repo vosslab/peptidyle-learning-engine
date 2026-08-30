@@ -5,44 +5,39 @@ use question_model::{
 
 use super::*;
 use crate::{
-    AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionId, AutomatedGradingStore,
-    GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt, GradingOperation,
-    GradingOperationGroup, GradingOperationGroupBy, GradingOperationRevision,
+    AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionId, ActorContext,
+    AutomatedGradingStore, GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt,
+    GradingOperation, GradingOperationGroup, GradingOperationGroupBy, GradingOperationRevision,
     GradingOperationTrustGeneration, InstructorGradingOperationProjection,
-    InstructorGradingOperationRow, StoreError, TenantContext,
+    InstructorGradingOperationRow, StoreError,
 };
 
 pub(super) fn require_instructor_operation_authority(
     state: &State,
-    tenant: TenantId,
+    context: ActorContext,
     session: crate::SessionTokenHash,
     course: CourseId,
     assignment: AssignmentId,
 ) -> Result<UserId, StoreError> {
-    let subject = super::sessions::active_subject(
-        state,
-        TenantContext::from_authenticated_session(tenant),
-        session,
-    )
-    .ok_or(StoreError::NotFound)?;
+    let subject =
+        super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
     let actor = subject.user();
     // ASVS 8.2.1-8.2.2: keep explicit role and course membership checks in the Store boundary.
-    if !subject.roles().contains(&UserRole::Instructor) {
+    if subject.role() != UserRole::Instructor {
         return Err(StoreError::NotFound);
     }
-    let assignment_record = assignment_record(state, tenant, assignment)?;
+    let assignment_record = assignment_record(state, assignment)?;
     if assignment_record.course_id != course
-        || super::entitlement::current_course_role(state, tenant, course, actor)
+        || super::entitlement::current_course_role(state, course, actor)
             != Some(CourseMembershipRole::Instructor)
     {
         return Err(StoreError::NotFound);
     }
-    require_course_records_accessible(state, tenant, course)?;
+    require_course_records_accessible(state, course)?;
     Ok(actor)
 }
 pub(super) fn operation_row(
     state: &State,
-    tenant: TenantId,
     operation: GradingOperation,
     group_by: GradingOperationGroupBy,
 ) -> Result<InstructorGradingOperationRow, StoreError> {
@@ -59,27 +54,22 @@ pub(super) fn operation_row(
             let attempt = state
                 .automated_grading_executions
                 .iter()
-                .find_map(|((stored_tenant, attempt), execution)| {
-                    (*stored_tenant == tenant && execution.submission == submission)
+                .find_map(|(attempt, execution)| {
+                    (super::activity::attempt_belongs_to_course(state, *attempt)
+                        && execution.submission == submission)
                         .then_some(*attempt)
                 })
                 .ok_or(StoreError::NotFound)?;
-            let record = state
-                .attempts
-                .get(&(tenant, attempt))
-                .ok_or(StoreError::NotFound)?;
-            let run = state
-                .runs
-                .get(&(tenant, record.run))
-                .ok_or(StoreError::NotFound)?;
-            let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+            let record = state.attempts.get(&attempt).ok_or(StoreError::NotFound)?;
+            let run = state.runs.get(&record.run).ok_or(StoreError::NotFound)?;
+            let enrollment = enrollment_record(state, run.enrollment)?;
             let published = state
                 .published
                 .get(&(record.problem, record.question_version))
                 .ok_or(StoreError::NotFound)?;
             let issued = state
                 .attempt_issued_question_snapshots
-                .get(&(tenant, attempt))
+                .get(&attempt)
                 .ok_or(StoreError::NotFound)?;
             if issued.question().problem != record.problem
                 || issued.question().version != record.question_version
@@ -90,7 +80,7 @@ pub(super) fn operation_row(
             }
             let execution = state
                 .automated_grading_executions
-                .get(&(tenant, attempt))
+                .get(&attempt)
                 .ok_or(StoreError::NotFound)?;
             (
                 attempt,
@@ -107,16 +97,11 @@ pub(super) fn operation_row(
             return Ok(InstructorGradingOperationRow {
                 operation: projection,
                 group: GradingOperationGroup::Assignment,
-                affected_learner_count: assignment_group_impact(
-                    state,
-                    tenant,
-                    operation.assignment,
-                )?,
+                affected_learner_count: assignment_group_impact(state, operation.assignment)?,
                 trust_generation: GradingOperationTrustGeneration::AssignmentScoring(
                     requested_generation,
                 ),
                 stable_cursor: crate::GradingOperationCursor::encode(
-                    tenant,
                     operation.course,
                     operation.assignment,
                     group_by,
@@ -131,13 +116,9 @@ pub(super) fn operation_row(
         GradingOperationGroupBy::Learner => GradingOperationGroup::Learner {
             membership: state
                 .entitlement_materializations
-                .get(&(tenant, enrollment_id))
+                .get(&enrollment_id)
                 .map(|materialization| materialization.membership)
-                .and_then(|membership| {
-                    state
-                        .course_membership_references
-                        .get(&(tenant, membership))
-                })
+                .and_then(|membership| state.course_membership_references.get(&membership))
                 .copied()
                 .ok_or(StoreError::NotFound)?,
             display_name: question_model::TeachingDisplayLabel::try_from(
@@ -152,7 +133,6 @@ pub(super) fn operation_row(
         },
     };
     let stable_cursor = crate::GradingOperationCursor::encode(
-        tenant,
         operation.course,
         operation.assignment,
         group_by,
@@ -163,7 +143,6 @@ pub(super) fn operation_row(
         operation: projection,
         affected_learner_count: operation_group_impact(
             state,
-            tenant,
             operation.course,
             operation.assignment,
             &group,
@@ -173,23 +152,18 @@ pub(super) fn operation_row(
         stable_cursor,
     })
 }
-fn assignment_group_impact(
-    state: &State,
-    tenant: TenantId,
-    assignment: AssignmentId,
-) -> Result<u32, StoreError> {
+fn assignment_group_impact(state: &State, assignment: AssignmentId) -> Result<u32, StoreError> {
     u32::try_from(
         state
             .enrollments
             .values()
-            .filter(|enrollment| enrollment.tenant == tenant && enrollment.assignment == assignment)
+            .filter(|enrollment| enrollment.assignment == assignment)
             .count(),
     )
     .map_err(|_| StoreError::InvalidRecord("operation impact exceeds u32".to_string()))
 }
 fn operation_group_impact(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     group: &GradingOperationGroup,
@@ -198,41 +172,32 @@ fn operation_group_impact(
     for operation in state
         .automated_grading_operations
         .values()
-        .filter(|operation| {
-            operation.tenant == tenant
-                && operation.course == course
-                && operation.assignment == assignment
-        })
+        .filter(|operation| operation.course == course && operation.assignment == assignment)
     {
         let crate::GradingOperationTarget::SubmissionRecovery { submission } = operation.target
         else {
             continue;
         };
-        let Some(attempt) = state.automated_grading_executions.iter().find_map(
-            |((stored_tenant, attempt), execution)| {
-                (*stored_tenant == tenant && execution.submission == submission).then_some(*attempt)
-            },
-        ) else {
+        let Some(attempt) =
+            state
+                .automated_grading_executions
+                .iter()
+                .find_map(|(attempt, execution)| {
+                    (super::activity::attempt_belongs_to_course(state, *attempt)
+                        && execution.submission == submission)
+                        .then_some(*attempt)
+                })
+        else {
             continue;
         };
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, record.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+        let record = state.attempts.get(&attempt).ok_or(StoreError::NotFound)?;
+        let run = state.runs.get(&record.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(state, run.enrollment)?;
         let membership = state
             .entitlement_materializations
-            .get(&(tenant, enrollment.id))
+            .get(&enrollment.id)
             .map(|materialization| materialization.membership)
-            .and_then(|membership| {
-                state
-                    .course_membership_references
-                    .get(&(tenant, membership))
-            })
+            .and_then(|membership| state.course_membership_references.get(&membership))
             .copied()
             .ok_or(StoreError::NotFound)?;
         let matches = match group {
@@ -267,7 +232,6 @@ pub(super) fn next_operation_revision(
 
 pub(super) fn page_rows(
     rows: Vec<InstructorGradingOperationRow>,
-    tenant: TenantId,
     course: CourseId,
     assignment: AssignmentId,
     group_by: GradingOperationGroupBy,
@@ -276,9 +240,7 @@ pub(super) fn page_rows(
     let seek = page
         .after
         .as_ref()
-        .map(|cursor| {
-            crate::GradingOperationCursor::decode(cursor, tenant, course, assignment, group_by)
-        })
+        .map(|cursor| crate::GradingOperationCursor::decode(cursor, course, assignment, group_by))
         .transpose()?;
     let start = seek.map_or(0, |seek| {
         rows.iter()
@@ -304,38 +266,33 @@ pub(super) fn page_rows(
 impl AutomatedGradingStore for MemoryStore {
     async fn accept_automated_submission(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: AcceptedSubmissionCommand,
     ) -> Result<AcceptedSubmission, StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
+        if context.user_id() != command.actor {
+            return Err(StoreError::NotFound);
+        }
         let canonical_response = crate::canonical_student_response_json(&command.response)?;
         let response_sha256 = objects::Sha256Digest::compute(canonical_response.as_bytes());
         let attempt = state
             .attempts
-            .get(&(tenant, command.attempt))
+            .get(&command.attempt)
             .cloned()
             .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
+        let run = state.runs.get(&attempt.run).ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, run.enrollment)?;
+        let assignment = assignment_record(&state, enrollment.assignment)?;
         if assignment.course_id != command.course
             || assignment.id != command.assignment
             || enrollment.user != command.actor
-            || super::entitlement::current_course_role(
-                &state,
-                tenant,
-                command.course,
-                command.actor,
-            ) != Some(CourseMembershipRole::Student)
+            || super::entitlement::current_course_role(&state, command.course, command.actor)
+                != Some(CourseMembershipRole::Student)
         {
             return Err(StoreError::NotFound);
         }
-        require_course_records_accessible(&state, tenant, command.course)?;
-        if let Some(stored) = state.submissions.get(&(tenant, command.attempt)) {
+        require_course_records_accessible(&state, command.course)?;
+        if let Some(stored) = state.submissions.get(&command.attempt) {
             let Some(accepted) = stored.accepted_pending() else {
                 return Err(StoreError::Conflict);
             };
@@ -347,7 +304,6 @@ impl AutomatedGradingStore for MemoryStore {
             if metadata_matches
                 && stored_submission_matches_canonical(
                     &state,
-                    tenant,
                     command.attempt,
                     &command.response,
                     &canonical_response,
@@ -358,9 +314,7 @@ impl AutomatedGradingStore for MemoryStore {
             }
             return Err(StoreError::Conflict);
         }
-        if projected_attempt(&state, tenant, &attempt).status
-            != question_model::AttemptStatus::InProgress
-        {
+        if projected_attempt(&state, &attempt).status != question_model::AttemptStatus::InProgress {
             return Err(StoreError::Conflict);
         }
         let accepted_at = state.authoritative_time;
@@ -368,12 +322,9 @@ impl AutomatedGradingStore for MemoryStore {
         // every worker backend. Validate it before storing private response
         // material so a later evaluator cannot complete work that expired at
         // the server-owned acceptance boundary.
-        let timing = state
-            .attempt_timing
-            .get(&(tenant, command.attempt))
-            .ok_or_else(|| {
-                StoreError::Unavailable("issued timing authority is missing".to_string())
-            })?;
+        let timing = state.attempt_timing.get(&command.attempt).ok_or_else(|| {
+            StoreError::Unavailable("issued timing authority is missing".to_string())
+        })?;
         let effective_policy = timing
             .effective_deadline
             .map_or(TimingPolicy::Untimed, |_| TimingPolicy::PerQuestion {
@@ -382,7 +333,7 @@ impl AutomatedGradingStore for MemoryStore {
             });
         let verdict = timer_verdict(&TimerEvaluation {
             policy: effective_policy,
-            timer: projected_attempt(&state, tenant, &attempt).timer,
+            timer: projected_attempt(&state, &attempt).timer,
             evaluated_at: accepted_at,
             pause_extension_millis: 0,
         })
@@ -392,7 +343,6 @@ impl AutomatedGradingStore for MemoryStore {
         }
         let submission = AcceptedSubmissionId::from_uuid(command.attempt.as_uuid());
         let accepted = AcceptedSubmission {
-            tenant,
             course: command.course,
             assignment: command.assignment,
             attempt: command.attempt,
@@ -418,7 +368,7 @@ impl AutomatedGradingStore for MemoryStore {
             response: command.response,
         };
         state.submissions.insert(
-            (tenant, command.attempt),
+            command.attempt,
             StoredSubmission {
                 key: command.idempotency_key,
                 state: StoredSubmissionState::AcceptedPending(accepted.clone()),
@@ -426,30 +376,29 @@ impl AutomatedGradingStore for MemoryStore {
         );
         state
             .private_submission_responses
-            .insert((tenant, command.attempt), private_response);
+            .insert(command.attempt, private_response);
         // Keep Memory's current lifecycle projection aligned with the atomic
         // PostgreSQL broker transition. The accepted response stays only in
         // `private_submission_responses`; this answer-free projection records
         // that the learner can no longer submit a second response. ASVS
         // 2.3.1/2.3.3.
-        let mut current_attempt = projected_attempt(&state, tenant, &attempt);
+        let mut current_attempt = projected_attempt(&state, &attempt);
         current_attempt.status = question_model::AttemptStatus::Submitted;
         current_attempt.timer.submitted_at = Some(accepted_at);
         state
             .attempt_current
-            .insert((tenant, command.attempt), current_attempt);
-        complete_memory_attempt_timing_job(&mut state, tenant, command.attempt);
+            .insert(command.attempt, current_attempt);
+        complete_memory_attempt_timing_job(&mut state, command.attempt);
         state
             .automated_grading_executions
-            .insert((tenant, command.attempt), execution);
+            .insert(command.attempt, execution);
         state.automated_grading_evaluations.insert(
-            (tenant, command.attempt),
+            command.attempt,
             SubmissionEvaluationStatus::AutomatedPending,
         );
         state.jobs.insert(
             command.execution_job,
             StoredJob {
-                tenant,
                 payload: crate::JobPayload::GradeAcceptedSubmission {
                     attempt: command.attempt,
                     submission,
@@ -466,7 +415,7 @@ impl AutomatedGradingStore for MemoryStore {
         );
         state
             .automated_grading_execution_receipts
-            .entry((tenant, command.attempt))
+            .entry(command.attempt)
             .or_default()
             .push(GradingExecutionReceipt {
                 submission,
@@ -482,33 +431,38 @@ impl AutomatedGradingStore for MemoryStore {
 
     async fn automated_grading_execution(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         submission: AcceptedSubmissionId,
     ) -> Result<Option<GradingExecution>, StoreError> {
         let state = self.read_state()?;
-        let tenant = context.tenant_id();
         Ok(state
             .automated_grading_executions
             .iter()
-            .find_map(|((stored_tenant, _), execution)| {
-                (*stored_tenant == tenant && execution.submission == submission)
+            .find_map(|(attempt, execution)| {
+                (super::activity::attempt_belongs_to_course(&state, *attempt)
+                    && execution.submission == submission)
                     .then_some(*execution)
             }))
     }
 
     async fn record_automated_grading_execution_receipt(
         &self,
-        context: TenantContext,
+        _context: ActorContext,
         receipt: GradingExecutionReceipt,
         resulting_evaluation: SubmissionEvaluationStatus,
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
-        let tenant = context.tenant_id();
+        let owned_attempts = state
+            .attempts
+            .keys()
+            .filter(|attempt| super::activity::attempt_belongs_to_course(&state, **attempt))
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
         let (attempt, generation_matches) = state
             .automated_grading_executions
             .iter_mut()
-            .find_map(|((stored_tenant, attempt), execution)| {
-                (*stored_tenant == tenant && execution.submission == receipt.submission)
+            .find_map(|(attempt, execution)| {
+                (owned_attempts.contains(attempt) && execution.submission == receipt.submission)
                     .then_some((*attempt, execution.generation == receipt.generation))
             })
             .ok_or(StoreError::NotFound)?;
@@ -517,15 +471,15 @@ impl AutomatedGradingStore for MemoryStore {
         }
         let execution = state
             .automated_grading_executions
-            .get_mut(&(tenant, attempt))
+            .get_mut(&attempt)
             .ok_or(StoreError::NotFound)?;
         execution.state = receipt.resulting_state;
         state
             .automated_grading_evaluations
-            .insert((tenant, attempt), resulting_evaluation);
+            .insert(attempt, resulting_evaluation);
         state
             .automated_grading_execution_receipts
-            .entry((tenant, attempt))
+            .entry(attempt)
             .or_default()
             .push(receipt);
         Ok(())
@@ -534,38 +488,37 @@ impl AutomatedGradingStore for MemoryStore {
 
 pub(super) fn load_prepared_accepted_submission(
     state: &State,
-    tenant: question_model::TenantId,
     attempt_id: question_model::QuestionAttemptId,
 ) -> Result<crate::PreparedQuestionSubmission, StoreError> {
     let attempt = state
         .attempts
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .cloned()
         .ok_or(StoreError::NotFound)?;
     let issued_question_snapshot = state
         .attempt_issued_question_snapshots
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .cloned()
         .ok_or_else(|| {
             StoreError::Unavailable("issued question snapshot is missing".to_string())
         })?;
     let flat_capability = state
         .attempt_flat_grading_capabilities
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("attempt flat grading capability is missing".to_string())
         })?;
     let webwork_capability = state
         .attempt_webwork_grading_capabilities
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("attempt WeBWorK grading capability is missing".to_string())
         })?;
     let qti_capability = state
         .attempt_qti_grading_capabilities
-        .get(&(tenant, attempt_id))
+        .get(&attempt_id)
         .copied()
         .ok_or_else(|| {
             StoreError::Unavailable("attempt QTI grading capability is missing".to_string())
@@ -576,23 +529,15 @@ pub(super) fn load_prepared_accepted_submission(
         flat_capability,
         webwork_capability,
         qti_capability,
-        state
-            .attempt_presentation_snapshots
-            .get(&(tenant, attempt_id)),
+        state.attempt_presentation_snapshots.get(&attempt_id),
     )?;
-    let presentation = super::runs::load_issued_presentation(state, tenant, &attempt)?;
-    let presentation_binding = state
-        .attempt_presentations
-        .get(&(tenant, attempt_id))
-        .copied();
-    let grading_envelope = state
-        .attempt_grading_envelopes
-        .get(&(tenant, attempt_id))
-        .cloned();
-    let flat_grading = super::runs::load_issued_flat_grading(state, tenant, &attempt)?;
-    let webwork_grading = super::runs::load_issued_webwork_grading(state, tenant, &attempt)?;
+    let presentation = super::runs::load_issued_presentation(state, &attempt)?;
+    let presentation_binding = state.attempt_presentations.get(&attempt_id).copied();
+    let grading_envelope = state.attempt_grading_envelopes.get(&attempt_id).cloned();
+    let flat_grading = super::runs::load_issued_flat_grading(state, &attempt)?;
+    let webwork_grading = super::runs::load_issued_webwork_grading(state, &attempt)?;
     let issued_qti_grading =
-        super::runs::load_issued_qti_grading(state, tenant, &attempt, &issued_question_snapshot)?;
+        super::runs::load_issued_qti_grading(state, &attempt, &issued_question_snapshot)?;
     crate::validate_issued_flat_grading(
         issued_question_snapshot.question(),
         if presentation.is_some() {
@@ -643,9 +588,6 @@ pub(super) fn load_prepared_accepted_submission(
         flat_grading,
         webwork_grading,
         issued_qti_grading,
-        webwork_replay: state
-            .webwork_grade_replay
-            .get(&(tenant, attempt_id))
-            .cloned(),
+        webwork_replay: state.webwork_grade_replay.get(&attempt_id).cloned(),
     })
 }

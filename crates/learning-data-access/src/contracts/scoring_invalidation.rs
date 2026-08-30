@@ -16,7 +16,7 @@ pub enum ScoringInvalidationOriginKind {
     AcceptedSubmissionCompletion,
 }
 
-/// Stable UUID identity scoped by tenant and origin kind.
+/// Stable UUID identity scoped by origin kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ScoringInvalidationOriginId(Uuid);
 

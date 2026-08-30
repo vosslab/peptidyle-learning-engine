@@ -90,14 +90,16 @@ fn authenticated_for_test(context: TenantContext) -> AuthenticatedSession {
         vec![UserRole::Student],
     )
     .expect("test session subject");
+    let record = SessionRecord {
+        id: learning_data_access::SessionId::from_uuid(id(1)),
+        token_hash: SessionTokenHash::compute(b"run-route-test-session"),
+        subject,
+        created_at: ActivityTimestamp::from_unix_millis(10_000),
+        expires_at: ActivityTimestamp::from_unix_millis(20_000),
+    };
     AuthenticatedSession {
-        record: SessionRecord {
-            token_hash: SessionTokenHash::compute(b"run-route-test-session"),
-            subject,
-            created_at: ActivityTimestamp::from_unix_millis(10_000),
-            expires_at: ActivityTimestamp::from_unix_millis(20_000),
-        },
-        tenant_context: context,
+        actor: learning_data_access::ActorContext::from_session_record(&record),
+        record,
         session_hash: SessionTokenHash::compute(b"run-route-test-session"),
     }
 }

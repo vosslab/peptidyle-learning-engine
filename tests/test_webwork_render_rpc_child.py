@@ -157,7 +157,7 @@ def test_seed_manifest_rejects_extension_fields_and_insecure_mode(
 
 #============================================
 def test_mary_authentication_uses_exact_origin_course_and_secure_cookie_sequence() -> None:
-	"""The child cannot treat account selection as a tenant course session."""
+	"""The child treats account selection separately from the course session."""
 	client = FakeGatewayClient()
 	webwork_child.authenticate_mary(client, COURSE_ID)
 	assert client.calls == [

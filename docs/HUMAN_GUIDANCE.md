@@ -19,12 +19,14 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 
 ## Agent guidance
 
-- Agents should follow [AGENTS.md](../AGENTS.md) and the repository style documents.
-- Methodology should be robust and clean, and work should keep moving while the next safe task is clear.
+- Read and learn the core principles in docs/REPO_STYLE.md
 - Time should be used efficiently. Agents and tokens are cheap; wall time is not.
 - Hard work should be broken into small, independently completable tasks with one owner and one verification.
-- Positive prompts should state the intended action directly.
 - Requirements should avoid being overly strict or using arbitrary numeric, timing, byte, or pixel equivalence gates.
+- This codebase is not in production yet, no one is using it, so we can fix the design and not have to worry about legacy support. Use the pre-production state of the codebase to improve foundational schemas, contracts, abstractions, and ownership boundaries when that produces the stronger long-term system.
+- Prioritize positive prompting. Small LMs often mishandle negative prompting and may flip negative instructions into positive actions, producing poor code and egregious results. Phrase instructions as “Do X” or “Use Y” whenever possible, rather than “Do not do W” or “You are not allowed to do Z.” Things like 'leave git to the manager' is a negative prompt in disguise, it is better to not mention git, but just encourages small LMs. Avoid naming unwanted tools unless needed. Positive prompting plus omission is often stronger than a negative boundary.
+- Classify one-time checks separately from permanent tests. Several checks are useful for proving the rebuild during implementation but may not deserve permanent residence in the suite. Use the checklist in docs/PYTEST_STYLE.md of what makes a permanent test, use it. Temporary tests are fine, but should not become permanent. When in doubt, remove the test. 
+- Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task, or required to verify the work. Stop at a real blocker: missing information that cannot be inferred from the repo or plan, a risky or irreversible action, or work that changes the user’s requested outcome. When one option is clearly best, take it, document the assumption, and continue.
 
 ## Glossary
 
@@ -51,7 +53,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - The polished Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 - The three major user types are **Sysadmins**, **Instructors**, and **Students**.
   - Exceptions are **Course Observers**, **Student Observers**, and **Graders**.
-- PLE should use one installation with no institution or tenant boundaries.
+- PLE should use one installation with no institution boundaries.
 - PLE accounts should be global within that installation and use passwordless email authentication.
 - Email is not configured for the Live Demo yet; use the visible seeded-role entry for demo access.
 - Project images and simulated live-stack data are disposable acceptance infrastructure.
@@ -146,6 +148,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
   - **Instructor** vetting and account creation.
   - Help for non-tech **Instructors** fixing their courses, including **Students** and content.
 - The human developer, Dr. Neil Voss, is the current **Sysadmin** and is also an **Instructor**.
+- Neil will have two logins, one for Sysadmin and one for Instructor, so the user roles remain distinct
 - Every **Instructor** is manually approved after validation that the **Instructor** is a real person.
 - A **Sysadmin** does not receive general access to FERPA course records.
 

@@ -521,7 +521,7 @@ mod tests {
                 && body.contains("Morgan Sysadmin")
                 && body.contains("morganSysadmin")
                 && !body.contains("role")
-                && !body.contains("tenant")
+                && !body.contains("accountId")
         );
     }
 

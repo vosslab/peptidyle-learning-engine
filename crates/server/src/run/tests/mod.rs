@@ -746,7 +746,6 @@ async fn prepare_archive_fence(store: &MemoryStore, tenant: TenantId, course: Co
     assert_eq!(claimed_course, course);
     store
         .prepare_retention_work(RetentionWorkerCommand {
-            tenant,
             course,
             stage,
             generation,

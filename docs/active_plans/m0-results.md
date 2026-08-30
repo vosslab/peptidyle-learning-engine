@@ -15,13 +15,13 @@ Date: 2026-08-06. Chronological detail is in [../CHANGELOG.md](../CHANGELOG.md).
 
 The plan's M0 exit criteria and what running them produced.
 
-| Criterion | Result | Command |
-| --- | --- | --- |
-| `./check_codebase.sh` green | 8 PASS, 1 SKIP | `./check_codebase.sh` |
-| `cargo fmt --check` | PASS | in the gate above |
-| `cargo clippy -- -D warnings` | PASS | in the gate above |
-| `cargo test` | PASS, 3 unit + 3 doc tests | in the gate above |
-| `pytest tests/` green | 650 passed in 0.97s | `source source_me.sh && pytest tests/` |
+| Criterion                                             | Result                                        | Command                                 |
+| ----------------------------------------------------- | --------------------------------------------- | --------------------------------------- |
+| `./check_codebase.sh` green                           | 8 PASS, 1 SKIP                                | `./check_codebase.sh`                   |
+| `cargo fmt --check`                                   | PASS                                          | in the gate above                       |
+| `cargo clippy -- -D warnings`                         | PASS                                          | in the gate above                       |
+| `cargo test`                                          | PASS, 3 unit + 3 doc tests                    | in the gate above                       |
+| `pytest tests/` green                                 | 650 passed in 0.97s                           | `source source_me.sh && pytest tests/`  |
 | `/health` 200 behind real `SELECT 1` and bucket probe | PASS, and 503 proven in the failure direction | `podman compose ... up -d`, then `curl` |
 
 The SKIP is `test:node`: no `tests/test_*.mjs` files exist yet. It is reported
@@ -44,8 +44,8 @@ worse than one that says nothing ran.
   was satisfied while the property it existed to guarantee was not: `chrono`
   was declared with default features, which include `clock`, so `Utc::now()`
   was callable inside `domain`. Fixed with `default-features = false`.
-  - Lesson worth carrying forward: a boundary table constrains *which crates* a
-    crate may name, not *which capabilities* those crates bring. Feature flags
+  - Lesson worth carrying forward: a boundary table constrains _which crates_ a
+    crate may name, not _which capabilities_ those crates bring. Feature flags
     leak capability through an allowed edge. When the plan states a property
     ("no clock", "no database"), the property needs its own check.
 - **The CLI failure mode was misdescribed.** Both the plan's framing and my own
@@ -61,6 +61,7 @@ worse than one that says nothing ran.
   The conclusion survives, the mechanism does not: it fails loudly at build
   time. Comments in `build.sh`, `pipeline/build.mjs`, and
   [../CODE_ARCHITECTURE.md](../CODE_ARCHITECTURE.md) were corrected.
+
 - **M0 was previously reported complete without ever passing a gate.** The Rust
   workspace did not compile (five defects, including Python `#` comments in a
   `.rs` file and a literal `\n` escape in source), the Solid entry point called
@@ -105,28 +106,28 @@ what changed, so they are most useful as a trend across runs on one machine.
 
 Build, warm cache, debug profile (`./build.sh`):
 
-| Stage | Time |
-| --- | --- |
-| rust | 1.41s |
-| wasm | 1.72s |
-| tsgen | 0.47s |
+| Stage  | Time  |
+| ------ | ----- |
+| rust   | 1.41s |
+| wasm   | 1.72s |
+| tsgen  | 0.47s |
 | client | 0.49s |
-| total | 4.40s |
+| total  | 4.40s |
 
 Artifacts:
 
-| Artifact | Size |
-| --- | --- |
-| `dist_wasm/web/ple_bridge_bg.wasm` (one trivial export) | 19 KB |
-| `dist_wasm/web/ple_bridge.js` (generated glue) | 5 KB |
-| `dist/main.js` (Solid shell, minified) | 11.5 KB |
+| Artifact                                                | Size    |
+| ------------------------------------------------------- | ------- |
+| `dist_wasm/web/ple_bridge_bg.wasm` (one trivial export) | 19 KB   |
+| `dist_wasm/web/ple_bridge.js` (generated glue)          | 5 KB    |
+| `dist/main.js` (Solid shell, minified)                  | 11.5 KB |
 
 Gates:
 
-| Gate | Time |
-| --- | --- |
-| `pytest tests/` (650 tests) | 0.97s |
-| `cargo test --workspace` | under 1s |
+| Gate                        | Time     |
+| --------------------------- | -------- |
+| `pytest tests/` (650 tests) | 0.97s    |
+| `cargo test --workspace`    | under 1s |
 
 The WASM size matters most. The architecture rests on shipping `domain` to the
 browser, and 19 KB for an empty bridge is the floor that real generation,
@@ -140,7 +141,7 @@ reviewer can disagree with the reasoning rather than guess at it.
 
 - **Generate TypeScript ourselves.** WP-C1 called for `ts-rs` derives. Measured
   problem: ts-rs output is not `prettier --check` clean, and M1 requires
-  generated TypeScript to pass Prettier *unchanged*, which a third-party
+  generated TypeScript to pass Prettier _unchanged_, which a third-party
   generator gives no way to control. `crates/project-tools` now parses the model with
   `syn` and emits Prettier-shaped TypeScript directly. Side benefit:
   `question_model`, the product's root contract, carries no codegen dependency.
@@ -179,7 +180,7 @@ settled.
 - Partition pruning on a large synthetic attempt table (M5).
 - The 256 KB operational payload threshold, which the plan already marks as
   needing profiling.
-- Tenant isolation returning zero rows under a foreign tenant context (M2). The
+- Foreign-scope isolation returning zero rows under an unaffiliated actor (M2). The
   schema does not exist yet.
 
 ## Reproducing this

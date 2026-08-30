@@ -10,7 +10,7 @@ use question_model::{
 };
 use uuid::Uuid;
 
-use crate::{AuthorizedAssetDelivery, SessionTokenHash, StoreError, TenantContext};
+use crate::{ActorContext, AuthorizedAssetDelivery, SessionTokenHash, StoreError};
 
 /// Exact normalized banner width owned by the server image contract.
 pub const COURSE_BANNER_WIDTH: u32 = 1_200;
@@ -123,7 +123,7 @@ pub trait CourseAppearanceStore: Send + Sync {
     /// student membership while learner records remain accessible.
     async fn course_appearance(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<Option<CourseAppearance>, StoreError>;
@@ -131,7 +131,7 @@ pub trait CourseAppearanceStore: Send + Sync {
     /// Persists one actor-bound normalized candidate after object bytes exist.
     async fn register_course_banner_candidate(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         command: RegisterCourseBannerCandidate,
@@ -141,7 +141,7 @@ pub trait CourseAppearanceStore: Send + Sync {
     /// candidate before the server copies and verifies its normalized bytes.
     async fn course_banner_promotion(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         candidate: CourseBannerCandidateId,
@@ -154,7 +154,7 @@ pub trait CourseAppearanceStore: Send + Sync {
     /// turning it into an untracked orphan.
     async fn save_course_appearance(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         course: CourseId,
         command: SaveCourseAppearance,
@@ -164,7 +164,7 @@ pub trait CourseAppearanceStore: Send + Sync {
     /// membership, retention, and pointer state.
     async fn authorize_course_banner_delivery(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         banner: CourseBannerId,
     ) -> Result<AuthorizedAssetDelivery, StoreError>;
@@ -172,14 +172,14 @@ pub trait CourseAppearanceStore: Send + Sync {
     /// Claims expired candidate bytes and unreferenced promoted copies.
     async fn claim_course_banner_cleanup(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         batch: CourseBannerCleanupBatch,
     ) -> Result<Vec<CourseBannerCleanupClaim>, StoreError>;
 
     /// Commits one claim only after its exact selected objects were deleted.
     async fn complete_course_banner_cleanup(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         claim: CourseBannerCleanupClaim,
     ) -> Result<bool, StoreError>;
 }

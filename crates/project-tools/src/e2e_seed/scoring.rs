@@ -180,7 +180,7 @@ pub(super) async fn exercise_scoring_generation(
         generation,
     };
     store
-        .prepare_assignment_scoring(context, command)
+        .prepare_assignment_scoring(command)
         .await
         .context("staging database scoring generation")?;
     let staged = store
@@ -219,7 +219,7 @@ pub(super) async fn exercise_scoring_generation(
         bail!("new scoring generation did not supersede staged work");
     }
     if store
-        .commit_assignment_scoring(context, command)
+        .commit_assignment_scoring(command)
         .await
         .context("discarding superseded database scoring staging")?
         != AssignmentScoringCommitOutcome::Superseded
@@ -259,7 +259,7 @@ pub(super) async fn exercise_scoring_generation(
         generation: current_generation,
     };
     store
-        .prepare_assignment_scoring(context, current_command)
+        .prepare_assignment_scoring(current_command)
         .await
         .context("staging current database scoring generation")?;
     let concurrent_run = store
@@ -323,19 +323,15 @@ pub(super) async fn exercise_scoring_generation(
         )
         .await
         .context("submitting an attempt during database scoring acceptance")?;
-    if store
-        .commit_assignment_scoring(context, current_command)
-        .await
-        != Err(StoreError::Conflict)
-    {
+    if store.commit_assignment_scoring(current_command).await != Err(StoreError::Conflict) {
         bail!("stale scoring staging ignored a concurrent submission");
     }
     store
-        .prepare_assignment_scoring(context, current_command)
+        .prepare_assignment_scoring(current_command)
         .await
         .context("restaging after concurrent database scoring activity")?;
     if store
-        .commit_assignment_scoring(context, current_command)
+        .commit_assignment_scoring(current_command)
         .await
         .context("committing current database scoring generation")?
         != AssignmentScoringCommitOutcome::Committed
@@ -449,10 +445,7 @@ pub(super) async fn exercise_attempt_support(
         )
         .await
         .context("issuing force-submit acceptance attempt")?;
-    let force_action = AttemptSupportActionId::from_uuid(derived_uuid(
-        context.tenant_id(),
-        "support-force-action",
-    ));
+    let force_action = AttemptSupportActionId::from_uuid(derived_uuid("support-force-action"));
     let forced = store
         .force_submit_attempt(
             context,
@@ -524,10 +517,8 @@ pub(super) async fn exercise_attempt_support(
         bail!("ordinary submission remained open after force-submit");
     }
 
-    let clear_forced_action = AttemptSupportActionId::from_uuid(derived_uuid(
-        context.tenant_id(),
-        "support-clear-forced-action",
-    ));
+    let clear_forced_action =
+        AttemptSupportActionId::from_uuid(derived_uuid("support-clear-forced-action"));
     store
         .clear_attempt(
             context,
@@ -585,10 +576,8 @@ pub(super) async fn exercise_attempt_support(
         )
         .await
         .context("submitting database support replacement")?;
-    let clear_scored_action = AttemptSupportActionId::from_uuid(derived_uuid(
-        context.tenant_id(),
-        "support-clear-scored-action",
-    ));
+    let clear_scored_action =
+        AttemptSupportActionId::from_uuid(derived_uuid("support-clear-scored-action"));
     let cleared = store
         .clear_attempt(
             context,
@@ -901,11 +890,11 @@ pub(super) async fn commit_next_seed_scoring_job(
         generation,
     };
     store
-        .prepare_assignment_scoring(context, command)
+        .prepare_assignment_scoring(command)
         .await
         .context("staging database scoring acceptance generation")?;
     if store
-        .commit_assignment_scoring(context, command)
+        .commit_assignment_scoring(command)
         .await
         .context("committing database scoring acceptance generation")?
         != AssignmentScoringCommitOutcome::Committed

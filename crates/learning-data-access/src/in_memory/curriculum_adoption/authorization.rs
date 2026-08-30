@@ -7,16 +7,15 @@ use question_model::{
 
 use super::destination;
 use crate::in_memory::State;
-use crate::{SessionTokenHash, StoreError, TenantContext, TenantId, UserId};
+use crate::{ActorContext, SessionTokenHash, StoreError, UserId};
 
 pub(crate) fn advance_course_schedule_revision(
     state: &mut State,
-    tenant: TenantId,
     course: CourseId,
 ) -> Result<CourseScheduleRevision, StoreError> {
     let current = state
         .course_schedule_revisions
-        .get_mut(&(tenant, course))
+        .get_mut(&course)
         .ok_or_else(|| destination::integrity("course schedule revision"))?;
     *current = current
         .checked_next()
@@ -26,7 +25,7 @@ pub(crate) fn advance_course_schedule_revision(
 
 pub(crate) fn authorized_actor(
     state: &State,
-    context: TenantContext,
+    context: ActorContext,
     session: SessionTokenHash,
 ) -> Result<UserId, StoreError> {
     super::super::reusable_curriculum::require_approved_instructor(state, context, session)
@@ -34,52 +33,48 @@ pub(crate) fn authorized_actor(
 
 pub(crate) fn resolve_course(
     state: &State,
-    tenant: TenantId,
     reference: CourseReference,
 ) -> Result<CourseId, StoreError> {
     state
         .courses_by_reference
-        .get(&(tenant, reference))
+        .get(&reference)
         .copied()
         .ok_or(StoreError::NotFound)
 }
 
 pub(crate) fn require_course_instructor(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     actor: UserId,
 ) -> Result<(), StoreError> {
-    super::super::teaching_authority::require_direct_instructor(state, tenant, course, actor)
-        .map(|_| ())
+    super::super::teaching_authority::require_direct_instructor(state, course, actor).map(|_| ())
 }
 
 /// Re-reads the witness under the lock used by the later mutation. Stable
 /// assignment identity establishes deterministic lock and write order.
 pub(crate) fn course_witness(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
 ) -> Result<CourseInstanceWitness, StoreError> {
     let course_reference = *state
         .course_references
-        .get(&(tenant, course))
+        .get(&course)
         .ok_or_else(|| destination::integrity("course reference"))?;
     let schedule_revision = *state
         .course_schedule_revisions
-        .get(&(tenant, course))
+        .get(&course)
         .ok_or_else(|| destination::integrity("course schedule revision"))?;
-    let assignments = super::course_assignment_ids(state, tenant, course)
+    let assignments = super::course_assignment_ids(state, course)
         .into_iter()
         .map(|assignment| {
             Ok(ObservedCourseInstanceAssignment {
                 assignment: *state
                     .assignment_references
-                    .get(&(tenant, assignment))
+                    .get(&assignment)
                     .ok_or_else(|| destination::integrity("assignment reference"))?,
                 revision: *state
                     .assignment_revisions
-                    .get(&(tenant, assignment))
+                    .get(&assignment)
                     .ok_or_else(|| destination::integrity("assignment revision"))?,
             })
         })
@@ -90,11 +85,10 @@ pub(crate) fn course_witness(
 
 pub(crate) fn require_exact_witness(
     state: &State,
-    tenant: TenantId,
     expected: &CourseInstanceWitness,
 ) -> Result<CourseId, StoreError> {
-    let course = resolve_course(state, tenant, expected.course)?;
-    let current = course_witness(state, tenant, course)?;
+    let course = resolve_course(state, expected.course)?;
+    let current = course_witness(state, course)?;
     if &current != expected {
         return Err(StoreError::Conflict);
     }
@@ -107,15 +101,14 @@ pub(crate) fn require_exact_witness(
 /// transition so parentage cannot be inferred from mutable import projections.
 pub(crate) fn course_instance_blueprint_application(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
 ) -> Result<CourseInstanceBlueprintApplication, StoreError> {
     let application = *state
         .curriculum_adoption
         .course_instance_blueprint_applications
-        .get(&(tenant, course))
+        .get(&course)
         .ok_or_else(|| destination::integrity("CourseInstance Blueprint application"))?;
-    if !state.courses.contains_key(&(tenant, course)) {
+    if !state.courses.contains_key(&course) {
         return Err(destination::integrity(
             "CourseInstance Blueprint application course",
         ));
@@ -123,24 +116,19 @@ pub(crate) fn course_instance_blueprint_application(
     Ok(application)
 }
 
-pub(crate) fn course_has_any_run(state: &State, tenant: TenantId, course: CourseId) -> bool {
+pub(crate) fn course_has_any_run(state: &State, course: CourseId) -> bool {
     state.runs.values().any(|run| {
-        run.tenant == tenant
-            && state
-                .enrollments
-                .get(&(tenant, run.enrollment))
-                .and_then(|enrollment| state.assignments.get(&(tenant, enrollment.assignment)))
-                .is_some_and(|assignment| assignment.course_id == course)
+        state
+            .enrollments
+            .get(&run.enrollment)
+            .and_then(|enrollment| state.assignments.get(&enrollment.assignment))
+            .is_some_and(|assignment| assignment.course_id == course)
     })
 }
 
-pub(crate) fn assignment_has_run(
-    state: &State,
-    tenant: TenantId,
-    assignment: AssignmentId,
-) -> bool {
+pub(crate) fn assignment_has_run(state: &State, assignment: AssignmentId) -> bool {
     state
         .assignments
-        .get(&(tenant, assignment))
+        .get(&assignment)
         .is_some_and(|record| super::super::course_policy::memory_assignment_has_run(state, record))
 }

@@ -7,7 +7,7 @@ use question_model::{
     QuestionId, SavedProblemSearchReference, SavedProblemSearchRevision, SavedProblemSearchView,
 };
 
-use super::{Page, PageRequest, SessionTokenHash, StoreError, TenantContext};
+use super::{ActorContext, Page, PageRequest, SessionTokenHash, StoreError};
 
 /// Complete destination chosen by one revision-checked collection replacement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,11 +53,11 @@ pub struct ProblemCollectionMembersPage {
 /// Closed route capability resolved from one active problem-curation session.
 ///
 /// The browser never selects this value. HTTP handlers choose the capability
-/// required by their route, while the Store derives tenant, actor, roles, and
+/// required by their route, while the Store derives actor, roles, and
 /// current Instructor approval from the authenticated session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProblemCurationCapability {
-    /// Catalog access plus same-tenant institution-collection reads.
+    /// Catalog access plus institution-collection reads.
     CatalogInstitutionRead,
     /// Personal Favorites, named-collection, and saved-search authority.
     PersonalMutation,
@@ -69,7 +69,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Resolves route authority without interpreting operation-specific input.
     async fn preflight_problem_curation(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         capability: ProblemCurationCapability,
     ) -> Result<(), StoreError>;
@@ -77,14 +77,14 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Idempotently materializes the active approved Instructor's fixed private Favorites collection.
     async fn get_or_create_favorites(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
     ) -> Result<ProblemCollectionSummaryView, StoreError>;
 
     /// Lists collections visible to the active curation principal.
     async fn list_problem_collections(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<ProblemCollectionSummaryView>, StoreError>;
@@ -92,7 +92,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Reads one visible collection without exposing an existence oracle.
     async fn get_problem_collection_summary(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemCollectionReference,
     ) -> Result<Option<ProblemCollectionSummaryView>, StoreError>;
@@ -100,7 +100,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Reads one bounded page of safe members for an already authorized collection.
     async fn list_problem_collection_members(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemCollectionReference,
         page: PageRequest,
@@ -109,7 +109,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Atomically creates or replaces one complete collection state.
     async fn replace_problem_collection(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: ReplaceProblemCollectionCommand,
     ) -> Result<ProblemCollectionSummaryView, StoreError>;
@@ -117,7 +117,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Deletes an owned named collection after a strong revision check.
     async fn delete_problem_collection(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: ProblemCollectionReference,
         expected_revision: ProblemCollectionRevision,
@@ -126,7 +126,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Lists personal saved D1 filter meanings for the active Instructor.
     async fn list_saved_problem_searches(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         page: PageRequest,
     ) -> Result<Page<SavedProblemSearchView>, StoreError>;
@@ -134,7 +134,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Reads one personal saved search for its owner without exposing foreign existence.
     async fn get_saved_problem_search(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: SavedProblemSearchReference,
     ) -> Result<Option<SavedProblemSearchView>, StoreError>;
@@ -142,7 +142,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Creates or replaces one personal saved D1 filter meaning.
     async fn replace_saved_problem_search(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         command: ReplaceSavedProblemSearchCommand,
     ) -> Result<SavedProblemSearchView, StoreError>;
@@ -150,7 +150,7 @@ pub trait ProblemCurationStore: Send + Sync {
     /// Deletes one owned saved search after a strong revision check.
     async fn delete_saved_problem_search(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         session: SessionTokenHash,
         reference: SavedProblemSearchReference,
         expected_revision: SavedProblemSearchRevision,

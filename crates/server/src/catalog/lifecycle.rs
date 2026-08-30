@@ -67,7 +67,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_manage_catalog(authenticated.record.subject.roles()) {
+    if !may_manage_catalog(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "catalog change is not authorized");
     }
     let reference = match reference.parse::<ProblemDisplayRef>() {
@@ -97,8 +97,6 @@ where
     }
 }
 
-fn may_manage_catalog(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_manage_catalog(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }

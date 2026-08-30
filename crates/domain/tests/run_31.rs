@@ -4,16 +4,12 @@ use domain::run::continued_practice_allows_run;
 use domain::scoring::{RunTransition, project_summary};
 use question_model::{
     ActivityTimestamp, ContinuedPractice, EnrollmentId, GradePolicy, StudentAssignmentSummary,
-    TenantId,
 };
 use uuid::Uuid;
 
 #[test]
 fn thirty_first_run_updates_the_transactional_summary() {
-    let mut summary = StudentAssignmentSummary::empty(
-        TenantId::from_uuid(Uuid::from_u128(1)),
-        EnrollmentId::from_uuid(Uuid::from_u128(2)),
-    );
+    let mut summary = StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
 
     for run_number in 1_u32..=31 {
         assert!(continued_practice_allows_run(
@@ -46,7 +42,6 @@ fn thirty_first_run_updates_the_transactional_summary() {
     }
 
     let expected = StudentAssignmentSummary {
-        tenant: TenantId::from_uuid(Uuid::from_u128(1)),
         enrollment: EnrollmentId::from_uuid(Uuid::from_u128(2)),
         current_score: Some(1.0),
         best_score: Some(1.0),

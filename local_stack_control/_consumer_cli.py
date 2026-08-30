@@ -52,7 +52,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_instance.add_argument("--id-prefix", required=True)
 	postgresql_count = actions.add_parser("postgresql-count")
 	postgresql_count.add_argument("--manifest", required=True, type=pathlib.Path)
-	postgresql_count.add_argument("--tenant-id", required=True)
 	postgresql_count.add_argument("--attempt-id", required=True)
 	args = parser.parse_args(argv)
 	if args.action == "compose":
@@ -232,13 +231,12 @@ def stop_replica_instance(
 def run_postgresql_count(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
-	tenant_id: str,
 	attempt_id: str,
 ) -> int:
 	"""Run and emit only the replica profile's five bounded durability counts."""
 	local_stack_control.consumer.require_current_resource_capability(runner, disposable)
 	argv, environment, sql = local_stack_control.consumer.postgresql_count_command(
-		disposable, tenant_id, attempt_id
+		disposable, attempt_id
 	)
 	result = runner.run(argv, environment, disposable.target.repo_root, sql)
 	if not result.ok():
@@ -342,7 +340,6 @@ def main() -> None:
 			result = run_postgresql_count(
 				runner,
 				disposable,
-				args.tenant_id,
 				args.attempt_id,
 			)
 			raise SystemExit(result)

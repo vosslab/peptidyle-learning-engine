@@ -300,7 +300,7 @@ impl PersistentDependencies {
 
     /// Composes the production route graph with PLE-owned account identity.
     ///
-    /// The direct passwordless routes own account sessions and tenant-session
+    /// The direct passwordless routes own account sessions and course-session
     /// selection. The optional deployment-gated selector enters that same
     /// account/session graph.
     pub(super) fn production_router(&self) -> Result<Router> {

@@ -314,14 +314,26 @@ async fn selected_copy_materializes_the_explicit_replacement_pin() {
     };
     assert_eq!(receipt.applied().replacements(), &replacements);
     let state = fixture.store.read_state().expect("state");
-    let assignment = state.assignments_by_reference[&(fixture.tenant, completed.assignment)];
+    let assignment = state
+        .assignments_by_reference
+        .iter()
+        .find_map(|((_, reference), assignment)| {
+            (*reference == completed.assignment).then_some(*assignment)
+        })
+        .expect("selected-copy assignment");
     let replacement = state
         .published
         .values()
         .find(|record| record.question_id == fixture.replacement_question)
         .expect("replacement publication");
     assert!(
-        state.assignments[&(fixture.tenant, assignment)]
+        state
+            .assignments
+            .iter()
+            .find_map(|((_, stored_assignment), record)| {
+                (*stored_assignment == assignment).then_some(record)
+            })
+            .expect("selected-copy assignment record")
             .items
             .iter()
             .any(|item| {

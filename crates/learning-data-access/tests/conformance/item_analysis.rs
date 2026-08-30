@@ -418,11 +418,11 @@ async fn run_analysis_job(
                     generation,
                 };
                 store
-                    .prepare_assignment_scoring(fixture.context, command)
+                    .prepare_assignment_scoring(command)
                     .await
                     .expect("scoring staging");
                 store
-                    .commit_assignment_scoring(fixture.context, command)
+                    .commit_assignment_scoring(command)
                     .await
                     .expect("scoring publication");
             }
@@ -437,11 +437,11 @@ async fn run_analysis_job(
                     generation,
                 };
                 store
-                    .prepare_course_item_analysis(fixture.context, command)
+                    .prepare_course_item_analysis(command)
                     .await
                     .expect("analysis staging");
                 let outcome = store
-                    .commit_course_item_analysis(fixture.context, command)
+                    .commit_course_item_analysis(command)
                     .await
                     .expect("analysis publication");
                 if outcome == CourseItemAnalysisCommitOutcome::Committed {
@@ -480,11 +480,11 @@ async fn run_scoring_job(
         generation,
     };
     store
-        .prepare_assignment_scoring(fixture.context, command)
+        .prepare_assignment_scoring(command)
         .await
         .expect("scoring staging");
     store
-        .commit_assignment_scoring(fixture.context, command)
+        .commit_assignment_scoring(command)
         .await
         .expect("scoring publication")
 }
@@ -810,7 +810,7 @@ async fn memory_item_analysis_stale_generation_cannot_replace_current_report() {
         generation,
     };
     store
-        .prepare_course_item_analysis(fixture.context, stale_command)
+        .prepare_course_item_analysis(stale_command)
         .await
         .expect("stale staging");
 
@@ -834,9 +834,7 @@ async fn memory_item_analysis_stale_generation_cannot_replace_current_report() {
     )
     .await;
     assert_eq!(
-        store
-            .commit_course_item_analysis(fixture.context, stale_command)
-            .await,
+        store.commit_course_item_analysis(stale_command).await,
         Ok(CourseItemAnalysisCommitOutcome::Superseded),
         "prepared analysis from an older scoring generation cannot publish"
     );

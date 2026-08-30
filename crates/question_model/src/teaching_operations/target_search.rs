@@ -105,7 +105,7 @@ pub struct CoInstructorTargetSearchPage {
 /// Sysadmin-only candidate for manual Instructor approval.
 ///
 /// The reference is an opaque locator.  The projection deliberately omits
-/// email, UUIDs, tenant facts, and course relationships.
+/// email, UUIDs, institution facts, and course relationships.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SysadminInstructorCandidateView {

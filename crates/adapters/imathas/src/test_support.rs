@@ -143,7 +143,6 @@ impl ImathasProvider for RecordedImathasProvider {
                 points_possible: 1.0,
             },
             crate::GradeBinding {
-                tenant: request.tenant(),
                 attempt: request.attempt(),
                 problem: request.problem(),
                 version: request.version(),

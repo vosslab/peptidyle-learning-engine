@@ -520,11 +520,10 @@ function decodeRunPolicies(value: unknown, path: string, strict = false): RunPol
 
 export function decodeCourseSummary(value: unknown, path = "response"): CourseSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "reference", "tenant", "title", "term", "role"]);
+  requireOnlyFields(record, path, ["id", "reference", "title", "term", "role"]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeCourseReference(field(record, "reference", path), `${path}.reference`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
@@ -806,7 +805,6 @@ export function decodeAssignmentSummary(
     requireOnlyFields(record, path, [
       "id",
       "reference",
-      "tenant",
       "courseId",
       "title",
       "items",
@@ -818,7 +816,6 @@ export function decodeAssignmentSummary(
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),

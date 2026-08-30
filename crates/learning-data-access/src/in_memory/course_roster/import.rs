@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use objects::Sha256Digest;
-use question_model::{CourseId, TenantId, UserId};
+use question_model::{CourseId, UserId};
 
 use super::super::invitation_delivery::create_pending;
 use super::{
@@ -32,13 +32,12 @@ pub(in crate::in_memory) struct StoredCourseRosterImport {
 /// exposing row email or invitation secret material.
 pub(in crate::in_memory) fn delivery_provenance(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     invitation: CourseInvitationId,
 ) -> Result<Option<(CourseRosterImportId, u16, RosterIdempotencyKey)>, StoreError> {
     let mut result = None;
-    for ((entry_tenant, entry_course, import), stored) in &state.roster_imports {
-        if *entry_tenant != tenant || *entry_course != course {
+    for ((entry_course, import), stored) in &state.roster_imports {
+        if *entry_course != course {
             continue;
         }
         let Some(committed) = &stored.committed else {
@@ -68,21 +67,20 @@ pub(in crate::in_memory) fn delivery_provenance(
 
 pub(super) fn stage(
     state: &mut State,
-    tenant: TenantId,
     _actor: UserId,
     command: StageCourseRosterImport,
 ) -> Result<CourseRosterImportPreview, StoreError> {
     cleanup_expired(state);
     validate_rows(&command.rows)?;
-    let current = roster_policy(state, tenant, command.course);
+    let current = roster_policy(state, command.course);
     if current.revision != command.expected_roster_revision {
         return Err(StoreError::Conflict);
     }
-    let receipt_key = (tenant, command.course, command.idempotency_key.clone());
+    let receipt_key = (command.course, command.idempotency_key.clone());
     if let Some(import) = state.roster_import_idempotency.get(&receipt_key).copied() {
         let stored = state
             .roster_imports
-            .get(&(tenant, command.course, import))
+            .get(&(command.course, import))
             .ok_or_else(|| {
                 StoreError::Unavailable("roster import receipt is inconsistent".to_string())
             })?;
@@ -105,11 +103,11 @@ pub(super) fn stage(
             state.authoritative_time,
             command.lifetime.as_seconds(),
         )?,
-        rows: classify_rows(state, tenant, command.course, &command.rows),
+        rows: classify_rows(state, command.course, &command.rows),
     };
     state.roster_import_idempotency.insert(receipt_key, import);
     state.roster_imports.insert(
-        (tenant, command.course, import),
+        (command.course, import),
         StoredCourseRosterImport {
             preview: preview.clone(),
             normalized_digest: command.normalized_digest,
@@ -124,12 +122,11 @@ pub(super) fn stage(
 
 pub(super) fn commit(
     state: &mut State,
-    tenant: TenantId,
     actor: UserId,
     command: CommitCourseRosterImport,
 ) -> Result<CommittedCourseRosterImport, StoreError> {
     cleanup_expired(state);
-    let key = (tenant, command.course, command.import);
+    let key = (command.course, command.import);
     let stored = state
         .roster_imports
         .get(&key)
@@ -143,7 +140,7 @@ pub(super) fn commit(
     if stored.preview.state != CourseRosterImportState::Preview
         || stored.preview.revision != command.expected_import_revision
         || stored.preview.expires_at <= state.authoritative_time
-        || roster_policy(state, tenant, command.course).revision != stored.preview.roster_revision
+        || roster_policy(state, command.course).revision != stored.preview.roster_revision
     {
         return Err(StoreError::Conflict);
     }
@@ -178,17 +175,14 @@ pub(super) fn commit(
             StoreError::Unavailable("ready roster row has no roster ID".to_string())
         })?;
         if state.invitation_by_hash.contains_key(&binding.token_hash)
-            || state.invitation_idempotency.contains_key(&(
-                tenant,
-                command.course,
-                binding.idempotency_key.clone(),
-            ))
+            || state
+                .invitation_idempotency
+                .contains_key(&(command.course, binding.idempotency_key.clone()))
         {
             return Err(StoreError::Conflict);
         }
         let invitation = CourseInvitation {
             id: CourseInvitationId::generate()?,
-            tenant,
             course: command.course,
             email,
             roster_id,
@@ -203,26 +197,22 @@ pub(super) fn commit(
         };
         state
             .invitation_by_hash
-            .insert(binding.token_hash, (tenant, command.course, invitation.id));
+            .insert(binding.token_hash, (command.course, invitation.id));
         state.invitation_idempotency.insert(
-            (tenant, command.course, binding.idempotency_key.clone()),
+            (command.course, binding.idempotency_key.clone()),
             (invitation.id, binding.token_hash),
         );
         state.course_invitations.insert(
-            (tenant, command.course, invitation.id),
+            (command.course, invitation.id),
             super::StoredCourseInvitation {
                 record: invitation.clone(),
             },
         );
-        create_pending(state, tenant, command.course, invitation.id)?;
+        create_pending(state, command.course, invitation.id)?;
         invitations.push((row_number, invitation));
     }
-    let roster_revision = bump_roster_revision(
-        state,
-        tenant,
-        command.course,
-        Some(stored.preview.roster_revision),
-    )?;
+    let roster_revision =
+        bump_roster_revision(state, command.course, Some(stored.preview.roster_revision))?;
     let import_revision = stored.preview.revision.next()?;
     let committed = CommittedCourseRosterImport {
         import: command.import,
@@ -261,7 +251,6 @@ fn validate_rows(rows: &[CourseRosterImportRowInput]) -> Result<(), StoreError> 
 
 fn classify_rows(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     inputs: &[CourseRosterImportRowInput],
 ) -> Vec<CourseRosterImportRow> {
@@ -277,7 +266,7 @@ fn classify_rows(
             *roster_counts.entry(roster_id.clone()).or_insert(0_u16) += 1;
         }
     }
-    let policy = roster_policy(state, tenant, course);
+    let policy = roster_policy(state, course);
     inputs
         .iter()
         .map(|input| {
@@ -291,7 +280,7 @@ fn classify_rows(
                     RosterImportRowStatus::Invalid
                 }
                 (Some(email), Some(roster_id)) => {
-                    classify_valid_row(state, tenant, course, email, roster_id)
+                    classify_valid_row(state, course, email, roster_id)
                 }
                 _ => RosterImportRowStatus::Invalid,
             };
@@ -307,7 +296,6 @@ fn classify_rows(
 
 fn classify_valid_row(
     state: &State,
-    tenant: TenantId,
     course: CourseId,
     email: &crate::AuthenticationEmail,
     roster_id: &crate::CourseRosterId,
@@ -316,11 +304,8 @@ fn classify_valid_row(
         .roster_profiles
         .values()
         .filter_map(|profile| {
-            let membership = state
-                .course_memberships
-                .get(&(tenant, profile.membership))?;
-            (profile.tenant == tenant
-                && profile.course == course
+            let membership = state.course_memberships.get(&profile.membership)?;
+            (profile.course == course
                 && membership.status == CourseMemberStatus::Active
                 && membership.role == question_model::CourseMembershipRole::Student
                 && (profile
@@ -349,8 +334,7 @@ fn classify_valid_row(
         .course_invitations
         .values()
         .filter(|stored| {
-            stored.record.tenant == tenant
-                && stored.record.course == course
+            stored.record.course == course
                 && stored.record.status == CourseInvitationStatus::Pending
                 && stored.record.expires_at > state.authoritative_time
                 && (stored.record.email.normalized() == email.normalized()
@@ -381,10 +365,10 @@ fn cleanup_expired(state: &mut State) {
         })
         .map(|(key, stored)| (*key, stored.stage_idempotency_key.clone()))
         .collect::<Vec<_>>();
-    for ((tenant, course, import), idempotency_key) in expired {
-        state.roster_imports.remove(&(tenant, course, import));
+    for ((course, import), idempotency_key) in expired {
+        state.roster_imports.remove(&(course, import));
         state
             .roster_import_idempotency
-            .remove(&(tenant, course, idempotency_key));
+            .remove(&(course, idempotency_key));
     }
 }

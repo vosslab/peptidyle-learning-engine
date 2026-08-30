@@ -33,7 +33,6 @@ fn actor() -> UserId {
 
 fn import_ref() -> QtiImportRef {
     QtiImportRef {
-        tenant: tenant(),
         workspace: workspace(),
         import: import_id(),
     }
@@ -58,7 +57,6 @@ fn record(key: ObjectKey, bytes: &[u8], media_type: &str) -> ObjectRecord {
 fn archive() -> ObjectRecord {
     record(
         ObjectKey::WorkspaceSource {
-            tenant: tenant(),
             workspace: workspace(),
             import: import_id(),
             object: ObjectId::from_uuid(uuid(5)),
@@ -80,7 +78,6 @@ fn compiled() -> (DraftRecord, FlatQuestionGradingPayload, Vec<u8>) {
         .into_parts();
     (
         DraftRecord {
-            tenant: tenant(),
             question,
             derived_from: None,
         },
@@ -92,7 +89,6 @@ fn compiled() -> (DraftRecord, FlatQuestionGradingPayload, Vec<u8>) {
 fn source(canonical: &[u8]) -> ObjectRecord {
     record(
         ObjectKey::WorkspaceQuestionSource {
-            tenant: tenant(),
             workspace: workspace(),
             object: ObjectId::from_uuid(uuid(6)),
         },
@@ -357,7 +353,6 @@ fn publication_candidate_is_deterministic_and_copies_only_current_origin() {
         version: VersionId::from_uuid(uuid(8)),
     };
     let published_object = published_import_archive_object_id(
-        tenant(),
         reference.problem,
         reference.version,
         import_id(),
@@ -365,7 +360,6 @@ fn publication_candidate_is_deterministic_and_copies_only_current_origin() {
     );
     let published = record(
         ObjectKey::PublishedImportArchive {
-            tenant: tenant(),
             problem: reference.problem,
             version: reference.version,
             import: import_id(),
@@ -405,16 +399,12 @@ fn publication_validation_defers_optional_origin_decision_to_locked_backend_stat
         problem: ProblemId::from_uuid(uuid(7)),
         version: VersionId::from_uuid(uuid(8)),
     };
-    let context = TenantContext::from_authenticated_session(tenant());
-    crate::publication_validation::validate_flat_import_publication_promotion(
-        context, reference, None,
-    )
-    .expect("manual flat publication may omit imported lineage");
+    crate::publication_validation::validate_flat_import_publication_promotion(reference, None)
+        .expect("manual flat publication may omit imported lineage");
 
     let (_, _, canonical) = compiled();
     let current = origin(Sha256Digest::compute(&canonical));
     let published_object = published_import_archive_object_id(
-        tenant(),
         reference.problem,
         reference.version,
         import_id(),
@@ -422,7 +412,6 @@ fn publication_validation_defers_optional_origin_decision_to_locked_backend_stat
     );
     let published = record(
         ObjectKey::PublishedImportArchive {
-            tenant: tenant(),
             problem: reference.problem,
             version: reference.version,
             import: import_id(),
@@ -434,22 +423,10 @@ fn publication_validation_defers_optional_origin_decision_to_locked_backend_stat
     let promotion = FlatImportPublicationPromotion::new(&current, reference, published)
         .expect("exact candidate validates");
     crate::publication_validation::validate_flat_import_publication_promotion(
-        context,
         reference,
         Some(&promotion),
     )
     .expect("structural origin reaches backend locked-origin verification");
-
-    let foreign_context = TenantContext::from_authenticated_session(TenantId::from_uuid(uuid(9)));
-    assert!(
-        crate::publication_validation::validate_flat_import_publication_promotion(
-            foreign_context,
-            reference,
-            Some(&promotion),
-        )
-        .is_err(),
-        "structural validation refuses another tenant before backend verification"
-    );
 }
 
 #[test]
@@ -461,7 +438,6 @@ fn published_archive_annotations_match_sql_character_bounds() {
         version: VersionId::from_uuid(uuid(8)),
     };
     let published_object = published_import_archive_object_id(
-        tenant(),
         reference.problem,
         reference.version,
         import_id(),
@@ -469,7 +445,6 @@ fn published_archive_annotations_match_sql_character_bounds() {
     );
     let published = record(
         ObjectKey::PublishedImportArchive {
-            tenant: tenant(),
             problem: reference.problem,
             version: reference.version,
             import: import_id(),
@@ -484,7 +459,6 @@ fn published_archive_annotations_match_sql_character_bounds() {
     let promotion = FlatImportPublicationPromotion::new(&current, reference, boundary)
         .expect("published archive accepts SQL character-length boundaries");
     crate::publication_validation::validate_flat_import_publication_promotion(
-        TenantContext::from_authenticated_session(tenant()),
         reference,
         Some(&promotion),
     )
@@ -506,7 +480,6 @@ fn published_archive_annotations_match_sql_character_bounds() {
     };
     assert!(
         crate::publication_validation::validate_flat_import_publication_promotion(
-            TenantContext::from_authenticated_session(tenant()),
             reference,
             Some(&invalid_promotion),
         )

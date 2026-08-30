@@ -137,7 +137,7 @@ where
         };
         let now = match state
             .store
-            .authoritative_time(authenticated.tenant_context)
+            .authoritative_time()
             .await
         {
             Ok(now) => now,

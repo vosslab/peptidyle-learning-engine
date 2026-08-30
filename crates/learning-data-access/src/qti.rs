@@ -2,14 +2,11 @@
 
 use async_trait::async_trait;
 use objects::{ObjectRecord, Sha256Digest};
-use question_model::{
-    AssetId, ObjectId, ProblemVersionRef, TenantId, WorkspaceId, WorkspaceImportId,
-};
+use question_model::{AssetId, ObjectId, ProblemVersionRef, WorkspaceId, WorkspaceImportId};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 
 use crate::{
-    AssetDeliveryRecord, JobId, JobLeaseToken, PersistedFlatImportProfile, StoreError,
-    TenantContext,
+    ActorContext, AssetDeliveryRecord, JobId, JobLeaseToken, PersistedFlatImportProfile, StoreError,
 };
 
 /// Private QTI staging evidence selected before any published identity exists.
@@ -23,13 +20,12 @@ pub struct QtiPublicationPromotion {
     pub assets: Vec<AssetDeliveryRecord>,
 }
 
-/// Tenant/workspace/import address for a private, immutable QTI staging record.
+/// Workspace/import address for a private, immutable QTI staging record.
 ///
 /// This is deliberately not a browser DTO and contains no published identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QtiImportRef {
-    pub tenant: TenantId,
     pub workspace: WorkspaceId,
     pub import: WorkspaceImportId,
 }
@@ -281,6 +277,14 @@ pub struct CreateQtiImportCommand {
     pub item_bindings: Vec<QtiImportItemRegistration>,
 }
 
+/// Private worker preparation bound to one active QTI-import lease.
+#[derive(Clone)]
+pub struct PrepareClaimedQtiImport {
+    pub job: JobId,
+    pub lease: JobLeaseToken,
+    pub command: CreateQtiImportCommand,
+}
+
 /// Exact private worker claim allowed to expose a prepared QTI import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CommitPreparedQtiImport {
@@ -313,22 +317,27 @@ pub trait QtiImportStore: Send + Sync {
     /// Persists fully validated but invisible worker preparation.
     async fn prepare_qti_import(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         command: CreateQtiImportCommand,
+    ) -> Result<(), StoreError>;
+
+    /// Persists invisible worker preparation only while the exact lease still
+    /// names the command's immutable workspace, import, and source object.
+    async fn prepare_claimed_qti_import(
+        &self,
+        command: PrepareClaimedQtiImport,
     ) -> Result<(), StoreError>;
 
     /// Makes a prepared import visible and completes the exact active lease.
     async fn commit_prepared_qti_import(
         &self,
-        context: TenantContext,
         command: CommitPreparedQtiImport,
     ) -> Result<CommitPreparedQtiImportOutcome, StoreError>;
 
-    /// Resolves safe staging metadata under both tenant and workspace scope.
-    /// A foreign tenant or workspace deliberately receives `None`.
+    /// Resolves safe staging metadata for an actor currently bound to the workspace.
     async fn get_qti_import(
         &self,
-        context: TenantContext,
+        context: ActorContext,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
     ) -> Result<Option<QtiImportRegistry>, StoreError>;
@@ -348,14 +357,12 @@ pub trait QtiGradingStore: Send + Sync {
     /// has no store method it can call for catalog recovery.
     async fn qti_publication_grading(
         &self,
-        context: TenantContext,
         reference: ProblemVersionRef,
         item_id: &str,
     ) -> Result<Option<QtiImportGradingPayload>, StoreError>;
 
     async fn qti_import_grading(
         &self,
-        context: TenantContext,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
         item_id: &str,

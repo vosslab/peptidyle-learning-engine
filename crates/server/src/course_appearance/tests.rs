@@ -289,7 +289,6 @@ where
     let stored = fixture
         .objects
         .get(&ObjectKey::CourseBanner {
-            tenant: fixture.tenant,
             course: fixture.course,
             banner: first_banner,
         })
@@ -493,7 +492,6 @@ where
         fixture
             .objects
             .get(&ObjectKey::CourseBannerCandidate {
-                tenant: fixture.tenant,
                 course: fixture.course,
                 candidate: first_receipt.candidate,
             })
@@ -504,7 +502,6 @@ where
         fixture
             .objects
             .get(&ObjectKey::CourseBanner {
-                tenant: fixture.tenant,
                 course: fixture.course,
                 banner: first_banner,
             })
@@ -514,7 +511,6 @@ where
     fixture
         .objects
         .get(&ObjectKey::CourseBanner {
-            tenant: fixture.tenant,
             course: fixture.course,
             banner: second_banner,
         })
@@ -615,7 +611,7 @@ async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current
         .await
         .expect("live student roster membership");
     let now = store
-        .authoritative_time(context)
+        .authoritative_time()
         .await
         .expect("live database time should resolve");
     let expires_at = ActivityTimestamp::from_unix_millis(
@@ -632,7 +628,6 @@ async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current
         candidate: first_candidate,
     };
     let first_banner_key = ObjectKey::CourseBanner {
-        tenant,
         course,
         banner: first_banner,
     };
@@ -703,7 +698,6 @@ async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current
         candidate: second_candidate,
     };
     let second_banner_key = ObjectKey::CourseBanner {
-        tenant,
         course,
         banner: second_banner,
     };

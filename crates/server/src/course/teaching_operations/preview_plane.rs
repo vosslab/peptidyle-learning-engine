@@ -458,7 +458,7 @@ fn preview_store_error(error: StoreError) -> Response {
             StatusCode::PRECONDITION_FAILED,
             "assignment changed; reload it",
         ),
-        StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch => {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => {
             concealed_route_response()
         }
         error => store_error_response(error),

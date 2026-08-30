@@ -210,7 +210,6 @@ impl ReceiptNextAttempt {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrefetchedQuestionDescriptorV1 {
-    pub tenant: TenantId,
     pub run: RunId,
     pub predecessor: QuestionAttemptId,
     pub assignment_position: u32,

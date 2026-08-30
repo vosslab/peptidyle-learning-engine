@@ -309,7 +309,6 @@ fn worker_command_from_claim(claim: ClaimedJob) -> RetentionWorkerCommand {
         _ => panic!("worker job is not retention payload"),
     };
     RetentionWorkerCommand {
-        tenant: claim.tenant,
         course: command_course,
         stage,
         generation,

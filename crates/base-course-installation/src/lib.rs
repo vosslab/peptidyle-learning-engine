@@ -19,7 +19,7 @@ pub use receipt::{
 
 use std::collections::BTreeSet;
 
-use question_model::{TenantId, UserId};
+use question_model::UserId;
 
 /// Narrow host capability used to turn the deterministic Mary response into
 /// ordinary accepted Student work.  The installer owns the recipe, while the
@@ -35,7 +35,7 @@ pub trait AcceptedSubmissionSeedExecutor: Send + Sync {
 /// Server-private deterministic input for one installed completed attempt.
 #[derive(Clone)]
 pub struct AcceptedSubmissionSeedRequest {
-    pub context: learning_data_access::TenantContext,
+    pub context: learning_data_access::ActorContext,
     pub actor: UserId,
     pub binding: learning_data_access::StudentWorkRoutingBinding,
     pub attempt: question_model::QuestionAttemptId,
@@ -67,7 +67,6 @@ pub enum AcceptedSubmissionSeedOutcome {
 /// Validated identities used by the deterministic Base Course recipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BaseCourseParticipants {
-    tenant: TenantId,
     primary_instructor: UserId,
     mary: UserId,
     jack: UserId,
@@ -82,7 +81,6 @@ impl BaseCourseParticipants {
     ///
     /// Returns [`BaseCourseInstallError::Request`] when any participant identity repeats.
     pub fn try_new(
-        tenant: TenantId,
         primary_instructor: UserId,
         mary: UserId,
         jack: UserId,
@@ -98,17 +96,12 @@ impl BaseCourseParticipants {
             ));
         }
         Ok(Self {
-            tenant,
             primary_instructor,
             mary,
             jack,
             approval_candidate,
             sysadmin,
         })
-    }
-
-    pub(crate) fn tenant(self) -> TenantId {
-        self.tenant
     }
 
     pub(crate) fn primary_instructor(self) -> UserId {
@@ -168,22 +161,17 @@ mod tests {
 
     use super::*;
 
-    fn tenant(value: u128) -> TenantId {
-        TenantId::from_uuid(Uuid::from_u128(value))
-    }
-
     fn user(value: u128) -> UserId {
         UserId::from_uuid(Uuid::from_u128(value))
     }
 
     #[test]
     fn participants_require_five_distinct_account_identities() {
-        let valid =
-            BaseCourseParticipants::try_new(tenant(1), user(2), user(3), user(4), user(5), user(6));
+        let valid = BaseCourseParticipants::try_new(user(2), user(3), user(4), user(5), user(6));
         let duplicate_mary =
-            BaseCourseParticipants::try_new(tenant(1), user(2), user(2), user(4), user(5), user(6));
+            BaseCourseParticipants::try_new(user(2), user(2), user(4), user(5), user(6));
         let duplicate_sysadmin =
-            BaseCourseParticipants::try_new(tenant(1), user(2), user(3), user(4), user(5), user(5));
+            BaseCourseParticipants::try_new(user(2), user(3), user(4), user(5), user(5));
 
         assert!(valid.is_ok());
         assert!(duplicate_mary.is_err());
@@ -193,8 +181,7 @@ mod tests {
     #[test]
     fn install_receipt_exists_only_in_the_install_phase() {
         let participants =
-            BaseCourseParticipants::try_new(tenant(1), user(2), user(3), user(4), user(5), user(6))
-                .unwrap();
+            BaseCourseParticipants::try_new(user(2), user(3), user(4), user(5), user(6)).unwrap();
         let prepare = BaseCourseInstallRequest::new(participants, BaseCourseInstallPhase::Prepare);
         let install = BaseCourseInstallRequest::new(
             participants,

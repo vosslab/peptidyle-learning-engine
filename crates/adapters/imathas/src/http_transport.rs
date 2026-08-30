@@ -585,7 +585,6 @@ mod tests {
             .await
             .unwrap();
         let binding = crate::GradeBinding {
-            tenant: question_model::TenantId::from_uuid(uuid::Uuid::from_u128(1)),
             attempt: question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
             problem: question_model::ProblemId::from_uuid(uuid::Uuid::from_u128(3)),
             version: question_model::VersionId::from_uuid(uuid::Uuid::from_u128(4)),

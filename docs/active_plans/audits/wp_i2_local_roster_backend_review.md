@@ -17,19 +17,19 @@ isolated baseline.
   `local_development` requires normalized email, delivery email, and roster ID
   all to be null.
 - Local identity configuration validates a unique 1--128 byte lowercase ASCII
-  alias per record. The route accepts only that alias, then derives tenant,
-  user, display name, and roles from server-owned local configuration
+  alias per record. The route accepts only that alias, then derives the
+  user, display name, and role from server-owned local configuration
   (`crates/server/src/composition/local_identity.rs:79-168` and
   `crates/server/src/course/roster.rs:437-485`).
-- The directory only resolves a same-tenant record with exactly the student
+- The directory only resolves a configured record with exactly the student
   role. Manager authorization is rechecked at both HTTP and Store boundaries;
-  unknown, nonmanager, foreign-tenant, and conflicting-role paths fail closed.
+  unknown, nonmanager, unaffiliated, and conflicting-role paths fail closed.
 - The internal source type is closed and PostgreSQL decoding fails closed on an
   unknown stored source. The repaired roster query selects `source`, so live
   local-development records retain their honest projection
   (`crates/learning-data-access/src/postgres/course_roster.rs:44-73`).
 - Memory performs the operation under one write lock and restores state on
-  error. PostgreSQL uses one tenant transaction, locks the course roster
+  error. PostgreSQL uses one database transaction, locks the course roster
   cross-product, rechecks manager authority, and commits only after roster,
   course-membership, enrollment, and summary work succeeds.
 - Production passes no local roster directory while exact local composition

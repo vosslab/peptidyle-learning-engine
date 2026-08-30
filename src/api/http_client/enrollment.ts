@@ -1,11 +1,6 @@
-// Passwordless account, passkey, roster, and manual-export transport.
+// Passwordless account, passkey, and roster transport.
 
-import type {
-  CourseRosterClient,
-  ManualGradeExport,
-  RosterImportPreview,
-  WebauthnStart,
-} from "../enrollment";
+import type { CourseRosterClient, RosterImportPreview, WebauthnStart } from "../enrollment";
 import {
   decodeAccountAuthenticated,
   decodeAccountEmailChanged,
@@ -30,7 +25,6 @@ import { encodedId, requestJson, requestPath, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_ROSTER_CSV_BYTES = 1_048_576;
-const MAX_GRADE_EXPORT_BYTES = 1_048_576;
 
 function positiveRevisionHeader(revision: number, name: string): string {
   if (!Number.isSafeInteger(revision) || revision <= 0) {
@@ -462,35 +456,6 @@ export function createEnrollmentClient(
       }
       verifyNumericEtag(result.response, result.body.importRevision, path);
       return result.body;
-    },
-    createManualGradeExport: async (courseId, assignmentId): Promise<ManualGradeExport> => {
-      const path = `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/grade-export.csv`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "POST",
-        headers: { accept: "text/csv" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim();
-      if (contentType !== "text/csv") {
-        throw new ApiProtocolError(`API response ${path} must be text/csv`);
-      }
-      const exportId = response.headers.get("x-ple-export-id");
-      if (exportId === null || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(exportId)) {
-        throw new ApiProtocolError(`API response ${path} must include one export ID`);
-      }
-      const disposition = response.headers.get("content-disposition");
-      const filename = disposition?.match(/^attachment; filename=([A-Za-z0-9._-]+)$/u)?.[1];
-      if (filename === undefined) {
-        throw new ApiProtocolError(`API response ${path} must include a safe filename`);
-      }
-      const csv = await response.blob();
-      if (csv.size > MAX_GRADE_EXPORT_BYTES) {
-        throw new ApiProtocolError(`API response ${path} exceeds the grade-export limit`);
-      }
-      return { assignmentId, exportId, filename, csv };
     },
   };
 }

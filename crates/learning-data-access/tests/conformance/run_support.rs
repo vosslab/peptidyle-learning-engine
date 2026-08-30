@@ -702,13 +702,11 @@ pub(super) async fn exercise_attempt_support<S, P>(
         generation: support_generation,
     };
     store
-        .prepare_assignment_scoring(context, support_scoring)
+        .prepare_assignment_scoring(support_scoring)
         .await
         .expect("attempt-clear scoring stages without the cleared result");
     assert_eq!(
-        store
-            .commit_assignment_scoring(context, support_scoring)
-            .await,
+        store.commit_assignment_scoring(support_scoring).await,
         Ok(AssignmentScoringCommitOutcome::Committed)
     );
     let support_assignment_current = store

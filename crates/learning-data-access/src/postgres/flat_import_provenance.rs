@@ -250,7 +250,6 @@ impl PostgresStore {
         }
 
         let source = WorkspaceFlatQuestionSource::new(
-            command.draft.tenant,
             command.draft.question.workspace,
             revision,
             source_family,
@@ -457,12 +456,10 @@ fn decode_workspace_origin_row(
     let import_id = WorkspaceImportId::from_uuid(import_id);
     let archive_id = ObjectId::from_uuid(archive_id);
     let import = crate::QtiImportRef {
-        tenant: context.tenant_id(),
         workspace,
         import: import_id,
     };
     let key = ObjectKey::WorkspaceSource {
-        tenant: context.tenant_id(),
         workspace,
         import: import_id,
         object: archive_id,

@@ -253,9 +253,8 @@ where
         Ok(binding)
     }
 
-    fn correlation_binding(context: TenantContext, attempt: &QuestionAttempt) -> GradeBinding {
+    fn correlation_binding(attempt: &QuestionAttempt) -> GradeBinding {
         GradeBinding {
-            tenant: context.tenant_id(),
             attempt: attempt.id,
             problem: attempt.problem,
             version: attempt.question_version,
@@ -316,7 +315,7 @@ where
             .await?;
         let response = StudentResponse::ExternalTool {};
         let binding = Self::binding(issued_question_snapshot, attempt, &response)?;
-        let grade_binding = Self::correlation_binding(context, attempt);
+        let grade_binding = Self::correlation_binding(attempt);
         let correlation = self
             .correlations
             .restore(grade_binding, &self.correlations.begin(grade_binding))
@@ -329,7 +328,7 @@ where
             .map_err(|_| RunBackendError::Invalid("invalid iMathAS launch nonce".into()))?;
         let now = self
             .sources
-            .authoritative_time(context)
+            .authoritative_time()
             .await
             .map_err(map_store_error)?;
         let session = self
@@ -337,7 +336,6 @@ where
             .begin_contracted_launch(
                 question,
                 &source,
-                context.tenant_id(),
                 attempt.id,
                 Seed::new(attempt.seed),
                 correlation,

@@ -166,7 +166,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_read_catalog(authenticated.record.subject.roles()) {
+    if !may_read_catalog(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
     }
     let page = match page_request(query) {
@@ -197,7 +197,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_read_catalog(authenticated.record.subject.roles()) {
+    if !may_read_catalog(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
     }
     let page = match page_request(query) {
@@ -231,7 +231,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_read_catalog(authenticated.record.subject.roles()) {
+    if !may_read_catalog(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
     }
     let query = match CatalogSearchHttpQuery::from_raw_query(raw_query.as_deref())
@@ -268,7 +268,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_read_catalog(authenticated.record.subject.roles()) {
+    if !may_read_catalog(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
     }
     let reference = match reference.parse::<ProblemDisplayRef>() {
@@ -303,7 +303,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_read_catalog(authenticated.record.subject.roles()) {
+    if !may_read_catalog(authenticated.record.subject.role()) {
         return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
     }
     let reference = match reference.parse::<ProblemDisplayRef>() {
@@ -348,10 +348,8 @@ fn page_request(query: CatalogQuery) -> Result<PageRequest, PaginationError> {
     }
 }
 
-fn may_read_catalog(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_read_catalog(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 #[cfg(test)]

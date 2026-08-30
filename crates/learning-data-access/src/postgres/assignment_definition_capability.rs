@@ -752,7 +752,6 @@ mod tests {
     fn assignment() -> AssignmentRecord {
         AssignmentRecord {
             id: AssignmentId::from_uuid(Uuid::from_u128(101)),
-            tenant: TenantId::from_uuid(Uuid::from_u128(102)),
             course_id: CourseId::from_uuid(Uuid::from_u128(103)),
             title: "Creation witness".to_string(),
             lifecycle: question_model::AssignmentLifecycle::Draft,

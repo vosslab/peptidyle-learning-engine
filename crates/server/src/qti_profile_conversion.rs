@@ -100,7 +100,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author(authenticated.record.subject.roles()) {
+    if !may_author(authenticated.record.subject.role()) {
         return not_found_response();
     }
     let expected_revision = match required_revision(&headers) {
@@ -121,7 +121,7 @@ where
     let actor = authenticated.record.subject.user();
     let view = match state
         .store
-        .qti_import_view(authenticated.tenant_context, actor, workspace, import)
+        .qti_import_view(authenticated.actor, workspace, import)
         .await
     {
         Ok(Some(view)) => view,
@@ -138,7 +138,6 @@ where
         return error_response(StatusCode::SERVICE_UNAVAILABLE, "QTI import unavailable");
     };
     let reference = QtiImportRef {
-        tenant: authenticated.tenant_context.tenant_id(),
         workspace,
         import,
     };
@@ -163,7 +162,7 @@ where
     }
     let existing = match state
         .store
-        .get_draft(authenticated.tenant_context, actor, workspace)
+        .get_draft(authenticated.actor, workspace)
         .await
     {
         Ok(Some(draft)) => draft,
@@ -270,13 +269,12 @@ where
     };
     let (canonical_source, question, _private, _mapping_parts) = bridge.into_parts();
     let draft = DraftRecord {
-        tenant: authenticated.tenant_context.tenant_id(),
         question,
         derived_from: existing.record.derived_from,
     };
     let acknowledged_at = match state
         .store
-        .authoritative_time(authenticated.tenant_context)
+        .authoritative_time()
         .await
     {
         Ok(value) => value,
@@ -302,7 +300,6 @@ where
         .objects
         .put(PutObject {
             key: ObjectKey::WorkspaceQuestionSource {
-                tenant: authenticated.tenant_context.tenant_id(),
                 workspace,
                 object,
             },
@@ -356,17 +353,14 @@ fn archive_matches_registry(
     registry: &QtiImportRegistry,
     reference: QtiImportRef,
 ) -> bool {
-    let expected_object =
-        workspace_qti_archive_object_id(reference.tenant, reference.workspace, reference.import);
+    let expected_object = workspace_qti_archive_object_id(reference.workspace, reference.import);
     matches!(
         &registry.source.key,
         ObjectKey::WorkspaceSource {
-            tenant,
             workspace,
             import,
             object,
-        } if *tenant == reference.tenant
-            && *workspace == reference.workspace
+        } if *workspace == reference.workspace
             && *import == reference.import
             && *object == expected_object
     ) && registry.source.id == expected_object
@@ -386,10 +380,8 @@ fn archive_matches_registry(
         && Sha256Digest::compute(&archive.bytes) == registry.source.sha256
 }
 
-fn may_author(roles: &[UserRole]) -> bool {
-    roles
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+fn may_author(role: UserRole) -> bool {
+    matches!(role, UserRole::Instructor | UserRole::Sysadmin)
 }
 
 #[derive(Clone, Copy)]
@@ -453,7 +445,7 @@ fn conversion_refused_response() -> Response {
 
 fn store_error_response(error: StoreError) -> Response {
     match error {
-        StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
+        StoreError::NotFound | StoreError::OwnershipMismatch | StoreError::Forbidden => {
             not_found_response()
         }
         StoreError::AlreadyExists

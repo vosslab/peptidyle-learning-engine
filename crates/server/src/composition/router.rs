@@ -59,7 +59,6 @@ where
         + CourseRecordsAccessStore
         + learning_data_access::CourseRosterStore
         + learning_data_access::CourseInvitationDeliveryStore
-        + learning_data_access::ManualGradeExportStore
         + learning_data_access::CourseGradebookStore
         + learning_data_access::StudentWorkInspectionStore
         + learning_data_access::CourseGroupManagementStore
@@ -186,7 +185,7 @@ where
 }
 
 /// Opaque container identity carried only by the test-only replica E2E build.
-/// It deliberately has no access to the request, route state, tenant, object
+/// It deliberately has no access to the request, route state, course data, object
 /// store, or any other process configuration.
 #[cfg(feature = "e2e-observability")]
 #[derive(Clone)]

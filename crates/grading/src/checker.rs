@@ -616,7 +616,7 @@ mod tests {
             grade(
                 &upload,
                 &StudentResponse::FileUpload {
-                    object_key: "tenant/object".to_string(),
+                    object_key: "workspace/object".to_string(),
                 },
                 None,
             ),

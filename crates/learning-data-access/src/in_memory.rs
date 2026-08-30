@@ -7,11 +7,7 @@ mod assets;
 mod assignment_workspace;
 mod authoring;
 mod catalog;
-#[cfg(test)]
-mod catalog_publication_scope_tests;
 mod catalog_search;
-#[cfg(test)]
-mod catalog_search_pagination_tests;
 #[cfg(test)]
 mod catalog_search_tests;
 #[cfg(test)]
@@ -41,7 +37,6 @@ mod grading_operations;
 mod grading_operations_tests;
 mod invitation_delivery;
 mod item_analysis;
-mod manual_grade_export;
 mod navigation_references;
 mod preview_plane;
 mod private_submission;
@@ -107,8 +102,8 @@ use question_model::{
     MAX_CATALOG_OWN_COURSE_USAGES, MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId,
     ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionEnvelope,
     QuestionStatisticsDisclosure, RunId, RunMode, ScoringGeneration, ScoringStatus,
-    StatisticsDisclosurePolicy, StudentAssignmentSummary, StudentId, StudentResponse, TenantId,
-    UserId, VersionId, WorkspaceId, WorkspaceImportId,
+    StatisticsDisclosurePolicy, StudentAssignmentSummary, StudentId, StudentResponse, UserId,
+    VersionId, WorkspaceId, WorkspaceImportId,
 };
 
 use crate::gradebook_cursor::GradebookCursor;
@@ -131,27 +126,27 @@ use crate::{
     DeleteGroupAccommodationCommand, DeleteGroupScheduleOffsetCommand,
     DeleteIndividualPolicyExceptionCommand, DraftRecord, EffectivePolicyResolution,
     EmailChallengeSecretHash, FeedbackReleaseRecord, FlatQuestionGradingPayload,
-    ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand,
-    IssuedEffectivePolicyReceipt, Page, PageRequest, PageSize, PasskeyId, PasskeyRecord,
-    PrefetchedPrivateExecutionV1, PrefetchedQuestionDescriptorV1, PublishDraftCommand,
-    PublishedProblemRecord, PublishedSourceArtifact, PutAssignmentTeachingSettingsCommand,
-    PutCourseGroupCommand, PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
+    ForceSubmitAttemptCommand, IssueQuestionAttemptCommand, IssuedEffectivePolicyReceipt, Page,
+    PageRequest, PageSize, PasskeyId, PasskeyRecord, PrefetchedPrivateExecutionV1,
+    PrefetchedQuestionDescriptorV1, PublishDraftCommand, PublishedProblemRecord,
+    PublishedSourceArtifact, PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand,
+    PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
     PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand,
     RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand, ReplaceAssignmentContentCommand,
     ReplaceAssignmentContentOutcome, ReplaceAssignmentFixedItemCommand,
     ReplaceAssignmentPoliciesCommand, ReplaceAssignmentPoliciesOutcome,
     ReservePrefetchedQuestionCommand, ResolveEffectivePolicyCommand, RetentionApiStore,
-    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionRevision,
-    RetentionScheduleStore, RetentionStore, RetentionWork, RetentionWorkerCommand,
-    RetentionWorkerStore, RosterIdempotencyKey, RunSummaryOutcomeInput, RunSummaryPageInput,
-    SessionTokenHash, StoreError, StoredAssignment, StoredBaseAssignmentPolicy, StoredCourseGroup,
-    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext, WebauthnCeremony, WebauthnCeremonyId,
+    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionPolicy,
+    RetentionRevision, RetentionScheduleStore, RetentionStore, RetentionWork,
+    RetentionWorkerCommand, RetentionWorkerStore, RosterIdempotencyKey, RunSummaryOutcomeInput,
+    RunSummaryPageInput, SessionTokenHash, StoreError, StoredAssignment,
+    StoredBaseAssignmentPolicy, StoredCourseGroup, SubmissionIdempotencyKey, SubmissionNextAttempt,
+    SubmissionRecord, SubmitQuestionAttemptCommand, WebauthnCeremony, WebauthnCeremonyId,
     WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision, WorkspaceDraftRole,
     WorkspaceFlatQuestionSource, assignment_content_changes_issued_work,
     assignment_item_is_retired, assignment_scoring_changed, completed_run_score,
     current_run_questions, decode_catalog_search_cursor, delete_and_regrade_update,
-    encode_catalog_search_cursor, ensure_tenant, grade_policy, private_feedback_record,
+    encode_catalog_search_cursor, grade_policy, private_feedback_record,
     project_enrollment_completion, select_assignment_run_items, summary_transition,
     validate_assignment, validate_course, validate_course_group, validate_draft,
     validate_published, validate_qti_publication_promotion,
@@ -171,14 +166,14 @@ pub(super) fn completed_submission_receipt_from_record(
     }
 }
 
-/// Test fixture adapter that establishes an active instructor session before
+/// Test fixture adapter that establishes an active Instructor session before
 /// exercising the production actor-bound catalog capability.
 #[cfg(test)]
 #[async_trait]
 pub(super) trait CatalogSearchTestStore {
     async fn search_catalog_as_instructor(
         &self,
-        context: TenantContext,
+        actor: UserId,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError>;
 }
@@ -188,19 +183,17 @@ pub(super) trait CatalogSearchTestStore {
 impl CatalogSearchTestStore for MemoryStore {
     async fn search_catalog_as_instructor(
         &self,
-        context: TenantContext,
+        actor: UserId,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError> {
-        let tenant = context.tenant_id();
-        let session = SessionTokenHash::compute(tenant.as_uuid().as_bytes());
+        let session = SessionTokenHash::compute(actor.as_uuid().as_bytes());
         let subject = crate::SessionSubject::new(
-            tenant,
-            UserId::from_uuid(tenant.as_uuid()),
+            actor,
             "Catalog test instructor",
-            vec![question_model::UserRole::Instructor],
+            question_model::UserRole::Instructor,
         )
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        match crate::SessionStore::create_session(
+        let record = match crate::SessionStore::create_session(
             self,
             session,
             subject,
@@ -209,12 +202,14 @@ impl CatalogSearchTestStore for MemoryStore {
         )
         .await
         {
-            Ok(_) | Err(StoreError::AlreadyExists) => {}
+            Ok(record) => record,
+            Err(StoreError::AlreadyExists) => crate::SessionStore::resolve_session(self, session)
+                .await?
+                .ok_or(StoreError::NotFound)?,
             Err(error) => return Err(error),
-        }
+        };
         {
             let mut state = self.write_state()?;
-            let actor = UserId::from_uuid(tenant.as_uuid());
             let now = state.authoritative_time;
             state.instructor_approvals.entry(actor).or_insert_with(|| {
                 crate::StoredInstructorApproval {
@@ -228,31 +223,36 @@ impl CatalogSearchTestStore for MemoryStore {
                 }
             });
         }
-        <Self as CatalogStore>::search_catalog(self, context, session, query).await
+        <Self as CatalogStore>::search_catalog(
+            self,
+            crate::ActorContext::from_session_record(&record),
+            session,
+            query,
+        )
+        .await
     }
 }
 
 #[async_trait]
 impl crate::AuthoritativeTimeStore for MemoryStore {
-    async fn authoritative_time(
-        &self,
-        _context: crate::TenantContext,
-    ) -> Result<ActivityTimestamp, StoreError> {
+    async fn authoritative_time(&self) -> Result<ActivityTimestamp, StoreError> {
         Ok(self.read_state()?.authoritative_time)
     }
 }
 #[async_trait]
 impl CourseRecordsAccessStore for MemoryStore {
-    async fn course_records_accessible(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-    ) -> Result<bool, StoreError> {
+    async fn course_records_accessible(&self, course: CourseId) -> Result<bool, StoreError> {
         let state = self.read_state()?;
-        Ok(course_records_accessible(
-            &state,
-            context.tenant_id(),
-            course,
+        if !state.courses.contains_key(&course) {
+            return Ok(false);
+        }
+        let Some(retention) = state.course_retention.get(&course) else {
+            return Ok(true);
+        };
+        Ok(!matches!(
+            retention.status.state,
+            CourseRetentionState::StudentRecordsArchived
+                | CourseRetentionState::StudentRecordsDeleted
         ))
     }
 }
@@ -260,11 +260,11 @@ impl CourseRecordsAccessStore for MemoryStore {
 /// The one in-memory equivalent of the database learner-record predicate.
 /// Keep this helper free of actor/session authority: route authorization and
 /// ordinary record visibility are separate concerns.
-fn course_records_accessible(state: &State, tenant: TenantId, course: CourseId) -> bool {
-    if !state.courses.contains_key(&(tenant, course)) {
+fn course_records_accessible(state: &State, course: CourseId) -> bool {
+    if !state.courses.contains_key(&course) {
         return false;
     }
-    let Some(retention) = state.course_retention.get(&(tenant, course)) else {
+    let Some(retention) = state.course_retention.get(&course) else {
         return true;
     };
     if matches!(
@@ -275,7 +275,6 @@ fn course_records_accessible(state: &State, tenant: TenantId, course: CourseId) 
     }
     let generation = retention.snapshot.generation();
     if let Some(stage) = state.retention_stages.get(&(
-        tenant,
         course,
         crate::RetentionStage::ArchiveStudentRecords,
         generation,
@@ -284,7 +283,6 @@ fn course_records_accessible(state: &State, tenant: TenantId, course: CourseId) 
         return false;
     }
     if let Some(stage) = state.retention_stages.get(&(
-        tenant,
         course,
         crate::RetentionStage::DeleteStudentRecords,
         generation,
@@ -295,12 +293,8 @@ fn course_records_accessible(state: &State, tenant: TenantId, course: CourseId) 
     true
 }
 
-fn require_course_records_accessible(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<(), StoreError> {
-    course_records_accessible(state, tenant, course)
+fn require_course_records_accessible(state: &State, course: CourseId) -> Result<(), StoreError> {
+    course_records_accessible(state, course)
         .then_some(())
         .ok_or(StoreError::NotFound)
 }
@@ -310,8 +304,8 @@ use crate::{
     ClaimedJob, CreateAssignmentExport, EnqueueJob, ExportArtifactKind, ExportArtifactRecord,
     ExportCommitDisposition, ExportId, ExportJobCommit, ExportJobStore, JobFailureDisposition,
     JobFailureKind, JobId, JobLeaseDuration, JobLeaseToken, JobPayload, JobState, JobStore,
-    QueueDepth, StudentExportArtifactView, StudentExportJob, StudentExportState, StudentExportView,
-    TenantJobView,
+    JobView, QueueDepth, StudentExportArtifactView, StudentExportJob, StudentExportState,
+    StudentExportView,
 };
 use crate::{
     ExternalToolBinding, ExternalToolLeaseToken, ExternalToolVerifiedPending, PersistedCorrelation,
@@ -339,7 +333,7 @@ impl Default for MemoryStore {
 
 /// Injected test grader capability. It is intentionally a different
 /// handle from [`MemoryStore`], so application persistence cannot read QTI
-/// answer material merely by having a tenant context.
+/// answer material merely by having an ordinary store capability.
 #[derive(Clone)]
 pub struct MemoryQtiGraderStore {
     state: Arc<RwLock<State>>,
@@ -447,7 +441,6 @@ impl MemorySealedPrivateExecutionStore {
     }
 }
 
-/// All maps use tenant ID in their key for tenant-owned records.
 #[derive(Debug, Default, Clone)]
 struct State {
     authoritative_time: ActivityTimestamp,
@@ -463,47 +456,40 @@ struct State {
     next_problem_collection_reference: u32,
     next_saved_problem_search_reference: u32,
     next_blueprint_course_reference: u32,
-    course_references: BTreeMap<(TenantId, CourseId), question_model::CourseReference>,
-    courses_by_reference: BTreeMap<(TenantId, question_model::CourseReference), CourseId>,
-    assignment_references: BTreeMap<(TenantId, AssignmentId), question_model::AssignmentReference>,
-    assignments_by_reference:
-        BTreeMap<(TenantId, question_model::AssignmentReference), AssignmentId>,
-    run_references: BTreeMap<(TenantId, RunId), question_model::RunReference>,
-    runs_by_reference: BTreeMap<(TenantId, question_model::RunReference), RunId>,
-    workspace_references: BTreeMap<(TenantId, WorkspaceId), question_model::WorkspaceReference>,
-    workspaces_by_reference: BTreeMap<(TenantId, question_model::WorkspaceReference), WorkspaceId>,
-    course_group_references:
-        BTreeMap<(TenantId, CourseGroupId), question_model::CourseGroupReference>,
-    course_groups_by_reference:
-        BTreeMap<(TenantId, question_model::CourseGroupReference), CourseGroupId>,
+    course_references: BTreeMap<CourseId, question_model::CourseReference>,
+    courses_by_reference: BTreeMap<question_model::CourseReference, CourseId>,
+    assignment_references: BTreeMap<AssignmentId, question_model::AssignmentReference>,
+    assignments_by_reference: BTreeMap<question_model::AssignmentReference, AssignmentId>,
+    run_references: BTreeMap<RunId, question_model::RunReference>,
+    runs_by_reference: BTreeMap<question_model::RunReference, RunId>,
+    workspace_references: BTreeMap<WorkspaceId, question_model::WorkspaceReference>,
+    workspaces_by_reference: BTreeMap<question_model::WorkspaceReference, WorkspaceId>,
+    course_group_references: BTreeMap<CourseGroupId, question_model::CourseGroupReference>,
+    course_groups_by_reference: BTreeMap<question_model::CourseGroupReference, CourseGroupId>,
     account_references: BTreeMap<UserId, question_model::AccountReference>,
     accounts_by_reference: BTreeMap<question_model::AccountReference, UserId>,
     course_membership_references:
-        BTreeMap<(TenantId, CourseMembershipId), question_model::CourseMembershipReference>,
+        BTreeMap<CourseMembershipId, question_model::CourseMembershipReference>,
     course_memberships_by_reference:
-        BTreeMap<(TenantId, question_model::CourseMembershipReference), CourseMembershipId>,
+        BTreeMap<question_model::CourseMembershipReference, CourseMembershipId>,
     co_instructor_invitation_references: BTreeMap<
-        (TenantId, question_model::CoInstructorInvitationId),
+        question_model::CoInstructorInvitationId,
         question_model::CoInstructorInvitationReference,
     >,
     co_instructor_invitations_by_reference: BTreeMap<
-        (TenantId, question_model::CoInstructorInvitationReference),
+        question_model::CoInstructorInvitationReference,
         question_model::CoInstructorInvitationId,
     >,
-    problem_collection_references: BTreeMap<
-        (TenantId, problem_curation::ProblemCollectionId),
-        question_model::ProblemCollectionReference,
-    >,
-    problem_collections_by_reference: BTreeMap<
-        (TenantId, question_model::ProblemCollectionReference),
-        problem_curation::ProblemCollectionId,
-    >,
+    problem_collection_references:
+        BTreeMap<problem_curation::ProblemCollectionId, question_model::ProblemCollectionReference>,
+    problem_collections_by_reference:
+        BTreeMap<question_model::ProblemCollectionReference, problem_curation::ProblemCollectionId>,
     saved_problem_search_references: BTreeMap<
-        (TenantId, problem_curation::SavedProblemSearchId),
+        problem_curation::SavedProblemSearchId,
         question_model::SavedProblemSearchReference,
     >,
     saved_problem_searches_by_reference: BTreeMap<
-        (TenantId, question_model::SavedProblemSearchReference),
+        question_model::SavedProblemSearchReference,
         problem_curation::SavedProblemSearchId,
     >,
     accounts: BTreeMap<UserId, AccountRecord>,
@@ -519,49 +505,39 @@ struct State {
     passkeys: BTreeMap<PasskeyId, PasskeyRecord>,
     passkey_by_credential: BTreeMap<CredentialIdHash, PasskeyId>,
     sessions: BTreeMap<SessionTokenHash, sessions::StoredSession>,
-    catalog_grants: BTreeSet<(TenantId, ProblemId, VersionId)>,
     problem_curation_cursors: BTreeMap<String, problem_curation::StoredProblemCurationCursor>,
     reusable_curriculum_cursors:
         BTreeMap<String, reusable_curriculum::StoredReusableCurriculumCursor>,
-    problem_collections: BTreeMap<
-        (TenantId, problem_curation::ProblemCollectionId),
-        problem_curation::StoredProblemCollection,
-    >,
+    problem_collections:
+        BTreeMap<problem_curation::ProblemCollectionId, problem_curation::StoredProblemCollection>,
     saved_problem_searches: BTreeMap<
-        (TenantId, problem_curation::SavedProblemSearchId),
+        problem_curation::SavedProblemSearchId,
         problem_curation::StoredSavedProblemSearch,
     >,
-    blueprint_course_references: BTreeMap<
-        (TenantId, reusable_curriculum::BlueprintCourseId),
-        question_model::BlueprintReference,
-    >,
-    blueprint_courses_by_reference: BTreeMap<
-        (TenantId, question_model::BlueprintReference),
-        reusable_curriculum::BlueprintCourseId,
-    >,
+    blueprint_course_references:
+        BTreeMap<reusable_curriculum::BlueprintCourseId, question_model::BlueprintReference>,
+    blueprint_courses_by_reference:
+        BTreeMap<question_model::BlueprintReference, reusable_curriculum::BlueprintCourseId>,
     blueprint_courses: BTreeMap<
-        (TenantId, reusable_curriculum::BlueprintCourseId),
+        reusable_curriculum::BlueprintCourseId,
         reusable_curriculum::StoredBlueprintCourse,
     >,
     /// Complete immutable BlueprintCourse snapshots keyed by their aggregate revision.
     /// The mutable head record selects one of these snapshots; replacement never mutates one.
     blueprint_course_revisions: BTreeMap<
         (
-            TenantId,
             reusable_curriculum::BlueprintCourseId,
             question_model::BlueprintRevision,
         ),
         reusable_curriculum::StoredBlueprintCourseRevision,
     >,
-    course_schedule_revisions:
-        BTreeMap<(TenantId, CourseId), question_model::CourseScheduleRevision>,
+    course_schedule_revisions: BTreeMap<CourseId, question_model::CourseScheduleRevision>,
     /// Immutable curriculum-adoption records. The single enclosing state lock
     /// keeps every adoption operation and rollback atomic across capabilities.
     curriculum_adoption: curriculum_adoption::CurriculumAdoptionState,
-    drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
-    draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
-    draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,
-    problem_owner_tenants: BTreeMap<ProblemId, TenantId>,
+    drafts: BTreeMap<WorkspaceId, DraftRecord>,
+    draft_revisions: BTreeMap<WorkspaceId, WorkspaceDraftRevision>,
+    draft_access: BTreeMap<(WorkspaceId, UserId), WorkspaceDraftRole>,
     published: BTreeMap<(ProblemId, VersionId), PublishedProblemRecord>,
     /// Monotonic publication admission order for catalog continuations.  This
     /// is deliberately independent of the map's length: a later publication
@@ -572,7 +548,7 @@ struct State {
     catalog_evidence_courses: BTreeMap<(ProblemId, VersionId), BTreeSet<CourseId>>,
     /// Retention-safe, exact-publication learner fingerprints.  Receipts stay
     /// per enrollment for replay, while discovery evidence accepts at most one
-    /// independent observation per tenant-scoped learner.
+    /// independent observation per learner.
     catalog_evidence_learners: BTreeSet<(ProblemId, VersionId, [u8; 32])>,
     /// Append-only discovery projections. A continuation resolves the latest
     /// revision at or before its catalog event boundary, so new evidence never
@@ -581,202 +557,173 @@ struct State {
         BTreeMap<(ProblemId, VersionId), Vec<CatalogDiscoveryEvidenceRevision>>,
     next_catalog_publication_sequence: u64,
     source_artifacts: BTreeMap<(ProblemId, VersionId), PublishedSourceArtifact>,
-    flat_question_sources: BTreeMap<(TenantId, WorkspaceId), WorkspaceFlatQuestionSource>,
-    workspace_flat_question_assets: BTreeMap<
-        (TenantId, WorkspaceId, question_model::AssetId),
-        crate::WorkspaceFlatQuestionAsset,
-    >,
-    workspace_flat_question_grading: BTreeMap<(TenantId, WorkspaceId), FlatQuestionGradingPayload>,
+    flat_question_sources: BTreeMap<WorkspaceId, WorkspaceFlatQuestionSource>,
+    workspace_flat_question_assets:
+        BTreeMap<(WorkspaceId, question_model::AssetId), crate::WorkspaceFlatQuestionAsset>,
+    workspace_flat_question_grading: BTreeMap<WorkspaceId, FlatQuestionGradingPayload>,
     published_flat_question_grading: BTreeMap<(ProblemId, VersionId), FlatQuestionGradingPayload>,
     workspace_flat_import_origins: flat_import_provenance::WorkspaceFlatImportOrigins,
     published_flat_import_origins: flat_import_provenance::PublishedFlatImportOrigins,
     qti_profile_import_evidence: flat_import_provenance::QtiProfileImportEvidences,
-    qti_imports: BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId), QtiImportRegistry>,
-    prepared_qti_imports: BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId), QtiImportRegistry>,
-    qti_grading:
-        BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
+    qti_imports: BTreeMap<(WorkspaceId, WorkspaceImportId), QtiImportRegistry>,
+    prepared_qti_imports: BTreeMap<(WorkspaceId, WorkspaceImportId), QtiImportRegistry>,
+    qti_grading: BTreeMap<(WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
     published_qti_grading: BTreeMap<(ProblemId, VersionId, String), QtiImportGradingPayload>,
     prepared_qti_grading:
-        BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
-    courses: BTreeMap<(TenantId, CourseId), CourseRecord>,
-    student_by_user: BTreeMap<(TenantId, UserId), StudentId>,
-    student_user_by_student: BTreeSet<(TenantId, StudentId, UserId)>,
-    roster_policies: BTreeMap<(TenantId, CourseId), CourseEnrollmentPolicy>,
-    roster_profiles: BTreeMap<
-        (TenantId, CourseId, CourseMembershipId),
-        course_roster::StoredCourseRosterProfile,
-    >,
-    roster_member_by_roster_id: BTreeMap<(TenantId, CourseId, CourseRosterId), CourseMembershipId>,
+        BTreeMap<(WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
+    courses: BTreeMap<CourseId, CourseRecord>,
+    student_by_user: BTreeMap<UserId, StudentId>,
+    student_user_by_student: BTreeMap<StudentId, UserId>,
+    roster_policies: BTreeMap<CourseId, CourseEnrollmentPolicy>,
+    roster_profiles:
+        BTreeMap<(CourseId, CourseMembershipId), course_roster::StoredCourseRosterProfile>,
+    roster_member_by_roster_id: BTreeMap<(CourseId, CourseRosterId), CourseMembershipId>,
     /// Canonical access relationships, retained by membership episode.
-    course_memberships: BTreeMap<(TenantId, CourseMembershipId), CourseMembershipRecord>,
+    course_memberships: BTreeMap<CourseMembershipId, CourseMembershipRecord>,
     /// The single current membership episode for one course/user.
-    active_course_membership_by_user: BTreeMap<(TenantId, CourseId, UserId), CourseMembershipId>,
+    active_course_membership_by_user: BTreeMap<(CourseId, UserId), CourseMembershipId>,
     instructor_approvals: BTreeMap<UserId, crate::StoredInstructorApproval>,
-    co_instructor_invitations: BTreeMap<
-        (TenantId, question_model::CoInstructorInvitationId),
-        crate::StoredCoInstructorInvitation,
-    >,
+    co_instructor_invitations:
+        BTreeMap<question_model::CoInstructorInvitationId, crate::StoredCoInstructorInvitation>,
     co_instructor_invitation_acceptances:
-        BTreeMap<(TenantId, question_model::CoInstructorInvitationId), CourseMembershipId>,
+        BTreeMap<question_model::CoInstructorInvitationId, CourseMembershipId>,
     course_invitations:
-        BTreeMap<(TenantId, CourseId, CourseInvitationId), course_roster::StoredCourseInvitation>,
+        BTreeMap<(CourseId, CourseInvitationId), course_roster::StoredCourseInvitation>,
     invitation_deliveries:
-        BTreeMap<(TenantId, CourseId, CourseInvitationId), crate::CourseInvitationDelivery>,
-    invitation_by_hash:
-        BTreeMap<CourseInvitationSecretHash, (TenantId, CourseId, CourseInvitationId)>,
+        BTreeMap<(CourseId, CourseInvitationId), crate::CourseInvitationDelivery>,
+    invitation_by_hash: BTreeMap<CourseInvitationSecretHash, (CourseId, CourseInvitationId)>,
     invitation_idempotency: BTreeMap<
-        (TenantId, CourseId, RosterIdempotencyKey),
+        (CourseId, RosterIdempotencyKey),
         (CourseInvitationId, CourseInvitationSecretHash),
     >,
     roster_imports: BTreeMap<
-        (TenantId, CourseId, crate::CourseRosterImportId),
+        (CourseId, crate::CourseRosterImportId),
         course_roster::import::StoredCourseRosterImport,
     >,
     roster_import_idempotency:
-        BTreeMap<(TenantId, CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
+        BTreeMap<(CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
     roster_support_audits: Vec<CourseRosterSupportAudit>,
     preview_subject_audits: Vec<crate::PreviewSubjectAudit>,
-    manual_grade_export_audits:
-        BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
-    course_grade_schemes: BTreeMap<(TenantId, CourseId), crate::CourseGradeSchemeRecord>,
+    course_grade_schemes: BTreeMap<CourseId, crate::CourseGradeSchemeRecord>,
     course_grade_export_audits: BTreeMap<crate::CourseGradeExportId, crate::CourseGradeExportAudit>,
-    course_appearances: BTreeMap<(TenantId, CourseId), question_model::CourseAppearance>,
+    course_appearances: BTreeMap<CourseId, question_model::CourseAppearance>,
     course_banner_candidates: BTreeMap<
-        (TenantId, CourseId, question_model::CourseBannerCandidateId),
+        (CourseId, question_model::CourseBannerCandidateId),
         course_appearance::StoredCourseBannerCandidate,
     >,
-    course_groups: BTreeMap<(TenantId, CourseGroupId), CourseGroupRecord>,
-    course_group_revisions: BTreeMap<(TenantId, CourseGroupId), CourseGroupRevision>,
+    course_groups: BTreeMap<CourseGroupId, CourseGroupRecord>,
+    course_group_revisions: BTreeMap<CourseGroupId, CourseGroupRevision>,
     course_group_purpose_policies: BTreeMap<
-        (TenantId, CourseId, question_model::CourseGroupPurpose),
+        (CourseId, question_model::CourseGroupPurpose),
         crate::StoredCourseGroupPurposePolicy,
     >,
-    assignments: BTreeMap<(TenantId, AssignmentId), AssignmentRecord>,
-    assignment_revisions: BTreeMap<(TenantId, AssignmentId), AssignmentRevision>,
-    assignment_base_policy: BTreeMap<(TenantId, AssignmentId), crate::StoredBaseAssignmentPolicy>,
+    assignments: BTreeMap<AssignmentId, AssignmentRecord>,
+    assignment_revisions: BTreeMap<AssignmentId, AssignmentRevision>,
+    assignment_base_policy: BTreeMap<AssignmentId, crate::StoredBaseAssignmentPolicy>,
     assignment_group_schedule_offsets: BTreeMap<
-        (TenantId, AssignmentId, CourseGroupId),
+        (AssignmentId, CourseGroupId),
         domain::effective_assignment_policy::GroupScheduleOffset,
     >,
     assignment_group_accommodations: BTreeMap<
-        (TenantId, AssignmentId, CourseGroupId),
+        (AssignmentId, CourseGroupId),
         domain::effective_assignment_policy::GroupAccommodation,
     >,
     assignment_individual_policy_exceptions:
-        BTreeMap<(TenantId, AssignmentId, StudentId), crate::StoredIndividualPolicyException>,
-    assignment_scoring: BTreeMap<(TenantId, AssignmentId), (ScoringGeneration, ScoringStatus)>,
+        BTreeMap<(AssignmentId, StudentId), crate::StoredIndividualPolicyException>,
+    assignment_scoring: BTreeMap<AssignmentId, (ScoringGeneration, ScoringStatus)>,
     scoring_invalidations: scoring_invalidation::MemoryScoringInvalidations,
     assignment_score_staging: BTreeMap<JobId, PreparedAssignmentScoring>,
     item_analysis_staging: BTreeMap<JobId, PreparedCourseItemAnalysis>,
-    item_analysis:
-        BTreeMap<(TenantId, AssignmentId), domain::item_analysis::CourseItemAnalysisReport>,
-    attempt_scores: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptScore>,
-    enrollments: BTreeMap<(TenantId, EnrollmentId), AssignmentEnrollment>,
+    item_analysis: BTreeMap<AssignmentId, domain::item_analysis::CourseItemAnalysisReport>,
+    attempt_scores: BTreeMap<QuestionAttemptId, MemoryAttemptScore>,
+    enrollments: BTreeMap<EnrollmentId, AssignmentEnrollment>,
     entitlement_materializations:
-        BTreeMap<(TenantId, EnrollmentId), question_model::EntitlementMaterialization>,
-    runs: BTreeMap<(TenantId, RunId), AssignmentRun>,
-    run_items: BTreeMap<(TenantId, RunId), Vec<AssignmentRunItem>>,
-    attempts: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
+        BTreeMap<EnrollmentId, question_model::EntitlementMaterialization>,
+    runs: BTreeMap<RunId, AssignmentRun>,
+    run_items: BTreeMap<RunId, Vec<AssignmentRunItem>>,
+    attempts: BTreeMap<QuestionAttemptId, QuestionAttempt>,
     /// Closed source/execution evidence fixed when the attempt was issued.
     /// It is deliberately independent of `published`: learner work can finish
     /// after an instructor withdraws the current catalog record.
-    attempt_issued_question_snapshots:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedQuestionSnapshotV1>,
-    attempt_presentation_capabilities:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::PresentationCapability>,
-    attempt_presentations: BTreeMap<(TenantId, QuestionAttemptId), PresentationBindingV1>,
-    attempt_presentation_snapshots:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::ReceiptPresentationSnapshot>,
-    attempt_grading_envelopes: BTreeMap<(TenantId, QuestionAttemptId), QuestionEnvelope>,
-    attempt_flat_grading_capabilities:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::FlatGradingCapability>,
-    attempt_flat_grading: BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedFlatGradingContract>,
+    attempt_issued_question_snapshots: BTreeMap<QuestionAttemptId, crate::IssuedQuestionSnapshotV1>,
+    attempt_presentation_capabilities: BTreeMap<QuestionAttemptId, crate::PresentationCapability>,
+    attempt_presentations: BTreeMap<QuestionAttemptId, PresentationBindingV1>,
+    attempt_presentation_snapshots: BTreeMap<QuestionAttemptId, crate::ReceiptPresentationSnapshot>,
+    attempt_grading_envelopes: BTreeMap<QuestionAttemptId, QuestionEnvelope>,
+    attempt_flat_grading_capabilities: BTreeMap<QuestionAttemptId, crate::FlatGradingCapability>,
+    attempt_flat_grading: BTreeMap<QuestionAttemptId, crate::IssuedFlatGradingContract>,
     attempt_webwork_grading_capabilities:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::WebworkGradingCapability>,
-    attempt_webwork_grading:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedWebworkGradingContract>,
-    attempt_qti_grading_capabilities:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::QtiGradingCapability>,
-    attempt_qti_grading: BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedQtiGradingContractV1>,
-    webwork_grade_replay: BTreeMap<(TenantId, QuestionAttemptId), WebworkGradeReplayStateV1>,
-    attempt_timing: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptTiming>,
+        BTreeMap<QuestionAttemptId, crate::WebworkGradingCapability>,
+    attempt_webwork_grading: BTreeMap<QuestionAttemptId, crate::IssuedWebworkGradingContract>,
+    attempt_qti_grading_capabilities: BTreeMap<QuestionAttemptId, crate::QtiGradingCapability>,
+    attempt_qti_grading: BTreeMap<QuestionAttemptId, crate::IssuedQtiGradingContractV1>,
+    webwork_grade_replay: BTreeMap<QuestionAttemptId, WebworkGradeReplayStateV1>,
+    attempt_timing: BTreeMap<QuestionAttemptId, MemoryAttemptTiming>,
     issued_effective_policy_receipts:
-        BTreeMap<(TenantId, QuestionAttemptId, u64), crate::IssuedEffectivePolicyReceipt>,
+        BTreeMap<(QuestionAttemptId, u64), crate::IssuedEffectivePolicyReceipt>,
     issued_effective_policy_field_sources: BTreeMap<
-        (
-            TenantId,
-            QuestionAttemptId,
-            u64,
-            crate::EffectivePolicyField,
-            u32,
-        ),
+        (QuestionAttemptId, u64, crate::EffectivePolicyField, u32),
         crate::IssuedEffectivePolicyFieldSource,
     >,
-    attempt_effective_policy_current: BTreeMap<(TenantId, QuestionAttemptId), u64>,
-    attempt_current: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
-    attempt_support_actions: BTreeMap<(TenantId, AttemptSupportActionId), AttemptSupportRecord>,
-    prefetched_questions:
-        BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestionDescriptorV1>,
+    attempt_effective_policy_current: BTreeMap<QuestionAttemptId, u64>,
+    attempt_current: BTreeMap<QuestionAttemptId, QuestionAttempt>,
+    attempt_support_actions: BTreeMap<AttemptSupportActionId, AttemptSupportRecord>,
+    prefetched_questions: BTreeMap<(RunId, QuestionAttemptId, u32), PrefetchedQuestionDescriptorV1>,
     prefetched_private_execution:
-        BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedPrivateExecutionV1>,
-    submissions: BTreeMap<(TenantId, QuestionAttemptId), StoredSubmission>,
+        BTreeMap<(RunId, QuestionAttemptId, u32), PrefetchedPrivateExecutionV1>,
+    submissions: BTreeMap<QuestionAttemptId, StoredSubmission>,
     /// Server-private learner responses, keyed by the immutable submission
     /// identity. Ordinary receipt and attempt readers return answer-free
     /// metadata; the lease-bound execution capability is the sole operation
     /// that materializes accepted input for grading.
-    private_submission_responses:
-        BTreeMap<(TenantId, QuestionAttemptId), StoredPrivateSubmissionResponse>,
+    private_submission_responses: BTreeMap<QuestionAttemptId, StoredPrivateSubmissionResponse>,
     student_work_inspection_audits: Vec<crate::StudentWorkInspectionAudit>,
     student_work_inspection_record_accesses: Vec<crate::StudentWorkInspectionRecordAccess>,
-    automated_grading_executions: BTreeMap<(TenantId, QuestionAttemptId), crate::GradingExecution>,
+    automated_grading_executions: BTreeMap<QuestionAttemptId, crate::GradingExecution>,
     /// Current learner-safe automated evaluation projection. The immutable
     /// accepted input is owned by `submissions`; W4 advances this projection
     /// only through an execution receipt.
     automated_grading_evaluations:
-        BTreeMap<(TenantId, QuestionAttemptId), question_model::SubmissionEvaluationStatus>,
+        BTreeMap<QuestionAttemptId, question_model::SubmissionEvaluationStatus>,
     automated_grading_operations:
-        BTreeMap<(TenantId, question_model::GradingOperationReference), crate::GradingOperation>,
+        BTreeMap<question_model::GradingOperationReference, crate::GradingOperation>,
     instructor_grading_operation_actions: grading_operation_store::MemoryGradingOperationActions,
     automated_grading_execution_receipts:
-        BTreeMap<(TenantId, QuestionAttemptId), Vec<crate::GradingExecutionReceipt>>,
+        BTreeMap<QuestionAttemptId, Vec<crate::GradingExecutionReceipt>>,
     /// Active worker fence for one leased accepted-submission execution. This
     /// remains separate from learner/instructor identities and is cleared by
     /// every durable terminal or retry transition.
-    automated_grading_execution_workers: BTreeMap<(TenantId, QuestionAttemptId), crate::WorkerId>,
+    automated_grading_execution_workers: BTreeMap<QuestionAttemptId, crate::WorkerId>,
     /// Successful automated evaluation evidence remains private and keeps the
     /// exact Rust canonical bytes attested by the worker boundary.
-    automated_grading_result_evidence:
-        BTreeMap<(TenantId, QuestionAttemptId), crate::CanonicalAttemptResult>,
-    submission_next_attempts:
-        BTreeMap<(TenantId, QuestionAttemptId), Option<crate::ReceiptNextAttempt>>,
-    feedback_releases: BTreeMap<(TenantId, QuestionAttemptId), FeedbackReleaseRecord>,
+    automated_grading_result_evidence: BTreeMap<QuestionAttemptId, crate::CanonicalAttemptResult>,
+    submission_next_attempts: BTreeMap<QuestionAttemptId, Option<crate::ReceiptNextAttempt>>,
+    feedback_releases: BTreeMap<QuestionAttemptId, FeedbackReleaseRecord>,
     question_statistics: BTreeMap<(ProblemId, VersionId), QuestionStatisticsAggregate>,
     question_statistics_receipts:
-        BTreeMap<(TenantId, EnrollmentId, ProblemId, VersionId), StatisticsContributionReceipt>,
-    retention_policies: BTreeMap<TenantId, InstitutionRetentionPolicy>,
-    course_retention: BTreeMap<(TenantId, CourseId), CourseRetentionRecord>,
-    retention_stages:
-        BTreeMap<(TenantId, CourseId, crate::RetentionStage, u64), StoredRetentionStage>,
+        BTreeMap<(EnrollmentId, ProblemId, VersionId), StatisticsContributionReceipt>,
+    retention_policy: Option<RetentionPolicy>,
+    course_retention: BTreeMap<CourseId, CourseRetentionRecord>,
+    retention_stages: BTreeMap<(CourseId, crate::RetentionStage, u64), StoredRetentionStage>,
     retention_cleanup_manifests:
-        BTreeMap<(TenantId, CourseId, u64, crate::RetentionStage), StoredRetentionCleanupManifest>,
+        BTreeMap<(CourseId, u64, crate::RetentionStage), StoredRetentionCleanupManifest>,
     /// The only identities permitted to execute retention payloads. A job may
     /// look valid, but without this scheduler-created binding R3 refuses it.
-    retention_dispatches: BTreeMap<(TenantId, CourseId, crate::RetentionStage, u64), crate::JobId>,
+    retention_dispatches: BTreeMap<(CourseId, crate::RetentionStage, u64), crate::JobId>,
     /// Durable in-app retention notification identities; no recipient or
     /// learner record is duplicated into the worker/outbox projection.
-    retention_notifications: BTreeMap<(TenantId, CourseId, u64), crate::RetentionNotificationView>,
-    retention_api_receipts: BTreeMap<(TenantId, CourseId, u64), RetentionApiReceipt>,
-    external_tool_exchanges: BTreeMap<(TenantId, QuestionAttemptId), StoredExternalToolExchange>,
-    external_tool_launch_sessions: BTreeMap<(TenantId, Uuid), StoredExternalToolLaunchSession>,
+    retention_notifications: BTreeMap<(CourseId, u64), crate::RetentionNotificationView>,
+    retention_api_receipts: BTreeMap<(CourseId, u64), RetentionApiReceipt>,
+    external_tool_exchanges: BTreeMap<QuestionAttemptId, StoredExternalToolExchange>,
+    external_tool_launch_sessions: BTreeMap<Uuid, StoredExternalToolLaunchSession>,
     /// An effectful provider POST may have completed after PLE lost its
     /// response. This attempt fence prevents any automatic duplicate call.
-    indeterminate_external_tool_activities:
-        BTreeMap<(TenantId, QuestionAttemptId), objects::Sha256Digest>,
-    summaries: BTreeMap<(TenantId, EnrollmentId), StudentAssignmentSummary>,
+    indeterminate_external_tool_activities: BTreeMap<QuestionAttemptId, objects::Sha256Digest>,
+    summaries: BTreeMap<EnrollmentId, StudentAssignmentSummary>,
     asset_deliveries: BTreeMap<AssetDeliveryId, AssetDeliveryRecord>,
     asset_access_events: Vec<AssetAccessEvent>,
     jobs: BTreeMap<JobId, StoredJob>,
-    exports: BTreeMap<(TenantId, ExportId), StoredExport>,
+    exports: BTreeMap<ExportId, StoredExport>,
 }
 
 /// Test-only lifecycle inputs for live-demo installation-state conformance.
@@ -828,7 +775,6 @@ fn cleanup_manifest_record_to_work(
 /// Queue state held under the same mutex as the authoritative test clock.
 #[derive(Debug, Clone)]
 struct StoredJob {
-    tenant: TenantId,
     payload: JobPayload,
     state: JobState,
     available_at: ActivityTimestamp,
@@ -863,7 +809,6 @@ struct MemoryAttemptTiming {
 
 #[derive(Debug, Clone)]
 struct PreparedAssignmentScoring {
-    tenant: TenantId,
     assignment: AssignmentId,
     generation: ScoringGeneration,
     attempts: BTreeMap<QuestionAttemptId, MemoryAttemptScore>,
@@ -873,7 +818,6 @@ struct PreparedAssignmentScoring {
 
 #[derive(Debug, Clone)]
 struct PreparedCourseItemAnalysis {
-    tenant: TenantId,
     assignment: AssignmentId,
     generation: ScoringGeneration,
     report: domain::item_analysis::CourseItemAnalysisReport,
@@ -941,10 +885,10 @@ impl std::fmt::Debug for StoredSubmission {
     }
 }
 
-/// Tenant-owned idempotency marker for a first-completed-run contribution.
+/// Exact idempotency marker for a first-completed-run contribution.
 ///
 /// It is deliberately private and omitted from all catalog projections.  The
-/// matching PostgreSQL receipt has cascading tenant-record foreign keys.
+/// matching PostgreSQL receipt has cascading record foreign keys.
 #[derive(Debug, Clone, Copy)]
 struct StatisticsContributionReceipt {
     first_completed_run: RunId,

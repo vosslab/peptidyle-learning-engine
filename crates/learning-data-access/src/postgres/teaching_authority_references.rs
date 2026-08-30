@@ -194,9 +194,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         // snapshot.  A normal tenant transaction also matches the broker's
         // runtime capability used by the physical ple_app oracle.
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let rows = sqlx::query(
@@ -296,9 +294,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         reference: AccountReference,
     ) -> Result<Option<UserId>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let user: Option<Uuid> =
@@ -319,9 +315,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::CourseCoInstructorInvitationReferenceView>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let rows = sqlx::query(
@@ -454,9 +448,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         page: crate::PageRequest,
     ) -> Result<crate::Page<crate::CourseMembershipReferenceView>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let rows = sqlx::query(
@@ -487,9 +479,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         page: crate::PageRequest,
     ) -> Result<crate::CourseInstructorMembershipReferencePage, StoreError> {
         let mut transaction = self.begin_tenant_writable_snapshot(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let roster_revision: Option<i64> =
@@ -568,9 +558,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         membership: CourseMembershipId,
     ) -> Result<Option<CourseMembershipReference>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let value: Option<i32> = sqlx::query_scalar(
@@ -595,9 +583,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         reference: CourseMembershipReference,
     ) -> Result<Option<CourseMembershipId>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let membership: Option<Uuid> = sqlx::query_scalar(
@@ -622,9 +608,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         reference: CourseMembershipReference,
     ) -> Result<Option<crate::InstructorStudentTargetView>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let row = sqlx::query(
@@ -667,9 +651,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         student: StudentId,
     ) -> Result<Option<crate::CourseMembershipReferenceView>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let row = sqlx::query(
@@ -712,9 +694,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         invitation: question_model::CoInstructorInvitationId,
     ) -> Result<Option<CoInstructorInvitationReference>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let value: Option<i32> = sqlx::query_scalar(
@@ -773,9 +753,7 @@ impl TeachingAuthorityReferenceStore for PostgresStore {
         reference: CoInstructorInvitationReference,
     ) -> Result<Option<question_model::CoInstructorInvitationId>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor)
-            .await?
-        {
+        if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
             return Err(StoreError::NotFound);
         }
         let invitation: Option<Uuid> = sqlx::query_scalar(
@@ -815,7 +793,7 @@ async fn list_membership_reference_views(
     page: crate::PageRequest,
 ) -> Result<crate::Page<crate::CourseMembershipReferenceView>, StoreError> {
     let mut transaction = store.begin_tenant(context).await?;
-    if !postgres_is_course_instructor(&mut transaction, context.tenant_id(), course, actor).await? {
+    if !postgres_is_course_instructor(&mut transaction, course, actor).await? {
         return Err(StoreError::NotFound);
     }
     let rows = sqlx::query(

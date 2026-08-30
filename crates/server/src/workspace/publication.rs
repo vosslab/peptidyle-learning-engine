@@ -43,7 +43,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
@@ -109,7 +109,7 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_author_workspaces(authenticated.record.subject.roles()) {
+    if !may_author_workspaces(authenticated.record.subject.role()) {
         return error_response(
             StatusCode::FORBIDDEN,
             "workspace authoring is not authorized",
