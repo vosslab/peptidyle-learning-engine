@@ -2,7 +2,90 @@
 
 ## 2026-08-31
 
+- Renamed fresh migration boundaries for Authenticated Session resolution,
+  authorization checks, and credential-authentication completion; their database functions now name exact Account, Session, workspace, and credential decisions.
+
+- Renamed the server-owned Question Pool selection inputs and browser-safe
+  Question Pool Preview boundary. The compact preview request, Rust model,
+  generated API, strict decoder, client action, and editor now distinguish
+  selected candidates from ordinary Student work without exposing selection
+  entropy. The persisted Question Pool Selection Rule cutover remains open.
+
+- Replaced generic private Question grading-record tables with exact Answer Key,
+  Question Feedback, Question Answer Explanation, and format-specific Question
+  Grading Input records. Every Draft Question Revision record is immutable and
+  workspace-authorized; every Question Revision record is immutable and pinned;
+  Workspace Import input freezes after commit. The fresh PostgreSQL catalog oracle
+  proves record names, revision/import binding, checksums, immutability triggers,
+  and forced RLS. Store-backed persistence and delivery remain explicitly open.
+
+- Established the Assignment Working Copy persistence boundary. Ordinary
+  Questions, Policies, and fixed-question saves now carry the exact Assignment
+  Edit Number; the fresh SD1 schema stores one edit-number-guarded working copy
+  per stable Assignment, reserves immutable Assignment Revisions for release,
+  and permits an Assignment Attempt only for the stable Assignment's selected
+  Released Assignment Revision. The focused Rust and browser client gates plus
+  the disposable PostgreSQL 17 staged-database acceptance are green. The
+  unmounted Assignment Release route and its remaining terminology rows stay
+  explicitly open.
+
+- Moved Assignment Status out of editable Assignment Working Copy contracts.
+  Question Model, domain policy gates, generated browser types, strict browser
+  decoders, workspace requests, UI copy, focused fixtures, and contract tests
+  now distinguish Unreleased, Released, Closed, and Archived from replaceable
+  working-copy content and Assignment Release Validation.
+
+- Corrected the course-appearance acceptance lane to prove the current typed
+  Course Banner object contract only. The retired PostgreSQL current-pointer
+  assertions are now explicitly open work under the fresh SD1 schema.
+
+- Completed the Question Attempt State correction: the closed three-state
+  contract, persistence integrity, generated API, Student View, and strict
+  decoder now share one vocabulary without retaining retired wire values.
+
+- Replaced the PostgreSQL migration-inspection API with Migration Check and
+  Migration Check Result. Applied, Pending, Changed, and Incomplete now name
+  exact read results; SQLx's ledger remains platform vocabulary.
+
 ### Changes
+
+- Added a CELT-based Bloom taxonomy guide for PLE Question classification. It defines the two
+  independently selected dimensions, their derived 4 by 6 matrix position, biology-oriented
+  examples for all 24 intersections, the Assistant-to-Instructor review workflow, independent
+  search facets, and accessible use of the six Cognitive Process hue families.
+
+- Defined Question Bloom Classification as two required closed fields on every
+  Published Question Revision: Bloom Cognitive Process and Bloom Knowledge
+  Dimension. The Bloom Classification Assistant suggests both values on the
+  exact Draft Question Revision, the Instructor accepts or edits them before
+  publication, and Question Search exposes each dimension plus their 4 by 6
+  intersection. Added the classification rubric, kept cohort-measured Question
+  Difficulty separate, and recorded the six Cognitive Process hue families as
+  accessible interface reference anchors. The implementation checklist and
+  current handoff keep the source, schema, publication, API, search, authoring,
+  and browser cutover explicitly open.
+
+- Separated Blackboard assessment-source language from PLE Assignment
+  composition. Question Pool now names an Assignment-local selection from
+  explicit Question Revision candidates; Blackboard Question Pool remains a
+  reusable source container, Question Set maps after exact candidate
+  resolution, and Random Block remains source evidence while import resolves
+  its dynamic criteria. Replaced draw and versioned-algorithm terminology with
+  Questions to Select, Selected Question Order, durable Question Pool Selection,
+  Question Pool Preview, and independent pool-reuse and Question Variation
+  rules. The migration checklist and vocabulary detector expose the remaining
+  source, API, schema, and interface work.
+
+- Chose one canonical pre-production generation for every PLE-owned internal
+  contract. The Terminology Contract now gives domain types and internal
+  serializations complete role names while reserving numeric versions for
+  registered external standards and independently deployed software evidence.
+  Named the internal structured format PLE Question JSON, made stored Question
+  Source own deterministic generator definitions, and made a generator repair
+  create a Question Revision. The migration checklist and vocabulary detector
+  now cover the Presentation `V1` family, WeBWorK replay `V1` records,
+  flat-question and `V2` JSON naming, additive generator dispatch, and
+  hard-coded Question implementations.
 
 - Defined the complete Published Question Metadata boundary for terminology
   migration: searchable Question Title and Question Description; required,

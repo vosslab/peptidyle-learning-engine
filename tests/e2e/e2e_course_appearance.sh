@@ -24,7 +24,12 @@ shift
 runtime_manifest="$2"
 workspace="$(pwd -P)"
 runtime_manifest_path="$workspace/$runtime_manifest"
+sd1_runtime_manifest_path="$workspace/sd1/runtime.yaml"
 compose_started=0
+
+readonly database_name="ple_e2e_baseline"
+readonly bootstrap_user="ple_e2e_migrator"
+readonly postgres_database="postgres"
 
 fail() {
 	echo "course appearance E2E: $*" >&2
@@ -63,7 +68,7 @@ trap cleanup EXIT
 
 wait_for_postgres() {
 	for _ in {1..30}; do
-		if compose exec -T postgres pg_isready -U ple_e2e_migrator -d postgres \
+		if compose exec -T postgres pg_isready -U "$bootstrap_user" -d "$postgres_database" \
 			>/dev/null 2>&1; then
 			return 0
 		fi
@@ -86,6 +91,15 @@ run_project_tools() {
 	(
 		cd "$workspace"
 		cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- \
+			database "$@" --acceptance-runtime
+	)
+}
+
+run_staged_project_tools() {
+	(
+		cd "$workspace"
+		PLE_ACCEPTANCE_RUNTIME_MANIFEST="$sd1_runtime_manifest_path" \
+			cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- \
 			database "$@" --acceptance-runtime
 	)
 }
@@ -121,25 +135,35 @@ compose up -d postgres minio
 wait_for_postgres
 wait_for_minio
 compose run --rm createbuckets
-compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U ple_e2e_migrator -d postgres \
-	-c 'CREATE DATABASE ple_e2e_baseline'
+compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database" <<'SQL'
+CREATE ROLE ple_database_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+    NOREPLICATION NOBYPASSRLS;
+CREATE ROLE ple_migrator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB CREATEROLE
+    NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 2;
+GRANT ple_database_owner TO ple_migrator WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+CREATE DATABASE ple_e2e_baseline OWNER ple_database_owner;
+SQL
+(
+	cd "$REPO_ROOT"
+	python3 -m local_stack_control.runtime_manifest --emit-sd1-staged-bootstrap "$workspace"
+) | compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database"
+compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database" -c \
+	"REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $database_name FROM PUBLIC; GRANT CONNECT ON DATABASE $database_name TO ple_migrator"
+compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$database_name" -c \
+	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
 
 echo "course appearance E2E: applying and verifying the accepted migration set"
-run_project_tools migrate
-run_project_tools verify
+run_staged_project_tools sd1-staged-migrate
+run_staged_project_tools sd1-staged-verify
 
 echo "course appearance E2E: MinIO object-store conformance"
 run_live_cargo_test "MinIO object-store conformance" cargo test -p objects --features s3 \
 	--test conformance minio_object_store_conforms -- --ignored --exact --test-threads=1
 
-echo "course appearance E2E: real MinIO upload, promotion, delivery, and supersession"
-run_live_cargo_test "MinIO course-appearance flow" cargo test -p server_core \
-	course_appearance::tests::minio_author_atomic_flow_student_read_and_current_only_delivery_conform \
-	--lib -- --ignored --exact --test-threads=1
-
-echo "course appearance E2E: PostgreSQL claim, MinIO delete, and completion"
-run_live_cargo_test "PostgreSQL and MinIO cleanup" cargo test -p server_core \
-	course_appearance::tests::postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current \
-	--lib -- --ignored --exact --test-threads=1
+echo "course appearance E2E: typed banner object contract"
+# The fresh SD1 schema intentionally has no course-appearance current-pointer
+# capability yet.  `minio_object_store_conforms` exercises the candidate and
+# current Course Banner object addresses against real MinIO; the future
+# database-backed promotion and cleanup oracle belongs with that capability.
 
 echo "course appearance E2E: PASS"

@@ -39,7 +39,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
         <p class="eyebrow">Assignment overview</p>
         <h1 id="assignment-workspace-heading">{assignment().title}</h1>
         <p class="page-lede">
-          {workspace.course.title} · Revision {assignment().revision}
+          {workspace.course.title} · Edit {assignment().revision}
         </p>
       </header>
 
@@ -51,8 +51,8 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
           <h2 id="assignment-status-heading">Current status</h2>
           <dl class="assignment-facts">
             <div>
-              <dt>Lifecycle</dt>
-              <dd>{stateCopy(assignment().assignmentRevisionDefinition.lifecycle)}</dd>
+              <dt>Assignment status</dt>
+              <dd>{stateCopy(assignment().assignmentStatus)}</dd>
             </div>
             <div>
               <dt>Current state</dt>
@@ -75,14 +75,14 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
           class="course-card assignment-workspace-card"
           aria-labelledby="assignment-readiness-heading"
         >
-          <h2 id="assignment-readiness-heading">Publication readiness</h2>
+          <h2 id="assignment-readiness-heading">Release requirements</h2>
           <Show
-            when={assignment().draftRevisionPublicationReadiness.blockingIssues.length === 0}
+            when={assignment().assignmentReleaseValidation.blockingIssues.length === 0}
             fallback={
               <>
-                <p role="status">This assignment is not ready to publish.</p>
+                <p role="status">This Assignment Working Copy is not ready to release.</p>
                 <ul class="assignment-workspace-next-actions">
-                  <For each={assignment().draftRevisionPublicationReadiness.blockingIssues}>
+                  <For each={assignment().assignmentReleaseValidation.blockingIssues}>
                     {(issue) => (
                       <li>
                         {issue.kind === "questionsRequired" ? (
@@ -105,7 +105,9 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
               </>
             }
           >
-            <p role="status">The current definition meets the known publication checks.</p>
+            <p role="status">
+              The current Assignment Working Copy meets the known release requirements.
+            </p>
           </Show>
           <p class="assignment-workspace-action-row">
             <A
@@ -137,29 +139,29 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
         >
           <h2 id="assignment-instructions-heading">Instructions and delivery</h2>
           <Show
-            when={assignment().assignmentRevisionDefinition.instructions.length > 0}
+            when={assignment().assignmentWorkingCopyDefinition.instructions.length > 0}
             fallback={<p>No Student instructions have been added.</p>}
           >
             <p class="plain-text-instructions">
-              {assignment().assignmentRevisionDefinition.instructions}
+              {assignment().assignmentWorkingCopyDefinition.instructions}
             </p>
           </Show>
           <dl class="assignment-facts">
             <div>
               <dt>Time zone</dt>
-              <dd>{assignment().assignmentRevisionDefinition.timeZone}</dd>
+              <dd>{assignment().assignmentWorkingCopyDefinition.timeZone}</dd>
             </div>
             <div>
               <dt>Available</dt>
-              <dd>{localTime(assignment().assignmentRevisionDefinition.availableAt)}</dd>
+              <dd>{localTime(assignment().assignmentWorkingCopyDefinition.availableAt)}</dd>
             </div>
             <div>
               <dt>Due</dt>
-              <dd>{localTime(assignment().assignmentRevisionDefinition.dueAt)}</dd>
+              <dd>{localTime(assignment().assignmentWorkingCopyDefinition.dueAt)}</dd>
             </div>
             <div>
               <dt>Closes</dt>
-              <dd>{localTime(assignment().assignmentRevisionDefinition.closesAt)}</dd>
+              <dd>{localTime(assignment().assignmentWorkingCopyDefinition.closesAt)}</dd>
             </div>
           </dl>
         </section>

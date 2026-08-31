@@ -2,7 +2,7 @@
 
 use acceptance_runtime::{AcceptanceRuntime, Sd1StagedDatabaseRuntime};
 use anyhow::{Context, Result, bail};
-use learning_data_access::postgres::{MigrationDisposition, MigrationStatus, Pool};
+use learning_data_access::postgres::{MigrationCheck, MigrationCheckResult, Pool};
 use std::path::Path;
 
 #[path = "database_sd1_staging.rs"]
@@ -157,7 +157,7 @@ async fn run_action(
                 .context(
                     "reading the SQLx migration ledger against the supplied migration directory",
                 )?,
-                None => learning_data_access::postgres::migration_status(pool)
+                None => learning_data_access::postgres::migration_check(pool)
                     .await
                     .context("reading the SQLx migration ledger")?,
             };
@@ -191,7 +191,7 @@ async fn run_action(
     }
 }
 
-fn print_status(status: &MigrationStatus) {
+fn print_status(status: &MigrationCheck) {
     println!(
         "database status: ledger {}",
         if status.ledger_present() {
@@ -201,17 +201,13 @@ fn print_status(status: &MigrationStatus) {
         }
     );
     for entry in status.entries() {
-        let disposition = match entry.disposition() {
-            MigrationDisposition::Applied => "applied",
-            MigrationDisposition::Pending => "pending",
-            MigrationDisposition::Modified => "modified",
-            MigrationDisposition::Dirty => "dirty",
+        let result = match entry.result() {
+            MigrationCheckResult::Applied => "applied",
+            MigrationCheckResult::Pending => "pending",
+            MigrationCheckResult::Changed => "changed",
+            MigrationCheckResult::Incomplete => "incomplete",
         };
-        println!(
-            "  {} {}: {disposition}",
-            entry.version(),
-            entry.description()
-        );
+        println!("  {} {}: {result}", entry.version(), entry.description());
     }
     for version in status.unexpected_applied_versions() {
         println!("  {version}: unexpected applied migration");

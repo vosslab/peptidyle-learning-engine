@@ -73,21 +73,20 @@ test("attempt decoder accepts only the closed Question Attempt state vocabulary"
     questionPoolSelection: null,
   };
   assert.equal(decodeStudentQuestionAttempt(deadlineClosed).state, "closed_at_deadline");
-  for (const retiredState of [
-    "submitted",
-    "automatically_submitted",
-    "retired_question_attempt_state",
+  for (const nonCanonicalState of [
+    "unexpected_question_attempt_state",
+    "deadline_submission_state",
   ]) {
     assert.throws(
       () =>
         decodeStudentQuestionAttempt({
           ...attempt,
-          state: retiredState,
+          state: nonCanonicalState,
           assignmentScoringState: "current",
           questionPoolSelection: null,
         }),
       DecodeError,
-      `${retiredState} must be rejected`,
+      `${nonCanonicalState} must be rejected`,
     );
   }
 });

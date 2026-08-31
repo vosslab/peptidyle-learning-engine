@@ -28,7 +28,7 @@ import {
   resolveAssignmentContentSaveFailure,
   resolveAssignmentFixedItemReplacementFailure,
 } from "../../api/http_client";
-import type { PoolDrawPreview } from "../../api/contracts";
+import type { QuestionPoolPreview } from "../../api/contracts";
 
 import { assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
@@ -53,7 +53,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const [directQuestionId, setDirectQuestionId] = createSignal("");
   const [directMessage, setDirectMessage] = createSignal("");
   const [targetItemId, setTargetItemId] = createSignal<string>();
-  const [poolPreview, setPoolPreview] = createSignal<PoolDrawPreview>();
+  const [poolPreview, setPoolPreview] = createSignal<QuestionPoolPreview>();
   const [hasUnsavedContent, setHasUnsavedContent] = createSignal(false);
   const [needsReload, setNeedsReload] = createSignal(false);
   const [successorRevisionRequired, setSuccessorRevisionRequired] = createSignal(false);
@@ -412,7 +412,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     const saved = workspace.assignment();
     setBusy(true);
     try {
-      const preview = await workspace.client.previewPoolDraw(
+      const preview = await workspace.client.previewQuestionPool(
         workspace.courseReference,
         saved.reference,
         previewRevision(saved.revision),

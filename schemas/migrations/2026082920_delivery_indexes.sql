@@ -5,9 +5,11 @@ CREATE INDEX course_membership_event_current_lookup_idx
     ON ple_data.course_membership_event (membership_id, occurred_at DESC, course_membership_event_id DESC);
 CREATE INDEX course_membership_account_course_idx ON ple_data.course_membership (account_id, course_id);
 CREATE INDEX student_record_account_course_idx ON ple_data.student_record (student_account_id, course_id);
-CREATE INDEX published_assignment_revision_availability_idx
-    ON ple_data.assignment_revision (course_id, available_at)
-    WHERE published_at IS NOT NULL;
+CREATE INDEX assignment_revision_availability_idx
+    ON ple_data.assignment_revision (course_id, available_at);
+CREATE INDEX assignment_released_revision_lookup_idx
+    ON ple_data.assignment (released_assignment_revision_id)
+    WHERE assignment_status = 'released';
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
 GRANT SELECT ON TABLE ple_data.published_question, ple_data.published_question_version TO ple_api_owner;
 RESET ROLE;

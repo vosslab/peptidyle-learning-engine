@@ -32,9 +32,9 @@ CREATE TABLE ple_private.issued_question (
         REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT issued_question_delivery_order_is_unique UNIQUE (assignment_attempt_id, issued_position)
 );
-CREATE TRIGGER assignment_attempt_requires_published_revision
+CREATE TRIGGER assignment_attempt_requires_released_revision
 BEFORE INSERT OR UPDATE OF assignment_id, assignment_revision_id ON ple_private.assignment_attempt
-FOR EACH ROW EXECUTE FUNCTION ple_data.require_published_assignment_revision();
+FOR EACH ROW EXECUTE FUNCTION ple_data.require_released_assignment_revision();
 CREATE TABLE ple_private.question_attempt (
     question_attempt_id uuid PRIMARY KEY,
     issued_question_id text NOT NULL REFERENCES ple_private.issued_question (issued_question_id),

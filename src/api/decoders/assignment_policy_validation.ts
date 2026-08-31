@@ -2,9 +2,9 @@
 
 import type { AssignmentPoliciesValidationFailure } from "../../../generated/api/AssignmentPoliciesValidationFailure";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
-import type { AssignmentPublicationBlockingIssue } from "../../../generated/api/AssignmentPublicationBlockingIssue";
+import type { AssignmentReleaseIssue } from "../../../generated/api/AssignmentReleaseIssue";
 import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
-import { decodeAssignmentRevisionDefinitionValidationFailure } from "./assignment_teaching_delivery";
+import { decodeAssignmentWorkingCopyDefinitionValidationFailure } from "./assignment_teaching_delivery";
 import {
   decodeBoundedArray,
   decodeCapability,
@@ -16,17 +16,14 @@ import {
 
 const MAX_POLICY_VALIDATION_ISSUES = 100;
 
-function decodePublicationBlockingIssue(
-  value: unknown,
-  path: string,
-): AssignmentPublicationBlockingIssue {
+function decodeAssignmentReleaseIssue(value: unknown, path: string): AssignmentReleaseIssue {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["kind"]);
   return {
     kind: decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
       "questionsRequired",
     ] as const),
-  } satisfies AssignmentPublicationBlockingIssue;
+  } satisfies AssignmentReleaseIssue;
 }
 
 function decodePolicyValidationIssue(
@@ -35,17 +32,17 @@ function decodePolicyValidationIssue(
 ): AssignmentPoliciesValidationIssue {
   const record = decodeRecord(value, path);
   const issueKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "assignmentRevisionDefinition",
+    "assignmentWorkingCopyDefinition",
     "configuration",
     "capability",
-    "draftRevisionPublicationReadiness",
+    "assignmentReleaseRequirements",
   ] as const);
   switch (issueKind) {
-    case "assignmentRevisionDefinition":
+    case "assignmentWorkingCopyDefinition":
       requireOnlyFields(record, path, ["kind", "correction"]);
       return {
         kind: issueKind,
-        correction: decodeAssignmentRevisionDefinitionValidationFailure(
+        correction: decodeAssignmentWorkingCopyDefinitionValidationFailure(
           field(record, "correction", path),
           `${path}.correction`,
         ),
@@ -66,13 +63,13 @@ function decodePolicyValidationIssue(
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
         capability: decodeCapability(field(record, "capability", path), `${path}.capability`),
       } satisfies AssignmentPoliciesValidationIssue;
-    case "draftRevisionPublicationReadiness": {
+    case "assignmentReleaseRequirements": {
       requireOnlyFields(record, path, ["kind", "blockingIssues"]);
       const blockingIssues = decodeBoundedArray(
         field(record, "blockingIssues", path),
         `${path}.blockingIssues`,
         MAX_POLICY_VALIDATION_ISSUES,
-        decodePublicationBlockingIssue,
+        decodeAssignmentReleaseIssue,
       );
       if (blockingIssues.length === 0) {
         throw new DecodeError(`${path}.blockingIssues`, "a nonempty blocking issue list");

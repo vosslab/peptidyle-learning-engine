@@ -8,7 +8,7 @@
 use question_model::{
     ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,
     ActiveStudentCourseMembershipOutcome, ActivityTimestamp, AssignmentPolicySourceKind,
-    AssignmentRevisionDefinitionField, CourseLocalDateAndTime, CourseTerm,
+    AssignmentWorkingCopyDefinitionField, CourseLocalDateAndTime, CourseTerm,
     EffectiveAssignmentPolicyView, PreviewAssignmentDeadlineRuleField, PreviewDenialReason,
     PreviewDisclosureFlags, PreviewDisclosureMoment, PreviewDisclosureUnavailableReason,
     PreviewLateWorkRuleField, PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField,
@@ -42,19 +42,19 @@ pub fn project_preview_policy(
         time(
             &policy.available_at,
             term,
-            AssignmentRevisionDefinitionField::AvailableAt,
+            AssignmentWorkingCopyDefinitionField::AvailableAt,
         )
         .map_err(|_| "invalid local preview time")?,
         time(
             &policy.due_at,
             term,
-            AssignmentRevisionDefinitionField::DueAt,
+            AssignmentWorkingCopyDefinitionField::DueAt,
         )
         .map_err(|_| "invalid local preview time")?,
         time(
             &policy.closes_at,
             term,
-            AssignmentRevisionDefinitionField::ClosesAt,
+            AssignmentWorkingCopyDefinitionField::ClosesAt,
         )
         .map_err(|_| "invalid local preview time")?,
         limit(&policy.assignment_attempt_time_limit_seconds),
@@ -68,8 +68,8 @@ fn time(
         Option<ActivityTimestamp>,
     >,
     term: &CourseTerm,
-    kind: AssignmentRevisionDefinitionField,
-) -> Result<PreviewTimeField, question_model::AssignmentRevisionDefinitionLocalError> {
+    kind: AssignmentWorkingCopyDefinitionField,
+) -> Result<PreviewTimeField, question_model::AssignmentWorkingCopyDefinitionLocalError> {
     Ok(PreviewTimeField {
         value: field
             .value
@@ -113,22 +113,23 @@ fn deadline(
 pub fn project_preview_schedule(
     policy: &EffectiveAssignmentPolicy,
     term: &CourseTerm,
-) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentRevisionDefinitionLocalError> {
+) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentWorkingCopyDefinitionLocalError>
+{
     Ok(EffectiveAssignmentPolicyView {
         available_at: time(
             &policy.available_at,
             term,
-            AssignmentRevisionDefinitionField::AvailableAt,
+            AssignmentWorkingCopyDefinitionField::AvailableAt,
         )?,
         due_at: time(
             &policy.due_at,
             term,
-            AssignmentRevisionDefinitionField::DueAt,
+            AssignmentWorkingCopyDefinitionField::DueAt,
         )?,
         closes_at: time(
             &policy.closes_at,
             term,
-            AssignmentRevisionDefinitionField::ClosesAt,
+            AssignmentWorkingCopyDefinitionField::ClosesAt,
         )?,
         assignment_attempt_time_limit_seconds: limit(&policy.assignment_attempt_time_limit_seconds),
         attempt_limit: limit(&policy.attempt_limit),
@@ -227,7 +228,7 @@ mod tests {
         ActiveStudentMembership, evaluate_active_student_course_membership,
     };
     use crate::effective_assignment_policy::{
-        AssignmentLifecycleGate, AssignmentStartDecision, AuthorizationGate, BaseAssignmentPolicy,
+        AssignmentStartDecision, AssignmentStatusGate, AuthorizationGate, BaseAssignmentPolicy,
         EffectiveAssignmentPolicyValue, PolicySource, ResolveEffectivePolicyInput,
         StudentLateWorkStatus, resolve_effective_policy,
     };
@@ -257,7 +258,7 @@ mod tests {
         };
         let active_student_course_membership = evaluate_active_student_course_membership(facts);
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
-            lifecycle: AssignmentLifecycleGate::Open,
+            assignment_status: AssignmentStatusGate::Open,
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
             now: ActivityTimestamp::from_unix_millis(10),
@@ -470,7 +471,7 @@ mod tests {
             ActiveStudentCourseMembershipDenial::StudentNotActiveCourse,
         );
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
-            lifecycle: AssignmentLifecycleGate::Open,
+            assignment_status: AssignmentStatusGate::Open,
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
             now: ActivityTimestamp::from_unix_millis(10),

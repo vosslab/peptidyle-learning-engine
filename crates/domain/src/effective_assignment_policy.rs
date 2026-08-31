@@ -9,7 +9,7 @@ use std::num::NonZeroU32;
 
 use chrono::{DateTime, Utc};
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineRule, AssignmentLifecycle, CourseTerm, LateWorkRule,
+    ActivityTimestamp, AssignmentDeadlineRule, AssignmentStatus, CourseTerm, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
 };
 
@@ -22,47 +22,44 @@ use crate::active_student_course_membership::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AssignmentLifecycleGate {
+pub enum AssignmentStatusGate {
     Open,
-    Denied(AssignmentLifecycleDenial),
+    Denied(AssignmentStatusDenial),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AssignmentLifecycleDenial {
-    NotPublished,
+pub enum AssignmentStatusDenial {
+    Unreleased,
     Retired,
 }
 
-/// Maps persisted lifecycle intent to the first effective-policy gate.
-pub fn assignment_lifecycle_gate(lifecycle: AssignmentLifecycle) -> AssignmentLifecycleGate {
-    match lifecycle {
-        AssignmentLifecycle::Published => AssignmentLifecycleGate::Open,
-        AssignmentLifecycle::Draft => {
-            AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished)
+/// Maps stable Assignment Status to the first effective-policy gate.
+pub fn assignment_status_gate(status: AssignmentStatus) -> AssignmentStatusGate {
+    match status {
+        AssignmentStatus::Released => AssignmentStatusGate::Open,
+        AssignmentStatus::Unreleased => {
+            AssignmentStatusGate::Denied(AssignmentStatusDenial::Unreleased)
         }
-        AssignmentLifecycle::Closed | AssignmentLifecycle::Archived => {
-            AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::Retired)
+        AssignmentStatus::Closed | AssignmentStatus::Archived => {
+            AssignmentStatusGate::Denied(AssignmentStatusDenial::Retired)
         }
     }
 }
 
-/// Returns whether a Instructor-controlled lifecycle transition is legal.
-pub fn is_legal_assignment_lifecycle_transition(
-    from: AssignmentLifecycle,
-    to: AssignmentLifecycle,
-) -> bool {
+/// Returns whether an Instructor-controlled Assignment Status transition is legal.
+pub fn is_legal_assignment_status_transition(from: AssignmentStatus, to: AssignmentStatus) -> bool {
     from == to
         || matches!(
             (from, to),
             (
-                AssignmentLifecycle::Draft,
-                AssignmentLifecycle::Published | AssignmentLifecycle::Archived
+                AssignmentStatus::Unreleased,
+                AssignmentStatus::Released | AssignmentStatus::Archived
             ) | (
-                AssignmentLifecycle::Published,
-                AssignmentLifecycle::Closed | AssignmentLifecycle::Archived
+                AssignmentStatus::Released,
+                AssignmentStatus::Closed | AssignmentStatus::Archived
             ) | (
-                AssignmentLifecycle::Closed,
-                AssignmentLifecycle::Published | AssignmentLifecycle::Archived
+                AssignmentStatus::Closed,
+                AssignmentStatus::Released | AssignmentStatus::Archived
             )
         )
 }
@@ -80,14 +77,14 @@ pub enum AuthorizationDenial {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PolicyGate {
-    Lifecycle,
+    AssignmentStatus,
     ActiveStudentCourseMembership,
     Authorization,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateDenial {
-    Lifecycle(AssignmentLifecycleDenial),
+    AssignmentStatus(AssignmentStatusDenial),
     ActiveStudentCourseMembership(ActiveStudentCourseMembershipDenial),
     Authorization(AuthorizationDenial),
 }
@@ -197,7 +194,7 @@ pub enum AssignmentAccessDecision {
 }
 
 pub struct ResolveEffectivePolicyInput {
-    pub lifecycle: AssignmentLifecycleGate,
+    pub assignment_status: AssignmentStatusGate,
     pub active_student_course_membership: ActiveStudentCourseMembershipDecision,
     pub authorization: AuthorizationGate,
     pub now: ActivityTimestamp,
@@ -208,7 +205,7 @@ pub struct ResolveEffectivePolicyInput {
 
 /// Identity-free S3 input for a synthetic T3 preview subject.
 pub struct ResolveSyntheticPreviewPolicyInput {
-    pub lifecycle: AssignmentLifecycleGate,
+    pub assignment_status: AssignmentStatusGate,
     pub active_student_course_membership: SyntheticPreviewAdmissionDecision,
     pub authorization: AuthorizationGate,
     pub now: ActivityTimestamp,
@@ -317,16 +314,16 @@ fn validate_absolute_timestamp_in_course_term(
     Ok(())
 }
 
-/// Resolves the complete policy after lifecycle, the S5 active-membership gate, and action
+/// Resolves the complete policy after Assignment Status, the S5 active-membership gate, and action
 /// authorization, in that exact order. A denied gate is returned before any
 /// modifier is inspected.
 pub fn resolve_effective_policy(
     input: ResolveEffectivePolicyInput,
 ) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
-    if let AssignmentLifecycleGate::Denied(reason) = input.lifecycle {
+    if let AssignmentStatusGate::Denied(reason) = input.assignment_status {
         return Ok(AssignmentAccessDecision::Denied {
-            gate: PolicyGate::Lifecycle,
-            reason: GateDenial::Lifecycle(reason),
+            gate: PolicyGate::AssignmentStatus,
+            reason: GateDenial::AssignmentStatus(reason),
         });
     }
     let grant = match input.active_student_course_membership {
@@ -363,16 +360,16 @@ pub fn resolve_effective_policy(
     )
 }
 
-/// Resolves a synthetic preview policy after lifecycle, S5 synthetic
+/// Resolves a synthetic preview policy after Assignment Status, S5 synthetic
 /// active-membership gate, and action authorization. A hypothetical modifier cannot carry
 /// a persisted Student identifier or receipt authority.
 pub fn resolve_synthetic_preview_policy(
     input: ResolveSyntheticPreviewPolicyInput,
 ) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
-    if let AssignmentLifecycleGate::Denied(reason) = input.lifecycle {
+    if let AssignmentStatusGate::Denied(reason) = input.assignment_status {
         return Ok(AssignmentAccessDecision::Denied {
-            gate: PolicyGate::Lifecycle,
-            reason: GateDenial::Lifecycle(reason),
+            gate: PolicyGate::AssignmentStatus,
+            reason: GateDenial::AssignmentStatus(reason),
         });
     }
     match input.active_student_course_membership {

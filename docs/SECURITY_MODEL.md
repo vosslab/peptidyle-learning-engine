@@ -350,7 +350,8 @@ owner/collaborator binding as workspace editing, requires the exact saved
 strong `If-Match` revision, and returns the same absent result for Students,
 nonparticipants, and unshared workspaces. Responses are `no-store`.
 
-The author route never serializes `AnswerKey`, grading material, source
+The author route never serializes `AnswerKey`, Question Feedback, Question
+Answer Explanation, Question Grading Input, source
 locator, object key, provider credential, or published identity. A supported
 Native Question Implementation may supply only display-ready correct-response and rationale
 content through its server-only adapter seam. External sources and native

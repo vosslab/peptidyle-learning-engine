@@ -4,9 +4,9 @@ use chrono::{DateTime, LocalResult, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDeadlineRule, AssignmentInstructions, AssignmentLifecycle,
-    AssignmentRevisionDefinition, BaseAssignmentPolicy, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    AssignmentDeadlineRule, AssignmentInstructions, AssignmentStatus,
+    AssignmentWorkingCopyDefinition, BaseAssignmentPolicy, LateWorkRule,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
 };
 use crate::{ActivityTimestamp, AssignmentActivityRules, CourseTerm, CourseTimeZone};
 
@@ -35,25 +35,26 @@ pub enum InstructorAssignmentCurrentState {
 
 pub fn derive_instructor_assignment_current_state(
     term: &CourseTerm,
-    settings: &AssignmentRevisionDefinition,
+    assignment_status: AssignmentStatus,
+    settings: &AssignmentWorkingCopyDefinition,
     now: ActivityTimestamp,
-) -> Result<InstructorAssignmentCurrentState, AssignmentRevisionDefinitionLocalError> {
-    use super::AssignmentLifecycle::{Archived, Closed, Draft, Published};
-    match settings.lifecycle {
-        Draft => Ok(InstructorAssignmentCurrentState::Draft),
+) -> Result<InstructorAssignmentCurrentState, AssignmentWorkingCopyDefinitionLocalError> {
+    use super::AssignmentStatus::{Archived, Closed, Released, Unreleased};
+    match assignment_status {
+        Unreleased => Ok(InstructorAssignmentCurrentState::Draft),
         Archived => Ok(InstructorAssignmentCurrentState::Archived),
         Closed => Ok(InstructorAssignmentCurrentState::Closed { closed_at: None }),
-        Published if settings.base_policy.available_at.is_some_and(|at| now < at) => {
+        Released if settings.base_policy.available_at.is_some_and(|at| now < at) => {
             Ok(InstructorAssignmentCurrentState::Scheduled {
                 available_at: project_optional_course_local_timestamp(
                     settings.base_policy.available_at,
                     term,
-                    AssignmentRevisionDefinitionField::AvailableAt,
+                    AssignmentWorkingCopyDefinitionField::AvailableAt,
                 )?
-                .expect("published scheduled state has an available-at instant"),
+                .expect("released scheduled state has an available-at instant"),
             })
         }
-        Published => {
+        Released => {
             let due_boundary = (settings.base_policy.late_work_rule == LateWorkRule::Reject)
                 .then_some(settings.base_policy.due_at)
                 .flatten();
@@ -68,7 +69,7 @@ pub fn derive_instructor_assignment_current_state(
                     closed_at: project_optional_course_local_timestamp(
                         closed_at,
                         term,
-                        AssignmentRevisionDefinitionField::ClosesAt,
+                        AssignmentWorkingCopyDefinitionField::ClosesAt,
                     )?,
                 });
             }
@@ -81,7 +82,7 @@ pub fn derive_instructor_assignment_current_state(
 ///
 /// This is deliberately a local wall-clock value, not a stored instant. The
 /// server resolves it with [`CourseTerm`] before persisting the resulting
-/// [`AssignmentRevisionDefinition`]. Its wire form is exactly
+/// [`AssignmentWorkingCopyDefinition`]. Its wire form is exactly
 /// `YYYY-MM-DDTHH:MM:SS.sss`, which is accepted by HTML `datetime-local`
 /// controls with `step="0.001"`. A browser may initialize its form at whole
 /// minutes, but this canonical wire value never loses an existing server
@@ -128,8 +129,8 @@ impl CourseLocalDateAndTime {
     pub fn resolve_for_course(
         &self,
         course_term: &CourseTerm,
-        field: AssignmentRevisionDefinitionField,
-    ) -> Result<ActivityTimestamp, AssignmentRevisionDefinitionLocalError> {
+        field: AssignmentWorkingCopyDefinitionField,
+    ) -> Result<ActivityTimestamp, AssignmentWorkingCopyDefinitionLocalError> {
         resolve_course_local_timestamp(self, course_term, field)
     }
 
@@ -140,8 +141,8 @@ impl CourseLocalDateAndTime {
     pub fn from_activity_timestamp(
         value: ActivityTimestamp,
         course_term: &CourseTerm,
-        field: AssignmentRevisionDefinitionField,
-    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
+        field: AssignmentWorkingCopyDefinitionField,
+    ) -> Result<Self, AssignmentWorkingCopyDefinitionLocalError> {
         project_course_local_timestamp(value, course_term, field)
     }
 }
@@ -172,19 +173,17 @@ impl std::fmt::Display for CourseLocalDateAndTimeError {
 
 impl std::error::Error for CourseLocalDateAndTimeError {}
 
-/// Browser-facing instructor projection of one stored Assignment Revision Definition.
+/// Browser-facing Instructor projection of one Assignment Working Copy definition.
 ///
 /// This is an edit/display boundary only. It contains local strings plus the
 /// course-owned IANA zone so a browser never consults its own machine zone.
-/// [`AssignmentRevisionDefinition`] and its [`BaseAssignmentPolicy`] remain the
+/// [`AssignmentWorkingCopyDefinition`] and its [`BaseAssignmentPolicy`] remain the
 /// only stored and effective-policy authority.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorAssignmentRevisionDefinitionLocal {
+pub struct InstructorAssignmentWorkingCopyDefinitionLocal {
     /// Authoritative course IANA zone shown beside local form controls.
     pub time_zone: CourseTimeZone,
-    /// Instructor-controlled assignment lifecycle intent.
-    pub lifecycle: AssignmentLifecycle,
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// First local course time at which students may open the assignment.
@@ -203,12 +202,11 @@ pub struct InstructorAssignmentRevisionDefinitionLocal {
     pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
-impl InstructorAssignmentRevisionDefinitionLocal {
+impl InstructorAssignmentWorkingCopyDefinitionLocal {
     /// Builds a browser projection after validating limits and local ordering.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         time_zone: CourseTimeZone,
-        lifecycle: AssignmentLifecycle,
         instructions: AssignmentInstructions,
         available_at: Option<CourseLocalDateAndTime>,
         due_at: Option<CourseLocalDateAndTime>,
@@ -217,21 +215,20 @@ impl InstructorAssignmentRevisionDefinitionLocal {
         attempt_limit: Option<NonZeroU32>,
         late_work_rule: LateWorkRule,
         assignment_deadline_rule: AssignmentDeadlineRule,
-    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
+    ) -> Result<Self, AssignmentWorkingCopyDefinitionLocalError> {
         if assignment_attempt_time_limit_seconds
             .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
         {
             return Err(
-                AssignmentRevisionDefinitionLocalError::AssignmentAttemptTimeLimitOutOfRange,
+                AssignmentWorkingCopyDefinitionLocalError::AssignmentAttemptTimeLimitOutOfRange,
             );
         }
         if attempt_limit.is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT) {
-            return Err(AssignmentRevisionDefinitionLocalError::AttemptLimitOutOfRange);
+            return Err(AssignmentWorkingCopyDefinitionLocalError::AttemptLimitOutOfRange);
         }
         validate_local_ordering(&available_at, &due_at, &closes_at)?;
         Ok(Self {
             time_zone,
-            lifecycle,
             instructions,
             available_at,
             due_at,
@@ -251,29 +248,28 @@ impl InstructorAssignmentRevisionDefinitionLocal {
         self,
         course_term: &CourseTerm,
         activity_rules: AssignmentActivityRules,
-    ) -> Result<AssignmentRevisionDefinition, AssignmentRevisionDefinitionLocalError> {
+    ) -> Result<AssignmentWorkingCopyDefinition, AssignmentWorkingCopyDefinitionLocalError> {
         self.validate()?;
         if self.time_zone != *course_term.time_zone() {
-            return Err(AssignmentRevisionDefinitionLocalError::CourseTimeZoneMismatch);
+            return Err(AssignmentWorkingCopyDefinitionLocalError::CourseTimeZoneMismatch);
         }
         let available_at = resolve_optional_course_local_timestamp(
             self.available_at.as_ref(),
             course_term,
-            AssignmentRevisionDefinitionField::AvailableAt,
+            AssignmentWorkingCopyDefinitionField::AvailableAt,
         )?;
         let due_at = resolve_optional_course_local_timestamp(
             self.due_at.as_ref(),
             course_term,
-            AssignmentRevisionDefinitionField::DueAt,
+            AssignmentWorkingCopyDefinitionField::DueAt,
         )?;
         let closes_at = resolve_optional_course_local_timestamp(
             self.closes_at.as_ref(),
             course_term,
-            AssignmentRevisionDefinitionField::ClosesAt,
+            AssignmentWorkingCopyDefinitionField::ClosesAt,
         )?;
         validate_absolute_ordering(available_at, due_at, closes_at)?;
-        Ok(AssignmentRevisionDefinition {
-            lifecycle: self.lifecycle,
+        Ok(AssignmentWorkingCopyDefinition {
             instructions: self.instructions,
             base_policy: BaseAssignmentPolicy {
                 available_at,
@@ -288,20 +284,20 @@ impl InstructorAssignmentRevisionDefinitionLocal {
         })
     }
 
-    fn validate(&self) -> Result<(), AssignmentRevisionDefinitionLocalError> {
+    fn validate(&self) -> Result<(), AssignmentWorkingCopyDefinitionLocalError> {
         if self
             .assignment_attempt_time_limit_seconds
             .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
         {
             return Err(
-                AssignmentRevisionDefinitionLocalError::AssignmentAttemptTimeLimitOutOfRange,
+                AssignmentWorkingCopyDefinitionLocalError::AssignmentAttemptTimeLimitOutOfRange,
             );
         }
         if self
             .attempt_limit
             .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT)
         {
-            return Err(AssignmentRevisionDefinitionLocalError::AttemptLimitOutOfRange);
+            return Err(AssignmentWorkingCopyDefinitionLocalError::AttemptLimitOutOfRange);
         }
         validate_local_ordering(&self.available_at, &self.due_at, &self.closes_at)
     }
@@ -309,26 +305,25 @@ impl InstructorAssignmentRevisionDefinitionLocal {
     /// Projects stored absolute settings into exact local course wall-clock values.
     pub fn from_absolute(
         course_term: &CourseTerm,
-        settings: &AssignmentRevisionDefinition,
-    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
+        settings: &AssignmentWorkingCopyDefinition,
+    ) -> Result<Self, AssignmentWorkingCopyDefinitionLocalError> {
         let available_at = project_optional_course_local_timestamp(
             settings.base_policy.available_at,
             course_term,
-            AssignmentRevisionDefinitionField::AvailableAt,
+            AssignmentWorkingCopyDefinitionField::AvailableAt,
         )?;
         let due_at = project_optional_course_local_timestamp(
             settings.base_policy.due_at,
             course_term,
-            AssignmentRevisionDefinitionField::DueAt,
+            AssignmentWorkingCopyDefinitionField::DueAt,
         )?;
         let closes_at = project_optional_course_local_timestamp(
             settings.base_policy.closes_at,
             course_term,
-            AssignmentRevisionDefinitionField::ClosesAt,
+            AssignmentWorkingCopyDefinitionField::ClosesAt,
         )?;
         Self::new(
             course_term.time_zone().clone(),
-            settings.lifecycle,
             settings.instructions.clone(),
             available_at,
             due_at,
@@ -344,16 +339,16 @@ impl InstructorAssignmentRevisionDefinitionLocal {
 /// Refusal reason while translating an instructor local schedule at the server boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentRevisionDefinitionFailureCode {
-    /// The submitted Assignment Revision Definition cannot be accepted.
-    AssignmentRevisionDefinitionInvalid,
+pub enum AssignmentWorkingCopyDefinitionFailureCode {
+    /// The submitted Assignment Working Copy definition cannot be accepted.
+    AssignmentWorkingCopyDefinitionInvalid,
 }
 
 /// Browser-safe field that needs a correction in an Assignment Revision Definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentRevisionDefinitionField {
-    AssignmentRevisionDefinition,
+pub enum AssignmentWorkingCopyDefinitionField {
+    AssignmentWorkingCopyDefinition,
     TimeZone,
     AvailableAt,
     DueAt,
@@ -361,14 +356,13 @@ pub enum AssignmentRevisionDefinitionField {
     Schedule,
     AssignmentAttemptTimeLimitSeconds,
     AttemptLimit,
-    Lifecycle,
     Instructions,
 }
 
 /// Browser-safe reason an assignment teaching-settings input was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentRevisionDefinitionFailureReason {
+pub enum AssignmentWorkingCopyDefinitionFailureReason {
     InvalidInput,
     CourseTimeZoneMismatch,
     OutsideCourseTerm,
@@ -378,33 +372,32 @@ pub enum AssignmentRevisionDefinitionFailureReason {
     ScheduleOutOfOrder,
     AssignmentAttemptTimeLimitOutOfRange,
     AttemptLimitOutOfRange,
-    IllegalLifecycleTransition,
     InvalidInstructions,
 }
 
 /// Answer-free bounded correction contract for local teaching-settings input.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentRevisionDefinitionValidationFailure {
-    pub error: AssignmentRevisionDefinitionFailureCode,
-    pub field: AssignmentRevisionDefinitionField,
-    pub reason: AssignmentRevisionDefinitionFailureReason,
+pub struct AssignmentWorkingCopyDefinitionValidationFailure {
+    pub error: AssignmentWorkingCopyDefinitionFailureCode,
+    pub field: AssignmentWorkingCopyDefinitionField,
+    pub reason: AssignmentWorkingCopyDefinitionFailureReason,
     pub message: String,
 }
 
 /// Refusal reason while translating an instructor local schedule at the server boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AssignmentRevisionDefinitionLocalError {
+pub enum AssignmentWorkingCopyDefinitionLocalError {
     /// The browser repeated a zone other than the course's authoritative IANA zone.
     CourseTimeZoneMismatch,
     /// A local schedule timestamp lies outside the inclusive course calendar.
-    OutsideCourseTerm(AssignmentRevisionDefinitionField),
+    OutsideCourseTerm(AssignmentWorkingCopyDefinitionField),
     /// A local wall-clock time never occurred because DST skipped it.
-    NonexistentLocalTime(AssignmentRevisionDefinitionField),
+    NonexistentLocalTime(AssignmentWorkingCopyDefinitionField),
     /// A local wall-clock time occurred twice and lacks an offset discriminator.
-    AmbiguousLocalTime(AssignmentRevisionDefinitionField),
+    AmbiguousLocalTime(AssignmentWorkingCopyDefinitionField),
     /// A timestamp cannot be represented by Chrono's supported range.
-    TimestampOutOfRange(AssignmentRevisionDefinitionField),
+    TimestampOutOfRange(AssignmentWorkingCopyDefinitionField),
     /// Available, due, and closes values are not chronological.
     ScheduleOutOfOrder,
     /// The time limit exceeds PostgreSQL's supported integer range.
@@ -413,57 +406,57 @@ pub enum AssignmentRevisionDefinitionLocalError {
     AttemptLimitOutOfRange,
 }
 
-impl AssignmentRevisionDefinitionLocalError {
-    pub fn field(self) -> AssignmentRevisionDefinitionField {
+impl AssignmentWorkingCopyDefinitionLocalError {
+    pub fn field(self) -> AssignmentWorkingCopyDefinitionField {
         match self {
-            Self::CourseTimeZoneMismatch => AssignmentRevisionDefinitionField::TimeZone,
+            Self::CourseTimeZoneMismatch => AssignmentWorkingCopyDefinitionField::TimeZone,
             Self::OutsideCourseTerm(field)
             | Self::NonexistentLocalTime(field)
             | Self::AmbiguousLocalTime(field)
             | Self::TimestampOutOfRange(field) => field,
-            Self::ScheduleOutOfOrder => AssignmentRevisionDefinitionField::Schedule,
+            Self::ScheduleOutOfOrder => AssignmentWorkingCopyDefinitionField::Schedule,
             Self::AssignmentAttemptTimeLimitOutOfRange => {
-                AssignmentRevisionDefinitionField::AssignmentAttemptTimeLimitSeconds
+                AssignmentWorkingCopyDefinitionField::AssignmentAttemptTimeLimitSeconds
             }
-            Self::AttemptLimitOutOfRange => AssignmentRevisionDefinitionField::AttemptLimit,
+            Self::AttemptLimitOutOfRange => AssignmentWorkingCopyDefinitionField::AttemptLimit,
         }
     }
 
-    pub fn reason(self) -> AssignmentRevisionDefinitionFailureReason {
+    pub fn reason(self) -> AssignmentWorkingCopyDefinitionFailureReason {
         match self {
             Self::CourseTimeZoneMismatch => {
-                AssignmentRevisionDefinitionFailureReason::CourseTimeZoneMismatch
+                AssignmentWorkingCopyDefinitionFailureReason::CourseTimeZoneMismatch
             }
             Self::OutsideCourseTerm(_) => {
-                AssignmentRevisionDefinitionFailureReason::OutsideCourseTerm
+                AssignmentWorkingCopyDefinitionFailureReason::OutsideCourseTerm
             }
             Self::NonexistentLocalTime(_) => {
-                AssignmentRevisionDefinitionFailureReason::NonexistentLocalTime
+                AssignmentWorkingCopyDefinitionFailureReason::NonexistentLocalTime
             }
             Self::AmbiguousLocalTime(_) => {
-                AssignmentRevisionDefinitionFailureReason::AmbiguousLocalTime
+                AssignmentWorkingCopyDefinitionFailureReason::AmbiguousLocalTime
             }
             Self::TimestampOutOfRange(_) => {
-                AssignmentRevisionDefinitionFailureReason::TimestampOutOfRange
+                AssignmentWorkingCopyDefinitionFailureReason::TimestampOutOfRange
             }
             Self::ScheduleOutOfOrder => {
-                AssignmentRevisionDefinitionFailureReason::ScheduleOutOfOrder
+                AssignmentWorkingCopyDefinitionFailureReason::ScheduleOutOfOrder
             }
             Self::AssignmentAttemptTimeLimitOutOfRange => {
-                AssignmentRevisionDefinitionFailureReason::AssignmentAttemptTimeLimitOutOfRange
+                AssignmentWorkingCopyDefinitionFailureReason::AssignmentAttemptTimeLimitOutOfRange
             }
             Self::AttemptLimitOutOfRange => {
-                AssignmentRevisionDefinitionFailureReason::AttemptLimitOutOfRange
+                AssignmentWorkingCopyDefinitionFailureReason::AttemptLimitOutOfRange
             }
         }
     }
 }
 
-impl std::fmt::Display for AssignmentRevisionDefinitionLocalError {
+impl std::fmt::Display for AssignmentWorkingCopyDefinitionLocalError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::CourseTimeZoneMismatch => {
-                "Assignment Revision Definition time zone must match the course time zone"
+                "Assignment Working Copy definition time zone must match the course time zone"
             }
             Self::OutsideCourseTerm(_) => "teaching schedule must be inside the course calendar",
             Self::NonexistentLocalTime(_) => {
@@ -484,13 +477,13 @@ impl std::fmt::Display for AssignmentRevisionDefinitionLocalError {
     }
 }
 
-impl std::error::Error for AssignmentRevisionDefinitionLocalError {}
+impl std::error::Error for AssignmentWorkingCopyDefinitionLocalError {}
 
 fn validate_local_ordering(
     available_at: &Option<CourseLocalDateAndTime>,
     due_at: &Option<CourseLocalDateAndTime>,
     closes_at: &Option<CourseLocalDateAndTime>,
-) -> Result<(), AssignmentRevisionDefinitionLocalError> {
+) -> Result<(), AssignmentWorkingCopyDefinitionLocalError> {
     if available_at
         .as_ref()
         .zip(due_at.as_ref())
@@ -504,7 +497,7 @@ fn validate_local_ordering(
             .zip(closes_at.as_ref())
             .is_some_and(|(available, closes)| available > closes)
     {
-        return Err(AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder);
+        return Err(AssignmentWorkingCopyDefinitionLocalError::ScheduleOutOfOrder);
     }
     Ok(())
 }
@@ -513,7 +506,7 @@ fn validate_absolute_ordering(
     available_at: Option<ActivityTimestamp>,
     due_at: Option<ActivityTimestamp>,
     closes_at: Option<ActivityTimestamp>,
-) -> Result<(), AssignmentRevisionDefinitionLocalError> {
+) -> Result<(), AssignmentWorkingCopyDefinitionLocalError> {
     if available_at
         .zip(due_at)
         .is_some_and(|(available, due)| available > due)
@@ -524,7 +517,7 @@ fn validate_absolute_ordering(
             .zip(closes_at)
             .is_some_and(|(available, closes)| available > closes)
     {
-        return Err(AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder);
+        return Err(AssignmentWorkingCopyDefinitionLocalError::ScheduleOutOfOrder);
     }
     Ok(())
 }
@@ -540,8 +533,8 @@ fn course_time_zone(course_term: &CourseTerm) -> chrono_tz::Tz {
 fn resolve_optional_course_local_timestamp(
     value: Option<&CourseLocalDateAndTime>,
     course_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<Option<ActivityTimestamp>, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<Option<ActivityTimestamp>, AssignmentWorkingCopyDefinitionLocalError> {
     value
         .map(|value| resolve_course_local_timestamp(value, course_term, field))
         .transpose()
@@ -555,35 +548,33 @@ fn resolve_optional_course_local_timestamp(
 pub fn resolve_course_local_timestamp(
     value: &CourseLocalDateAndTime,
     course_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<ActivityTimestamp, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<ActivityTimestamp, AssignmentWorkingCopyDefinitionLocalError> {
     let naive = value.naive();
     let date = naive.date().format("%Y-%m-%d").to_string();
     if date.as_str() < course_term.start_date().as_str()
         || date.as_str() > course_term.end_date().as_str()
     {
-        return Err(AssignmentRevisionDefinitionLocalError::OutsideCourseTerm(
-            field,
-        ));
+        return Err(AssignmentWorkingCopyDefinitionLocalError::OutsideCourseTerm(field));
     }
     match course_time_zone(course_term).from_local_datetime(&naive) {
         LocalResult::Single(value) => Ok(ActivityTimestamp::from_unix_millis(
             value.timestamp_millis(),
         )),
         LocalResult::None => {
-            Err(AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(field))
+            Err(AssignmentWorkingCopyDefinitionLocalError::NonexistentLocalTime(field))
         }
-        LocalResult::Ambiguous(_, _) => Err(
-            AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(field),
-        ),
+        LocalResult::Ambiguous(_, _) => {
+            Err(AssignmentWorkingCopyDefinitionLocalError::AmbiguousLocalTime(field))
+        }
     }
 }
 
 fn project_optional_course_local_timestamp(
     value: Option<ActivityTimestamp>,
     course_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<Option<CourseLocalDateAndTime>, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<Option<CourseLocalDateAndTime>, AssignmentWorkingCopyDefinitionLocalError> {
     value
         .map(|value| project_course_local_timestamp(value, course_term, field))
         .transpose()
@@ -597,11 +588,10 @@ fn project_optional_course_local_timestamp(
 pub fn project_course_local_timestamp(
     value: ActivityTimestamp,
     course_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<CourseLocalDateAndTime, AssignmentRevisionDefinitionLocalError> {
-    let utc = DateTime::<Utc>::from_timestamp_millis(value.as_unix_millis()).ok_or(
-        AssignmentRevisionDefinitionLocalError::TimestampOutOfRange(field),
-    )?;
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<CourseLocalDateAndTime, AssignmentWorkingCopyDefinitionLocalError> {
+    let utc = DateTime::<Utc>::from_timestamp_millis(value.as_unix_millis())
+        .ok_or(AssignmentWorkingCopyDefinitionLocalError::TimestampOutOfRange(field))?;
     let local = course_time_zone(course_term).from_utc_datetime(&utc.naive_utc());
     let wall_clock =
         CourseLocalDateAndTime::parse(&local.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
@@ -610,21 +600,17 @@ pub fn project_course_local_timestamp(
         LocalResult::Single(round_trip)
             if round_trip.timestamp_millis() == value.as_unix_millis() => {}
         LocalResult::Single(_) | LocalResult::Ambiguous(_, _) => {
-            return Err(AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(
-                field,
-            ));
+            return Err(AssignmentWorkingCopyDefinitionLocalError::AmbiguousLocalTime(field));
         }
         LocalResult::None => {
-            return Err(AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(field));
+            return Err(AssignmentWorkingCopyDefinitionLocalError::NonexistentLocalTime(field));
         }
     }
     let date = local.format("%Y-%m-%d").to_string();
     if date.as_str() < course_term.start_date().as_str()
         || date.as_str() > course_term.end_date().as_str()
     {
-        return Err(AssignmentRevisionDefinitionLocalError::OutsideCourseTerm(
-            field,
-        ));
+        return Err(AssignmentWorkingCopyDefinitionLocalError::OutsideCourseTerm(field));
     }
     Ok(wall_clock)
 }

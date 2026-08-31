@@ -12,13 +12,13 @@ mod point_value;
 mod revision;
 mod teaching_settings_local;
 pub use point_value::AssignmentPointValue;
-pub use revision::{AssignmentRevisionNumber, AssignmentRevisionNumberError};
+pub use revision::{AssignmentEditNumber, AssignmentRevisionNumber, AssignmentRevisionNumberError};
 pub use teaching_settings_local::{
-    AssignmentRevisionDefinitionFailureCode, AssignmentRevisionDefinitionFailureReason,
-    AssignmentRevisionDefinitionField, AssignmentRevisionDefinitionLocalError,
-    AssignmentRevisionDefinitionValidationFailure, CourseLocalDateAndTime,
+    AssignmentWorkingCopyDefinitionFailureCode, AssignmentWorkingCopyDefinitionFailureReason,
+    AssignmentWorkingCopyDefinitionField, AssignmentWorkingCopyDefinitionLocalError,
+    AssignmentWorkingCopyDefinitionValidationFailure, CourseLocalDateAndTime,
     CourseLocalDateAndTimeError, InstructorAssignmentCurrentState,
-    InstructorAssignmentRevisionDefinitionLocal, derive_instructor_assignment_current_state,
+    InstructorAssignmentWorkingCopyDefinitionLocal, derive_instructor_assignment_current_state,
 };
 
 use crate::{
@@ -41,18 +41,18 @@ pub const MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL: usize = 1_024;
 /// Maximum candidate Question IDs across all Question Pools in one assignment definition.
 pub const MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES: usize = 8_192;
 
-/// Instructor-controlled lifecycle intent for an assignment.
+/// Instructor-controlled stable status for one Assignment.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentLifecycle {
-    /// The assignment remains private to instructors.
+pub enum AssignmentStatus {
+    /// The Assignment remains private to Instructors.
     #[default]
-    Draft,
-    /// The assignment is eligible for student access, subject to all other gates.
-    Published,
-    /// The assignment is no longer open to new student work.
+    Unreleased,
+    /// The Assignment selects one released revision for future Student access.
+    Released,
+    /// The Assignment no longer accepts new Student work.
     Closed,
-    /// The assignment is permanently retired from student access.
+    /// The Assignment is retired from current teaching surfaces.
     Archived,
 }
 
@@ -286,29 +286,16 @@ impl Default for BaseAssignmentPolicy {
     }
 }
 
-/// The lifecycle, instructions, base policy, and activity rules carried by one Assignment Revision.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Replaceable Instructor-authored definition for one Assignment Working Copy.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentRevisionDefinition {
-    /// Instructor-controlled assignment lifecycle intent.
-    pub lifecycle: AssignmentLifecycle,
+pub struct AssignmentWorkingCopyDefinition {
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// Base policy supplied to the effective-policy resolver.
     pub base_policy: BaseAssignmentPolicy,
     /// The complete independent activity policy for future Assignment Attempts.
     pub activity_rules: AssignmentActivityRules,
-}
-
-impl Default for AssignmentRevisionDefinition {
-    fn default() -> Self {
-        Self {
-            lifecycle: AssignmentLifecycle::Draft,
-            instructions: AssignmentInstructions::default(),
-            base_policy: BaseAssignmentPolicy::default(),
-            activity_rules: AssignmentActivityRules::default(),
-        }
-    }
 }
 
 /// Largest whole-run limit representable by the current PostgreSQL `INTEGER`
@@ -489,10 +476,9 @@ mod tests {
         available_at: Option<CourseLocalDateAndTime>,
         due_at: Option<CourseLocalDateAndTime>,
         closes_at: Option<CourseLocalDateAndTime>,
-    ) -> InstructorAssignmentRevisionDefinitionLocal {
-        InstructorAssignmentRevisionDefinitionLocal::new(
+    ) -> InstructorAssignmentWorkingCopyDefinitionLocal {
+        InstructorAssignmentWorkingCopyDefinitionLocal::new(
             CourseTimeZone::parse(time_zone).expect("known zone"),
-            AssignmentLifecycle::Published,
             AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
             available_at,
@@ -538,6 +524,22 @@ mod tests {
         for invalid in ["", "0", "01", "+2", "-2", "9223372036854775808"] {
             assert!(
                 invalid.parse::<AssignmentRevisionNumber>().is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn assignment_edit_numbers_are_distinct_canonical_working_copy_preconditions() {
+        let edit: AssignmentEditNumber = "43".parse().expect("canonical edit number");
+        assert_eq!(serde_json::json!(edit), serde_json::json!("43"));
+        assert_eq!(
+            edit.checked_next().map(|value| value.to_string()),
+            Some("44".into())
+        );
+        for invalid in ["", "0", "01", "+2", "-2", "9223372036854775808"] {
+            assert!(
+                invalid.parse::<AssignmentEditNumber>().is_err(),
                 "{invalid}"
             );
         }
@@ -592,11 +594,10 @@ mod tests {
     }
 
     #[test]
-    fn assignment_revision_definition_is_strict_and_uses_direct_cutover_defaults() {
+    fn assignment_working_copy_definition_is_strict_and_uses_direct_cutover_defaults() {
         assert_eq!(
-            AssignmentRevisionDefinition::default(),
-            AssignmentRevisionDefinition {
-                lifecycle: AssignmentLifecycle::Draft,
+            AssignmentWorkingCopyDefinition::default(),
+            AssignmentWorkingCopyDefinition {
                 instructions: AssignmentInstructions::default(),
                 base_policy: BaseAssignmentPolicy {
                     late_work_rule: LateWorkRule::Accept,
@@ -607,8 +608,7 @@ mod tests {
             }
         );
         assert!(
-            serde_json::from_value::<AssignmentRevisionDefinition>(serde_json::json!({
-                "lifecycle": "draft",
+            serde_json::from_value::<AssignmentWorkingCopyDefinition>(serde_json::json!({
                 "instructions": "",
                 "basePolicy": {
                     "availableAt": null,
@@ -636,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn local_assignment_revision_definition_round_trips_exact_milliseconds() {
+    fn local_assignment_working_copy_definition_round_trips_exact_milliseconds() {
         let timestamp = ActivityTimestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 15, 4, 5)
                 .single()
@@ -644,8 +644,7 @@ mod tests {
                 .timestamp_millis()
                 + 123,
         );
-        let settings = AssignmentRevisionDefinition {
-            lifecycle: AssignmentLifecycle::Published,
+        let settings = AssignmentWorkingCopyDefinition {
             instructions: AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
             base_policy: BaseAssignmentPolicy {
@@ -666,7 +665,7 @@ mod tests {
                 ..AssignmentActivityRules::default()
             },
         };
-        let utc = InstructorAssignmentRevisionDefinitionLocal::from_absolute(
+        let utc = InstructorAssignmentWorkingCopyDefinitionLocal::from_absolute(
             &course_term("UTC"),
             &settings,
         )
@@ -683,7 +682,7 @@ mod tests {
             settings
         );
 
-        let chicago = InstructorAssignmentRevisionDefinitionLocal::from_absolute(
+        let chicago = InstructorAssignmentWorkingCopyDefinitionLocal::from_absolute(
             &course_term("America/Chicago"),
             &settings,
         )
@@ -704,7 +703,7 @@ mod tests {
     }
 
     #[test]
-    fn local_assignment_revision_definition_refuses_dst_gap_ambiguity_and_mismatch() {
+    fn local_assignment_working_copy_definition_refuses_dst_gap_ambiguity_and_mismatch() {
         let term = course_term("America/Chicago");
         let gap = local_settings(
             "America/Chicago",
@@ -715,8 +714,8 @@ mod tests {
         assert_eq!(
             gap.into_absolute(&term, AssignmentActivityRules::default()),
             Err(
-                AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(
-                    AssignmentRevisionDefinitionField::AvailableAt
+                AssignmentWorkingCopyDefinitionLocalError::NonexistentLocalTime(
+                    AssignmentWorkingCopyDefinitionField::AvailableAt
                 )
             )
         );
@@ -728,25 +727,26 @@ mod tests {
         );
         assert_eq!(
             ambiguity.into_absolute(&term, AssignmentActivityRules::default()),
-            Err(AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(
-                AssignmentRevisionDefinitionField::AvailableAt
-            ))
+            Err(
+                AssignmentWorkingCopyDefinitionLocalError::AmbiguousLocalTime(
+                    AssignmentWorkingCopyDefinitionField::AvailableAt
+                )
+            )
         );
         let mismatch = local_settings("UTC", Some(local("2026-09-01T15:04:05.123")), None, None);
         assert_eq!(
             mismatch.into_absolute(&term, AssignmentActivityRules::default()),
-            Err(AssignmentRevisionDefinitionLocalError::CourseTimeZoneMismatch)
+            Err(AssignmentWorkingCopyDefinitionLocalError::CourseTimeZoneMismatch)
         );
     }
 
     #[test]
-    fn local_assignment_revision_definition_is_strict_and_validates_bounds() {
+    fn local_assignment_working_copy_definition_is_strict_and_validates_bounds() {
         assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04").is_err());
         assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04:05.12").is_err());
         assert_eq!(
-            InstructorAssignmentRevisionDefinitionLocal::new(
+            InstructorAssignmentWorkingCopyDefinitionLocal::new(
                 CourseTimeZone::parse("UTC").expect("known zone"),
-                AssignmentLifecycle::Draft,
                 AssignmentInstructions::default(),
                 Some(local("2026-09-01T10:05:00.000")),
                 Some(local("2026-09-01T10:04:00.000")),
@@ -756,12 +756,11 @@ mod tests {
                 LateWorkRule::Accept,
                 AssignmentDeadlineRule::AutoSubmit,
             ),
-            Err(AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder)
+            Err(AssignmentWorkingCopyDefinitionLocalError::ScheduleOutOfOrder)
         );
         assert_eq!(
-            InstructorAssignmentRevisionDefinitionLocal::new(
+            InstructorAssignmentWorkingCopyDefinitionLocal::new(
                 CourseTimeZone::parse("UTC").expect("known zone"),
-                AssignmentLifecycle::Draft,
                 AssignmentInstructions::default(),
                 None,
                 None,
@@ -771,13 +770,12 @@ mod tests {
                 LateWorkRule::Accept,
                 AssignmentDeadlineRule::AutoSubmit,
             ),
-            Err(AssignmentRevisionDefinitionLocalError::AttemptLimitOutOfRange)
+            Err(AssignmentWorkingCopyDefinitionLocalError::AttemptLimitOutOfRange)
         );
         assert!(
-            serde_json::from_value::<InstructorAssignmentRevisionDefinitionLocal>(
+            serde_json::from_value::<InstructorAssignmentWorkingCopyDefinitionLocal>(
                 serde_json::json!({
                     "timeZone": "UTC",
-                    "lifecycle": "draft",
                     "instructions": "",
                     "availableAt": null,
                     "dueAt": null,
@@ -791,10 +789,9 @@ mod tests {
             .is_err()
         );
         assert!(
-            serde_json::from_value::<InstructorAssignmentRevisionDefinitionLocal>(
+            serde_json::from_value::<InstructorAssignmentWorkingCopyDefinitionLocal>(
                 serde_json::json!({
                     "timeZone": "UTC",
-                    "lifecycle": "draft",
                     "instructions": "",
                     "availableAt": null,
                     "dueAt": null,
@@ -825,8 +822,7 @@ mod tests {
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let settings = AssignmentRevisionDefinition {
-            lifecycle: AssignmentLifecycle::Published,
+        let settings = AssignmentWorkingCopyDefinition {
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy {
                 available_at: Some(available),
@@ -839,6 +835,7 @@ mod tests {
         assert_eq!(
             derive_instructor_assignment_current_state(
                 &term,
+                AssignmentStatus::Released,
                 &settings,
                 ActivityTimestamp::from_unix_millis(available.as_unix_millis() - 1),
             )
@@ -848,13 +845,23 @@ mod tests {
             }
         );
         assert_eq!(
-            derive_instructor_assignment_current_state(&term, &settings, available)
-                .expect("open state"),
+            derive_instructor_assignment_current_state(
+                &term,
+                AssignmentStatus::Released,
+                &settings,
+                available,
+            )
+            .expect("open state"),
             InstructorAssignmentCurrentState::Open
         );
         assert_eq!(
-            derive_instructor_assignment_current_state(&term, &settings, closes)
-                .expect("closed state"),
+            derive_instructor_assignment_current_state(
+                &term,
+                AssignmentStatus::Released,
+                &settings,
+                closes,
+            )
+            .expect("closed state"),
             InstructorAssignmentCurrentState::Closed {
                 closed_at: Some(local("2026-09-01T12:00:00.000")),
             }
@@ -870,8 +877,7 @@ mod tests {
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let mut settings = AssignmentRevisionDefinition {
-            lifecycle: AssignmentLifecycle::Published,
+        let settings = AssignmentWorkingCopyDefinition {
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy {
                 due_at: Some(due),
@@ -881,31 +887,35 @@ mod tests {
             activity_rules: AssignmentActivityRules::default(),
         };
         assert_eq!(
-            derive_instructor_assignment_current_state(&term, &settings, due)
-                .expect("due-date closure"),
+            derive_instructor_assignment_current_state(
+                &term,
+                AssignmentStatus::Released,
+                &settings,
+                due,
+            )
+            .expect("due-date closure"),
             InstructorAssignmentCurrentState::Closed {
                 closed_at: Some(local("2026-09-01T11:00:00.000")),
             }
         );
 
-        for (lifecycle, expected) in [
+        for (status, expected) in [
             (
-                AssignmentLifecycle::Draft,
+                AssignmentStatus::Unreleased,
                 InstructorAssignmentCurrentState::Draft,
             ),
             (
-                AssignmentLifecycle::Closed,
+                AssignmentStatus::Closed,
                 InstructorAssignmentCurrentState::Closed { closed_at: None },
             ),
             (
-                AssignmentLifecycle::Archived,
+                AssignmentStatus::Archived,
                 InstructorAssignmentCurrentState::Archived,
             ),
         ] {
-            settings.lifecycle = lifecycle;
             assert_eq!(
-                derive_instructor_assignment_current_state(&term, &settings, due)
-                    .expect("stored lifecycle state"),
+                derive_instructor_assignment_current_state(&term, status, &settings, due)
+                    .expect("stored assignment status"),
                 expected
             );
         }

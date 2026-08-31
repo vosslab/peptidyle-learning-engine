@@ -6,7 +6,8 @@
 //! renderer.
 //!
 //! The envelope carries prompt content and response shape. Answer keys and
-//! grading material stay in `crates/grading`; an M3 gate inspects a browser
+//! Answer Keys, Question Feedback, Question Answer Explanations, and Question
+//! Grading Input stay in `crates/grading`; an M3 gate inspects a browser
 //! network trace to confirm it.
 
 use std::collections::BTreeMap;

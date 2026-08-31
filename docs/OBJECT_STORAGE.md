@@ -20,7 +20,8 @@ canonical live-demo path uses these same domains and delivery rules.
 
 Each Object Storage Area maps to its own provider bucket and KMS key. This physical split is
 an enforcement boundary: a public CDN policy cannot expose private workspace
-source, grading material, Student work, or course records. Local MinIO uses
+source, Answer Key, Question Feedback, Question Answer Explanation, Question
+Grading Input, Student work, or course records. Local MinIO uses
 four correspondingly named buckets to preserve the routing contract, but it is
 not evidence of AWS IAM, KMS, bucket-policy, Object Lock, or recovery
 configuration.
@@ -34,7 +35,7 @@ variant. Important mappings are:
 | Object class                                           | Object Address family                                                                    | Domain and delivery authority                                                                                                                                                                          |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Private workspace source and authoring assets          | `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset`, `WorkspaceQuestionAsset` | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace projection. Collaboration is a future separately designed capability, not current authority. |
-| Published answer-free presentation asset               | `QuestionAsset`                                                                          | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source or grading material.              |
+| Published answer-free presentation asset               | `QuestionAsset`                                                                          | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input.              |
 | Published source, provenance, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                             | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it.                                                                                |
 | Generation/grader keys and payloads                    | Server-only private records and any typed private object used by their owning worker     | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it.                                                                                        |
 | Course-record presentation asset                       | `CourseBanner`                                                                           | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                       |

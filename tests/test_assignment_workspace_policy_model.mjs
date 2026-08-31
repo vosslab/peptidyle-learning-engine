@@ -34,9 +34,8 @@ const policies = {
   assignmentQuestionOrderRule: "authoredOrder",
 };
 
-const assignmentRevisionDefinition = {
+const assignmentWorkingCopyDefinition = {
   timeZone: "America/Chicago",
-  lifecycle: "draft",
   instructions: "Use a clear structural drawing.",
   availableAt: null,
   dueAt: "2026-09-01T17:00:00.000",
@@ -51,10 +50,13 @@ test("focused policy input preserves direct delivery settings", () => {
   const input = assignmentPoliciesInput(
     studentFeedbackReleaseRule,
     policies,
-    assignmentRevisionDefinition,
+    assignmentWorkingCopyDefinition,
   );
 
-  assert.equal(input.assignmentRevisionDefinition.instructions, "Use a clear structural drawing.");
+  assert.equal(
+    input.assignmentWorkingCopyDefinition.instructions,
+    "Use a clear structural drawing.",
+  );
 });
 
 test("policy local-time normalization accepts only explicit course wall-clock values", () => {
@@ -126,12 +128,12 @@ test("server policy issues select the first repair while keeping concise safe de
   assert.equal(JSON.stringify(feedback).includes("7K3-M9QP"), false);
 });
 
-test("draft revision publication readiness gives lifecycle focus and a Questions repair route", () => {
+test("Assignment Release Requirements give a Questions repair route", () => {
   const feedback = assignmentPoliciesValidationFeedback([
-    { kind: "draftRevisionPublicationReadiness", blockingIssues: [{ kind: "questionsRequired" }] },
+    { kind: "assignmentReleaseRequirements", blockingIssues: [{ kind: "questionsRequired" }] },
   ]);
 
-  assert.equal(feedback.target, "lifecycle");
+  assert.equal(feedback.target, "questions");
   assert.equal(feedback.questionRepairRequired, true);
-  assert.equal(feedback.message, "Add at least one question before publishing this assignment.");
+  assert.equal(feedback.message, "Add at least one question before releasing this assignment.");
 });

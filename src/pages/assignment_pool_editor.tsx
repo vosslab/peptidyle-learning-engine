@@ -2,7 +2,7 @@
 
 import { For, Show, createSignal, type JSX } from "solid-js";
 
-import type { PoolDrawPreview } from "../api/contracts";
+import type { QuestionPoolPreview } from "../api/contracts";
 import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 
 import type {
@@ -25,7 +25,7 @@ export interface AssignmentPoolEditorProps {
   readonly onMove: (direction: -1 | 1) => void;
   readonly onRemove: () => void;
   readonly onMessage: (message: string) => void;
-  readonly preview: PoolDrawPreview | undefined;
+  readonly preview: QuestionPoolPreview | undefined;
   readonly previewBusy: boolean;
   readonly onPreview: () => void;
   readonly onChooseCandidates: (trigger: HTMLButtonElement) => void;
@@ -191,8 +191,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           >
             <h4 id={`pool-preview-${props.entryIndex}`}>{preview().questionPoolLabel}</h4>
             <p>
-              Draw {preview().drawCount} in {preview().selectionRule.ordering} order with Draw
-              algorithm {preview().selectionRule.algorithm}.
+              Selected {preview().selectionCount} in {preview().selectionRule.ordering} order.
             </p>
             <h5>Candidate questions</h5>
             <ul>
@@ -204,9 +203,9 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
                 )}
               </For>
             </ul>
-            <h5>Server-sampled draw</h5>
+            <h5>Server-selected Questions</h5>
             <ol>
-              <For each={preview().sampled}>
+              <For each={preview().selected}>
                 {(sample) => (
                   <li>
                     <strong>{sample.questionId}</strong> {sample.title}

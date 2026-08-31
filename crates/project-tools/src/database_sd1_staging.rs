@@ -1,7 +1,7 @@
 //! Closed runtime loading for the non-runtime SD1 migration epoch.
 
 use anyhow::{Context, Result, bail};
-use learning_data_access::postgres::{MigrationStatus, Pool};
+use learning_data_access::postgres::{MigrationCheck, Pool};
 use sqlx::migrate::Migrator;
 use sqlx::{Acquire, AssertSqlSafe, Row};
 use std::path::{Path, PathBuf};
@@ -309,13 +309,13 @@ async fn verify(pool: &Pool, directory: &Path) -> Result<()> {
     Ok(())
 }
 
-async fn staged_status(pool: &Pool, directory: &Path) -> Result<MigrationStatus> {
+async fn staged_status(pool: &Pool, directory: &Path) -> Result<MigrationCheck> {
     learning_data_access::postgres::migration_status_from_directory(pool, directory)
         .await
         .context("comparing the SQLx ledger with the canonical SD1 baseline migrations")
 }
 
-fn require_compatible(status: &MigrationStatus) -> Result<()> {
+fn require_compatible(status: &MigrationCheck) -> Result<()> {
     if !status.is_compatible() {
         super::print_status(status);
         bail!("SD1 staged migration ledger is not an exact successful checksum match");

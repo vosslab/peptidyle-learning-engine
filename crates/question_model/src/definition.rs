@@ -6,9 +6,10 @@
 //! attempt loop, gradebook, and export path. Each backend adapter translates
 //! into this type, and everything downstream reads only this type.
 //!
-//! The definition describes a question. It carries no answer key and no
-//! grading material: [`GradingDefinition`] states *how* a response is judged,
-//! while the values it is judged against live in `crates/grading`, server-side.
+//! The definition describes a question. It carries no Answer Key, Question
+//! Feedback, Question Answer Explanation, or Question Grading Input:
+//! [`GradingDefinition`] states *how* a response is judged, while the private
+//! values it is judged against live in `crates/grading`, server-side.
 
 use serde::{Deserialize, Serialize};
 
@@ -200,7 +201,7 @@ pub enum DraftQuestionSource {
     /// An imported QTI item staged in this draft's private workspace.
     ///
     /// The import record, rather than the browser, resolves private archive,
-    /// asset, and grading material. It cannot be used as a published locator.
+    /// asset and Question Grading Input. It cannot be used as a published locator.
     Qti {
         item_id: String,
         import_id: WorkspaceImportId,

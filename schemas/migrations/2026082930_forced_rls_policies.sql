@@ -45,24 +45,54 @@ CREATE POLICY draft_question_source_access ON ple_private.draft_question_source
     FOR ALL TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_grading_material_write_access ON ple_private.draft_question_grading_material
+CREATE POLICY draft_question_answer_key_write_access ON ple_private.draft_question_answer_key
     FOR INSERT TO ple_app
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_grading_material_update_access ON ple_private.draft_question_grading_material
+CREATE POLICY draft_question_answer_key_update_access ON ple_private.draft_question_answer_key
     FOR UPDATE TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_grading_material_delete_access ON ple_private.draft_question_grading_material
+CREATE POLICY draft_question_answer_key_delete_access ON ple_private.draft_question_answer_key
+    FOR DELETE TO ple_app
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_feedback_write_access ON ple_private.draft_question_feedback
+    FOR INSERT TO ple_app
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_feedback_update_access ON ple_private.draft_question_feedback
+    FOR UPDATE TO ple_app
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_feedback_delete_access ON ple_private.draft_question_feedback
+    FOR DELETE TO ple_app
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_answer_explanation_write_access ON ple_private.draft_question_answer_explanation
+    FOR INSERT TO ple_app
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_answer_explanation_update_access ON ple_private.draft_question_answer_explanation
+    FOR UPDATE TO ple_app
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_answer_explanation_delete_access ON ple_private.draft_question_answer_explanation
+    FOR DELETE TO ple_app
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_grading_input_write_access ON ple_private.draft_question_grading_input
+    FOR INSERT TO ple_app
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_grading_input_update_access ON ple_private.draft_question_grading_input
+    FOR UPDATE TO ple_app
+    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+CREATE POLICY draft_question_grading_input_delete_access ON ple_private.draft_question_grading_input
     FOR DELETE TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_qti_import_access ON ple_private.workspace_qti_import
     FOR ALL TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY workspace_qti_import_grading_write_access ON ple_private.workspace_qti_import_grading
+CREATE POLICY workspace_import_grading_input_write_access ON ple_private.workspace_import_grading_input
     FOR INSERT TO ple_app
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY workspace_qti_import_grading_update_access ON ple_private.workspace_qti_import_grading
+CREATE POLICY workspace_import_grading_input_update_access ON ple_private.workspace_import_grading_input
     FOR UPDATE TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));

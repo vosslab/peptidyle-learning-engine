@@ -131,7 +131,7 @@ renderer, or emit `ple.webwork.cache` `renderer_call` or `cache_hit`. Normal
 grading reads the same attempt-bound artifacts and makes one private grade
 RPC; it neither rerenders nor repairs missing replay state. Missing or
 mismatched state fails question-locally and closed. Do not place replay
-mappings in the public render cache; they are server-only grading material.
+mappings in the public render cache; they are server-only Question Grading Input.
 
 ### iMathAS
 

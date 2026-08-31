@@ -13,7 +13,9 @@ results, object keys, or source archives. The complete allowlist and privacy bou
 [API_CONTRACTS.md](API_CONTRACTS.md).
 
 Authoring, import, grading, and export workers may handle private payloads after authorization.
-Private source bytes and grading material remain in their owning adapter or object-store boundary;
+Private source bytes, Answer Keys, Question Feedback, Question Answer Explanations,
+and format-specific Question Grading Input remain in their owning adapter or
+object-store boundary;
 they are not browser formats merely because an Instructor can initiate the operation.
 
 ## Live-demo operator input

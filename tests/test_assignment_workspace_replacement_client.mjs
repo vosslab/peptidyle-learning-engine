@@ -30,9 +30,9 @@ function replacementEditorDetail() {
         title: "Replacement peptide bond question",
       },
     ],
-    assignmentRevisionDefinition: {
+    assignmentStatus: "unreleased",
+    assignmentWorkingCopyDefinition: {
       timeZone: "America/Chicago",
-      lifecycle: "draft",
       instructions: "Use a structural drawing.",
       availableAt: null,
       dueAt: null,
@@ -43,12 +43,12 @@ function replacementEditorDetail() {
       assignmentDeadlineRule: "autoSubmit",
     },
     currentState: { state: "draft" },
-    draftRevisionPublicationReadiness: { blockingIssues: [] },
+    assignmentReleaseValidation: { blockingIssues: [] },
   };
   return replacement;
 }
 
-test("fixed-item replacement sends one revision-checked focused request", async () => {
+test("fixed-item replacement sends one edit-number-checked focused request", async () => {
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
       new Response(JSON.stringify({ error: "assignment changed" }), {
@@ -74,7 +74,7 @@ test("fixed-item replacement sends one revision-checked focused request", async 
   assert.equal(request.credentials, "same-origin");
   assert.equal(request.cache, "no-store");
   assert.deepEqual(await request.json(), {
-    baseRevision: { assignment: "A-1", revision_number: "4" },
+    baseEditNumber: "4",
     questionId: "7K3-M9QP",
   });
 

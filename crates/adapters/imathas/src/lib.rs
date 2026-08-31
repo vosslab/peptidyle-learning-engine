@@ -1,7 +1,8 @@
 //! MOD-ADP-IMATHAS: isolated iMathAS/MyOpenMath adapter.
 //!
 //! A provider is deployment configuration selected by an opaque key. This
-//! crate never accepts author-supplied endpoints or browser grading material.
+//! crate never accepts author-supplied endpoints or browser Answer Keys,
+//! Question Feedback, Question Answer Explanations, or Question Grading Input.
 
 #[path = "lib/adapter.rs"]
 mod adapter;

@@ -485,7 +485,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                     surface: asset.clone(),
                     description: surface.description.clone(),
                     regions: regions.iter().map(compile_region).collect(),
-                    // Correct-region cardinality is private grading material.
+                    // Correct-region cardinality is private Answer Key data.
                     // The public format requires a nonempty selection without
                     // disclosing how many regions the answer key contains.
                     selection: ResponseSelectionRule::AtLeastOne,

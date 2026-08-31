@@ -1,5 +1,5 @@
 -- SD1 Course Observer relationships, Sysadmin support capabilities, and
--- session-derived authorization brokers. ASVS 8.2.1, 8.2.2, and 8.3.1.
+-- session-derived authorization checks. ASVS 8.2.1, 8.2.2, and 8.3.1.
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.course_observer_relationship_event (

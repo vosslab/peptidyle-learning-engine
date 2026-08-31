@@ -61,7 +61,9 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 ### Source and render
 
 **Current.** The native adapter compiles versioned PLE flat JSON into two products: an answer-free
-`QuestionVersion`/`QuestionPresentation` and private grading material. The trusted server bridge
+`QuestionVersion`/`QuestionPresentation` and private Answer Key, Question
+Feedback, Question Answer Explanation, and format-specific Question Grading
+Input. The trusted server bridge
 resolves immutable published-Question asset bindings before issue, replay, or grade. The browser receives prompt
 blocks, public Question Response Format, asset references, version, and seed. It returns only the PLE
 response shape; it does not return source bytes, a private key, asset-object binding, implementation

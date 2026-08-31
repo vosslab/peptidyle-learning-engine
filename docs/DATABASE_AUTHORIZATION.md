@@ -144,7 +144,8 @@ restores inherit the highest label of their inputs.
 | Retention evidence                    | `course_retention_plan`, `retention_lifecycle_event`                                                                                                                                               |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.
-Private source and answer-bearing grading material are highly restricted for assessment integrity,
+Private source, Answer Keys, Question Feedback, Question Answer Explanations,
+and format-specific Question Grading Input are highly restricted for assessment integrity,
 not Student records unless joined to Student activity. The global published aggregate remains
 identity-free; its Student-linked contribution receipt is radioactive, and course-local analysis is
 radioactive because small cohorts can be identifiable.

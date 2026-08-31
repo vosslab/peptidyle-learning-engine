@@ -10,13 +10,13 @@ import {
   type AssignmentEditorQuestionPoolEntry,
 } from "./assignment_editor_model";
 import { AssignmentPoolEditor } from "./assignment_pool_editor";
-import type { PoolDrawPreview } from "../api/contracts";
+import type { QuestionPoolPreview } from "../api/contracts";
 
 export interface AssignmentEditorContentListProps {
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
   readonly createMode: boolean;
   readonly busy: boolean;
-  readonly preview: PoolDrawPreview | undefined;
+  readonly preview: QuestionPoolPreview | undefined;
   readonly resolveCandidates: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;

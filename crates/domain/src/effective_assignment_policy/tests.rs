@@ -45,7 +45,7 @@ fn active_student_course_membership() -> ActiveStudentCourseMembershipDecision {
 
 fn input() -> ResolveEffectivePolicyInput {
     ResolveEffectivePolicyInput {
-        lifecycle: AssignmentLifecycleGate::Open,
+        assignment_status: AssignmentStatusGate::Open,
         active_student_course_membership: active_student_course_membership(),
         authorization: AuthorizationGate::Authorized,
         now: stamp(20_000),
@@ -115,14 +115,14 @@ fn accommodation_must_belong_to_the_entitled_student() {
 }
 
 #[test]
-fn lifecycle_denial_precedes_policy_evaluation() {
+fn assignment_status_denial_precedes_policy_evaluation() {
     let mut value = input();
-    value.lifecycle = AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished);
+    value.assignment_status = AssignmentStatusGate::Denied(AssignmentStatusDenial::Unreleased);
     assert_eq!(
         resolve_effective_policy(value),
         Ok(AssignmentAccessDecision::Denied {
-            gate: PolicyGate::Lifecycle,
-            reason: GateDenial::Lifecycle(AssignmentLifecycleDenial::NotPublished),
+            gate: PolicyGate::AssignmentStatus,
+            reason: GateDenial::AssignmentStatus(AssignmentStatusDenial::Unreleased),
         })
     );
 }
@@ -130,7 +130,7 @@ fn lifecycle_denial_precedes_policy_evaluation() {
 #[test]
 fn synthetic_preview_can_apply_a_hypothetical_accommodation() {
     let decision = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
-        lifecycle: AssignmentLifecycleGate::Open,
+        assignment_status: AssignmentStatusGate::Open,
         active_student_course_membership: admit_synthetic_preview(
             SyntheticPreviewAdmissionFacts::new(
                 CourseId::from_uuid(id(2)),

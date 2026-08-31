@@ -407,18 +407,21 @@ Question Pool Selection Rule combines the reviewed candidate-selection algorithm
 and output ordering for one pool. Question Variation Rule separately controls
 whether later Assignment Attempts reuse or redraw pool selections.
 
-Assignment Revision definition editing is a separate closed contract.
-`AssignmentRevisionDefinition` carries one `AssignmentLifecycle`, validated
-plain-text `AssignmentInstructions`, and the absolute `BaseAssignmentPolicy`
-for the exact immutable Assignment Revision. `AssignmentTitle` is the separate
-validated short name for that same revision, rather than generic text at a
-shared contract boundary.
+Assignment Working Copy editing is a separate closed contract.
+`AssignmentWorkingCopyDefinition` carries validated plain-text
+`AssignmentInstructions` and the absolute `BaseAssignmentPolicy` for the one
+replaceable Assignment Working Copy. `AssignmentStatus` belongs to the stable
+Assignment and selects a Released Assignment Revision only after Assignment
+Release. `AssignmentTitle` is the separate validated short name for the
+working copy or released revision, rather than generic text at a shared
+contract boundary.
 Every Questions, Policies, and fixed-question replacement request carries its
-reviewed `AssignmentRevisionReference` as `baseRevision`; the HTTP strong ETag
-is the transport concurrency condition for that exact reference.
-New assignments default to Draft and therefore are not Student-visible until an
-instructor explicitly publishes them. The instructor transport uses
-`InstructorAssignmentRevisionDefinitionLocal`: local timestamps include
+reviewed `AssignmentEditNumber` as `baseEditNumber`; the HTTP strong ETag is
+the transport concurrency condition for that exact working copy.
+New Assignments default to Unreleased and therefore are not Student-visible
+until an Instructor explicitly releases one immutable Assignment Revision. The
+Instructor transport uses `InstructorAssignmentWorkingCopyDefinitionLocal`:
+local timestamps include
 milliseconds and the exact course IANA zone, but the server performs every
 DST, term, ordering, and integer-bound conversion before storage.
 `InstructorAssignmentCurrentState` is a separate closed server projection for
@@ -428,7 +431,7 @@ boundary, so a browser displays current state without inferring it.
 
 Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
 delivery values are already resolved from exact assignment entitlement and omit
-lifecycle intent, base-policy provenance, course identifiers, and evaluation
+Assignment Status, base-policy provenance, course identifiers, and evaluation
 clocks. `AssignmentScoringState`
 is also independent: Current allows the otherwise authorized score projection;
 Recalculating and Failed retain the semantic score state while omitting every
@@ -454,12 +457,99 @@ requires.
 The exact sampling and parity rules are documented in
 `docs/DETERMINISM_CONTRACT.md`.
 
-### Taxonomy and licensing
+### Classification and licensing
 
-`Tag` for free-form search labels, `TaxonomyTerm` for controlled vocabularies
-that survive export, and `License` as an enum so an export can decide in code
-whether redistribution is permitted. `License::Other` carries an SPDX
-identifier, which keeps unusual terms representable as themselves.
+Question Tags are free-form search labels. A Question Classification maps one
+Question Revision to a real external or institutional system through its
+Classification System, Classification Code, and Classification Name. Question
+Bloom Classification is PLE's required two-dimensional classification and
+therefore has its own closed fields instead of using that generic mapping.
+
+Question License is the exact versioned SPDX expression governing one Question
+Revision. Publication accepts a license compatible with Question Library
+sharing and full forks. See
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-content-and-stewardship)
+for the complete Question Metadata vocabulary.
+
+#### Bloom classification
+
+Every Published Question Revision has one derived Question Bloom Classification
+formed from exactly two independently selected closed fields:
+
+- Bloom Cognitive Process: Remember, Understand, Apply, Analyze, Evaluate, or
+  Create.
+- Bloom Knowledge Dimension: Factual Knowledge, Conceptual Knowledge,
+  Procedural Knowledge, or Metacognitive Knowledge.
+
+The Instructor interface labels the fields Cognitive Process Dimension and
+Knowledge Dimension. Their ordered pair alone determines the combined label
+and matrix position. Question Search exposes each field as an independent facet
+and may show their derived 4 by 6 intersection.
+
+Classify the performance required for full credit on the exact Question
+Revision:
+
+1. Read the complete Question Prompt, Question Response Format, Answer Key,
+   scoring criteria, and any rubric that determines full credit.
+2. Identify the primary thing the Student must know and select its Knowledge
+   Dimension.
+3. Identify the primary cognitive work the Student must perform with that
+   knowledge and select its Cognitive Process Dimension.
+4. Check the pair against the actual grading requirement. The complete task
+   determines the pair; a command verb or Question Type alone does not.
+5. For a Question with several tasks, use the pair representing the dominant
+   full-credit performance. Send a genuinely co-dominant or ambiguous case for
+   Instructor review.
+
+Use these short category meanings:
+
+| Cognitive process | Student performance required for full credit              |
+| ----------------- | --------------------------------------------------------- |
+| Remember          | Retrieve relevant knowledge                               |
+| Understand        | Construct meaning from presented or recalled knowledge    |
+| Apply             | Use a procedure in a situation                            |
+| Analyze           | Separate material into parts and relate those parts       |
+| Evaluate          | Make a judgment using stated or appropriate criteria      |
+| Create            | Assemble elements into a coherent or functional new whole |
+
+| Knowledge dimension     | Primary knowledge used by the Question                |
+| ----------------------- | ----------------------------------------------------- |
+| Factual Knowledge       | Terminology, specific details, and elements           |
+| Conceptual Knowledge    | Categories, principles, theories, models, and systems |
+| Procedural Knowledge    | Skills, algorithms, techniques, methods, and use      |
+| Metacognitive Knowledge | Strategies and awareness of one's own cognition       |
+
+Prior learning and course context can change the cognitive work a task
+demands. The Bloom Classification Assistant uses all authored Question
+evidence and sends uncertain cases for Instructor review. It fills the two
+enum fields on one exact Draft Question Revision. A Draft Question may have a
+pending suggestion; every Published Question Revision has the complete
+Instructor-accepted pair. A later accepted change follows the ordinary
+Question Revision and Reason for Edit workflow.
+
+The reference two-dimensional graphic uses one hue family for each Cognitive
+Process column. PLE retains these sampled associations:
+
+| Cognitive process | Reference hue | Reference anchor |
+| ----------------- | ------------- | ---------------- |
+| Remember          | Blue          | `#64A4D9`        |
+| Understand        | Green         | `#A2D4B4`        |
+| Apply             | Yellow-green  | `#B9D438`        |
+| Analyze           | Yellow        | `#E7E028`        |
+| Evaluate          | Orange        | `#E8A264`        |
+| Create            | Pink          | `#E3759F`        |
+
+Interface owners derive accessible surface, border, text, focus, selected, and
+dark-mode tokens from these anchors. Every control and matrix cell shows its
+text labels alongside color. The Knowledge Dimension remains the labeled
+second axis.
+
+The local reference image identifies itself as Rex Heer's Iowa State
+University graphic under CC BY-NC-SA 3.0, while PLE's distributable non-code
+work permits commercial reuse. PLE keeps the image as an external design
+reference and distributes its own accessible components. The Anderson and
+Krathwohl 2001 revision owns the dimensions and category terminology. Marzano's
+New Taxonomy remains a separate learning-goal framework.
 
 ## Wire format
 

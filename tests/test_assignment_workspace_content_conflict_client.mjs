@@ -46,7 +46,7 @@ function editorJsonResponse(value, status) {
   });
 }
 
-test("Questions content save binds the reviewed Assignment Revision", async () => {
+test("Questions content save binds the reviewed Assignment Edit Number", async () => {
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     editorJsonResponse({ error: "assignment changed" }, 412),
   );
@@ -67,7 +67,7 @@ test("Questions content save binds the reviewed Assignment Revision", async () =
   assert.equal(request.headers.get("if-match"), '"1"');
   assert.deepEqual(await request.json(), {
     ...input,
-    baseRevision: { assignment: "A-1", revision_number: "1" },
+    baseEditNumber: "1",
   });
 });
 

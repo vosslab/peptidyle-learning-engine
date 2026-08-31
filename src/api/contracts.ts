@@ -11,6 +11,7 @@ import type { StudentQuestionAttemptView } from "../../generated/api/StudentQues
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
+import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
@@ -26,15 +27,15 @@ import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { AccountRole } from "../../generated/api/AccountRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
-import type { InstructorAssignmentRevisionDefinitionLocal } from "../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
+import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
 import type { InstructorAssignmentCurrentState } from "../../generated/api/InstructorAssignmentCurrentState";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { DraftAssignmentRevisionPublicationReadiness } from "../../generated/api/DraftAssignmentRevisionPublicationReadiness";
+import type { AssignmentReleaseValidation } from "../../generated/api/AssignmentReleaseValidation";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
-import type { CreateAssignmentDraftRequest } from "../../generated/api/CreateAssignmentDraftRequest";
+import type { CreateAssignmentRequest } from "../../generated/api/CreateAssignmentRequest";
 import type { ReplaceAssignmentPoliciesRequest } from "../../generated/api/ReplaceAssignmentPoliciesRequest";
 import type { ReplaceAssignmentFixedItemRequest } from "../../generated/api/ReplaceAssignmentFixedItemRequest";
 
@@ -45,14 +46,14 @@ export type {
   StudentAssignmentDetail,
   StudentAssignmentLandingSummary,
 };
-export type { CreateAssignmentDraftRequest as AssignmentDraftInput };
+export type { CreateAssignmentRequest as AssignmentCreateInput };
 
-/** The HTTP client adds the exact current Assignment Revision precondition. */
-export type AssignmentPoliciesInput = Omit<ReplaceAssignmentPoliciesRequest, "baseRevision">;
-/** The HTTP client adds the exact current Assignment Revision precondition. */
+/** The HTTP client adds the exact current Assignment Working Copy edit precondition. */
+export type AssignmentPoliciesInput = Omit<ReplaceAssignmentPoliciesRequest, "baseEditNumber">;
+/** The HTTP client adds the exact current Assignment Working Copy edit precondition. */
 export type ReplaceAssignmentFixedItemInput = Omit<
   ReplaceAssignmentFixedItemRequest,
-  "baseRevision"
+  "baseEditNumber"
 >;
 
 /** Questions-owned browser input; readonly collections retain page draft ownership. */
@@ -76,12 +77,14 @@ export interface CourseRouteData {
  * into the editor transport.
  */
 export interface AssignmentEditorDetail extends AssignmentSummary {
+  /** Stable Assignment Status; release selection stays outside editable content. */
+  readonly assignmentStatus: AssignmentStatus;
   /** Course-local instructor projection; the server owns time-zone resolution. */
-  readonly assignmentRevisionDefinition: InstructorAssignmentRevisionDefinitionLocal;
+  readonly assignmentWorkingCopyDefinition: InstructorAssignmentWorkingCopyDefinitionLocal;
   /** Server-derived current state at the response's authoritative instant. */
   readonly currentState: InstructorAssignmentCurrentState;
-  /** Closed, server-derived publication blockers for this Draft Assignment Revision. */
-  readonly draftRevisionPublicationReadiness: DraftAssignmentRevisionPublicationReadiness;
+  /** Closed, server-derived release blockers for this Assignment Working Copy. */
+  readonly assignmentReleaseValidation: AssignmentReleaseValidation;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
@@ -89,30 +92,30 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
 /** Authorized resolution of one compact reference to a browser API identity. */
 export type { NavigationResolution };
 
-/** One safe Question Library display fact returned from a server-owned item-pool sample. */
-export interface PoolDrawPreviewQuestion {
+/** One safe Question Library display fact returned from a server-owned Question Pool Preview. */
+export interface QuestionPoolPreviewQuestion {
   readonly questionId: string;
   readonly title: string;
 }
 
 /** Strict browser request for one saved Question Pool by its Assignment Entry reference. */
-export interface PoolDrawPreviewRequest {
+export interface QuestionPoolPreviewRequest {
   readonly assignmentEntryId: string;
 }
 
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
-export interface PoolDrawPreview {
+export interface QuestionPoolPreview {
   readonly assignment: AssignmentReference;
   readonly revision: string;
   readonly assignmentEntryId: string;
   readonly questionPoolLabel: string;
-  readonly drawCount: number;
+  readonly selectionCount: number;
   readonly selectionRule: {
     readonly algorithm: "v1";
     readonly ordering: "candidateOrder" | "randomized";
   };
-  readonly candidates: ReadonlyArray<PoolDrawPreviewQuestion>;
-  readonly sampled: ReadonlyArray<PoolDrawPreviewQuestion>;
+  readonly candidates: ReadonlyArray<QuestionPoolPreviewQuestion>;
+  readonly selected: ReadonlyArray<QuestionPoolPreviewQuestion>;
 }
 
 /**

@@ -1,12 +1,11 @@
 // assignment_workspace_policy_model.ts - policy-page request construction and local control values.
 
-import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
+import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
 
 export type PolicyFocusTarget =
-  | "lifecycle"
   | "instructions"
   | "availableAt"
   | "dueAt"
@@ -65,9 +64,9 @@ export function assignmentPolicyFeedbackNeedsQuestionRepair(
 export function assignmentPoliciesInput(
   studentFeedbackReleaseRule: AssignmentPoliciesInput["studentFeedbackReleaseRule"],
   policies: AssignmentPoliciesInput["policies"],
-  assignmentRevisionDefinition: InstructorAssignmentRevisionDefinitionLocal,
+  assignmentWorkingCopyDefinition: InstructorAssignmentWorkingCopyDefinitionLocal,
 ): AssignmentPoliciesInput {
-  return { studentFeedbackReleaseRule, policies, assignmentRevisionDefinition };
+  return { studentFeedbackReleaseRule, policies, assignmentWorkingCopyDefinition };
 }
 
 /** Converts a native local-date-time control value to the explicit wire form. */
@@ -77,8 +76,8 @@ export function canonicalCourseLocalTime(value: string): string | null {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(normalized) ? normalized : null;
 }
 
-function assignmentRevisionDefinitionTarget(
-  field: AssignmentPoliciesValidationIssue & { kind: "assignmentRevisionDefinition" },
+function assignmentWorkingCopyDefinitionTarget(
+  field: AssignmentPoliciesValidationIssue & { kind: "assignmentWorkingCopyDefinition" },
 ): PolicyFocusTarget {
   const target = field.correction.field;
   if (target === "instructions") return "instructions";
@@ -87,12 +86,11 @@ function assignmentRevisionDefinitionTarget(
   if (target === "closesAt") return "closesAt";
   if (target === "assignmentAttemptTimeLimitSeconds") return "assignmentAttemptTimeLimitSeconds";
   if (target === "attemptLimit") return "attemptLimit";
-  if (target === "lifecycle") return "lifecycle";
   return "schedule";
 }
 
-function assignmentRevisionDefinitionMessage(
-  reason: AssignmentPoliciesValidationIssue & { kind: "assignmentRevisionDefinition" },
+function assignmentWorkingCopyDefinitionMessage(
+  reason: AssignmentPoliciesValidationIssue & { kind: "assignmentWorkingCopyDefinition" },
 ): string {
   switch (reason.correction.reason) {
     case "courseTimeZoneMismatch":
@@ -109,8 +107,6 @@ function assignmentRevisionDefinitionMessage(
       return "Choose a valid whole Assignment Attempt time limit.";
     case "attemptLimitOutOfRange":
       return "Choose a valid attempt limit.";
-    case "illegalLifecycleTransition":
-      return "Choose a lifecycle that follows this assignment's current state.";
     case "invalidInstructions":
       return "Revise the Student instructions before saving.";
     case "invalidInput":
@@ -143,11 +139,11 @@ function capabilityLabel(
 
 function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPolicySaveFeedback {
   switch (issue.kind) {
-    case "assignmentRevisionDefinition":
+    case "assignmentWorkingCopyDefinition":
       return {
         kind: "error",
-        message: assignmentRevisionDefinitionMessage(issue),
-        target: assignmentRevisionDefinitionTarget(issue),
+        message: assignmentWorkingCopyDefinitionMessage(issue),
+        target: assignmentWorkingCopyDefinitionTarget(issue),
         details: [],
         questionRepairRequired: false,
       };
@@ -174,11 +170,11 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
         questionRepairRequired: !variationTarget,
       };
     }
-    case "draftRevisionPublicationReadiness":
+    case "assignmentReleaseRequirements":
       return {
         kind: "error",
-        message: "Add at least one question before publishing this assignment.",
-        target: "lifecycle",
+        message: "Add at least one question before releasing this assignment.",
+        target: "questions",
         details: issue.blockingIssues.map(() => "This assignment needs at least one question."),
         questionRepairRequired: true,
       };

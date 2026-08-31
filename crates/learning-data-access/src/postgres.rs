@@ -13,8 +13,8 @@ mod sessions;
 pub use connection::{ProductionLoginProfile, lazy_pool, local_development_pool, production_pool};
 #[cfg(feature = "postgres")]
 pub use migrations::{
-    MigrationDisposition, MigrationStatus, MigrationStatusEntry, SchemaCompatibilityError,
-    apply_migrations, migration_principal, migration_status, migration_status_from_directory,
+    MigrationCheck, MigrationCheckEntry, MigrationCheckResult, SchemaCompatibilityError,
+    apply_migrations, migration_check, migration_principal, migration_status_from_directory,
     verify_application_schema,
 };
 #[cfg(feature = "postgres")]

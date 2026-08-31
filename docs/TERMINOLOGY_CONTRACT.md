@@ -52,9 +52,8 @@ its type, decoder, schema, fixtures, and stored development data together. A
 PLE-owned domain type, function, View, and interface use their complete
 canonical role name. Registered external standards
 retain their owner-defined version names. A **Software Version** records the
-exact independently deployed executable used for an operation; it is evidence
-in Question Attempt Reproduction Details. Each PLE boundary keeps one current
-implementation.
+exact software build used for an operation; it is evidence in Question Attempt
+Reproduction Details. Each PLE boundary keeps one current implementation.
 
 These technical terms describe mechanics rather than PLE records, product
 surfaces, or authority. Name a PLE-owned component by the object or operation
@@ -246,6 +245,13 @@ Question Source, Question Grading Rule, Answer Key, optional Question Hint,
 Question Feedback, Question Answer Explanation, and any Question Format-specific
 Question Grading Input bind to that exact revision when the role applies.
 
+**Workspace Import** is one staged, Authoring Workspace-owned import through a
+registered Question Format. It retains the source package evidence, source
+membership, and one **Workspace Import Item Result** for each source item. A
+committed Workspace Import creates Draft Questions for the ordinary Question
+publication workflow. Assignment composition remains a separate Instructor
+choice.
+
 **Source Object Reference** is the exact private Object ID and SHA-256 checksum
 for immutable authored or imported source bytes. It is reproduction evidence
 owned by one exact Draft Question Revision, Question Revision, Workspace Import,
@@ -381,9 +387,9 @@ Answer Explanation.
 Question Source. It declares its capabilities and performs its exact validation,
 issue, reproduction, and automated-grading operations. A **Native Question
 Implementation** is the current first-party implementation registered for an
-exact Question Format and Question Type. It reads the generator definition from
-the exact Question Source instead of carrying a parallel implementation
-generation. An
+exact Question Format and Question Type. The exact Question Source carries the
+generator definition, and the implementation validates and executes that
+stored definition. An
 **External Question Provider** is a configured external system used through a
 Question Backend for its exact launch, exchange, render, or grade operations.
 
@@ -470,10 +476,11 @@ Question Search, Question Star, Question Watch, and Question Change Proposal.
 **Question Metadata** is the structured, answer-free discovery and credit
 information stored with every Question Revision. Publication requires a
 Question Title, Question Description, Question Authorship, Question License,
-language, and at least one Question Subject. Question Subsubjects, Question
-Tags, Question Classifications, and a Question Citation are optional.
-Question Type, Question Format, and Question Backend remain exact searchable
-Question Revision facts rather than free-form metadata.
+language, at least one Question Subject, and one Question Bloom Classification.
+Question Subsubjects, Question Tags, other Question Classifications, and a
+Question Citation are optional. Question Type, Question Format, and Question
+Backend remain exact searchable Question Revision facts rather than free-form
+metadata.
 
 **Question Title** is the short name used to identify a Question. **Question
 Description** is a concise Instructor-facing, answer-free explanation of what
@@ -517,8 +524,28 @@ A **Question Classification** is an optional mapping to one real external or
 institutional learning system. It carries a Classification System,
 Classification Code, and Classification Name. Use Question Classification for
 standards, learning objectives, or textbook alignments that need stable export
-meaning. PLE needs no authoring surface for it until a real classification
-system is supported.
+meaning. PLE needs no authoring surface for a generic classification until a
+real system is supported. Bloom's revised taxonomy uses the dedicated Question
+Bloom Classification contract rather than this generic mapping.
+
+**Question Bloom Classification** is the required derived ordered pair describing the cognitive
+demand of one Question Revision. Its independent fields are exactly one **Bloom Cognitive Process**
+value and one **Bloom Knowledge Dimension** value. Bloom Cognitive Process is Remember, Understand,
+Apply, Analyze, Evaluate, or Create. Bloom Knowledge Dimension is Factual Knowledge, Conceptual
+Knowledge, Procedural Knowledge, or Metacognitive Knowledge. The pair alone determines its combined
+label and 4 by 6 matrix position. The visible field labels are Cognitive Process Dimension and
+Knowledge Dimension.
+
+A **Bloom Classification Suggestion** is calculated authoring help for one exact Draft Question
+Revision. The Bloom Classification Assistant fills the fields before Instructor review; the
+Instructor may keep or change either value. Publication stores the Instructor-accepted Question
+Bloom Classification on the immutable Question Revision. The exact rubric, suggestion workflow,
+search behavior, and color associations live in
+[QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification).
+
+**Question Difficulty** is the mean normalized Question score for a stated cohort. A larger value
+means that cohort found the Question easier. It is measured from graded work; Question Bloom
+Classification describes intended cognitive demand. Neither value substitutes for the other.
 
 The Published Question discovery, credit, and control facts are closed:
 
@@ -534,6 +561,7 @@ The Published Question discovery, credit, and control facts are closed:
 | Question Subject        | One or more required    | Question Revision | Subject text and facet                      |
 | Question Subsubject     | Optional                | Question Revision | Subsubject text and facet                   |
 | Question Tag            | Optional                | Question Revision | Tag text and facet                          |
+| Question Bloom Classification | Required          | Question Revision | Both Bloom dimension facets                |
 | Question Classification | Optional                | Question Revision | Exact system/code filter and name text      |
 | Question Type           | Required, derived       | Question Revision | Exact Question Type facet                   |
 | Question Format         | Required, derived       | Question Revision | Exact Question Format facet                 |
@@ -545,7 +573,8 @@ Description, Question Author names, Question Tags, Question Subjects and
 Subsubjects, Question Classification names and codes, and Question Citation.
 Structured filters and facets use the exact Question Type, Question Format,
 Question Backend, Question Author, Question Subject, Question Subsubject,
-Question Tag, Question Classification, and Question License values. A
+Question Tag, both Question Bloom Classification fields, Question
+Classification, and Question License values. A
 **Question Summary** is one answer-free published-Question listing.
 A **Question Search Result** combines that summary with permitted Question
 Statistics. **Question Details** is the expanded answer-free view of one exact
@@ -673,6 +702,51 @@ Issues**. The validation result is calculated. A successful Assignment Release
 creates the next immutable Assignment Revision and changes the stable
 Assignment Status to Released. Later releases select a new revision only for
 future Assignment Attempts.
+
+An Assignment Revision owns one ordered list of **Assignment Entries**. A
+**Fixed Question Assignment Entry** pins one exact Question Revision. A
+**Question Pool Assignment Entry** selects a stated number of Questions from
+an ordered, explicit list of **Question Pool Candidates**. Each candidate pins
+one exact Question Revision. Question Pool therefore names Assignment
+composition; Question Library organization uses Question Folders, Question
+Tags, Question Classifications, and Saved Question Searches.
+
+A **Question Pool Selection Rule** contains the **Question Pool Selection
+Count** and **Selected Question Order**. Candidate Order presents selected
+Questions in their candidate order. Random Order shuffles the selected
+Questions. The server selects available candidates without replacement using
+its one current selection implementation and records the exact result. The
+Assignment contract carries the Instructor's selection count and ordering
+choice. A **Question Pool Selection** is that
+immutable result for one Assignment Attempt: the exact Question Pool Assignment
+Entry and selected Question Pool Candidate References in delivery order. Each
+resulting Issued Question retains its source Question Pool Selection. A
+**Question Pool Selection Position** is the browser-safe selected-Question
+number and selected-Question count. A **Question Pool Preview** is an
+Instructor-authorized, no-store sample of the current rule. The Instructor-facing
+label for Question Pool Selection Count is **Questions to Select**.
+
+A **Question Pool Reuse Rule** determines what a later Assignment Attempt does:
+Reuse Selection keeps the Student's selected Question Revisions, while Select
+Again creates a new Question Pool Selection. The independent **Question
+Variation Rule** determines whether those selected Question Revisions reuse
+their Question Variations or receive new Question Variations. Pool membership
+and Question Seed behavior remain separate Instructor choices.
+
+At the Blackboard import boundary, Blackboard Question Pool, Question Set, and
+Random Block retain their source-system meanings. A Blackboard Question Pool is
+a reusable Blackboard authoring container. Its import creates Workspace Import
+evidence and Draft Questions while preserving source-package membership. A
+Blackboard Question Set is an assessment-local explicit selection definition.
+After its Questions resolve to exact PLE Question Revisions, it becomes a PLE
+Question Pool. A Blackboard Random Block is an assessment-local dynamic filter
+over one or more Blackboard pools. Import resolves that pool and filter criteria
+to exact PLE Question Revisions before creating a PLE Question Pool. An
+unresolved source produces a Workspace Import Item Result that names the missing
+pool or filter criteria. PLE surfaces use Question Pool for the resolved
+Assignment structure and retain Blackboard Question Set and Random Block in
+source evidence.
+
 An **Assignment Entry Availability** belongs to one top-level Fixed Question or
 Question Pool in that revision and is Available or Retired for future Assignment
 Attempts. A **Question Pool Candidate Availability** belongs only to one candidate
@@ -681,11 +755,6 @@ historical source regardless of later availability changes.
 An **Assignment Entry Scoring Rule** belongs to one top-level Fixed Question or
 Question Pool in an Assignment Revision. It is Normal, Full Credit, Extra
 Credit, or Excluded and freezes on each Issued Question.
-**Question Pool Selection Rule** is the complete reviewed algorithm and output
-ordering for one Question Pool. The separate Question Variation Rule determines
-whether a later Assignment Attempt reuses or redraws that pool.
-It either retains Questions with fresh Question Seeds, uses Instructor-selected
-Question Variants, or redraws Question Pools.
 
 **Assignment Completion Rule** determines whether one Assignment Attempt is
 complete. It requires Answer All, All Correct, or Score At Least with its

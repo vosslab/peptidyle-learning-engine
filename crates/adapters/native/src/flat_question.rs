@@ -164,7 +164,7 @@ struct FlatOutcomeFeedback {
     incorrect: Option<String>,
 }
 
-/// Public draft plus its separately persisted server-only grading material.
+/// Public draft plus its separately persisted server-only Answer Key and Question Feedback.
 pub struct CompiledFlatQuestion {
     draft: DraftQuestionDefinition,
     private: FlatQuestionPrivate,

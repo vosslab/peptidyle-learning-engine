@@ -10,13 +10,13 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     ActivityTimestamp, AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue,
-    AssignmentRevisionDefinitionField, AssignmentRevisionDefinitionLocalError, AssignmentTitle,
-    BaseAssignmentPolicy, BlueprintCourseValidationError, CourseInstanceReference,
-    CourseLocalDateAndTime, CourseTerm, CourseTimeZone, LocalTimeOfDay,
-    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionVersionReference,
-    RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment, ReusableAssignmentDefaults,
-    validate_blueprint_course_title,
+    AssignmentTitle, AssignmentWorkingCopyDefinitionField,
+    AssignmentWorkingCopyDefinitionLocalError, BaseAssignmentPolicy,
+    BlueprintCourseValidationError, CourseInstanceReference, CourseLocalDateAndTime, CourseTerm,
+    CourseTimeZone, LocalTimeOfDay, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
+    QuestionVersionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
+    ReusableAssignmentDefaults, validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -552,27 +552,27 @@ impl RelativeAssignmentSchedule {
     pub fn from_base_policy(
         policy: &BaseAssignmentPolicy,
         source_term: &CourseTerm,
-    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
+    ) -> Result<Self, AssignmentWorkingCopyDefinitionLocalError> {
         let schedule = Self {
             available_at: project_relative_moment(
                 policy.available_at,
                 source_term,
-                AssignmentRevisionDefinitionField::AvailableAt,
+                AssignmentWorkingCopyDefinitionField::AvailableAt,
             )?,
             due_at: project_relative_moment(
                 policy.due_at,
                 source_term,
-                AssignmentRevisionDefinitionField::DueAt,
+                AssignmentWorkingCopyDefinitionField::DueAt,
             )?,
             closes_at: project_relative_moment(
                 policy.closes_at,
                 source_term,
-                AssignmentRevisionDefinitionField::ClosesAt,
+                AssignmentWorkingCopyDefinitionField::ClosesAt,
             )?,
         };
         schedule
             .validate()
-            .map_err(|_| AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder)?;
+            .map_err(|_| AssignmentWorkingCopyDefinitionLocalError::ScheduleOutOfOrder)?;
         Ok(schedule)
     }
 
@@ -583,25 +583,25 @@ impl RelativeAssignmentSchedule {
     pub fn resolve_for_target_term(
         &self,
         term: &CourseTerm,
-    ) -> Result<ResolvedAssignmentSchedule, AssignmentRevisionDefinitionLocalError> {
+    ) -> Result<ResolvedAssignmentSchedule, AssignmentWorkingCopyDefinitionLocalError> {
         self.validate()
-            .map_err(|_| AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder)?;
+            .map_err(|_| AssignmentWorkingCopyDefinitionLocalError::ScheduleOutOfOrder)?;
         Ok(ResolvedAssignmentSchedule {
             time_zone: term.time_zone().clone(),
             available_at: resolve(
                 self.available_at.as_ref(),
                 term,
-                AssignmentRevisionDefinitionField::AvailableAt,
+                AssignmentWorkingCopyDefinitionField::AvailableAt,
             )?,
             due_at: resolve(
                 self.due_at.as_ref(),
                 term,
-                AssignmentRevisionDefinitionField::DueAt,
+                AssignmentWorkingCopyDefinitionField::DueAt,
             )?,
             closes_at: resolve(
                 self.closes_at.as_ref(),
                 term,
-                AssignmentRevisionDefinitionField::ClosesAt,
+                AssignmentWorkingCopyDefinitionField::ClosesAt,
             )?,
         })
     }
@@ -610,8 +610,8 @@ impl RelativeAssignmentSchedule {
 fn project_relative_moment(
     value: Option<ActivityTimestamp>,
     source_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<Option<RelativeAssignmentScheduleMoment>, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<Option<RelativeAssignmentScheduleMoment>, AssignmentWorkingCopyDefinitionLocalError> {
     value
         .map(|value| {
             let local = CourseLocalDateAndTime::from_activity_timestamp(value, source_term, field)?;
@@ -619,8 +619,10 @@ fn project_relative_moment(
                 .expect("validated course-local date");
             let start = NaiveDate::parse_from_str(source_term.start_date().as_str(), "%Y-%m-%d")
                 .expect("validated course term");
-            let day_offset = i32::try_from(date.signed_duration_since(start).num_days())
-                .map_err(|_| AssignmentRevisionDefinitionLocalError::TimestampOutOfRange(field))?;
+            let day_offset =
+                i32::try_from(date.signed_duration_since(start).num_days()).map_err(|_| {
+                    AssignmentWorkingCopyDefinitionLocalError::TimestampOutOfRange(field)
+                })?;
             let local_time =
                 LocalTimeOfDay::parse(&local.as_str()[11..]).expect("validated course-local time");
             Ok(RelativeAssignmentScheduleMoment {
@@ -633,23 +635,21 @@ fn project_relative_moment(
 fn resolve(
     value: Option<&RelativeAssignmentScheduleMoment>,
     term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<Option<ResolvedAssignmentScheduleMoment>, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<Option<ResolvedAssignmentScheduleMoment>, AssignmentWorkingCopyDefinitionLocalError> {
     value
         .map(|value| {
             let start = NaiveDate::parse_from_str(term.start_date().as_str(), "%Y-%m-%d")
                 .expect("valid term");
             let date = start
                 .checked_add_signed(Duration::days(i64::from(value.day_offset)))
-                .ok_or(AssignmentRevisionDefinitionLocalError::TimestampOutOfRange(
-                    field,
-                ))?;
+                .ok_or(AssignmentWorkingCopyDefinitionLocalError::TimestampOutOfRange(field))?;
             let local = CourseLocalDateAndTime::parse(&format!(
                 "{}T{}",
                 date.format("%Y-%m-%d"),
                 value.local_time.as_str()
             ))
-            .map_err(|_| AssignmentRevisionDefinitionLocalError::TimestampOutOfRange(field))?;
+            .map_err(|_| AssignmentWorkingCopyDefinitionLocalError::TimestampOutOfRange(field))?;
             Ok(ResolvedAssignmentScheduleMoment {
                 timestamp: local.resolve_for_course(term, field)?,
                 local,

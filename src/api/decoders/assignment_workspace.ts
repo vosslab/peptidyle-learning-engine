@@ -1,12 +1,12 @@
 // Strict browser decoder for the Instructor assignment workspace projection.
 
 import type { SuccessorAssignmentRevisionRequired } from "../../../generated/api/SuccessorAssignmentRevisionRequired";
-import type { DraftAssignmentRevisionPublicationReadiness } from "../../../generated/api/DraftAssignmentRevisionPublicationReadiness";
+import type { AssignmentReleaseValidation } from "../../../generated/api/AssignmentReleaseValidation";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../contracts";
 import { DecodeError, decodeArray, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
 import {
   decodeInstructorAssignmentCurrentState,
-  decodeInstructorAssignmentRevisionDefinitionLocal,
+  decodeInstructorAssignmentWorkingCopyDefinitionLocal,
 } from "./assignment_teaching_delivery";
 import { decodeAssignmentReference, decodeAssignmentSummary } from "./question_library";
 import {
@@ -18,7 +18,7 @@ import {
 } from "./shared";
 
 /**
- * Decodes the assignment editor's deliberately narrow, revisioned projection.
+ * Decodes the Assignment editor's deliberately narrow Working Copy projection.
  * It never carries question source material or other server-only policy.
  */
 export function decodeAssignmentEditorDetail(
@@ -34,24 +34,30 @@ export function decodeAssignmentEditorDetail(
     "entries",
     "studentFeedbackReleaseRule",
     "policies",
-    "assignmentRevisionDefinition",
+    "assignmentStatus",
+    "assignmentWorkingCopyDefinition",
     "currentState",
-    "draftRevisionPublicationReadiness",
+    "assignmentReleaseValidation",
   ]);
   const summary = decodeAssignmentSummary(record, path, false);
-  const assignmentRevisionDefinition = decodeInstructorAssignmentRevisionDefinitionLocal(
-    field(record, "assignmentRevisionDefinition", path),
-    `${path}.assignmentRevisionDefinition`,
+  const assignmentWorkingCopyDefinition = decodeInstructorAssignmentWorkingCopyDefinitionLocal(
+    field(record, "assignmentWorkingCopyDefinition", path),
+    `${path}.assignmentWorkingCopyDefinition`,
   );
   const currentState = decodeInstructorAssignmentCurrentState(
     field(record, "currentState", path),
     `${path}.currentState`,
   );
-  const draftRevisionPublicationReadiness = decodeDraftAssignmentRevisionPublicationReadiness(
-    field(record, "draftRevisionPublicationReadiness", path),
-    `${path}.draftRevisionPublicationReadiness`,
+  const assignmentReleaseValidation = decodeAssignmentReleaseValidation(
+    field(record, "assignmentReleaseValidation", path),
+    `${path}.assignmentReleaseValidation`,
   );
-  assertCurrentStateMatchesLifecycle(assignmentRevisionDefinition.lifecycle, currentState, path);
+  const assignmentStatus = decodeStringEnum(
+    field(record, "assignmentStatus", path),
+    `${path}.assignmentStatus`,
+    ["unreleased", "released", "closed", "archived"] as const,
+  );
+  assertCurrentStateMatchesStatus(assignmentStatus, currentState, path);
   const decoded = {
     id: summary.id,
     reference: summary.reference,
@@ -60,9 +66,10 @@ export function decodeAssignmentEditorDetail(
     entries: summary.entries,
     studentFeedbackReleaseRule: summary.studentFeedbackReleaseRule,
     policies: summary.policies,
-    assignmentRevisionDefinition,
+    assignmentStatus,
+    assignmentWorkingCopyDefinition,
     currentState,
-    draftRevisionPublicationReadiness,
+    assignmentReleaseValidation,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }
@@ -95,31 +102,31 @@ export function decodeSuccessorAssignmentRevisionRequired(
   return decoded;
 }
 
-function assertCurrentStateMatchesLifecycle(
-  lifecycle: AssignmentEditorDetail["assignmentRevisionDefinition"]["lifecycle"],
+function assertCurrentStateMatchesStatus(
+  status: AssignmentEditorDetail["assignmentStatus"],
   currentState: AssignmentEditorDetail["currentState"],
   path: string,
 ): void {
   const currentMatchesIntent =
-    (lifecycle === "draft" && currentState.state === "draft") ||
-    (lifecycle === "archived" && currentState.state === "archived") ||
-    (lifecycle === "closed" && currentState.state === "closed" && currentState.closedAt === null) ||
-    (lifecycle === "published" &&
+    (status === "unreleased" && currentState.state === "draft") ||
+    (status === "archived" && currentState.state === "archived") ||
+    (status === "closed" && currentState.state === "closed" && currentState.closedAt === null) ||
+    (status === "released" &&
       (currentState.state === "scheduled" ||
         currentState.state === "open" ||
         (currentState.state === "closed" && currentState.closedAt !== null)));
   if (!currentMatchesIntent) {
     throw new DecodeError(
       `${path}.currentState`,
-      "a server-derived state consistent with the stored lifecycle intent",
+      "a server-derived state consistent with the stable Assignment Status",
     );
   }
 }
 
-function decodeDraftAssignmentRevisionPublicationReadiness(
+function decodeAssignmentReleaseValidation(
   value: unknown,
   path: string,
-): DraftAssignmentRevisionPublicationReadiness {
+): AssignmentReleaseValidation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blockingIssues"]);
   return {
@@ -136,7 +143,7 @@ function decodeDraftAssignmentRevisionPublicationReadiness(
         };
       },
     ),
-  } satisfies DraftAssignmentRevisionPublicationReadiness;
+  } satisfies AssignmentReleaseValidation;
 }
 
 export function decodeAssignmentCapabilityViolations(

@@ -59,7 +59,7 @@ import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wa
 import type { CourseRosterClient } from "./enrollment";
 import type {
   AssignmentEditorDetail,
-  AssignmentDraftInput,
+  AssignmentCreateInput,
   AssignmentContentInput,
   AssignmentPoliciesInput,
   InstructorStudentView,
@@ -82,7 +82,7 @@ import type {
   PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
-  PoolDrawPreview,
+  QuestionPoolPreview,
 } from "./contracts";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { PublicRouteReference } from "../navigation/public_route";
@@ -222,12 +222,12 @@ export interface ApiClient
     request: Omit<DerivedPreviewSubjectRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
   /** Samples one saved Question Pool with server-owned entropy and no student activity. */
-  readonly previewPoolDraw: (
+  readonly previewQuestionPool: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
     assignmentEntryId: string,
-  ) => Promise<PoolDrawPreview>;
+  ) => Promise<QuestionPoolPreview>;
   readonly approveInstructorAccount: (
     account: AccountReference,
     revision?: TeachingOperationRevision,
@@ -365,9 +365,9 @@ export interface ApiClient
     assignmentId: AssignmentId,
   ) => Promise<AssignmentEditorDetail>;
   /** Creates a persisted empty Draft with server-owned defaults. */
-  readonly createAssignmentDraft: (
+  readonly createAssignment: (
     courseId: CourseId,
-    input: AssignmentDraftInput,
+    input: AssignmentCreateInput,
   ) => Promise<AssignmentEditorDetail>;
   /** Replaces only Questions-owned title and ordered content. */
   readonly saveAssignmentContent: (

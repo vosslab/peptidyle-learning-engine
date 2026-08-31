@@ -1,7 +1,7 @@
 // Strict Student delivery and focused assignment-policy transport decoders.
 
-import type { AssignmentRevisionDefinitionValidationFailure } from "../../../generated/api/AssignmentRevisionDefinitionValidationFailure";
-import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
+import type { AssignmentWorkingCopyDefinitionValidationFailure } from "../../../generated/api/AssignmentWorkingCopyDefinitionValidationFailure";
+import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
 import type { StudentAssignmentDetail } from "../../../generated/api/StudentAssignmentDetail";
 import type { StudentAssignmentLandingSummary } from "../../../generated/api/StudentAssignmentLandingSummary";
@@ -39,12 +39,11 @@ export function decodeStudentAssignmentLandingSummary(
   } satisfies StudentAssignmentLandingSummary;
 }
 
-const LIFECYCLES = ["draft", "published", "closed", "archived"] as const;
 const LATE_POLICIES = ["accept", "markLate", "reject"] as const;
 const ASSIGNMENT_DEADLINE_RULES = ["autoSubmit"] as const;
 const LATE_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
-const ASSIGNMENT_REVISION_DEFINITION_FAILURE_FIELDS = [
-  "assignmentRevisionDefinition",
+const ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_FIELDS = [
+  "assignmentWorkingCopyDefinition",
   "timeZone",
   "availableAt",
   "dueAt",
@@ -52,10 +51,9 @@ const ASSIGNMENT_REVISION_DEFINITION_FAILURE_FIELDS = [
   "schedule",
   "assignmentAttemptTimeLimitSeconds",
   "attemptLimit",
-  "lifecycle",
   "instructions",
 ] as const;
-const ASSIGNMENT_REVISION_DEFINITION_FAILURE_REASONS = [
+const ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_REASONS = [
   "invalidInput",
   "courseTimeZoneMismatch",
   "outsideCourseTerm",
@@ -65,7 +63,6 @@ const ASSIGNMENT_REVISION_DEFINITION_FAILURE_REASONS = [
   "scheduleOutOfOrder",
   "assignmentAttemptTimeLimitOutOfRange",
   "attemptLimitOutOfRange",
-  "illegalLifecycleTransition",
   "invalidInstructions",
 ] as const;
 const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u;
@@ -94,38 +91,37 @@ function decodePolicyLimit(value: unknown, path: string): number | null {
   });
 }
 
-export function decodeAssignmentRevisionDefinitionValidationFailure(
+export function decodeAssignmentWorkingCopyDefinitionValidationFailure(
   value: unknown,
   path = "response",
-): AssignmentRevisionDefinitionValidationFailure {
+): AssignmentWorkingCopyDefinitionValidationFailure {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["error", "field", "reason", "message"]);
   return {
     error: decodeStringEnum(field(record, "error", path), `${path}.error`, [
-      "assignmentRevisionDefinitionInvalid",
+      "assignmentWorkingCopyDefinitionInvalid",
     ] as const),
     field: decodeStringEnum(
       field(record, "field", path),
       `${path}.field`,
-      ASSIGNMENT_REVISION_DEFINITION_FAILURE_FIELDS,
+      ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_FIELDS,
     ),
     reason: decodeStringEnum(
       field(record, "reason", path),
       `${path}.reason`,
-      ASSIGNMENT_REVISION_DEFINITION_FAILURE_REASONS,
+      ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_REASONS,
     ),
     message: decodeNonemptyString(field(record, "message", path), `${path}.message`),
   };
 }
 
-export function decodeInstructorAssignmentRevisionDefinitionLocal(
+export function decodeInstructorAssignmentWorkingCopyDefinitionLocal(
   value: unknown,
   path = "response",
-): InstructorAssignmentRevisionDefinitionLocal {
+): InstructorAssignmentWorkingCopyDefinitionLocal {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "timeZone",
-    "lifecycle",
     "instructions",
     "availableAt",
     "dueAt",
@@ -137,7 +133,6 @@ export function decodeInstructorAssignmentRevisionDefinitionLocal(
   ]);
   return {
     timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
-    lifecycle: decodeStringEnum(field(record, "lifecycle", path), `${path}.lifecycle`, LIFECYCLES),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
     availableAt: decodeNullable(
       field(record, "availableAt", path),

@@ -67,7 +67,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// Capabilities this implementation can honestly provide now.
     fn capabilities(&self) -> QuestionBackendCapabilities;
 
-    /// Derives server-only grading material after shared prompt materialization.
+    /// Derives the server-only Answer Key after shared prompt materialization.
     ///
     /// # Errors
     ///

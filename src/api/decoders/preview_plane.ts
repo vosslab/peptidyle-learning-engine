@@ -14,9 +14,9 @@ import type { PreviewSelectedMoment } from "../../../generated/api/PreviewSelect
 import type { StudentViewScenario } from "../../../generated/api/StudentViewScenario";
 import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
 import type {
-  PoolDrawPreview,
-  PoolDrawPreviewQuestion,
-  PoolDrawPreviewRequest,
+  QuestionPoolPreview,
+  QuestionPoolPreviewQuestion,
+  QuestionPoolPreviewRequest,
 } from "../contracts";
 import {
   DecodeError,
@@ -70,7 +70,7 @@ function revision(value: unknown, path: string): string {
   return parsed;
 }
 
-function previewQuestion(value: unknown, path: string): PoolDrawPreviewQuestion {
+function previewQuestion(value: unknown, path: string): QuestionPoolPreviewQuestion {
   const record = closed(value, path, ["questionId", "title"]);
   return {
     questionId: questionId(record.questionId, `${path}.questionId`),
@@ -85,26 +85,26 @@ function questionId(value: unknown, path: string): string {
   return parsed;
 }
 
-export function decodePoolDrawPreviewRequest(
+export function decodeQuestionPoolPreviewRequest(
   value: unknown,
   path = "request",
-): PoolDrawPreviewRequest {
+): QuestionPoolPreviewRequest {
   const record = closed(value, path, ["assignmentEntryId"]);
   return {
     assignmentEntryId: decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`),
   };
 }
 
-export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDrawPreview {
+export function decodeQuestionPoolPreview(value: unknown, path = "response"): QuestionPoolPreview {
   const record = closed(value, path, [
     "assignment",
     "revision",
     "assignmentEntryId",
     "questionPoolLabel",
-    "drawCount",
+    "selectionCount",
     "selectionRule",
     "candidates",
-    "sampled",
+    "selected",
   ]);
   const candidates = decodeBoundedArray(
     record.candidates,
@@ -112,33 +112,40 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
     MAX_TEACHING_PAGE_SIZE,
     previewQuestion,
   );
-  const sampled = decodeBoundedArray(
-    record.sampled,
-    `${path}.sampled`,
+  const selected = decodeBoundedArray(
+    record.selected,
+    `${path}.selected`,
     MAX_TEACHING_PAGE_SIZE,
     previewQuestion,
   );
-  const drawCount = decodeSafeInteger(record.drawCount, `${path}.drawCount`);
+  const selectionCount = decodeSafeInteger(record.selectionCount, `${path}.selectionCount`);
   const assignmentEntryId = decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`);
-  if (drawCount < 1 || drawCount > candidates.length || sampled.length !== drawCount)
-    throw new DecodeError(`${path}.drawCount`, "a valid draw count for the returned pool");
-  const sampledIds = new Set(sampled.map((question) => question.questionId));
   if (
-    sampledIds.size !== sampled.length ||
-    !sampled.every((question) =>
+    selectionCount < 1 ||
+    selectionCount > candidates.length ||
+    selected.length !== selectionCount
+  )
+    throw new DecodeError(
+      `${path}.selectionCount`,
+      "a valid selection count for the returned pool",
+    );
+  const selectedIds = new Set(selected.map((question) => question.questionId));
+  if (
+    selectedIds.size !== selected.length ||
+    !selected.every((question) =>
       candidates.some((candidate) => candidate.questionId === question.questionId),
     )
   )
-    throw new DecodeError(`${path}.sampled`, "unique candidate Question IDs");
+    throw new DecodeError(`${path}.selected`, "unique candidate Question IDs");
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
     assignmentEntryId,
     questionPoolLabel: label(record.questionPoolLabel, `${path}.questionPoolLabel`),
-    drawCount,
+    selectionCount,
     selectionRule: selectionRule(record.selectionRule, `${path}.selectionRule`),
     candidates,
-    sampled,
+    selected,
   };
 }
 

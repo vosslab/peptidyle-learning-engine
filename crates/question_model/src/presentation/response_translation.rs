@@ -227,7 +227,8 @@ pub fn translate_rendered_response_v1(
 /// of a verified issued presentation.
 ///
 /// The inverse mapping is intentionally available only at the trusted
-/// inspection boundary.  It is pure and does not reveal grading material.
+/// inspection boundary. It is pure and does not reveal Answer Keys, Question
+/// Feedback, Question Answer Explanations, or Question Grading Input.
 pub fn project_durable_response_to_rendered_v1(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,

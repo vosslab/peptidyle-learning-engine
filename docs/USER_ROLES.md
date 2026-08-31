@@ -17,7 +17,8 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 - A Student account claims an Instructor-issued course invitation.
 - A Student works assigned activities and views only that Student's currently accessible educational
   records.
-- A Student cannot enumerate classmates, author content, manage a course, inspect grading material,
+- A Student cannot enumerate classmates, author content, manage a course, inspect Answer Keys,
+  Question Feedback, Question Answer Explanations, or Question Grading Input,
   or use another Student's identifiers.
 
 ### Instructor

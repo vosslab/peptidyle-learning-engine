@@ -1,7 +1,8 @@
 // assignment_workspace_presentation_model.ts - Student-accessible state language for policies.
 
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
-import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
+import type { AssignmentStatus } from "../../../generated/api/AssignmentStatus";
+import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
 import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
@@ -18,7 +19,7 @@ export type AssignmentPolicySummaryKey =
   | "assignmentAttemptContinuationRule"
   | "questionVariationRule"
   | "disclosure"
-  | "lifecycle"
+  | "assignmentStatus"
   | "scheduleLimits";
 
 export interface AssignmentPolicySummaryItem {
@@ -28,12 +29,12 @@ export interface AssignmentPolicySummaryItem {
 }
 
 export interface AssignmentPolicyDraftSummaryInput {
-  readonly savedLifecycle: InstructorAssignmentRevisionDefinitionLocal["lifecycle"];
+  readonly assignmentStatus: AssignmentStatus;
   readonly savedCurrentState: InstructorAssignmentCurrentState;
   readonly policies: AssignmentActivityRules;
   readonly activityRuleDraft: AssignmentActivityRuleDraft;
   readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
-  readonly assignmentRevisionDefinition: InstructorAssignmentRevisionDefinitionLocal;
+  readonly assignmentWorkingCopyDefinition: InstructorAssignmentWorkingCopyDefinitionLocal;
   readonly assignmentAttemptTimeLimitSecondsDraft: string;
   readonly attemptLimitDraft: string;
 }
@@ -44,18 +45,18 @@ function displayCourseLocalTime(value: string): string {
 
 /** Explains the current student-access state without exposing an implementation detail. */
 export function assignmentCurrentStateCopy(
-  lifecycle: InstructorAssignmentRevisionDefinitionLocal["lifecycle"],
+  status: AssignmentStatus,
   current: InstructorAssignmentCurrentState,
   timeZone: string,
 ): string {
   if (current.state === "draft") return "Draft. Students cannot access this assignment.";
   if (current.state === "archived") return "Archived. Students cannot access this assignment.";
   if (current.state === "scheduled") {
-    return `Published, scheduled to open at ${displayCourseLocalTime(current.availableAt)} ${timeZone}.`;
+    return `Released, scheduled to open at ${displayCourseLocalTime(current.availableAt)} ${timeZone}.`;
   }
-  if (current.state === "open") return "Published, open now.";
-  if (lifecycle === "published" && current.closedAt !== null) {
-    return `Published, closed since ${displayCourseLocalTime(current.closedAt)} ${timeZone}.`;
+  if (current.state === "open") return "Released, open now.";
+  if (status === "released" && current.closedAt !== null) {
+    return `Released, closed since ${displayCourseLocalTime(current.closedAt)} ${timeZone}.`;
   }
   return "Closed by instructor. Students cannot start new work.";
 }
@@ -106,7 +107,7 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule): string {
 }
 
 function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string {
-  const assignmentRevisionDefinition = input.assignmentRevisionDefinition;
+  const assignmentWorkingCopyDefinition = input.assignmentWorkingCopyDefinition;
   const timeLimit = optionalPositiveIntegerDraft(input.assignmentAttemptTimeLimitSecondsDraft);
   const attempts = optionalPositiveIntegerDraft(input.attemptLimitDraft);
   const timeLimitCopy = !timeLimit.valid
@@ -120,16 +121,16 @@ function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string
       ? "unlimited attempts"
       : `${attempts.value} attempt${attempts.value === 1 ? "" : "s"}`;
   const lateCopy =
-    assignmentRevisionDefinition.lateWorkRule === "accept"
+    assignmentWorkingCopyDefinition.lateWorkRule === "accept"
       ? "late work accepted"
-      : assignmentRevisionDefinition.lateWorkRule === "markLate"
+      : assignmentWorkingCopyDefinition.lateWorkRule === "markLate"
         ? "late work accepted and marked"
         : "late work rejected";
   return [
-    `Course time zone ${assignmentRevisionDefinition.timeZone}`,
-    `Available ${assignmentRevisionDefinition.availableAt === null ? "now" : displayCourseLocalTime(assignmentRevisionDefinition.availableAt)}`,
-    `due ${assignmentRevisionDefinition.dueAt === null ? "not set" : displayCourseLocalTime(assignmentRevisionDefinition.dueAt)}`,
-    `closes ${assignmentRevisionDefinition.closesAt === null ? "not set" : displayCourseLocalTime(assignmentRevisionDefinition.closesAt)}`,
+    `Course time zone ${assignmentWorkingCopyDefinition.timeZone}`,
+    `Available ${assignmentWorkingCopyDefinition.availableAt === null ? "now" : displayCourseLocalTime(assignmentWorkingCopyDefinition.availableAt)}`,
+    `due ${assignmentWorkingCopyDefinition.dueAt === null ? "not set" : displayCourseLocalTime(assignmentWorkingCopyDefinition.dueAt)}`,
+    `closes ${assignmentWorkingCopyDefinition.closesAt === null ? "not set" : displayCourseLocalTime(assignmentWorkingCopyDefinition.closesAt)}`,
     timeLimitCopy,
     attemptCopy,
     lateCopy,
@@ -152,9 +153,9 @@ export function assignmentPolicyDraftSummary(
     selectedQuestionVariants: "Use selected Question Variants",
     redrawQuestionPools: "Redraw Question Pools",
   } as const;
-  const lifecycle = {
-    draft: "Draft",
-    published: "Published",
+  const status = {
+    unreleased: "Unreleased",
+    released: "Released",
     closed: "Closed",
     archived: "Archived",
   } as const;
@@ -163,9 +164,9 @@ export function assignmentPolicyDraftSummary(
       key: "savedDelivery",
       label: "Current saved delivery",
       value: assignmentCurrentStateCopy(
-        input.savedLifecycle,
+        input.assignmentStatus,
         input.savedCurrentState,
-        input.assignmentRevisionDefinition.timeZone,
+        input.assignmentWorkingCopyDefinition.timeZone,
       ),
     },
     {
@@ -194,13 +195,13 @@ export function assignmentPolicyDraftSummary(
       value: disclosureSummary(input.studentFeedbackReleaseRule),
     },
     {
-      key: "lifecycle",
-      label: "Draft lifecycle",
-      value: `${lifecycle[input.assignmentRevisionDefinition.lifecycle]}; ${input.assignmentRevisionDefinition.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
+      key: "assignmentStatus",
+      label: "Assignment status",
+      value: `${status[input.assignmentStatus]}; ${input.assignmentWorkingCopyDefinition.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
     },
     {
       key: "scheduleLimits",
-      label: "Draft schedule and limits",
+      label: "Working Copy schedule and limits",
       value: scheduleLimitsSummary(input),
     },
   ];

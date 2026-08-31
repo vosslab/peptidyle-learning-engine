@@ -152,7 +152,7 @@ impl FlatQuestionPrivate {
         &self.public_sha256
     }
 
-    /// Rebinds unchanged private grading material to the exact public draft
+    /// Rebinds the unchanged private Answer Key and Question Feedback to the exact public draft
     /// emitted during publication.
     ///
     /// Publication uses this only when a private HOTSPOT workspace asset is
@@ -165,7 +165,7 @@ impl FlatQuestionPrivate {
         draft: &DraftQuestionDefinition,
     ) -> Result<Self, FlatQuestionError> {
         self.validate_private_shape()?;
-        // The caller has already validated this private material against the
+        // The caller has already validated these private Question records against the
         // staged draft. Publication may now change only the version-scoped
         // HOTSPOT asset ID, so validate every semantic key/feedback relation
         // against the new definition without requiring the old binding hash.
@@ -746,7 +746,7 @@ struct PublicBinding<'a> {
     grading: &'a GradingDefinition,
     metadata: &'a QuestionMetadata,
 }
-/// Returns the checksum that binds private grading material to one exact
+/// Returns the checksum that binds private Answer Key and Question Feedback to one exact
 /// browser-safe flat-question definition.
 pub fn public_binding_sha256_for_draft(
     draft: &DraftQuestionDefinition,

@@ -16,25 +16,29 @@ data use domain identifiers.
 
 ## Current handoff
 
-- **Current scoped correction package:** `WP-SD1-A-TERM-01` owns direct
-  terminology alignment against Human Guidance and the terminology contract.
-  Its completed slices include removal of the retired installation-scope and
-  generic authorization labels,
-  Question Version, Question Variation, Question Seed, Question Feedback,
-  Response Item Reference, Question Attempt Limit, Question Pool Selection
-  Rule, Question Presentation integrity, Question Attempt Reproduction Details, Question Backend Version, Question Renderer Version, Question Grader Version, Object Address, Object Storage Area, Object Category removal, Object License and Object Data Class, Assignment Scoring State and Assignment Scoring Snapshot, External Question Provider Cache Entry, and iMathAS Draft Question Source terminology through affected code,
-  generated contracts, tests, and durable documentation. Evidence includes
-  workspace compilation, focused Rust and browser-decoder suites, TypeScript
-  checking, Markdown-link checks, formatter gates, and `git diff --check`.
-  The fresh baseline's private `question_attempt` record now stores the exact
-  Question Seed, generated-parameter SHA-256, closed Question Attempt State,
-  and Question Attempt Reproduction Details under their canonical names.
-  Deferred schema constraints require `SubmissionAccepted` to commit with one
-  Question Submission and require `Open` or `ClosedAtDeadline` to commit
-  without one; a forward-only state trigger preserves terminal history.
+- **Current scoped correction package:** `WP-SD1-A-TERM-01` aligns terminology with Human Guidance
+  and the terminology contract. Completed slices cover installation/authorization labels;
+  Question Version, Variation, Seed, Feedback, Attempt Limit, Presentation, Reproduction Details,
+  and Backend/Renderer/Grader Version; Response Item Reference; Object Address, Storage Area,
+  Category removal, License, and Data Class; Assignment Scoring State/Snapshot; External Question
+  Provider Cache Entry; and iMathAS Draft Question Source across code, contracts, tests, and docs.
+  Workspace compilation, focused Rust/browser decoders, TypeScript, links, formatting, and diff
+  checks supply evidence. The fresh private `question_attempt` stores the exact Question Seed,
+  parameter SHA-256, Question Attempt State, and Reproduction Details. Deferred constraints pair
+  `SubmissionAccepted` with one Question Submission, allow `Open` or `ClosedAtDeadline` without
+  one, and preserve terminal history through a forward-only state trigger.
   The canonical `python3 local_stack.py acceptance` path generated its private manifest and passed fresh apply, no-op, staged verification, catalog, ACL, and restricted-login database acceptance; direct tool invocation remains intentionally manifest-less.
-  The Answer-versus-Solution model boundary and database split of generic
-  grading-material records remain open owner-dependent work; this scoped
+  The Answer/Explanation split, Store-backed grading-record persistence, Question Pool
+  selection, and Question Bloom Classification remain open. The fresh schema now names
+  exact Answer Key, Question Feedback, Question Answer Explanation, and Question Grading
+  Input records; their data-access, publication, and route closure remains open. Pool work stores exact
+  selections and separates pool reuse from Question Variation. Bloom work requires
+  an Instructor-accepted two-enum pair on every Published Question Revision after a
+  Draft Question suggestion. Question Model, storage/schema, publication/server,
+  generated API/browser, and the Bloom Classification Assistant own their respective
+  boundaries. Success removes generic or one-dimensional Bloom fields. Focused model,
+  Memory/PostgreSQL, publication, server, generated-contract, decoder, search,
+  authoring, and accessible light/dark interface gates validate it. This scoped
   package does not advance SD1-A acceptance.
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
   ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
@@ -302,27 +306,20 @@ broker use the same relationship, so a re-enrollment receives a new membership e
 retaining its original Student Record. The staged PostgreSQL baseline, focused domain tests, and
 Markdown-link gate pass; broader WP-SD1 acceptance remains separately allocated.
 
-`WP-SD1-A` terminology repair now distinguishes the human **Grader** relationship from the
-server-only `ple_automated_grading` capability and its `ple_grading_reader` login. Active source,
-browser copy, tests, and durable documentation use Student terminology rather than the retired
-role label. Rust contracts, local runtime-manifest checks, and the staged PostgreSQL baseline
-pass; broader WP-SD1 acceptance remains separately allocated.
+`WP-SD1-A` distinguishes the human **Grader** relationship from server-only automated-grading
+capabilities and login. Source, browser copy, tests, and durable docs use Student terminology;
+Rust contracts, runtime-manifest checks, and the staged PostgreSQL baseline pass.
 
-`TERMINOLOGY_CONTRACT.md` now records the settled Instructor-facing assignment hierarchy:
-Assignment, Assignment Attempt, Question Attempt, Submission, and Response. The public
-`RunPolicies` has been cleanly replaced by `AssignmentActivityRules` in the Rust model,
-the `assignment_activity_rules.rs` module, generated TypeScript surface, browser imports, and
-focused documentation. The eight rules now remain separate through their model-to-browser contracts,
-the complete immutable `AssignmentRevisionDefinition`, and explicit constrained
-`assignment_revision` baseline fields; broader SD1 write-path and delivery enforcement remain
-separately allocated.
+`TERMINOLOGY_CONTRACT.md` records the Instructor-facing Assignment, Assignment Attempt, Question
+Attempt, Submission, and Response hierarchy. `RunPolicies` is replaced by `AssignmentActivityRules`
+through Rust, generated TypeScript, browser imports, and focused documentation. The eight rules remain
+independent through their model-to-browser contracts, release-created immutable Assignment Revisions,
+the replaceable `AssignmentWorkingCopyDefinition`, and constrained `assignment_revision` fields;
+broader SD1 write-path and delivery enforcement remain separately allocated.
 
-The browser boundary now uses an explicit `StudentQuestionAttemptView` generated from the
-durable server-held `QuestionAttempt`. The view carries only Student-visible identity,
-presentation binding, submission, state, timing, and issued capability; reproduction details and
-generated-parameter evidence are absent from both its Rust and TypeScript contracts. Scoring
-freshness and Question Pool selection remain the separate authorized additions to that Student
-view at the browser transport boundary.
+The browser uses generated `StudentQuestionAttemptView`, containing only Student-visible identity,
+presentation, submission, state, timing, and issued capability. Reproduction evidence remains
+server-held; scoring freshness and Question Pool selection are separate authorized additions.
 
 The public navigation seam is no longer part of that remaining route vocabulary:
 `NavigationResolution::AssignmentAttempt` carries `assignment_attempt_id`, and its generated
@@ -461,14 +458,12 @@ Repository discovery comes from the script's physical path. Shell syntax passes;
 `wasm-bindgen-test-runner` installation succeeded and a second invocation verified the matched
 runner reuse path. The exact retired-name inventory is one-time evidence.
 
-`WN1-OPS8-e2e-course-appearance` is accepted on 2026-08-29. The shell now uses lowercase
-`snake_case` for its private path and lifecycle state and delegates ownership to the fixed leased
-acceptance controller. The closed `course_appearance_cross_store` profile replaces the obsolete
-self-provisioned manifest with descriptor-validated PostgreSQL and MinIO inputs, exact Compose
-authority, and pre/post reset. Focused Rust, Python, shell, source-size, and naming gates pass; the
-real PostgreSQL-to-MinIO cleanup oracle passed and removed both disposable volumes. PostgreSQL
-item-analysis reducer tests were also separated from their 839-line adapter facade when the same
-source-size gate exposed that prior organization debt.
+`WN1-OPS8-e2e-course-appearance` retains its 2026-08-29 operational history, but its former
+PostgreSQL-current-pointer and cleanup assertions were removed with the pre-production SD1 schema
+reset. The maintained leased `course_appearance_cross_store` lane now proves the present typed
+Course Banner object contract against real MinIO. A complete Course Appearance implementation must
+restore its database-backed promotion, current-pointer, and cleanup oracle before this package can
+be accepted again.
 
 `WN1-OPS9-e2e-database-baseline` is accepted on 2026-08-29. The database-baseline script uses
 lowercase `snake_case` for its physical script path, disposable workspace, Compose lifecycle,
@@ -892,7 +887,7 @@ SD1-C records the exact replacement ledger.
 | `2026082903`              | `WP-SD1-C`             | Private verified Authentication Email relation, email challenges, and rate limits                                                                                                                   |
 | `2026082904`              | `WP-SD1-C`             | WebAuthn ceremonies and passkeys                                                                                                                                                                    |
 | `2026082905`              | `WP-SD1-C`             | Instructor vetting, current approval predicates, and role predicates                                                                                                                                |
-| `2026082906`              | `WP-SD1-C`             | Authenticated-session resolver, installer, and session RLS broker                                                                                                                                   |
+| `2026082906`              | `WP-SD1-C`             | Authenticated Session resolution, installer, and session RLS authorization check                                                                                                                   |
 | `2026082907`              | `WP-SD1-C`             | Question Library roots and immutable versions                                                                                                                                                       |
 | `2026082908`              | `WP-SD1-C`             | Question Publication and Question Version Availability evidence                                                                                                                                     |
 | `2026082909`              | `WP-SD1-C`             | Question Library lineage, proposals, Stars, Watches, and improvement audit                                                                                                                          |
@@ -915,11 +910,11 @@ SD1-C records the exact replacement ledger.
 | `2026082926`              | `WP-SD1-C`             | Exports, retention, and audit lifecycle                                                                                                                                                             |
 | `2026082927`              | `WP-SD1-C`             | External-tool launches, provider cache, and passback state                                                                                                                                          |
 | `2026082928`              | `WP-SD1-C`             | Object Delivery, Object Storage Checks, and Object Cleanup authority                                                                                                                                |
-| `2026082929`              | `WP-SD1-C`             | Course/catalog/workspace capability brokers, including execute-only curriculum-adoption apply/reconcile brokers                                                                                     |
+| `2026082929`              | `WP-SD1-C`             | Course, Question Library, and workspace authorization checks, including execute-only curriculum-adoption apply and record-repair operations                                                         |
 | `2026082930`              | `WP-SD1-C`             | CourseInstance, Student-record, and worker-lease forced RLS policies                                                                                                                                |
 | `2026082931`              | `WP-SD1-C`             | Final table, sequence, type, and function ACL closure                                                                                                                                               |
 | `2026082932`              | `WP-SD1-C`             | Schema acceptance helpers and complete-ledger witness                                                                                                                                               |
-| `2026082933`              | `WP-SD1-C`             | Atomic email-challenge and validated-passkey completion brokers for existing Accounts                                                                                                               |
+| `2026082933`              | `WP-SD1-C`             | Atomic email-challenge and validated-passkey completion operations for existing Accounts                                                                                                            |
 | `2026082934`              | `WP-SD1-C`             | Sysadmin-only global Account Creation broker with immutable Product Role                                                                                                                            |
 | `2026082935`              | `WP-SD1-C`             | Exact Draft Blueprint Revision collaboration, publication, and availability evidence                                                                                                                |
 | `2026082936`              | `WP-SD1-C`             | Identity-free exact Question Version Statistics and idempotent accepted-grade observation evidence                                                                                                  |

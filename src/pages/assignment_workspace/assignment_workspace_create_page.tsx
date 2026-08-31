@@ -64,7 +64,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     setState("saving");
     setMessage("");
     try {
-      const created = await applicationApi.client.createAssignmentDraft(currentCourse.id, {
+      const created = await applicationApi.client.createAssignment(currentCourse.id, {
         title: title(),
       });
       if (created.courseId !== currentCourse.id) {

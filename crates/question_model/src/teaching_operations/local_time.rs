@@ -1,8 +1,8 @@
 //! Course-local conversion for teaching-operation modifier transport.
 
 use crate::{
-    ActivityTimestamp, AssignmentRevisionDefinitionField, AssignmentRevisionDefinitionLocalError,
-    CourseLocalDateAndTime, CourseTerm,
+    ActivityTimestamp, AssignmentWorkingCopyDefinitionField,
+    AssignmentWorkingCopyDefinitionLocalError, CourseLocalDateAndTime, CourseTerm,
 };
 
 use super::{AssignmentPolicySource, TeachingPreviewTimeField};
@@ -16,8 +16,8 @@ pub fn project_teaching_preview_time_field(
     value: Option<ActivityTimestamp>,
     source: AssignmentPolicySource,
     course_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<TeachingPreviewTimeField, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<TeachingPreviewTimeField, AssignmentWorkingCopyDefinitionLocalError> {
     Ok(TeachingPreviewTimeField {
         value: value
             .map(|value| CourseLocalDateAndTime::from_activity_timestamp(value, course_term, field))
@@ -35,8 +35,8 @@ pub fn project_teaching_preview_time_field(
 pub fn resolve_teaching_local_time(
     value: &CourseLocalDateAndTime,
     course_term: &CourseTerm,
-    field: AssignmentRevisionDefinitionField,
-) -> Result<ActivityTimestamp, AssignmentRevisionDefinitionLocalError> {
+    field: AssignmentWorkingCopyDefinitionField,
+) -> Result<ActivityTimestamp, AssignmentWorkingCopyDefinitionLocalError> {
     value.resolve_for_course(course_term, field)
 }
 
@@ -102,11 +102,11 @@ mod tests {
             resolve_teaching_local_time(
                 &local("2026-03-08T02:30:00.000"),
                 &term,
-                AssignmentRevisionDefinitionField::AvailableAt,
+                AssignmentWorkingCopyDefinitionField::AvailableAt,
             ),
             Err(
-                AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(
-                    AssignmentRevisionDefinitionField::AvailableAt
+                AssignmentWorkingCopyDefinitionLocalError::NonexistentLocalTime(
+                    AssignmentWorkingCopyDefinitionField::AvailableAt
                 )
             )
         );
@@ -114,21 +114,25 @@ mod tests {
             resolve_teaching_local_time(
                 &local("2026-11-01T01:30:00.000"),
                 &term,
-                AssignmentRevisionDefinitionField::DueAt,
+                AssignmentWorkingCopyDefinitionField::DueAt,
             ),
-            Err(AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(
-                AssignmentRevisionDefinitionField::DueAt
-            ))
+            Err(
+                AssignmentWorkingCopyDefinitionLocalError::AmbiguousLocalTime(
+                    AssignmentWorkingCopyDefinitionField::DueAt
+                )
+            )
         );
         assert_eq!(
             resolve_teaching_local_time(
                 &local("2027-01-01T10:00:00.000"),
                 &term,
-                AssignmentRevisionDefinitionField::ClosesAt,
+                AssignmentWorkingCopyDefinitionField::ClosesAt,
             ),
-            Err(AssignmentRevisionDefinitionLocalError::OutsideCourseTerm(
-                AssignmentRevisionDefinitionField::ClosesAt
-            ))
+            Err(
+                AssignmentWorkingCopyDefinitionLocalError::OutsideCourseTerm(
+                    AssignmentWorkingCopyDefinitionField::ClosesAt
+                )
+            )
         );
     }
 
@@ -146,7 +150,7 @@ mod tests {
             Some(timestamp),
             base_source(),
             &term,
-            AssignmentRevisionDefinitionField::AvailableAt,
+            AssignmentWorkingCopyDefinitionField::AvailableAt,
         )
         .expect("exact course-local projection");
         assert_eq!(
@@ -166,14 +170,14 @@ mod tests {
                 None,
                 base_source(),
                 &term,
-                AssignmentRevisionDefinitionField::DueAt,
+                AssignmentWorkingCopyDefinitionField::DueAt,
             )
             .expect("empty projection"),
             closes_at: project_teaching_preview_time_field(
                 None,
                 base_source(),
                 &term,
-                AssignmentRevisionDefinitionField::ClosesAt,
+                AssignmentWorkingCopyDefinitionField::ClosesAt,
             )
             .expect("empty projection"),
             assignment_attempt_time_limit_seconds: TeachingPreviewLimitField {

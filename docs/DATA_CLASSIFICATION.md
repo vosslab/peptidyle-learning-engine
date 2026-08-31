@@ -23,7 +23,8 @@ Classify a new datum before choosing its Rust type, table, object key, API
 projection, or telemetry event.
 
 1. Decide whether it is answer-bearing or could reveal a correct answer before
-   a Student submits. If so, it is server-only grading material.
+   a Student submits. If so, it is server-only Answer Key, Question Feedback,
+   Question Answer Explanation, or format-specific Question Grading Input.
 2. Decide whether it identifies or describes a Student, course relationship,
    or course record. If so, apply the radioactive educational-record rules.
 3. Decide whether it is a published answer-free presentation asset, private
@@ -143,7 +144,8 @@ Use one of these server-derived authorities for every delivery:
 Published presentation assets are immutable and answer-free. Their asset route
 requires approved-Instructor Question Library access or exact Student assignment
 entitlement, then resolves only a `Ready` Question Library asset registry record
-and a known `AssetId`; it does not expose private source or grading material.
+and a known `AssetId`; it does not expose private source, Answer Key, Question
+Feedback, Question Answer Explanation, or Question Grading Input.
 Published content is not anonymous internet content, and a successful asset
 delivery does not grant Question Library search or details access: those views
 require authenticated approved-Instructor access, while Student delivery requires

@@ -4,7 +4,7 @@ import test from "node:test";
 import { assignmentPolicyDraftSummary } from "../src/pages/assignment_workspace/assignment_workspace_presentation_model.ts";
 
 const baseInput = {
-  savedLifecycle: "published",
+  assignmentStatus: "released",
   savedCurrentState: { state: "open" },
   policies: {
     assignmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
@@ -24,9 +24,8 @@ const baseInput = {
     solution: "after_close",
     class_statistics: "never",
   },
-  assignmentRevisionDefinition: {
+  assignmentWorkingCopyDefinition: {
     timeZone: "America/Chicago",
-    lifecycle: "published",
     instructions: "Use a clear structural drawing.",
     availableAt: "2026-09-01T09:00:00.000",
     dueAt: "2026-09-08T17:00:00.000",
@@ -49,8 +48,8 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   assert.match(valueFor("assignmentAttemptContinuationRule"), /2 additional Assignment Attempts/);
   assert.match(valueFor("questionVariationRule"), /selected Question Variants/);
   assert.match(valueFor("savedDelivery"), /open now/);
-  assert.match(valueFor("lifecycle"), /Published/);
-  assert.match(valueFor("lifecycle"), /Student instructions included/);
+  assert.match(valueFor("assignmentStatus"), /Released/);
+  assert.match(valueFor("assignmentStatus"), /Student instructions included/);
   const schedule = valueFor("scheduleLimits");
   assert.match(schedule, /2026-09-01 09:00/);
   assert.match(schedule, /900s time limit/);
@@ -84,22 +83,19 @@ test("current-draft summary surfaces invalid unsaved limits without stale values
   assert.doesNotMatch(schedule, /900s time limit|2 attempts/);
 });
 
-test("summary keeps saved effective state distinct from unsaved lifecycle decisions", () => {
+test("summary keeps saved effective state distinct from Assignment Status", () => {
   const summary = assignmentPolicyDraftSummary({
     ...baseInput,
     savedCurrentState: {
       state: "scheduled",
       availableAt: "2026-09-01T09:00:00.000",
     },
-    assignmentRevisionDefinition: {
-      ...baseInput.assignmentRevisionDefinition,
-      lifecycle: "archived",
-    },
+    assignmentStatus: "archived",
   });
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
   assert.match(valueFor("savedDelivery"), /scheduled to open/);
   assert.match(valueFor("savedDelivery"), /America\/Chicago/);
-  assert.match(valueFor("lifecycle"), /Archived/);
+  assert.match(valueFor("assignmentStatus"), /Archived/);
   assert.doesNotMatch(valueFor("savedDelivery"), /Archived/);
 });

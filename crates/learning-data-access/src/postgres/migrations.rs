@@ -22,26 +22,26 @@ const SCHEMA_EPOCH_LOCK_KEY: i64 = 0x504c_455f_5343_484d;
 
 /// Read-only state of one embedded migration relative to a database.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MigrationDisposition {
+pub enum MigrationCheckResult {
     /// The exact embedded checksum is recorded as successful.
     Applied,
     /// The migration is known to the application but absent from the ledger.
     Pending,
     /// The recorded checksum differs from the immutable embedded migration.
-    Modified,
+    Changed,
     /// SQLx recorded a failed, partially applied migration.
-    Dirty,
+    Incomplete,
 }
 
 /// Status of one migration in the initial database epoch.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MigrationStatusEntry {
+pub struct MigrationCheckEntry {
     version: i64,
     description: String,
-    disposition: MigrationDisposition,
+    result: MigrationCheckResult,
 }
 
-impl MigrationStatusEntry {
+impl MigrationCheckEntry {
     /// Returns the ordered SQLx migration version.
     pub fn version(&self) -> i64 {
         self.version
@@ -53,27 +53,27 @@ impl MigrationStatusEntry {
     }
 
     /// Returns the database disposition for this migration.
-    pub fn disposition(&self) -> MigrationDisposition {
-        self.disposition
+    pub fn result(&self) -> MigrationCheckResult {
+        self.result
     }
 }
 
 /// Read-only comparison of the embedded epoch with the SQLx ledger.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MigrationStatus {
+pub struct MigrationCheck {
     ledger_present: bool,
-    entries: Vec<MigrationStatusEntry>,
+    entries: Vec<MigrationCheckEntry>,
     unexpected_applied_versions: Vec<i64>,
 }
 
-impl MigrationStatus {
+impl MigrationCheck {
     /// Returns whether SQLx has created its authoritative ledger.
     pub fn ledger_present(&self) -> bool {
         self.ledger_present
     }
 
     /// Returns every known migration in version order.
-    pub fn entries(&self) -> &[MigrationStatusEntry] {
+    pub fn entries(&self) -> &[MigrationCheckEntry] {
         &self.entries
     }
 
@@ -89,7 +89,7 @@ impl MigrationStatus {
             && self
                 .entries
                 .iter()
-                .all(|entry| entry.disposition == MigrationDisposition::Applied)
+                .all(|entry| entry.result == MigrationCheckResult::Applied)
     }
 
     fn incompatibility_reason(&self) -> String {
@@ -102,13 +102,13 @@ impl MigrationStatus {
         if let Some(entry) = self
             .entries
             .iter()
-            .find(|entry| entry.disposition != MigrationDisposition::Applied)
+            .find(|entry| entry.result != MigrationCheckResult::Applied)
         {
-            let state = match entry.disposition {
-                MigrationDisposition::Applied => "applied",
-                MigrationDisposition::Pending => "pending",
-                MigrationDisposition::Modified => "modified",
-                MigrationDisposition::Dirty => "dirty",
+            let state = match entry.result {
+                MigrationCheckResult::Applied => "applied",
+                MigrationCheckResult::Pending => "pending",
+                MigrationCheckResult::Changed => "changed",
+                MigrationCheckResult::Incomplete => "incomplete",
             };
             return format!("migration {} is {state}", entry.version);
         }
@@ -145,11 +145,11 @@ struct AppliedMigrationState {
     checksum: Vec<u8>,
 }
 
-fn evaluate_migration_status(
+fn evaluate_migration_check(
     migrator: &sqlx::migrate::Migrator,
     ledger_present: bool,
     applied: Vec<AppliedMigrationState>,
-) -> MigrationStatus {
+) -> MigrationCheck {
     let mut applied_by_version = applied
         .into_iter()
         .map(|migration| (migration.version, migration))
@@ -159,21 +159,21 @@ fn evaluate_migration_status(
         .filter(|migration| !migration.migration_type.is_down_migration())
         .map(|migration| {
             let disposition = match applied_by_version.remove(&migration.version) {
-                None => MigrationDisposition::Pending,
-                Some(applied) if !applied.success => MigrationDisposition::Dirty,
+                None => MigrationCheckResult::Pending,
+                Some(applied) if !applied.success => MigrationCheckResult::Incomplete,
                 Some(applied) if applied.checksum.as_slice() != migration.checksum.as_ref() => {
-                    MigrationDisposition::Modified
+                    MigrationCheckResult::Changed
                 }
-                Some(_) => MigrationDisposition::Applied,
+                Some(_) => MigrationCheckResult::Applied,
             };
-            MigrationStatusEntry {
+            MigrationCheckEntry {
                 version: migration.version,
                 description: migration.description.to_string(),
-                disposition,
+                result: disposition,
             }
         })
         .collect();
-    MigrationStatus {
+    MigrationCheck {
         ledger_present,
         entries,
         unexpected_applied_versions: applied_by_version.into_keys().collect(),
@@ -223,13 +223,9 @@ async fn read_migration_rows(
 ///
 /// Returns a database error when PostgreSQL is unreachable or the ledger cannot be
 /// read safely.
-pub async fn migration_status(pool: &PgPool) -> Result<MigrationStatus, sqlx::Error> {
+pub async fn migration_check(pool: &PgPool) -> Result<MigrationCheck, sqlx::Error> {
     let (ledger_present, applied) = read_migration_rows(pool).await?;
-    Ok(evaluate_migration_status(
-        &MIGRATOR,
-        ledger_present,
-        applied,
-    ))
+    Ok(evaluate_migration_check(&MIGRATOR, ledger_present, applied))
 }
 
 /// Compares the SQLx ledger with a caller-supplied migration directory.
@@ -245,14 +241,10 @@ pub async fn migration_status(pool: &PgPool) -> Result<MigrationStatus, sqlx::Er
 pub async fn migration_status_from_directory(
     pool: &PgPool,
     directory: &Path,
-) -> Result<MigrationStatus, sqlx::Error> {
+) -> Result<MigrationCheck, sqlx::Error> {
     let migrator = sqlx::migrate::Migrator::new(directory).await?;
     let (ledger_present, applied) = read_migration_rows(pool).await?;
-    Ok(evaluate_migration_status(
-        &migrator,
-        ledger_present,
-        applied,
-    ))
+    Ok(evaluate_migration_check(&migrator, ledger_present, applied))
 }
 
 /// Verifies the exact application-visible schema epoch through a read-only transaction.
@@ -340,7 +332,7 @@ async fn verify_schema_as(
             })
         })
         .collect::<Result<Vec<_>, SchemaCompatibilityError>>()?;
-    let status = evaluate_migration_status(&MIGRATOR, true, applied);
+    let status = evaluate_migration_check(&MIGRATOR, true, applied);
     if !status.is_compatible() {
         return Err(SchemaCompatibilityError::Incompatible(
             status.incompatibility_reason(),
@@ -432,13 +424,13 @@ mod tests {
 
     #[test]
     fn exact_successful_epoch_is_compatible() {
-        let status = evaluate_migration_status(&MIGRATOR, true, exact_applied_epoch());
+        let status = evaluate_migration_check(&MIGRATOR, true, exact_applied_epoch());
         assert!(status.is_compatible());
         assert!(
             status
                 .entries()
                 .iter()
-                .all(|entry| entry.disposition() == MigrationDisposition::Applied)
+                .all(|entry| entry.result() == MigrationCheckResult::Applied)
         );
     }
 
@@ -446,10 +438,10 @@ mod tests {
     fn absent_known_migration_is_pending() {
         let mut applied = exact_applied_epoch();
         let missing = applied.remove(0).version;
-        let status = evaluate_migration_status(&MIGRATOR, true, applied);
+        let status = evaluate_migration_check(&MIGRATOR, true, applied);
         assert!(!status.is_compatible());
         assert!(status.entries().iter().any(|entry| {
-            entry.version() == missing && entry.disposition() == MigrationDisposition::Pending
+            entry.version() == missing && entry.result() == MigrationCheckResult::Pending
         }));
     }
 
@@ -461,9 +453,9 @@ mod tests {
             .expect("embedded database epoch has a first migration");
         modified.checksum[0] ^= 0xff;
         let version = modified.version;
-        let status = evaluate_migration_status(&MIGRATOR, true, applied);
+        let status = evaluate_migration_check(&MIGRATOR, true, applied);
         assert!(status.entries().iter().any(|entry| {
-            entry.version() == version && entry.disposition() == MigrationDisposition::Modified
+            entry.version() == version && entry.result() == MigrationCheckResult::Changed
         }));
     }
 
@@ -479,14 +471,14 @@ mod tests {
             success: true,
             checksum: vec![0; 48],
         });
-        let status = evaluate_migration_status(&MIGRATOR, true, applied);
+        let status = evaluate_migration_check(&MIGRATOR, true, applied);
         assert!(!status.is_compatible());
         assert_eq!(status.unexpected_applied_versions(), &[i64::MAX]);
         assert!(
             status
                 .entries()
                 .iter()
-                .any(|entry| entry.disposition() == MigrationDisposition::Dirty)
+                .any(|entry| entry.result() == MigrationCheckResult::Incomplete)
         );
     }
 }

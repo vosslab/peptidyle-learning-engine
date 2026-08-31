@@ -357,7 +357,7 @@ BEGIN
 	) OR NOT EXISTS (
 		SELECT 1 FROM pg_trigger
 		WHERE tgrelid = 'ple_private.assignment_attempt'::regclass
-		AND tgname = 'assignment_attempt_requires_published_revision' AND NOT tgisinternal
+		AND tgname = 'assignment_attempt_requires_released_revision' AND NOT tgisinternal
 	) OR NOT EXISTS (
 		SELECT 1 FROM information_schema.columns
 		WHERE table_schema = 'ple_private' AND table_name = 'issued_question'
@@ -424,10 +424,26 @@ BEGIN
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
 			AND column_name = 'course_schedule_revision_id' AND is_nullable = 'NO'
-		) OR NOT EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
-			AND column_name = 'assignment_lifecycle' AND is_nullable = 'NO'
+	) OR NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment'
+		AND column_name = 'assignment_status' AND is_nullable = 'NO'
+	) OR NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment'
+		AND column_name = 'released_assignment_revision_id'
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_constraint
+		WHERE conrelid = 'ple_data.assignment'::regclass
+		AND conname = 'assignment_released_revision_matches_assignment'
+	) OR NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment_working_copy'
+		AND column_name = 'edit_number' AND is_nullable = 'NO'
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = 'ple_data.assignment_working_copy'::regclass
+		AND tgname = 'assignment_working_copy_replacement_is_exact' AND NOT tgisinternal
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_data.assignment_revision'::regclass
@@ -448,7 +464,12 @@ BEGIN
 			SELECT 1 FROM pg_class
 			JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
 			WHERE pg_namespace.nspname = 'ple_data'
-			AND pg_class.relname = 'published_assignment_revision_availability_idx'
+			AND pg_class.relname = 'assignment_revision_availability_idx'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_class
+			JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
+			WHERE pg_namespace.nspname = 'ple_data'
+			AND pg_class.relname = 'assignment_released_revision_lookup_idx'
 		) THEN
 		RAISE EXCEPTION 'Course Schedule Revision and Assignment Revision do not own the exact durable delivery schedule';
 	END IF;
@@ -463,19 +484,19 @@ BEGIN
 	) OR (SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
 		AND column_name IN (
-			'assignment_title', 'assignment_lifecycle', 'assignment_instructions', 'late_work_rule',
+			'assignment_title', 'assignment_instructions', 'late_work_rule',
 			'assignment_deadline_rule', 'assignment_completion_rule',
 			'assignment_attempt_grade_rule', 'assignment_attempt_continuation_rule',
 			'question_variation_rule', 'assignment_attempt_resume_rule',
 			'assignment_question_display_rule', 'assignment_navigation_rule',
 			'assignment_question_order_rule'
-		) AND is_nullable = 'NO') <> 13 OR (SELECT count(*) FROM information_schema.columns
+		) AND is_nullable = 'NO') <> 12 OR (SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
 		AND column_name IN (
 			'assignment_attempt_time_limit_seconds', 'attempt_limit',
 			'assignment_completion_score_threshold', 'max_additional_assignment_attempts'
 		)) <> 4 THEN
-		RAISE EXCEPTION 'Assignment Revision Definition is not stored as explicit immutable delivery fields';
+		RAISE EXCEPTION 'Assignment Revision is not stored as explicit immutable released teaching fields';
 	END IF;
 	IF NOT EXISTS (
 		SELECT 1 FROM pg_trigger
@@ -715,6 +736,9 @@ BEGIN
 	END IF;
 	END $$;
 SQL
+	local private_question_records_sql
+	private_question_records_sql="$(<"$script_directory/private_question_records.sql")"
+	psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c "$private_question_records_sql"
 }
 
 legacy_assert_catalog() {

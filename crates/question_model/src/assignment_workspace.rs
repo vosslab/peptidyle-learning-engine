@@ -8,17 +8,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::curriculum_adoption::AssignmentRevisionReference;
 use crate::{
-    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntry, AssignmentEntryAvailability,
-    AssignmentEntryScoringRule, AssignmentLifecycle, AssignmentOverview, AssignmentPointValue,
-    AssignmentTitle, Capability, CourseTimeZone, InstructorAssignmentRevisionDefinitionLocal,
-    LateWorkRule, QuestionId, QuestionPoolCandidateAvailability, QuestionPoolSelectionRule,
-    QuestionVariationRule, StudentFeedbackReleaseRule,
+    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEditNumber, AssignmentEntry,
+    AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
+    AssignmentPointValue, AssignmentStatus, AssignmentTitle, Capability, CourseTimeZone,
+    InstructorAssignmentWorkingCopyDefinitionLocal, LateWorkRule, QuestionId,
+    QuestionPoolCandidateAvailability, QuestionPoolSelectionRule, QuestionVariationRule,
+    StudentFeedbackReleaseRule,
 };
 
-/// Browser request to create a persisted, incomplete assignment draft.
+/// Browser request to create one stable Assignment and its first working copy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CreateAssignmentDraftRequest {
+pub struct CreateAssignmentRequest {
     /// Human-facing title for the new assignment.
     pub title: AssignmentTitle,
 }
@@ -27,8 +28,8 @@ pub struct CreateAssignmentDraftRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentContentRequest {
-    /// Exact immutable draft revision the Instructor reviewed before editing.
-    pub base_revision: AssignmentRevisionReference,
+    /// Exact Assignment Working Copy edit number reviewed before editing.
+    pub base_edit_number: AssignmentEditNumber,
     /// Human-facing title, owned by the Questions workspace.
     pub title: AssignmentTitle,
     /// Ordered fixed questions and Question Pools for future Assignment Attempts.
@@ -41,8 +42,8 @@ pub struct ReplaceAssignmentContentRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentFixedItemRequest {
-    /// Exact immutable draft revision the Instructor reviewed before editing.
-    pub base_revision: AssignmentRevisionReference,
+    /// Exact Assignment Working Copy edit number reviewed before editing.
+    pub base_edit_number: AssignmentEditNumber,
     /// Public Question ID resolved to an assignable immutable publication by
     /// the authenticated server.
     pub question_id: QuestionId,
@@ -52,21 +53,21 @@ pub struct ReplaceAssignmentFixedItemRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentPoliciesRequest {
-    /// Exact immutable draft revision the Instructor reviewed before editing.
-    pub base_revision: AssignmentRevisionReference,
+    /// Exact Assignment Working Copy edit number reviewed before editing.
+    pub base_edit_number: AssignmentEditNumber,
     /// Student-facing disclosure timing.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
     /// Completion, grade, practice, and Question Variation Rule.
     pub policies: AssignmentActivityRules,
-    /// Course-local Assignment Revision Definition resolved by the server before storage.
-    pub assignment_revision_definition: InstructorAssignmentRevisionDefinitionLocal,
+    /// Course-local Assignment Working Copy definition resolved by the server before storage.
+    pub assignment_working_copy_definition: InstructorAssignmentWorkingCopyDefinitionLocal,
 }
 
 /// Browser-safe refusal returned when the Policies workspace cannot save its
 /// complete aggregate update. Once the server can build a valid teaching-state
 /// candidate, it returns every independently determinable correction in stable
-/// order before persistence changes the assignment revision. A malformed
-/// teaching state or illegal lifecycle transition is returned alone because it
+/// order before persistence replaces the Assignment Working Copy. A malformed
+/// teaching state is returned alone because it
 /// prevents constructing that candidate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -91,9 +92,9 @@ pub enum AssignmentPoliciesValidationFailureCode {
     deny_unknown_fields
 )]
 pub enum AssignmentPoliciesValidationIssue {
-    /// A course-local Assignment Revision Definition needs the supplied correction.
-    AssignmentRevisionDefinition {
-        correction: crate::AssignmentRevisionDefinitionValidationFailure,
+    /// A course-local Assignment Working Copy definition needs the supplied correction.
+    AssignmentWorkingCopyDefinition {
+        correction: crate::AssignmentWorkingCopyDefinitionValidationFailure,
     },
     /// The combined policy configuration is not available.
     Configuration {
@@ -105,9 +106,9 @@ pub enum AssignmentPoliciesValidationIssue {
         question_id: QuestionId,
         capability: Capability,
     },
-    /// The exact draft assignment revision has publication blockers.
-    DraftRevisionPublicationReadiness {
-        blocking_issues: Vec<AssignmentPublicationBlockingIssue>,
+    /// The exact Assignment Working Copy has release blockers.
+    AssignmentReleaseRequirements {
+        blocking_issues: Vec<AssignmentReleaseIssue>,
     },
 }
 
@@ -155,15 +156,15 @@ pub enum AssignmentEntryRequest {
     },
 }
 
-/// One closed reason that prevents publishing the current assignment.
+/// One closed reason that prevents releasing the current Assignment Working Copy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum AssignmentPublicationBlockingIssue {
+pub enum AssignmentReleaseIssue {
     /// Questions owns the missing active-deliverable correction.
     QuestionsRequired,
 }
 
-/// Server-derived publication readiness for the current assignment definition.
+/// Server-derived release validation for the current Assignment Working Copy.
 ///
 /// An empty issue list means the definition has the currently known minimum
 /// conditions for publication. This is intentionally a projection rather than
@@ -171,9 +172,9 @@ pub enum AssignmentPublicationBlockingIssue {
 /// changing the assignment aggregate.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct DraftAssignmentRevisionPublicationReadiness {
+pub struct AssignmentReleaseValidation {
     /// Closed, actionable blockers in deterministic order.
-    pub blocking_issues: Vec<AssignmentPublicationBlockingIssue>,
+    pub blocking_issues: Vec<AssignmentReleaseIssue>,
 }
 
 /// Answer-free, non-mutating student landing projection for an Instructor's
@@ -231,7 +232,7 @@ impl InstructorStudentView {
     }
 }
 
-impl DraftAssignmentRevisionPublicationReadiness {
+impl AssignmentReleaseValidation {
     /// Derives readiness from the current definition without mutating it.
     pub fn from_entries(entries: &[AssignmentEntry]) -> Self {
         let has_available_fixed_question = entries.iter().any(|entry| {
@@ -254,27 +255,24 @@ impl DraftAssignmentRevisionPublicationReadiness {
             AssignmentEntry::FixedQuestion(_) => false,
         });
         let blocking_issues = (!has_available_fixed_question && !has_deliverable_question_pool)
-            .then_some(AssignmentPublicationBlockingIssue::QuestionsRequired)
+            .then_some(AssignmentReleaseIssue::QuestionsRequired)
             .into_iter()
             .collect();
         Self { blocking_issues }
     }
 
-    /// Returns whether no current publication blocker remains.
+    /// Returns whether no current release blocker remains.
     pub fn is_ready(&self) -> bool {
         self.blocking_issues.is_empty()
     }
 
-    /// Returns whether this lifecycle is permitted for this definition.
-    ///
-    /// A new or archived definition may be empty. Closed assignments retain a
-    /// historical definition, and Published assignments require an active
-    /// deliverable entry.
-    pub fn permits_lifecycle(&self, lifecycle: AssignmentLifecycle, has_definition: bool) -> bool {
-        match lifecycle {
-            AssignmentLifecycle::Draft | AssignmentLifecycle::Archived => true,
-            AssignmentLifecycle::Published => self.is_ready(),
-            AssignmentLifecycle::Closed => has_definition,
+    /// Returns whether this stable Assignment status is valid for the current
+    /// Working Copy and its released teaching history.
+    pub fn permits_status(&self, status: AssignmentStatus, has_revision: bool) -> bool {
+        match status {
+            AssignmentStatus::Unreleased | AssignmentStatus::Archived => true,
+            AssignmentStatus::Released => self.is_ready(),
+            AssignmentStatus::Closed => has_revision,
         }
     }
 }
@@ -285,21 +283,21 @@ mod tests {
 
     #[test]
     fn empty_definition_names_the_questions_blocker() {
-        let readiness = DraftAssignmentRevisionPublicationReadiness::from_entries(&[]);
+        let readiness = AssignmentReleaseValidation::from_entries(&[]);
 
         assert_eq!(
             readiness.blocking_issues,
-            vec![AssignmentPublicationBlockingIssue::QuestionsRequired]
+            vec![AssignmentReleaseIssue::QuestionsRequired]
         );
-        assert!(readiness.permits_lifecycle(AssignmentLifecycle::Draft, false));
-        assert!(readiness.permits_lifecycle(AssignmentLifecycle::Archived, false));
-        assert!(!readiness.permits_lifecycle(AssignmentLifecycle::Closed, false));
-        assert!(!readiness.permits_lifecycle(AssignmentLifecycle::Published, false));
+        assert!(readiness.permits_status(AssignmentStatus::Unreleased, false));
+        assert!(readiness.permits_status(AssignmentStatus::Archived, false));
+        assert!(!readiness.permits_status(AssignmentStatus::Closed, false));
+        assert!(!readiness.permits_status(AssignmentStatus::Released, false));
     }
 
     #[test]
     fn browser_requests_reject_unknown_members() {
-        let result = serde_json::from_str::<CreateAssignmentDraftRequest>(
+        let result = serde_json::from_str::<CreateAssignmentRequest>(
             r#"{"title":"Protein folding","ignored":true}"#,
         );
 
@@ -307,10 +305,10 @@ mod tests {
     }
 
     #[test]
-    fn browser_draft_request_decodes_title() {
+    fn create_assignment_request_decodes_title() {
         let request =
-            serde_json::from_str::<CreateAssignmentDraftRequest>(r#"{"title":"Protein folding"}"#)
-                .expect("strict draft request");
+            serde_json::from_str::<CreateAssignmentRequest>(r#"{"title":"Protein folding"}"#)
+                .expect("strict create request");
 
         assert_eq!(request.title.as_str(), "Protein folding");
     }
@@ -324,8 +322,8 @@ mod tests {
                     reason:
                         AssignmentPolicyConfigurationReason::SelectedQuestionVariantsWithQuestionPools,
                 },
-                AssignmentPoliciesValidationIssue::DraftRevisionPublicationReadiness {
-                    blocking_issues: vec![AssignmentPublicationBlockingIssue::QuestionsRequired],
+                AssignmentPoliciesValidationIssue::AssignmentReleaseRequirements {
+                    blocking_issues: vec![AssignmentReleaseIssue::QuestionsRequired],
                 },
             ],
         };
@@ -341,7 +339,7 @@ mod tests {
                         "reason": "selectedQuestionVariantsWithQuestionPools"
                     },
                     {
-                        "kind": "draftRevisionPublicationReadiness",
+                        "kind": "assignmentReleaseRequirements",
                         "blockingIssues": [{"kind": "questionsRequired"}]
                     }
                 ]
@@ -376,7 +374,7 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssignmentContentRequest>(
-            r#"{"baseRevision":{"assignment":"A-1","revision_number":"1"},"title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","drawCount":1,"pointsPerItem":"1","selectionRule":{"algorithm":"v1","ordering":"candidateOrder"}}]}"#,
+            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","drawCount":1,"pointsPerItem":"1","selectionRule":{"algorithm":"v1","ordering":"candidateOrder"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(
@@ -387,8 +385,7 @@ mod tests {
         );
 
         let policy = ReplaceAssignmentPoliciesRequest {
-            base_revision: serde_json::from_str(r#"{"assignment":"A-1","revision_number":"1"}"#)
-                .expect("exact Assignment Revision Reference"),
+            base_edit_number: "1".parse().expect("edit number"),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssignmentActivityRules {
                 assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
@@ -398,25 +395,25 @@ mod tests {
                 question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
                 ..AssignmentActivityRules::default()
             },
-            assignment_revision_definition: InstructorAssignmentRevisionDefinitionLocal::new(
-                "America/Chicago".parse().expect("IANA zone"),
-                AssignmentLifecycle::Draft,
-                crate::AssignmentInstructions::default(),
-                None,
-                None,
-                None,
-                None,
-                None,
-                crate::LateWorkRule::Accept,
-                crate::AssignmentDeadlineRule::AutoSubmit,
-            )
-            .expect("draft settings"),
+            assignment_working_copy_definition:
+                InstructorAssignmentWorkingCopyDefinitionLocal::new(
+                    "America/Chicago".parse().expect("IANA zone"),
+                    crate::AssignmentInstructions::default(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    crate::LateWorkRule::Accept,
+                    crate::AssignmentDeadlineRule::AutoSubmit,
+                )
+                .expect("working copy settings"),
         };
         let mut value = serde_json::to_value(&policy).expect("policy request serialization");
         let record = value.as_object().expect("policy request object");
-        assert!(record.contains_key("baseRevision"));
+        assert!(record.contains_key("baseEditNumber"));
         assert!(record.contains_key("studentFeedbackReleaseRule"));
-        assert!(record.contains_key("assignmentRevisionDefinition"));
+        assert!(record.contains_key("assignmentWorkingCopyDefinition"));
         assert_eq!(
             serde_json::from_value::<ReplaceAssignmentPoliciesRequest>(value.clone())
                 .expect("policy request roundtrip"),

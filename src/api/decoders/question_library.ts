@@ -883,8 +883,8 @@ export function decodeAssignmentSummary(
 
 /** Decode the student transport, which deliberately excludes authority inputs. */
 export {
-  decodeAssignmentRevisionDefinitionValidationFailure,
-  decodeInstructorAssignmentRevisionDefinitionLocal,
+  decodeAssignmentWorkingCopyDefinitionValidationFailure,
+  decodeInstructorAssignmentWorkingCopyDefinitionLocal,
   decodeStudentAssignmentDetail,
   decodeStudentAssignmentLandingSummary,
 } from "./assignment_teaching_delivery";

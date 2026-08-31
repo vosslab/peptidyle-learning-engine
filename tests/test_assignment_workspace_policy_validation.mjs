@@ -33,9 +33,8 @@ const input = {
     assignmentNavigationRule: "freeNavigation",
     assignmentQuestionOrderRule: "authoredOrder",
   },
-  assignmentRevisionDefinition: {
+  assignmentWorkingCopyDefinition: {
     timeZone: "America/Chicago",
-    lifecycle: "draft",
     instructions: "Use a structural drawing.",
     availableAt: null,
     dueAt: null,
@@ -69,7 +68,7 @@ function policySave(response) {
   );
 }
 
-test("Policies save binds the reviewed Assignment Revision", async () => {
+test("Policies save binds the reviewed Assignment Edit Number", async () => {
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ error: "assignment changed" }, 412),
   );
@@ -90,7 +89,7 @@ test("Policies save binds the reviewed Assignment Revision", async () => {
   assert.equal(request.headers.get("if-match"), '"1"');
   assert.deepEqual(await request.json(), {
     ...input,
-    baseRevision: { assignment: "A-1", revision_number: "1" },
+    baseEditNumber: "1",
   });
 });
 
@@ -120,7 +119,7 @@ test("Policies validation decoder accepts only the closed bounded envelope", () 
     () =>
       decodeAssignmentPoliciesValidationFailure({
         ...validationFailure,
-        issues: [{ kind: "draftRevisionPublicationReadiness", blockingIssues: [] }],
+        issues: [{ kind: "assignmentReleaseRequirements", blockingIssues: [] }],
       }),
     DecodeError,
   );

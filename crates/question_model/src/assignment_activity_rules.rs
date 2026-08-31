@@ -213,20 +213,20 @@ pub enum AssignmentQuestionOrderRule {
     Shuffled,
 }
 
-/// Stable input for a pool draw.
+/// Stable server-owned inputs for one Question Pool Selection.
 ///
 /// The basis contains only server-owned durable identities. It chooses
 /// candidate references; question issuance separately creates the fresh
 /// private server seed for every selected question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionPoolSelectionBasis {
-    /// Repeat draws for one Student Record retain the same candidate selection.
+pub enum QuestionPoolSelectionInputs {
+    /// Repeat selections for one Student Record retain the same candidates.
     StableStudentRecord {
         student_record: crate::StudentRecordId,
         assignment: AssignmentId,
         question_pool_entry: AssignmentEntryId,
     },
-    /// Each new Assignment Attempt receives an independently derived candidate selection.
+    /// Each new Assignment Attempt receives independently selected candidates.
     RegeneratedAssignmentAttempt {
         assignment_attempt: crate::AssignmentAttemptId,
         assignment: AssignmentId,
@@ -236,15 +236,15 @@ pub enum QuestionPoolSelectionBasis {
     Preview {
         assignment: AssignmentId,
         question_pool_entry: AssignmentEntryId,
-        nonce: PoolDrawPreviewNonce,
+        nonce: QuestionPoolPreviewNonce,
     },
 }
 
-/// Opaque server-minted entropy for an instructor pool-preview request.
+/// Opaque server-minted entropy for one Instructor Question Pool Preview.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PoolDrawPreviewNonce([u8; 16]);
+pub struct QuestionPoolPreviewNonce([u8; 16]);
 
-impl PoolDrawPreviewNonce {
+impl QuestionPoolPreviewNonce {
     /// Builds the nonce from server-generated entropy.
     pub const fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
@@ -259,12 +259,12 @@ impl PoolDrawPreviewNonce {
 /// Question Variation Rule cannot derive a pool selection until the instructor supplies a
 /// real selected-variant model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionPoolSelectionBasisError {
+pub enum QuestionPoolSelectionInputsError {
     /// A Question Pool has no instructor-selected variant source.
     SelectedQuestionVariantsRequireExplicitPoolSelection,
 }
 
-impl std::fmt::Display for QuestionPoolSelectionBasisError {
+impl std::fmt::Display for QuestionPoolSelectionInputsError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SelectedQuestionVariantsRequireExplicitPoolSelection => formatter.write_str(
@@ -274,40 +274,40 @@ impl std::fmt::Display for QuestionPoolSelectionBasisError {
     }
 }
 
-impl std::error::Error for QuestionPoolSelectionBasisError {}
+impl std::error::Error for QuestionPoolSelectionInputsError {}
 
 impl QuestionVariationRule {
-    /// Derives the only accepted server-owned basis for one Question Pool entry.
-    pub fn question_pool_selection_basis(
+    /// Derives the only accepted server-owned selection inputs for one Question Pool entry.
+    pub fn question_pool_selection_inputs(
         self,
         assignment: AssignmentId,
         assignment_attempt: &AssignmentAttempt,
         question_pool_entry: AssignmentEntryId,
-    ) -> Result<QuestionPoolSelectionBasis, QuestionPoolSelectionBasisError> {
+    ) -> Result<QuestionPoolSelectionInputs, QuestionPoolSelectionInputsError> {
         match self {
-            Self::ReuseQuestionsWithNewSeeds => Ok(QuestionPoolSelectionBasis::StableStudentRecord {
+            Self::ReuseQuestionsWithNewSeeds => Ok(QuestionPoolSelectionInputs::StableStudentRecord {
                 student_record: assignment_attempt.student_record,
                 assignment,
                 question_pool_entry,
             }),
-            Self::RedrawQuestionPools => Ok(QuestionPoolSelectionBasis::RegeneratedAssignmentAttempt {
+            Self::RedrawQuestionPools => Ok(QuestionPoolSelectionInputs::RegeneratedAssignmentAttempt {
                 assignment_attempt: assignment_attempt.id,
                 assignment,
                 question_pool_entry,
             }),
             Self::SelectedQuestionVariants => {
-                Err(QuestionPoolSelectionBasisError::SelectedQuestionVariantsRequireExplicitPoolSelection)
+                Err(QuestionPoolSelectionInputsError::SelectedQuestionVariantsRequireExplicitPoolSelection)
             }
         }
     }
 }
 
-impl QuestionPoolSelectionBasis {
-    /// Creates the independent no-store preview basis for a saved definition.
+impl QuestionPoolSelectionInputs {
+    /// Creates independent no-store selection inputs for a saved definition preview.
     pub const fn preview(
         assignment: AssignmentId,
         question_pool_entry: AssignmentEntryId,
-        nonce: PoolDrawPreviewNonce,
+        nonce: QuestionPoolPreviewNonce,
     ) -> Self {
         Self::Preview {
             assignment,

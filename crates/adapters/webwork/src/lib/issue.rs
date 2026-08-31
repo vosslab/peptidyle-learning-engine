@@ -218,7 +218,8 @@ where
 
     /// Issues a browser-safe render, consulting the immutable `(version, seed)` cache first.
     ///
-    /// The cache stores no grading material. A cache miss renders once and
+    /// The cache stores no Answer Key, Question Feedback, Question Answer
+    /// Explanation, or Question Grading Input. A cache miss renders once and
     /// writes immutable safe bytes. A cache hit still renders once to capture
     /// and verify the newly issued attempt's private replay mapping; that call
     /// must reproduce the cached safe output exactly. Persisted attempt GETs

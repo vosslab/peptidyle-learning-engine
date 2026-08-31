@@ -73,16 +73,16 @@ pub mod teaching_operations;
 // they are re-exported to keep call sites short. Everything else stays
 // available under its module.
 pub use crate::assignment::{
-    AssignmentDeadlineRule, AssignmentEntry, AssignmentEntryAvailability,
+    AssignmentDeadlineRule, AssignmentEditNumber, AssignmentEntry, AssignmentEntryAvailability,
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentInstructionsError,
-    AssignmentLifecycle, AssignmentPointValue, AssignmentRevisionDefinition,
-    AssignmentRevisionDefinitionFailureCode, AssignmentRevisionDefinitionFailureReason,
-    AssignmentRevisionDefinitionField, AssignmentRevisionDefinitionLocalError,
-    AssignmentRevisionDefinitionValidationFailure, AssignmentRevisionNumber,
-    AssignmentRevisionNumberError, AssignmentScoringState, AssignmentTitle, AssignmentTitleError,
+    AssignmentPointValue, AssignmentRevisionNumber, AssignmentRevisionNumberError,
+    AssignmentScoringState, AssignmentStatus, AssignmentTitle, AssignmentTitleError,
+    AssignmentWorkingCopyDefinition, AssignmentWorkingCopyDefinitionFailureCode,
+    AssignmentWorkingCopyDefinitionFailureReason, AssignmentWorkingCopyDefinitionField,
+    AssignmentWorkingCopyDefinitionLocalError, AssignmentWorkingCopyDefinitionValidationFailure,
     BaseAssignmentPolicy, CourseLocalDateAndTime, CourseLocalDateAndTimeError,
     FixedQuestionAssignmentEntry, InstructorAssignmentCurrentState,
-    InstructorAssignmentRevisionDefinitionLocal, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    InstructorAssignmentWorkingCopyDefinitionLocal, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
     MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
     MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSIGNMENT_ORDERED_ENTRIES,
     MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
@@ -93,18 +93,17 @@ pub use crate::assignment::{
 pub use crate::assignment_activity_rules::{
     AssignmentActivityRules, AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule,
     AssignmentAttemptResumeRule, AssignmentCompletionRule, AssignmentNavigationRule,
-    AssignmentQuestionDisplayRule, AssignmentQuestionOrderRule, PoolDrawPreviewNonce,
-    QuestionAttemptLimit, QuestionPoolSelectionBasis, QuestionPoolSelectionBasisError,
+    AssignmentQuestionDisplayRule, AssignmentQuestionOrderRule, QuestionAttemptLimit,
+    QuestionPoolPreviewNonce, QuestionPoolSelectionInputs, QuestionPoolSelectionInputsError,
     QuestionVariationRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 pub use crate::assignment_workspace::{
     AssignmentEntryRequest, AssignmentPoliciesValidationFailure,
     AssignmentPoliciesValidationFailureCode, AssignmentPoliciesValidationIssue,
-    AssignmentPolicyConfigurationReason, AssignmentPublicationBlockingIssue,
-    CreateAssignmentDraftRequest, DraftAssignmentRevisionPublicationReadiness,
-    InstructorStudentView, InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
-    ReplaceAssignmentFixedItemRequest, ReplaceAssignmentPoliciesRequest,
-    SuccessorAssignmentRevisionRequired,
+    AssignmentPolicyConfigurationReason, AssignmentReleaseIssue, AssignmentReleaseValidation,
+    CreateAssignmentRequest, InstructorStudentView, InstructorStudentViewDelivery,
+    ReplaceAssignmentContentRequest, ReplaceAssignmentFixedItemRequest,
+    ReplaceAssignmentPoliciesRequest, SuccessorAssignmentRevisionRequired,
 };
 pub use crate::auth::{AccountId, AccountRole};
 pub use crate::blueprint_course::{
@@ -173,7 +172,9 @@ pub use crate::grading_operations::{
 pub use crate::identity::{
     AssetId, ObjectId, QuestionVersionNumber, WorkspaceId, WorkspaceImportId,
 };
-pub use crate::pool_preview::{PoolDrawPreview, PoolDrawPreviewQuestion, PoolDrawPreviewRequest};
+pub use crate::pool_preview::{
+    QuestionPoolPreview, QuestionPoolPreviewQuestion, QuestionPoolPreviewRequest,
+};
 pub use crate::presentation::{
     IssuedQuestionResponseFormatV1, PresentationEnvelopeV1, PresentationResponseItemReference,
     PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,

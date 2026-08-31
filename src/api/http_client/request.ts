@@ -1,7 +1,6 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentEntryId } from "../../../generated/api/AssignmentEntryId";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
-import type { AssignmentRevisionReference } from "../../../generated/api/AssignmentRevisionReference";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
@@ -18,7 +17,7 @@ import { isPublicByline } from "../public_byline";
 import type {
   AssignmentEditorDetail,
   AssignmentContentInput,
-  AssignmentDraftInput,
+  AssignmentCreateInput,
   AssignmentPoliciesInput,
   ReplaceAssignmentFixedItemInput,
   FeedbackReleaseResponse,
@@ -56,7 +55,6 @@ import {
   decodeQuestionAttemptTimingDecision,
 } from "../decoders";
 import { decodeQuestionId } from "../decoders/shared";
-import { decodeAssignmentReference } from "../decoders/question_library";
 import {
   decodeAssignmentEditorDetail,
   decodeSuccessorAssignmentRevisionRequired,
@@ -197,17 +195,11 @@ function validRevision(value: string): boolean {
   return /^"[1-9][0-9]*"$/u.test(value) && BigInt(value.slice(1, -1)) <= 9_223_372_036_854_775_807n;
 }
 
-/** Converts the transport ETag into the exact immutable revision the Instructor reviewed. */
-function assignmentRevisionPrecondition(
-  assignment: AssignmentReference,
-  assignmentRevisionEtag: string,
-): AssignmentRevisionReference {
-  if (!validRevision(assignmentRevisionEtag))
-    throw new ApiProtocolError("assignment revision must be one positive strong numeric ETag");
-  return {
-    assignment: decodeAssignmentReference(assignment, "request.baseRevision.assignment"),
-    revision_number: assignmentRevisionEtag.slice(1, -1),
-  };
+/** Converts the transport ETag into the exact Assignment Working Copy edit precondition. */
+function assignmentEditPrecondition(assignmentEditEtag: string): string {
+  if (!validRevision(assignmentEditEtag))
+    throw new ApiProtocolError("assignment edit number must be one positive strong numeric ETag");
+  return assignmentEditEtag.slice(1, -1);
 }
 function workspaceRevision(response: Response, path: string): string {
   const value = response.headers.get("etag");
@@ -350,15 +342,15 @@ async function requestAssignmentPolicies(
   basePath: string,
   courseId: CourseId,
   assignmentId: AssignmentId,
-  assignmentReference: AssignmentReference,
+  _assignmentReference: AssignmentReference,
   input: AssignmentPoliciesInput,
   assignmentRevisionEtag: string,
 ): Promise<AssignmentEditorDetail> {
   const path = `${assignmentPath(courseId, assignmentId)}/policies`;
-  const baseRevision = assignmentRevisionPrecondition(assignmentReference, assignmentRevisionEtag);
+  const baseEditNumber = assignmentEditPrecondition(assignmentRevisionEtag);
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: "PUT",
-    body: { ...input, baseRevision },
+    body: { ...input, baseEditNumber },
     headers: { "if-match": assignmentRevisionEtag },
   });
   if (response.status === 409 || response.status === 412 || response.status === 428)
@@ -407,7 +399,7 @@ export function createRequestClient(
   | "saveCourseGradeScheme"
   | "createCourseGradeExport"
   | "createCourse"
-  | "createAssignmentDraft"
+  | "createAssignment"
   | "getAssignmentWorkspace"
   | "saveAssignmentContent"
   | "replaceAssignmentFixedItem"
@@ -632,10 +624,10 @@ export function createRequestClient(
         assignmentPath(courseId, assignmentId),
         { courseId, assignmentId },
       ),
-    createAssignmentDraft: (
+    createAssignment: (
       courseId,
-      input: AssignmentDraftInput,
-    ): ReturnType<ApiClient["createAssignmentDraft"]> => {
+      input: AssignmentCreateInput,
+    ): ReturnType<ApiClient["createAssignment"]> => {
       if (typeof input.title !== "string" || input.title.trim().length === 0)
         return Promise.reject(new ApiProtocolError("assignment draft needs a nonempty title"));
       return requestAssignmentEditor(
@@ -649,14 +641,11 @@ export function createRequestClient(
     saveAssignmentContent: (
       courseId,
       assignmentId,
-      assignmentReference,
+      _assignmentReference,
       input: AssignmentContentInput,
       assignmentRevisionEtag,
     ): ReturnType<ApiClient["saveAssignmentContent"]> => {
-      const baseRevision = assignmentRevisionPrecondition(
-        assignmentReference,
-        assignmentRevisionEtag,
-      );
+      const baseEditNumber = assignmentEditPrecondition(assignmentRevisionEtag);
       return requestAssignmentEditor(
         fetchImplementation,
         basePath,
@@ -664,7 +653,7 @@ export function createRequestClient(
         { courseId, assignmentId },
         {
           method: "PUT",
-          body: { ...decodeAssignmentContentInput(input, "request"), baseRevision },
+          body: { ...decodeAssignmentContentInput(input, "request"), baseEditNumber },
           headers: { "if-match": assignmentRevisionEtag },
         },
         "contentSave",
@@ -673,15 +662,12 @@ export function createRequestClient(
     replaceAssignmentFixedItem: (
       courseId,
       assignmentId,
-      assignmentReference,
+      _assignmentReference,
       itemId: AssignmentEntryId,
       questionId: QuestionId,
       assignmentRevisionEtag,
     ): ReturnType<ApiClient["replaceAssignmentFixedItem"]> => {
-      const baseRevision = assignmentRevisionPrecondition(
-        assignmentReference,
-        assignmentRevisionEtag,
-      );
+      const baseEditNumber = assignmentEditPrecondition(assignmentRevisionEtag);
       if (itemId.length === 0)
         return Promise.reject(
           new ApiProtocolError("assignment fixed-item identity must be present"),
@@ -696,7 +682,7 @@ export function createRequestClient(
         { courseId, assignmentId },
         {
           method: "PUT",
-          body: { ...input, baseRevision },
+          body: { ...input, baseEditNumber },
           headers: { "if-match": assignmentRevisionEtag },
         },
       );

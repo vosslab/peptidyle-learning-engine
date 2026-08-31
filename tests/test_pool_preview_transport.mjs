@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodePoolDrawPreview, decodePoolDrawPreviewRequest } from "../src/api/decoders.ts";
+import {
+  decodeQuestionPoolPreview,
+  decodeQuestionPoolPreviewRequest,
+} from "../src/api/decoders.ts";
 import {
   ApiRequestError,
   PreviewPlaneConflictError,
@@ -20,13 +23,13 @@ function previewResponse() {
     revision,
     assignmentEntryId,
     questionPoolLabel: "Pool 2",
-    drawCount: 1,
+    selectionCount: 1,
     selectionRule: { ordering: "randomized", algorithm: "v1" },
     candidates: [
       { questionId: "7K3-M9QP", title: "First candidate" },
       { questionId: "7K4-M9QP", title: "Second candidate" },
     ],
-    sampled: [{ questionId: "7K4-M9QP", title: "Second candidate" }],
+    selected: [{ questionId: "7K4-M9QP", title: "Second candidate" }],
   };
 }
 
@@ -39,21 +42,24 @@ function jsonResponse(value, status = 200, cacheControl = "no-store") {
 
 test("pool preview decoder accepts only the safe closed server projection", () => {
   const response = previewResponse();
-  assert.deepEqual(decodePoolDrawPreview(response), response);
-  assert.deepEqual(decodePoolDrawPreviewRequest({ assignmentEntryId }), { assignmentEntryId });
+  assert.deepEqual(decodeQuestionPoolPreview(response), response);
+  assert.deepEqual(decodeQuestionPoolPreviewRequest({ assignmentEntryId }), { assignmentEntryId });
   assert.throws(
-    () => decodePoolDrawPreviewRequest({ assignmentEntryId, seed: "browser" }),
+    () => decodeQuestionPoolPreviewRequest({ assignmentEntryId, seed: "browser" }),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodePoolDrawPreview({
+      decodeQuestionPoolPreview({
         ...response,
-        sampled: [{ questionId: "7K5-M9QP", title: "Not a candidate" }],
+        selected: [{ questionId: "7K5-M9QP", title: "Not a candidate" }],
       }),
     DecodeError,
   );
-  assert.throws(() => decodePoolDrawPreview({ ...response, answerKey: "not safe" }), DecodeError);
+  assert.throws(
+    () => decodeQuestionPoolPreview({ ...response, answerKey: "not safe" }),
+    DecodeError,
+  );
 });
 
 test("pool preview transport sends only position with revision and requires no-store", async () => {
@@ -64,7 +70,7 @@ test("pool preview transport sends only position with revision and requires no-s
       return jsonResponse(previewResponse());
     },
   });
-  const preview = await client.previewPoolDraw(course, assignment, revision, assignmentEntryId);
+  const preview = await client.previewQuestionPool(course, assignment, revision, assignmentEntryId);
   assert.equal(preview.questionPoolLabel, "Pool 2");
   assert.equal(calls[0]?.input, "/api/courses/C-12/assignments/A-34/preview-pool-draw");
   assert.equal(calls[0]?.init?.method, "POST");
@@ -77,12 +83,12 @@ test("pool preview transport sends only position with revision and requires no-s
 test("pool preview reports reload and unavailable recovery without response enumeration", async () => {
   const stale = createHttpApiClient({ fetch: async () => jsonResponse({}, 412) });
   await assert.rejects(
-    stale.previewPoolDraw(course, assignment, revision, assignmentEntryId),
+    stale.previewQuestionPool(course, assignment, revision, assignmentEntryId),
     PreviewPlaneConflictError,
   );
   const unavailable = createHttpApiClient({ fetch: async () => jsonResponse({}, 404) });
   await assert.rejects(
-    unavailable.previewPoolDraw(course, assignment, revision, assignmentEntryId),
+    unavailable.previewQuestionPool(course, assignment, revision, assignmentEntryId),
     (error) => error instanceof ApiRequestError && error.status === 404,
   );
 });

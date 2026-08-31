@@ -8,12 +8,12 @@ import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneRe
 import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { ApiClient } from "../client";
-import type { PoolDrawPreview } from "../contracts";
+import type { QuestionPoolPreview } from "../contracts";
 import {
   decodeDerivedPreviewSubjectRequest,
   decodeInstructorPreviewSchedulePage,
-  decodePoolDrawPreview,
-  decodePoolDrawPreviewRequest,
+  decodeQuestionPoolPreview,
+  decodeQuestionPoolPreviewRequest,
   decodePreviewPlaneResponse,
   decodeStudentViewScenarioRequest,
 } from "../decoders";
@@ -126,7 +126,7 @@ export function createPreviewPlaneClient(
   | "listPreviewSchedule"
   | "constructSyntheticPreview"
   | "constructDerivedPreview"
-  | "previewPoolDraw"
+  | "previewQuestionPool"
 > {
   return {
     listPreviewSchedule: (
@@ -171,15 +171,15 @@ export function createPreviewPlaneClient(
         revision,
       });
     },
-    previewPoolDraw: async (
+    previewQuestionPool: async (
       course,
       assignment,
       revision,
       assignmentEntryId,
-    ): Promise<PoolDrawPreview> => {
+    ): Promise<QuestionPoolPreview> => {
       const path = `${previewRoutePath(course, assignment)}/preview-pool-draw`;
-      const body = decodePoolDrawPreviewRequest({ assignmentEntryId }, "request");
-      return previewJson(fetchImplementation, basePath, path, decodePoolDrawPreview, {
+      const body = decodeQuestionPoolPreviewRequest({ assignmentEntryId }, "request");
+      return previewJson(fetchImplementation, basePath, path, decodeQuestionPoolPreview, {
         method: "POST",
         body,
         revision,

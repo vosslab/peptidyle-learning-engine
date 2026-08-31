@@ -1,8 +1,8 @@
--- SD1 atomic passwordless-credential completion brokers.
+-- SD1 atomic passwordless-credential completion operations.
 --
--- These brokers establish only an existing Account's immutable role. The
+-- These operations establish only an existing Account's immutable role. The
 -- route subsequently creates the one Authenticated Session through its
--- separate broker; no credential ceremony creates an Account or grants a
+-- separate operation; no credential ceremony creates an Account or grants a
 -- course relationship.
 
 DO $$
@@ -45,8 +45,8 @@ AS $$
       JOIN ple_private.account AS account ON account.account_id = consumed.target_account_id
 $$;
 
--- The WebAuthn adapter verifies the assertion before calling this broker. The
--- broker then atomically consumes its browser-bound ceremony and records use
+-- The WebAuthn adapter verifies the assertion before calling this operation. The
+-- operation then atomically consumes its browser-bound ceremony and records use
 -- of only a non-reversible credential-ID hash.
 CREATE FUNCTION ple_private.consume_passkey_authentication(
     p_ceremony_id uuid,
