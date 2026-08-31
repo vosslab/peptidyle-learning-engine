@@ -4,7 +4,7 @@
 // - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
 // - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
 // - src/pages/assignment_workspace/assignment_workspace_policies_page.tsx owns publishing controls.
-// - src/pages/run_page.tsx:442 owns issued student questions, feedback, and completion surfaces.
+// - src/pages/assignment_attempt_page.tsx owns issued student questions, feedback, and completion surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";

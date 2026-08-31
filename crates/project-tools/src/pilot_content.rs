@@ -4,13 +4,12 @@ use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::path::{Component, Path, PathBuf};
 
-use adapter_native::flat_question::{
-    FLAT_MATCHING_FAMILY, FLAT_SINGLE_CHOICE_V2_FAMILY, FlatQuestionDocument,
-};
+use adapter_native::flat_question::FlatQuestionDocument;
 use anyhow::{Context, Result, bail};
-use question_model::response::{ChoiceId, MatchPair, StudentResponse};
+use question_model::response::{ChoiceId, MatchPair, QuestionType, StudentResponse};
 use question_model::{
-    QuestionDefinition, QuestionId, QuestionSource, QuestionVersionNumber, WorkspaceId,
+    QuestionDefinition, QuestionFormat, QuestionId, QuestionSource, QuestionVersionNumber,
+    WorkspaceId,
     taxonomy::License,
 };
 use serde::Deserialize;
@@ -19,11 +18,11 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assignments.yaml";
-const EXPECTED_QUESTION_SHAPES: [(Backend, Family); 4] = [
-    (Backend::Webwork, Family::MultipleChoice),
-    (Backend::Webwork, Family::Matching),
-    (Backend::PleFlat, Family::MultipleChoice),
-    (Backend::PleFlat, Family::Matching),
+const EXPECTED_QUESTION_SHAPES: [(Backend, PilotQuestionType); 4] = [
+    (Backend::Webwork, PilotQuestionType::MultipleChoice),
+    (Backend::Webwork, PilotQuestionType::Matching),
+    (Backend::PleFlat, PilotQuestionType::MultipleChoice),
+    (Backend::PleFlat, PilotQuestionType::Matching),
 ];
 
 #[derive(Debug, Deserialize)]
@@ -62,7 +61,7 @@ pub(crate) struct Question {
     pub(crate) slug: String,
     pub(crate) title: String,
     pub(crate) backend: Backend,
-    pub(crate) family: Family,
+    pub(crate) question_type: PilotQuestionType,
     pub(crate) points: u32,
     pub(crate) source: PathBuf,
     source_sha256: String,
@@ -85,9 +84,10 @@ pub(crate) enum Backend {
     PleFlat,
 }
 
+/// The Question Types present in the deliberately small pilot corpus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) enum Family {
+pub(crate) enum PilotQuestionType {
     MultipleChoice,
     Matching,
 }
@@ -221,7 +221,7 @@ fn validate_chapter(chapter: &Chapter) -> Result<()> {
     let shapes = chapter
         .questions
         .iter()
-        .map(|question| (question.backend, question.family))
+        .map(|question| (question.backend, question.question_type))
         .collect::<HashSet<_>>();
     if shapes != HashSet::from(EXPECTED_QUESTION_SHAPES) {
         bail!(
@@ -241,9 +241,9 @@ fn validate_question(
     if question.title.trim().is_empty() || question.slug.trim().is_empty() {
         bail!("pilot question title and slug must not be blank");
     }
-    let expected_points = match question.family {
-        Family::MultipleChoice => 1,
-        Family::Matching => 4,
+    let expected_points = match question.question_type {
+        PilotQuestionType::MultipleChoice => 1,
+        PilotQuestionType::Matching => 4,
     };
     if question.points != expected_points {
         bail!("{} must be worth {expected_points} point(s)", question.slug);
@@ -291,9 +291,9 @@ fn validate_webwork(question: &Question, source: &Path) -> Result<()> {
             source.display()
         );
     }
-    let family_marker = match question.family {
-        Family::MultipleChoice => "RadioButtons",
-        Family::Matching => "make_popup",
+    let family_marker = match question.question_type {
+        PilotQuestionType::MultipleChoice => "RadioButtons",
+        PilotQuestionType::Matching => "make_popup",
     };
     if !text.contains(family_marker) {
         bail!("WeBWorK source {} lacks {family_marker}", source.display());
@@ -315,7 +315,7 @@ fn validate_flat(
         .source_item
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("PLE flat entry lacks its source item"))?;
-    validate_source_item(source, source_item, question.family)?;
+    validate_source_item(source, source_item, question.question_type)?;
     let payload_relative = question
         .payload
         .as_deref()
@@ -349,18 +349,20 @@ fn validate_flat(
     {
         bail!("PLE flat pilot payload taxonomy does not match its chapter");
     }
-    let expected_family = match question.family {
-        Family::MultipleChoice => FLAT_SINGLE_CHOICE_V2_FAMILY,
-        Family::Matching => FLAT_MATCHING_FAMILY,
+    let expected_question_type = match question.question_type {
+        PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
+        PilotQuestionType::Matching => QuestionType::Matching,
     };
-    let question_model::DraftQuestionSource::Native { family } = &compiled.draft().source else {
+    if !matches!(compiled.draft().source, question_model::DraftQuestionSource::Native) {
         bail!("PLE flat payload compiled to a non-native source");
-    };
-    if family != expected_family {
-        bail!("PLE flat payload family differs from its manifest entry");
+    }
+    if compiled.draft().question_format != QuestionFormat::PleFlatQuestionV2
+        || compiled.draft().question_type != expected_question_type
+    {
+        bail!("PLE flat payload question_type differs from its manifest entry");
     }
     validate_answer_separation(compiled.draft())?;
-    validate_correct_and_wrong_grading(compiled, &bytes, question.family)
+    validate_correct_and_wrong_grading(compiled, &bytes, question.question_type)
 }
 
 fn validate_answer_separation(draft: &question_model::DraftQuestionDefinition) -> Result<()> {
@@ -383,26 +385,23 @@ fn validate_answer_separation(draft: &question_model::DraftQuestionDefinition) -
 fn validate_correct_and_wrong_grading(
     compiled: adapter_native::flat_question::CompiledFlatQuestion,
     source: &[u8],
-    family: Family,
+    question_type: PilotQuestionType,
 ) -> Result<()> {
     let value: Value = serde_json::from_slice(source)?;
     let response = value
         .get("response")
         .and_then(Value::as_object)
         .ok_or_else(|| anyhow::anyhow!("PLE flat payload lacks its response object"))?;
-    let (correct, wrong) = source_responses(response, family)?;
+    let (correct, wrong) = source_responses(response, question_type)?;
     let (draft, private) = compiled.into_parts();
-    let source_family = match &draft.source {
-        question_model::DraftQuestionSource::Native { family } => family.clone(),
-        _ => bail!("PLE flat payload compiled to a non-native source"),
-    };
+    if !matches!(draft.source, question_model::DraftQuestionSource::Native) {
+        bail!("PLE flat payload compiled to a non-native source");
+    }
     let published = QuestionDefinition::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionVersionNumber::new(1).expect("positive version"),
-        QuestionSource::Native {
-            family: source_family,
-        },
+        QuestionSource::Native,
     );
     let correct_result = private.evaluate(&published, &correct)?;
     let wrong_result = private.evaluate(&published, &wrong)?;
@@ -420,10 +419,10 @@ fn validate_correct_and_wrong_grading(
 
 fn source_responses(
     response: &serde_json::Map<String, Value>,
-    family: Family,
+    question_type: PilotQuestionType,
 ) -> Result<(StudentResponse, StudentResponse)> {
-    match family {
-        Family::MultipleChoice => {
+    match question_type {
+        PilotQuestionType::MultipleChoice => {
             let correct = string_field(response, "correctChoice")?;
             let wrong = response
                 .get("choices")
@@ -444,7 +443,7 @@ fn source_responses(
                 },
             ))
         }
-        Family::Matching => {
+        PilotQuestionType::Matching => {
             let matches = response
                 .get("matches")
                 .and_then(Value::as_array)
@@ -482,10 +481,10 @@ fn string_field<'a>(record: &'a serde_json::Map<String, Value>, name: &str) -> R
         .ok_or_else(|| anyhow::anyhow!("PLE flat response lacks string field {name}"))
 }
 
-fn validate_source_item(source: &Path, item: &str, family: Family) -> Result<()> {
-    let expected_kind = match family {
-        Family::MultipleChoice => "MC",
-        Family::Matching => "MAT",
+fn validate_source_item(source: &Path, item: &str, question_type: PilotQuestionType) -> Result<()> {
+    let expected_kind = match question_type {
+        PilotQuestionType::MultipleChoice => "MC",
+        PilotQuestionType::Matching => "MAT",
     };
     let marker = format!("<p>{item}</p>");
     let mut reader = csv::ReaderBuilder::new()
@@ -506,12 +505,12 @@ fn validate_source_item(source: &Path, item: &str, family: Family) -> Result<()>
     }
     let selected = selected.ok_or_else(|| anyhow::anyhow!("BBQ source item {item} is missing"))?;
     if selected.get(0) != Some(expected_kind) {
-        bail!("BBQ source item {item} has the wrong family");
+        bail!("BBQ source item {item} has the wrong question_type");
     }
     if selected.len() < 6 || (selected.len() - 2) % 2 != 0 {
         bail!("BBQ source item {item} has malformed paired fields");
     }
-    if family == Family::MultipleChoice {
+    if question_type == PilotQuestionType::MultipleChoice {
         let correct = selected
             .iter()
             .skip(3)

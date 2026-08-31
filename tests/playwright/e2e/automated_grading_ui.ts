@@ -1,9 +1,9 @@
 // Visible automated-grading helpers for connected student journeys.
 //
 // Selector contract:
-// - src/pages/run_page.tsx:441 owns the run-attempt identity surface.
-// - src/pages/run_page.tsx:592 owns successor retry.
-// - src/pages/run_page.tsx:651 and :669 own pending status and its visible refresh action.
+// - src/pages/assignment_attempt_page.tsx owns the Assignment Attempt identity surface.
+// - src/pages/assignment_attempt_page.tsx owns successor retry.
+// - src/pages/assignment_attempt_page.tsx owns pending status and its visible refresh action.
 import { expect, type Locator, type Page } from "@playwright/test";
 
 const AUTOMATED_GRADING_DEADLINE_MS = 150_000;

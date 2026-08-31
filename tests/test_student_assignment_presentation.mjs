@@ -35,8 +35,12 @@ test("Student detail adapts active items and pool draws without exposing source 
       deadline_behavior: "autoSubmit",
       late_status: "on_time",
     },
-    items: [{ deliveryState: "active" }, { deliveryState: "retired" }, { deliveryState: "active" }],
-    selection_groups: [{ drawCount: 3 }],
+    entries: [
+      { kind: "fixedQuestion", deliveryState: "active" },
+      { kind: "fixedQuestion", deliveryState: "retired" },
+      { kind: "fixedQuestion", deliveryState: "active" },
+      { kind: "questionPool", drawCount: 3 },
+    ],
   });
 
   assert.equal(presentation.questionsPerRun, 5);

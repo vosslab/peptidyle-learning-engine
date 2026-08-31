@@ -23,7 +23,7 @@ use grading::GradeOutcome;
 use question_model::AttemptResult;
 use question_model::answer::SelectionCardinality;
 use question_model::envelope::ContentBlock;
-use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
+use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
 use question_model::{QuestionEnvelope, StudentResponse};
 use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
 use reqwest::{Client, StatusCode, Url};
@@ -422,7 +422,7 @@ fn project_single_radio(
             seed: question_model::generation::Seed::new(request.seed),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text { markdown: prompt }],
-            response: ResponseDefinition::MultipleChoice {
+            response: QuestionResponseFormat::MultipleChoice {
                 choices,
                 selection: SelectionCardinality::ExactlyOne,
             },
@@ -480,7 +480,7 @@ fn project_matching(
             prompt: vec![ContentBlock::Text {
                 markdown: parsed_html.prompt_text,
             }],
-            response: ResponseDefinition::Matching { prompts, choices },
+            response: QuestionResponseFormat::Matching { prompts, choices },
         },
         html: crate::sanitizer::sanitize_webwork_html(&parsed_html.prompt_html),
         replay: WebworkReplayMappingV1::Matching {

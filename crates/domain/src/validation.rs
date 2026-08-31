@@ -1,6 +1,6 @@
 //! Browser-safe student-response format validation (WP-C6, MOD-GRD boundary).
 //!
-//! This module can inspect response definitions and student input, but it has
+//! This module can inspect Question Response Formats and Student input, but it has
 //! no answer key and makes no correctness decision. The server repeats the
 //! same validation before calling the server-only `grading` crate.
 
@@ -8,10 +8,10 @@ use std::collections::BTreeSet;
 
 use question_model::answer::SelectionCardinality;
 use question_model::presentation::{
-    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, ResponseSchemaV1,
+    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, IssuedQuestionResponseFormatV1,
 };
 use question_model::response::{
-    ChoiceId, HotspotRegion, ResponseDefinition, StudentResponse, TextEntrySlot,
+    ChoiceId, HotspotRegion, QuestionResponseFormat, StudentResponse, TextEntrySlot,
 };
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
     rename_all_fields = "camelCase"
 )]
 pub enum ResponseFormatViolation {
-    /// The response kind does not match the question's response definition.
+    /// The response kind does not match the Question Response Format.
     ResponseKindMismatch,
     /// A numeric response is NaN or infinite.
     NumericNotFinite,
@@ -95,22 +95,22 @@ impl ResponseFormatReport {
 /// The server runs this function before grading. The browser calls the same
 /// implementation through `wasm_bridge` for immediate format feedback.
 pub fn validate_response_format(
-    definition: &ResponseDefinition,
+    definition: &QuestionResponseFormat,
     response: &StudentResponse,
 ) -> ResponseFormatReport {
     let mut violations = Vec::new();
 
     match (definition, response) {
-        (ResponseDefinition::Numeric { .. }, StudentResponse::Numeric { value }) => {
+        (QuestionResponseFormat::Numeric { .. }, StudentResponse::Numeric { value }) => {
             if !value.is_finite() {
                 violations.push(ResponseFormatViolation::NumericNotFinite);
             }
         }
         (
-            ResponseDefinition::MultipleChoice { choices, selection },
+            QuestionResponseFormat::MultipleChoice { choices, selection },
             StudentResponse::MultipleChoice { selected },
         ) => validate_selection(choices, *selection, selected, &mut violations),
-        (ResponseDefinition::ShortText { max_length, .. }, StudentResponse::ShortText { text }) => {
+        (QuestionResponseFormat::ShortText { max_length, .. }, StudentResponse::ShortText { text }) => {
             let actual_length = count(text.chars());
             if actual_length > u64::from(*max_length) {
                 violations.push(ResponseFormatViolation::TextTooLong {
@@ -119,14 +119,14 @@ pub fn validate_response_format(
                 });
             }
         }
-        (ResponseDefinition::MultiBlank { blanks }, StudentResponse::MultiBlank { answers }) => {
+        (QuestionResponseFormat::MultiBlank { blanks }, StudentResponse::MultiBlank { answers }) => {
             validate_multi_blank(blanks, answers, &mut violations);
         }
         (
-            ResponseDefinition::Matching { prompts, choices },
+            QuestionResponseFormat::Matching { prompts, choices },
             StudentResponse::Matching { matches },
         ) => validate_matching(prompts, choices, matches, &mut violations),
-        (ResponseDefinition::Ordering { items }, StudentResponse::Ordering { order }) => {
+        (QuestionResponseFormat::Ordering { items }, StudentResponse::Ordering { order }) => {
             let expected: BTreeSet<ChoiceId> = items.iter().map(|item| item.id.clone()).collect();
             let actual: BTreeSet<ChoiceId> = order.iter().cloned().collect();
             if expected.len() != items.len()
@@ -138,17 +138,17 @@ pub fn validate_response_format(
             }
         }
         (
-            ResponseDefinition::Hotspot {
+            QuestionResponseFormat::Hotspot {
                 regions, selection, ..
             },
             StudentResponse::Hotspot { points },
         ) => validate_hotspot(regions, *selection, points, &mut violations),
-        (ResponseDefinition::FileUpload { .. }, StudentResponse::FileUpload { object_key }) => {
+        (QuestionResponseFormat::FileUpload { .. }, StudentResponse::FileUpload { object_key }) => {
             if object_key.trim().is_empty() {
                 violations.push(ResponseFormatViolation::MissingUploadReference);
             }
         }
-        (ResponseDefinition::ExternalTool {}, StudentResponse::ExternalTool {}) => {}
+        (QuestionResponseFormat::ExternalTool {}, StudentResponse::ExternalTool {}) => {}
         _ => violations.push(ResponseFormatViolation::ResponseKindMismatch),
     }
 
@@ -163,39 +163,39 @@ pub fn validate_response_format(
 /// catalog or renderer to rebuild the student's already-issued widget. It
 /// checks only public shape, never answer material or correctness.
 pub fn validate_presentation_response_format(
-    schema: &ResponseSchemaV1,
+    schema: &IssuedQuestionResponseFormatV1,
     response: &StudentResponse,
 ) -> ResponseFormatReport {
     let mut violations = Vec::new();
 
     match (schema, response) {
-        (ResponseSchemaV1::Numerical { .. }, StudentResponse::Numeric { value }) => {
+        (IssuedQuestionResponseFormatV1::Numerical { .. }, StudentResponse::Numeric { value }) => {
             if !value.is_finite() {
                 violations.push(ResponseFormatViolation::NumericNotFinite);
             }
         }
         (
-            ResponseSchemaV1::SingleChoice { choices },
+            IssuedQuestionResponseFormatV1::SingleChoice { choices },
             StudentResponse::MultipleChoice { selected },
         ) => {
             validate_presented_selection(choices, 1, 1, selected, &mut violations);
         }
         (
-            ResponseSchemaV1::MultipleAnswer {
+            IssuedQuestionResponseFormatV1::MultipleAnswer {
                 choices,
                 minimum,
                 maximum,
             },
             StudentResponse::MultipleChoice { selected },
         ) => validate_presented_selection(choices, *minimum, *maximum, selected, &mut violations),
-        (ResponseSchemaV1::FillIn { max_characters }, StudentResponse::ShortText { text }) => {
+        (IssuedQuestionResponseFormatV1::FillIn { max_characters }, StudentResponse::ShortText { text }) => {
             validate_text_length(*max_characters, text, &mut violations);
         }
-        (ResponseSchemaV1::MultiFillIn { blanks }, StudentResponse::MultiBlank { answers }) => {
+        (IssuedQuestionResponseFormatV1::MultiFillIn { blanks }, StudentResponse::MultiBlank { answers }) => {
             validate_presented_multi_blank(blanks, answers, &mut violations);
         }
         (
-            ResponseSchemaV1::Matching {
+            IssuedQuestionResponseFormatV1::Matching {
                 prompts,
                 choices,
                 reuse_choices,
@@ -204,7 +204,7 @@ pub fn validate_presentation_response_format(
         ) => {
             validate_presented_matching(prompts, choices, *reuse_choices, matches, &mut violations)
         }
-        (ResponseSchemaV1::Ordering { items }, StudentResponse::Ordering { order }) => {
+        (IssuedQuestionResponseFormatV1::Ordering { items }, StudentResponse::Ordering { order }) => {
             let expected: BTreeSet<ChoiceId> = items
                 .iter()
                 .map(|item| ChoiceId::new(item.id.as_str()))
@@ -219,7 +219,7 @@ pub fn validate_presentation_response_format(
             }
         }
         (
-            ResponseSchemaV1::Hotspot {
+            IssuedQuestionResponseFormatV1::Hotspot {
                 surface,
                 minimum,
                 maximum,
@@ -578,7 +578,7 @@ mod tests {
 
     #[test]
     fn a_kind_mismatch_stops_before_answer_adjacent_checks() {
-        let definition = ResponseDefinition::Numeric {
+        let definition = QuestionResponseFormat::Numeric {
             tolerance: NumericTolerance::Exact,
             unit: None,
         };
@@ -594,7 +594,7 @@ mod tests {
 
     #[test]
     fn numeric_input_must_be_finite() {
-        let definition = ResponseDefinition::Numeric {
+        let definition = QuestionResponseFormat::Numeric {
             tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
             unit: None,
         };
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn selection_reports_count_duplicates_and_unknown_ids() {
-        let definition = ResponseDefinition::MultipleChoice {
+        let definition = QuestionResponseFormat::MultipleChoice {
             choices: vec![choice("a"), choice("b")],
             selection: SelectionCardinality::ExactlyOne,
         };
@@ -635,7 +635,7 @@ mod tests {
 
     #[test]
     fn short_text_counts_characters_instead_of_utf8_bytes() {
-        let definition = ResponseDefinition::ShortText {
+        let definition = QuestionResponseFormat::ShortText {
             match_mode: TextMatchMode::Normalized,
             max_length: 2,
         };
@@ -669,7 +669,7 @@ mod tests {
 
     #[test]
     fn ordering_requires_each_defined_item_exactly_once() {
-        let definition = ResponseDefinition::Ordering {
+        let definition = QuestionResponseFormat::Ordering {
             items: vec![choice("first"), choice("second")],
         };
         let response = StudentResponse::Ordering {
@@ -684,7 +684,7 @@ mod tests {
 
     #[test]
     fn compound_flat_responses_refuse_stale_slots_pairs_and_regions() {
-        let multi_blank = ResponseDefinition::MultiBlank {
+        let multi_blank = QuestionResponseFormat::MultiBlank {
             blanks: vec![
                 TextEntrySlot {
                     id: ChoiceId::new("first"),
@@ -714,7 +714,7 @@ mod tests {
             vec![ResponseFormatViolation::BlankSlotsMismatch]
         );
 
-        let matching = ResponseDefinition::Matching {
+        let matching = QuestionResponseFormat::Matching {
             prompts: vec![choice("dna"), choice("rna")],
             choices: vec![choice("deoxy"), choice("ribose")],
         };
@@ -743,7 +743,7 @@ mod tests {
             ]
         );
 
-        let hotspot = ResponseDefinition::Hotspot {
+        let hotspot = QuestionResponseFormat::Hotspot {
             surface: question_model::envelope::AssetRef {
                 asset: question_model::AssetId::from_uuid(uuid::Uuid::from_u128(1)),
                 checksum: "a".repeat(64),
@@ -773,7 +773,7 @@ mod tests {
 
     #[test]
     fn file_upload_requires_a_server_issued_object_reference() {
-        let definition = ResponseDefinition::FileUpload {
+        let definition = QuestionResponseFormat::FileUpload {
             max_bytes: 10,
             accepted_extensions: vec!["pdf".to_string()],
         };
@@ -789,7 +789,7 @@ mod tests {
 
     #[test]
     fn external_tool_accepts_only_its_marker_response() {
-        let external = ResponseDefinition::ExternalTool {};
+        let external = QuestionResponseFormat::ExternalTool {};
         assert!(validate_response_format(&external, &StudentResponse::ExternalTool {}).is_valid());
 
         for response in [
@@ -809,7 +809,7 @@ mod tests {
             );
         }
 
-        let numeric = ResponseDefinition::Numeric {
+        let numeric = QuestionResponseFormat::Numeric {
             tolerance: NumericTolerance::Exact,
             unit: None,
         };

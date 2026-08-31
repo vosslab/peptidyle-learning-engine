@@ -67,7 +67,7 @@ function facetValues(
     | "byline"
     | "backend"
     | "tag"
-    | "responseFamily"
+    | "questionType"
     | "taxonomy"
     | "capability"
     | "license"
@@ -254,13 +254,13 @@ export function ProblemPicker(props: ProblemPickerProps): JSX.Element {
           </select>
         </label>
         <label>
-          Response family
+          Question Type
           <select
-            value={query().responseFamily ?? ""}
-            onChange={(event) => updateQuery({ responseFamily: event.currentTarget.value || null })}
+            value={query().questionType ?? ""}
+            onChange={(event) => updateQuery({ questionType: event.currentTarget.value || null })}
           >
-            <option value="">All response families</option>
-            <For each={facetValues(state(), "responseFamily")}>
+            <option value="">All Question Types</option>
+            <For each={facetValues(state(), "questionType")}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>

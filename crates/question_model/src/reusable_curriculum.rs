@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode, BlueprintReference,
     CatalogDiscoveryItem, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
     MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, QuestionId,
     AssignmentActivityRules, SelectionOrdering, StudentDisclosurePolicy,
 };
@@ -223,7 +223,7 @@ pub struct ReusablePoolInput {
 impl ReusablePoolInput {
     fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
         if self.candidates.is_empty()
-            || self.candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP
+            || self.candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL
         {
             return Err(ReusableCurriculumValidationError::InvalidPoolCandidates);
         }
@@ -284,7 +284,7 @@ impl ReusableAssignmentDefinitionInput {
                     .ok_or(ReusableCurriculumValidationError::TooManyPoolCandidates)?;
             }
         }
-        (total_pool_candidates <= MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES)
+        (total_pool_candidates <= MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
             .then_some(())
             .ok_or(ReusableCurriculumValidationError::TooManyPoolCandidates)
     }
@@ -554,7 +554,7 @@ mod tests {
     use crate::taxonomy::License;
     use crate::{
         ActivityTimestamp, BackendCapabilities, CatalogDiscoveryEvidence, QuestionVersionAvailability,
-        CatalogProblemSummary, CatalogResponseFamily, PublicAuthorName, PublicByline,
+        CatalogProblemSummary, QuestionType, PublicAuthorName, PublicByline,
         QuestionBackend, QuestionMetadata,
     };
     use uuid::Uuid;
@@ -619,7 +619,7 @@ mod tests {
             summary: CatalogProblemSummary {
                 question_id: question_id(),
                 backend: QuestionBackend::Native,
-                response_family: CatalogResponseFamily::MultipleChoice,
+                question_type: QuestionType::MultipleChoice,
                 capabilities: BackendCapabilities::none(),
                 metadata: QuestionMetadata {
                     title: "Safe catalog row".to_string(),

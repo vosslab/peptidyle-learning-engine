@@ -1,13 +1,14 @@
 // assignment_editor_model.ts - Questions-page browser state for QID-only assignment content.
 
-import type { AssignmentItemSummary } from "../../generated/api/AssignmentItemSummary";
-import type { AssignmentSelectionGroupSummary } from "../../generated/api/AssignmentSelectionGroupSummary";
+import type { FixedQuestionAssignmentEntrySummary } from "../../generated/api/FixedQuestionAssignmentEntrySummary";
+import type { QuestionPoolAssignmentEntrySummary } from "../../generated/api/QuestionPoolAssignmentEntrySummary";
+import type { AssignmentEntrySummary } from "../../generated/api/AssignmentEntrySummary";
 import type { Capability } from "../../generated/api/Capability";
 import type { StudentDisclosurePolicy } from "../../generated/api/StudentDisclosurePolicy";
 import type { AssignmentActivityRules } from "../../generated/api/AssignmentActivityRules";
-import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
+import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
+import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type {
@@ -24,16 +25,17 @@ export interface AssignmentCatalogRow {
   readonly backend: QuestionBackend;
 }
 
-export type AssignmentEditorFixedEntry = AssignmentItemSummary & { readonly kind: "fixed" };
+export type AssignmentEditorFixedQuestionEntry = FixedQuestionAssignmentEntrySummary & {
+  readonly kind: "fixedQuestion";
+};
 
 /**
  * Browser-owned pool state deliberately names only public Question IDs.
  * The server mints and preserves group/candidate identities when it saves this definition.
  */
-export interface AssignmentEditorSelectionGroupEntry {
-  readonly kind: "selectionGroup";
+export interface AssignmentEditorQuestionPoolEntry {
+  readonly kind: "questionPool";
   readonly id?: string;
-  readonly position: number;
   readonly candidates: ReadonlyArray<AssignmentCatalogRow>;
   readonly drawCount: number;
   readonly pointsPerItem: string;
@@ -43,13 +45,13 @@ export interface AssignmentEditorSelectionGroupEntry {
 }
 
 export type AssignmentEditorEntry =
-  AssignmentEditorFixedEntry | AssignmentEditorSelectionGroupEntry;
+  AssignmentEditorFixedQuestionEntry | AssignmentEditorQuestionPoolEntry;
 
 export interface AssignmentEditorDraft {
   readonly id: string;
   readonly courseId: string;
   readonly title: string;
-  /** One ordered definition, shared by fixed questions and selection groups. */
+  /** One ordered definition, shared by fixed questions and Question Pools. */
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
   readonly policies: AssignmentActivityRules;
   readonly disclosurePolicy: StudentDisclosurePolicy;
@@ -61,52 +63,50 @@ export function assignmentEditorDraftFrom(detail: AssignmentEditorDetail): Assig
     id: detail.id,
     courseId: detail.courseId,
     title: detail.title,
-    entries: orderedAssignmentEntries(detail.items, detail.selectionGroups),
+    entries: detail.entries.map(assignmentEditorEntryFrom),
     policies: detail.policies,
     disclosurePolicy: detail.disclosurePolicy,
     revision: detail.revision,
   };
 }
 
-export function fixedEntry(item: AssignmentItemSummary): AssignmentEditorFixedEntry {
-  return { ...item, kind: "fixed" };
+export function fixedQuestionEntry(
+  entry: FixedQuestionAssignmentEntrySummary,
+): AssignmentEditorFixedQuestionEntry {
+  return { ...entry, kind: "fixedQuestion" };
 }
 
-export function selectionGroupEntry(
-  group: AssignmentSelectionGroupSummary,
-): AssignmentEditorSelectionGroupEntry {
-  if (group.algorithmVersion !== 1) {
+export function questionPoolEntry(
+  entry: QuestionPoolAssignmentEntrySummary,
+): AssignmentEditorQuestionPoolEntry {
+  if (entry.algorithmVersion !== 1) {
     throw new Error("This assignment uses an unsupported pool draw algorithm.");
   }
   return {
-    kind: "selectionGroup",
-    id: group.id,
-    position: group.position,
-    candidates: group.candidates.map((candidate) => ({
+    kind: "questionPool",
+    id: entry.id,
+    candidates: entry.candidates.map((candidate) => ({
       questionId: candidate.questionId,
       title: candidate.title,
       backend: candidate.backend,
     })),
-    drawCount: group.drawCount,
-    pointsPerItem: group.pointsPerItem,
-    ordering: group.ordering,
+    drawCount: entry.drawCount,
+    pointsPerItem: entry.pointsPerItem,
+    ordering: entry.ordering,
     algorithmVersion: 1,
   };
 }
 
-export function orderedAssignmentEntries(
-  items: ReadonlyArray<AssignmentItemSummary>,
-  groups: ReadonlyArray<AssignmentSelectionGroupSummary>,
-): ReadonlyArray<AssignmentEditorEntry> {
-  const entries = [...items.map(fixedEntry), ...groups.map(selectionGroupEntry)];
-  return entries.sort((left, right) => left.position - right.position);
+export function assignmentEditorEntryFrom(entry: AssignmentEntrySummary): AssignmentEditorEntry {
+  if (entry.kind === "fixedQuestion") return fixedQuestionEntry(entry);
+  return questionPoolEntry(entry);
 }
 
 export function fixedEntries(
   draft: AssignmentEditorDraft,
-): ReadonlyArray<AssignmentEditorFixedEntry> {
+): ReadonlyArray<AssignmentEditorFixedQuestionEntry> {
   return draft.entries.filter(
-    (entry): entry is AssignmentEditorFixedEntry => entry.kind === "fixed",
+    (entry): entry is AssignmentEditorFixedQuestionEntry => entry.kind === "fixedQuestion",
   );
 }
 
@@ -121,8 +121,8 @@ export function moveAssignmentEntry(
   const current = entries[entryIndex];
   const adjacent = entries[nextIndex];
   if (current === undefined || adjacent === undefined) return draft;
-  entries[entryIndex] = { ...adjacent, position: entryIndex };
-  entries[nextIndex] = { ...current, position: nextIndex };
+  entries[entryIndex] = adjacent;
+  entries[nextIndex] = current;
   return { ...draft, entries };
 }
 
@@ -135,14 +135,13 @@ export function appendFixedEntries(
   if (fresh.length === 0) return draft;
   const entries = [
     ...draft.entries,
-    ...fresh.map((row, index) =>
-      fixedEntry({
+    ...fresh.map((row) =>
+      fixedQuestionEntry({
         id: `new-${row.questionId}`,
         questionId: row.questionId,
         title: row.title,
         backend: row.backend,
         capabilities: [],
-        position: draft.entries.length + index,
         pointsPossible: "1",
         deliveryState: "active",
         scoringMode: "normal",
@@ -152,37 +151,34 @@ export function appendFixedEntries(
   return { ...draft, entries };
 }
 
-export function appendSelectionGroup(draft: AssignmentEditorDraft): AssignmentEditorDraft {
-  const group: AssignmentEditorSelectionGroupEntry = {
-    kind: "selectionGroup",
-    position: draft.entries.length,
+export function appendQuestionPool(draft: AssignmentEditorDraft): AssignmentEditorDraft {
+  const questionPool: AssignmentEditorQuestionPoolEntry = {
+    kind: "questionPool",
     candidates: [],
     drawCount: 1,
     pointsPerItem: "1",
     ordering: "candidateOrder",
     algorithmVersion: 1,
   };
-  return { ...draft, entries: [...draft.entries, group] };
+  return { ...draft, entries: [...draft.entries, questionPool] };
 }
 
-function entryInput(entry: AssignmentEditorEntry, position: number): AssignmentEditorEntryInput {
-  if (entry.kind === "fixed") {
+function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
+  if (entry.kind === "fixedQuestion") {
     return {
-      kind: "fixed",
+      kind: "fixedQuestion",
       questionId: entry.questionId,
       pointsPossible: entry.pointsPossible,
       deliveryState: entry.deliveryState,
       scoringMode: entry.scoringMode,
-      position,
     };
   }
   return {
-    kind: "selectionGroup",
+    kind: "questionPool",
     candidateQuestionIds: entry.candidates.map((candidate) => candidate.questionId),
     drawCount: entry.drawCount,
     pointsPerItem: entry.pointsPerItem,
     ordering: entry.ordering,
-    position,
   };
 }
 
@@ -194,12 +190,12 @@ export function assignmentContentInput(draft: AssignmentEditorDraft): Assignment
   };
 }
 
-export function validateSelectionGroupEntry(
-  entry: AssignmentEditorSelectionGroupEntry,
+export function validateQuestionPoolEntry(
+  entry: AssignmentEditorQuestionPoolEntry,
 ): string | null {
   if (entry.candidates.length === 0) return "Add at least one candidate Question ID.";
-  if (entry.candidates.length > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP)
-    return `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP} candidate Question IDs or fewer.`;
+  if (entry.candidates.length > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL)
+    return `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL} candidate Question IDs or fewer.`;
   if (entry.drawCount < 1) return "Draw count must be at least one.";
   if (entry.drawCount > entry.candidates.length)
     return "Draw count cannot exceed the number of candidate Question IDs.";
@@ -220,12 +216,12 @@ export function validateAssignmentEditorDraft(draft: AssignmentEditorDraft): str
     return `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer.`;
   let totalCandidates = 0;
   for (const entry of draft.entries) {
-    if (entry.kind !== "selectionGroup") continue;
-    const entryError = validateSelectionGroupEntry(entry);
-    if (entryError !== null) return `Question pool ${entry.position + 1}: ${entryError}`;
+    if (entry.kind !== "questionPool") continue;
+    const entryError = validateQuestionPoolEntry(entry);
+    if (entryError !== null) return `Question pool ${draft.entries.indexOf(entry) + 1}: ${entryError}`;
     totalCandidates += entry.candidates.length;
-    if (totalCandidates > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES)
-      return `Keep all pools to ${MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES} candidate Question IDs or fewer.`;
+    if (totalCandidates > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
+      return `Keep all pools to ${MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES} candidate Question IDs or fewer.`;
   }
   return null;
 }
@@ -248,7 +244,7 @@ export function parseExactProblemDisplayReferences(value: string): ReadonlyArray
 export function capabilityLabel(capability: Capability): string {
   return capability.replace(/([A-Z])/gu, " $1").toLowerCase();
 }
-export function assignmentProblemLabel(row: AssignmentCatalogRow | AssignmentItemSummary): string {
+export function assignmentProblemLabel(row: AssignmentCatalogRow | FixedQuestionAssignmentEntrySummary): string {
   return row.questionId;
 }
 export function questionBackendLabel(backend: QuestionBackend): string {

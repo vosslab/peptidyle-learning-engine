@@ -55,7 +55,7 @@ function decodePolicyValidationIssue(
       return {
         kind: issueKind,
         reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-          "selectedProblemVariantsWithSelectionGroups",
+          "selectedProblemVariantsWithQuestionPools",
         ] as const),
       } satisfies AssignmentPoliciesValidationIssue;
     case "capability":

@@ -9,7 +9,7 @@ import { AssignmentEditorContentList } from "../assignment_editor_content_list";
 import { createAssignmentEditorCatalogController } from "../assignment_editor_catalog_controller";
 import {
   appendFixedEntries,
-  appendSelectionGroup,
+  appendQuestionPool,
   assignmentContentInput,
   assignmentEditorDraftFrom,
   fixedEntries,
@@ -19,7 +19,7 @@ import {
   validateAssignmentEditorDraft,
   type AssignmentCatalogRow,
   type AssignmentEditorDraft,
-  type AssignmentEditorSelectionGroupEntry,
+  type AssignmentEditorQuestionPoolEntry,
 } from "../assignment_editor_model";
 import { AssignmentEditorProblemPicker } from "../assignment_editor_problem_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
@@ -83,7 +83,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage(nextMessage);
   }
 
-  function replacePool(entryIndex: number, entry: AssignmentEditorSelectionGroupEntry): void {
+  function replacePool(entryIndex: number, entry: AssignmentEditorQuestionPoolEntry): void {
     const entries = [...draft().entries];
     entries[entryIndex] = entry;
     update(
@@ -94,8 +94,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
   function removeEntry(entryIndex: number): void {
     const entries = draft()
-      .entries.filter((_entry, index) => index !== entryIndex)
-      .map((entry, position) => ({ ...entry, position }));
+      .entries.filter((_entry, index) => index !== entryIndex);
     update(
       { ...draft(), entries },
       "Question removed. Save questions and order when the definition is ready.",
@@ -110,7 +109,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       return;
     }
     update(
-      appendSelectionGroup(draft()),
+      appendQuestionPool(draft()),
       "Question pool added. Add candidate Question IDs, set its draw count, then save questions and order.",
     );
   }
@@ -393,7 +392,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  async function previewPool(groupPosition: number): Promise<void> {
+  async function previewPool(entryIndex: number): Promise<void> {
     const failure = validateAssignmentEditorDraft(draft());
     if (failure !== null) {
       setValidationMessage(`${failure} Correct the questions, then preview a pool draw.`);
@@ -414,10 +413,10 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.courseReference,
         saved.reference,
         previewRevision(saved.revision),
-        groupPosition,
+        entryIndex,
       );
       setPoolPreview(preview);
-      setMessage(`${preview.groupLabel} server sample is ready. It does not create Student work.`);
+      setMessage(`${preview.questionPoolLabel} server sample is ready. It does not create Student work.`);
     } catch (_error: unknown) {
       setMessage("The pool sample could not be generated. The saved questions remain available.");
     } finally {
@@ -595,14 +594,14 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 onReplace={startReplacement}
                 onRemoveFixed={(itemId) => {
                   const index = draft().entries.findIndex(
-                    (entry) => entry.kind === "fixed" && entry.id === itemId,
+                    (entry) => entry.kind === "fixedQuestion" && entry.id === itemId,
                   );
                   if (index >= 0) removeEntry(index);
                 }}
                 onPoolChange={replacePool}
                 onRemovePool={removeEntry}
                 onMessage={setMessage}
-                onPreviewPool={(groupPosition) => void previewPool(groupPosition)}
+                onPreviewPool={(entryIndex) => void previewPool(entryIndex)}
                 onChoosePoolCandidates={(entryIndex, trigger) =>
                   pickerController.open({ kind: "pool", entryIndex }, trigger)
                 }
@@ -681,7 +680,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 onClick={(event) =>
                   pickerController.open(
                     targetItemId() === undefined
-                      ? { kind: "fixed" }
+                      ? { kind: "fixedQuestion" }
                       : { kind: "replacement", itemId: targetItemId()! },
                     event.currentTarget,
                   )

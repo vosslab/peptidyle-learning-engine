@@ -1,10 +1,10 @@
-//! Bounded browser-safe catalog response-family and facet contracts.
+//! Bounded browser-safe Question Type and facet contracts.
 
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
 use crate::catalog::{MAX_CATALOG_TAXONOMY_FACETS, QuestionBackend, QuestionId};
-use crate::response::ResponseDefinition;
+use crate::response::QuestionType;
 use crate::taxonomy::{License, TaxonomyTerm};
 
 /// Maximum public byline selections accepted in one catalog query.
@@ -22,67 +22,11 @@ pub const MAX_CATALOG_BACKEND_FACETS: usize = QuestionBackend::ALL.len();
 /// Maximum free-form tags returned in one catalog facet snapshot.
 pub const MAX_CATALOG_TAG_FACETS: usize = 64;
 
-/// Maximum response-family values accepted in one catalog query.
-pub const MAX_CATALOG_RESPONSE_FAMILY_FILTERS: usize = CatalogResponseFamily::ALL.len();
+/// Maximum Question Type values accepted in one catalog query.
+pub const MAX_CATALOG_QUESTION_TYPE_FILTERS: usize = QuestionType::ALL.len();
 
-/// Maximum response-family values returned in one catalog facet snapshot.
-pub const MAX_CATALOG_RESPONSE_FAMILY_FACETS: usize = CatalogResponseFamily::ALL.len();
-
-/// Browser-safe immutable response family, derived at publication from the
-/// exact [`ResponseDefinition`] rather than a backend or grading implementation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CatalogResponseFamily {
-    /// A numeric response.
-    Numeric,
-    /// One or more selected choices.
-    MultipleChoice,
-    /// One short free-text response.
-    ShortText,
-    /// Several named short-text responses.
-    MultiBlank,
-    /// Prompt-to-choice associations.
-    Matching,
-    /// An ordered sequence.
-    Ordering,
-    /// Point selection on an image-backed surface.
-    Hotspot,
-    /// A student file upload.
-    FileUpload,
-    /// A server-brokered external tool.
-    ExternalTool,
-}
-
-impl CatalogResponseFamily {
-    /// Every browser-safe response family supported by this release.
-    pub const ALL: [Self; 9] = [
-        Self::Numeric,
-        Self::MultipleChoice,
-        Self::ShortText,
-        Self::MultiBlank,
-        Self::Matching,
-        Self::Ordering,
-        Self::Hotspot,
-        Self::FileUpload,
-        Self::ExternalTool,
-    ];
-}
-
-impl From<&ResponseDefinition> for CatalogResponseFamily {
-    fn from(response: &ResponseDefinition) -> Self {
-        match response {
-            ResponseDefinition::Numeric { .. } => Self::Numeric,
-            ResponseDefinition::MultipleChoice { .. } => Self::MultipleChoice,
-            ResponseDefinition::ShortText { .. } => Self::ShortText,
-            ResponseDefinition::MultiBlank { .. } => Self::MultiBlank,
-            ResponseDefinition::Matching { .. } => Self::Matching,
-            ResponseDefinition::Ordering { .. } => Self::Ordering,
-            ResponseDefinition::Hotspot { .. } => Self::Hotspot,
-            ResponseDefinition::FileUpload { .. } => Self::FileUpload,
-            ResponseDefinition::ExternalTool { .. } => Self::ExternalTool,
-        }
-    }
-}
+/// Maximum Question Type values returned in one catalog facet snapshot.
+pub const MAX_CATALOG_QUESTION_TYPE_FACETS: usize = QuestionType::ALL.len();
 
 /// Account-bound course-use filter for catalog discovery.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -119,7 +63,7 @@ pub struct CatalogBylineFacet {
     pub count: u64,
 }
 
-/// Server-computed count for one closed backend family.
+/// Server-computed count for one closed Question Backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogBackendFacet {
@@ -139,12 +83,12 @@ pub struct CatalogTagFacet {
     pub count: u64,
 }
 
-/// Server-computed count for one closed response family.
+/// Server-computed count for one closed Question Type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CatalogResponseFamilyFacet {
-    /// Exact public response-family value.
-    pub response_family: CatalogResponseFamily,
+pub struct QuestionTypeFacet {
+    /// Exact public Question Type value.
+    pub question_type: QuestionType,
     /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
@@ -243,12 +187,12 @@ pub struct CatalogSearchQuery {
     pub text: Option<String>,
     /// Reviewed public author names; any normalized name may match.
     pub bylines: Vec<String>,
-    /// Accepted adapter families; any supplied backend may match.
+    /// Accepted Question Backends; any supplied backend may match.
     pub backends: Vec<QuestionBackend>,
     /// Free-form metadata tags; any normalized tag may match.
     pub tags: Vec<String>,
-    /// Immutable response families; any supplied family may match.
-    pub response_families: Vec<CatalogResponseFamily>,
+    /// Immutable Question Types; any supplied type may match.
+    pub question_types: Vec<QuestionType>,
     /// Exact controlled terms; every supplied term must be present.
     pub taxonomy: Vec<CatalogTaxonomyFilter>,
     /// Required adapter capabilities; every supplied capability must be present.
@@ -282,7 +226,7 @@ pub struct CatalogSearchFilter {
     pub bylines: Vec<String>,
     pub backends: Vec<QuestionBackend>,
     pub tags: Vec<String>,
-    pub response_families: Vec<CatalogResponseFamily>,
+    pub question_types: Vec<QuestionType>,
     pub taxonomy: Vec<CatalogTaxonomyFilter>,
     pub capabilities: Vec<Capability>,
     pub licenses: Vec<CatalogLicenseValue>,
@@ -305,7 +249,7 @@ impl CatalogSearchFilter {
             bylines: query.bylines,
             backends: query.backends,
             tags: query.tags,
-            response_families: query.response_families,
+            question_types: query.question_types,
             taxonomy: query.taxonomy,
             capabilities: query.capabilities,
             licenses: query.licenses,
@@ -328,7 +272,7 @@ impl From<CatalogSearchFilter> for CatalogSearchQuery {
             bylines: filter.bylines,
             backends: filter.backends,
             tags: filter.tags,
-            response_families: filter.response_families,
+            question_types: filter.question_types,
             taxonomy: filter.taxonomy,
             capabilities: filter.capabilities,
             licenses: filter.licenses,
@@ -348,7 +292,7 @@ impl Default for CatalogSearchQuery {
             bylines: Vec::new(),
             backends: Vec::new(),
             tags: Vec::new(),
-            response_families: Vec::new(),
+            question_types: Vec::new(),
             taxonomy: Vec::new(),
             capabilities: Vec::new(),
             licenses: Vec::new(),
@@ -394,10 +338,10 @@ impl CatalogSearchQuery {
     ///
     /// Text, public bylines, and tags use lowercased, whitespace-collapsed
     /// Unicode text. Controlled terms retain durable case after trimming.
-    /// Text, every active metadata filter family, Account-bound filters, and
+    /// Text, every active metadata filter, Account-bound filters, and
     /// `authorship`
     /// combine with every other active filter using AND. Within bylines,
-    /// backends, tags, response families, and licenses, values combine using
+    /// backends, tags, Question Types, and licenses, values combine using
     /// OR. Taxonomy and capabilities retain every-value-matches semantics.
     pub fn normalized(mut self) -> Result<Self, CatalogSearchQueryError> {
         self.text = self
@@ -421,7 +365,7 @@ impl CatalogSearchQuery {
             || self.capabilities.len() > Capability::ALL.len()
             || self.licenses.len() > 6
             || self.backends.len() > QuestionBackend::ALL.len()
-            || self.response_families.len() > MAX_CATALOG_RESPONSE_FAMILY_FILTERS
+            || self.question_types.len() > MAX_CATALOG_QUESTION_TYPE_FILTERS
         {
             return Err(CatalogSearchQueryError::TooLarge);
         }
@@ -433,8 +377,8 @@ impl CatalogSearchQuery {
         self.licenses.dedup();
         self.backends.sort();
         self.backends.dedup();
-        self.response_families.sort();
-        self.response_families.dedup();
+        self.question_types.sort();
+        self.question_types.dedup();
         if self.cursor.as_ref().is_some_and(String::is_empty) {
             return Err(CatalogSearchQueryError::EmptyCursor);
         }
@@ -522,12 +466,12 @@ pub struct CatalogEvidenceFacet {
 pub struct CatalogSearchFacets {
     /// Exact reviewed public byline counts.
     pub bylines: Vec<CatalogBylineFacet>,
-    /// Closed adapter-family counts.
+    /// Closed Question Backend counts.
     pub backends: Vec<CatalogBackendFacet>,
     /// Exact stored public tag counts.
     pub tags: Vec<CatalogTagFacet>,
-    /// Closed immutable response-family counts.
-    pub response_families: Vec<CatalogResponseFamilyFacet>,
+    /// Closed immutable Question Type counts.
+    pub question_types: Vec<QuestionTypeFacet>,
     /// Controlled taxonomy counts.
     pub taxonomy: Vec<CatalogTaxonomyFacet>,
     /// Adapter capability counts.
@@ -545,27 +489,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn response_family_is_derived_from_the_immutable_response_definition() {
-        let response = ResponseDefinition::ExternalTool {};
+    fn question_type_is_separate_from_the_question_response_control() {
+        let response = crate::response::QuestionResponseFormat::ExternalTool {};
         assert_eq!(
-            CatalogResponseFamily::from(&response),
-            CatalogResponseFamily::ExternalTool
+            response.control(),
+            crate::response::QuestionResponseControl::ExternalTool
         );
+        assert!(response.supports_question_type(QuestionType::Numeric));
         assert_eq!(
-            CatalogResponseFamily::ALL
+            QuestionType::ALL
                 .into_iter()
-                .map(|family| serde_json::to_value(family).expect("family serializes"))
+                .map(|question_type| serde_json::to_value(question_type).expect("type serializes"))
                 .collect::<Vec<_>>(),
             vec![
-                serde_json::json!("numeric"),
                 serde_json::json!("multipleChoice"),
-                serde_json::json!("shortText"),
-                serde_json::json!("multiBlank"),
+                serde_json::json!("multipleAnswer"),
+                serde_json::json!("fillInBlank"),
+                serde_json::json!("multipleFillInBlank"),
+                serde_json::json!("numeric"),
                 serde_json::json!("matching"),
                 serde_json::json!("ordering"),
                 serde_json::json!("hotspot"),
-                serde_json::json!("fileUpload"),
-                serde_json::json!("externalTool"),
             ]
         );
     }
@@ -594,7 +538,7 @@ mod tests {
     #[test]
     fn catalog_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
         let query = CatalogSearchQuery {
-            response_families: vec![CatalogResponseFamily::ShortText],
+            question_types: vec![QuestionType::FillInBlank],
             used_in_my_courses: CatalogUsedInMyCourses::Used,
             cursor: Some("opaque-cursor".to_string()),
             page_size: Some(25),
@@ -602,8 +546,8 @@ mod tests {
         };
         let query_json = serde_json::to_value(&query).expect("query serializes");
         assert_eq!(
-            query_json["response_families"],
-            serde_json::json!(["shortText"])
+            query_json["question_types"],
+            serde_json::json!(["fillInBlank"])
         );
         assert_eq!(query_json["used_in_my_courses"], serde_json::json!("used"));
         assert_eq!(query_json["page_size"], serde_json::json!(25));
@@ -613,8 +557,8 @@ mod tests {
         let filter = CatalogSearchFilter::from_query(query).expect("filter normalizes");
         let filter_json = serde_json::to_value(&filter).expect("filter serializes");
         assert_eq!(
-            filter_json["response_families"],
-            serde_json::json!(["shortText"])
+            filter_json["question_types"],
+            serde_json::json!(["fillInBlank"])
         );
         assert!(filter_json.get("cursor").is_none());
         assert!(filter_json.get("page_size").is_none());

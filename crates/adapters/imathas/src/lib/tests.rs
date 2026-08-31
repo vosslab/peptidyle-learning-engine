@@ -126,7 +126,7 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
             integration_profile: "recorded-v1".into(),
         },
         prompt: Vec::new(),
-        response: question_model::ResponseDefinition::ExternalTool {},
+        response: question_model::QuestionResponseFormat::ExternalTool {},
         attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
@@ -264,7 +264,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     assert_eq!(second.envelope.title, first.envelope.title);
     assert!(matches!(
         first.envelope.response,
-        question_model::ResponseDefinition::ExternalTool {}
+        question_model::QuestionResponseFormat::ExternalTool {}
     ));
     let serialized = serde_json::to_string(&first.envelope).unwrap();
     for forbidden in ["token", "launch", "score", "correct", "recorded\\\":true"] {

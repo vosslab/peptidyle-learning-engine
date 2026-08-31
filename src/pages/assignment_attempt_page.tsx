@@ -1,4 +1,4 @@
-// run_page.tsx - server-issued, key-free student attempt loop.
+// assignment_attempt_page.tsx - server-issued, key-free student attempt loop.
 
 import { useNavigate } from "@solidjs/router";
 import {
@@ -34,7 +34,7 @@ import {
 import { QuestionRenderer } from "../components/question_renderer";
 import { FeedbackPanel, type FeedbackPresentation } from "../components/feedback_panel";
 import { ResponseWidget } from "../components/response_widget";
-import { resumeSessionAndRetry } from "./run_page_recovery";
+import { resumeSessionAndRetry } from "./assignment_attempt_page_recovery";
 import {
   assignmentAttemptCompletionPresentation,
   submissionAdvanceLabel,
@@ -136,7 +136,8 @@ function AttemptExperience(props: {
   const [state, setState] = createSignal<AttemptState>();
   const [sessionRecovery, setSessionRecovery] = createSignal(false);
   const [summaryVisible, setSummaryVisible] = createSignal(false);
-  const [runSummary, setRunSummary] = createSignal<AssignmentAttemptSummaryResponse>();
+  const [assignmentAttemptSummary, setAssignmentAttemptSummary] =
+    createSignal<AssignmentAttemptSummaryResponse>();
   const [summaryOutcomes, setSummaryOutcomes] = createSignal<
     ReadonlyArray<AssignmentAttemptSummaryOutcome>
   >([]);
@@ -361,7 +362,7 @@ function AttemptExperience(props: {
         throw new Error("Assignment Attempt summary repeated its cursor.");
       }
       if (cursor !== undefined) seenSummaryCursors.add(cursor);
-      setRunSummary(page);
+      setAssignmentAttemptSummary(page);
       setSummaryOutcomes((existing) => {
         const prior = cursor === undefined ? [] : existing;
         const seen = new Set(prior.map((outcome) => outcome.attempt));
@@ -505,7 +506,7 @@ function AttemptExperience(props: {
           <p class="eyebrow">{terminalPresentation().eyebrow}</p>
           <h2 id="attempt-summary-heading">{terminalPresentation().heading}</h2>
           <p>{terminalPresentation().message}</p>
-          <Show when={runSummary()}>
+          <Show when={assignmentAttemptSummary()}>
             {(summary) => (
               <>
                 <section aria-label="Assignment score">
@@ -777,7 +778,7 @@ function AttemptExperience(props: {
   );
 }
 
-export function RunPage(): JSX.Element {
+export function AssignmentAttemptPage(): JSX.Element {
   const scopedRoute = useCourseThemeRouteData();
   if (scopedRoute?.kind === "assignmentAttempt") {
     return <AttemptExperience initialScreen={scopedRoute.screen} />;

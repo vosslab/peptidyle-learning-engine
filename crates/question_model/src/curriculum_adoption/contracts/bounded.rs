@@ -6,8 +6,8 @@ use serde::{Deserialize, Deserializer, de};
 
 use super::CurriculumPinReplacement;
 use crate::{
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, QuestionId,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionId,
 };
 
 pub(super) fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(
@@ -56,7 +56,7 @@ pub(super) fn deserialize_replacement_questions<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP>(deserializer)
+    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL>(deserializer)
 }
 
 pub(super) fn deserialize_pin_replacements<'de, D>(
@@ -65,7 +65,7 @@ pub(super) fn deserialize_pin_replacements<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES>(deserializer)
+    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES>(deserializer)
 }
 
 pub(super) fn deserialize_course_instance_corrections<'de, D>(

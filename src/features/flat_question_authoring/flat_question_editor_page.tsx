@@ -162,7 +162,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
 
   // The draft accessor is the sole render-time source. Each reducer transition updates this
   // projection together with workflow state, so a mounted response editor never captures a stale
-  // response-family branch.
+  // Question Response Format branch.
   const [source, setSource] = createSignal<FlatQuestionSourceV2 | null>(null);
   // Numeric source values are numbers. This local literal is intentionally separate so partially
   // typed values such as "6.02e" remain visible without replacing the last valid source value.

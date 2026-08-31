@@ -79,7 +79,7 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
     "bylines",
     "backends",
     "tags",
-    "response_families",
+    "question_types",
     "taxonomy",
     "capabilities",
     "licenses",
@@ -111,21 +111,20 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
       (entry, entryPath) =>
         decodeFilterText(entry, entryPath, MAX_CATALOG_FILTER_TEXT_UNICODE_SCALARS),
     ),
-    response_families: decodeBoundedArray(
-      field(record, "response_families", path),
-      `${path}.response_families`,
-      9,
+    question_types: decodeBoundedArray(
+      field(record, "question_types", path),
+      `${path}.question_types`,
+      8,
       (entry, entryPath) =>
         decodeStringEnum(entry, entryPath, [
-          "numeric",
           "multipleChoice",
-          "shortText",
-          "multiBlank",
+          "multipleAnswer",
+          "fillInBlank",
+          "multipleFillInBlank",
+          "numeric",
           "matching",
           "ordering",
           "hotspot",
-          "fileUpload",
-          "externalTool",
         ]),
     ),
     taxonomy: decodeBoundedArray(

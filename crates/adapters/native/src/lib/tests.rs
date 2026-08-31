@@ -7,12 +7,13 @@ use question_model::answer::{NumericTolerance, SelectionCardinality};
 use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::envelope::{AssetRef, ContentBlock};
-use question_model::generation::{ParameterSpec, RandomizationDefinition};
-use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
+use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
+use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
 use question_model::taxonomy::License;
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionId,
-    QuestionMetadata, QuestionSource, QuestionVersionNumber, StudentResponse, WorkspaceId,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ImplementationVersion,
+    QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionType,
+    QuestionVersionNumber, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -63,9 +64,7 @@ fn flat_question() -> QuestionDefinition {
         draft,
         question_id(),
         version_number(1),
-        QuestionSource::Native {
-            family: crate::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY.to_string(),
-        },
+        QuestionSource::Native,
     )
 }
 
@@ -104,13 +103,12 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
         question_id: question_id(),
         version_number: version_number(1),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
-        source: QuestionSource::Native {
-            family: peptide_bond_geometry::FAMILY_ID.to_string(),
-        },
+        source: QuestionSource::Native,
+        question_format: QuestionFormat::NativeAlgorithmic,
         prompt: vec![ContentBlock::Text {
             markdown: "In a peptide containing {{residue}}, which linkage is planar?".to_string(),
         }],
-        response: ResponseDefinition::MultipleChoice {
+        response: QuestionResponseFormat::MultipleChoice {
             choices: vec![
                 choice("ester", "ester"),
                 choice("amide", "amide"),
@@ -118,6 +116,7 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
             ],
             selection: SelectionCardinality::ExactlyOne,
         },
+        question_type: QuestionType::MultipleChoice,
         attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::PerQuestion {
             seconds: 90,
@@ -139,11 +138,11 @@ fn peptide_draft() -> DraftQuestionDefinition {
     let question = peptide_question();
     DraftQuestionDefinition {
         workspace: question.workspace,
-        source: DraftQuestionSource::Native {
-            family: peptide_bond_geometry::FAMILY_ID.to_string(),
-        },
+        source: DraftQuestionSource::Native,
+        question_format: question.question_format,
         prompt: question.prompt,
         response: question.response,
+        question_type: question.question_type,
         attempt_policy: question.attempt_policy,
         timing_policy: question.timing_policy,
         randomization: question.randomization,
@@ -159,11 +158,11 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
     let first = adapter
         .author_presentation(&draft, Seed::new(1))
         .expect("valid peptide draft should materialize")
-        .expect("peptide family supplies an author presentation");
+        .expect("peptide Question Implementation supplies an author presentation");
     let replay = adapter
         .author_presentation(&draft, Seed::new(1))
         .expect("valid peptide draft should replay")
-        .expect("peptide family supplies an author presentation");
+        .expect("peptide Question Implementation supplies an author presentation");
 
     assert!(first == replay, "the same seed must replay exactly");
     assert!(matches!(
@@ -198,15 +197,15 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
 }
 
 #[test]
-fn a_family_without_an_author_presentation_is_honestly_unavailable() {
+fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
     let mut adapter = NativeAdapter::empty();
     adapter
-        .register_family(NumericReferenceFamily)
-        .expect("the test family is unique");
+        .register_implementation(NumericReferenceImplementation)
+        .expect("the test implementation is unique");
     let mut draft = peptide_draft();
-    draft.source = DraftQuestionSource::Native {
-        family: "numeric-reference".to_string(),
-    };
+    draft.source = DraftQuestionSource::Native;
+    draft.question_format = QuestionFormat::NativeAlgorithmic;
+    draft.question_type = QuestionType::Numeric;
     draft.randomization = RandomizationDefinition::Static;
     draft.prompt = vec![ContentBlock::Text {
         markdown: "Enter the reference value.".to_string(),
@@ -217,7 +216,7 @@ fn a_family_without_an_author_presentation_is_honestly_unavailable() {
             .author_presentation(&draft, Seed::new(4))
             .expect("the default author-presentation implementation is safe")
             .is_none(),
-        "families opt in explicitly; the engine never serializes a grading key as a fallback"
+        "Question Implementations opt in explicitly; the engine never serializes a grading key as a fallback"
     );
 }
 
@@ -250,7 +249,7 @@ fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
 }
 
 #[test]
-fn flat_family_capabilities_are_installed_and_reproducible_without_answer_keys() {
+fn flat_question_capabilities_are_installed_and_reproducible_without_answer_keys() {
     let adapter = NativeAdapter::new();
     let question = flat_question();
     let expected = BackendCapabilities::from_iter([
@@ -262,13 +261,13 @@ fn flat_family_capabilities_are_installed_and_reproducible_without_answer_keys()
 
     assert_eq!(
         adapter
-            .capabilities(&question.source)
-            .expect("family is installed"),
+            .capabilities(&question)
+            .expect("implementation is installed"),
         expected
     );
     let issue = adapter
         .issue(&question, Seed::new(10), &[])
-        .expect("flat family issue should be key free");
+        .expect("flat Question Implementation issue should be key free");
     let replay = adapter
         .reproduce(
             &question,
@@ -287,7 +286,7 @@ fn flat_family_capabilities_are_installed_and_reproducible_without_answer_keys()
 }
 
 #[test]
-fn flat_family_grade_refuses_without_server_persisted_material() {
+fn flat_question_grade_refuses_without_server_persisted_material() {
     let adapter = NativeAdapter::new();
     let question = flat_question();
     let issue = adapter
@@ -318,9 +317,7 @@ fn native_draft_preview_matches_the_published_envelope_presentation() {
     let preview = preview_native_draft(
         &DraftPreviewRequest {
             workspace: question.workspace,
-            source: DraftQuestionSource::Native {
-                family: peptide_bond_geometry::FAMILY_ID.to_string(),
-            },
+            source: DraftQuestionSource::Native,
             title: question.metadata.title.clone(),
             prompt: question.prompt.clone(),
             response: question.response.clone(),
@@ -408,18 +405,18 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
     );
     let hint = feedback
         .hint
-        .expect("implemented family advertises a real hint");
+        .expect("implemented Question Implementation advertises a real hint");
     let rationale = feedback
         .rationale
-        .expect("implemented family provides rationale");
+        .expect("implemented Question Implementation provides rationale");
     assert!(matches!(&hint[0], ContentBlock::Text { markdown } if markdown.contains("lone pair")));
     assert!(
         matches!(&rationale[0], ContentBlock::Text { markdown } if markdown.contains("partial double-bond") && markdown.contains("planar"))
     );
     assert!(
         adapter
-            .capabilities(&question.source)
-            .expect("registered family")
+            .capabilities(&question)
+            .expect("registered Question Implementation")
             .supports(Capability::Hints)
     );
 }
@@ -478,8 +475,8 @@ fn uninstalled_generator_versions_are_refused_without_fallback() {
 
     assert!(matches!(
         adapter.issue(&question, Seed::new(61), &[]),
-        Err(NativeAdapterError::UnknownGenerator { family, generator: Some(found) })
-            if family == peptide_bond_geometry::FAMILY_ID && found.version == "2"
+        Err(NativeAdapterError::UnknownQuestionImplementation { generator: Some(found), .. })
+            if found.version == "2"
     ));
 }
 
@@ -563,7 +560,7 @@ fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
     let prompt_asset = asset(91);
     let response_asset = asset(90);
     question.prompt.push(image(prompt_asset));
-    let ResponseDefinition::MultipleChoice { choices, .. } = &mut question.response else {
+    let QuestionResponseFormat::MultipleChoice { choices, .. } = &mut question.response else {
         panic!("peptide fixture has multiple-choice response")
     };
     choices[0].body.push(image(response_asset));
@@ -615,7 +612,7 @@ fn historical_blank_or_oversized_titles_are_refused_before_issue() {
 }
 
 #[test]
-fn a_family_refuses_seeded_content_that_cannot_show_its_variation() {
+fn an_implementation_refuses_seeded_content_that_cannot_show_its_variation() {
     let adapter = NativeAdapter::new();
     let mut question = peptide_question();
     question.prompt = vec![ContentBlock::Text {
@@ -624,16 +621,24 @@ fn a_family_refuses_seeded_content_that_cannot_show_its_variation() {
 
     assert!(matches!(
         adapter.issue(&question, Seed::new(1), &[]),
-        Err(NativeAdapterError::InvalidFamilyDefinition { .. })
+        Err(NativeAdapterError::IncompatibleQuestionImplementation { .. })
     ));
 }
 
 #[derive(Debug, Clone, Copy)]
-struct NumericReferenceFamily;
+struct NumericReferenceImplementation;
 
-impl NativeQuestionFamily for NumericReferenceFamily {
-    fn family(&self) -> &'static str {
-        "numeric-reference"
+impl NativeQuestionImplementation for NumericReferenceImplementation {
+    fn question_format(&self) -> QuestionFormat {
+        QuestionFormat::NativeAlgorithmic
+    }
+
+    fn question_type(&self) -> QuestionType {
+        QuestionType::Numeric
+    }
+
+    fn implementation_release(&self) -> ImplementationVersion {
+        ImplementationVersion { id: "numeric-reference".to_string(), version: "1".to_string() }
     }
 
     fn generator(&self) -> Option<GeneratorReference> {
@@ -649,9 +654,8 @@ impl NativeQuestionFamily for NumericReferenceFamily {
         question: &QuestionDefinition,
         _generated: &GeneratedVariant,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
-        if !matches!(question.response, ResponseDefinition::Numeric { .. }) {
-            return Err(NativeAdapterError::InvalidFamilyDefinition {
-                family: self.family().to_string(),
+        if !matches!(question.response, QuestionResponseFormat::Numeric { .. }) {
+            return Err(NativeAdapterError::IncompatibleQuestionImplementation {
                 message: "numeric response required".to_string(),
             });
         }
@@ -660,25 +664,25 @@ impl NativeQuestionFamily for NumericReferenceFamily {
 }
 
 #[test]
-fn a_second_family_plugs_into_the_registry_without_engine_changes() {
+fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
     let mut adapter = NativeAdapter::empty();
     adapter
-        .register_family(NumericReferenceFamily)
-        .expect("new family identifier should register");
+        .register_implementation(NumericReferenceImplementation)
+        .expect("new implementation identifier should register");
     let question = QuestionDefinition {
         question_id: question_id(),
         version_number: version_number(3),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        source: QuestionSource::Native {
-            family: "numeric-reference".to_string(),
-        },
+        source: QuestionSource::Native,
+        question_format: QuestionFormat::NativeAlgorithmic,
         prompt: vec![ContentBlock::Text {
             markdown: "Enter the reference value.".to_string(),
         }],
-        response: ResponseDefinition::Numeric {
+        response: QuestionResponseFormat::Numeric {
             tolerance: NumericTolerance::Exact,
             unit: None,
         },
+        question_type: QuestionType::Numeric,
         attempt_policy: AttemptPolicy {
             max_attempts: Some(1),
         },
@@ -689,11 +693,11 @@ fn a_second_family_plugs_into_the_registry_without_engine_changes() {
     };
     let issued = adapter
         .issue(&question, Seed::new(123), &[])
-        .expect("registered family should issue through the generic adapter");
+        .expect("registered Question Implementation should issue through the generic adapter");
 
     assert!(
         adapter
-            .capabilities(&question.source)
+            .capabilities(&question)
             .expect("registered source should expose capabilities")
             .supports(Capability::ServerGrading)
     );
@@ -711,15 +715,23 @@ fn a_second_family_plugs_into_the_registry_without_engine_changes() {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct VersionedNumericFamily {
+struct VersionedNumericImplementation {
     version: &'static str,
     expected: f64,
     supports_client_rendering: bool,
 }
 
-impl NativeQuestionFamily for VersionedNumericFamily {
-    fn family(&self) -> &'static str {
-        "versioned-numeric"
+impl NativeQuestionImplementation for VersionedNumericImplementation {
+    fn question_format(&self) -> QuestionFormat {
+        QuestionFormat::NativeAlgorithmic
+    }
+
+    fn question_type(&self) -> QuestionType {
+        QuestionType::Numeric
+    }
+
+    fn implementation_release(&self) -> ImplementationVersion {
+        ImplementationVersion { id: "versioned-numeric".to_string(), version: self.version.to_string() }
     }
 
     fn generator(&self) -> Option<GeneratorReference> {
@@ -754,16 +766,16 @@ fn versioned_numeric_question(version: &str) -> QuestionDefinition {
         question_id: question_id(),
         version_number: version_number(if version == "1" { 5 } else { 6 }),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
-        source: QuestionSource::Native {
-            family: "versioned-numeric".to_string(),
-        },
+        source: QuestionSource::Native,
+        question_format: QuestionFormat::NativeAlgorithmic,
         prompt: vec![ContentBlock::Text {
             markdown: "Enter the generated reference value.".to_string(),
         }],
-        response: ResponseDefinition::Numeric {
+        response: QuestionResponseFormat::Numeric {
             tolerance: NumericTolerance::Exact,
             unit: None,
         },
+        question_type: QuestionType::Numeric,
         attempt_policy: AttemptPolicy {
             max_attempts: Some(1),
         },
@@ -776,7 +788,7 @@ fn versioned_numeric_question(version: &str) -> QuestionDefinition {
             parameters: BTreeMap::new(),
         },
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
-        metadata: metadata("Versioned numeric family"),
+        metadata: metadata("Versioned numeric implementation"),
     }
 }
 
@@ -784,14 +796,14 @@ fn versioned_numeric_question(version: &str) -> QuestionDefinition {
 fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservative() {
     let mut adapter = NativeAdapter::empty();
     adapter
-        .register_family(VersionedNumericFamily {
+        .register_implementation(VersionedNumericImplementation {
             version: "1",
             expected: 1.0,
             supports_client_rendering: true,
         })
         .expect("first generator version should register");
     adapter
-        .register_family(VersionedNumericFamily {
+        .register_implementation(VersionedNumericImplementation {
             version: "2",
             expected: 2.0,
             supports_client_rendering: false,
@@ -808,8 +820,8 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
         .expect("published generator version 2 dispatches independently");
 
     let catalog_capabilities = adapter
-        .capabilities(&version_one.source)
-        .expect("family capabilities should resolve without a generator reference");
+        .capabilities(&version_one)
+        .expect("implementation capabilities should resolve without a generator reference");
     assert!(catalog_capabilities.supports(Capability::ServerGrading));
     assert!(!catalog_capabilities.supports(Capability::ClientRendering));
     assert!(matches!(

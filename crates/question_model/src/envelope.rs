@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::QuestionVersionReference;
 use crate::generation::Seed;
 use crate::identity::AssetId;
-use crate::response::ResponseDefinition;
+use crate::response::QuestionResponseFormat;
 
 /// A reference to a stored asset.
 ///
@@ -100,7 +100,7 @@ pub struct QuestionEnvelope {
     /// The prompt, in render order.
     pub prompt: Vec<ContentBlock>,
     /// The shape of response this variant expects.
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
 }
 
 #[cfg(test)]

@@ -104,19 +104,19 @@ fn envelope_asset_ids(envelope: &QuestionEnvelope) -> BTreeSet<AssetId> {
     let mut assets = BTreeSet::new();
     collect_content_assets(&envelope.prompt, &mut assets);
     match &envelope.response {
-        question_model::response::ResponseDefinition::MultipleChoice { choices, .. }
-        | question_model::response::ResponseDefinition::Ordering { items: choices } => {
+        question_model::response::QuestionResponseFormat::MultipleChoice { choices, .. }
+        | question_model::response::QuestionResponseFormat::Ordering { items: choices } => {
             for choice in choices {
                 collect_content_assets(&choice.body, &mut assets);
             }
         }
-        question_model::response::ResponseDefinition::Numeric { .. }
-        | question_model::response::ResponseDefinition::ShortText { .. }
-        | question_model::response::ResponseDefinition::MultiBlank { .. }
-        | question_model::response::ResponseDefinition::Matching { .. }
-        | question_model::response::ResponseDefinition::FileUpload { .. }
-        | question_model::response::ResponseDefinition::ExternalTool {} => {}
-        question_model::response::ResponseDefinition::Hotspot { surface, .. } => {
+        question_model::response::QuestionResponseFormat::Numeric { .. }
+        | question_model::response::QuestionResponseFormat::ShortText { .. }
+        | question_model::response::QuestionResponseFormat::MultiBlank { .. }
+        | question_model::response::QuestionResponseFormat::Matching { .. }
+        | question_model::response::QuestionResponseFormat::FileUpload { .. }
+        | question_model::response::QuestionResponseFormat::ExternalTool {} => {}
+        question_model::response::QuestionResponseFormat::Hotspot { surface, .. } => {
             assets.insert(surface.asset);
         }
     }

@@ -6,8 +6,8 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 
 use super::bounded::{deserialize_pin_replacements, deserialize_replacement_questions};
 use crate::{
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, QuestionId,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionId,
 };
 
 /// Exact bounded semantic position of one replaceable source pin.
@@ -52,7 +52,7 @@ impl CurriculumPinPosition {
     ) -> Result<Self, CurriculumPinPositionError> {
         let bound = u16::try_from(MAX_ASSIGNMENT_ORDERED_ENTRIES)
             .expect("assignment position bound fits u16");
-        let candidate_bound = u16::try_from(MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP)
+        let candidate_bound = u16::try_from(MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL)
             .expect("candidate position bound fits u16");
         if assignment_index >= bound
             || entry_index >= bound
@@ -132,7 +132,7 @@ impl CurriculumPinReplacements {
     pub fn new(
         mut values: Vec<CurriculumPinReplacement>,
     ) -> Result<Self, CurriculumPinReplacementsError> {
-        if values.len() > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES {
+        if values.len() > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES {
             return Err(CurriculumPinReplacementsError);
         }
         values.sort_unstable_by_key(|value| value.position);
@@ -195,7 +195,7 @@ impl<'de> Deserialize<'de> for ReplacementQuestionChoices {
 impl ReplacementQuestionChoices {
     /// Validates nonempty unique public candidate IDs within the existing pool bound.
     pub fn new(values: Vec<QuestionId>) -> Result<Self, ReplacementQuestionChoicesError> {
-        if values.is_empty() || values.len() > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP {
+        if values.is_empty() || values.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL {
             return Err(ReplacementQuestionChoicesError);
         }
         if values.iter().collect::<BTreeSet<_>>().len() != values.len() {

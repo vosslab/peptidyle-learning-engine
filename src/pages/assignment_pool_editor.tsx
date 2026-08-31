@@ -3,25 +3,25 @@
 import { For, Show, createSignal, type JSX } from "solid-js";
 
 import type { PoolDrawPreview } from "../api/contracts";
-import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
+import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 
 import type {
   AssignmentCatalogRow,
-  AssignmentEditorSelectionGroupEntry,
+  AssignmentEditorQuestionPoolEntry,
 } from "./assignment_editor_model";
 import {
   parseExactProblemDisplayReferences,
-  validateSelectionGroupEntry,
+  validateQuestionPoolEntry,
 } from "./assignment_editor_model";
 
 export interface AssignmentPoolEditorProps {
-  readonly entry: AssignmentEditorSelectionGroupEntry;
+  readonly entry: AssignmentEditorQuestionPoolEntry;
   readonly entryIndex: number;
   readonly entryCount: number;
   readonly resolveCandidates: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
-  readonly onChange: (entry: AssignmentEditorSelectionGroupEntry) => void;
+  readonly onChange: (entry: AssignmentEditorQuestionPoolEntry) => void;
   readonly onMove: (direction: -1 | 1) => void;
   readonly onRemove: () => void;
   readonly onMessage: (message: string) => void;
@@ -31,8 +31,8 @@ export interface AssignmentPoolEditorProps {
   readonly onChooseCandidates: (trigger: HTMLButtonElement) => void;
 }
 
-function poolLabel(entry: AssignmentEditorSelectionGroupEntry): string {
-  return `Question pool at position ${entry.position + 1}`;
+function poolLabel(entryIndex: number): string {
+  return `Question pool ${entryIndex + 1}`;
 }
 
 export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Element {
@@ -40,9 +40,9 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
   const [candidateError, setCandidateError] = createSignal("");
   const [candidateBusy, setCandidateBusy] = createSignal(false);
 
-  function update(next: Partial<AssignmentEditorSelectionGroupEntry>): void {
+  function update(next: Partial<AssignmentEditorQuestionPoolEntry>): void {
     const entry = { ...props.entry, ...next };
-    const error = validateSelectionGroupEntry(entry);
+    const error = validateQuestionPoolEntry(entry);
     setCandidateError(error ?? "");
     props.onChange(entry);
     props.onMessage(
@@ -69,10 +69,10 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
     }
     if (
       props.entry.candidates.length + questionIds.length >
-      MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP
+      MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL
     ) {
       setCandidateError(
-        `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP} candidate Question IDs or fewer, then check and add candidates.`,
+        `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL} candidate Question IDs or fewer, then check and add candidates.`,
       );
       return;
     }
@@ -81,7 +81,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       const candidates = await props.resolveCandidates(questionIds);
       const nextCandidates = [...props.entry.candidates, ...candidates];
       const entry = { ...props.entry, candidates: nextCandidates };
-      const error = validateSelectionGroupEntry(entry);
+      const error = validateQuestionPoolEntry(entry);
       setCandidateError(error ?? "");
       props.onChange(entry);
       setCandidateText("");
@@ -111,7 +111,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
   }
 
   return (
-    <li class="assignment-editor-row assignment-editor-pool" aria-label={poolLabel(props.entry)}>
+    <li class="assignment-editor-row assignment-editor-pool" aria-label={poolLabel(props.entryIndex)}>
       <div>
         <h3>Question pool</h3>
         <p>
@@ -186,7 +186,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
             class="assignment-editor-pool-preview"
             aria-labelledby={`pool-preview-${props.entryIndex}`}
           >
-            <h4 id={`pool-preview-${props.entryIndex}`}>{preview().groupLabel}</h4>
+            <h4 id={`pool-preview-${props.entryIndex}`}>{preview().questionPoolLabel}</h4>
             <p>
               Draw {preview().drawCount} in {preview().ordering} order with Draw algorithm v1.
             </p>

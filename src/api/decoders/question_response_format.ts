@@ -1,10 +1,11 @@
-// Browser-safe content and response-definition decoders.
+// Browser-safe content and Question Response Format decoders.
 
 import type { AssetRef } from "../../../generated/api/AssetRef";
 import type { ChoiceOption } from "../../../generated/api/ChoiceOption";
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { NumericTolerance } from "../../../generated/api/NumericTolerance";
-import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
+import type { QuestionType } from "../../../generated/api/QuestionType";
 import type { SelectionCardinality } from "../../../generated/api/SelectionCardinality";
 import {
   DecodeError,
@@ -155,11 +156,53 @@ export function decodeSelectionCardinality(
   }
 }
 
-export function decodeResponseDefinition(
+/** Decodes the closed educational classification separate from response controls. */
+export function decodeQuestionType(value: unknown, path: string): QuestionType {
+  return decodeStringEnum(value, path, [
+    "multipleChoice",
+    "multipleAnswer",
+    "fillInBlank",
+    "multipleFillInBlank",
+    "numeric",
+    "matching",
+    "ordering",
+    "hotspot",
+  ] as const);
+}
+
+/** Checks that a response shape can collect the declared educational Question Type. */
+export function questionResponseFormatSupportsType(
+  response: QuestionResponseFormat,
+  questionType: QuestionType,
+): boolean {
+  switch (response.kind) {
+    case "numeric":
+      return questionType === "numeric";
+    case "multipleChoice":
+      return response.selection.kind === "exactlyOne"
+        ? questionType === "multipleChoice"
+        : questionType === "multipleAnswer";
+    case "shortText":
+      return questionType === "fillInBlank";
+    case "multiBlank":
+      return questionType === "multipleFillInBlank";
+    case "matching":
+      return questionType === "matching";
+    case "ordering":
+      return questionType === "ordering";
+    case "hotspot":
+      return questionType === "hotspot";
+    case "fileUpload":
+    case "externalTool":
+      return true;
+  }
+}
+
+export function decodeQuestionResponseFormat(
   value: unknown,
   path: string,
   strict = false,
-): ResponseDefinition {
+): QuestionResponseFormat {
   const record = decodeRecord(value, path);
   const response = kind(record, path);
   switch (response) {
@@ -173,7 +216,7 @@ export function decodeResponseDefinition(
           strict,
         ),
         unit: decodeNullable(field(record, "unit", path), `${path}.unit`, decodeString),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "multipleChoice":
       if (strict) requireOnlyFields(record, path, ["kind", "choices", "selection"]);
       return {
@@ -188,7 +231,7 @@ export function decodeResponseDefinition(
           `${path}.selection`,
           strict,
         ),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "shortText":
       if (strict) requireOnlyFields(record, path, ["kind", "matchMode", "maxLength"]);
       return {
@@ -199,7 +242,7 @@ export function decodeResponseDefinition(
           "normalized",
         ]),
         maxLength: decodeNonnegativeInteger(field(record, "maxLength", path), `${path}.maxLength`),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "multiBlank":
       if (strict) requireOnlyFields(record, path, ["kind", "blanks"]);
       return {
@@ -225,7 +268,7 @@ export function decodeResponseDefinition(
             ),
           };
         }),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "matching":
       if (strict) requireOnlyFields(record, path, ["kind", "prompts", "choices"]);
       return {
@@ -236,7 +279,7 @@ export function decodeResponseDefinition(
         choices: decodeArray(field(record, "choices", path), `${path}.choices`, (item, itemPath) =>
           decodeChoiceOption(item, itemPath, strict),
         ),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "ordering":
       if (strict) requireOnlyFields(record, path, ["kind", "items"]);
       return {
@@ -244,7 +287,7 @@ export function decodeResponseDefinition(
         items: decodeArray(field(record, "items", path), `${path}.items`, (item, itemPath) =>
           decodeChoiceOption(item, itemPath, strict),
         ),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "hotspot":
       if (strict)
         requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
@@ -297,7 +340,7 @@ export function decodeResponseDefinition(
           `${path}.selection`,
           strict,
         ),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "fileUpload":
       if (strict) requireOnlyFields(record, path, ["kind", "maxBytes", "acceptedExtensions"]);
       return {
@@ -308,11 +351,11 @@ export function decodeResponseDefinition(
           `${path}.acceptedExtensions`,
           decodeNonemptyString,
         ),
-      } satisfies ResponseDefinition;
+      } satisfies QuestionResponseFormat;
     case "externalTool":
       if (strict) requireOnlyFields(record, path, ["kind"]);
-      return { kind: response } satisfies ResponseDefinition;
+      return { kind: response } satisfies QuestionResponseFormat;
     default:
-      throw new DecodeError(`${path}.kind`, "a known response definition");
+      throw new DecodeError(`${path}.kind`, "a known Question Response Format");
   }
 }

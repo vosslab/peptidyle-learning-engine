@@ -128,7 +128,7 @@ export const publishedProblemFixture = {
   catalogProblem: {
     questionId: "7K3-M9QP",
     backend: "native",
-    responseFamily: "multipleChoice",
+    questionType: "multipleChoice",
     capabilities: [
       "algorithmicGeneration",
       "clientRendering",
@@ -165,8 +165,9 @@ export const publishedProblemFixture = {
     reference: "A-1",
     courseId,
     title: "Peptide bond mastery",
-    items: [
+    entries: [
       {
+        kind: "fixedQuestion",
         id: "0198e000-0000-7000-8000-000000000017",
         questionId: "7K3-M9QP",
         title: metadata.title,
@@ -178,13 +179,11 @@ export const publishedProblemFixture = {
           "hints",
           "perQuestionTiming",
         ],
-        position: 0,
         pointsPossible: "1",
         deliveryState: "active",
         scoringMode: "normal",
       },
     ],
-    selectionGroups: [],
     disclosurePolicy: {
       score: "after_submit",
       per_item_correctness: "after_submit",
@@ -228,23 +227,23 @@ export const publishedProblemFixture = {
     {
       id: "0198e000-0000-7000-8000-000000000040",
       assignmentAttempt: "0198e000-0000-7000-8000-000000000020",
-      assignmentItem: "0198e000-0000-7000-8000-000000000017",
-      sourcePosition: 0,
+      assignmentEntry: "0198e000-0000-7000-8000-000000000017",
+      definitionEntryIndex: 0,
       issuedPosition: 0,
       reference: { problem, version },
       statisticsEligible: true,
-      selectionGroup: null,
+      questionPoolEntry: null,
       selectionSeed: null,
     },
     {
       id: "0198e000-0000-7000-8000-000000000041",
       assignmentAttempt: "0198e000-0000-7000-8000-000000000021",
-      assignmentItem: "0198e000-0000-7000-8000-000000000017",
-      sourcePosition: 0,
+      assignmentEntry: "0198e000-0000-7000-8000-000000000017",
+      definitionEntryIndex: 0,
       issuedPosition: 0,
       reference: { problem, version },
       statisticsEligible: true,
-      selectionGroup: null,
+      questionPoolEntry: null,
       selectionSeed: null,
     },
   ],

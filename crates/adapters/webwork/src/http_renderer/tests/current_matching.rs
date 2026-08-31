@@ -32,7 +32,7 @@ fn parsed_current_matching() -> ParsedRender {
 #[test]
 fn current_renderer_matching_shape_becomes_answer_free_typed_matching() {
     let parsed = parsed_current_matching();
-    let ResponseDefinition::Matching { prompts, choices } = &parsed.envelope.response else {
+    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.envelope.response else {
         panic!("typed matching envelope")
     };
     assert_eq!(prompts.len(), 2);

@@ -48,7 +48,7 @@ pub enum WebworkReplayMappingV1 {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderedWebworkQuestion {
-    /// Backend-neutral prompt and response definition safe for a browser.
+    /// Backend-neutral prompt and Question Response Format safe for a browser.
     pub envelope: QuestionEnvelope,
     /// PG HTML supplied by the isolated renderer; it is still untrusted here.
     pub html: String,

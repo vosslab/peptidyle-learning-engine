@@ -1,6 +1,6 @@
-//! Reference native family: peptide-bond resonance and planarity.
+//! Reference native Question Implementation: peptide-bond resonance and planarity.
 //!
-//! This family is deliberately small. Its job is to prove that a native
+//! This implementation is deliberately small. Its job is to prove that a native
 //! question can generate a visible variant, reproduce the same envelope, and
 //! grade through the server-only boundary. The registry contract, rather than
 //! this biochemistry example, is the reusable engine design.
@@ -14,16 +14,19 @@ use question_model::capability::{BackendCapabilities, Capability};
 use question_model::definition::GradingDefinition;
 use question_model::envelope::{ContentBlock, QuestionEnvelope};
 use question_model::generation::GeneratorReference;
-use question_model::response::{ChoiceId, ResponseDefinition};
+use question_model::response::{ChoiceId, QuestionResponseFormat};
 use question_model::{
-    AttemptResult, DraftQuestionDefinition, FeedbackContent, QuestionDefinition, StudentResponse,
+    AttemptResult, DraftQuestionDefinition, FeedbackContent, ImplementationVersion,
+    QuestionDefinition, QuestionFormat, QuestionType, StudentResponse,
 };
 
 use crate::NativeAdapterError;
-use crate::generator::{AuthorPresentationContent, NativeQuestionFamily};
+use crate::generator::{AuthorPresentationContent, NativeQuestionImplementation};
 
-/// Stable source-family identifier used by published definitions.
-pub const FAMILY_ID: &str = "peptide_bond_geometry";
+/// Stable native Question Implementation name.
+pub const IMPLEMENTATION_ID: &str = "peptide-bond-geometry";
+/// First release of [`IMPLEMENTATION_ID`].
+pub const IMPLEMENTATION_RELEASE: &str = "1";
 /// Stable generator identifier used by published definitions.
 pub const GENERATOR_ID: &str = "peptide-bond-choice";
 /// Initial generator implementation version for [`GENERATOR_ID`].
@@ -38,9 +41,20 @@ const CORRECT_CHOICE_ID: &str = "amide";
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PeptideBondGeometryV1;
 
-impl NativeQuestionFamily for PeptideBondGeometryV1 {
-    fn family(&self) -> &'static str {
-        FAMILY_ID
+impl NativeQuestionImplementation for PeptideBondGeometryV1 {
+    fn question_format(&self) -> QuestionFormat {
+        QuestionFormat::NativeAlgorithmic
+    }
+
+    fn question_type(&self) -> QuestionType {
+        QuestionType::MultipleChoice
+    }
+
+    fn implementation_release(&self) -> ImplementationVersion {
+        ImplementationVersion {
+            id: IMPLEMENTATION_ID.to_string(),
+            version: IMPLEMENTATION_RELEASE.to_string(),
+        }
     }
 
     fn generator(&self) -> Option<GeneratorReference> {
@@ -124,7 +138,7 @@ impl NativeQuestionFamily for PeptideBondGeometryV1 {
         // Binding `result` here prevents feedback materialization from being a
         // detached template: it is computed only for this verified grade.
         let _ = result.correct;
-        let ResponseDefinition::MultipleChoice { choices, .. } = &question.response else {
+        let QuestionResponseFormat::MultipleChoice { choices, .. } = &question.response else {
             return Err(invalid_definition("response must be multiple choice"));
         };
         let correct_choice = choices
@@ -159,7 +173,7 @@ impl NativeQuestionFamily for PeptideBondGeometryV1 {
             ));
         }
         let _ = generated_residue(generated)?;
-        let ResponseDefinition::MultipleChoice { choices, .. } = &question.response else {
+        let QuestionResponseFormat::MultipleChoice { choices, .. } = &question.response else {
             return Err(invalid_definition("response must be multiple choice"));
         };
         let correct_choice = choices
@@ -186,10 +200,10 @@ fn validate_draft_shape(question: &DraftQuestionDefinition) -> Result<(), Native
 }
 
 fn validate_response_and_grading(
-    response: &ResponseDefinition,
+    response: &QuestionResponseFormat,
     grading: &GradingDefinition,
 ) -> Result<(), NativeAdapterError> {
-    let ResponseDefinition::MultipleChoice { choices, selection } = response else {
+    let QuestionResponseFormat::MultipleChoice { choices, selection } = response else {
         return Err(invalid_definition(
             "response must be a multiple-choice definition",
         ));
@@ -230,8 +244,7 @@ fn generated_residue(generated: &GeneratedVariant) -> Result<&str, NativeAdapter
 }
 
 fn invalid_definition(message: &str) -> NativeAdapterError {
-    NativeAdapterError::InvalidFamilyDefinition {
-        family: FAMILY_ID.to_string(),
+    NativeAdapterError::IncompatibleQuestionImplementation {
         message: message.to_string(),
     }
 }

@@ -1,4 +1,4 @@
-// test_run_page_recovery.mjs - page-composition proof for reauthentication delivery.
+// test_assignment_attempt_page_recovery.mjs - page-composition proof for reauthentication delivery.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -7,7 +7,7 @@ import { createRoot } from "solid-js";
 
 import { createSubmissionController } from "../src/components/response_widget.tsx";
 import { ApiProtocolError, ApiRequestError } from "../src/api/http_client/error.ts";
-import { resumeSessionAndRetry } from "../src/pages/run_page_recovery.ts";
+import { resumeSessionAndRetry } from "../src/pages/assignment_attempt_page_recovery.ts";
 import { createAttemptStateMachine } from "../src/features/attempt/attempt_state.ts";
 
 function createStorage() {

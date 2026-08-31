@@ -21,7 +21,11 @@ function contractPage(surface: string, title: string, nextMilestone: string): Co
   };
 }
 
-export const RunSummaryPage = contractPage("runSummary", "Run summary", "the attempt-loop lane");
+export const AssignmentAttemptSummaryPage = contractPage(
+  "assignmentAttemptSummary",
+  "Assignment Attempt summary",
+  "the Assignment Attempt lane",
+);
 export const LibraryPage = contractPage("library", "Problem library", "the catalog-browser lane");
 export const ProblemDetailPage = contractPage(
   "problemDetail",

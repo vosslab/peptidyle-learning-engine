@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use objects::Sha256Digest;
 use question_model::AssetId;
-use question_model::ResponseDefinition;
+use question_model::QuestionResponseFormat;
 use question_model::envelope::ContentBlock;
 use question_model::response::ChoiceId;
 use serde::{Deserialize, Serialize};
@@ -146,7 +146,7 @@ impl QtiAssetObject {
 pub struct ImportedQtiQuestion {
     pub item_id: String,
     pub prompt: Vec<ContentBlock>,
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
 }
 
 /// Returns each logical item asset with the checksum embedded in its public
@@ -158,30 +158,30 @@ pub fn qti_question_asset_checksums(
     let mut response_blocks: Vec<&ContentBlock> = Vec::new();
     let mut assets = BTreeMap::new();
     match &question.response {
-        question_model::ResponseDefinition::MultipleChoice { choices, .. }
-        | question_model::ResponseDefinition::Ordering { items: choices } => {
+        question_model::QuestionResponseFormat::MultipleChoice { choices, .. }
+        | question_model::QuestionResponseFormat::Ordering { items: choices } => {
             response_blocks.extend(choices.iter().flat_map(|choice| choice.body.iter()));
         }
-        question_model::ResponseDefinition::MultiBlank { blanks } => {
+        question_model::QuestionResponseFormat::MultiBlank { blanks } => {
             response_blocks.extend(blanks.iter().flat_map(|blank| blank.label.iter()))
         }
-        question_model::ResponseDefinition::Matching { prompts, choices } => response_blocks
+        question_model::QuestionResponseFormat::Matching { prompts, choices } => response_blocks
             .extend(
                 prompts
                     .iter()
                     .chain(choices)
                     .flat_map(|choice| choice.body.iter()),
             ),
-        question_model::ResponseDefinition::Hotspot {
+        question_model::QuestionResponseFormat::Hotspot {
             surface, regions, ..
         } => {
             assets.insert(surface.asset, surface.checksum.clone());
             response_blocks.extend(regions.iter().flat_map(|region| region.label.iter()));
         }
-        question_model::ResponseDefinition::Numeric { .. }
-        | question_model::ResponseDefinition::ShortText { .. }
-        | question_model::ResponseDefinition::FileUpload { .. }
-        | question_model::ResponseDefinition::ExternalTool {} => {}
+        question_model::QuestionResponseFormat::Numeric { .. }
+        | question_model::QuestionResponseFormat::ShortText { .. }
+        | question_model::QuestionResponseFormat::FileUpload { .. }
+        | question_model::QuestionResponseFormat::ExternalTool {} => {}
     }
     for block in question.prompt.iter().chain(response_blocks) {
         if let ContentBlock::Image { asset, .. } = block

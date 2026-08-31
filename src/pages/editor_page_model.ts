@@ -4,7 +4,7 @@ import type { Capability } from "../../generated/api/Capability";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
 import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
-import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { Seed } from "../../generated/api/Seed";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
@@ -24,7 +24,7 @@ export interface EditorDraft {
   readonly title: string;
   readonly source: DraftQuestionSource;
   readonly prompt: ReadonlyArray<ContentBlock>;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
   readonly attemptPolicy: AttemptPolicy;
   readonly timingPolicy: TimingPolicy;
   readonly randomization: RandomizationDefinition;
@@ -53,7 +53,7 @@ export interface EditorPreview {
   readonly seed: Seed;
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
 }
 
 export interface DraftCapabilityViolation {

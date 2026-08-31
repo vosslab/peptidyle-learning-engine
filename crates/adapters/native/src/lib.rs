@@ -1,8 +1,8 @@
 //! MOD-ADP-NAT: the first-party algorithmic question adapter.
 //!
 //! The engine is question agnostic: [`NativeAdapter`] dispatches by the
-//! versioned [`generator::NativeQuestionFamily`] contract, while question
-//! families own parameter-to-prompt materialization and server-only key
+//! versioned [`generator::NativeQuestionImplementation`] contract, while Question
+//! Implementations own parameter-to-prompt materialization and server-only key
 //! derivation. The stable facade coordinates focused registry, issue, grading,
 //! reproduction, and capability owners.
 
@@ -13,12 +13,11 @@ use domain::draft_preview::PresentationError;
 use domain::generator::{GeneratedVariant, GenerationError};
 use grading::GradingError;
 use question_model::envelope::{ContentBlock, QuestionEnvelope};
-use question_model::generation::GeneratorReference;
 use question_model::{
     AssetId, AttemptProvenance, ImplementationVersion, ObjectId, QuestionTitleError,
 };
 
-use crate::generator::NativeQuestionFamily;
+use crate::generator::NativeQuestionImplementation;
 
 #[path = "lib/capabilities.rs"]
 mod capabilities;
@@ -30,10 +29,10 @@ mod issue;
 mod registry;
 #[path = "lib/reproduction.rs"]
 mod reproduction;
-#[path = "lib/source_family.rs"]
-mod source_family;
+#[path = "lib/source_implementation.rs"]
+mod source_implementation;
 
-use registry::{FamilyRegistrationKey, ImplementationRegistrationKey, NativeExecution};
+use registry::{NativeQuestionImplementationRegistrationKey, ImplementationRegistrationKey, NativeExecution};
 
 #[cfg(test)]
 use grading::GradeOutcome;
@@ -46,9 +45,9 @@ use registry::implementation_version;
 
 /// Strict, versioned JSON source for first-party static flat questions.
 pub mod flat_question;
-/// Extensible question-family contract and server-only materialization result.
+/// Extensible Question Implementation contract and server-only materialization result.
 pub mod generator;
-/// Reference family proving generation, rendering, and server grading end to end.
+/// Reference implementation proving generation, rendering, and server grading end to end.
 pub mod peptide_bond_geometry;
 
 /// Stable adapter implementation identifier persisted with every native attempt.
@@ -99,16 +98,16 @@ pub struct NativeDraftAuthorPresentation {
     /// Materialized student-facing prompt.
     pub prompt: Vec<ContentBlock>,
     /// Browser-safe response shape.
-    pub response: question_model::ResponseDefinition,
+    pub response: question_model::QuestionResponseFormat,
     /// Rendered explanation of the correct response.
     pub correct_response: Vec<ContentBlock>,
     /// Optional teaching rationale.
     pub rationale: Option<Vec<ContentBlock>>,
 }
 
-/// Versioned native-family registry and orchestration boundary.
+/// Versioned native Question Implementation registry and orchestration boundary.
 pub struct NativeAdapter {
-    families: BTreeMap<FamilyRegistrationKey, Arc<dyn NativeQuestionFamily>>,
+    implementations: BTreeMap<NativeQuestionImplementationRegistrationKey, Arc<dyn NativeQuestionImplementation>>,
     adapter_implementations: BTreeMap<ImplementationRegistrationKey, NativeExecution>,
     grading_implementations: BTreeMap<ImplementationRegistrationKey, NativeExecution>,
     current_adapter: ImplementationVersion,
@@ -133,22 +132,26 @@ struct MaterializedNativeQuestion {
 pub enum NativeAdapterError {
     /// A caller selected a non-native question source.
     UnsupportedSource,
-    /// No installed family owns the source identifier.
-    UnknownFamily(String),
-    /// Two implementations attempted to own one family identifier.
-    DuplicateFamily(String),
-    /// The source family exists, but its pinned generator is not installed.
-    UnknownGenerator {
-        family: String,
-        generator: Option<GeneratorReference>,
+    /// No installed implementation matches the Question's explicit contract.
+    UnknownQuestionImplementation {
+        question_format: question_model::QuestionFormat,
+        question_type: question_model::QuestionType,
+        generator: Option<question_model::GeneratorReference>,
+    },
+    /// Two implementations attempted to own one exact Question contract.
+    DuplicateQuestionImplementation {
+        question_format: question_model::QuestionFormat,
+        question_type: question_model::QuestionType,
+        generator: Option<question_model::GeneratorReference>,
+        implementation: ImplementationVersion,
     },
     /// A persisted adapter or grader version has no compiled implementation.
     UnknownImplementation {
         field: &'static str,
         version: ImplementationVersion,
     },
-    /// The authored definition does not meet its family's versioned contract.
-    InvalidFamilyDefinition { family: String, message: String },
+    /// The authored definition does not meet its implementation's contract.
+    IncompatibleQuestionImplementation { message: String },
     /// Persisted student-facing metadata cannot be delivered safely.
     InvalidTitle(QuestionTitleError),
     /// Shared deterministic parameter generation failed.
@@ -173,27 +176,23 @@ impl std::fmt::Display for NativeAdapterError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedSource => formatter.write_str("question source is not native"),
-            Self::UnknownFamily(family) => write!(
+            Self::UnknownQuestionImplementation { question_format, question_type, generator } => write!(
                 formatter,
-                "native question family is not installed: {family}"
+                "native Question Implementation is not installed for {question_format:?}/{question_type:?}/{generator:?}",
             ),
-            Self::DuplicateFamily(family) => write!(
+            Self::DuplicateQuestionImplementation { question_format, question_type, generator, implementation } => write!(
                 formatter,
-                "native question family is registered twice: {family}"
-            ),
-            Self::UnknownGenerator { family, generator } => write!(
-                formatter,
-                "native family {family} has no installed implementation for generator {generator:?}"
+                "native Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}/{}@{}",
+                implementation.id, implementation.version
             ),
             Self::UnknownImplementation { field, version } => write!(
                 formatter,
                 "native {field} implementation is not installed: {}@{}",
                 version.id, version.version
             ),
-            Self::InvalidFamilyDefinition { family, message } => write!(
-                formatter,
-                "native family {family} rejected the definition: {message}"
-            ),
+            Self::IncompatibleQuestionImplementation { message } => {
+                write!(formatter, "native Question Implementation rejected the definition: {message}")
+            }
             Self::InvalidTitle(error) => {
                 write!(formatter, "invalid native question title: {error}")
             }

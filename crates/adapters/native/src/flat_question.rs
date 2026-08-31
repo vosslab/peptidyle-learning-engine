@@ -1,6 +1,6 @@
 //! Strict JSON source and compiler for static flat questions.
 //!
-//! The closed version 2 family set follows the reviewed QTI Package Maker item model.
+//! The closed version 2 Question Type set follows the reviewed QTI Package Maker item model.
 //! Parsing produces two values:
 //! a browser-safe draft and answer-bearing private material. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
@@ -8,13 +8,11 @@
 
 use std::fmt::Write as _;
 
-use crate::generator::NativeQuestionFamily;
+use crate::generator::NativeQuestionImplementation;
 use grading::AnswerKey;
 pub use grading::flat_question::{
-    FLAT_FILL_IN_FAMILY, FLAT_HOTSPOT_FAMILY, FLAT_MATCHING_FAMILY, FLAT_MULTI_FILL_IN_FAMILY,
-    FLAT_MULTIPLE_ANSWER_FAMILY, FLAT_NUMERIC_FAMILY, FLAT_ORDERING_FAMILY,
-    FLAT_SINGLE_CHOICE_V2_FAMILY, FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
-    is_flat_question_family, validate_flat_question_question, validate_for_draft,
+    FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate, validate_flat_question_question,
+    validate_for_draft,
 };
 use question_model::envelope::ContentBlock;
 use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
@@ -22,6 +20,7 @@ use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
     DraftQuestionDefinition, QuestionDefinition, WorkspaceId,
     capability::{BackendCapabilities, Capability},
+    ImplementationVersion, QuestionFormat, QuestionType,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -197,13 +196,24 @@ impl CompiledFlatQuestion {
     }
 }
 
-/// One registered static version 2 family.
+/// One registered static version 2 Question Implementation.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct FlatV2Family(&'static str);
+pub(crate) struct FlatV2QuestionImplementation(QuestionType);
 
-impl NativeQuestionFamily for FlatV2Family {
-    fn family(&self) -> &'static str {
+impl NativeQuestionImplementation for FlatV2QuestionImplementation {
+    fn question_format(&self) -> QuestionFormat {
+        QuestionFormat::PleFlatQuestionV2
+    }
+
+    fn question_type(&self) -> QuestionType {
         self.0
+    }
+
+    fn implementation_release(&self) -> ImplementationVersion {
+        ImplementationVersion {
+            id: "ple-flat-question".to_string(),
+            version: "2".to_string(),
+        }
     }
 
     fn generator(&self) -> Option<question_model::GeneratorReference> {
@@ -224,21 +234,16 @@ impl NativeQuestionFamily for FlatV2Family {
         question: &QuestionDefinition,
         _generated: &domain::generator::GeneratedVariant,
     ) -> Result<Option<AnswerKey>, crate::NativeAdapterError> {
-        let question_model::QuestionSource::Native { family } = &question.source else {
-            return Err(crate::NativeAdapterError::InvalidFamilyDefinition {
-                family: self.0.to_string(),
-                message: "flat family requires a native source".to_string(),
-            });
-        };
-        if family != self.0 {
-            return Err(crate::NativeAdapterError::InvalidFamilyDefinition {
-                family: self.0.to_string(),
-                message: "flat family registry selection changed".to_string(),
+        if !matches!(question.source, question_model::QuestionSource::Native)
+            || question.question_format != self.question_format()
+            || question.question_type != self.question_type()
+        {
+            return Err(crate::NativeAdapterError::IncompatibleQuestionImplementation {
+                message: "PLE flat Question Implementation requires the matching native Question Format and Question Type".to_string(),
             });
         }
         validate_flat_question_question(question).map_err(|error| {
-            crate::NativeAdapterError::InvalidFamilyDefinition {
-                family: self.0.to_string(),
+            crate::NativeAdapterError::IncompatibleQuestionImplementation {
                 message: error.to_string(),
             }
         })?;
@@ -246,15 +251,15 @@ impl NativeQuestionFamily for FlatV2Family {
     }
 }
 
-pub(crate) const FLAT_V2_FAMILIES: [FlatV2Family; 8] = [
-    FlatV2Family(FLAT_SINGLE_CHOICE_V2_FAMILY),
-    FlatV2Family(FLAT_MULTIPLE_ANSWER_FAMILY),
-    FlatV2Family(FLAT_FILL_IN_FAMILY),
-    FlatV2Family(FLAT_MULTI_FILL_IN_FAMILY),
-    FlatV2Family(FLAT_NUMERIC_FAMILY),
-    FlatV2Family(FLAT_MATCHING_FAMILY),
-    FlatV2Family(FLAT_ORDERING_FAMILY),
-    FlatV2Family(FLAT_HOTSPOT_FAMILY),
+pub(crate) const FLAT_V2_IMPLEMENTATIONS: [FlatV2QuestionImplementation; 8] = [
+    FlatV2QuestionImplementation(QuestionType::MultipleChoice),
+    FlatV2QuestionImplementation(QuestionType::MultipleAnswer),
+    FlatV2QuestionImplementation(QuestionType::FillInBlank),
+    FlatV2QuestionImplementation(QuestionType::MultipleFillInBlank),
+    FlatV2QuestionImplementation(QuestionType::Numeric),
+    FlatV2QuestionImplementation(QuestionType::Matching),
+    FlatV2QuestionImplementation(QuestionType::Ordering),
+    FlatV2QuestionImplementation(QuestionType::Hotspot),
 ];
 
 impl FlatQuestionDocument {

@@ -1,4 +1,5 @@
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
+import type { QuestionType } from "../../../generated/api/QuestionType";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
@@ -8,18 +9,7 @@ import {
   isAvailableNativeCatalogProblemSummary,
 } from "../../api/decoders";
 import { isPublicByline } from "../../api/public_byline";
-import {
-  FLAT_QUESTION_FILL_IN_FAMILY,
-  FLAT_QUESTION_HOTSPOT_FAMILY,
-  FLAT_QUESTION_MATCHING_FAMILY,
-  FLAT_QUESTION_MEDIA_TYPE,
-  FLAT_QUESTION_MULTI_FILL_IN_FAMILY,
-  FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY,
-  FLAT_QUESTION_NUMERIC_FAMILY,
-  FLAT_QUESTION_ORDERING_FAMILY,
-  FLAT_QUESTION_SINGLE_CHOICE_FAMILY,
-  type FlatQuestionSourceV2,
-} from "./flat_question_source";
+import { FLAT_QUESTION_MEDIA_TYPE, type FlatQuestionSourceV2 } from "./flat_question_source";
 import { parseFlatQuestionSource, serializeFlatQuestionSource } from "./flat_question_codec";
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
@@ -186,69 +176,42 @@ function decodeJson(text: string, path: string): unknown {
   }
 }
 
-function requireFlatNativeSource(
-  source: DraftQuestionDefinition["source"],
+function requireFlatQuestionContract(
+  draft: DraftQuestionDefinition,
   response: FlatQuestionSourceV2["response"] | undefined,
   responseKind: "save" | "publication",
 ): void {
-  const expectedFamily = response === undefined ? undefined : familyForResponse(response);
-  const expectedDescription = expectedFamily ?? supportedFamilyDescription();
-  if (source.backend !== "native") {
+  if (draft.source.backend !== "native" || draft.questionFormat !== "pleFlatQuestionV2") {
     throw new FlatQuestionProtocolError(
-      `Flat-question ${responseKind} response must use native ${expectedDescription}`,
+      `Flat-question ${responseKind} response must use the native PLE flat-question V2 format`,
     );
   }
-  const acceptedFamily =
-    expectedFamily === undefined
-      ? isFlatQuestionFamily(source.family)
-      : source.family === expectedFamily;
-  if (!acceptedFamily) {
+  if (response !== undefined && draft.questionType !== questionTypeForResponse(response)) {
     throw new FlatQuestionProtocolError(
-      `Flat-question ${responseKind} response must use native ${expectedDescription}`,
+      `Flat-question ${responseKind} response Question Type must match its response shape`,
     );
   }
 }
 
-function familyForResponse(response: FlatQuestionSourceV2["response"]): string {
+function questionTypeForResponse(response: FlatQuestionSourceV2["response"]): QuestionType {
   switch (response.kind) {
     case "singleChoice":
-      return FLAT_QUESTION_SINGLE_CHOICE_FAMILY;
+      return "multipleChoice";
     case "multipleAnswer":
-      return FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY;
+      return "multipleAnswer";
     case "fillIn":
-      return FLAT_QUESTION_FILL_IN_FAMILY;
+      return "fillInBlank";
     case "multiFillIn":
-      return FLAT_QUESTION_MULTI_FILL_IN_FAMILY;
+      return "multipleFillInBlank";
     case "numeric":
-      return FLAT_QUESTION_NUMERIC_FAMILY;
+      return "numeric";
     case "matching":
-      return FLAT_QUESTION_MATCHING_FAMILY;
+      return "matching";
     case "ordering":
-      return FLAT_QUESTION_ORDERING_FAMILY;
+      return "ordering";
     case "hotspot":
-      return FLAT_QUESTION_HOTSPOT_FAMILY;
+      return "hotspot";
   }
-}
-
-function isFlatQuestionFamily(family: string): boolean {
-  return supportedFamilies().includes(family);
-}
-
-function supportedFamilies(): ReadonlyArray<string> {
-  return [
-    FLAT_QUESTION_SINGLE_CHOICE_FAMILY,
-    FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY,
-    FLAT_QUESTION_FILL_IN_FAMILY,
-    FLAT_QUESTION_MULTI_FILL_IN_FAMILY,
-    FLAT_QUESTION_NUMERIC_FAMILY,
-    FLAT_QUESTION_MATCHING_FAMILY,
-    FLAT_QUESTION_ORDERING_FAMILY,
-    FLAT_QUESTION_HOTSPOT_FAMILY,
-  ];
-}
-
-function supportedFamilyDescription(): string {
-  return supportedFamilies().join(" or ");
 }
 
 function requestInit(
@@ -314,7 +277,7 @@ export function createFlatQuestionClient(
         "Flat-question save response does not match its workspace",
       );
     }
-    requireFlatNativeSource(draft.source, source.response, "save");
+    requireFlatQuestionContract(draft, source.response, "save");
     return { draft, revision: strongRevision(response, path) };
   }
 

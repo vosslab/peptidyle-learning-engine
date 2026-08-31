@@ -4,7 +4,7 @@
 //! retain Student identity, raw responses, answer choices, or object keys.
 
 use question_model::{
-    ActivityTimestamp, AssignmentId, AssignmentItemId, CourseId, QuestionVersionReference,
+    ActivityTimestamp, AssignmentId, AssignmentEntryId, CourseId, QuestionVersionReference,
     ScoringGeneration,
 };
 use serde::{Deserialize, Serialize};
@@ -47,7 +47,7 @@ impl ItemAnalysisResponseDistribution {
 pub struct AssignmentItemAnalysis {
     pub course: CourseId,
     pub assignment: AssignmentId,
-    pub assignment_item: AssignmentItemId,
+    pub assignment_entry: AssignmentEntryId,
     pub reference: QuestionVersionReference,
     pub source_scoring_generation: ScoringGeneration,
     pub analyzed_at: ActivityTimestamp,

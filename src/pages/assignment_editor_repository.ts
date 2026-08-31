@@ -44,7 +44,7 @@ function retainedQueryMatches(row: CatalogBrowseRow, query: CatalogBrowseQuery):
     if (!haystack.includes(search)) return false;
   }
   if (query.byline !== null && !row.byline.includes(query.byline)) return false;
-  if (query.backend !== null || query.responseFamily !== null || query.tag !== null) return false;
+  if (query.backend !== null || query.questionType !== null || query.tag !== null) return false;
   if (query.taxonomy !== null && !row.taxonomy.includes(query.taxonomy)) return false;
   if (query.capability !== null && !row.capabilities.includes(query.capability)) return false;
   if (query.license !== null && row.license !== query.license) return false;
@@ -81,20 +81,24 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         request.source.retainedAssignment.assignment,
       );
       if (request.cursor !== null) return page([], null);
-      const fixedRows = assignment.items
-        .filter((item) => item.deliveryState === "active")
-        .map((item) => ({
-          displayId: item.questionId,
-          title: item.title,
+      const fixedRows = assignment.entries
+        .filter(
+          (entry): entry is Extract<typeof entry, { readonly kind: "fixedQuestion" }> =>
+            entry.kind === "fixedQuestion" && entry.deliveryState === "active",
+        )
+        .map((entry) => ({
+          displayId: entry.questionId,
+          title: entry.title,
           summary: "Active fixed question retained in this assignment.",
           byline: [],
           taxonomy: [],
-          capabilities: item.capabilities,
+          capabilities: entry.capabilities,
           license: "allRightsReserved",
           evidence: { state: "insufficientEvidence" as const },
         }));
-      const poolRows = assignment.selectionGroups.flatMap((group) =>
-        group.candidates.map((candidate) => ({
+      const poolRows = assignment.entries.flatMap((entry) =>
+        entry.kind === "questionPool"
+          ? entry.candidates.map((candidate) => ({
           displayId: candidate.questionId,
           title: candidate.title,
           summary: "Question retained in this assignment pool.",
@@ -103,7 +107,8 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
           capabilities: [],
           license: "allRightsReserved",
           evidence: { state: "insufficientEvidence" as const },
-        })),
+            }))
+          : [],
       );
       const rows = [...fixedRows, ...poolRows].filter((row) =>
         retainedQueryMatches(row, request.query),
@@ -171,12 +176,15 @@ async function listReusableAssignments(
   return details.map((assignment) => ({
     assignmentId: assignment.id,
     title: assignment.title,
-    questions: assignment.items
-      .filter((item) => item.deliveryState === "active")
-      .map((item) => ({
-        questionId: item.questionId,
-        title: item.title,
-        backend: item.backend,
+    questions: assignment.entries
+      .filter(
+        (entry): entry is Extract<typeof entry, { readonly kind: "fixedQuestion" }> =>
+          entry.kind === "fixedQuestion" && entry.deliveryState === "active",
+      )
+      .map((entry) => ({
+        questionId: entry.questionId,
+        title: entry.title,
+        backend: entry.backend,
       })),
   }));
 }

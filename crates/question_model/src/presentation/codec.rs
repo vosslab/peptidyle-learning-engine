@@ -7,7 +7,7 @@ use crate::envelope::{AssetRef, ContentBlock};
 use super::builder::{ItemBasisV1, PresentationBuildError, PresentationV1, RenderedItemRoleV1};
 use super::model::{
     AssetBindingV1, PresentationDigestTokenV1, PresentedChoiceV1, RenderedItemIdV1,
-    ResponseSchemaV1,
+    IssuedQuestionResponseFormatV1,
 };
 
 /// Closed descriptor version stored with every v1 attempt.
@@ -323,15 +323,15 @@ impl Encoder {
 
     fn response_schema(
         &mut self,
-        response: &ResponseSchemaV1,
+        response: &IssuedQuestionResponseFormatV1,
         presentation: &PresentationV1,
     ) -> Result<(), PresentationBuildError> {
         match response {
-            ResponseSchemaV1::SingleChoice { choices } => {
+            IssuedQuestionResponseFormatV1::SingleChoice { choices } => {
                 self.u8(0);
                 self.choice_ordinals(choices, presentation, RenderedItemRoleV1::Choice)?;
             }
-            ResponseSchemaV1::MultipleAnswer {
+            IssuedQuestionResponseFormatV1::MultipleAnswer {
                 choices,
                 minimum,
                 maximum,
@@ -341,11 +341,11 @@ impl Encoder {
                 self.u32(*maximum);
                 self.choice_ordinals(choices, presentation, RenderedItemRoleV1::Choice)?;
             }
-            ResponseSchemaV1::FillIn { max_characters } => {
+            IssuedQuestionResponseFormatV1::FillIn { max_characters } => {
                 self.u8(2);
                 self.u32(*max_characters);
             }
-            ResponseSchemaV1::MultiFillIn { blanks } => {
+            IssuedQuestionResponseFormatV1::MultiFillIn { blanks } => {
                 self.u8(3);
                 self.u32_len(blanks.len())?;
                 for blank in blanks {
@@ -357,7 +357,7 @@ impl Encoder {
                     self.u32(blank.max_characters);
                 }
             }
-            ResponseSchemaV1::Numerical {
+            IssuedQuestionResponseFormatV1::Numerical {
                 max_characters,
                 displayed_unit,
             } => {
@@ -365,7 +365,7 @@ impl Encoder {
                 self.u32(*max_characters);
                 self.optional_string(displayed_unit.as_deref())?;
             }
-            ResponseSchemaV1::Matching {
+            IssuedQuestionResponseFormatV1::Matching {
                 prompts,
                 choices,
                 reuse_choices,
@@ -375,11 +375,11 @@ impl Encoder {
                 self.choice_ordinals(choices, presentation, RenderedItemRoleV1::MatchChoice)?;
                 self.u8(u8::from(*reuse_choices));
             }
-            ResponseSchemaV1::Ordering { items } => {
+            IssuedQuestionResponseFormatV1::Ordering { items } => {
                 self.u8(6);
                 self.choice_ordinals(items, presentation, RenderedItemRoleV1::OrderItem)?;
             }
-            ResponseSchemaV1::Hotspot {
+            IssuedQuestionResponseFormatV1::Hotspot {
                 surface,
                 minimum,
                 maximum,

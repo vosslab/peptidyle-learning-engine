@@ -1,7 +1,7 @@
 //! Response types: what a student submits, and what shape it must take
 //! (WP-C1).
 //!
-//! [`ResponseDefinition`] and [`StudentResponse`] are parallel enums. Each
+//! [`QuestionResponseFormat`] and [`StudentResponse`] are parallel enums. Each
 //! definition variant has exactly one response variant that fits it.
 //! `domain::validation` checks the pairing and the variant-specific structural
 //! rules identically on the server and in the browser.
@@ -10,6 +10,60 @@ use serde::{Deserialize, Serialize};
 
 use crate::answer::{NumericTolerance, SelectionCardinality, TextMatchMode};
 use crate::envelope::{AssetRef, ContentBlock};
+
+/// The educational interaction a Question assesses.
+///
+/// Question Type is independent of Question Format, Question Backend, and the
+/// browser control used to collect a Student Response. In particular, an
+/// external tool or file-upload control still declares the educational type it
+/// serves rather than becoming a type itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuestionType {
+    /// MC: exactly one selected Question Choice.
+    MultipleChoice,
+    /// MA: one or more selected Question Choices.
+    MultipleAnswer,
+    /// FIB: one short text entry.
+    FillInBlank,
+    /// MULTI-FIB: several named short text entries.
+    MultipleFillInBlank,
+    /// NUM: one numeric entry.
+    Numeric,
+    /// MATCH: Matching Prompts paired to Matching Choices.
+    Matching,
+    /// ORDER: an ordered sequence of response items.
+    Ordering,
+    /// HOTSPOT: points or regions selected on an image-backed surface.
+    Hotspot,
+}
+
+impl QuestionType {
+    /// Every educational Question Type supported by this release.
+    pub const ALL: [Self; 8] = [
+        Self::MultipleChoice,
+        Self::MultipleAnswer,
+        Self::FillInBlank,
+        Self::MultipleFillInBlank,
+        Self::Numeric,
+        Self::Matching,
+        Self::Ordering,
+        Self::Hotspot,
+    ];
+}
+
+/// The browser interaction used to collect a Student Response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuestionResponseControl {
+    ChoiceSelection,
+    TextEntry,
+    Matching,
+    Ordering,
+    Hotspot,
+    FileUpload,
+    ExternalTool,
+}
 
 /// Identifies one selectable choice within a question.
 ///
@@ -118,7 +172,7 @@ pub struct HotspotRegion {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-pub enum ResponseDefinition {
+pub enum QuestionResponseFormat {
     /// A number, compared within a tolerance.
     Numeric {
         /// How close the response must be.
@@ -182,9 +236,48 @@ pub enum ResponseDefinition {
     ExternalTool {},
 }
 
+impl QuestionResponseFormat {
+    /// Returns the browser control required to collect this response shape.
+    pub const fn control(&self) -> QuestionResponseControl {
+        match self {
+            Self::Numeric { .. } | Self::ShortText { .. } | Self::MultiBlank { .. } => {
+                QuestionResponseControl::TextEntry
+            }
+            Self::MultipleChoice { .. } => QuestionResponseControl::ChoiceSelection,
+            Self::Matching { .. } => QuestionResponseControl::Matching,
+            Self::Ordering { .. } => QuestionResponseControl::Ordering,
+            Self::Hotspot { .. } => QuestionResponseControl::Hotspot,
+            Self::FileUpload { .. } => QuestionResponseControl::FileUpload,
+            Self::ExternalTool {} => QuestionResponseControl::ExternalTool,
+        }
+    }
+
+    /// Whether this response shape can collect work for the declared Question Type.
+    ///
+    /// File Upload and External Tool are controls, so they remain compatible with
+    /// the separately declared educational Question Type.
+    pub const fn supports_question_type(&self, question_type: QuestionType) -> bool {
+        match self {
+            Self::Numeric { .. } => matches!(question_type, QuestionType::Numeric),
+            Self::MultipleChoice { selection, .. } => match selection {
+                SelectionCardinality::ExactlyOne => {
+                    matches!(question_type, QuestionType::MultipleChoice)
+                }
+                _ => matches!(question_type, QuestionType::MultipleAnswer),
+            },
+            Self::ShortText { .. } => matches!(question_type, QuestionType::FillInBlank),
+            Self::MultiBlank { .. } => matches!(question_type, QuestionType::MultipleFillInBlank),
+            Self::Matching { .. } => matches!(question_type, QuestionType::Matching),
+            Self::Ordering { .. } => matches!(question_type, QuestionType::Ordering),
+            Self::Hotspot { .. } => matches!(question_type, QuestionType::Hotspot),
+            Self::FileUpload { .. } | Self::ExternalTool {} => true,
+        }
+    }
+}
+
 /// What a student submitted.
 ///
-/// Each variant matches one [`ResponseDefinition`] variant. Pairing and format
+/// Each variant matches one [`QuestionResponseFormat`] variant. Pairing and format
 /// checks live in `crates/domain`, where browser and server use the same code.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
@@ -258,7 +351,7 @@ mod tests {
 
     #[test]
     fn external_tool_markers_round_trip_as_kind_only() {
-        let definition = ResponseDefinition::ExternalTool {};
+        let definition = QuestionResponseFormat::ExternalTool {};
         let response = StudentResponse::ExternalTool {};
 
         assert_eq!(
@@ -270,7 +363,7 @@ mod tests {
             serde_json::json!({"kind": "externalTool"})
         );
         assert_eq!(
-            serde_json::from_value::<ResponseDefinition>(
+            serde_json::from_value::<QuestionResponseFormat>(
                 serde_json::json!({"kind": "externalTool"})
             )
             .unwrap(),
@@ -294,7 +387,7 @@ mod tests {
             "launchUrl",
         ] {
             let value = serde_json::json!({"kind": "externalTool", extra: true});
-            assert!(serde_json::from_value::<ResponseDefinition>(value.clone()).is_err());
+            assert!(serde_json::from_value::<QuestionResponseFormat>(value.clone()).is_err());
             assert!(serde_json::from_value::<StudentResponse>(value).is_err());
         }
 

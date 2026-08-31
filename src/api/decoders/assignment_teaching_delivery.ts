@@ -21,11 +21,7 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
 import { decodeStudentDisclosurePolicy } from "./assignment_policy";
-import {
-  decodeAssignmentItem,
-  decodeAssignmentReference,
-  decodeAssignmentSelectionGroup,
-} from "./catalog_course";
+import { decodeAssignmentEntry, decodeAssignmentReference } from "./catalog_course";
 
 export function decodeStudentAssignmentLandingSummary(
   value: unknown,
@@ -210,8 +206,7 @@ export function decodeStudentAssignmentDetail(
     "instructions",
     "time_zone",
     "delivery",
-    "items",
-    "selection_groups",
+    "entries",
   ]);
   const deliveryRecord = decodeRecord(field(record, "delivery", path), `${path}.delivery`);
   requireOnlyFields(deliveryRecord, `${path}.delivery`, [
@@ -271,12 +266,7 @@ export function decodeStudentAssignmentDetail(
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
     time_zone: decodeNonemptyString(field(record, "time_zone", path), `${path}.time_zone`),
     delivery,
-    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),
-    selection_groups: decodeArray(
-      field(record, "selection_groups", path),
-      `${path}.selection_groups`,
-      decodeAssignmentSelectionGroup,
-    ),
+    entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssignmentEntry),
   };
 }
 

@@ -4,7 +4,7 @@
   "catalogProblem": {
     "questionId": "7K3-M9QP",
     "backend": "native",
-    "responseFamily": "multipleChoice",
+    "questionType": "multipleChoice",
     "capabilities": [
       "algorithmicGeneration",
       "clientRendering",
@@ -292,8 +292,9 @@
     "reference": "A-1",
     "courseId": "0198e000-0000-7000-8000-000000000014",
     "title": "Peptide bond mastery",
-    "items": [
+    "entries": [
       {
+        "kind": "fixedQuestion",
         "id": "0198e000-0000-7000-8000-000000000017",
         "questionId": "7K3-M9QP",
         "title": "Peptide bond resonance and planarity",
@@ -305,13 +306,11 @@
           "hints",
           "perQuestionTiming"
         ],
-        "position": 0,
         "pointsPossible": "1",
         "deliveryState": "active",
         "scoringMode": "normal"
       }
     ],
-    "selectionGroups": [],
     "disclosurePolicy": {
       "score": "after_submit",
       "per_item_correctness": "after_submit",
@@ -381,57 +380,57 @@
     {
       "id": "0198e000-0000-7000-8000-000000000040",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000020",
-      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
-      "sourcePosition": 0,
+      "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "definitionEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "selectionGroup": null,
+      "questionPoolEntry": null,
       "selectionSeed": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000041",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000021",
-      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
-      "sourcePosition": 0,
+      "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "definitionEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "selectionGroup": null,
+      "questionPoolEntry": null,
       "selectionSeed": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000042",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000022",
-      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
-      "sourcePosition": 0,
+      "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "definitionEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "selectionGroup": null,
+      "questionPoolEntry": null,
       "selectionSeed": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000043",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000023",
-      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
-      "sourcePosition": 0,
+      "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "definitionEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "selectionGroup": null,
+      "questionPoolEntry": null,
       "selectionSeed": null
     }
   ],

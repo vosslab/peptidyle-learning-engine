@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::answer::SelectionCardinality;
 use crate::envelope::{AssetRef, ContentBlock, QuestionEnvelope};
-use crate::response::{ChoiceOption, ResponseDefinition};
+use crate::response::{ChoiceOption, QuestionResponseFormat};
 
 use super::binding::PresentationBindingV1;
 use super::codec::{
@@ -15,7 +15,7 @@ use super::codec::{
 use super::model::{
     AssetBindingV1, PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1,
     PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1,
-    ResponseSchemaV1,
+    IssuedQuestionResponseFormatV1,
 };
 
 const MAX_PRESENTED_ITEMS: usize = 32;
@@ -103,7 +103,7 @@ impl std::fmt::Display for PresentationBuildError {
                 formatter.write_str("presentation nonce randomness is unavailable")
             }
             Self::UnsupportedResponse => {
-                formatter.write_str("response family is outside presentation contract v1")
+                formatter.write_str("Question Response Control is outside presentation contract v1")
             }
             Self::InvalidPublicContent(message) => formatter.write_str(message),
             Self::TooManyItems => formatter.write_str("presentation contains more than 32 items"),
@@ -329,11 +329,11 @@ fn pending_items(
 ) -> Result<Vec<PendingItemV1>, PresentationBuildError> {
     let mut items = Vec::new();
     match &envelope.response {
-        ResponseDefinition::MultipleChoice { choices, .. } => {
+        QuestionResponseFormat::MultipleChoice { choices, .. } => {
             push_choices(&mut items, choices, RenderedItemRoleV1::Choice, assets)?;
         }
-        ResponseDefinition::ShortText { .. } | ResponseDefinition::Numeric { .. } => {}
-        ResponseDefinition::MultiBlank { blanks } => {
+        QuestionResponseFormat::ShortText { .. } | QuestionResponseFormat::Numeric { .. } => {}
+        QuestionResponseFormat::MultiBlank { blanks } => {
             for blank in blanks {
                 push_item(
                     &mut items,
@@ -346,14 +346,14 @@ fn pending_items(
                 )?;
             }
         }
-        ResponseDefinition::Matching { prompts, choices } => {
+        QuestionResponseFormat::Matching { prompts, choices } => {
             push_choices(&mut items, prompts, RenderedItemRoleV1::MatchPrompt, assets)?;
             push_choices(&mut items, choices, RenderedItemRoleV1::MatchChoice, assets)?;
         }
-        ResponseDefinition::Ordering { items: choices } => {
+        QuestionResponseFormat::Ordering { items: choices } => {
             push_choices(&mut items, choices, RenderedItemRoleV1::OrderItem, assets)?;
         }
-        ResponseDefinition::Hotspot {
+        QuestionResponseFormat::Hotspot {
             surface,
             description,
             regions,
@@ -394,7 +394,7 @@ fn pending_items(
                 regions,
             )?;
         }
-        ResponseDefinition::FileUpload { .. } | ResponseDefinition::ExternalTool {} => {
+        QuestionResponseFormat::FileUpload { .. } | QuestionResponseFormat::ExternalTool {} => {
             return Err(PresentationBuildError::UnsupportedResponse);
         }
     }
@@ -470,33 +470,33 @@ fn public_envelope(
             .collect::<Vec<_>>()
     };
     let response = match &source.response {
-        ResponseDefinition::MultipleChoice {
+        QuestionResponseFormat::MultipleChoice {
             choices: source_choices,
             selection,
         } => match selection {
-            SelectionCardinality::ExactlyOne => ResponseSchemaV1::SingleChoice {
+            SelectionCardinality::ExactlyOne => IssuedQuestionResponseFormatV1::SingleChoice {
                 choices: choices(RenderedItemRoleV1::Choice),
             },
             _ => {
                 let (minimum, maximum) = selection_bounds(*selection, source_choices.len())?;
-                ResponseSchemaV1::MultipleAnswer {
+                IssuedQuestionResponseFormatV1::MultipleAnswer {
                     choices: choices(RenderedItemRoleV1::Choice),
                     minimum,
                     maximum,
                 }
             }
         },
-        ResponseDefinition::ShortText { max_length, .. } => ResponseSchemaV1::FillIn {
+        QuestionResponseFormat::ShortText { max_length, .. } => IssuedQuestionResponseFormatV1::FillIn {
             max_characters: *max_length,
         },
-        ResponseDefinition::MultiBlank { blanks } => {
+        QuestionResponseFormat::MultiBlank { blanks } => {
             let rendered: Vec<_> = by_role(RenderedItemRoleV1::Blank).collect();
             if rendered.len() != blanks.len() {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "blank presentation mapping is incomplete",
                 ));
             }
-            ResponseSchemaV1::MultiFillIn {
+            IssuedQuestionResponseFormatV1::MultiFillIn {
                 blanks: blanks
                     .iter()
                     .zip(rendered)
@@ -508,19 +508,19 @@ fn public_envelope(
                     .collect(),
             }
         }
-        ResponseDefinition::Numeric { unit, .. } => ResponseSchemaV1::Numerical {
+        QuestionResponseFormat::Numeric { unit, .. } => IssuedQuestionResponseFormatV1::Numerical {
             max_characters: NUMERIC_MAX_CHARACTERS,
             displayed_unit: unit.clone(),
         },
-        ResponseDefinition::Matching { .. } => ResponseSchemaV1::Matching {
+        QuestionResponseFormat::Matching { .. } => IssuedQuestionResponseFormatV1::Matching {
             prompts: choices(RenderedItemRoleV1::MatchPrompt),
             choices: choices(RenderedItemRoleV1::MatchChoice),
             reuse_choices: false,
         },
-        ResponseDefinition::Ordering { .. } => ResponseSchemaV1::Ordering {
+        QuestionResponseFormat::Ordering { .. } => IssuedQuestionResponseFormatV1::Ordering {
             items: choices(RenderedItemRoleV1::OrderItem),
         },
-        ResponseDefinition::Hotspot {
+        QuestionResponseFormat::Hotspot {
             regions, selection, ..
         } => {
             let surface = bindings
@@ -535,7 +535,7 @@ fn public_envelope(
                 ));
             };
             let (minimum, maximum) = selection_bounds(*selection, regions.len())?;
-            ResponseSchemaV1::Hotspot {
+            IssuedQuestionResponseFormatV1::Hotspot {
                 surface: PresentedHotspotSurfaceV1 {
                     id: surface.rendered.clone(),
                     asset: asset.clone(),
@@ -546,7 +546,7 @@ fn public_envelope(
                 maximum,
             }
         }
-        ResponseDefinition::FileUpload { .. } | ResponseDefinition::ExternalTool {} => {
+        QuestionResponseFormat::FileUpload { .. } | QuestionResponseFormat::ExternalTool {} => {
             return Err(PresentationBuildError::UnsupportedResponse);
         }
     };
@@ -561,19 +561,19 @@ fn public_envelope(
 }
 
 fn public_item_bindings(
-    response: &ResponseSchemaV1,
+    response: &IssuedQuestionResponseFormatV1,
     assets: &[AssetBindingV1],
 ) -> Result<Vec<RenderedItemBindingV1>, PresentationBuildError> {
     let mut target = Vec::new();
     match response {
-        ResponseSchemaV1::SingleChoice { choices }
-        | ResponseSchemaV1::MultipleAnswer { choices, .. } => {
+        IssuedQuestionResponseFormatV1::SingleChoice { choices }
+        | IssuedQuestionResponseFormatV1::MultipleAnswer { choices, .. } => {
             push_public_choices(&mut target, choices, RenderedItemRoleV1::Choice, assets)?;
         }
-        ResponseSchemaV1::FillIn { max_characters } => {
+        IssuedQuestionResponseFormatV1::FillIn { max_characters } => {
             require_positive(*max_characters, "fill-in maximum must be positive")?;
         }
-        ResponseSchemaV1::MultiFillIn { blanks } => {
+        IssuedQuestionResponseFormatV1::MultiFillIn { blanks } => {
             if blanks.is_empty() {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "multi-fill presentation has no blanks",
@@ -592,10 +592,10 @@ fn public_item_bindings(
                 )?;
             }
         }
-        ResponseSchemaV1::Numerical { max_characters, .. } => {
+        IssuedQuestionResponseFormatV1::Numerical { max_characters, .. } => {
             require_positive(*max_characters, "numeric maximum must be positive")?;
         }
-        ResponseSchemaV1::Matching {
+        IssuedQuestionResponseFormatV1::Matching {
             prompts,
             choices,
             reuse_choices,
@@ -621,7 +621,7 @@ fn public_item_bindings(
                 assets,
             )?;
         }
-        ResponseSchemaV1::Ordering { items } => {
+        IssuedQuestionResponseFormatV1::Ordering { items } => {
             if items.len() < 2 {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "ordering presentation requires at least two items",
@@ -629,7 +629,7 @@ fn public_item_bindings(
             }
             push_public_choices(&mut target, items, RenderedItemRoleV1::OrderItem, assets)?;
         }
-        ResponseSchemaV1::Hotspot {
+        IssuedQuestionResponseFormatV1::Hotspot {
             surface,
             minimum,
             maximum,
@@ -664,12 +664,12 @@ fn public_item_bindings(
         }
     }
     match response {
-        ResponseSchemaV1::SingleChoice { choices } if choices.len() < 2 => {
+        IssuedQuestionResponseFormatV1::SingleChoice { choices } if choices.len() < 2 => {
             return Err(PresentationBuildError::InvalidPublicContent(
                 "single-choice presentation requires at least two choices",
             ));
         }
-        ResponseSchemaV1::MultipleAnswer {
+        IssuedQuestionResponseFormatV1::MultipleAnswer {
             choices,
             minimum,
             maximum,
@@ -815,36 +815,36 @@ fn validate_public_assets(
     let mut referenced = BTreeSet::new();
     collect_assets(&envelope.prompt, &mut referenced);
     match &envelope.response {
-        ResponseSchemaV1::SingleChoice { choices }
-        | ResponseSchemaV1::MultipleAnswer { choices, .. } => {
+        IssuedQuestionResponseFormatV1::SingleChoice { choices }
+        | IssuedQuestionResponseFormatV1::MultipleAnswer { choices, .. } => {
             for choice in choices {
                 collect_assets(&choice.body, &mut referenced);
             }
         }
-        ResponseSchemaV1::MultiFillIn { blanks } => {
+        IssuedQuestionResponseFormatV1::MultiFillIn { blanks } => {
             for blank in blanks {
                 collect_assets(&blank.label, &mut referenced);
             }
         }
-        ResponseSchemaV1::Matching {
+        IssuedQuestionResponseFormatV1::Matching {
             prompts, choices, ..
         } => {
             for choice in prompts.iter().chain(choices) {
                 collect_assets(&choice.body, &mut referenced);
             }
         }
-        ResponseSchemaV1::Ordering { items } => {
+        IssuedQuestionResponseFormatV1::Ordering { items } => {
             for item in items {
                 collect_assets(&item.body, &mut referenced);
             }
         }
-        ResponseSchemaV1::Hotspot { surface, .. } => {
+        IssuedQuestionResponseFormatV1::Hotspot { surface, .. } => {
             referenced.insert(AssetRefKey::from(&surface.asset));
             for region in &surface.regions {
                 collect_assets(&region.label, &mut referenced);
             }
         }
-        ResponseSchemaV1::FillIn { .. } | ResponseSchemaV1::Numerical { .. } => {}
+        IssuedQuestionResponseFormatV1::FillIn { .. } | IssuedQuestionResponseFormatV1::Numerical { .. } => {}
     }
     validate_asset_refs(&referenced, bindings)
 }
@@ -938,29 +938,29 @@ fn collect_assets(content: &[ContentBlock], target: &mut BTreeSet<AssetRefKey>) 
     }
 }
 
-fn collect_response_assets(response: &ResponseDefinition, target: &mut BTreeSet<AssetRefKey>) {
+fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTreeSet<AssetRefKey>) {
     match response {
-        ResponseDefinition::MultipleChoice { choices, .. } => {
+        QuestionResponseFormat::MultipleChoice { choices, .. } => {
             for choice in choices {
                 collect_assets(&choice.body, target);
             }
         }
-        ResponseDefinition::MultiBlank { blanks } => {
+        QuestionResponseFormat::MultiBlank { blanks } => {
             for blank in blanks {
                 collect_assets(&blank.label, target);
             }
         }
-        ResponseDefinition::Matching { prompts, choices } => {
+        QuestionResponseFormat::Matching { prompts, choices } => {
             for choice in prompts.iter().chain(choices) {
                 collect_assets(&choice.body, target);
             }
         }
-        ResponseDefinition::Ordering { items } => {
+        QuestionResponseFormat::Ordering { items } => {
             for item in items {
                 collect_assets(&item.body, target);
             }
         }
-        ResponseDefinition::Hotspot {
+        QuestionResponseFormat::Hotspot {
             surface, regions, ..
         } => {
             target.insert(AssetRefKey::from(surface));
@@ -968,10 +968,10 @@ fn collect_response_assets(response: &ResponseDefinition, target: &mut BTreeSet<
                 collect_assets(&region.label, target);
             }
         }
-        ResponseDefinition::Numeric { .. }
-        | ResponseDefinition::ShortText { .. }
-        | ResponseDefinition::FileUpload { .. }
-        | ResponseDefinition::ExternalTool {} => {}
+        QuestionResponseFormat::Numeric { .. }
+        | QuestionResponseFormat::ShortText { .. }
+        | QuestionResponseFormat::FileUpload { .. }
+        | QuestionResponseFormat::ExternalTool {} => {}
     }
 }
 

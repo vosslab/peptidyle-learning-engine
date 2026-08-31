@@ -8,8 +8,8 @@ import type { PresentedBlankV1 } from "../../../generated/api/PresentedBlankV1";
 import type { PresentedChoiceV1 } from "../../../generated/api/PresentedChoiceV1";
 import type { PresentedHotspotRegionV1 } from "../../../generated/api/PresentedHotspotRegionV1";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
-import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
-import type { ResponseSchemaV1 } from "../../../generated/api/ResponseSchemaV1";
+import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
+import type { IssuedQuestionResponseFormatV1 } from "../../../generated/api/IssuedQuestionResponseFormatV1";
 import type { SelectionCardinality } from "../../../generated/api/SelectionCardinality";
 import {
   DecodeError,
@@ -31,7 +31,7 @@ import {
   kind,
   requireOnlyFields,
 } from "./shared";
-import { decodeContentBlock } from "./response_definition";
+import { decodeContentBlock } from "./question_response_format";
 
 const MAX_PRESENTED_ITEMS = 32;
 const RENDERED_ITEM_ID = /^[0-9a-f]{4}$/u;
@@ -132,7 +132,7 @@ function bounds(record: Record<string, unknown>, path: string, count: number): [
   return [minimum, maximum];
 }
 
-function responseSchema(value: unknown, path: string): ResponseSchemaV1 {
+function issuedQuestionResponseFormat(value: unknown, path: string): IssuedQuestionResponseFormatV1 {
   const record = decodeRecord(value, path);
   switch (kind(record, path)) {
     case "singleChoice": {
@@ -262,7 +262,7 @@ function choicesForWidget(choices: ReadonlyArray<PresentedChoiceV1>): ChoiceOpti
   return choices.map((choice) => ({ id: choice.id, body: choice.body }));
 }
 
-function responseForWidget(response: ResponseSchemaV1, path: string): ResponseDefinition {
+function responseForWidget(response: IssuedQuestionResponseFormatV1, path: string): QuestionResponseFormat {
   switch (response.kind) {
     case "singleChoice":
       return {
@@ -355,7 +355,7 @@ export function decodeIssuedPresentationEnvelope(
       32,
       (block, blockPath) => decodeContentBlock(block, blockPath, true),
     ),
-    response: responseSchema(field(record, "response", path), `${path}.response`),
+    response: issuedQuestionResponseFormat(field(record, "response", path), `${path}.response`),
   } satisfies PresentationEnvelopeV1;
   return {
     questionVersion: presentation.questionVersion,

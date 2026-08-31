@@ -175,10 +175,10 @@ export function createPreviewPlaneClient(
       course,
       assignment,
       revision,
-      groupPosition,
+      assignmentEntryId,
     ): Promise<PoolDrawPreview> => {
       const path = `${previewRoutePath(course, assignment)}/preview-pool-draw`;
-      const body = decodePoolDrawPreviewRequest({ groupPosition }, "request");
+      const body = decodePoolDrawPreviewRequest({ assignmentEntryId }, "request");
       return previewJson(fetchImplementation, basePath, path, decodePoolDrawPreview, {
         method: "POST",
         body,

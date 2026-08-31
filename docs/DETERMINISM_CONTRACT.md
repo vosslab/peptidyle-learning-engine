@@ -82,7 +82,7 @@ returns a report. No export accepts an answer key or produces correctness.
 
 Flat v2 source is answer-bearing, so its parser and compiler remain in the
 server-only native adapter. Browser parity therefore covers the actual public
-boundary: answer-free `ResponseDefinition` values compiled from the current
+boundary: answer-free `QuestionResponseFormat` values compiled from the current
 flat v2 MC and MATCH families, and `StudentResponse` values. Inline native,
 generated-Node, and headless-browser cases cover valid selections and matching
 permutations, empty-response boundaries, malformed JSON errors, and repeated

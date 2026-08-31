@@ -47,7 +47,7 @@ pub(super) fn validate_cache(
         || question_model::validate_question_title(&cached.envelope.title).is_err()
         || !matches!(
             cached.envelope.response,
-            question_model::ResponseDefinition::ExternalTool {}
+            question_model::QuestionResponseFormat::ExternalTool {}
         )
     {
         return Err(ImathasAdapterError::InvalidCache);

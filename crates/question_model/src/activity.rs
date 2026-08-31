@@ -26,11 +26,11 @@ pub struct AssignmentId(Uuid);
 
 /// One stable current-state item within an assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentItemId(Uuid);
+pub struct AssignmentEntryId(Uuid);
 
-/// One random-selection group within an assignment.
+/// One stable candidate inside its owning Question Pool Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentSelectionGroupId(Uuid);
+pub struct QuestionPoolCandidateId(Uuid);
 
 /// A course or section containing assignments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -95,8 +95,8 @@ macro_rules! impl_activity_identifier {
 }
 
 impl_activity_identifier!(AssignmentId);
-impl_activity_identifier!(AssignmentItemId);
-impl_activity_identifier!(AssignmentSelectionGroupId);
+impl_activity_identifier!(AssignmentEntryId);
+impl_activity_identifier!(QuestionPoolCandidateId);
 impl_activity_identifier!(CourseId);
 impl_activity_identifier!(CourseMembershipId);
 impl_activity_identifier!(StudentRecordId);
@@ -205,10 +205,10 @@ pub struct IssuedQuestion {
     pub id: IssuedQuestionId,
     /// Assignment Attempt whose future sequencing is frozen by this record.
     pub assignment_attempt: AssignmentAttemptId,
-    /// Stable fixed-item or selection-candidate identity.
-    pub assignment_item: AssignmentItemId,
-    /// Position in the mutable assignment definition when the Assignment Attempt began.
-    pub source_position: u32,
+    /// Stable fixed-question or Question Pool candidate identity.
+    pub assignment_entry: AssignmentEntryId,
+    /// Entry index in the assignment definition when the Assignment Attempt began.
+    pub definition_entry_index: u32,
     /// Expanded zero-based delivery order inside this run.
     pub issued_position: u32,
     /// Exact immutable catalog version selected for delivery.
@@ -218,8 +218,8 @@ pub struct IssuedQuestion {
     /// The value is frozen when the run begins so later assignment scoring
     /// changes cannot rewrite the validity of an observed student response.
     pub statistics_eligible: bool,
-    /// Selection group that produced this item, if it was drawn.
-    pub selection_group: Option<AssignmentSelectionGroupId>,
+    /// Question Pool entry that produced this item, if it was drawn.
+    pub question_pool_entry: Option<AssignmentEntryId>,
     /// Deterministic selection seed, absent for fixed items.
     pub selection_seed: Option<u64>,
 }
@@ -307,7 +307,7 @@ pub struct AttemptProvenance {
     pub rendered_question_sha256: String,
 }
 
-/// Immutable family capability recorded inside the checksummed attempt payload.
+/// Immutable issued-presentation capability recorded inside the checksummed attempt payload.
 ///
 /// The database keeps the corresponding private presentation and grading
 /// payloads in dedicated protected columns. This tag binds their required or
@@ -316,7 +316,7 @@ pub struct AttemptProvenance {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum IssuedAttemptCapabilityV1 {
-    /// A browser-safe `PresentationEnvelopeV1` with no family-specific
+    /// A browser-safe `PresentationEnvelopeV1` with no format-specific
     /// private first-grade contract.
     PresentationEnvelope,
     /// A native flat presentation and its required private grading contract.
@@ -328,7 +328,7 @@ pub enum IssuedAttemptCapabilityV1 {
     /// This is distinct from the generic presentation tag so loss of the
     /// opaque contract fails closed instead of inviting a catalog lookup.
     QtiPresentation,
-    /// A family that intentionally issues no `PresentationEnvelopeV1`.
+    /// A Question Backend that intentionally issues no `PresentationEnvelopeV1`.
     NotApplicable,
 }
 

@@ -40,10 +40,10 @@ export function MultipleChoiceResponse(
 }
 
 function assertNever(value: never): never {
-  throw new Error(`Unhandled response definition: ${JSON.stringify(value)}`);
+  throw new Error(`Unhandled Question Response Format: ${JSON.stringify(value)}`);
 }
 
-/** Exhaustive dispatch point for every browser-safe ResponseDefinition variant. */
+/** Exhaustive dispatch point for every browser-safe QuestionResponseFormat variant. */
 export function ResponseWidget(props: ResponseWidgetProps): JSX.Element {
   // File uploads remain unavailable until their secure, course-bound upload slot contract exists.
   let body: JSX.Element;

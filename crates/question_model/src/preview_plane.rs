@@ -419,7 +419,7 @@ pub enum PreviewDenialReason {
     StaleRevision,
 }
 
-/// Complete ready-family evaluation. A denied case intentionally cannot leak a subject.
+/// Complete ready-state evaluation. A denied case intentionally cannot leak a subject.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)] // A boxed subject becomes an unresolved generic in tsgen output.

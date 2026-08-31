@@ -1,4 +1,4 @@
-// run_summary_page.tsx - bounded, server-projected Assignment Attempt history.
+// assignment_attempt_summary_page.tsx - bounded, server-projected Assignment Attempt history.
 
 import { useNavigate } from "@solidjs/router";
 import { createSignal, For, onMount, Show, type JSX } from "solid-js";
@@ -13,7 +13,7 @@ import { useCourseThemeRouteData } from "../features/course_appearance/course_th
 import { assignmentAttemptRouteReference } from "../navigation/public_route";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
-export function RunSummaryPage(): JSX.Element {
+export function AssignmentAttemptSummaryPage(): JSX.Element {
   const runtime = useApiRuntime();
   const navigate = useNavigate();
   const scopedRoute = useCourseThemeRouteData();

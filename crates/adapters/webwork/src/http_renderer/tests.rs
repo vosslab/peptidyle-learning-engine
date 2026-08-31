@@ -236,7 +236,7 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
         &settings.base_uri,
     )
     .expect("recorded response is supported");
-    let ResponseDefinition::MultipleChoice { choices, selection } = &parsed.envelope.response
+    let QuestionResponseFormat::MultipleChoice { choices, selection } = &parsed.envelope.response
     else {
         panic!("single-choice envelope")
     };
@@ -278,7 +278,7 @@ Based on their molecular formula, which compound is most likely <span style="col
         &settings.base_uri,
     )
     .expect("standalone PGML RadioButtons output is supported");
-    let ResponseDefinition::MultipleChoice { choices, selection } = &parsed.envelope.response
+    let QuestionResponseFormat::MultipleChoice { choices, selection } = &parsed.envelope.response
     else {
         panic!("single-choice envelope")
     };
@@ -318,7 +318,7 @@ Based on their molecular formula, which compound is most likely <span style="col
 #[test]
 fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     let parsed = parsed_matching();
-    let ResponseDefinition::Matching { prompts, choices } = &parsed.envelope.response else {
+    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.envelope.response else {
         panic!("typed matching envelope")
     };
     assert_eq!(prompts.len(), 2);
@@ -914,7 +914,7 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
     )
     .expect("fixture client");
     let parsed = parsed_matching();
-    let ResponseDefinition::Matching { prompts, choices } = &parsed.envelope.response else {
+    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.envelope.response else {
         panic!("typed matching envelope")
     };
     let response = StudentResponse::Matching {

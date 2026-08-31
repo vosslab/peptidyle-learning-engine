@@ -144,7 +144,7 @@ function emptyQuery() {
     byline: null,
     backend: null,
     tag: null,
-    responseFamily: null,
+    questionType: null,
     taxonomy: null,
     capability: null,
     license: null,

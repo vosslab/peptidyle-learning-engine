@@ -3,9 +3,11 @@ use std::collections::BTreeMap;
 use domain::generator::GeneratedVariant;
 use grading::{GradeOutcome, GradingError, grade};
 use question_model::generation::GeneratorReference;
-use question_model::{ImplementationVersion, QuestionDefinition, StudentResponse};
+use question_model::{
+    ImplementationVersion, QuestionDefinition, QuestionFormat, QuestionType, StudentResponse,
+};
 
-use crate::generator::NativeQuestionFamily;
+use crate::generator::NativeQuestionImplementation;
 use crate::peptide_bond_geometry::PeptideBondGeometryV1;
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, NativeAdapter, NativeAdapterError,
@@ -19,12 +21,12 @@ pub(super) enum NativeExecution {
 impl NativeExecution {
     pub(super) fn derive_answer_key(
         self,
-        family: &dyn NativeQuestionFamily,
+        implementation: &dyn NativeQuestionImplementation,
         question: &QuestionDefinition,
         generated: &GeneratedVariant,
     ) -> Result<Option<grading::AnswerKey>, NativeAdapterError> {
         match self {
-            Self::V1 => family.derive_answer_key(question, generated),
+            Self::V1 => implementation.derive_answer_key(question, generated),
         }
     }
 
@@ -41,16 +43,23 @@ impl NativeExecution {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct FamilyRegistrationKey {
-    pub(super) family: String,
+pub(super) struct NativeQuestionImplementationRegistrationKey {
+    pub(super) question_format: QuestionFormat,
+    pub(super) question_type: QuestionType,
     pub(super) generator: Option<GeneratorReference>,
+    pub(super) implementation_id: String,
+    pub(super) implementation_version: String,
 }
 
-impl FamilyRegistrationKey {
-    pub(super) fn from_family(family: &dyn NativeQuestionFamily) -> Self {
+impl NativeQuestionImplementationRegistrationKey {
+    pub(super) fn from_implementation(implementation: &dyn NativeQuestionImplementation) -> Self {
+        let release = implementation.implementation_release();
         Self {
-            family: family.family().to_string(),
-            generator: family.generator(),
+            question_format: implementation.question_format(),
+            question_type: implementation.question_type(),
+            generator: implementation.generator(),
+            implementation_id: release.id,
+            implementation_version: release.version,
         }
     }
 }
@@ -71,17 +80,17 @@ impl From<&ImplementationVersion> for ImplementationRegistrationKey {
 }
 
 impl NativeAdapter {
-    /// Builds the production registry with reviewed built-in source families.
+    /// Builds the production registry with reviewed built-in implementations.
     pub fn new() -> Self {
         let mut adapter = Self::empty();
-        for family in crate::flat_question::FLAT_V2_FAMILIES {
+        for implementation in crate::flat_question::FLAT_V2_IMPLEMENTATIONS {
             adapter
-                .register_family(family)
-                .expect("each built-in version 2 flat family registration is unique");
+                .register_implementation(implementation)
+                .expect("each built-in version 2 flat implementation registration is unique");
         }
         adapter
-            .register_family(PeptideBondGeometryV1)
-            .expect("the built-in family registration is unique");
+            .register_implementation(PeptideBondGeometryV1)
+            .expect("the built-in implementation registration is unique");
         adapter
     }
 
@@ -90,7 +99,7 @@ impl NativeAdapter {
         let current_adapter = implementation_version(ADAPTER_ID, ADAPTER_VERSION);
         let current_grading = implementation_version(GRADING_ID, GRADING_VERSION);
         Self {
-            families: BTreeMap::new(),
+            implementations: BTreeMap::new(),
             adapter_implementations: BTreeMap::from([(
                 ImplementationRegistrationKey::from(&current_adapter),
                 NativeExecution::V1,
@@ -120,19 +129,27 @@ impl NativeAdapter {
         Ok(())
     }
 
-    /// Adds one source family without changing adapter dispatch.
+    /// Adds one Question Implementation without changing adapter dispatch.
     ///
-    /// Versions of one family coexist so published content can regenerate
-    /// with its pinned generator after a new version is added.
-    pub fn register_family<F>(&mut self, family: F) -> Result<(), NativeAdapterError>
+    /// Releases of one implementation coexist so published content can
+    /// regenerate with its pinned generator after a new release is added.
+    pub fn register_implementation<F>(&mut self, implementation: F) -> Result<(), NativeAdapterError>
     where
-        F: NativeQuestionFamily + 'static,
+        F: NativeQuestionImplementation + 'static,
     {
-        let key = FamilyRegistrationKey::from_family(&family);
-        if self.families.contains_key(&key) {
-            return Err(NativeAdapterError::DuplicateFamily(key.family));
+        let key = NativeQuestionImplementationRegistrationKey::from_implementation(&implementation);
+        if self.implementations.contains_key(&key) {
+            return Err(NativeAdapterError::DuplicateQuestionImplementation {
+                question_format: key.question_format,
+                question_type: key.question_type,
+                generator: key.generator.clone(),
+                implementation: ImplementationVersion {
+                    id: key.implementation_id.clone(),
+                    version: key.implementation_version.clone(),
+                },
+            });
         }
-        self.families.insert(key, std::sync::Arc::new(family));
+        self.implementations.insert(key, std::sync::Arc::new(implementation));
         Ok(())
     }
 

@@ -8,15 +8,15 @@ import {
   moveAssignmentEntry,
   parseExactProblemDisplayReferences,
   validateAssignmentEditorDraft,
-  validateSelectionGroupEntry,
+  validateQuestionPoolEntry,
 } from "../src/pages/assignment_editor_model.ts";
 import { assignmentPickerMaximum } from "../src/pages/assignment_editor_picker_model.ts";
 
 test("assignment Questions payload uses Question IDs as its only question identity", () => {
   const draft = createMasteryAssignmentDraft("course-1");
-  const item = publishedProblemFixture.assignment.items[0];
+  const item = publishedProblemFixture.assignment.entries[0];
   assert.ok(item);
-  const configured = { ...draft, title: "Practice", entries: [{ ...item, kind: "fixed" }] };
+  const configured = { ...draft, title: "Practice", entries: [{ ...item, kind: "fixedQuestion" }] };
   assert.deepEqual(assignmentContentInput(configured).entries[0]?.questionId, item.questionId);
   assert.equal(JSON.stringify(assignmentContentInput(configured)).includes("problem"), false);
   assert.equal(JSON.stringify(assignmentContentInput(configured)).includes("version"), false);
@@ -28,26 +28,23 @@ test("Question ID paste supports instructor punctuation and rejects duplicate ch
 });
 
 test("ordinary editing preserves a fixed question while changing shared entry order", () => {
-  const first = publishedProblemFixture.assignment.items[0];
+  const first = publishedProblemFixture.assignment.entries[0];
   assert.ok(first);
-  const second = { ...first, id: "item-2", questionId: "7K4-M9QP", position: 1 };
+  const second = { ...first, id: "item-2", questionId: "7K4-M9QP" };
   const moved = moveAssignmentEntry(
     {
       ...createMasteryAssignmentDraft("course-1"),
       entries: [
-        { ...first, kind: "fixed" },
-        { ...second, kind: "fixed" },
+        { ...first, kind: "fixedQuestion" },
+        { ...second, kind: "fixedQuestion" },
       ],
     },
     1,
     -1,
   );
   assert.deepEqual(
-    moved.entries.map((entry) => [entry.kind, entry.position]),
-    [
-      ["fixed", 0],
-      ["fixed", 1],
-    ],
+    moved.entries.map((entry) => entry.kind),
+    ["fixedQuestion", "fixedQuestion"],
   );
   assert.deepEqual(
     assignmentContentInput(moved).entries.map((entry) => entry.questionId),
@@ -55,14 +52,13 @@ test("ordinary editing preserves a fixed question while changing shared entry or
   );
 });
 
-test("pool editor encodes public candidate Question IDs in the shared position namespace", () => {
+test("Question Pool editor encodes public candidate Question IDs in entry order", () => {
   const draft = {
     ...createMasteryAssignmentDraft("course-1"),
     entries: [
-      { ...publishedProblemFixture.assignment.items[0], kind: "fixed" },
+      { ...publishedProblemFixture.assignment.entries[0], kind: "fixedQuestion" },
       {
-        kind: "selectionGroup",
-        position: 1,
+        kind: "questionPool",
         candidates: [
           { questionId: "7K4-M9QP", title: "Candidate one", backend: "native" },
           { questionId: "7K5-M9QP", title: "Candidate two", backend: "native" },
@@ -77,12 +73,11 @@ test("pool editor encodes public candidate Question IDs in the shared position n
   const body = assignmentContentInput(draft);
   assert.deepEqual(
     body.entries.map((entry) => entry.kind),
-    ["fixed", "selectionGroup"],
+    ["fixedQuestion", "questionPool"],
   );
   assert.deepEqual(body.entries[1], {
-    kind: "selectionGroup",
+    kind: "questionPool",
     candidateQuestionIds: ["7K4-M9QP", "7K5-M9QP"],
-    position: 1,
     drawCount: 1,
     pointsPerItem: "2",
     ordering: "randomized",
@@ -93,8 +88,7 @@ test("pool editor encodes public candidate Question IDs in the shared position n
 
 test("pool validation keeps an actionable correction path", () => {
   const invalid = {
-    kind: "selectionGroup",
-    position: 0,
+    kind: "questionPool",
     candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
     drawCount: 2,
     pointsPerItem: "1",
@@ -102,7 +96,7 @@ test("pool validation keeps an actionable correction path", () => {
     algorithmVersion: 1,
   };
   assert.equal(
-    validateSelectionGroupEntry(invalid),
+    validateQuestionPoolEntry(invalid),
     "Draw count cannot exceed the number of candidate Question IDs.",
   );
 });
@@ -110,8 +104,7 @@ test("pool validation keeps an actionable correction path", () => {
 test("pool authoring reports shared cardinality recovery paths before save", () => {
   const candidate = { questionId: "7K4-M9QP", title: "Candidate", backend: "native" };
   const overfullPool = {
-    kind: "selectionGroup",
-    position: 0,
+    kind: "questionPool",
     candidates: Array.from({ length: 1025 }, (_value, index) => ({
       ...candidate,
       questionId: `${index.toString(16).padStart(3, "0").toUpperCase()}-0000`,
@@ -122,17 +115,16 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     algorithmVersion: 1,
   };
   assert.equal(
-    validateSelectionGroupEntry(overfullPool),
+    validateQuestionPoolEntry(overfullPool),
     "Keep this pool to 1024 candidate Question IDs or fewer.",
   );
 
   const overfullDefinition = {
     ...createMasteryAssignmentDraft("course-1"),
-    entries: Array.from({ length: 1025 }, (_value, position) => ({
-      ...publishedProblemFixture.assignment.items[0],
-      kind: "fixed",
-      id: `item-${position}`,
-      position,
+    entries: Array.from({ length: 1025 }, (_value, entryIndex) => ({
+      ...publishedProblemFixture.assignment.entries[0],
+      kind: "fixedQuestion",
+      id: `item-${entryIndex}`,
     })),
   };
   assert.equal(
@@ -140,12 +132,11 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     "Keep this assignment to 1024 ordered entries or fewer.",
   );
 
-  const pool = (position, candidateCount) => ({
-    kind: "selectionGroup",
-    position,
+  const pool = (entryIndex, candidateCount) => ({
+    kind: "questionPool",
     candidates: Array.from({ length: candidateCount }, (_value, index) => ({
       ...candidate,
-      questionId: `${position.toString(16).padStart(2, "0").toUpperCase()}${index
+      questionId: `${entryIndex.toString(16).padStart(2, "0").toUpperCase()}${index
         .toString(16)
         .padStart(1, "0")}-0000`,
     })),
@@ -156,7 +147,7 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
   });
   const tooManyCandidates = {
     ...createMasteryAssignmentDraft("course-1"),
-    entries: [...Array.from({ length: 8 }, (_value, position) => pool(position, 1024)), pool(8, 1)],
+    entries: [...Array.from({ length: 8 }, (_value, entryIndex) => pool(entryIndex, 1024)), pool(8, 1)],
   };
   assert.equal(
     validateAssignmentEditorDraft(tooManyCandidates),
@@ -165,15 +156,14 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
 });
 
 test("shared picker caps each assignment destination before the dialog opens", () => {
-  const fixed = publishedProblemFixture.assignment.items[0];
+  const fixed = publishedProblemFixture.assignment.entries[0];
   assert.ok(fixed);
   const draft = {
     ...createMasteryAssignmentDraft("course-1"),
     entries: [
-      { ...fixed, kind: "fixed" },
+      { ...fixed, kind: "fixedQuestion" },
       {
-        kind: "selectionGroup",
-        position: 1,
+        kind: "questionPool",
         candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
         drawCount: 1,
         pointsPerItem: "1",
@@ -182,7 +172,7 @@ test("shared picker caps each assignment destination before the dialog opens", (
       },
     ],
   };
-  assert.equal(assignmentPickerMaximum(draft, { kind: "fixed" }), 1022);
+  assert.equal(assignmentPickerMaximum(draft, { kind: "fixedQuestion" }), 1022);
   assert.equal(assignmentPickerMaximum(draft, { kind: "pool", entryIndex: 1 }), 1023);
   assert.equal(assignmentPickerMaximum(draft, { kind: "replacement", itemId: fixed.id }), 1);
 });

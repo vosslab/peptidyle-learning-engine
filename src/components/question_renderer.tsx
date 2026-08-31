@@ -5,7 +5,7 @@ import temml from "temml";
 
 import type { AssetRef } from "../../generated/api/AssetRef";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
-import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
 
@@ -178,7 +178,7 @@ export type AssetUrlResolver = (asset: AssetRef) => URL;
  */
 export interface QuestionPresentation {
   readonly prompt: ReadonlyArray<ContentBlock>;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
 }
 
 export interface QuestionRendererProps {

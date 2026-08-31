@@ -29,7 +29,7 @@ Applied to answers, the split is:
 
 The left column is answer-free shared-model information. An individual
 Student projection may still omit it when it is not needed to render an input;
-for example, `ResponseSchemaV1` omits numeric tolerance and text match mode.
+for example, the current issued `IssuedQuestionResponseFormatV1` omits numeric tolerance and text match mode.
 Everything in the right column decides correctness and remains server-only.
 
 ## Types
@@ -102,7 +102,7 @@ The original creator or an authorized lineage steward may publish only an
 allowed same-lineage correction or compatible improvement under the existing
 Question ID. A grading-semantic correction records an impact and starts a
 controlled recalculation operation; it never silently rewrites issued evidence.
-Major objective, task, or response-family changes require a fork and new
+Major objective, task, or Question Type changes require a fork and new
 identity. Any approved Instructor may create a fork draft, but that draft is
 private to its creator until validation succeeds. The published fork is global,
 records exact Question ID and version ancestry, and preserves the improvement
@@ -240,7 +240,8 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `workspace`     | `WorkspaceId`             | Authoring workspace                       |
 | `source`        | `QuestionSource`          | Which engine, and where to find it there  |
 | `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order              |
-| `response`      | `ResponseDefinition`      | Expected response shape                   |
+| `questionType`  | `QuestionType`            | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
+| `response`      | `QuestionResponseFormat`  | Accepted Student Response shape and constraints |
 | `attemptPolicy` | `AttemptPolicy`           | Retry bound for this question             |
 | `timingPolicy`  | `TimingPolicy`            | Time limits, with grace                   |
 | `randomization` | `RandomizationDefinition` | How content varies                        |
@@ -249,7 +250,9 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 ### Response shapes
 
-`ResponseDefinition` and `StudentResponse` are parallel enums: numeric,
+`QuestionType` classifies the educational interaction independently of Question
+Format, Question Backend, and the browser control. `QuestionResponseFormat` and
+`StudentResponse` are parallel enums: numeric,
 multiple choice or multiple answer, short text, multi-blank, matching,
 ordering, hotspot, file upload, and external tool. Within a variant, invalid
 field combinations are unrepresentable, so a matching response carries only
@@ -257,7 +260,9 @@ prompt-to-choice associations and a hotspot response carries only normalized
 points. `ChoiceId` is the durable semantic identifier used by this shared
 model; it is not a visible letter or display position.
 
-`ExternalTool` is a fieldless marker variant in both enums. It carries no
+`QuestionResponseControl` names the browser interaction. File Upload and
+External Tool are controls rather than Question Types. `ExternalTool` is a
+fieldless marker variant in both response enums. It carries no
 provider, launch, answer, score, token, or completion material. The server
 owns the later provider exchange through its external-tool broker, so the
 question envelope and generic submission record remain answer-free.
@@ -277,7 +282,7 @@ Server-side grading loads the attempt's exact published `QuestionDefinition`
 and calls `grading::grade(question, response, key)`. The definition supplies
 the response comparison and point policy that are intentionally absent from
 the compact attempt row; the key remains in the server-only grading boundary.
-Grading is deterministic and automated for every supported question family.
+Grading is deterministic and automated for every supported Question Type.
 
 ### Attempt presentation
 
@@ -287,11 +292,14 @@ It does not replace `QuestionDefinition`, `QuestionEnvelope`, or
 attempt and provides a consistency binding for that presentation.
 
 `PresentationEnvelopeV1` contains the immutable version, issued seed,
-server-minted nonce, title, prompt, and an answer-free `ResponseSchemaV1`.
-The schema currently covers the eight native flat families:
+server-minted nonce, title, prompt, and an answer-free
+`IssuedQuestionResponseFormatV1`. It is the issued projection of the durable
+Question Response Format: it replaces durable response-item references with
+rendered IDs while preserving the exact response shape. The schema currently
+covers the eight native flat Question Types:
 
-| `ResponseSchemaV1` | Shared response definition  |
-| ------------------ | --------------------------- |
+| `IssuedQuestionResponseFormatV1` | Shared response definition  |
+| -------------------------------- | --------------------------- |
 | `singleChoice`     | exactly-one multiple choice |
 | `multipleAnswer`   | one-or-more multiple choice |
 | `fillIn`           | short text                  |
@@ -301,7 +309,7 @@ The schema currently covers the eight native flat families:
 | `ordering`         | ordering                    |
 | `hotspot`          | hotspot                     |
 
-`FileUpload` and `ExternalTool` intentionally have no `ResponseSchemaV1`
+`FileUpload` and `ExternalTool` intentionally have no `IssuedQuestionResponseFormatV1`
 variant. The presentation builder rejects them as unsupported rather than
 inventing a browser contract before the server-issued upload capability and
 external-tool route have their own complete delivery contracts.

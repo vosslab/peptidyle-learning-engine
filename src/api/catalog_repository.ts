@@ -4,6 +4,7 @@ import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery"
 import type { CatalogAuthorship } from "../../generated/api/CatalogAuthorship";
 import type { Capability } from "../../generated/api/Capability";
 import type { CatalogLicenseValue } from "../../generated/api/CatalogLicenseValue";
+import type { QuestionType } from "../../generated/api/QuestionType";
 import type { ApiClient } from "./client";
 import type {
   CatalogBrowsePage,
@@ -32,17 +33,16 @@ const LICENSES = [
   "other",
 ] as const satisfies ReadonlyArray<CatalogLicenseValue>;
 const BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
-const RESPONSE_FAMILIES = [
-  "numeric",
+const QUESTION_TYPES = [
   "multipleChoice",
-  "shortText",
-  "multiBlank",
+  "multipleAnswer",
+  "fillInBlank",
+  "multipleFillInBlank",
+  "numeric",
   "matching",
   "ordering",
   "hotspot",
-  "fileUpload",
-  "externalTool",
-] as const;
+] as const satisfies ReadonlyArray<QuestionType>;
 
 function selectedCapability(value: string | null): Array<Capability> {
   if (value === null) {
@@ -73,10 +73,10 @@ function selectedBackend(value: string | null): CatalogSearchQuery["backends"] {
   return [selected];
 }
 
-function selectedResponseFamily(value: string | null): CatalogSearchQuery["response_families"] {
+function selectedQuestionType(value: string | null): CatalogSearchQuery["question_types"] {
   if (value === null) return [];
-  const selected = RESPONSE_FAMILIES.find((candidate) => candidate === value);
-  if (selected === undefined) throw new Error("Catalog response family selection is invalid");
+  const selected = QUESTION_TYPES.find((candidate) => candidate === value);
+  if (selected === undefined) throw new Error("Catalog Question Type selection is invalid");
   return [selected];
 }
 
@@ -118,9 +118,9 @@ function facets(
       value: facet.tag,
       count: facet.count,
     })),
-    ...page.facets.responseFamilies.map((facet) => ({
-      group: "responseFamily" as const,
-      value: facet.responseFamily,
+    ...page.facets.questionTypes.map((facet) => ({
+      group: "questionType" as const,
+      value: facet.questionType,
       count: facet.count,
     })),
     ...page.facets.taxonomy.map((facet) => ({
@@ -159,7 +159,7 @@ export function catalogSearchRequest(
     bylines: selectedPublicText(query.byline),
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),
-    response_families: selectedResponseFamily(query.responseFamily),
+    question_types: selectedQuestionType(query.questionType),
     taxonomy: taxonomyFilter(query.taxonomy),
     capabilities: selectedCapability(query.capability),
     licenses: selectedLicense(query.license),

@@ -7,7 +7,8 @@ import type { GradingDefinition } from "../../../generated/api/GradingDefinition
 import type { ParameterSpec } from "../../../generated/api/ParameterSpec";
 import type { QuestionSource } from "../../../generated/api/QuestionSource";
 import type { RandomizationDefinition } from "../../../generated/api/RandomizationDefinition";
-import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
+import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { TimingPolicy } from "../../../generated/api/TimingPolicy";
 import type { WorkspaceDraftSummary } from "../../../generated/api/WorkspaceDraftSummary";
 import type { WorkspaceRouteReference } from "../../navigation/public_route";
@@ -57,11 +58,33 @@ import {
 } from "./shared";
 import {
   decodeContentBlock,
-  decodeResponseDefinition,
+  decodeQuestionResponseFormat,
+  decodeQuestionType,
+  questionResponseFormatSupportsType,
   decodeSelectionCardinality,
-} from "./response_definition";
+} from "./question_response_format";
 
-export { decodeContentBlock, decodeResponseDefinition, decodeSelectionCardinality };
+export {
+  decodeContentBlock,
+  decodeQuestionResponseFormat,
+  decodeQuestionType,
+  decodeSelectionCardinality,
+  questionResponseFormatSupportsType,
+};
+
+const QUESTION_FORMATS = [
+  "pleFlatQuestionV2",
+  "nativeAlgorithmic",
+  "webworkPg",
+  "qti",
+  "h5p",
+  "imathas",
+] as const satisfies ReadonlyArray<QuestionFormat>;
+
+/** Strict decoder for the authored or imported Question representation. */
+export function decodeQuestionFormat(value: unknown, path: string): QuestionFormat {
+  return decodeStringEnum(value, path, QUESTION_FORMATS);
+}
 
 /** Strict key-free preview projection shared by the local WASM boundary. */
 export function decodeKeyFreeDraftPreview(
@@ -72,7 +95,7 @@ export function decodeKeyFreeDraftPreview(
   seed: number;
   title: string;
   prompt: ReadonlyArray<ContentBlock>;
-  response: ResponseDefinition;
+  response: QuestionResponseFormat;
 } {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["workspace", "seed", "title", "prompt", "response"]);
@@ -83,7 +106,7 @@ export function decodeKeyFreeDraftPreview(
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, true),
     ),
-    response: decodeResponseDefinition(field(record, "response", path), `${path}.response`, true),
+    response: decodeQuestionResponseFormat(field(record, "response", path), `${path}.response`, true),
   };
 }
 
@@ -92,11 +115,8 @@ export function decodeQuestionSource(value: unknown, path: string): QuestionSour
   const backend = decodeString(field(record, "backend", path), `${path}.backend`);
   switch (backend) {
     case "native": {
-      requireOnlyFields(record, path, ["backend", "family"]);
-      const decoded = {
-        backend,
-        family: decodeNonemptyString(field(record, "family", path), `${path}.family`),
-      } satisfies QuestionSource;
+      requireOnlyFields(record, path, ["backend"]);
+      const decoded = { backend } satisfies QuestionSource;
       return decoded;
     }
     case "webwork": {
@@ -169,11 +189,8 @@ export function decodeDraftQuestionSource(value: unknown, path: string): DraftQu
   const backend = decodeString(field(record, "backend", path), `${path}.backend`);
   switch (backend) {
     case "native":
-      requireOnlyFields(record, path, ["backend", "family"]);
-      return {
-        backend,
-        family: decodeNonemptyString(field(record, "family", path), `${path}.family`),
-      } satisfies DraftQuestionSource;
+      requireOnlyFields(record, path, ["backend"]);
+      return { backend } satisfies DraftQuestionSource;
     case "webwork":
       requireOnlyFields(record, path, ["backend", "pgPath"]);
       return {

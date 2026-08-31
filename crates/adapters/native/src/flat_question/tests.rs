@@ -35,15 +35,14 @@ const FAVORITE_COLOR: &str = r#"{
 }"#;
 
 fn published(draft: DraftQuestionDefinition) -> QuestionDefinition {
-    let DraftQuestionSource::Native { family } = &draft.source else {
-        panic!("flat fixture must use a native family");
-    };
-    let family = family.clone();
+    if !matches!(draft.source, DraftQuestionSource::Native) {
+        panic!("flat fixture must use the native Question Backend");
+    }
     QuestionDefinition::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionVersionNumber::new(1).expect("positive version"),
-        QuestionSource::Native { family },
+        QuestionSource::Native,
     )
 }
 
@@ -51,7 +50,7 @@ fn v2_source(response: Value) -> Vec<u8> {
     serde_json::to_vec(&serde_json::json!({
         "format": "pleFlatQuestion",
         "version": 2,
-        "title": "Version 2 family fixture",
+        "title": "Version 2 flat Question fixture",
         "prompt": "Complete the response.",
         "response": response,
         "feedback": {"correct": "Correct.", "incorrect": "Try again."},
@@ -304,7 +303,7 @@ fn hotspot_public_definition_does_not_reveal_correct_region_cardinality() {
     assert_eq!(one_draft.response, two_draft.response);
     assert!(matches!(
         one_draft.response,
-        question_model::response::ResponseDefinition::Hotspot {
+        question_model::response::QuestionResponseFormat::Hotspot {
             selection: question_model::answer::SelectionCardinality::AtLeastOne,
             ..
         }

@@ -6,7 +6,7 @@
 // - src/pages/problem_detail_page.tsx and catalog_statistics_panel.tsx own evidence and usage.
 // - src/pages/course_assignments_page.tsx, assignment_workspace/, and course_roster_page.tsx own
 //   title-first draft creation, Questions, Policies, publishing, and visible invitation links.
-// - src/pages/course_invitation_page.tsx, assignment_overview_page.tsx, and run_page.tsx own
+// - src/pages/course_invitation_page.tsx, assignment_overview_page.tsx, and assignment_attempt_page.tsx own
 //   student claim, start, submission, feedback, and completion.
 
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";

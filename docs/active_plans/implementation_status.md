@@ -298,6 +298,14 @@ The public navigation seam is no longer part of that remaining route vocabulary:
 `NavigationResolution::AssignmentAttempt` carries `assignment_attempt_id`, and its generated
 `assignmentAttempt` wire variant is strictly decoded before browser route resolution.
 
+The Assignment Attempt browser boundary now completes its direct public cutover: browser routes,
+Gradebook transport, page and recovery owners, route parameters, Course Theme routing, and visible
+inspection copy use `assignment-attempts` and Assignment Attempt terminology. `npx tsc --noEmit
+-p tsconfig.json`, the calculated-Gradebook/navigation/recovery browser-contract tests (12), and
+`git diff --check` pass. The broader Course Theme suite remains separately incomplete because its
+pre-existing Course Curriculum route expectation has no executable route owner; it is unrelated to
+Assignment Attempt route resolution.
+
 The scored-completion cutover is also complete at its immediate contract boundary:
 `CompletedAssignmentAttemptScore` and `AssignmentAttemptGradeSelection` carry explicit
 Assignment Attempt identities, the grade selector and recalculation Store use those terms,

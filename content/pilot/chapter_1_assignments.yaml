@@ -17,7 +17,7 @@ chapters:
       - slug: genetics-disorders-webwork-mc
         title: "Genetic disorders: Which one?"
         backend: webwork
-        family: multipleChoice
+        question_type: multipleChoice
         points: 1
         source: sources/genetics/genetic_disorders-which_one.pgml
         source_sha256: 810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c
@@ -27,7 +27,7 @@ chapters:
       - slug: genetics-disorders-webwork-matching
         title: "Genetic disorders: Matching"
         backend: webwork
-        family: matching
+        question_type: matching
         points: 4
         source: sources/genetics/genetic_disorders-matching.pgml
         source_sha256: ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718
@@ -39,7 +39,7 @@ chapters:
       - slug: genetics-disorders-flat-mc
         title: "Genetics Chapter 1: Phenylalanine metabolism"
         backend: pleFlat
-        family: multipleChoice
+        question_type: multipleChoice
         points: 1
         source: sources/genetics/bbq-WOMC-genetic_disorders-questions.txt
         source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
@@ -49,7 +49,7 @@ chapters:
       - slug: genetics-disorders-flat-matching
         title: "Genetics Chapter 1: Genetic disorder matching"
         backend: pleFlat
-        family: matching
+        question_type: matching
         points: 4
         source: sources/genetics/bbq-MATCH-genetic_disorders-questions.txt
         source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
@@ -66,7 +66,7 @@ chapters:
       - slug: biochemistry-functional-groups-webwork-mc
         title: "Biochemical functional groups: Which one?"
         backend: webwork
-        family: multipleChoice
+        question_type: multipleChoice
         points: 1
         source: sources/biochemistry/biochemical_functional_groups-which_one.pgml
         source_sha256: 7e27357885fc8d71410bf42431105a515bdc75a776359a2d02013813e362b5fa
@@ -78,7 +78,7 @@ chapters:
       - slug: biochemistry-functional-groups-webwork-matching
         title: "Biochemical functional groups: Matching"
         backend: webwork
-        family: matching
+        question_type: matching
         points: 4
         source: sources/biochemistry/biochemical_functional_groups-matching.pgml
         source_sha256: 42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17
@@ -92,7 +92,7 @@ chapters:
       - slug: biochemistry-functional-groups-flat-mc
         title: "Biochemistry Chapter 1: Charged functional groups"
         backend: pleFlat
-        family: multipleChoice
+        question_type: multipleChoice
         points: 1
         source: sources/biochemistry/bbq-WOMC-biochemical_functional_groups-questions.txt
         source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
@@ -102,7 +102,7 @@ chapters:
       - slug: biochemistry-functional-groups-flat-matching
         title: "Biochemistry Chapter 1: Functional group matching"
         backend: pleFlat
-        family: matching
+        question_type: matching
         points: 4
         source: sources/biochemistry/bbq-MATCH-biochemical_functional_groups-questions.txt
         source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44

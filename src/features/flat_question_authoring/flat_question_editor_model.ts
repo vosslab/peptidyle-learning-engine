@@ -329,7 +329,7 @@ function nextMatchingId(
 }
 
 /**
- * Converts ordinary text-response families to complete defaults. HOTSPOT intentionally has no
+ * Converts ordinary text-response formats to complete defaults. HOTSPOT intentionally has no
  * synthetic default: its source begins only after the private image picker returns a descriptor.
  */
 export function setFlatQuestionResponseKind(

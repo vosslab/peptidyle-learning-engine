@@ -41,7 +41,7 @@ export interface CatalogFacetAggregate {
     | "byline"
     | "backend"
     | "tag"
-    | "responseFamily"
+    | "questionType"
     | "taxonomy"
     | "capability"
     | "license"
@@ -56,7 +56,7 @@ export interface CatalogBrowseQuery {
   readonly byline: string | null;
   readonly backend: string | null;
   readonly tag: string | null;
-  readonly responseFamily: string | null;
+  readonly questionType: string | null;
   readonly taxonomy: string | null;
   readonly capability: string | null;
   readonly license: string | null;
@@ -250,7 +250,7 @@ function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
     group !== "byline" &&
     group !== "backend" &&
     group !== "tag" &&
-    group !== "responseFamily" &&
+    group !== "questionType" &&
     group !== "taxonomy" &&
     group !== "capability" &&
     group !== "license" &&
@@ -307,7 +307,7 @@ export const EMPTY_CATALOG_QUERY: CatalogBrowseQuery = {
   byline: null,
   backend: null,
   tag: null,
-  responseFamily: null,
+  questionType: null,
   taxonomy: null,
   capability: null,
   license: null,
@@ -322,7 +322,7 @@ export function normalizeCatalogBrowseQuery(query: CatalogBrowseQuery): CatalogB
     byline: query.byline,
     backend: query.backend,
     tag: query.tag,
-    responseFamily: query.responseFamily,
+    questionType: query.questionType,
     taxonomy: query.taxonomy,
     capability: query.capability,
     license: query.license,

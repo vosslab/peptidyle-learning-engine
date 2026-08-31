@@ -18,7 +18,7 @@ use question_model::capability::{BackendCapabilities, Capability};
 use question_model::definition::{GradingDefinition, QuestionMetadata, QuestionSource};
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
+use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
 use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use sha2::{Digest, Sha256};
 
@@ -202,7 +202,7 @@ pub struct ImportedH5pQuestion {
     /// Prompt ready for the browser-safe renderer.
     pub prompt: Vec<ContentBlock>,
     /// Response shape, without a correct answer.
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
     /// Practice retry behavior.
     pub attempt_policy: AttemptPolicy,
     /// The only timing policy currently supported by the adapter.
@@ -266,7 +266,7 @@ impl H5pImporter {
             prompt: vec![ContentBlock::Text {
                 markdown: request.prompt_markdown,
             }],
-            response: ResponseDefinition::MultipleChoice {
+            response: QuestionResponseFormat::MultipleChoice {
                 choices,
                 selection: SelectionCardinality::ExactlyOne,
             },
@@ -620,7 +620,7 @@ mod tests {
         ));
         assert!(matches!(
             imported.response,
-            ResponseDefinition::MultipleChoice {
+            QuestionResponseFormat::MultipleChoice {
                 selection: SelectionCardinality::ExactlyOne,
                 ..
             }

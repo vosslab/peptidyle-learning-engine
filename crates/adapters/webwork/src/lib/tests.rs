@@ -11,7 +11,7 @@ use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::capability::Capability;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
+use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
 use question_model::taxonomy::License;
 use question_model::{
     GradingDefinition, ObjectId, QuestionId, QuestionMetadata, QuestionVersionNumber,
@@ -81,7 +81,7 @@ impl WebworkRenderer for RecordedRenderer {
                 prompt: vec![ContentBlock::Text {
                     markdown: "Which molecule is water?".to_string(),
                 }],
-                response: ResponseDefinition::MultipleChoice {
+                response: QuestionResponseFormat::MultipleChoice {
                     choices: vec![
                         ChoiceOption {
                             id: ChoiceId::new("water"),
@@ -161,7 +161,7 @@ fn recorded_renderer(calls: Arc<AtomicUsize>) -> RecordedRenderer {
     }
 }
 
-fn question_with_response(response: ResponseDefinition) -> QuestionDefinition {
+fn question_with_response(response: QuestionResponseFormat) -> QuestionDefinition {
     QuestionDefinition {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         version_number: QuestionVersionNumber::new(2).expect("positive version"),
@@ -656,8 +656,8 @@ async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
     ));
 }
 
-fn fixture_response() -> ResponseDefinition {
-    ResponseDefinition::MultipleChoice {
+fn fixture_response() -> QuestionResponseFormat {
+    QuestionResponseFormat::MultipleChoice {
         choices: vec![
             ChoiceOption {
                 id: ChoiceId::new("water"),

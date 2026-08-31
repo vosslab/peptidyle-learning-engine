@@ -23,7 +23,7 @@ pub use codec::{
 pub use model::{
     AssetBindingV1, PresentationDigestTokenV1, PresentationEnvelopeV1, PresentationNonceV1,
     PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
-    RenderedItemIdV1, ResponseSchemaV1, StudentAssignmentAttemptScreenAttemptV1,
+    RenderedItemIdV1, IssuedQuestionResponseFormatV1, StudentAssignmentAttemptScreenAttemptV1,
     StudentAssignmentAttemptScreenScopeV1, StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
 };
 pub use response_translation::{

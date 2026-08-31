@@ -91,17 +91,17 @@ export interface PoolDrawPreviewQuestion {
   readonly title: string;
 }
 
-/** Strict browser request for one saved selection group by its shared definition position. */
+/** Strict browser request for one saved Question Pool by its ordered entry index. */
 export interface PoolDrawPreviewRequest {
-  readonly groupPosition: number;
+  readonly assignmentEntryId: number;
 }
 
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface PoolDrawPreview {
   readonly assignment: AssignmentReference;
   readonly revision: string;
-  readonly groupPosition: number;
-  readonly groupLabel: string;
+  readonly assignmentEntryId: number;
+  readonly questionPoolLabel: string;
   readonly drawCount: number;
   readonly ordering: "candidateOrder" | "randomized";
   readonly algorithm: "v1";
@@ -115,17 +115,15 @@ export interface PoolDrawPreview {
  */
 export type AssignmentEditorEntryInput =
   | {
-      readonly kind: "fixed";
+      readonly kind: "fixedQuestion";
       readonly questionId: string;
-      readonly position: number;
       readonly pointsPossible: string;
       readonly deliveryState: "active" | "retired";
       readonly scoringMode: "normal" | "fullCredit" | "extraCredit" | "excluded";
     }
   | {
-      readonly kind: "selectionGroup";
+      readonly kind: "questionPool";
       readonly candidateQuestionIds: ReadonlyArray<string>;
-      readonly position: number;
       readonly drawCount: number;
       readonly pointsPerItem: string;
       readonly ordering: "candidateOrder" | "randomized";

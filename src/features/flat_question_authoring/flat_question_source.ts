@@ -17,14 +17,6 @@ export const FLAT_QUESTION_ORDERING_RESPONSE_KIND = "ordering" as const;
 export const FLAT_QUESTION_HOTSPOT_RESPONSE_KIND = "hotspot" as const;
 /** Compatibility name for the initial single-choice default only. */
 export const FLAT_QUESTION_MEDIA_TYPE = "application/vnd.peptidyle.flat-question+json";
-export const FLAT_QUESTION_SINGLE_CHOICE_FAMILY = "flat_single_choice_v2";
-export const FLAT_QUESTION_MATCHING_FAMILY = "flat_matching_v2";
-export const FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY = "flat_multiple_answer_v2";
-export const FLAT_QUESTION_FILL_IN_FAMILY = "flat_fill_in_v2";
-export const FLAT_QUESTION_MULTI_FILL_IN_FAMILY = "flat_multi_fill_in_v2";
-export const FLAT_QUESTION_NUMERIC_FAMILY = "flat_numeric_v2";
-export const FLAT_QUESTION_ORDERING_FAMILY = "flat_ordering_v2";
-export const FLAT_QUESTION_HOTSPOT_FAMILY = "flat_hotspot_v2";
 
 export type FlatQuestionAttemptPolicy = {
   readonly maxAttempts: number | null;

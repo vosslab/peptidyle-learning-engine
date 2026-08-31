@@ -7,7 +7,7 @@ import {
   questionBackendLabel,
   type AssignmentCatalogRow,
   type AssignmentEditorEntry,
-  type AssignmentEditorSelectionGroupEntry,
+  type AssignmentEditorQuestionPoolEntry,
 } from "./assignment_editor_model";
 import { AssignmentPoolEditor } from "./assignment_pool_editor";
 import type { PoolDrawPreview } from "../api/contracts";
@@ -23,16 +23,16 @@ export interface AssignmentEditorContentListProps {
   readonly onMove: (entryIndex: number, direction: -1 | 1) => void;
   readonly onReplace: (itemId: string) => void;
   readonly onRemoveFixed: (itemId: string) => void;
-  readonly onPoolChange: (entryIndex: number, entry: AssignmentEditorSelectionGroupEntry) => void;
+  readonly onPoolChange: (entryIndex: number, entry: AssignmentEditorQuestionPoolEntry) => void;
   readonly onRemovePool: (entryIndex: number) => void;
   readonly onMessage: (message: string) => void;
-  readonly onPreviewPool: (groupPosition: number) => void;
+  readonly onPreviewPool: (entryIndex: number) => void;
   readonly onChoosePoolCandidates: (entryIndex: number, trigger: HTMLButtonElement) => void;
 }
 
 export function AssignmentEditorContentList(props: AssignmentEditorContentListProps): JSX.Element {
   function renderEntry(entry: AssignmentEditorEntry, entryIndex: number): JSX.Element {
-    if (entry.kind === "selectionGroup") {
+    if (entry.kind === "questionPool") {
       return (
         <AssignmentPoolEditor
           entry={entry}
@@ -43,9 +43,9 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           onMove={(direction) => props.onMove(entryIndex, direction)}
           onRemove={() => props.onRemovePool(entryIndex)}
           onMessage={props.onMessage}
-          preview={props.preview?.groupPosition === entry.position ? props.preview : undefined}
+          preview={props.preview?.entryIndex === entryIndex ? props.preview : undefined}
           previewBusy={props.busy}
-          onPreview={() => props.onPreviewPool(entry.position)}
+          onPreview={() => props.onPreviewPool(entryIndex)}
           onChooseCandidates={(trigger) => props.onChoosePoolCandidates(entryIndex, trigger)}
         />
       );

@@ -13,7 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AssignmentAttempt, AssignmentId, AssignmentSelectionGroupId};
+use crate::{AssignmentAttempt, AssignmentId, AssignmentEntryId};
 
 /// The point in an assignment lifecycle when one Student-facing field may be
 /// disclosed.
@@ -192,18 +192,18 @@ pub enum PoolDrawBasis {
     StableStudentRecord {
         student_record: crate::StudentRecordId,
         assignment: AssignmentId,
-        group: AssignmentSelectionGroupId,
+        group: AssignmentEntryId,
     },
     /// Each new Assignment Attempt receives an independently derived candidate selection.
     RegeneratedAssignmentAttempt {
         assignment_attempt: crate::AssignmentAttemptId,
         assignment: AssignmentId,
-        group: AssignmentSelectionGroupId,
+        group: AssignmentEntryId,
     },
     /// An instructor-authorized, server-minted no-store preview sample.
     Preview {
         assignment: AssignmentId,
-        group: AssignmentSelectionGroupId,
+        group: AssignmentEntryId,
         nonce: PoolDrawPreviewNonce,
     },
 }
@@ -228,7 +228,7 @@ impl PoolDrawPreviewNonce {
 /// real selected-variant model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoolDrawBasisError {
-    /// A selection group has no instructor-selected variant source.
+    /// A Question Pool has no instructor-selected variant source.
     SelectedProblemVariantsRequireExplicitPoolSelection,
 }
 
@@ -250,7 +250,7 @@ impl VariationPolicy {
         self,
         assignment: AssignmentId,
         assignment_attempt: &AssignmentAttempt,
-        group: AssignmentSelectionGroupId,
+        group: AssignmentEntryId,
     ) -> Result<PoolDrawBasis, PoolDrawBasisError> {
         match self {
             Self::NewSeeds => Ok(PoolDrawBasis::StableStudentRecord {
@@ -274,7 +274,7 @@ impl PoolDrawBasis {
     /// Creates the independent no-store preview basis for a saved definition.
     pub const fn preview(
         assignment: AssignmentId,
-        group: AssignmentSelectionGroupId,
+        group: AssignmentEntryId,
         nonce: PoolDrawPreviewNonce,
     ) -> Self {
         Self::Preview {

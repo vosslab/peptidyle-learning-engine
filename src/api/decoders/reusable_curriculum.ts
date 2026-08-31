@@ -1,9 +1,9 @@
 // Strict browser decoding and local command validation for reusable Blueprint Courses.
 
-import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
+import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
+import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
 import { MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
@@ -236,7 +236,7 @@ function assignmentEntry(
   const candidates = decodeBoundedArray(
     field(record, "candidates", path),
     `${path}.candidates`,
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
     questionId,
   );
   const drawCount = decodePositiveInteger(field(record, "draw_count", path), `${path}.draw_count`);
@@ -270,7 +270,7 @@ function assignmentDefinition(value: unknown, path: string): unknown {
   );
   if (entries.length === 0) throw new DecodeError(`${path}.entries`, "at least one ordered entry");
   const candidateCount = entries.reduce((total, entry) => total + entry.candidates.length, 0);
-  if (candidateCount > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES)
+  if (candidateCount > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
     throw new DecodeError(`${path}.entries`, "pool candidates within the assignment total bound");
   defaults(field(record, "defaults", path), `${path}.defaults`);
   schedule(field(record, "schedule", path), `${path}.schedule`);
@@ -428,7 +428,7 @@ function definitionView(value: unknown, path: string): void {
         decodeBoundedArray(
           field(entry, "candidates", entryPath),
           `${entryPath}.candidates`,
-          MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+          MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
           questionView,
         );
       }

@@ -30,17 +30,16 @@ function catalogLink(row: CatalogBrowseRow): string {
   return `/library/${encodeURIComponent(row.displayId)}`;
 }
 
-function responseFamilyLabel(value: string): string {
+function questionTypeLabel(value: string): string {
   const labels: Readonly<Record<string, string>> = {
-    numeric: "Numeric",
     multipleChoice: "Multiple choice",
-    shortText: "Short text",
-    multiBlank: "Multiple blanks",
+    multipleAnswer: "Multiple answer",
+    fillInBlank: "Fill in the blank",
+    multipleFillInBlank: "Multiple fill in the blank",
+    numeric: "Numeric",
     matching: "Matching",
     ordering: "Ordering",
     hotspot: "Hotspot",
-    fileUpload: "File upload",
-    externalTool: "External tool",
   };
   return labels[value] ?? value;
 }
@@ -117,7 +116,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "byline"
       | "backend"
       | "tag"
-      | "responseFamily"
+      | "questionType"
       | "taxonomy"
       | "capability"
       | "license"
@@ -244,17 +243,17 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
         <label>
-          Response family
+          Question Type
           <select
-            value={query().responseFamily ?? ""}
-            onChange={(event) => changeQuery({ responseFamily: event.currentTarget.value || null })}
+            value={query().questionType ?? ""}
+            onChange={(event) => changeQuery({ questionType: event.currentTarget.value || null })}
           >
-            <option value="">All response families</option>
-            <For each={facets("responseFamily")()}>
+            <option value="">All Question Types</option>
+            <For each={facets("questionType")()}>
               {(facet) => (
                 <option
                   value={facet.value}
-                >{`${responseFamilyLabel(facet.value)} (${facet.count})`}</option>
+                >{`${questionTypeLabel(facet.value)} (${facet.count})`}</option>
               )}
             </For>
           </select>

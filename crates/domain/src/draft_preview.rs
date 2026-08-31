@@ -8,7 +8,7 @@ use question_model::capability::Capability;
 use question_model::catalog::QuestionBackend;
 use question_model::envelope::ContentBlock;
 use question_model::generation::{RandomizationDefinition, Seed};
-use question_model::{DraftQuestionSource, ResponseDefinition, WorkspaceId};
+use question_model::{DraftQuestionSource, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
 use crate::generator::{GeneratedValue, GenerationError, generate};
@@ -29,7 +29,7 @@ pub struct DraftPreviewRequest {
     /// Authored prompt blocks.
     pub prompt: Vec<ContentBlock>,
     /// Browser-safe response shape.
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
     /// Deterministic authored parameter specification.
     pub randomization: RandomizationDefinition,
 }
@@ -47,7 +47,7 @@ pub struct DraftQuestionPreview {
     /// Fully materialized prompt.
     pub prompt: Vec<ContentBlock>,
     /// Browser-safe response shape.
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
 }
 
 /// The explicit result of a local draft-preview request.
@@ -238,7 +238,7 @@ mod tests {
     use question_model::answer::TextMatchMode;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec};
-    use question_model::response::ResponseDefinition;
+    use question_model::response::QuestionResponseFormat;
     use uuid::Uuid;
 
     use super::*;
@@ -258,7 +258,7 @@ mod tests {
                     description: "{{residue}} table".to_string(),
                 },
             ],
-            response: ResponseDefinition::ShortText {
+            response: QuestionResponseFormat::ShortText {
                 match_mode: TextMatchMode::Normalized,
                 max_length: 20,
             },

@@ -1,4 +1,4 @@
-// run_page_recovery.ts - page-local session restoration delivery helper.
+// assignment_attempt_page_recovery.ts - page-local session restoration delivery helper.
 
 import type { SubmissionOutcome } from "../features/attempt/attempt_state";
 

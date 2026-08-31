@@ -12,8 +12,8 @@ use crate::{
     ActivityTimestamp, AssignmentInstructions, AssignmentScoringMode,
     AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError, BaseAssignmentPolicy,
     CourseLocalDateTime, CourseTerm, IanaTimeZone, LocalTimeOfDay,
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, QuestionVersionReference,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, PointValue, PoolDrawAlgorithm, QuestionVersionReference,
     RelativeAssignmentSchedule, RelativeScheduleMoment, ReusableAssignmentDefaults,
     ReusableCurriculumValidationError, SelectionOrdering, validate_reusable_curriculum_title,
 };
@@ -113,7 +113,7 @@ impl CurriculumSemanticAssignment {
                     .checked_add(value)
                     .ok_or(ReusableCurriculumValidationError::TooManyPoolCandidates)
             })?;
-        if total > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES {
+        if total > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES {
             return Err(ReusableCurriculumValidationError::TooManyPoolCandidates);
         }
         Ok(Self {
@@ -237,7 +237,7 @@ impl CurriculumSemanticPool {
         ordering: SelectionOrdering,
         algorithm: PoolDrawAlgorithm,
     ) -> Result<Self, ReusableCurriculumValidationError> {
-        if candidates.is_empty() || candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP
+        if candidates.is_empty() || candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL
         {
             return Err(ReusableCurriculumValidationError::InvalidPoolCandidates);
         }

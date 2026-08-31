@@ -541,16 +541,16 @@ log.
 The presentation model and its server-persisted binding are implemented, but
 the current student HTTP route still accepts the broader tagged
 `StudentResponse` body, including the browser-supplied response `kind`. The
-current route rederives and validates the expected family from the attempt;
+current route rederives and validates the expected Question Response Format from the attempt;
 `kind` is therefore not submission authority. The current grading-payload
 contract owns a future atomic wire cutover to authenticated attempt ID, idempotency
-key, presentation digest, and a family-minimal, type-free answer. That target
+key, presentation digest, and a format-minimal answer. That target
 also introduces CRC16 rendered-item IDs and a SHA-256-backed presentation
 digest to detect inconsistent presentation state. Neither target value
 authenticates the student or grades an answer. All component scoring and
 partial credit remain server-owned in both contracts.
 
-The current tagged render `ResponseDefinition` also exposes some
+The current tagged render `QuestionResponseFormat` also exposes some
 grading-adjacent metadata, including numeric tolerance and short-text match
 mode. That metadata does not disclose an expected answer, but it is broader
 than rendering requires. The target render projection retains only public

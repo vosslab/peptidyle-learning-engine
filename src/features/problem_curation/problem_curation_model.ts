@@ -301,10 +301,10 @@ export function catalogSearchFilterFromLibraryQuery(
     backends:
       normalized.backend === null ? [] : ([normalized.backend] as CatalogSearchFilter["backends"]),
     tags: normalized.tag === null ? [] : [normalized.tag],
-    response_families:
-      normalized.responseFamily === null
+    question_types:
+      normalized.questionType === null
         ? []
-        : ([normalized.responseFamily] as CatalogSearchFilter["response_families"]),
+        : ([normalized.questionType] as CatalogSearchFilter["question_types"]),
     taxonomy:
       taxonomy === null
         ? []
@@ -340,7 +340,7 @@ export function libraryQueryFromSavedSearch(search: SavedProblemSearchView): Cat
     byline: filter.bylines[0] ?? null,
     backend: filter.backends[0] ?? null,
     tag: filter.tags[0] ?? null,
-    responseFamily: filter.response_families[0] ?? null,
+    questionType: filter.question_types[0] ?? null,
     taxonomy:
       filter.taxonomy[0] === undefined
         ? null

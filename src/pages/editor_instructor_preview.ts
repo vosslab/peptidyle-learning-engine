@@ -2,7 +2,7 @@
 
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { Seed } from "../../generated/api/Seed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import {
@@ -31,7 +31,7 @@ const MAX_WORKSPACE_REVISION = 9_223_372_036_854_775_807n;
 export interface InstructorPreviewPresentation {
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
   readonly seed: Seed;
   /** Display-ready blocks, not a reusable grading key or answer representation. */
   readonly correctResponse: ReadonlyArray<ContentBlock>;

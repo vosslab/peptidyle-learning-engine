@@ -13,8 +13,8 @@
 // - src/pages/assignment_editor_content_list.tsx:54-84 owns each fixed-question row and its
 //   Replace action, including the post-success focus target.
 // - src/pages/course_roster_page.tsx:497-552 owns invitation creation and the invitation link.
-// - src/pages/assignment_overview_page.tsx and src/pages/run_page.tsx own student assignment
-//   and attempt surfaces; src/pages/run_summary_page.tsx:103 owns Start fresh practice.
+// - src/pages/assignment_overview_page.tsx and src/pages/assignment_attempt_page.tsx own student assignment
+//   and attempt surfaces; src/pages/assignment_attempt_summary_page.tsx owns Start fresh practice.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";

@@ -83,16 +83,16 @@ export function decodePoolDrawPreviewRequest(
   value: unknown,
   path = "request",
 ): PoolDrawPreviewRequest {
-  const record = closed(value, path, ["groupPosition"]);
-  return { groupPosition: decodeSafeInteger(record.groupPosition, `${path}.groupPosition`) };
+  const record = closed(value, path, ["assignmentEntryId"]);
+  return { assignmentEntryId: decodeSafeInteger(record.assignmentEntryId, `${path}.assignmentEntryId`) };
 }
 
 export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDrawPreview {
   const record = closed(value, path, [
     "assignment",
     "revision",
-    "groupPosition",
-    "groupLabel",
+    "assignmentEntryId",
+    "questionPoolLabel",
     "drawCount",
     "ordering",
     "algorithm",
@@ -112,8 +112,8 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
     previewQuestion,
   );
   const drawCount = decodeSafeInteger(record.drawCount, `${path}.drawCount`);
-  const groupPosition = decodeSafeInteger(record.groupPosition, `${path}.groupPosition`);
-  if (groupPosition < 0) throw new DecodeError(`${path}.groupPosition`, "a nonnegative position");
+  const assignmentEntryId = decodeSafeInteger(record.assignmentEntryId, `${path}.assignmentEntryId`);
+  if (assignmentEntryId < 0) throw new DecodeError(`${path}.assignmentEntryId`, "a nonnegative position");
   if (drawCount < 1 || drawCount > candidates.length || sampled.length !== drawCount)
     throw new DecodeError(`${path}.drawCount`, "a valid draw count for the returned pool");
   const sampledIds = new Set(sampled.map((question) => question.questionId));
@@ -127,8 +127,8 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
-    groupPosition,
-    groupLabel: label(record.groupLabel, `${path}.groupLabel`),
+    assignmentEntryId,
+    questionPoolLabel: label(record.questionPoolLabel, `${path}.questionPoolLabel`),
     drawCount,
     ordering: decodeStringEnum(record.ordering, `${path}.ordering`, [
       "candidateOrder",

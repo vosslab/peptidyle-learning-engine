@@ -1,5 +1,5 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssignmentItemId } from "../../../generated/api/AssignmentItemId";
+import type { AssignmentEntryId } from "../../../generated/api/AssignmentEntryId";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
@@ -651,7 +651,7 @@ export function createRequestClient(
     replaceAssignmentFixedItem: (
       courseId,
       assignmentId,
-      itemId: AssignmentItemId,
+      itemId: AssignmentEntryId,
       questionId: QuestionId,
       revision,
     ): ReturnType<ApiClient["replaceAssignmentFixedItem"]> => {

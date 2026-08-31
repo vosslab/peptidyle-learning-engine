@@ -229,7 +229,7 @@ pub struct PresentedHotspotSurfaceV1 {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-pub enum ResponseSchemaV1 {
+pub enum IssuedQuestionResponseFormatV1 {
     SingleChoice {
         choices: Vec<PresentedChoiceV1>,
     },
@@ -272,7 +272,7 @@ pub struct PresentationEnvelopeV1 {
     pub presentation_nonce: PresentationNonceV1,
     pub title: String,
     pub prompt: Vec<ContentBlock>,
-    pub response: ResponseSchemaV1,
+    pub response: IssuedQuestionResponseFormatV1,
 }
 
 /// Minimal active attempt fields needed by the student screen.

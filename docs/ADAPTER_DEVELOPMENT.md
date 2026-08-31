@@ -73,8 +73,8 @@ Use the following sequence for a question-agnostic adapter.
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
 The native flat adapter is the small reference: it compiles answer-bearing PLE flat-question JSON v2
-into a public definition and separate private material. Its closed v2 `singleChoice` family is one of
-the eight native response families; new semantics require their own reviewed contract rather than an
+into a public definition and separate private material. Its closed v2 `singleChoice` Question Type is one of
+the eight native response types; new semantics require their own reviewed contract rather than an
 ad hoc adapter widening. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
 [implementation_plan.md](active_plans/implementation_plan.md).
@@ -114,7 +114,7 @@ is needed, correlate and verify it with server-held attempt state before it beco
 
 | Adapter     | Implemented behavior                                                                                                                                       | Current boundary and status                                                                                                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime families                                                          | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-family integrated acceptance remain under WP-RC5.                                           |
+| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime Question Types                                                     | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
 | QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, native conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
 | H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-native conversion and the complete capability close-out. |
 | iMathAS     | Immutable server snapshot, profile-pinned safe render cache, server-brokered verified-result design, and contracted backend                                | Implemented contracted boundary. Generic hosted execution and browser-trusted launch/score flows are refused; live provider acceptance is not claimed.                                  |

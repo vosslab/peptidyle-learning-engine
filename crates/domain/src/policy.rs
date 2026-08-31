@@ -178,10 +178,10 @@ mod tests {
     use question_model::assignment_activity_rules::AttemptPolicy;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec};
-    use question_model::response::ResponseDefinition;
+    use question_model::response::QuestionResponseFormat;
     use question_model::taxonomy::{License, Tag};
     use question_model::{
-        QuestionId, QuestionMetadata, QuestionSource, QuestionVersionNumber,
+        QuestionId, QuestionMetadata, QuestionSource, QuestionType, QuestionVersionNumber,
         QuestionVersionReference, WorkspaceId,
     };
     use uuid::Uuid;
@@ -224,10 +224,11 @@ mod tests {
             prompt: vec![ContentBlock::Text {
                 markdown: "Capability fixture".to_string(),
             }],
-            response: ResponseDefinition::ShortText {
+            response: QuestionResponseFormat::ShortText {
                 match_mode: TextMatchMode::Normalized,
                 max_length: 20,
             },
+            question_type: QuestionType::FillInBlank,
             attempt_policy: AttemptPolicy {
                 max_attempts: Some(1),
             },
@@ -263,7 +264,7 @@ mod tests {
             }
             CaseFeature::PartialCredit => {
                 question.grading = GradingDefinition::PartialCredit { points: 1.0 };
-                question.response = ResponseDefinition::Numeric {
+                question.response = QuestionResponseFormat::Numeric {
                     tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
                     unit: None,
                 };

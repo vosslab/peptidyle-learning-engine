@@ -1,10 +1,11 @@
 // Catalog, course, and assignment browser-visible API DTOs.
 
 import type { AssignmentDeliveryState } from "../../../generated/api/AssignmentDeliveryState";
-import type { AssignmentItemSummary as AssignmentItem } from "../../../generated/api/AssignmentItemSummary";
+import type { FixedQuestionAssignmentEntrySummary as FixedQuestionAssignmentEntry } from "../../../generated/api/FixedQuestionAssignmentEntrySummary";
+import type { AssignmentEntrySummary } from "../../../generated/api/AssignmentEntrySummary";
 import type { AssignmentScoringMode } from "../../../generated/api/AssignmentScoringMode";
-import type { AssignmentSelectionCandidateSummary as AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidateSummary";
-import type { AssignmentSelectionGroupSummary as AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroupSummary";
+import type { QuestionPoolCandidateSummary as QuestionPoolCandidate } from "../../../generated/api/QuestionPoolCandidateSummary";
+import type { QuestionPoolAssignmentEntrySummary as QuestionPoolAssignmentEntry } from "../../../generated/api/QuestionPoolAssignmentEntrySummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
 import type { CatalogDiscoveryEvidence } from "../../../generated/api/CatalogDiscoveryEvidence";
 import type { CatalogDiscoveryItem } from "../../../generated/api/CatalogDiscoveryItem";
@@ -56,9 +57,9 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
+import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
+import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
 import { MAX_CATALOG_OWN_COURSE_USAGES } from "../../../generated/api/MAX_CATALOG_OWN_COURSE_USAGES";
 import {
   MAX_CATALOG_PAGE_ITEMS,
@@ -82,7 +83,7 @@ import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
 import { decodeStudentDisclosurePolicy } from "./assignment_policy";
 import { decodeCourseAppearance } from "./course_appearance";
-import { decodeCatalogSearchFacets } from "./catalog_search_facets";
+import { decodeCatalogSearchFacets } from "./question_type_facets";
 
 // Retain the established catalog-course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
@@ -103,7 +104,7 @@ export function decodeCatalogProblemSummary(
     requireOnlyFields(record, path, [
       "questionId",
       "backend",
-      "responseFamily",
+      "questionType",
       "capabilities",
       "metadata",
       "availability",
@@ -120,19 +121,18 @@ export function decodeCatalogProblemSummary(
       "h5p",
       "imathas",
     ]),
-    responseFamily: decodeStringEnum(
-      field(record, "responseFamily", path),
-      `${path}.responseFamily`,
+    questionType: decodeStringEnum(
+      field(record, "questionType", path),
+      `${path}.questionType`,
       [
-        "numeric",
         "multipleChoice",
-        "shortText",
-        "multiBlank",
+        "multipleAnswer",
+        "fillInBlank",
+        "multipleFillInBlank",
+        "numeric",
         "matching",
         "ordering",
         "hotspot",
-        "fileUpload",
-        "externalTool",
       ],
     ),
     capabilities: decodeBackendCapabilities(
@@ -560,15 +560,15 @@ function decodePointValue(value: unknown, path: string): PointValue {
   return decoded;
 }
 
-export function decodeAssignmentItem(value: unknown, path: string): AssignmentItem {
+function decodeFixedQuestionAssignmentEntry(value: unknown, path: string): FixedQuestionAssignmentEntry {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
+    "kind",
     "id",
     "questionId",
     "title",
     "backend",
     "capabilities",
-    "position",
     "pointsPossible",
     "deliveryState",
     "scoringMode",
@@ -588,7 +588,6 @@ export function decodeAssignmentItem(value: unknown, path: string): AssignmentIt
       field(record, "capabilities", path),
       `${path}.capabilities`,
     ),
-    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
     pointsPossible: decodePointValue(
       field(record, "pointsPossible", path),
       `${path}.pointsPossible`,
@@ -610,22 +609,20 @@ export function decodeAssignmentItem(value: unknown, path: string): AssignmentIt
 function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentEditorEntryInput {
   const record = decodeRecord(value, path);
   const entryKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "fixed",
-    "selectionGroup",
+    "fixedQuestion",
+    "questionPool",
   ] as const);
-  if (entryKind === "fixed") {
+  if (entryKind === "fixedQuestion") {
     requireOnlyFields(record, path, [
       "kind",
       "questionId",
-      "position",
       "pointsPossible",
       "deliveryState",
       "scoringMode",
     ]);
     return {
-      kind: "fixed",
+      kind: "fixedQuestion",
       questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-      position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
       pointsPossible: decodePointValue(
         field(record, "pointsPossible", path),
         `${path}.pointsPossible`,
@@ -646,7 +643,6 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   requireOnlyFields(record, path, [
     "kind",
     "candidateQuestionIds",
-    "position",
     "drawCount",
     "pointsPerItem",
     "ordering",
@@ -654,7 +650,7 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   const candidateQuestionIds = decodeBoundedArray(
     field(record, "candidateQuestionIds", path),
     `${path}.candidateQuestionIds`,
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
     decodeQuestionId,
   );
   if (new Set(candidateQuestionIds).size !== candidateQuestionIds.length)
@@ -663,9 +659,8 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   if (drawCount > candidateQuestionIds.length)
     throw new DecodeError(`${path}.drawCount`, "a value no greater than the candidate count");
   return {
-    kind: "selectionGroup",
+    kind: "questionPool",
     candidateQuestionIds,
-    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
     drawCount,
     pointsPerItem: decodePointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
     ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
@@ -687,19 +682,14 @@ function decodeAssignmentContentEntries(
   );
   const totalCandidates = entries.reduce(
     (total, entry) =>
-      total + (entry.kind === "selectionGroup" ? entry.candidateQuestionIds.length : 0),
+      total + (entry.kind === "questionPool" ? entry.candidateQuestionIds.length : 0),
     0,
   );
-  if (totalCandidates > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES)
+  if (totalCandidates > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
     throw new DecodeError(
       path,
-      `no more than ${MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES} selection-group candidate Question IDs`,
+      `no more than ${MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES} Question Pool candidate Question IDs`,
     );
-  const positions = entries.map((entry) => entry.position).sort((left, right) => left - right);
-  for (let position = 0; position < positions.length; position += 1) {
-    if (positions[position] !== position)
-      throw new DecodeError(path, "one complete entry list with positions from zero in order");
-  }
   return entries;
 }
 
@@ -716,14 +706,13 @@ export function decodeAssignmentContentInput(
   };
 }
 
-function decodeAssignmentSelectionCandidate(
+function decodeQuestionPoolCandidate(
   value: unknown,
   path: string,
-): AssignmentSelectionCandidate {
+): QuestionPoolCandidate {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "position",
     "questionId",
     "title",
     "backend",
@@ -732,7 +721,6 @@ function decodeAssignmentSelectionCandidate(
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
@@ -753,14 +741,14 @@ function decodeAssignmentSelectionCandidate(
   };
 }
 
-export function decodeAssignmentSelectionGroup(
+function decodeQuestionPoolAssignmentEntry(
   value: unknown,
   path: string,
-): AssignmentSelectionGroup {
+): QuestionPoolAssignmentEntry {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
+    "kind",
     "id",
-    "position",
     "drawCount",
     "pointsPerItem",
     "ordering",
@@ -769,7 +757,6 @@ export function decodeAssignmentSelectionGroup(
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
     drawCount: decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`),
     pointsPerItem: decodePointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
     ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
@@ -783,9 +770,21 @@ export function decodeAssignmentSelectionGroup(
     candidates: decodeArray(
       field(record, "candidates", path),
       `${path}.candidates`,
-      decodeAssignmentSelectionCandidate,
+      decodeQuestionPoolCandidate,
     ),
   };
+}
+
+export function decodeAssignmentEntry(value: unknown, path: string): AssignmentEntrySummary {
+  const record = decodeRecord(value, path);
+  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+    "fixedQuestion",
+    "questionPool",
+  ] as const);
+  if (kind === "fixedQuestion") {
+    return { kind, ...decodeFixedQuestionAssignmentEntry(value, path) };
+  }
+  return { kind, ...decodeQuestionPoolAssignmentEntry(value, path) };
 }
 
 export function decodeAssignmentSummary(
@@ -800,8 +799,7 @@ export function decodeAssignmentSummary(
       "reference",
       "courseId",
       "title",
-      "items",
-      "selectionGroups",
+      "entries",
       "disclosurePolicy",
       "policies",
     ]);
@@ -811,12 +809,7 @@ export function decodeAssignmentSummary(
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),
-    selectionGroups: decodeArray(
-      field(record, "selectionGroups", path),
-      `${path}.selectionGroups`,
-      decodeAssignmentSelectionGroup,
-    ),
+    entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssignmentEntry),
     disclosurePolicy: decodeStudentDisclosurePolicy(
       field(record, "disclosurePolicy", path),
       `${path}.disclosurePolicy`,

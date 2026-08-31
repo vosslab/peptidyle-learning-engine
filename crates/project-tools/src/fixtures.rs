@@ -20,20 +20,23 @@ use question_model::assignment_activity_rules::{
 };
 use question_model::definition::{
     DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionDefinition,
-    QuestionMetadata, QuestionSource,
+    QuestionFormat, QuestionMetadata, QuestionSource,
 };
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{
     GeneratorReference, ParameterSpec, RandomizationDefinition, Seed,
 };
 use question_model::identity::{AssetId, ObjectId, WorkspaceId};
-use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition, StudentResponse};
+use question_model::response::{
+    ChoiceId, ChoiceOption, QuestionResponseFormat, QuestionType, StudentResponse,
+};
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
     ActivityTimestamp, AssignmentAttempt, AssignmentAttemptId, AssignmentDeliveryState,
-    AssignmentId, AssignmentItemId, AssignmentItemSummary, AssignmentProgressRecord,
+    AssignmentEntryId, AssignmentEntrySummary, AssignmentId,
+    FixedQuestionAssignmentEntrySummary, AssignmentProgressRecord,
     AssignmentScoringMode, AssignmentSummary, CatalogProblemSummary,
-    CatalogResponseFamily, CourseId, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
+    CourseId, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
     IssuedQuestion, IssuedQuestionId, PointValue, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptTiming, QuestionBackend, QuestionId, QuestionVersionNumber,
     QuestionVersionAvailability, QuestionVersionReference, StudentRecordId,
@@ -189,9 +192,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         draft_question(workspace, &assets),
         question_id.clone(),
         version_number,
-        QuestionSource::Native {
-            family: "peptide_bond_geometry".to_string(),
-        },
+        QuestionSource::Native,
     );
     let adapter = NativeAdapter::new();
     let catalog_problem = CatalogProblemSummary {
@@ -199,8 +200,8 @@ fn build_corpus() -> Result<FixtureCorpus> {
             .parse()
             .expect("fixture Question ID is canonical"),
         backend: QuestionBackend::Native,
-        response_family: CatalogResponseFamily::MultipleChoice,
-        capabilities: adapter.capabilities(&published_problem.source)?,
+        question_type: QuestionType::MultipleChoice,
+        capabilities: adapter.capabilities(&published_problem)?,
         metadata: published_problem.metadata.clone(),
         byline: question_model::PublicByline::new(vec![question_model::PublicAuthorName::new(
             "Fixture Instructor".to_string(),
@@ -252,7 +253,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         })
         .collect();
 
-    let assignment_item = assignment_item_id("0198e000-0000-7000-8000-000000000017");
+    let assignment_entry = assignment_entry_id("0198e000-0000-7000-8000-000000000017");
     let issued_questions = run_ids
         .iter()
         .enumerate()
@@ -264,15 +265,15 @@ fn build_corpus() -> Result<FixtureCorpus> {
                 _ => "0198e000-0000-7000-8000-000000000043",
             }),
             assignment_attempt: *assignment_attempt,
-            assignment_item,
-            source_position: 0,
+            assignment_entry,
+            definition_entry_index: 0,
             issued_position: 0,
             reference: QuestionVersionReference {
                 question_id: question_id.clone(),
                 version_number,
             },
             statistics_eligible: true,
-            selection_group: None,
+            question_pool_entry: None,
             selection_seed: None,
         })
         .collect::<Vec<_>>();
@@ -330,18 +331,18 @@ fn build_corpus() -> Result<FixtureCorpus> {
             course_id,
             title: "Peptide bond mastery".to_string(),
             disclosure_policy: question_model::StudentDisclosurePolicy::default(),
-            items: vec![AssignmentItemSummary {
-                id: assignment_item_id("0198e000-0000-7000-8000-000000000017"),
-                question_id: catalog_problem.question_id.clone(),
-                title: catalog_problem.metadata.title.clone(),
-                backend: catalog_problem.backend,
-                capabilities: catalog_problem.capabilities.clone(),
-                position: 0,
-                points_possible: PointValue::from_whole(1),
-                delivery_state: AssignmentDeliveryState::Active,
-                scoring_mode: AssignmentScoringMode::Normal,
-            }],
-            selection_groups: Vec::new(),
+            entries: vec![AssignmentEntrySummary::FixedQuestion(
+                FixedQuestionAssignmentEntrySummary {
+                    id: assignment_entry_id("0198e000-0000-7000-8000-000000000017"),
+                    question_id: catalog_problem.question_id.clone(),
+                    title: catalog_problem.metadata.title.clone(),
+                    backend: catalog_problem.backend,
+                    capabilities: catalog_problem.capabilities.clone(),
+                    points_possible: PointValue::from_whole(1),
+                    delivery_state: AssignmentDeliveryState::Active,
+                    scoring_mode: AssignmentScoringMode::Normal,
+                },
+            )],
             policies,
         },
         student_record,
@@ -376,9 +377,8 @@ fn draft_question(workspace: WorkspaceId, assets: &[FixtureAsset]) -> DraftQuest
 
     DraftQuestionDefinition {
         workspace,
-        source: DraftQuestionSource::Native {
-            family: "peptide_bond_geometry".to_string(),
-        },
+        source: DraftQuestionSource::Native,
+        question_format: QuestionFormat::NativeAlgorithmic,
         prompt: vec![
             ContentBlock::Text {
                 markdown: "In the {{residue}} peptide example, which bond has restricted rotation because resonance gives it partial double-bond character?".to_string(),
@@ -386,7 +386,7 @@ fn draft_question(workspace: WorkspaceId, assets: &[FixtureAsset]) -> DraftQuest
             image_block(&assets[0], "Structural formula highlighting the carbonyl carbon-to-nitrogen bond."),
             image_block(&assets[1], "The six atoms of a peptide group shown in one plane."),
         ],
-        response: ResponseDefinition::MultipleChoice {
+        response: QuestionResponseFormat::MultipleChoice {
             choices: vec![
                 choice("amide", "The carbonyl carbon-to-nitrogen bond"),
                 choice("carbonyl", "The carbonyl carbon-to-oxygen bond"),
@@ -394,6 +394,7 @@ fn draft_question(workspace: WorkspaceId, assets: &[FixtureAsset]) -> DraftQuest
             ],
             selection: SelectionCardinality::ExactlyOne,
         },
+        question_type: QuestionType::MultipleChoice,
         attempt_policy: AttemptPolicy {
             max_attempts: None,
         },
@@ -580,7 +581,7 @@ macro_rules! id_constructor {
 
 id_constructor!(asset_id, AssetId);
 id_constructor!(assignment_id, AssignmentId);
-id_constructor!(assignment_item_id, AssignmentItemId);
+id_constructor!(assignment_entry_id, AssignmentEntryId);
 id_constructor!(course_id, CourseId);
 id_constructor!(issued_question_id, IssuedQuestionId);
 id_constructor!(object_id, ObjectId);
@@ -607,7 +608,7 @@ mod tests {
         let seeds: BTreeSet<u64> = corpus.attempts.iter().map(|attempt| attempt.seed).collect();
 
         assert_eq!(corpus.assets.len(), 2);
-        assert_eq!(corpus.assignment.items.len(), 1);
+        assert_eq!(corpus.assignment.entries.len(), 1);
         assert_eq!(completed, 3);
         assert_eq!(corpus.runs.len() - completed, 1);
         assert_eq!(corpus.issued_questions.len(), corpus.attempts.len());

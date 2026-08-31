@@ -46,7 +46,7 @@ impl NativeAdapter {
 
     /// Builds one deterministic instructor presentation without returning a key.
     ///
-    /// `Ok(None)` means the installed family has no safe display-ready author
+    /// `Ok(None)` means the installed implementation has no safe display-ready author
     /// presentation. Callers surface that state rather than serializing a key.
     pub fn author_presentation(
         &self,
@@ -59,14 +59,13 @@ impl NativeAdapter {
             .map_err(NativeAdapterError::InvalidTitle)?;
         let generated =
             generate(seed, &question.randomization).map_err(NativeAdapterError::Generation)?;
-        let family =
-            self.family_for_draft_source(&question.source, generated.generator.as_ref())?;
+        let implementation = self.implementation_for_draft(question, generated.generator.as_ref())?;
         let prompt = materialize_prompt(&question.prompt, seed, &question.randomization)
             .map_err(NativeAdapterError::Presentation)?;
         let Some(AuthorPresentationContent {
             correct_response,
             rationale,
-        }) = family.derive_author_presentation(question, &generated, &prompt)?
+        }) = implementation.derive_author_presentation(question, &generated, &prompt)?
         else {
             return Ok(None);
         };
@@ -91,14 +90,13 @@ impl NativeAdapter {
             .map_err(NativeAdapterError::InvalidTitle)?;
         let generated =
             generate(seed, &question.randomization).map_err(NativeAdapterError::Generation)?;
-        let family =
-            self.family_for_generated_source(&question.source, generated.generator.as_ref())?;
+        let implementation = self.implementation_for_question(question, generated.generator.as_ref())?;
         let parameter_hash = generated.sha256().map_err(NativeAdapterError::Generation)?;
         let prompt = materialize_prompt(&question.prompt, seed, &question.randomization)
             .map_err(NativeAdapterError::Presentation)?;
         let materialized = MaterializedNativeQuestion {
             prompt,
-            answer_key: execution.derive_answer_key(family, question, &generated)?,
+            answer_key: execution.derive_answer_key(implementation, question, &generated)?,
         };
         let envelope = QuestionEnvelope {
             question_version: question_model::QuestionVersionReference {

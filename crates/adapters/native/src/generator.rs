@@ -1,10 +1,10 @@
-//! Extensible first-party question-family contract (MOD-ADP-NAT).
+//! Extensible first-party Question Implementation contract (MOD-ADP-NAT).
 //!
 //! The adapter owns orchestration, reproducibility, and grading delegation.
-//! A family owns only the small piece that differs between native question
-//! kinds: turning generated parameters into prompt blocks and a server-only
-//! answer key. Adding a family therefore does not change the engine, API, or
-//! browser contracts.
+//! An implementation owns only the small piece that differs between native
+//! Questions: turning generated parameters into prompt blocks and a
+//! server-only answer key. Adding an implementation therefore does not change
+//! the engine, API, or browser contracts.
 
 use domain::generator::GeneratedVariant;
 use grading::AnswerKey;
@@ -13,7 +13,10 @@ use question_model::definition::DraftQuestionDefinition;
 use question_model::envelope::ContentBlock;
 use question_model::envelope::QuestionEnvelope;
 use question_model::generation::GeneratorReference;
-use question_model::{AttemptResult, FeedbackContent, QuestionDefinition, StudentResponse};
+use question_model::{
+    AttemptResult, FeedbackContent, ImplementationVersion, QuestionDefinition, QuestionFormat,
+    QuestionType, StudentResponse,
+};
 
 use crate::NativeAdapterError;
 
@@ -30,19 +33,25 @@ pub struct AuthorPresentationContent {
     pub rationale: Option<Vec<ContentBlock>>,
 }
 
-/// One versioned first-party question family.
+/// One versioned first-party Question Implementation.
 ///
-/// Implement this trait to add a native family without editing adapter
+/// Implement this trait to add a native implementation without editing adapter
 /// dispatch, persistence, API routes, or the browser. Implementations must be
 /// deterministic functions of the immutable definition and generated variant.
-pub trait NativeQuestionFamily: Send + Sync {
-    /// Stable value stored in [`question_model::QuestionSource::Native`].
-    fn family(&self) -> &'static str;
+pub trait NativeQuestionImplementation: Send + Sync {
+    /// Authored representation this implementation accepts.
+    fn question_format(&self) -> QuestionFormat;
 
-    /// Exact additive generator implementation supported by this family.
+    /// Educational interaction this implementation accepts.
+    fn question_type(&self) -> QuestionType;
+
+    /// Stable native implementation name and exact release.
+    fn implementation_release(&self) -> ImplementationVersion;
+
+    /// Exact additive Question Generator supported by this implementation.
     ///
-    /// Static families return `None`. A behavior change requires a new
-    /// generator version and a new family implementation kept alongside the
+    /// Static Question Implementations return `None`. A behavior change requires a new
+    /// generator version and a new Question Implementation kept alongside the
     /// old one while published content references it.
     fn generator(&self) -> Option<GeneratorReference>;
 
@@ -53,8 +62,8 @@ pub trait NativeQuestionFamily: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`NativeAdapterError::InvalidFamilyDefinition`] when the
-    /// authored question does not satisfy this family's versioned contract.
+    /// Returns [`NativeAdapterError::IncompatibleQuestionImplementation`] when
+    /// the authored Question does not satisfy this implementation's contract.
     fn derive_answer_key(
         &self,
         question: &QuestionDefinition,
@@ -81,7 +90,7 @@ pub trait NativeQuestionFamily: Send + Sync {
     /// Produces an instructor-only, display-ready answer presentation for an
     /// editable draft.  The adapter has already materialized `prompt` for the
     /// supplied deterministic variant.  Returning `None` is an honest
-    /// declaration that this family does not yet provide a safe author view;
+    /// declaration that this implementation does not yet provide a safe author view;
     /// callers must surface it as unavailable rather than exposing an answer
     /// key or fabricating teaching material.
     fn derive_author_presentation(

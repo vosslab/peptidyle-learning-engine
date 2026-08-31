@@ -20,7 +20,9 @@ pub use teaching_settings_local::{
     derive_instructor_assignment_current_state,
 };
 
-use crate::{ActivityTimestamp, AssignmentItemId, AssignmentSelectionGroupId, QuestionVersionReference};
+use crate::{
+    ActivityTimestamp, AssignmentEntryId, QuestionPoolCandidateId, QuestionVersionReference,
+};
 
 const POINT_SCALE: i64 = 10_000;
 const MAX_WHOLE_POINTS: i64 = 1_000_000_000;
@@ -32,11 +34,11 @@ pub const MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS: usize = 50_000;
 /// Maximum fixed-or-pool entries in one ordered assignment definition.
 pub const MAX_ASSIGNMENT_ORDERED_ENTRIES: usize = 1_024;
 
-/// Maximum candidate Question IDs in one assignment selection group.
-pub const MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP: usize = 1_024;
+/// Maximum candidate Question IDs in one assignment Question Pool.
+pub const MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL: usize = 1_024;
 
-/// Maximum candidate Question IDs across all selection groups in one assignment definition.
-pub const MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES: usize = 8_192;
+/// Maximum candidate Question IDs across all Question Pools in one assignment definition.
+pub const MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES: usize = 8_192;
 
 /// Instructor-controlled lifecycle intent for an assignment.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -369,7 +371,7 @@ pub enum AssignmentDeliveryState {
     Retired,
 }
 
-/// Current scoring treatment for one stable assignment item.
+/// Current scoring treatment for one stable Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentScoringMode {
@@ -383,16 +385,14 @@ pub enum AssignmentScoringMode {
     Excluded,
 }
 
-/// One ordered fixed question in the mutable current assignment definition.
+/// One fixed Question Assignment Entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentItem {
+pub struct FixedQuestionAssignmentEntry {
     /// Stable identity preserved across point and order changes.
-    pub id: AssignmentItemId,
+    pub id: AssignmentEntryId,
     /// Exact immutable catalog content pinned by this item.
     pub reference: QuestionVersionReference,
-    /// Zero-based position used for future runs.
-    pub position: u32,
     /// Current assignment-authored points.
     pub points_possible: PointValue,
     /// Whether future runs may receive the item.
@@ -441,28 +441,24 @@ impl PoolDrawAlgorithm {
     }
 }
 
-/// One pinned candidate eligible for a random-selection group.
+/// One pinned candidate eligible for its owning Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentSelectionCandidate {
+pub struct QuestionPoolCandidate {
     /// Stable candidate identity used for retirement and audit actions.
-    pub id: AssignmentItemId,
-    /// Zero-based authored order within this selection group.
-    pub position: u32,
+    pub id: QuestionPoolCandidateId,
     /// Exact immutable catalog version eligible for selection.
     pub reference: QuestionVersionReference,
     /// Whether future runs may select this candidate.
     pub delivery_state: AssignmentDeliveryState,
 }
 
-/// Current random-selection definition; run rows snapshot the actual result.
+/// A Question Pool Assignment Entry; issued Questions snapshot the selected result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentSelectionGroup {
-    /// Stable group identity.
-    pub id: AssignmentSelectionGroupId,
-    /// Position of this group among fixed items and other groups.
-    pub position: u32,
+pub struct QuestionPoolAssignmentEntry {
+    /// Stable Assignment Entry identity.
+    pub id: AssignmentEntryId,
     /// Number of active candidates selected for each future run.
     pub draw_count: u32,
     /// Uniform current points for each selected candidate.
@@ -472,7 +468,20 @@ pub struct AssignmentSelectionGroup {
     /// Closed reviewed algorithm needed to reproduce selection.
     pub algorithm: PoolDrawAlgorithm,
     /// Pinned candidate set; search criteria are deliberately absent.
-    pub candidates: Vec<AssignmentSelectionCandidate>,
+    pub candidates: Vec<QuestionPoolCandidate>,
+}
+
+/// One ordered Assignment Entry in the complete Assignment definition.
+///
+/// Collection order is the authored delivery order. Fixed Questions and
+/// Question Pools deliberately share one identity and one top-level sequence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum AssignmentEntry {
+    /// One exact published Question delivered as written.
+    FixedQuestion(FixedQuestionAssignmentEntry),
+    /// A deterministic draw from explicit Question Pool Candidates.
+    QuestionPool(QuestionPoolAssignmentEntry),
 }
 
 #[cfg(test)]
@@ -564,8 +573,8 @@ mod tests {
         assert_eq!(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ATTEMPT_LIMIT, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ORDERED_ENTRIES, 1_024);
-        assert_eq!(MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, 1_024);
-        assert_eq!(MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, 8_192);
+        assert_eq!(MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, 1_024);
+        assert_eq!(MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, 8_192);
     }
 
     #[test]

@@ -116,7 +116,15 @@ CREATE TRIGGER draft_question_revision_is_immutable BEFORE UPDATE OR DELETE ON p
 CREATE TABLE ple_private.draft_question_source (
     draft_question_revision_id uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_id),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
-    source_family text NOT NULL CHECK (char_length(btrim(source_family)) BETWEEN 1 AND 200),
+    question_format text NOT NULL CHECK (question_format IN (
+        'pleFlatQuestionV2', 'nativeAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+    )),
+    question_type text NOT NULL CHECK (question_type IN (
+        'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
+        'numeric', 'matching', 'ordering', 'hotspot'
+    )),
+    question_generator_id text,
+    question_generator_version text,
     source_record jsonb NOT NULL CHECK (jsonb_typeof(source_record) = 'object'),
     canonical_source_sha256 text NOT NULL CHECK (
         canonical_source_sha256 ~ '^[0-9a-f]{64}$'
@@ -126,7 +134,14 @@ CREATE TABLE ple_private.draft_question_source (
     ),
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
-    CONSTRAINT draft_question_source_timestamps_are_ordered CHECK (updated_at >= created_at)
+    CONSTRAINT draft_question_source_timestamps_are_ordered CHECK (updated_at >= created_at),
+    CONSTRAINT draft_question_source_generator_is_complete CHECK (
+        (question_generator_id IS NULL AND question_generator_version IS NULL)
+        OR (
+            char_length(btrim(question_generator_id)) BETWEEN 1 AND 200
+            AND char_length(btrim(question_generator_version)) BETWEEN 1 AND 200
+        )
+    )
 );
 CREATE TABLE ple_private.draft_question_grading_material (
     draft_question_revision_id uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_id),

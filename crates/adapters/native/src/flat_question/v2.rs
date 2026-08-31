@@ -1,4 +1,4 @@
-//! Closed version 2 source shapes for all supported PLE flat-question families.
+//! Closed version 2 source shapes for all supported PLE flat-question types.
 
 use std::collections::HashSet;
 
@@ -7,12 +7,12 @@ use question_model::answer::{NumericTolerance, SelectionCardinality, TextMatchMo
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{
-    ChoiceId, ChoiceOption, HotspotRegion, ResponseDefinition, TextEntrySlot,
+    ChoiceId, ChoiceOption, HotspotRegion, QuestionResponseFormat, QuestionType, TextEntrySlot,
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
-    WorkspaceId,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionFormat,
+    QuestionMetadata, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -305,18 +305,18 @@ impl FlatQuestionV2 {
         workspace: WorkspaceId,
     ) -> Result<CompiledFlatQuestion, FlatQuestionError> {
         self.validate()?;
-        let family = family_for(&self.response);
+        let question_type = question_type_for(&self.response);
         let (response, answer_key, choice_feedback, prompt_suffix) =
             compile_response(&self.response)?;
         let mut prompt = markdown_blocks(&self.prompt);
         prompt.extend(prompt_suffix);
         let draft = DraftQuestionDefinition {
             workspace,
-            source: DraftQuestionSource::Native {
-                family: family.to_string(),
-            },
+            source: DraftQuestionSource::Native,
+            question_format: QuestionFormat::PleFlatQuestionV2,
             prompt,
             response,
+            question_type,
             attempt_policy: self.attempt_policy.into(),
             timing_policy: self.timing_policy.into(),
             randomization: RandomizationDefinition::Static,
@@ -342,23 +342,21 @@ impl FlatQuestionV2 {
     }
 }
 
-fn family_for(response: &FlatResponseV2) -> &'static str {
+fn question_type_for(response: &FlatResponseV2) -> QuestionType {
     match response {
-        FlatResponseV2::SingleChoice { .. } => grading::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY,
-        FlatResponseV2::MultipleAnswer { .. } => {
-            grading::flat_question::FLAT_MULTIPLE_ANSWER_FAMILY
-        }
-        FlatResponseV2::FillIn { .. } => grading::flat_question::FLAT_FILL_IN_FAMILY,
-        FlatResponseV2::MultiFillIn { .. } => grading::flat_question::FLAT_MULTI_FILL_IN_FAMILY,
-        FlatResponseV2::Numeric { .. } => grading::flat_question::FLAT_NUMERIC_FAMILY,
-        FlatResponseV2::Matching { .. } => grading::flat_question::FLAT_MATCHING_FAMILY,
-        FlatResponseV2::Ordering { .. } => grading::flat_question::FLAT_ORDERING_FAMILY,
-        FlatResponseV2::Hotspot { .. } => grading::flat_question::FLAT_HOTSPOT_FAMILY,
+        FlatResponseV2::SingleChoice { .. } => QuestionType::MultipleChoice,
+        FlatResponseV2::MultipleAnswer { .. } => QuestionType::MultipleAnswer,
+        FlatResponseV2::FillIn { .. } => QuestionType::FillInBlank,
+        FlatResponseV2::MultiFillIn { .. } => QuestionType::MultipleFillInBlank,
+        FlatResponseV2::Numeric { .. } => QuestionType::Numeric,
+        FlatResponseV2::Matching { .. } => QuestionType::Matching,
+        FlatResponseV2::Ordering { .. } => QuestionType::Ordering,
+        FlatResponseV2::Hotspot { .. } => QuestionType::Hotspot,
     }
 }
 
 type CompiledResponse = (
-    ResponseDefinition,
+    QuestionResponseFormat,
     AnswerKey,
     Vec<(ChoiceId, String)>,
     Vec<ContentBlock>,
@@ -383,7 +381,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             match_mode,
             max_length,
         } => (
-            ResponseDefinition::ShortText {
+            QuestionResponseFormat::ShortText {
                 match_mode: (*match_mode).into(),
                 max_length: *max_length,
             },
@@ -394,7 +392,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             Vec::new(),
         ),
         FlatResponseV2::MultiFillIn { blanks } => (
-            ResponseDefinition::MultiBlank {
+            QuestionResponseFormat::MultiBlank {
                 blanks: blanks
                     .iter()
                     .map(|blank| TextEntrySlot {
@@ -419,7 +417,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             tolerance,
             unit,
         } => (
-            ResponseDefinition::Numeric {
+            QuestionResponseFormat::Numeric {
                 tolerance: tolerance.into(),
                 unit: unit.clone(),
             },
@@ -432,7 +430,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             choices,
             matches,
         } => (
-            ResponseDefinition::Matching {
+            QuestionResponseFormat::Matching {
                 prompts: compile_items(prompts),
                 choices: compile_items(choices),
             },
@@ -449,7 +447,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             items,
             correct_order,
         } => (
-            ResponseDefinition::Ordering {
+            QuestionResponseFormat::Ordering {
                 items: compile_items(items),
             },
             AnswerKey::Ordering {
@@ -470,7 +468,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                 checksum: surface.checksum.clone(),
             };
             (
-                ResponseDefinition::Hotspot {
+                QuestionResponseFormat::Hotspot {
                     surface: asset.clone(),
                     description: surface.description.clone(),
                     regions: regions.iter().map(compile_region).collect(),
@@ -499,7 +497,7 @@ fn compile_choices(
     correct: &[String],
 ) -> CompiledResponse {
     (
-        ResponseDefinition::MultipleChoice {
+        QuestionResponseFormat::MultipleChoice {
             choices: choices
                 .iter()
                 .map(|choice| ChoiceOption {

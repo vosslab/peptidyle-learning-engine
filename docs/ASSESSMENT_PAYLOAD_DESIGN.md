@@ -87,13 +87,13 @@ answer-free. It currently contains:
 - student-facing `title`;
 - ordered prompt blocks for text, math, images, code, and tables;
 - public asset IDs, SHA-256 checksums, and accessible descriptions; and
-- a tagged `ResponseDefinition` that selects the browser widget.
+- a tagged `QuestionResponseFormat` that selects the browser widget.
 
 The response `kind` is necessary in this render payload. Without it, the browser cannot know whether
 to draw radio buttons, checkboxes, text boxes, ordering controls, matching controls, or a hotspot
 surface. Content-block `kind` values are similarly useful render discriminants.
 
-The current [ResponseDefinition](../crates/question_model/src/response.rs) is broader than the
+The current [QuestionResponseFormat](../crates/question_model/src/response.rs) is broader than the
 eventual student schema. For example, it exposes numeric tolerance and short-text match mode even
 though those values describe grading rather than rendering. The target projection retains public
 input constraints and displayed units while keeping tolerances, normalization rules, answer keys,

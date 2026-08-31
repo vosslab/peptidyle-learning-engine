@@ -125,7 +125,7 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
             integration_profile: SCORED_EMBED_BROKER_PROFILE_ID.into(),
         },
         prompt: Vec::new(),
-        response: question_model::ResponseDefinition::ExternalTool {},
+        response: question_model::QuestionResponseFormat::ExternalTool {},
         attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,

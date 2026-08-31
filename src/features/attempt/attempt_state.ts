@@ -3,7 +3,7 @@
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
-import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import type { IssuedQuestionId } from "../../../generated/api/IssuedQuestionId";
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
@@ -144,7 +144,7 @@ export type AttemptState =
 export interface AttemptStateMachine {
   readonly state: () => AttemptState;
   /** Starts one issued attempt, validating any saved response against its exact issued definition. */
-  readonly start: (definition?: ResponseDefinition) => void;
+  readonly start: (definition?: QuestionResponseFormat) => void;
   readonly setResponse: (response: StudentResponse, validation: ResponseValidation) => void;
   readonly submit: () => Promise<SubmissionOutcome>;
   readonly retry: () => Promise<SubmissionOutcome>;
@@ -501,7 +501,7 @@ export function createAttemptStateMachine(
 
   async function validateSavedBuffer(
     buffer: AttemptBuffer,
-    definition: ResponseDefinition,
+    definition: QuestionResponseFormat,
   ): Promise<void> {
     try {
       const report = await options.validateSavedResponse!(definition, buffer.response);
@@ -519,7 +519,7 @@ export function createAttemptStateMachine(
     }
   }
 
-  function start(definition?: ResponseDefinition): void {
+  function start(definition?: QuestionResponseFormat): void {
     const buffer = savedBuffer();
     if (
       buffer !== null &&

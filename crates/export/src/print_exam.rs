@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use objects::Sha256Digest;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::{
-    AssetId, BackendCapabilities, Capability, QuestionDefinition, ResponseDefinition,
+    AssetId, BackendCapabilities, Capability, QuestionDefinition, QuestionResponseFormat,
 };
 
 /// The rendition selected by an instructor or accessibility workflow.
@@ -109,7 +109,7 @@ pub struct PrintExam {
 pub struct PrintQuestion {
     pub title: String,
     pub prompt: Vec<ContentBlock>,
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
 }
 
 impl PrintExam {
@@ -150,7 +150,7 @@ impl PrintExam {
                 reason = Some("the backend does not declare printExport".to_string());
             } else if matches!(
                 question.response,
-                ResponseDefinition::FileUpload { .. } | ResponseDefinition::ExternalTool {}
+                QuestionResponseFormat::FileUpload { .. } | QuestionResponseFormat::ExternalTool {}
             ) {
                 reason = Some(
                     "this response requires an online interaction and cannot be completed on paper"
@@ -209,12 +209,12 @@ fn resolve_question_assets(
     let mut refs = Vec::new();
     refs.extend(assets_in_blocks(&question.prompt));
     match &question.response {
-        ResponseDefinition::MultipleChoice { choices, .. } => {
+        QuestionResponseFormat::MultipleChoice { choices, .. } => {
             for choice in choices {
                 refs.extend(assets_in_blocks(&choice.body));
             }
         }
-        ResponseDefinition::Ordering { items } => {
+        QuestionResponseFormat::Ordering { items } => {
             for item in items {
                 refs.extend(assets_in_blocks(&item.body));
             }
@@ -356,18 +356,18 @@ fn append_block_flow(target: &mut Vec<FlowBlock>, block: &ContentBlock, layout: 
 
 fn append_response_flow(
     target: &mut Vec<FlowBlock>,
-    response: &ResponseDefinition,
+    response: &QuestionResponseFormat,
     layout: PrintLayout,
 ) {
     match response {
-        ResponseDefinition::Numeric { unit, .. } => target.push(FlowBlock::Text {
+        QuestionResponseFormat::Numeric { unit, .. } => target.push(FlowBlock::Text {
             text: unit.as_ref().map_or_else(
                 || "Answer: ____________________".to_string(),
                 |unit| format!("Answer: ____________________ {unit}"),
             ),
             keep_with_next: false,
         }),
-        ResponseDefinition::MultipleChoice { choices, .. } => {
+        QuestionResponseFormat::MultipleChoice { choices, .. } => {
             for (index, choice) in choices.iter().enumerate() {
                 target.push(FlowBlock::Text {
                     text: format!("   {}.", letters(index)),
@@ -378,12 +378,12 @@ fn append_response_flow(
                 }
             }
         }
-        ResponseDefinition::ShortText { .. } => target.push(FlowBlock::Text {
+        QuestionResponseFormat::ShortText { .. } => target.push(FlowBlock::Text {
             text: "Answer: ____________________________________________________________"
                 .to_string(),
             keep_with_next: false,
         }),
-        ResponseDefinition::MultiBlank { blanks } => {
+        QuestionResponseFormat::MultiBlank { blanks } => {
             for blank in blanks {
                 for block in &blank.label {
                     append_block_flow(target, block, layout);
@@ -394,7 +394,7 @@ fn append_response_flow(
                 });
             }
         }
-        ResponseDefinition::Matching { prompts, choices } => {
+        QuestionResponseFormat::Matching { prompts, choices } => {
             target.push(FlowBlock::Text {
                 text: "Match each prompt to one choice.".to_string(),
                 keep_with_next: true,
@@ -418,7 +418,7 @@ fn append_response_flow(
                 }
             }
         }
-        ResponseDefinition::Ordering { items } => {
+        QuestionResponseFormat::Ordering { items } => {
             target.push(FlowBlock::Text {
                 text: "Write the order: ______________________________".to_string(),
                 keep_with_next: true,
@@ -433,7 +433,7 @@ fn append_response_flow(
                 }
             }
         }
-        ResponseDefinition::Hotspot {
+        QuestionResponseFormat::Hotspot {
             description,
             regions,
             ..
@@ -452,7 +452,7 @@ fn append_response_flow(
                 }
             }
         }
-        ResponseDefinition::FileUpload { .. } | ResponseDefinition::ExternalTool {} => {
+        QuestionResponseFormat::FileUpload { .. } | QuestionResponseFormat::ExternalTool {} => {
             unreachable!("validated before print build")
         }
     }
@@ -514,12 +514,12 @@ mod tests {
         let mut map = BTreeMap::new();
         let mut all = assets_in_blocks(&question.prompt);
         match &question.response {
-            ResponseDefinition::MultipleChoice { choices, .. } => {
+            QuestionResponseFormat::MultipleChoice { choices, .. } => {
                 for choice in choices {
                     all.extend(assets_in_blocks(&choice.body));
                 }
             }
-            ResponseDefinition::Ordering { items } => {
+            QuestionResponseFormat::Ordering { items } => {
                 for item in items {
                     all.extend(assets_in_blocks(&item.body));
                 }
@@ -545,8 +545,8 @@ mod tests {
             }
         }
         let groups = match &mut question.response {
-            ResponseDefinition::MultipleChoice { choices, .. } => choices,
-            ResponseDefinition::Ordering { items } => items,
+            QuestionResponseFormat::MultipleChoice { choices, .. } => choices,
+            QuestionResponseFormat::Ordering { items } => items,
             _ => return,
         };
         for item in groups {
@@ -678,7 +678,7 @@ mod tests {
             asset: image.0.clone(),
             description: description.to_string(),
         };
-        question.response = ResponseDefinition::MultipleChoice {
+        question.response = QuestionResponseFormat::MultipleChoice {
             choices: vec![question_model::response::ChoiceOption {
                 id: question_model::response::ChoiceId::new("figure"),
                 body: vec![figure("choice figure")],
@@ -703,7 +703,7 @@ mod tests {
         assert!(String::from_utf8_lossy(&bundle.accessible_docx.bytes).contains("choice figure"));
         assert!(bundle.pdf.bytes.windows(4).any(|window| window == b"/Im1"));
 
-        question.response = ResponseDefinition::Ordering {
+        question.response = QuestionResponseFormat::Ordering {
             items: vec![question_model::response::ChoiceOption {
                 id: question_model::response::ChoiceId::new("ordering-figure"),
                 body: vec![figure("ordering figure")],
@@ -741,19 +741,19 @@ mod tests {
             }
         }
         let candidates = [
-            ResponseDefinition::Numeric {
+            QuestionResponseFormat::Numeric {
                 tolerance: question_model::answer::NumericTolerance::Absolute { epsilon: 0.1 },
                 unit: Some("mM".to_string()),
             },
-            ResponseDefinition::MultipleChoice {
+            QuestionResponseFormat::MultipleChoice {
                 choices: vec![],
                 selection: question_model::answer::SelectionCardinality::ExactlyOne,
             },
-            ResponseDefinition::ShortText {
+            QuestionResponseFormat::ShortText {
                 match_mode: question_model::answer::TextMatchMode::CaseInsensitive,
                 max_length: 100,
             },
-            ResponseDefinition::Ordering { items: vec![] },
+            QuestionResponseFormat::Ordering { items: vec![] },
         ];
         for response in candidates {
             let mut question = base.clone();

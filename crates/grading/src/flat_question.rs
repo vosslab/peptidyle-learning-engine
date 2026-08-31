@@ -1,4 +1,4 @@
-//! Server-only integrity contract for PLE's static flat-question family.
+//! Server-only integrity contract for PLE's static flat-question format.
 //!
 //! The authoring parser deliberately lives in `adapter_native`; this module
 //! owns every rule whose failure could change correctness or disclose answers.
@@ -9,26 +9,18 @@ use std::fmt::Write as _;
 use question_model::answer::SelectionCardinality;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, ResponseDefinition, StudentResponse};
+use question_model::response::{ChoiceId, QuestionResponseFormat, QuestionType, StudentResponse};
 use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::{
     AttemptResult, DraftQuestionDefinition, DraftQuestionSource, FeedbackContent,
-    GradingDefinition, QuestionDefinition, QuestionMetadata, QuestionSource, QuestionTitleError,
+    GradingDefinition, QuestionDefinition, QuestionFormat, QuestionMetadata, QuestionSource,
+    QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{AnswerKey, GradeOutcome, GradingError, grade};
 
-/// Stable source-family identifiers persisted in the public question model.
-pub const FLAT_SINGLE_CHOICE_V2_FAMILY: &str = "flat_single_choice_v2";
-pub const FLAT_MULTIPLE_ANSWER_FAMILY: &str = "flat_multiple_answer_v2";
-pub const FLAT_FILL_IN_FAMILY: &str = "flat_fill_in_v2";
-pub const FLAT_MULTI_FILL_IN_FAMILY: &str = "flat_multi_fill_in_v2";
-pub const FLAT_NUMERIC_FAMILY: &str = "flat_numeric_v2";
-pub const FLAT_MATCHING_FAMILY: &str = "flat_matching_v2";
-pub const FLAT_ORDERING_FAMILY: &str = "flat_ordering_v2";
-pub const FLAT_HOTSPOT_FAMILY: &str = "flat_hotspot_v2";
 /// Upper bound shared by persisted private material and source adapters.
 pub const MAX_FLAT_QUESTION_BYTES: usize = 256 * 1024;
 const PRIVATE_SCHEMA_VERSION: u32 = 2;
@@ -117,7 +109,7 @@ pub struct FlatQuestionEvaluation {
 }
 
 impl FlatQuestionPrivate {
-    /// Builds private material for one of the closed v2 flat families.
+    /// Builds private material for one of the closed v2 flat Question Types.
     pub fn new_with_key(
         draft: &DraftQuestionDefinition,
         answer_key: AnswerKey,
@@ -165,7 +157,7 @@ impl FlatQuestionPrivate {
     /// assigned its fresh version-scoped catalog asset identity.  The answer
     /// key and feedback remain byte-for-byte unchanged; the public binding
     /// digest changes because that browser-safe asset identifier is part of
-    /// the public response definition.
+    /// the public Question Response Format.
     pub fn rebind_to_draft(
         &self,
         draft: &DraftQuestionDefinition,
@@ -291,7 +283,7 @@ impl FlatQuestionPrivate {
 
     fn validate_feedback_targets(
         &self,
-        response: &ResponseDefinition,
+        response: &QuestionResponseFormat,
     ) -> Result<(), FlatQuestionError> {
         let available = selectable_ids(response);
         if self
@@ -343,65 +335,48 @@ impl FlatQuestionPrivate {
 
 /// Validates the public contract on a draft before it can receive private key material.
 pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQuestionError> {
-    let DraftQuestionSource::Native { family } = &draft.source else {
-        return Err(FlatQuestionError::PublicBindingMismatch);
-    };
-    if !is_flat_question_family(family) {
+    if !matches!(draft.source, DraftQuestionSource::Native)
+        || draft.question_format != QuestionFormat::PleFlatQuestionV2
+    {
         return Err(FlatQuestionError::PublicBindingMismatch);
     }
     validate_flat_shape(
-        family,
+        draft.question_type,
         &draft.randomization,
         &draft.response,
         &draft.grading,
     )
 }
 
-/// Validates any closed flat-question family after publication.
+/// Validates a closed flat Question Type after publication.
 pub fn validate_flat_question_question(
     question: &QuestionDefinition,
 ) -> Result<(), FlatQuestionError> {
-    let QuestionSource::Native { family } = &question.source else {
-        return Err(FlatQuestionError::PublicBindingMismatch);
-    };
-    if !is_flat_question_family(family) {
+    if !matches!(question.source, QuestionSource::Native)
+        || question.question_format != QuestionFormat::PleFlatQuestionV2
+    {
         return Err(FlatQuestionError::PublicBindingMismatch);
     }
     validate_flat_shape(
-        family,
+        question.question_type,
         &question.randomization,
         &question.response,
         &question.grading,
     )
 }
 
-/// Whether a persisted native family belongs to the protected flat-question set.
-pub fn is_flat_question_family(family: &str) -> bool {
-    matches!(
-        family,
-        FLAT_SINGLE_CHOICE_V2_FAMILY
-            | FLAT_MULTIPLE_ANSWER_FAMILY
-            | FLAT_FILL_IN_FAMILY
-            | FLAT_MULTI_FILL_IN_FAMILY
-            | FLAT_NUMERIC_FAMILY
-            | FLAT_MATCHING_FAMILY
-            | FLAT_ORDERING_FAMILY
-            | FLAT_HOTSPOT_FAMILY
-    )
-}
-
 fn validate_flat_shape(
-    family: &str,
+    question_type: QuestionType,
     randomization: &RandomizationDefinition,
-    response: &ResponseDefinition,
+    response: &QuestionResponseFormat,
     grading: &GradingDefinition,
 ) -> Result<(), FlatQuestionError> {
     if !matches!(randomization, RandomizationDefinition::Static) {
-        return invalid("flat family requires static randomization");
+        return invalid("flat questions require static randomization");
     }
-    validate_response_for_family(family, response)?;
+    validate_response_for_type(question_type, response)?;
     let GradingDefinition::AllOrNothing { points } = grading else {
-        return invalid("flat family requires all-or-nothing grading");
+        return invalid("flat Question Type requires all-or-nothing grading");
     };
     if !points.is_finite() || *points < 0.0 {
         return invalid("points must be finite and nonnegative");
@@ -409,25 +384,25 @@ fn validate_flat_shape(
     Ok(())
 }
 
-fn validate_response_for_family(
-    family: &str,
-    response: &ResponseDefinition,
+fn validate_response_for_type(
+    question_type: QuestionType,
+    response: &QuestionResponseFormat,
 ) -> Result<(), FlatQuestionError> {
-    match (family, response) {
+    match (question_type, response) {
         (
-            FLAT_SINGLE_CHOICE_V2_FAMILY,
-            ResponseDefinition::MultipleChoice { choices, selection },
+            QuestionType::MultipleChoice,
+            QuestionResponseFormat::MultipleChoice { choices, selection },
         ) if *selection == SelectionCardinality::ExactlyOne => validate_options(choices, 2),
         (
-            FLAT_MULTIPLE_ANSWER_FAMILY,
-            ResponseDefinition::MultipleChoice { choices, selection },
+            QuestionType::MultipleAnswer,
+            QuestionResponseFormat::MultipleChoice { choices, selection },
         ) if *selection == SelectionCardinality::AtLeastOne => validate_options(choices, 2),
-        (FLAT_FILL_IN_FAMILY, ResponseDefinition::ShortText { max_length, .. })
+        (QuestionType::FillInBlank, QuestionResponseFormat::ShortText { max_length, .. })
             if *max_length > 0 =>
         {
             Ok(())
         }
-        (FLAT_MULTI_FILL_IN_FAMILY, ResponseDefinition::MultiBlank { blanks })
+        (QuestionType::MultipleFillInBlank, QuestionResponseFormat::MultiBlank { blanks })
             if !blanks.is_empty() && blanks.len() <= 50 =>
         {
             let mut ids = HashSet::new();
@@ -439,21 +414,21 @@ fn validate_response_for_family(
             }
             Ok(())
         }
-        (FLAT_NUMERIC_FAMILY, ResponseDefinition::Numeric { tolerance, .. }) => {
+        (QuestionType::Numeric, QuestionResponseFormat::Numeric { tolerance, .. }) => {
             validate_numeric_tolerance(tolerance)
         }
-        (FLAT_MATCHING_FAMILY, ResponseDefinition::Matching { prompts, choices })
+        (QuestionType::Matching, QuestionResponseFormat::Matching { prompts, choices })
             if prompts.len() >= 2 && prompts.len() <= choices.len() =>
         {
             validate_options(prompts, 2)?;
             validate_options(choices, 2)
         }
-        (FLAT_ORDERING_FAMILY, ResponseDefinition::Ordering { items }) => {
+        (QuestionType::Ordering, QuestionResponseFormat::Ordering { items }) => {
             validate_options(items, 3)
         }
         (
-            FLAT_HOTSPOT_FAMILY,
-            ResponseDefinition::Hotspot {
+            QuestionType::Hotspot,
+            QuestionResponseFormat::Hotspot {
                 surface,
                 description,
                 regions,
@@ -481,7 +456,7 @@ fn validate_response_for_family(
             }
             Ok(())
         }
-        _ => invalid("flat family and response definition do not agree"),
+        _ => invalid("flat Question Type and Question Response Format do not agree"),
     }
 }
 
@@ -531,17 +506,17 @@ fn validate_nonnegative_finite(name: &str, value: f64) -> Result<(), FlatQuestio
 }
 
 fn validate_key_against_response(
-    response: &ResponseDefinition,
+    response: &QuestionResponseFormat,
     key: &AnswerKey,
 ) -> Result<(), FlatQuestionError> {
     match (response, key) {
-        (ResponseDefinition::Numeric { .. }, AnswerKey::Numeric { expected })
+        (QuestionResponseFormat::Numeric { .. }, AnswerKey::Numeric { expected })
             if expected.is_finite() =>
         {
             Ok(())
         }
         (
-            ResponseDefinition::MultipleChoice { choices, .. },
+            QuestionResponseFormat::MultipleChoice { choices, .. },
             AnswerKey::MultipleChoice { correct },
         ) => {
             let available: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
@@ -550,12 +525,12 @@ fn validate_key_against_response(
             }
             Ok(())
         }
-        (ResponseDefinition::ShortText { .. }, AnswerKey::ShortText { accepted })
+        (QuestionResponseFormat::ShortText { .. }, AnswerKey::ShortText { accepted })
             if !accepted.is_empty() =>
         {
             Ok(())
         }
-        (ResponseDefinition::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
+        (QuestionResponseFormat::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
             let available: BTreeSet<_> = blanks.iter().map(|blank| blank.id.clone()).collect();
             if accepted.len() != available.len()
                 || accepted.keys().cloned().collect::<BTreeSet<_>>() != available
@@ -565,7 +540,7 @@ fn validate_key_against_response(
             }
             Ok(())
         }
-        (ResponseDefinition::Matching { prompts, choices }, AnswerKey::Matching { correct }) => {
+        (QuestionResponseFormat::Matching { prompts, choices }, AnswerKey::Matching { correct }) => {
             let prompt_ids: BTreeSet<_> = prompts.iter().map(|prompt| prompt.id.clone()).collect();
             let choice_ids: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
             let correct_choices: BTreeSet<_> = correct.values().cloned().collect();
@@ -577,7 +552,7 @@ fn validate_key_against_response(
             }
             Ok(())
         }
-        (ResponseDefinition::Ordering { items }, AnswerKey::Ordering { correct }) => {
+        (QuestionResponseFormat::Ordering { items }, AnswerKey::Ordering { correct }) => {
             let available: BTreeSet<_> = items.iter().map(|item| item.id.clone()).collect();
             let keyed: BTreeSet<_> = correct.iter().cloned().collect();
             if keyed.len() != correct.len() || keyed != available {
@@ -585,7 +560,7 @@ fn validate_key_against_response(
             }
             Ok(())
         }
-        (ResponseDefinition::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => {
+        (QuestionResponseFormat::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => {
             let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
             if correct.is_empty() || !correct.is_subset(&available) {
                 return Err(FlatQuestionError::PublicBindingMismatch);
@@ -596,53 +571,53 @@ fn validate_key_against_response(
     }
 }
 
-fn selectable_ids(response: &ResponseDefinition) -> BTreeSet<ChoiceId> {
+fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ChoiceId> {
     match response {
-        ResponseDefinition::MultipleChoice { choices, .. } => {
+        QuestionResponseFormat::MultipleChoice { choices, .. } => {
             choices.iter().map(|choice| choice.id.clone()).collect()
         }
-        ResponseDefinition::Matching { choices, .. } => {
+        QuestionResponseFormat::Matching { choices, .. } => {
             choices.iter().map(|choice| choice.id.clone()).collect()
         }
-        ResponseDefinition::Ordering { items } => {
+        QuestionResponseFormat::Ordering { items } => {
             items.iter().map(|item| item.id.clone()).collect()
         }
-        ResponseDefinition::Hotspot { regions, .. } => {
+        QuestionResponseFormat::Hotspot { regions, .. } => {
             regions.iter().map(|region| region.id.clone()).collect()
         }
-        ResponseDefinition::Numeric { .. }
-        | ResponseDefinition::ShortText { .. }
-        | ResponseDefinition::MultiBlank { .. }
-        | ResponseDefinition::FileUpload { .. }
-        | ResponseDefinition::ExternalTool {} => BTreeSet::new(),
+        QuestionResponseFormat::Numeric { .. }
+        | QuestionResponseFormat::ShortText { .. }
+        | QuestionResponseFormat::MultiBlank { .. }
+        | QuestionResponseFormat::FileUpload { .. }
+        | QuestionResponseFormat::ExternalTool {} => BTreeSet::new(),
     }
 }
 
 fn correct_response_blocks(
-    response: &ResponseDefinition,
+    response: &QuestionResponseFormat,
     key: &AnswerKey,
 ) -> Result<Vec<ContentBlock>, FlatQuestionError> {
     validate_key_against_response(response, key)?;
     let blocks = match (response, key) {
         (
-            ResponseDefinition::MultipleChoice { choices, .. },
+            QuestionResponseFormat::MultipleChoice { choices, .. },
             AnswerKey::MultipleChoice { correct },
         ) => choices
             .iter()
             .filter(|choice| correct.contains(&choice.id))
             .flat_map(|choice| choice.body.clone())
             .collect(),
-        (ResponseDefinition::ShortText { .. }, AnswerKey::ShortText { accepted }) => {
+        (QuestionResponseFormat::ShortText { .. }, AnswerKey::ShortText { accepted }) => {
             markdown_blocks(&accepted.join("; "))
         }
-        (ResponseDefinition::Numeric { unit, .. }, AnswerKey::Numeric { expected }) => {
+        (QuestionResponseFormat::Numeric { unit, .. }, AnswerKey::Numeric { expected }) => {
             markdown_blocks(&format!(
                 "{expected}{}",
                 unit.as_deref()
                     .map_or(String::new(), |unit| format!(" {unit}"))
             ))
         }
-        (ResponseDefinition::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
+        (QuestionResponseFormat::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
             vec![ContentBlock::Table {
                 headers: vec!["Blank".to_string(), "Accepted response".to_string()],
                 rows: blanks
@@ -652,7 +627,7 @@ fn correct_response_blocks(
                 description: "Correct responses for each blank".to_string(),
             }]
         }
-        (ResponseDefinition::Matching { prompts, choices }, AnswerKey::Matching { correct }) => {
+        (QuestionResponseFormat::Matching { prompts, choices }, AnswerKey::Matching { correct }) => {
             vec![ContentBlock::Table {
                 headers: vec!["Prompt".to_string(), "Match".to_string()],
                 rows: prompts
@@ -669,7 +644,7 @@ fn correct_response_blocks(
                 description: "Correct prompt and choice matches".to_string(),
             }]
         }
-        (ResponseDefinition::Ordering { items }, AnswerKey::Ordering { correct }) => correct
+        (QuestionResponseFormat::Ordering { items }, AnswerKey::Ordering { correct }) => correct
             .iter()
             .flat_map(|id| {
                 items
@@ -680,7 +655,7 @@ fn correct_response_blocks(
                     .clone()
             })
             .collect(),
-        (ResponseDefinition::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => regions
+        (QuestionResponseFormat::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => regions
             .iter()
             .filter(|region| correct.contains(&region.id))
             .flat_map(|region| region.label.clone())
@@ -707,9 +682,10 @@ fn blocks_text(blocks: &[ContentBlock]) -> String {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublicBinding<'a> {
-    source_family: &'a str,
+    question_format: QuestionFormat,
+    question_type: QuestionType,
     prompt: &'a [ContentBlock],
-    response: &'a ResponseDefinition,
+    response: &'a QuestionResponseFormat,
     attempt_policy: AttemptPolicy,
     timing_policy: TimingPolicy,
     randomization: &'a RandomizationDefinition,
@@ -721,11 +697,14 @@ struct PublicBinding<'a> {
 pub fn public_binding_sha256_for_draft(
     draft: &DraftQuestionDefinition,
 ) -> Result<String, FlatQuestionError> {
-    let DraftQuestionSource::Native { family } = &draft.source else {
+    if !matches!(draft.source, DraftQuestionSource::Native)
+        || draft.question_format != QuestionFormat::PleFlatQuestionV2
+    {
         return Err(FlatQuestionError::PublicBindingMismatch);
-    };
+    }
     public_binding_sha256(PublicBinding {
-        source_family: family,
+        question_format: draft.question_format,
+        question_type: draft.question_type,
         prompt: &draft.prompt,
         response: &draft.response,
         attempt_policy: draft.attempt_policy,
@@ -738,11 +717,14 @@ pub fn public_binding_sha256_for_draft(
 fn public_binding_sha256_for_question(
     question: &QuestionDefinition,
 ) -> Result<String, FlatQuestionError> {
-    let QuestionSource::Native { family } = &question.source else {
+    if !matches!(question.source, QuestionSource::Native)
+        || question.question_format != QuestionFormat::PleFlatQuestionV2
+    {
         return Err(FlatQuestionError::PublicBindingMismatch);
-    };
+    }
     public_binding_sha256(PublicBinding {
-        source_family: family,
+        question_format: question.question_format,
+        question_type: question.question_type,
         prompt: &question.prompt,
         response: &question.response,
         attempt_policy: question.attempt_policy,

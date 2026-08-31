@@ -18,13 +18,12 @@ test("Questions save owns only the title and ordered public definition", () => {
     title: "Protein bonds",
     entries: [
       {
-        kind: "fixed",
+        kind: "fixedQuestion",
         id: "item-1",
         questionId: "7K3-M9QP",
         title: "Peptide bond resonance",
         backend: "native",
         capabilities: [],
-        position: 0,
         pointsPossible: "1",
         deliveryState: "active",
         scoringMode: "normal",
@@ -36,12 +35,11 @@ test("Questions save owns only the title and ordered public definition", () => {
     title: "Protein bonds",
     entries: [
       {
-        kind: "fixed",
+        kind: "fixedQuestion",
         questionId: "7K3-M9QP",
         pointsPossible: "1",
         deliveryState: "active",
         scoringMode: "normal",
-        position: 0,
       },
     ],
   });

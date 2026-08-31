@@ -11,13 +11,14 @@ use crate::{
 pub use crate::catalog_facets::{
     CatalogAuthorship, CatalogBackendFacet, CatalogBylineFacet, CatalogCapabilityFacet,
     CatalogEvidenceAvailability, CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue,
-    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchFilter,
+    QuestionTypeFacet, CatalogSearchFacets, CatalogSearchFilter,
     CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet,
     CatalogTaxonomyFilter, CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet,
     MAX_CATALOG_BACKEND_FACETS, MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS,
-    MAX_CATALOG_RESPONSE_FAMILY_FACETS, MAX_CATALOG_RESPONSE_FAMILY_FILTERS,
+    MAX_CATALOG_QUESTION_TYPE_FACETS, MAX_CATALOG_QUESTION_TYPE_FILTERS,
     MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
 };
+pub use crate::response::QuestionType;
 
 /// Maximum taxonomy facet values returned with one bounded catalog page.
 pub const MAX_CATALOG_TAXONOMY_FACETS: usize = 64;
@@ -225,7 +226,7 @@ impl QuestionVersionAvailability {
     }
 }
 
-/// Adapter family without source paths or package identifiers.
+/// Question Backend without source paths or package identifiers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionBackend {
@@ -242,7 +243,7 @@ pub enum QuestionBackend {
 }
 
 impl QuestionBackend {
-    /// Every browser-safe adapter family supported by this release.
+    /// Every browser-safe Question Backend supported by this release.
     pub const ALL: [Self; 5] = [
         Self::Native,
         Self::Webwork,
@@ -251,7 +252,7 @@ impl QuestionBackend {
         Self::Imathas,
     ];
 
-    /// Canonical public wire value for this closed backend family.
+    /// Canonical public wire value for this closed backend vocabulary.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Native => "native",
@@ -293,10 +294,10 @@ impl From<&DraftQuestionSource> for QuestionBackend {
 pub struct CatalogProblemSummary {
     /// Sole human-facing identity of this immutable published question.
     pub question_id: QuestionId,
-    /// Adapter family, without private source-locator fields.
+    /// Question Backend, without private source-locator fields.
     pub backend: QuestionBackend,
-    /// Immutable browser-safe response family derived at publication time.
-    pub response_family: CatalogResponseFamily,
+    /// Immutable browser-safe Question Type derived at publication time.
+    pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: BackendCapabilities,
     /// Shared metadata used for title, taxonomy, license, and language facets.
@@ -583,7 +584,7 @@ mod tests {
                 " Protein   Structure ".to_string(),
                 "protein structure".to_string(),
             ],
-            response_families: vec![CatalogResponseFamily::MultipleChoice; 2],
+            question_types: vec![QuestionType::MultipleChoice; 2],
             taxonomy: vec![
                 CatalogTaxonomyFilter {
                     scheme: "  discipline ".to_string(),
@@ -605,8 +606,8 @@ mod tests {
         assert_eq!(query.backends, vec![QuestionBackend::Native]);
         assert_eq!(query.tags, vec!["protein structure"]);
         assert_eq!(
-            query.response_families,
-            vec![CatalogResponseFamily::MultipleChoice]
+            query.question_types,
+            vec![QuestionType::MultipleChoice]
         );
         assert_eq!(query.taxonomy.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
@@ -627,7 +628,7 @@ mod tests {
             summary: CatalogProblemSummary {
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                 backend: QuestionBackend::Native,
-                response_family: CatalogResponseFamily::MultipleChoice,
+                question_type: QuestionType::MultipleChoice,
                 capabilities: BackendCapabilities::none(),
                 metadata: QuestionMetadata {
                     title: "Safe detail".to_string(),

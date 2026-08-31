@@ -79,9 +79,13 @@ export function toStudentAssignmentPresentationData(
       deadlineBehavior: assignment.delivery.deadline_behavior,
       lateStatus: assignment.delivery.late_status,
     },
-    questionsPerRun:
-      assignment.items.filter((item) => item.deliveryState === "active").length +
-      assignment.selection_groups.reduce((count, group) => count + group.drawCount, 0),
+    questionsPerRun: assignment.entries.reduce(
+      (count, entry) =>
+        entry.kind === "fixedQuestion"
+          ? count + (entry.deliveryState === "active" ? 1 : 0)
+          : count + entry.drawCount,
+      0,
+    ),
   };
 }
 

@@ -9,7 +9,7 @@ import type { CatalogCapabilityFacet } from "../../../generated/api/CatalogCapab
 import type { CatalogEvidenceFacet } from "../../../generated/api/CatalogEvidenceFacet";
 import type { CatalogLicenseFacet } from "../../../generated/api/CatalogLicenseFacet";
 import type { CatalogLicenseValue } from "../../../generated/api/CatalogLicenseValue";
-import type { CatalogResponseFamilyFacet } from "../../../generated/api/CatalogResponseFamilyFacet";
+import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
 import type { CatalogSearchFacets } from "../../../generated/api/CatalogSearchFacets";
 import type { CatalogTagFacet } from "../../../generated/api/CatalogTagFacet";
 import type { CatalogTaxonomyFacet } from "../../../generated/api/CatalogTaxonomyFacet";
@@ -32,7 +32,7 @@ import {
 } from "./shared";
 
 const MAX_CATALOG_BACKEND_FACETS = 5;
-const MAX_CATALOG_RESPONSE_FAMILY_FACETS = 9;
+const MAX_CATALOG_QUESTION_TYPE_FACETS = 8;
 
 function decodeCatalogTaxonomyFacet(value: unknown, path: string): CatalogTaxonomyFacet {
   const record = decodeRecord(value, path);
@@ -88,26 +88,25 @@ function decodeCatalogTagFacet(value: unknown, path: string): CatalogTagFacet {
   };
 }
 
-function decodeCatalogResponseFamilyFacet(
+function decodeQuestionTypeFacet(
   value: unknown,
   path: string,
-): CatalogResponseFamilyFacet {
+): QuestionTypeFacet {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["responseFamily", "count"]);
+  requireOnlyFields(record, path, ["questionType", "count"]);
   return {
-    responseFamily: decodeStringEnum(
-      field(record, "responseFamily", path),
-      `${path}.responseFamily`,
+    questionType: decodeStringEnum(
+      field(record, "questionType", path),
+      `${path}.questionType`,
       [
-        "numeric",
         "multipleChoice",
-        "shortText",
-        "multiBlank",
+        "multipleAnswer",
+        "fillInBlank",
+        "multipleFillInBlank",
+        "numeric",
         "matching",
         "ordering",
         "hotspot",
-        "fileUpload",
-        "externalTool",
       ],
     ),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
@@ -169,7 +168,7 @@ export function decodeCatalogSearchFacets(value: unknown, path: string): Catalog
     "bylines",
     "backends",
     "tags",
-    "responseFamilies",
+    "questionTypes",
     "taxonomy",
     "capabilities",
     "licenses",
@@ -195,11 +194,11 @@ export function decodeCatalogSearchFacets(value: unknown, path: string): Catalog
       MAX_CATALOG_TAG_FACETS,
       decodeCatalogTagFacet,
     ),
-    responseFamilies: decodeBoundedArray(
-      field(record, "responseFamilies", path),
-      `${path}.responseFamilies`,
-      MAX_CATALOG_RESPONSE_FAMILY_FACETS,
-      decodeCatalogResponseFamilyFacet,
+    questionTypes: decodeBoundedArray(
+      field(record, "questionTypes", path),
+      `${path}.questionTypes`,
+      MAX_CATALOG_QUESTION_TYPE_FACETS,
+      decodeQuestionTypeFacet,
     ),
     taxonomy: decodeBoundedArray(
       field(record, "taxonomy", path),

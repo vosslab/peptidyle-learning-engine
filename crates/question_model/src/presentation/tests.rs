@@ -4,7 +4,7 @@ use crate::answer::{SelectionCardinality, TextMatchMode};
 use crate::envelope::{ContentBlock, QuestionEnvelope};
 use crate::generation::Seed;
 use crate::response::{
-    ChoiceId, ChoiceOption, MatchPair, ResponseDefinition, StudentResponse, TextEntryAnswer,
+    ChoiceId, ChoiceOption, MatchPair, QuestionResponseFormat, StudentResponse, TextEntryAnswer,
     TextEntrySlot,
 };
 use crate::{QuestionVersionNumber, QuestionVersionReference};
@@ -17,7 +17,7 @@ use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
 use super::{
     InspectedExternalToolStateV1, InspectedStudentArtifactStateV1, InspectedStudentResponseV1,
     PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
-    RenderedResponseTranslationErrorV1, ResponseSchemaV1, project_durable_response_to_rendered_v1,
+    RenderedResponseTranslationErrorV1, IssuedQuestionResponseFormatV1, project_durable_response_to_rendered_v1,
     project_rendered_response_for_inspection_v1, rebuild_public_presentation_v1,
     reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
 };
@@ -42,7 +42,7 @@ fn fixture() -> QuestionEnvelope {
         prompt: vec![ContentBlock::Text {
             markdown: "Which group forms the peptide bond?".to_owned(),
         }],
-        response: ResponseDefinition::MultipleChoice {
+        response: QuestionResponseFormat::MultipleChoice {
             choices: vec![
                 choice("amine", "Amino group"),
                 choice("carboxyl", "Carboxyl group"),
@@ -160,7 +160,7 @@ fn public_json_uses_rendered_ids_and_schema_kind_only() {
     let mut source = Nonces::new([[4; 16]]);
     let presentation = build_presentation_v1_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
-    let ResponseSchemaV1::SingleChoice { choices } = &presentation.envelope.response else {
+    let IssuedQuestionResponseFormatV1::SingleChoice { choices } = &presentation.envelope.response else {
         panic!("single choice schema")
     };
     assert_eq!(choices.len(), 2);
@@ -206,7 +206,7 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     assert!(reproduce_presentation_v1(&changed, &[], binding).is_err());
 }
 
-fn presentation_for(response: ResponseDefinition) -> super::PresentationV1 {
+fn presentation_for(response: QuestionResponseFormat) -> super::PresentationV1 {
     let mut envelope = fixture();
     envelope.response = response;
     let mut source = Nonces::new([[0x91; 16]]);
@@ -228,7 +228,7 @@ fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> C
 
 #[test]
 fn rendered_response_translation_rewrites_every_identifier_family() {
-    let multiple = presentation_for(ResponseDefinition::MultipleChoice {
+    let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A"), choice("b", "B")],
         selection: SelectionCardinality::ExactlyOne,
     });
@@ -242,7 +242,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         }
     );
 
-    let blanks = presentation_for(ResponseDefinition::MultiBlank {
+    let blanks = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
             id: ChoiceId::new("slot-a"),
             label: vec![ContentBlock::Text {
@@ -268,7 +268,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         }
     );
 
-    let matching = presentation_for(ResponseDefinition::Matching {
+    let matching = presentation_for(QuestionResponseFormat::Matching {
         prompts: vec![choice("prompt-a", "Prompt")],
         choices: vec![choice("choice-a", "Choice")],
     });
@@ -288,7 +288,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         }
     );
 
-    let ordering = presentation_for(ResponseDefinition::Ordering {
+    let ordering = presentation_for(QuestionResponseFormat::Ordering {
         items: vec![choice("first", "First"), choice("second", "Second")],
     });
     let ordering_response = StudentResponse::Ordering {
@@ -303,8 +303,8 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
 }
 
 #[test]
-fn rendered_response_translation_preserves_scalar_response_families() {
-    let presentation = presentation_for(ResponseDefinition::MultipleChoice {
+fn rendered_response_translation_preserves_scalar_question_types() {
+    let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A")],
         selection: SelectionCardinality::ExactlyOne,
     });
@@ -328,7 +328,7 @@ fn rendered_response_translation_preserves_scalar_response_families() {
 
 #[test]
 fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_states() {
-    let multiple = presentation_for(ResponseDefinition::MultipleChoice {
+    let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A")],
         selection: SelectionCardinality::ExactlyOne,
     });
@@ -337,7 +337,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         Ok(InspectedStudentResponseV1::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].rendered.clone()]
     ));
 
-    let blank = presentation_for(ResponseDefinition::MultiBlank {
+    let blank = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
             id: ChoiceId::new("slot"),
             label: vec![],
@@ -350,7 +350,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         Ok(InspectedStudentResponseV1::MultiBlank { answers }) if answers[0].text == "entered"
     ));
 
-    let matching = presentation_for(ResponseDefinition::Matching {
+    let matching = presentation_for(QuestionResponseFormat::Matching {
         prompts: vec![choice("p", "P")],
         choices: vec![choice("c", "C")],
     });
@@ -366,7 +366,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         ),
         Ok(InspectedStudentResponseV1::Matching { .. })
     ));
-    let ordering = presentation_for(ResponseDefinition::Ordering {
+    let ordering = presentation_for(QuestionResponseFormat::Ordering {
         items: vec![choice("first", "First")],
     });
     assert!(matches!(
@@ -425,7 +425,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
 
 #[test]
 fn browser_submitted_response_round_trips_through_safe_inspection() {
-    let presentation = presentation_for(ResponseDefinition::MultipleChoice {
+    let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A"), choice("b", "B")],
         selection: SelectionCardinality::ExactlyOne,
     });
@@ -444,7 +444,7 @@ fn browser_submitted_response_round_trips_through_safe_inspection() {
 
 #[test]
 fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_role_ids() {
-    let presentation = presentation_for(ResponseDefinition::MultipleChoice {
+    let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A")],
         selection: SelectionCardinality::ExactlyOne,
     });
@@ -482,7 +482,7 @@ fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_r
         Err(RenderedResponseTranslationErrorV1::DuplicateRenderedIdBinding)
     );
 
-    let matching = presentation_for(ResponseDefinition::Matching {
+    let matching = presentation_for(QuestionResponseFormat::Matching {
         prompts: vec![choice("prompt-a", "Prompt")],
         choices: vec![choice("choice-a", "Choice")],
     });

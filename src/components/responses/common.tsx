@@ -5,20 +5,20 @@ import { createSignal, type JSX } from "solid-js";
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch } from "../../api/contracts";
 import type { SubmissionOutcome } from "../../features/attempt/attempt_state";
 import type { ResponseFormatReport, ResponseFormatViolation, WasmFacade } from "../../wasm/index";
 
-export type MultipleChoiceDefinition = Extract<ResponseDefinition, { kind: "multipleChoice" }>;
-export type NumericDefinition = Extract<ResponseDefinition, { kind: "numeric" }>;
-export type ShortTextDefinition = Extract<ResponseDefinition, { kind: "shortText" }>;
-export type OrderingDefinition = Extract<ResponseDefinition, { kind: "ordering" }>;
-export type MultiBlankDefinition = Extract<ResponseDefinition, { kind: "multiBlank" }>;
-export type MatchingDefinition = Extract<ResponseDefinition, { kind: "matching" }>;
-export type HotspotDefinition = Extract<ResponseDefinition, { kind: "hotspot" }>;
-export type FileUploadDefinition = Extract<ResponseDefinition, { kind: "fileUpload" }>;
+export type MultipleChoiceDefinition = Extract<QuestionResponseFormat, { kind: "multipleChoice" }>;
+export type NumericDefinition = Extract<QuestionResponseFormat, { kind: "numeric" }>;
+export type ShortTextDefinition = Extract<QuestionResponseFormat, { kind: "shortText" }>;
+export type OrderingDefinition = Extract<QuestionResponseFormat, { kind: "ordering" }>;
+export type MultiBlankDefinition = Extract<QuestionResponseFormat, { kind: "multiBlank" }>;
+export type MatchingDefinition = Extract<QuestionResponseFormat, { kind: "matching" }>;
+export type HotspotDefinition = Extract<QuestionResponseFormat, { kind: "hotspot" }>;
+export type FileUploadDefinition = Extract<QuestionResponseFormat, { kind: "fileUpload" }>;
 
 type WidgetPhase =
   | { readonly kind: "idle" }
@@ -49,11 +49,11 @@ export interface ResponseWidgetBaseProps {
 }
 
 export interface ResponseWidgetProps extends ResponseWidgetBaseProps {
-  readonly definition: ResponseDefinition;
+  readonly definition: QuestionResponseFormat;
   readonly initialResponse?: StudentResponse;
 }
 
-export interface WidgetBodyProps<D extends ResponseDefinition> extends ResponseWidgetBaseProps {
+export interface WidgetBodyProps<D extends QuestionResponseFormat> extends ResponseWidgetBaseProps {
   readonly definition: D;
   readonly initialResponse?: Extract<StudentResponse, { readonly kind: D["kind"] }>;
 }
@@ -131,7 +131,7 @@ function reportMessage(report: ResponseFormatReport): string {
 /** Browser-only format check: deliberately has no submit or grading dependency. */
 export async function validateResponseLocally(
   validator: Pick<WasmFacade, "validateResponseFormat">,
-  definition: ResponseDefinition,
+  definition: QuestionResponseFormat,
   response: StudentResponse,
 ): Promise<ResponseFormatReport> {
   return validator.validateResponseFormat(definition, response);

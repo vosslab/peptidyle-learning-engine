@@ -16,7 +16,7 @@
 
 pub mod activity;
 pub mod answer;
-/// Stable assignment items, selection groups, and exact point values.
+/// Stable Assignment Entries, Question Pools, and exact point values.
 pub mod assignment;
 /// Strict browser contracts and derived readiness for the Instructor assignment workspace.
 pub mod assignment_workspace;
@@ -50,7 +50,7 @@ pub mod generation;
 /// Browser-safe automated-grading operation status and safe explanation contracts.
 pub mod grading_operations;
 pub mod identity;
-/// Browser-safe, no-store Instructor samples of saved assignment item pools.
+/// Browser-safe, no-store Instructor samples of saved Assignment Question Pools.
 pub mod pool_preview;
 /// Browser-safe, attempt-presentation-scoped question contracts.
 pub mod presentation;
@@ -76,8 +76,8 @@ pub mod teaching_operations;
 // available under its module.
 pub use crate::activity::{
     ActivityTimestamp, AssignmentProgressRecord, AssignmentAttempt, AssignmentAttemptId,
-    AccommodationId, AssignmentGrade, AssignmentId, AssignmentItemId,
-    AssignmentSelectionGroupId, AttemptProvenance, AttemptResult, AttemptStatus,
+    AccommodationId, AssignmentGrade, AssignmentId, AssignmentEntryId, AttemptProvenance,
+    AttemptResult, AttemptStatus, QuestionPoolCandidateId,
     CourseId, CourseMembershipId, ImplementationVersion, IssuedAttemptCapabilityV1, IssuedQuestion,
     IssuedQuestionId, QuestionAttempt, QuestionAttemptId, QuestionAttemptTiming,
     AssignmentAttemptCompletion, SourceArtifact, AssignmentProgress, StudentRecordId,
@@ -85,17 +85,17 @@ pub use crate::activity::{
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentInstructions,
-    AssignmentInstructionsError, AssignmentItem, AssignmentLifecycle, AssignmentRevision,
-    AssignmentRevisionError, AssignmentScoringMode, AssignmentSelectionCandidate,
-    AssignmentSelectionGroup, AssignmentTeachingSettings, AssignmentTeachingSettingsFailureCode,
+    AssignmentEntry, AssignmentInstructionsError, FixedQuestionAssignmentEntry, AssignmentLifecycle, AssignmentRevision,
+    AssignmentRevisionError, AssignmentScoringMode, QuestionPoolCandidate,
+    QuestionPoolAssignmentEntry, AssignmentTeachingSettings, AssignmentTeachingSettingsFailureCode,
     AssignmentTeachingSettingsFailureReason, AssignmentTeachingSettingsField,
     AssignmentTeachingSettingsLocalError, AssignmentTeachingSettingsValidationFailure,
     BaseAssignmentPolicy, CourseLocalDateTime, CourseLocalDateTimeError,
     InstructorAssignmentCurrentState, InstructorAssignmentTeachingSettingsLocal,
     LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS,
+    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
-    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, ScoringGeneration,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, PointValue, PoolDrawAlgorithm, ScoringGeneration,
     ScoringStatus, SelectionOrdering, derive_instructor_assignment_current_state,
 };
 pub use crate::assignment_workspace::{
@@ -115,19 +115,20 @@ pub use crate::catalog::{
     CatalogDiscoveryEvidence, CatalogDiscoveryItem, CatalogEvidenceAvailability,
     CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue,
     CatalogOwnCourseUsage, CatalogProblemDetail, CatalogProblemSummary, CatalogPromptProjection,
-    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchFilter,
+    QuestionTypeFacet, CatalogSearchFacets, CatalogSearchFilter,
     CatalogSearchPage, CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet,
     CatalogTaxonomyFacet, CatalogTaxonomyFilter, CatalogUsageDetail, CatalogUsageSummary,
     CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS,
     MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_OWN_COURSE_USAGES,
-    MAX_CATALOG_RESPONSE_FAMILY_FACETS, MAX_CATALOG_RESPONSE_FAMILY_FILTERS,
+    MAX_CATALOG_QUESTION_TYPE_FACETS, MAX_CATALOG_QUESTION_TYPE_FILTERS,
     MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS, MAX_CATALOG_TAXONOMY_FACETS,
     MAX_QUESTION_ID_COUNT, ProblemDisplayRef, QuestionVersionAvailability, QuestionVersionReference, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
 };
 pub use crate::course::{
-    AssignmentItemSummary, AssignmentLandingPresentation, AssignmentSelectionCandidateSummary,
-    AssignmentSelectionGroupSummary, AssignmentSummary, CourseMembershipRole, CourseSummary,
+    AssignmentEntrySummary, FixedQuestionAssignmentEntrySummary, AssignmentLandingPresentation,
+    QuestionPoolCandidateSummary, QuestionPoolAssignmentEntrySummary, AssignmentSummary,
+    CourseMembershipRole, CourseSummary,
     GradebookSummaryRow, StudentAssignmentDelivery, StudentAssignmentDetail,
     StudentAssignmentLandingSummary, StudentLateStatus,
 };
@@ -159,8 +160,8 @@ pub use crate::curation::{
 pub use crate::curriculum_adoption::*;
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,
-    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionDefinition, QuestionMetadata, QuestionSource,
-    QuestionSourceValidationError, QuestionTitleError, WorkspaceDraftSummary,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionDefinition, QuestionFormat, QuestionMetadata,
+    QuestionSource, QuestionSourceValidationError, QuestionTitleError, WorkspaceDraftSummary,
     validate_question_title,
 };
 pub use crate::entitlement::{
@@ -181,7 +182,7 @@ pub use crate::pool_preview::{PoolDrawPreview, PoolDrawPreviewQuestion, PoolDraw
 pub use crate::presentation::{
     AssetBindingV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
     PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
-    PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
+    PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, IssuedQuestionResponseFormatV1,
     StudentAssignmentAttemptScreenAttemptV1, StudentAssignmentAttemptScreenScopeV1,
     StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
 };
@@ -204,7 +205,9 @@ pub use crate::public_route::{
     QuestionCollectionReference, RESERVED_REFERENCE_PREFIXES, SavedProblemSearchReference,
     WorkspaceReference,
 };
-pub use crate::response::{ResponseDefinition, StudentResponse};
+pub use crate::response::{
+    QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,
+};
 pub use crate::reusable_curriculum::{
     BlueprintAssignmentEditHandle, BlueprintAssignmentId, BlueprintChildIdError,
     BlueprintCourseAccess, BlueprintCourseAssignmentDefinitionView,

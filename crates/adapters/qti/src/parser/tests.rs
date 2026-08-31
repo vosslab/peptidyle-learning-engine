@@ -103,7 +103,7 @@ fn imports_supported_single_choice_with_no_debuggable_answer_or_archive() {
             prompt: vec![ContentBlock::Text {
                 markdown: "Choose the correct answer.".into(),
             }],
-            response: ResponseDefinition::MultipleChoice {
+            response: QuestionResponseFormat::MultipleChoice {
                 choices: vec![
                     ChoiceOption {
                         id: ChoiceId::new("a"),

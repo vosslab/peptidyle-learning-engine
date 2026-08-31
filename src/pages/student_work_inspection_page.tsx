@@ -238,7 +238,7 @@ function SubmissionCard(props: {
               ? props.submission.evidence
               : undefined
           }
-          fallback={<p>This response family has no browser presentation.</p>}
+          fallback={<p>This Question Response Control has no browser presentation.</p>}
         >
           {(evidence) => (
             <>
@@ -268,7 +268,7 @@ function StudentWorkCoursePage(props: {
   const params = useParams<{
     membershipRef: string;
     assignmentRef: string;
-    runRef: string;
+    assignmentAttemptRef: string;
   }>();
   const [state, setState] = createSignal<InspectionState>({ kind: "loading" });
   let disposed = false;
@@ -278,7 +278,7 @@ function StudentWorkCoursePage(props: {
   const route = createMemo(() => ({
     membership: parseCourseMembershipReference(params.membershipRef),
     assignment: parseAssignmentReference(params.assignmentRef),
-    run: parseAssignmentAttemptReference(params.runRef),
+    assignmentAttempt: parseAssignmentAttemptReference(params.assignmentAttemptRef),
     operation: parseInspectedStudentWorkRouteSearch(location.search),
   }));
 
@@ -287,7 +287,7 @@ function StudentWorkCoursePage(props: {
     if (
       request.membership === null ||
       request.assignment === null ||
-      request.run === null ||
+      request.assignmentAttempt === null ||
       request.operation.kind === "invalid"
     ) {
       setState({ kind: "invalidRoute" });
@@ -299,7 +299,7 @@ function StudentWorkCoursePage(props: {
         props.courseId,
         request.membership,
         request.assignment,
-        request.run,
+        request.assignmentAttempt,
         request.operation.operation,
       );
       if (disposed || requestId !== requestSequence) return;
@@ -307,7 +307,7 @@ function StudentWorkCoursePage(props: {
         detail.course !== props.courseReference ||
         detail.membership !== request.membership ||
         detail.assignment !== request.assignment ||
-        detail.run !== request.run
+        detail.run !== request.assignmentAttempt
       ) {
         throw new Error("Inspected work does not match the requested route");
       }
@@ -364,10 +364,10 @@ function StudentWorkCoursePage(props: {
         <section class="route-error" role="alert">
           <p class="eyebrow">Student work unavailable</p>
           <h1 ref={(element) => (failureHeading = element)} tabindex="-1">
-            This submitted run could not be inspected
+            This submitted Assignment Attempt could not be inspected
           </h1>
           <p>
-            Return to the current Gradebook. The run may have changed, or this account may not have
+            Return to the current Gradebook. The Assignment Attempt may have changed, or this account may not have
             direct Instructor access to the course.
           </p>
           <button class="primary-action" type="button" onClick={() => void load(route())}>

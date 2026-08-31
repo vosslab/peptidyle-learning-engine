@@ -20,23 +20,22 @@ const CATALOG_CAPABILITIES = [
 ] as const;
 const CATALOG_LICENSES = ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"] as const;
 const CATALOG_BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
-const CATALOG_RESPONSE_FAMILIES = [
-  "numeric",
+const CATALOG_QUESTION_TYPES = [
   "multipleChoice",
-  "shortText",
-  "multiBlank",
+  "multipleAnswer",
+  "fillInBlank",
+  "multipleFillInBlank",
+  "numeric",
   "matching",
   "ordering",
   "hotspot",
-  "fileUpload",
-  "externalTool",
 ] as const;
 const CATALOG_QUERY_FIELDS = [
   "text",
   "bylines",
   "backends",
   "tags",
-  "response_families",
+  "question_types",
   "taxonomy",
   "capabilities",
   "licenses",
@@ -120,14 +119,14 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
     parameters.append("tags", normalizedCatalogFilterText(tag, "catalog tag", 256));
   }
   boundedCatalogFilterValues(
-    query.response_families,
-    CATALOG_RESPONSE_FAMILIES.length,
-    "catalog response_families",
+    query.question_types,
+    CATALOG_QUESTION_TYPES.length,
+    "catalog question_types",
   );
-  for (const responseFamily of query.response_families) {
+  for (const questionType of query.question_types) {
     parameters.append(
-      "response_families",
-      catalogEnum(responseFamily, CATALOG_RESPONSE_FAMILIES, "catalog response family"),
+      "question_types",
+      catalogEnum(questionType, CATALOG_QUESTION_TYPES, "catalog Question Type"),
     );
   }
   if (query.taxonomy.length > MAX_CATALOG_TAXONOMY_FILTERS) {

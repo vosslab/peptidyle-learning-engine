@@ -104,7 +104,7 @@ export function createAssignmentEditorPickerController(
   function addPoolRows(entryIndex: number, rows: ReadonlyArray<AssignmentCatalogRow>): void {
     const draft = props.currentDraft();
     const entry = draft?.entries[entryIndex];
-    if (draft === undefined || entry === undefined || entry.kind !== "selectionGroup") return;
+    if (draft === undefined || entry === undefined || entry.kind !== "questionPool") return;
     const known = new Set(entry.candidates.map((candidate) => candidate.questionId));
     const candidates = [...entry.candidates, ...rows.filter((row) => !known.has(row.questionId))];
     if (candidates.length === entry.candidates.length) {

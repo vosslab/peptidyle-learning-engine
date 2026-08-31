@@ -11,7 +11,7 @@ use question_model::presentation::{
     AssetBindingV1, PresentationDigestTokenV1, PresentationEnvelopeV1,
     rebuild_public_presentation_v1,
 };
-use question_model::response::{ResponseDefinition, StudentResponse};
+use question_model::response::{QuestionResponseFormat, StudentResponse};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -45,8 +45,8 @@ pub fn validate_response_format(
     definition_json: &str,
     response_json: &str,
 ) -> Result<String, JsValue> {
-    let definition: ResponseDefinition = serde_json::from_str(definition_json)
-        .map_err(|error| JsValue::from_str(&format!("invalid response definition: {error}")))?;
+    let definition: QuestionResponseFormat = serde_json::from_str(definition_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid Question Response Format: {error}")))?;
     let response: StudentResponse = serde_json::from_str(response_json)
         .map_err(|error| JsValue::from_str(&format!("invalid student response: {error}")))?;
     let report = validation::validate_response_format(&definition, &response);

@@ -37,8 +37,11 @@ import {
   decodeGradingDefinition,
   decodeQuestionSource,
   decodeRandomization,
-  decodeResponseDefinition,
+  decodeQuestionResponseFormat,
+  decodeQuestionFormat,
+  decodeQuestionType,
   decodeTimingPolicy,
+  questionResponseFormatSupportsType,
 } from "./question_model";
 
 function decodeNormalizedCoordinate(value: unknown, path: string): number {
@@ -51,13 +54,30 @@ function decodeQuestionContent(
   record: Record<string, unknown>,
   path: string,
 ): Omit<QuestionDefinition, "questionId" | "versionNumber"> {
+  const response = decodeQuestionResponseFormat(
+    field(record, "response", path),
+    `${path}.response`,
+    true,
+  );
+  const questionType = decodeQuestionType(
+    field(record, "questionType", path),
+    `${path}.questionType`,
+  );
+  if (!questionResponseFormatSupportsType(response, questionType)) {
+    throw new DecodeError(`${path}.questionType`, "a type supported by the Question Response Format");
+  }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
     source: decodeQuestionSource(field(record, "source", path), `${path}.source`),
+    questionFormat: decodeQuestionFormat(
+      field(record, "questionFormat", path),
+      `${path}.questionFormat`,
+    ),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, true),
     ),
-    response: decodeResponseDefinition(field(record, "response", path), `${path}.response`, true),
+    response,
+    questionType,
     attemptPolicy: decodeAttemptPolicy(
       field(record, "attemptPolicy", path),
       `${path}.attemptPolicy`,
@@ -82,13 +102,30 @@ function decodeDraftQuestionContent(
   record: Record<string, unknown>,
   path: string,
 ): DraftQuestionDefinition {
+  const response = decodeQuestionResponseFormat(
+    field(record, "response", path),
+    `${path}.response`,
+    true,
+  );
+  const questionType = decodeQuestionType(
+    field(record, "questionType", path),
+    `${path}.questionType`,
+  );
+  if (!questionResponseFormatSupportsType(response, questionType)) {
+    throw new DecodeError(`${path}.questionType`, "a type supported by the Question Response Format");
+  }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
     source: decodeDraftQuestionSource(field(record, "source", path), `${path}.source`),
+    questionFormat: decodeQuestionFormat(
+      field(record, "questionFormat", path),
+      `${path}.questionFormat`,
+    ),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, true),
     ),
-    response: decodeResponseDefinition(field(record, "response", path), `${path}.response`, true),
+    response,
+    questionType,
     attemptPolicy: decodeAttemptPolicy(
       field(record, "attemptPolicy", path),
       `${path}.attemptPolicy`,
@@ -116,8 +153,10 @@ export function decodeQuestionDefinition(value: unknown, path = "response"): Que
     "versionNumber",
     "workspace",
     "source",
+    "questionFormat",
     "prompt",
     "response",
+    "questionType",
     "attemptPolicy",
     "timingPolicy",
     "randomization",
@@ -144,8 +183,10 @@ export function decodeDraftQuestionDefinition(
   requireOnlyFields(record, path, [
     "workspace",
     "source",
+    "questionFormat",
     "prompt",
     "response",
+    "questionType",
     "attemptPolicy",
     "timingPolicy",
     "randomization",
@@ -174,7 +215,7 @@ export function decodeQuestionEnvelope(value: unknown, path = "response"): Quest
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, true),
     ),
-    response: decodeResponseDefinition(field(record, "response", path), `${path}.response`, true),
+    response: decodeQuestionResponseFormat(field(record, "response", path), `${path}.response`, true),
   } satisfies QuestionEnvelope;
   return decoded;
 }

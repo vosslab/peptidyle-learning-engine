@@ -14,7 +14,7 @@ use objects::image_validation::verify_still_image;
 use question_model::answer::SelectionCardinality;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::response::{ChoiceId, ChoiceOption};
-use question_model::{AssetId, ResponseDefinition};
+use question_model::{AssetId, QuestionResponseFormat};
 use uuid::Uuid;
 
 const MANIFEST_PATH: &str = "imsmanifest.xml";
@@ -429,7 +429,7 @@ fn parse_single_choice_item(
         ImportedQtiQuestion {
             item_id,
             prompt,
-            response: ResponseDefinition::MultipleChoice {
+            response: QuestionResponseFormat::MultipleChoice {
                 choices,
                 selection: SelectionCardinality::ExactlyOne,
             },

@@ -1,24 +1,24 @@
-use question_model::QuestionSource;
+use question_model::QuestionDefinition;
 use question_model::capability::BackendCapabilities;
 
 use crate::{NativeAdapter, NativeAdapterError};
 
 impl NativeAdapter {
-    /// Returns conservative catalog capabilities for a native source family.
+    /// Returns conservative capabilities for a native Question contract.
     pub fn capabilities(
         &self,
-        source: &QuestionSource,
+        question: &QuestionDefinition,
     ) -> Result<BackendCapabilities, NativeAdapterError> {
-        let families = self.families_for_source(source)?;
-        let mut capabilities = families
+        let implementations = self.implementations_for_question(question)?;
+        let mut capabilities = implementations
             .first()
-            .expect("a nonempty registry selection has a first family")
+            .expect("a nonempty registry selection has a first implementation")
             .capabilities();
-        for family in &families[1..] {
+        for implementation in &implementations[1..] {
             capabilities = BackendCapabilities::from_iter(
                 capabilities
                     .declared()
-                    .filter(|capability| family.capabilities().supports(*capability)),
+                    .filter(|capability| implementation.capabilities().supports(*capability)),
             );
         }
         Ok(capabilities)

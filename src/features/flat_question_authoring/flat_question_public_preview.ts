@@ -6,13 +6,13 @@ import type {
   FlatQuestionTaxonomyTerm,
   FlatQuestionTimingPolicy,
 } from "./flat_question_source";
-import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 
 /** The local student preview deliberately excludes correctness and all feedback. */
 export type FlatQuestionPublicPreview = {
   readonly title: string;
   readonly prompt: string;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
   readonly points: number;
   readonly attemptPolicy: FlatQuestionAttemptPolicy;
   readonly timingPolicy: FlatQuestionTimingPolicy;
@@ -24,7 +24,7 @@ export type FlatQuestionPublicPreview = {
 
 /** Projects an author source into exactly the information a student may receive. */
 export function flatQuestionPublicPreview(source: FlatQuestionSourceV2): FlatQuestionPublicPreview {
-  const response = flatQuestionResponseDefinition(source);
+  const response = flatQuestionResponseFormat(source);
   return {
     title: source.title,
     prompt: source.prompt,
@@ -40,7 +40,7 @@ export function flatQuestionPublicPreview(source: FlatQuestionSourceV2): FlatQue
 }
 
 /** Builds the existing key-free runtime definition; source answer material never crosses this seam. */
-export function flatQuestionResponseDefinition(source: FlatQuestionSourceV2): ResponseDefinition {
+export function flatQuestionResponseFormat(source: FlatQuestionSourceV2): QuestionResponseFormat {
   const response = source.response;
   switch (response.kind) {
     case "singleChoice":
@@ -109,7 +109,7 @@ export function flatQuestionResponseDefinition(source: FlatQuestionSourceV2): Re
 function choiceDefinition(
   choices: ReadonlyArray<FlatQuestionChoice>,
   selection: { readonly kind: "exactlyOne" | "atLeastOne" },
-): ResponseDefinition {
+): QuestionResponseFormat {
   return {
     kind: "multipleChoice",
     choices: choices.map((choice) => ({

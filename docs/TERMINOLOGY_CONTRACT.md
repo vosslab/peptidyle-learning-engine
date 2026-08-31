@@ -7,8 +7,8 @@ not supersede that owner guidance.
 
 Use [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) after selecting the correct
 domain term. Use [VOCABULARY_REPLACEMENTS.md](VOCABULARY_REPLACEMENTS.md) to
-complete an in-progress correction: the map identifies the old boundary, its
-replacement, and the required structural change.
+complete an in-progress correction: the checklist identifies the wording to
+replace, its canonical target, and the required structural change.
 
 ## Authority order
 
@@ -17,8 +17,9 @@ replacement, and the required structural change.
    relationship paths.
 3. [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) defines identifier spelling.
 4. A focused contract or schema document defines its physical representation.
-5. [VOCABULARY_REPLACEMENTS.md](VOCABULARY_REPLACEMENTS.md) records remaining
-   convergence work and is removed as each correction closes.
+5. [VOCABULARY_REPLACEMENTS.md](VOCABULARY_REPLACEMENTS.md) tracks convergence
+   work as a retained checklist. Checked rows remain through its final audit,
+   then the completed checklist retires as one document.
 
 When a term has a narrower meaning at one boundary, name the narrower record or
 relationship. A broad context object never substitutes for a stored authority
@@ -152,6 +153,86 @@ answers, grading material, and FERPA records out of Student-visible data.
 Record may use one Assignment at a given time. It derives from the exact
 Student Record, active Course Membership, Assignment, effective policy, and
 lifecycle facts. It returns an exact denial reason when access is absent.
+
+## Interface surfaces and ribbon navigation
+
+**Application Shell** is the persistent frame around the current PLE content
+region. It owns the **Ribbon**, presentation settings, and the content origin.
+Route content renders inside that frame.
+
+**Ribbon** is the Application Shell-owned navigation surface. It persists
+while route content changes and has one stable structure for each **Ribbon
+Scope**. A page supplies its task heading and workflow content inside the
+content region.
+
+**Ribbon Scope** is the exact product context that selects a predefined Ribbon
+structure. The closed scopes are:
+
+- **Product Ribbon Scope** for navigation across PLE surfaces without one
+  selected Course Instance or Assignment Attempt.
+- **Course Instance Ribbon Scope** for one live Course Instance.
+- **Assignment Attempt Ribbon Scope** for one Student's exact Assignment
+  Attempt.
+
+Ribbon Scope selects structure. The current Account and exact domain
+relationships supply presentation availability. The current route supplies
+selection. Loaded records supply labels and course appearance. Server and
+Store boundaries continue to authorize every protected operation.
+
+**Ribbon Context Row** is the fixed row that identifies PLE, the current
+Course Instance or Assignment Attempt when present, and the current Account
+controls. Context labels remain separate from the page's task heading.
+
+**Ribbon Tab Row** contains the primary **Ribbon Tabs** for the current Ribbon
+Scope. A Ribbon Tab is a navigation link to one primary destination. The
+**Selected Ribbon Tab** is the tab whose destination matches the current
+route.
+
+**Ribbon Task Row** contains secondary **Ribbon Tasks** for the Selected
+Ribbon Tab. A Ribbon Task is a navigation link to one task-specific
+destination, such as Overview, Questions, Policies, Grading Operations, or
+Student View for an Assignment. A **Ribbon Task Area** is a presentation-only
+heading for adjacent Ribbon Tasks with one shared purpose.
+
+**Page Action** is a control that performs an operation on the current
+content, such as Create Assignment, Save, Publish, or Submit. Page Actions live
+with the content they affect. Ribbon Tabs and Ribbon Tasks navigate; Page
+Actions perform operations.
+
+**Ribbon Slot** is one stable ordered position in a Ribbon Scope's predefined
+structure. Its **Ribbon Availability** is one of:
+
+- **Available** when current presentation facts make the destination
+  appropriate to show as a live link.
+- **Checking** while the exact relationship facts needed for presentation are
+  loading.
+- **Unavailable** when the known relationship excludes that destination from
+  the current Ribbon.
+
+Selection and loading are separate from Ribbon Availability. **Selected**
+means the control's destination is the current route. **Loading** means a
+navigation to that destination is still in progress. **Active** remains a
+domain-state term for records such as Accounts and Course Memberships.
+
+**Content Layout** is the route-selected composition below the Ribbon.
+**Reading Layout** uses a bounded line length for prose. **Full-width Layout**
+uses the available content width for teaching workspaces, catalogs, and dense
+records. Content Layout never changes Ribbon geometry.
+
+The Product Ribbon uses these visible surface names:
+
+- **Courses** for the current Account's Course Instances.
+- **Question Library** for Published Question discovery in the Question
+  Corpus.
+- **Blueprint Courses** for reusable course definitions.
+- **Draft Questions** for private Draft Questions held in Authoring
+  Workspaces.
+- **Account** for personal authentication and presentation settings.
+
+Within one Course Instance, **Teaching Operations** names the teaching and
+course-lifecycle surface. **Blueprint Updates** names the surface for reviewed
+changes from the parent Blueprint Course. These labels preserve the distinction
+between reusable Blueprint Courses and live Course Instances.
 
 ## Authority and inheritance paths
 

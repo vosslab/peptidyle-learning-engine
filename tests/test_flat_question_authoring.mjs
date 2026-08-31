@@ -52,7 +52,8 @@ function source() {
 function publicDefinition(includeVersion = false) {
   const definition = {
     workspace,
-    source: { backend: "native", family: "flat_single_choice_v2" },
+    source: { backend: "native" },
+    questionFormat: "pleFlatQuestionV2",
     prompt: [{ kind: "text", markdown: "What is my favorite color?" }],
     response: {
       kind: "multipleChoice",
@@ -62,6 +63,7 @@ function publicDefinition(includeVersion = false) {
       ],
       selection: { kind: "exactlyOne" },
     },
+    questionType: "multipleChoice",
     attemptPolicy: { maxAttempts: null },
     timingPolicy: { kind: "untimed" },
     randomization: { kind: "static" },
@@ -86,7 +88,7 @@ function publicationSummary(backend = "native") {
   return {
     questionId: "7K3-M9QP",
     backend,
-    responseFamily: "multipleChoice",
+    questionType: "multipleChoice",
     capabilities: ["serverGrading"],
     metadata: publicDefinition().metadata,
     byline: { names: ["Fixture Instructor"] },
@@ -288,7 +290,7 @@ test("matching codec refuses duplicate or incomplete pairings", () => {
   assert.throws(() => decodeFlatQuestionSource(matching));
 });
 
-test("all remaining v2 source families retain semantic IDs and publish answer-free response definitions", () => {
+test("all remaining v2 source Question Types retain semantic IDs and publish answer-free response definitions", () => {
   const cases = [
     {
       kind: "multipleAnswer",
@@ -449,7 +451,7 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   assert.equal(serializeFlatQuestionPublicPreview(twoCorrect).includes("correctRegions"), false);
 });
 
-test("remaining v2 source families reject invalid private contracts", () => {
+test("remaining v2 source Question Types reject invalid private contracts", () => {
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...source(),
@@ -661,9 +663,9 @@ test("client rejects public responses whose identity does not match the requeste
 test("client rejects save DTOs and publication summaries that do not exactly confirm publication", async () => {
   const wrongSave = createFlatQuestionClient({
     fetch: async () =>
-      jsonResponse({ ...publicDefinition(), source: { backend: "native", family: "other" } }),
+      jsonResponse({ ...publicDefinition(), questionFormat: "nativeAlgorithmic" }),
   });
-  await assert.rejects(wrongSave.save(workspace, source()), /flat_single_choice_v2/u);
+  await assert.rejects(wrongSave.save(workspace, source()), /PLE flat-question V2 format/u);
 
   const wrongPublication = createFlatQuestionClient({
     fetch: async () => jsonResponse(publicationSummary("webwork")),
@@ -700,7 +702,7 @@ test("client rejects save DTOs and publication summaries that do not exactly con
   }
 });
 
-test("client accepts the exact native hotspot family for a strict hotspot source", async () => {
+test("client accepts the exact native hotspot Question Type for a strict hotspot source", async () => {
   const hotspot = decodeFlatQuestionSource({
     ...source(),
     response: {
@@ -718,7 +720,26 @@ test("client accepts the exact native hotspot family for a strict hotspot source
     fetch: async () =>
       jsonResponse({
         ...publicDefinition(),
-        source: { backend: "native", family: "flat_hotspot_v2" },
+        questionType: "hotspot",
+        response: {
+          kind: "hotspot",
+          surface: {
+            asset: "00000000-0000-4000-8000-000000000042",
+            checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          },
+          description: "A chromosome map",
+          regions: [
+            {
+              id: "centromere",
+              label: [{ kind: "text", markdown: "Centromere" }],
+              x: 0,
+              y: 0,
+              width: 4_000,
+              height: 4_000,
+            },
+          ],
+          selection: { kind: "atLeastOne" },
+        },
       }),
   });
   await client.save(workspace, hotspot);

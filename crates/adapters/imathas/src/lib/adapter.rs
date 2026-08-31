@@ -202,7 +202,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 seed,
                 title: safe.title,
                 prompt: safe.prompt,
-                response: question_model::ResponseDefinition::ExternalTool {},
+                response: question_model::QuestionResponseFormat::ExternalTool {},
             },
         };
         validate_cache(&record, question, seed, source)?;

@@ -7,8 +7,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentLandingPresentation,
-    AssignmentLifecycle, AssignmentScoringMode, AssignmentSelectionGroup, Capability,
+    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentEntry, AssignmentLandingPresentation,
+    AssignmentLifecycle, AssignmentScoringMode, Capability,
     IanaTimeZone, InstructorAssignmentTeachingSettingsLocal, LateSubmissionPolicy, PointValue,
     QuestionId, AssignmentActivityRules, SelectionOrdering,
     StudentDisclosurePolicy, VariationPolicy,
@@ -28,7 +28,7 @@ pub struct CreateAssignmentDraftRequest {
 pub struct ReplaceAssignmentContentRequest {
     /// Human-facing title, owned by the Questions workspace.
     pub title: String,
-    /// Ordered fixed questions and selection groups for future runs.
+    /// Ordered fixed questions and Question Pools for future runs.
     pub entries: Vec<AssignmentEntryRequest>,
 }
 
@@ -108,7 +108,7 @@ pub enum AssignmentPoliciesValidationIssue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentPolicyConfigurationReason {
-    SelectedProblemVariantsWithSelectionGroups,
+    SelectedProblemVariantsWithQuestionPools,
 }
 
 /// Closed structural-content refusal for a question definition with issued
@@ -137,18 +137,16 @@ pub enum AssignmentContentIssuedWorkConflictKind {
     deny_unknown_fields
 )]
 pub enum AssignmentEntryRequest {
-    /// One fixed question at a visible future-run position.
-    Fixed {
+    /// One fixed question at its place in the ordered future-run definition.
+    FixedQuestion {
         question_id: QuestionId,
-        position: u32,
         points_possible: PointValue,
         delivery_state: AssignmentDeliveryState,
         scoring_mode: AssignmentScoringMode,
     },
     /// A random draw from a server-resolved pool of immutable questions.
-    SelectionGroup {
+    QuestionPool {
         candidate_question_ids: Vec<QuestionId>,
-        position: u32,
         draw_count: u32,
         points_per_item: PointValue,
         ordering: SelectionOrdering,
@@ -233,23 +231,24 @@ impl InstructorStudentView {
 
 impl AssignmentPublicationReadiness {
     /// Derives readiness from the current definition without mutating it.
-    pub fn from_definition(
-        items: &[crate::AssignmentItem],
-        selection_groups: &[AssignmentSelectionGroup],
-    ) -> Self {
-        let has_active_fixed_item = items
-            .iter()
-            .any(|item| item.delivery_state == AssignmentDeliveryState::Active);
-        let has_deliverable_selection_group = selection_groups.iter().any(|group| {
-            group.draw_count > 0
-                && group
-                    .candidates
-                    .iter()
-                    .filter(|candidate| candidate.delivery_state == AssignmentDeliveryState::Active)
-                    .count()
-                    >= usize::try_from(group.draw_count).unwrap_or(usize::MAX)
+    pub fn from_entries(entries: &[AssignmentEntry]) -> Self {
+        let has_active_fixed_question = entries.iter().any(|entry| {
+            matches!(entry, AssignmentEntry::FixedQuestion(question)
+                if question.delivery_state == AssignmentDeliveryState::Active)
         });
-        let blocking_issues = (!has_active_fixed_item && !has_deliverable_selection_group)
+        let has_deliverable_question_pool = entries.iter().any(|entry| match entry {
+            AssignmentEntry::QuestionPool(pool) => {
+                pool.draw_count > 0
+                    && pool
+                        .candidates
+                        .iter()
+                        .filter(|candidate| candidate.delivery_state == AssignmentDeliveryState::Active)
+                        .count()
+                        >= usize::try_from(pool.draw_count).unwrap_or(usize::MAX)
+            }
+            AssignmentEntry::FixedQuestion(_) => false,
+        });
+        let blocking_issues = (!has_active_fixed_question && !has_deliverable_question_pool)
             .then_some(AssignmentPublicationBlockingIssue::QuestionsRequired)
             .into_iter()
             .collect();
@@ -265,7 +264,7 @@ impl AssignmentPublicationReadiness {
     ///
     /// A new or archived definition may be empty. Closed assignments retain a
     /// historical definition, and Published assignments require an active
-    /// deliverable position.
+    /// deliverable entry.
     pub fn permits_lifecycle(&self, lifecycle: AssignmentLifecycle, has_definition: bool) -> bool {
         match lifecycle {
             AssignmentLifecycle::Draft | AssignmentLifecycle::Archived => true,
@@ -281,7 +280,7 @@ mod tests {
 
     #[test]
     fn empty_definition_names_the_questions_blocker() {
-        let readiness = AssignmentPublicationReadiness::from_definition(&[], &[]);
+        let readiness = AssignmentPublicationReadiness::from_entries(&[]);
 
         assert_eq!(
             readiness.blocking_issues,
@@ -318,7 +317,7 @@ mod tests {
             issues: vec![
                 AssignmentPoliciesValidationIssue::Configuration {
                     reason:
-                        AssignmentPolicyConfigurationReason::SelectedProblemVariantsWithSelectionGroups,
+                        AssignmentPolicyConfigurationReason::SelectedProblemVariantsWithQuestionPools,
                 },
                 AssignmentPoliciesValidationIssue::PublicationReadiness {
                     blocking_issues: vec![AssignmentPublicationBlockingIssue::QuestionsRequired],
@@ -334,7 +333,7 @@ mod tests {
                 "issues": [
                     {
                         "kind": "configuration",
-                        "reason": "selectedProblemVariantsWithSelectionGroups"
+                        "reason": "selectedProblemVariantsWithQuestionPools"
                     },
                     {
                         "kind": "publicationReadiness",

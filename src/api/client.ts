@@ -2,7 +2,7 @@
 
 import type { AssetId } from "../../generated/api/AssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
-import type { AssignmentItemId } from "../../generated/api/AssignmentItemId";
+import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
@@ -226,7 +226,7 @@ export interface ApiClient
     course: CourseReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
-    groupPosition: number,
+    assignmentEntryId: number,
   ) => Promise<PoolDrawPreview>;
   readonly approveInstructorAccount: (
     account: AccountReference,
@@ -380,7 +380,7 @@ export interface ApiClient
   readonly replaceAssignmentFixedItem: (
     courseId: CourseId,
     assignmentId: AssignmentId,
-    itemId: AssignmentItemId,
+    itemId: AssignmentEntryId,
     questionId: QuestionId,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;

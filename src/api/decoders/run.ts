@@ -137,12 +137,12 @@ export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuesti
   requireOnlyFields(record, path, [
     "id",
     "assignmentAttempt",
-    "assignmentItem",
-    "sourcePosition",
+    "assignmentEntry",
+    "definitionEntryIndex",
     "issuedPosition",
     "reference",
     "statisticsEligible",
-    "selectionGroup",
+    "questionPoolEntry",
     "selectionSeed",
   ]);
   const reference = decodeRecord(field(record, "reference", path), `${path}.reference`);
@@ -153,13 +153,13 @@ export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuesti
       field(record, "assignmentAttempt", path),
       `${path}.assignmentAttempt`,
     ),
-    assignmentItem: decodeIdentifier(
-      field(record, "assignmentItem", path),
-      `${path}.assignmentItem`,
+    assignmentEntry: decodeIdentifier(
+      field(record, "assignmentEntry", path),
+      `${path}.assignmentEntry`,
     ),
-    sourcePosition: decodeNonnegativeInteger(
-      field(record, "sourcePosition", path),
-      `${path}.sourcePosition`,
+    definitionEntryIndex: decodeNonnegativeInteger(
+      field(record, "definitionEntryIndex", path),
+      `${path}.definitionEntryIndex`,
     ),
     issuedPosition: decodeNonnegativeInteger(
       field(record, "issuedPosition", path),
@@ -170,9 +170,9 @@ export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuesti
       field(record, "statisticsEligible", path),
       `${path}.statisticsEligible`,
     ),
-    selectionGroup: decodeNullable(
-      field(record, "selectionGroup", path),
-      `${path}.selectionGroup`,
+    questionPoolEntry: decodeNullable(
+      field(record, "questionPoolEntry", path),
+      `${path}.questionPoolEntry`,
       decodeIdentifier,
     ),
     selectionSeed: decodeNullable(

@@ -6,7 +6,7 @@ import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
 import type { BackendCapabilities } from "../../generated/api/BackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
-import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
+import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { PresentationDigestTokenV1 } from "../../generated/api/PresentationDigestTokenV1";
@@ -50,7 +50,7 @@ export interface ResponseFormatReport {
 }
 
 export type FormatValidator = (
-  definition: ResponseDefinition,
+  definition: QuestionResponseFormat,
   response: StudentResponse,
 ) => Promise<ResponseFormatReport>;
 
@@ -91,7 +91,7 @@ export interface NativeDraftPreviewRequest {
   readonly source: DraftQuestionSource;
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
   readonly randomization: RandomizationDefinition;
 }
 
@@ -101,7 +101,7 @@ export interface NativeDraftPreview {
   readonly seed: number;
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
-  readonly response: ResponseDefinition;
+  readonly response: QuestionResponseFormat;
 }
 
 export type NativeDraftPreviewResult =

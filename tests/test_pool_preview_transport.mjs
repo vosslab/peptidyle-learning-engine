@@ -17,8 +17,8 @@ function previewResponse() {
   return {
     assignment,
     revision,
-    groupPosition: 1,
-    groupLabel: "Pool 2",
+    assignmentEntryId: 1,
+    questionPoolLabel: "Pool 2",
     drawCount: 1,
     ordering: "randomized",
     algorithm: "v1",
@@ -40,9 +40,9 @@ function jsonResponse(value, status = 200, cacheControl = "no-store") {
 test("pool preview decoder accepts only the safe closed server projection", () => {
   const response = previewResponse();
   assert.deepEqual(decodePoolDrawPreview(response), response);
-  assert.deepEqual(decodePoolDrawPreviewRequest({ groupPosition: 1 }), { groupPosition: 1 });
+  assert.deepEqual(decodePoolDrawPreviewRequest({ assignmentEntryId: 1 }), { assignmentEntryId: 1 });
   assert.throws(
-    () => decodePoolDrawPreviewRequest({ groupPosition: 1, seed: "browser" }),
+    () => decodePoolDrawPreviewRequest({ assignmentEntryId: 1, seed: "browser" }),
     DecodeError,
   );
   assert.throws(
@@ -65,11 +65,11 @@ test("pool preview transport sends only position with revision and requires no-s
     },
   });
   const preview = await client.previewPoolDraw(course, assignment, revision, 1);
-  assert.equal(preview.groupLabel, "Pool 2");
+  assert.equal(preview.questionPoolLabel, "Pool 2");
   assert.equal(calls[0]?.input, "/api/courses/C-12/assignments/A-34/preview-pool-draw");
   assert.equal(calls[0]?.init?.method, "POST");
   assert.equal(calls[0]?.init?.headers?.["if-match"], '"7"');
-  assert.equal(calls[0]?.init?.body, JSON.stringify({ groupPosition: 1 }));
+  assert.equal(calls[0]?.init?.body, JSON.stringify({ assignmentEntryId: 1 }));
   assert.equal(calls[0]?.init?.credentials, "same-origin");
   assert.equal(calls[0]?.init?.cache, "no-store");
 });

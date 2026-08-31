@@ -47,7 +47,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 | Backend              | Current authority                                                   | Browser response                                           | Server grading authority                            | Current scope                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 families; protected visual author editor; end-to-end all-family and hotspot lifecycle acceptance remains open |
+| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
 | QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                              |
 | WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                    |
 | iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                              |
@@ -66,8 +66,8 @@ version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
 multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical, matching, ordering, and hotspot questions. The native adapter dispatches by
-registered family rather than making the run model family-specific. The protected visual author
-editor exposes all eight v2 families. Its instructor route is a convenience surface only: the server
+registered Native Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the run model type-specific. The protected visual author
+editor exposes all eight v2 Question Types. Its instructor route is a convenience surface only: the server
 re-resolves source and asset bindings at save and publication, and the student contract remains
 answer-free. Integrated author-to-publication-to-student acceptance for every family, including the
 hotspot lifecycle, remains open.
@@ -87,7 +87,7 @@ provenance is detectable.
 
 ### Capabilities and extension
 
-Native capabilities are the intersection declared by selected registered families. A new family must
+Native capabilities are the intersection declared by selected registered implementations. A new Question Implementation must
 add a closed source/parser/compiler contract, browser-safe response definition, server-only key or
 rubric, deterministic issue/reproduction, capability declaration, strict response validation, and
 conformance coverage. It must not add a parallel run loop or browser grader.

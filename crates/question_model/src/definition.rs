@@ -16,7 +16,7 @@ use crate::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use crate::envelope::ContentBlock;
 use crate::generation::RandomizationDefinition;
 use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
-use crate::response::ResponseDefinition;
+use crate::response::{QuestionResponseFormat, QuestionType};
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{QuestionId, QuestionVersionNumber};
 
@@ -26,6 +26,28 @@ use crate::{QuestionId, QuestionVersionNumber};
 /// for valid UTF-8 JSON strings. Titles are never silently trimmed or
 /// normalized at either boundary.
 pub const MAX_QUESTION_TITLE_UNICODE_SCALARS: usize = 512;
+
+/// The authored or imported representation of a Question.
+///
+/// Question Format describes source representation and interchange. It is
+/// independent of the educational Question Type, the server-side Question
+/// Backend, and any Question Generator used to make a variation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuestionFormat {
+    /// Version 2 of PLE's canonical static flat-question JSON.
+    PleFlatQuestionV2,
+    /// A first-party generated Question authored as a native implementation.
+    NativeAlgorithmic,
+    /// A WeBWorK PG source.
+    WebworkPg,
+    /// An imported QTI item.
+    Qti,
+    /// An imported H5P activity.
+    H5p,
+    /// An archived iMathAS source snapshot.
+    Imathas,
+}
 
 /// Why a student-facing question title cannot be safely delivered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,11 +99,8 @@ pub fn validate_question_title(title: &str) -> Result<(), QuestionTitleError> {
     rename_all_fields = "camelCase"
 )]
 pub enum QuestionSource {
-    /// A first-party algorithmic question.
-    Native {
-        /// Question family the native adapter dispatches on.
-        family: String,
-    },
+    /// A first-party native question.
+    Native,
     /// A WeBWorK PG problem, rendered by the renderer service.
     Webwork {
         /// Path within the problem library, for example an OPL path.
@@ -148,7 +167,7 @@ impl QuestionSource {
             Self::Imathas {
                 snapshot_sha256, ..
             } => snapshot_sha256,
-            Self::Native { .. } | Self::Webwork { .. } | Self::H5p { .. } => return Ok(()),
+            Self::Native | Self::Webwork { .. } | Self::H5p { .. } => return Ok(()),
         };
         if checksum.len() == 64
             && checksum
@@ -174,8 +193,8 @@ impl QuestionSource {
     rename_all_fields = "camelCase"
 )]
 pub enum DraftQuestionSource {
-    /// A first-party algorithmic question family.
-    Native { family: String },
+    /// A first-party native question.
+    Native,
     /// A WeBWorK PG problem.
     Webwork { pg_path: String },
     /// An imported QTI item staged in this draft's private workspace.
@@ -197,7 +216,7 @@ impl TryFrom<DraftQuestionSource> for QuestionSource {
 
     fn try_from(source: DraftQuestionSource) -> Result<Self, Self::Error> {
         match source {
-            DraftQuestionSource::Native { family } => Ok(Self::Native { family }),
+            DraftQuestionSource::Native => Ok(Self::Native),
             DraftQuestionSource::Webwork { pg_path } => Ok(Self::Webwork { pg_path }),
             DraftQuestionSource::Qti { .. } => Err(DraftSourcePublicationError::QtiImportRequired),
             DraftQuestionSource::H5p { content_type } => Ok(Self::H5p { content_type }),
@@ -283,10 +302,14 @@ pub struct DraftQuestionDefinition {
     pub workspace: WorkspaceId,
     /// Which engine it came from.
     pub source: DraftQuestionSource,
+    /// The authored or imported representation of this Question.
+    pub question_format: QuestionFormat,
     /// The prompt, in render order.
     pub prompt: Vec<ContentBlock>,
     /// The shape of response expected.
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
+    /// The educational interaction this Question assesses.
+    pub question_type: QuestionType,
     /// How many attempts, and when feedback appears.
     pub attempt_policy: AttemptPolicy,
     /// Time limits, if any.
@@ -301,7 +324,7 @@ pub struct DraftQuestionDefinition {
 
 /// Compact browser-safe identity for one private workspace draft.
 ///
-/// The full source locator, prompt, response definition, grading policy, and
+/// The full source locator, prompt, Question Response Format, grading policy, and
 /// asset references remain on the detail record.  In particular, this list
 /// projection deliberately has no published Question ID or Question Version Number.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -313,7 +336,7 @@ pub struct WorkspaceDraftSummary {
     pub reference: crate::WorkspaceReference,
     /// Human-facing draft title.
     pub title: String,
-    /// Adapter family without its private source locator.
+    /// Question Backend without its private source locator.
     pub source_backend: crate::catalog::QuestionBackend,
 }
 
@@ -344,10 +367,14 @@ pub struct QuestionDefinition {
     pub workspace: WorkspaceId,
     /// Which engine it came from.
     pub source: QuestionSource,
+    /// The authored or imported representation of this Question.
+    pub question_format: QuestionFormat,
     /// The prompt, in render order.
     pub prompt: Vec<ContentBlock>,
     /// The shape of response expected.
-    pub response: ResponseDefinition,
+    pub response: QuestionResponseFormat,
+    /// The educational interaction this Question assesses.
+    pub question_type: QuestionType,
     /// How many attempts, and when feedback appears.
     pub attempt_policy: AttemptPolicy,
     /// Time limits, if any.
@@ -373,8 +400,10 @@ impl QuestionDefinition {
             version_number,
             workspace: draft.workspace,
             source,
+            question_format: draft.question_format,
             prompt: draft.prompt,
             response: draft.response,
+            question_type: draft.question_type,
             attempt_policy: draft.attempt_policy,
             timing_policy: draft.timing_policy,
             randomization: draft.randomization,
@@ -394,16 +423,16 @@ mod tests {
     fn sample_draft() -> DraftQuestionDefinition {
         DraftQuestionDefinition {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-            source: DraftQuestionSource::Native {
-                family: "molar_mass".to_string(),
-            },
+            source: DraftQuestionSource::Native,
+            question_format: QuestionFormat::NativeAlgorithmic,
             prompt: vec![ContentBlock::Text {
                 markdown: "What is the molar mass?".to_string(),
             }],
-            response: ResponseDefinition::Numeric {
+            response: QuestionResponseFormat::Numeric {
                 tolerance: NumericTolerance::Relative { fraction: 0.01 },
                 unit: Some("g/mol".to_string()),
             },
+            question_type: QuestionType::Numeric,
             attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
@@ -431,9 +460,7 @@ mod tests {
             sample_draft(),
             "123-4567".parse().expect("valid Question ID"),
             QuestionVersionNumber::new(1).expect("positive version"),
-            QuestionSource::Native {
-                family: "molar_mass".to_string(),
-            },
+            QuestionSource::Native,
         );
         assert_eq!(published.question_id.to_string(), "123-4567");
     }

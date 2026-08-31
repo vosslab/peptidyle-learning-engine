@@ -20,10 +20,16 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
   const assignment = workspace.assignment;
   const fixedCount = (): number =>
-    assignment().items.filter((item) => item.deliveryState === "active").length;
-  const poolCount = (): number => assignment().selectionGroups.length;
+    assignment().entries.filter(
+      (entry) => entry.kind === "fixedQuestion" && entry.deliveryState === "active",
+    ).length;
+  const poolCount = (): number =>
+    assignment().entries.filter((entry) => entry.kind === "questionPool").length;
   const candidateCount = (): number =>
-    assignment().selectionGroups.reduce((total, group) => total + group.candidates.length, 0);
+    assignment().entries.reduce(
+      (total, entry) => total + (entry.kind === "questionPool" ? entry.candidates.length : 0),
+      0,
+    );
   const base = (): string =>
     assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference);
 

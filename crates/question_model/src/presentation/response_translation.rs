@@ -173,8 +173,8 @@ impl std::error::Error for RenderedResponseTranslationErrorV1 {}
 
 /// Converts browser-rendered item IDs into the durable IDs bound to one issue.
 ///
-/// Only identifier-bearing response families are rewritten. Scalar response
-/// families preserve their values exactly. The function intentionally exposes
+/// Only identifier-bearing Question Response Formats are rewritten. Scalar
+/// response formats preserve their values exactly. The function intentionally exposes
 /// no durable mapping or serializable wire type.
 pub fn translate_rendered_response_v1(
     response: &StudentResponse,
