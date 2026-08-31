@@ -152,14 +152,14 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
 function selectionRule(
   value: unknown,
   path: string,
-): { readonly algorithm: "v1"; readonly ordering: "candidateOrder" | "randomized" } {
-  const record = closed(value, path, ["algorithm", "ordering"]);
+): { readonly selectedQuestionOrder: "candidateOrder" | "randomOrder" } {
+  const record = closed(value, path, ["selectedQuestionOrder"]);
   return {
-    algorithm: decodeStringEnum(record.algorithm, `${path}.algorithm`, ["v1"] as const),
-    ordering: decodeStringEnum(record.ordering, `${path}.ordering`, [
-      "candidateOrder",
-      "randomized",
-    ] as const),
+    selectedQuestionOrder: decodeStringEnum(
+      record.selectedQuestionOrder,
+      `${path}.selectedQuestionOrder`,
+      ["candidateOrder", "randomOrder"] as const,
+    ),
   };
 }
 
@@ -313,7 +313,8 @@ function student_feedback_release(value: unknown, path: string): StudentFeedback
       "scoreShown",
       "correctnessShown",
       "feedbackShown",
-      "solutionShown",
+      "questionAnswerShown",
+      "questionAnswerExplanationShown",
       "statisticsShown",
     ]);
     return {
@@ -323,7 +324,14 @@ function student_feedback_release(value: unknown, path: string): StudentFeedback
         scoreShown: decodeBoolean(flags.scoreShown, `${path}.flags.scoreShown`),
         correctnessShown: decodeBoolean(flags.correctnessShown, `${path}.flags.correctnessShown`),
         feedbackShown: decodeBoolean(flags.feedbackShown, `${path}.flags.feedbackShown`),
-        solutionShown: decodeBoolean(flags.solutionShown, `${path}.flags.solutionShown`),
+        questionAnswerShown: decodeBoolean(
+          flags.questionAnswerShown,
+          `${path}.flags.questionAnswerShown`,
+        ),
+        questionAnswerExplanationShown: decodeBoolean(
+          flags.questionAnswerExplanationShown,
+          `${path}.flags.questionAnswerExplanationShown`,
+        ),
         statisticsShown: decodeBoolean(flags.statisticsShown, `${path}.flags.statisticsShown`),
       },
     };

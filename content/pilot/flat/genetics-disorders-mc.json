@@ -21,8 +21,8 @@
   "questionAttemptLimit": { "maxAttempts": null },
   "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["genetics", "genetic-disorders", "chapter-1"],
-  "taxonomy": [
-    { "scheme": "Peptidyle", "code": "GENETICS.CHAPTER_1", "label": "Genetics Chapter 1" }
+  "classifications": [
+    { "system": "Peptidyle", "code": "GENETICS.CHAPTER_1", "name": "Genetics Chapter 1" }
   ],
   "license": { "kind": "ccBy" },
   "language": "en-US"

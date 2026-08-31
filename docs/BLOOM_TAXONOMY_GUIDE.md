@@ -2,8 +2,8 @@
 
 This guide translates the Iowa State University Center for Excellence in Learning and Teaching
 (CELT) Bloom's Taxonomy guide into the Question classification used by PLE. It helps Instructors
-classify the cognitive work required by one exact Question Revision and helps the Bloom
-Classification Assistant prepare a useful suggestion for Instructor review.
+understand and correct the AI-assigned cognitive classification of one exact Published Question
+Revision.
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#content-and-delivery-relationships) owns the
 canonical names. [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the Question data
@@ -29,10 +29,10 @@ rank the Student, the Instructor, the Question Type, or the value of the Questio
 
 The revised taxonomy has two independent dimensions. A Question receives one value from each.
 
-| Dimension                   | Question answered                                      |
-| --------------------------- | ------------------------------------------------------ |
-| Cognitive Process Dimension | What cognitive work must the Student perform?          |
-| Knowledge Dimension         | What kind of knowledge must the Student work with?     |
+| Dimension                   | Question answered                                  |
+| --------------------------- | -------------------------------------------------- |
+| Cognitive Process Dimension | What cognitive work must the Student perform?      |
+| Knowledge Dimension         | What kind of knowledge must the Student work with? |
 
 The two selected enum values determine one derived Question Bloom Classification:
 
@@ -54,14 +54,14 @@ classification field.
 
 The Cognitive Process Dimension uses six closed values.
 
-| Value      | Full-credit performance                                      | Reference hue |
-| ---------- | ------------------------------------------------------------ | ------------- |
-| Remember   | Retrieve relevant knowledge                                  | Blue          |
-| Understand | Construct meaning from presented or recalled knowledge       | Green         |
-| Apply      | Use a procedure in a situation                               | Yellow-green  |
-| Analyze    | Separate material into parts and relate those parts          | Yellow        |
-| Evaluate   | Make a judgment using stated or appropriate criteria         | Orange        |
-| Create     | Assemble elements into a coherent or functional new whole    | Pink          |
+| Value      | Full-credit performance                                   | Reference hue |
+| ---------- | --------------------------------------------------------- | ------------- |
+| Remember   | Retrieve relevant knowledge                               | Blue          |
+| Understand | Construct meaning from presented or recalled knowledge    | Green         |
+| Apply      | Use a procedure in a situation                            | Yellow-green  |
+| Analyze    | Separate material into parts and relate those parts       | Yellow        |
+| Evaluate   | Make a judgment using stated or appropriate criteria      | Orange        |
+| Create     | Assemble elements into a coherent or functional new whole | Pink          |
 
 These categories describe different kinds of cognitive work. Use the category the Question
 actually requires. A sound course uses foundational and complex work where each serves the learning
@@ -75,12 +75,12 @@ Those tasks belong to different cognitive processes despite sharing a verb.
 
 The Knowledge Dimension uses four closed values.
 
-| Value                     | Primary knowledge used by the Question                   |
-| ------------------------- | -------------------------------------------------------- |
-| Factual Knowledge         | Terminology, specific details, and discrete elements     |
-| Conceptual Knowledge      | Categories, principles, theories, models, and systems    |
-| Procedural Knowledge      | Skills, algorithms, techniques, methods, and their use   |
-| Metacognitive Knowledge   | Strategies and awareness of one's own cognition          |
+| Value                   | Primary knowledge used by the Question                 |
+| ----------------------- | ------------------------------------------------------ |
+| Factual Knowledge       | Terminology, specific details, and discrete elements   |
+| Conceptual Knowledge    | Categories, principles, theories, models, and systems  |
+| Procedural Knowledge    | Skills, algorithms, techniques, methods, and their use |
+| Metacognitive Knowledge | Strategies and awareness of one's own cognition        |
 
 The knowledge named in the prompt is not always the knowledge being assessed. A Question may use a
 protein structure as presented material while assessing a procedure for evaluating binding sites.
@@ -156,27 +156,28 @@ Classify the exact performance required for full credit:
    Dimension.
 4. Check the ordered pair against the actual grading requirement and the expected prior learning.
 5. For a Question with several tasks, select the pair representing the dominant full-credit work.
-6. Send a genuinely co-dominant or ambiguous Question to the Instructor with the candidate pairs
-   and a concise reason for the uncertainty.
+6. For a genuinely co-dominant or ambiguous Question, select the best-supported pair so the
+   classification can complete. An Instructor can correct the pair later.
 
 Course context matters. Following a practiced algorithm may be Apply in one course, while choosing
 or adapting an unfamiliar method may require Analyze, Evaluate, or Create in another. The exact
 Question text alone may therefore be insufficient without its intended audience and expected prior
 learning.
 
-## Assistant and Instructor roles
+## AI assignment and correction
 
-The Bloom Classification Assistant evaluates one exact Draft Question Revision and fills a Bloom
-Classification Suggestion before Instructor review. A useful review presentation shows:
+Publishing creates the exact Question Revision with Bloom classification unassigned and completes
+immediately. AI classification work searches for unassigned Published Question Revisions, evaluates
+each exact revision, and assigns the initial Cognitive Process Dimension and Knowledge Dimension
+values. The Question remains Published and discoverable while unassigned.
 
-- the suggested Cognitive Process Dimension;
-- the suggested Knowledge Dimension;
-- the task evidence that supports each selection; and
-- any uncertainty caused by multiple scored tasks or missing teaching context.
+An Instructor can later edit either value when teaching context or expert judgment supports a
+different pair. The correction targets the same exact Question Revision. It changes classification
+metadata while leaving immutable Question content and its Reason for Edit history unchanged.
 
-The Instructor keeps or changes either independent value. Publication stores the accepted pair on
-the immutable Question Revision. A later classification correction follows the ordinary Question
-Revision and Reason for Edit workflow.
+This guide defines the expected result and timing. A separate AI integration plan will select the
+model execution environment, protected Question inputs, scheduling, concurrent work claims, retry
+behavior, and operational validation.
 
 ## Search and reporting
 
@@ -216,22 +217,24 @@ color does not represent correctness, Question Difficulty, point value, or maste
 
 ## Review checklist
 
-- [ ] The exact Question Revision has one Cognitive Process value.
-- [ ] The exact Question Revision has one Knowledge Dimension value.
+- [ ] Publication creates the exact Question Revision with Bloom classification unassigned.
+- [ ] AI classification work searches for unassigned Published Question Revisions.
+- [ ] The completed classification has one Cognitive Process value.
+- [ ] The completed classification has one Knowledge Dimension value.
 - [ ] The combined classification and matrix position are derived from that ordered pair.
 - [ ] The full-credit task, rather than a command verb alone, supports the pair.
 - [ ] Expected prior learning and course context support the selected cognitive process.
 - [ ] The classification remains separate from Question Difficulty and Question Type.
 - [ ] Every color-coded presentation also displays both dimension labels.
-- [ ] The Instructor has accepted or edited the suggestion before publication.
+- [ ] An Instructor can edit either assigned value later without creating a Question Revision.
 
 ## Sources
 
 - [Iowa State University CELT Bloom's Taxonomy](https://celt.iastate.edu/prepare-and-teach/design-your-course/blooms-taxonomy/)
   explains the course-design, assessment-alignment, and program-tracking uses of the revised
   taxonomy.
-- Anderson, L. W., and Krathwohl, D. R., editors. 2001. *A Taxonomy for Learning, Teaching, and
-  Assessing: A Revision of Bloom's Taxonomy of Educational Objectives.* Longman.
+- Anderson, L. W., and Krathwohl, D. R., editors. 2001. _A Taxonomy for Learning, Teaching, and
+  Assessing: A Revision of Bloom's Taxonomy of Educational Objectives._ Longman.
 - Rex Heer's Iowa State University CELT three-dimensional model, updated January 2012, provides the
   two-axis presentation, process-column color families, and example-objective structure. The image
   identifies its license as Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported.

@@ -81,7 +81,7 @@ export function GradebookRunChooser(props: GradebookRunChooserProps): JSX.Elemen
       <h2 id="gradebook-run-chooser-heading">Choose one submitted run</h2>
       <p id="gradebook-run-chooser-copy">
         Select the exact run for {props.studentLabel} in {props.assignmentTitle}. Inspection shows
-        the Student&apos;s submitted response and solution-free grading evidence.
+        the Student&apos;s submitted response, permitted correctness, and permitted score.
       </p>
       <Show when={state().kind === "loading"}>
         <p class="loading-state" aria-live="polite">

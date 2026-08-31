@@ -15,11 +15,11 @@
     "metadata": {
       "title": "Peptide bond resonance and planarity",
       "tags": ["biochemistry", "protein-structure"],
-      "taxonomy": [
+      "classifications": [
         {
-          "scheme": "Peptidyle",
+          "system": "Peptidyle",
           "code": "BIOCHEM.PEPTIDE_BOND",
-          "label": "Peptide bond structure"
+          "name": "Peptide bond structure"
         }
       ],
       "license": {
@@ -127,11 +127,11 @@
     "metadata": {
       "title": "Peptide bond resonance and planarity",
       "tags": ["biochemistry", "protein-structure"],
-      "taxonomy": [
+      "classifications": [
         {
-          "scheme": "Peptidyle",
+          "system": "Peptidyle",
           "code": "BIOCHEM.PEPTIDE_BOND",
-          "label": "Peptide bond structure"
+          "name": "Peptide bond structure"
         }
       ],
       "license": {
@@ -230,11 +230,11 @@
     "metadata": {
       "title": "Draft: peptide resonance wording revision",
       "tags": ["biochemistry", "protein-structure"],
-      "taxonomy": [
+      "classifications": [
         {
-          "scheme": "Peptidyle",
+          "system": "Peptidyle",
           "code": "BIOCHEM.PEPTIDE_BOND",
-          "label": "Peptide bond structure"
+          "name": "Peptide bond structure"
         }
       ],
       "license": {
@@ -298,14 +298,16 @@
       "score": "after_submit",
       "per_item_correctness": "after_submit",
       "feedback_text": "after_submit",
-      "solution": "after_submit",
+      "question_answer": "after_submit",
+      "question_answer_explanation": "after_submit",
       "class_statistics": "never"
     },
     "studentFeedbackReleaseRule": {
       "score": "after_submit",
       "per_item_correctness": "after_submit",
       "feedback_text": "after_submit",
-      "solution": "after_submit",
+      "question_answer": "after_submit",
+      "question_answer_explanation": "after_submit",
       "class_statistics": "never"
     },
     "policies": {
@@ -316,7 +318,8 @@
       "assignmentAttemptContinuationRule": {
         "kind": "unlimited"
       },
-      "questionVariationRule": "reuseQuestionsWithNewSeeds",
+      "questionPoolReuseRule": "reuseSelection",
+      "questionVariationRule": "newVariation",
       "assignmentAttemptResumeRule": "resumable",
       "assignmentQuestionDisplayRule": "allQuestions",
       "assignmentNavigationRule": "freeNavigation",
@@ -338,7 +341,8 @@
       "startedAt": 1786000001000,
       "completedAt": 1786000001300,
       "score": 0,
-      "questionVariationRule": "reuseQuestionsWithNewSeeds"
+      "questionPoolReuseRule": "reuseSelection",
+      "questionVariationRule": "newVariation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
@@ -353,7 +357,8 @@
       "startedAt": 1786000002000,
       "completedAt": 1786000002300,
       "score": 1,
-      "questionVariationRule": "reuseQuestionsWithNewSeeds"
+      "questionPoolReuseRule": "reuseSelection",
+      "questionVariationRule": "newVariation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
@@ -368,7 +373,8 @@
       "startedAt": 1786000003000,
       "completedAt": 1786000003300,
       "score": 0,
-      "questionVariationRule": "reuseQuestionsWithNewSeeds"
+      "questionPoolReuseRule": "reuseSelection",
+      "questionVariationRule": "newVariation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
@@ -383,7 +389,8 @@
       "startedAt": 1786000004000,
       "completedAt": null,
       "score": null,
-      "questionVariationRule": "reuseQuestionsWithNewSeeds"
+      "questionPoolReuseRule": "reuseSelection",
+      "questionVariationRule": "newVariation"
     }
   ],
   "issuedQuestions": [
@@ -398,8 +405,8 @@
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "questionPoolEntry": null,
-      "selectionSeed": null
+      "questionPoolSelection": null,
+      "questionPoolCandidate": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000041",
@@ -412,8 +419,8 @@
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "questionPoolEntry": null,
-      "selectionSeed": null
+      "questionPoolSelection": null,
+      "questionPoolCandidate": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000042",
@@ -426,8 +433,8 @@
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "questionPoolEntry": null,
-      "selectionSeed": null
+      "questionPoolSelection": null,
+      "questionPoolCandidate": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000043",
@@ -440,8 +447,8 @@
         "versionNumber": 1
       },
       "statisticsEligible": true,
-      "questionPoolEntry": null,
-      "selectionSeed": null
+      "questionPoolSelection": null,
+      "questionPoolCandidate": null
     }
   ],
   "attempts": [

@@ -86,7 +86,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       props.onChange(entry);
       setCandidateText("");
       props.onMessage(
-        `Added ${candidates.length} candidate Question ID${candidates.length === 1 ? "" : "s"}. Set the draw count, then save the assignment.`,
+        `Added ${candidates.length} candidate Question ID${candidates.length === 1 ? "" : "s"}. Set the selection count, then save the Assignment.`,
       );
     } catch (error: unknown) {
       setCandidateError(
@@ -105,9 +105,9 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
     );
     update({ candidates });
   }
-  function updateOrdering(value: string): void {
-    if (value !== "candidateOrder" && value !== "randomized") return;
-    update({ selectionRule: { ...props.entry.selectionRule, ordering: value } });
+  function updateSelectedQuestionOrder(value: string): void {
+    if (value !== "candidateOrder" && value !== "randomOrder") return;
+    update({ selectionRule: { selectedQuestionOrder: value } });
   }
 
   return (
@@ -118,8 +118,8 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       <div>
         <h3>Question pool</h3>
         <p>
-          Draw algorithm v1. The server selects from the candidate Question IDs and records each
-          student&apos;s actual draw as immutable evidence.
+          The server selects from the candidate Question IDs and records each Student&apos;s exact
+          Question Pool Selection as immutable evidence.
         </p>
       </div>
       <div class="assignment-editor-row-actions">
@@ -147,7 +147,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           disabled={props.previewBusy}
           onClick={props.onPreview}
         >
-          {props.preview === undefined ? "Preview draw" : "Preview another draw"}
+          {props.preview === undefined ? "Preview selection" : "Preview another selection"}
         </button>
         <button class="quiet-action" type="button" onClick={props.onRemove}>
           Remove pool
@@ -155,17 +155,17 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       </div>
       <div class="assignment-editor-pool-fields">
         <label class="assignment-editor-field">
-          Draw count
+          Selection count
           <input
             type="number"
             min="1"
             max={props.entry.candidates.length || undefined}
-            value={props.entry.drawCount}
-            onInput={(event) => update({ drawCount: Number(event.currentTarget.value) })}
+            value={props.entry.selectionCount}
+            onInput={(event) => update({ selectionCount: Number(event.currentTarget.value) })}
           />
         </label>
         <label class="assignment-editor-field">
-          Points per drawn question
+          Points per selected Question
           <input
             inputmode="decimal"
             value={props.entry.pointsPerItem}
@@ -173,13 +173,13 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           />
         </label>
         <label class="assignment-editor-field">
-          Delivery order
+          Selected Question order
           <select
-            value={props.entry.selectionRule.ordering}
-            onChange={(event) => updateOrdering(event.currentTarget.value)}
+            value={props.entry.selectionRule.selectedQuestionOrder}
+            onChange={(event) => updateSelectedQuestionOrder(event.currentTarget.value)}
           >
             <option value="candidateOrder">Candidate order</option>
-            <option value="randomized">Randomized</option>
+            <option value="randomOrder">Random order</option>
           </select>
         </label>
       </div>
@@ -191,7 +191,8 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           >
             <h4 id={`pool-preview-${props.entryIndex}`}>{preview().questionPoolLabel}</h4>
             <p>
-              Selected {preview().selectionCount} in {preview().selectionRule.ordering} order.
+              Selected {preview().selectionCount} in {preview().selectionRule.selectedQuestionOrder}
+              .
             </p>
             <h5>Candidate questions</h5>
             <ul>

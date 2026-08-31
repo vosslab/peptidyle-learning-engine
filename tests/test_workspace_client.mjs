@@ -11,7 +11,7 @@ import {
   WorkspaceConflictError,
   PublicationValidationError,
 } from "../src/api/http_client.ts";
-import { decodePublicationDiff, decodeWorkspaceDraftPage } from "../src/api/decoders.ts";
+import { decodeQuestionPublicationReview, decodeWorkspaceDraftPage } from "../src/api/decoders.ts";
 import { decodePublicByline, parseReviewedPublicByline } from "../src/api/public_byline.ts";
 import { createWorkspaceEditorRepository } from "../src/pages/editor_workspace_repository.ts";
 
@@ -43,22 +43,22 @@ function semanticProjection(definition) {
     questionVariationDefinition: { kind: definition.questionVariationDefinition.kind },
     metadata: {
       tags: definition.metadata.tags,
-      taxonomy: definition.metadata.taxonomy,
+      classifications: definition.metadata.classifications,
       license: definition.metadata.license,
       language: definition.metadata.language,
     },
   };
 }
 
-test("publication diff recursively admits only semantic projections and consistent baselines", () => {
+test("Question Publication Review admits only safe review summaries and a consistent base", () => {
   const current = semanticProjection(draft);
   const first = {
-    draftRevision: 1,
-    baseline: "newQuestion",
+    workingCopyEditNumber: 1,
+    baseQuestion: "newQuestion",
     current,
     changed: [],
   };
-  assert.deepEqual(decodePublicationDiff(first), { ...first, revision: '"1"' });
+  assert.deepEqual(decodeQuestionPublicationReview(first), { ...first, revision: '"1"' });
   for (const contaminated of [
     { ...first, current: { ...current, source: { path: "private.pg" } } },
     { ...first, current: { ...current, prompt: { blocks: ["text", "secret"] } } },
@@ -69,7 +69,7 @@ test("publication diff recursively admits only semantic projections and consiste
       prior: "hidden",
     },
   ]) {
-    assert.throws(() => decodePublicationDiff(contaminated));
+    assert.throws(() => decodeQuestionPublicationReview(contaminated));
   }
 });
 
@@ -81,11 +81,11 @@ test("publication transport uses a bodyless validation request and an explicit r
       if (String(input).endsWith("publication-validation")) {
         return jsonResponse({ violations: [] }, { headers: { etag: '"1"' } });
       }
-      if (String(input).endsWith("publication-diff")) {
+      if (String(input).endsWith("question-publication-review")) {
         return jsonResponse(
           {
-            draftRevision: 1,
-            baseline: "newQuestion",
+            workingCopyEditNumber: 1,
+            baseQuestion: "newQuestion",
             current: semanticProjection(draft),
             changed: [],
           },
@@ -96,7 +96,7 @@ test("publication transport uses a bodyless validation request and an explicit r
     },
   });
   await client.validateWorkspacePublication(workspace);
-  await client.getWorkspacePublicationDiff(workspace);
+  await client.getQuestionPublicationReview(workspace);
   const request = { scope: "public", byline: { names: ["Fixture Instructor"] } };
   await client.publishWorkspace(workspace, request, '"1"');
   assert.equal(calls[0].init.method, "POST");
@@ -187,15 +187,15 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
     fetch: async () =>
       jsonResponse(
         {
-          draftRevision: 2,
-          baseline: "newQuestion",
+          workingCopyEditNumber: 2,
+          baseQuestion: "newQuestion",
           current: semanticProjection(draft),
           changed: [],
         },
         { headers: { etag: '"1"' } },
       ),
   });
-  await assert.rejects(badDiff.getWorkspacePublicationDiff(workspace), ApiProtocolError);
+  await assert.rejects(badDiff.getQuestionPublicationReview(workspace), ApiProtocolError);
   const publish = createHttpApiClient({
     fetch: async () => jsonResponse({ error: "required" }, { status: 428 }),
   });

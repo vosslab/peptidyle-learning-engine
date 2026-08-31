@@ -9,7 +9,7 @@ import type {
   EditorRepository,
   DraftCapabilityViolation,
   PublishOutcome,
-  PublishVersionDiff,
+  QuestionPublicationReview,
   WorkspaceDraftPage,
 } from "./editor_page_model";
 import type {
@@ -120,13 +120,13 @@ export function createWorkspaceEditorRepository(
       }
       return validation.violations;
     },
-    getPublishDiff: async (draft): Promise<PublishVersionDiff> => {
-      const diff = await client.getWorkspacePublicationDiff(draft.workspace);
+    getQuestionPublicationReview: async (draft): Promise<QuestionPublicationReview> => {
+      const review = await client.getQuestionPublicationReview(draft.workspace);
       return {
-        revision: diff.revision,
-        baseline: diff.baseline,
-        proposedTitle: diff.current.title,
-        sections: diff.changed.map((label) => ({
+        revision: review.revision,
+        baseQuestion: review.baseQuestion,
+        proposedTitle: review.current.title,
+        sections: review.changed.map((label) => ({
           label,
           before: null,
           after: "Current saved draft",
@@ -140,7 +140,7 @@ export function createWorkspaceEditorRepository(
           throw new Error("Review the saved workspace draft before publishing.");
         }
         if (current.revision !== reviewedRevision) {
-          throw new WorkspaceConflictError(409, `/api/problems/${draft.workspace}/publish`);
+          throw new WorkspaceConflictError(409, `/api/questions/${draft.workspace}/publish`);
         }
         const result = await client.publishWorkspace(draft.workspace, request, reviewedRevision);
         return { kind: "published", questionId: result.summary.questionId };

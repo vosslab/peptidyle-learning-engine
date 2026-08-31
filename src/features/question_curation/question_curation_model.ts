@@ -284,9 +284,12 @@ export function questionSearchFilterFromLibraryQuery(
   query: QuestionSearchQuery,
 ): QuestionSearchFilter {
   const normalized = savedSearchQuery(query);
-  const taxonomy = normalized.taxonomy;
-  const taxonomySeparator = taxonomy === null ? -1 : taxonomy.indexOf(":");
-  if (taxonomy !== null && (taxonomySeparator < 1 || taxonomySeparator === taxonomy.length - 1)) {
+  const classification = normalized.classification;
+  const classificationSeparator = classification === null ? -1 : classification.indexOf(":");
+  if (
+    classification !== null &&
+    (classificationSeparator < 1 || classificationSeparator === classification.length - 1)
+  ) {
     throw new Error("Choose a complete topic before saving this search.");
   }
   return {
@@ -299,13 +302,13 @@ export function questionSearchFilterFromLibraryQuery(
       normalized.questionType === null
         ? []
         : ([normalized.questionType] as QuestionSearchFilter["question_types"]),
-    taxonomy:
-      taxonomy === null
+    classifications:
+      classification === null
         ? []
         : [
             {
-              scheme: taxonomy.slice(0, taxonomySeparator),
-              code: taxonomy.slice(taxonomySeparator + 1),
+              system: classification.slice(0, classificationSeparator),
+              code: classification.slice(classificationSeparator + 1),
             },
           ],
     capabilities:
@@ -335,10 +338,10 @@ export function libraryQueryFromSavedSearch(search: SavedQuestionSearchView): Qu
     backend: filter.backends[0] ?? null,
     tag: filter.tags[0] ?? null,
     questionType: filter.question_types[0] ?? null,
-    taxonomy:
-      filter.taxonomy[0] === undefined
+    classification:
+      filter.classifications[0] === undefined
         ? null
-        : `${filter.taxonomy[0].scheme}:${filter.taxonomy[0].code}`,
+        : `${filter.classifications[0].system}:${filter.classifications[0].code}`,
     capability: filter.capabilities[0] ?? null,
     license: filter.licenses[0] ?? null,
     evidence: filter.evidence === "any" ? null : filter.evidence,

@@ -27,7 +27,7 @@ non-signable       answer-free      separate grader capability
 
 `PUT /api/workspaces/{workspace}/flat-question` uses a strong ETag and
 `Cache-Control: no-store`. It compiles bounded raw JSON before save and returns
-only the answer-free draft. `POST /api/problems/{workspace}/flat-question-publish`
+only the answer-free draft. `POST /api/questions/{workspace}/flat-question-publish`
 uses the same no-store/ETag discipline, rereads and recompiles the private
 source, copies its exact canonical bytes to a distinct immutable non-signable
 `ProblemSource`, then sends one catalog promotion command. Neither route emits

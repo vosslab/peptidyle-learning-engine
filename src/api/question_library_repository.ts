@@ -85,15 +85,15 @@ function selectedPublicText(value: string | null): Array<string> {
   return value === null ? [] : [value];
 }
 
-function taxonomyFilter(value: string | null): QuestionSearchRequest["taxonomy"] {
+function classificationFilter(value: string | null): QuestionSearchRequest["classifications"] {
   if (value === null) {
     return [];
   }
   const separator = value.indexOf(":");
   if (separator < 1 || separator === value.length - 1) {
-    throw new Error("Question Library taxonomy selection is invalid");
+    throw new Error("Question Library classification selection is invalid");
   }
-  return [{ scheme: value.slice(0, separator), code: value.slice(separator + 1) }];
+  return [{ system: value.slice(0, separator), code: value.slice(separator + 1) }];
 }
 
 function evidenceFilter(value: string | null): QuestionSearchRequest["evidence"] {
@@ -124,9 +124,9 @@ function facets(
       value: facet.questionType,
       count: facet.count,
     })),
-    ...page.facets.taxonomy.map((facet) => ({
-      facet: "taxonomy" as const,
-      value: `${facet.term.scheme}:${facet.term.code}`,
+    ...page.facets.classifications.map((facet) => ({
+      facet: "classification" as const,
+      value: `${facet.classification.system}:${facet.classification.code}`,
       count: facet.count,
     })),
     ...page.facets.capabilities.map((facet) => ({
@@ -161,7 +161,7 @@ export function questionSearchRequest(
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),
     question_types: selectedQuestionType(query.questionType),
-    taxonomy: taxonomyFilter(query.taxonomy),
+    classifications: classificationFilter(query.classification),
     capabilities: selectedCapability(query.capability),
     licenses: selectedLicense(query.license),
     evidence: evidenceFilter(query.evidence),
@@ -187,7 +187,9 @@ export function createQuestionLibraryRepository(
           title: item.summary.metadata.title,
           summary: `Published ${item.summary.backend} Question.`,
           byline: item.summary.byline.names,
-          taxonomy: item.summary.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),
+          classifications: item.summary.metadata.classifications.map(
+            (classification) => `${classification.system}:${classification.code}`,
+          ),
           capabilities: item.summary.capabilities,
           license: item.summary.metadata.license.kind,
           evidence:

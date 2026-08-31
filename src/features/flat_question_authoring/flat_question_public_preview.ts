@@ -3,7 +3,7 @@ import type {
   FlatQuestionChoice,
   FlatQuestionLicense,
   FlatQuestionSourceV2,
-  FlatQuestionTaxonomyTerm,
+  FlatQuestionClassification,
   FlatQuestionAttemptTimeLimit,
 } from "./flat_question_source";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
@@ -17,7 +17,7 @@ export type FlatQuestionPublicPreview = {
   readonly questionAttemptLimit: FlatQuestionAttemptLimit;
   readonly questionAttemptTimeLimit: FlatQuestionAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
-  readonly taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>;
+  readonly classifications: ReadonlyArray<FlatQuestionClassification>;
   readonly license: FlatQuestionLicense;
   readonly language: string;
 };
@@ -33,7 +33,7 @@ export function flatQuestionPublicPreview(source: FlatQuestionSourceV2): FlatQue
     questionAttemptLimit: source.questionAttemptLimit,
     questionAttemptTimeLimit: source.questionAttemptTimeLimit,
     tags: source.tags,
-    taxonomy: source.taxonomy,
+    classifications: source.classifications,
     license: source.license,
     language: source.language,
   };

@@ -6,13 +6,14 @@
 //! reconstructs access decisions nor records a feedback-release receipt.
 
 use question_model::{
-    ActivityTimestamp, AssignmentScoringState, GradingResult, QuestionFeedback, StudentFeedback,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback,
+    ActivityTimestamp, AssignmentScoringState, GradingResult, QuestionPostGradingContent,
+    StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    StudentResponseInspectionFeedback,
 };
 
 use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssignmentPolicy};
 
-/// The five independently evaluated Student Feedback Release fields.
+/// The six independently evaluated Student Feedback Release fields.
 ///
 /// A caller uses these booleans to omit protected fields from a projection;
 /// this type contains no protected content itself.
@@ -21,7 +22,8 @@ pub struct StudentFeedbackReleaseDecision {
     pub score: bool,
     pub per_item_correctness: bool,
     pub feedback_text: bool,
-    pub solution: bool,
+    pub question_answer: bool,
+    pub question_answer_explanation: bool,
     pub class_statistics: bool,
 }
 
@@ -47,7 +49,7 @@ pub fn score_current_student_feedback_release(
 pub fn project_student_feedback(
     decision: StudentFeedbackReleaseDecision,
     result: Option<GradingResult>,
-    question_feedback: &QuestionFeedback,
+    content: &QuestionPostGradingContent,
 ) -> Option<StudentFeedback> {
     let mut disclosed = StudentFeedback::empty();
     if let Some(result) = result {
@@ -60,23 +62,35 @@ pub fn project_student_feedback(
         }
     }
     if decision.feedback_text {
-        disclosed.choice_feedback = question_feedback.choice_feedback.clone();
-        disclosed.correct_feedback = question_feedback.correct_feedback.clone();
-        disclosed.incorrect_feedback = question_feedback.incorrect_feedback.clone();
-        disclosed.rationale = question_feedback.rationale.clone();
+        disclosed.choice_feedback = content.question_feedback.choice_feedback.clone();
+        disclosed.correct_feedback = content.question_feedback.correct_feedback.clone();
+        disclosed.incorrect_feedback = content.question_feedback.incorrect_feedback.clone();
     }
-    if decision.solution {
-        disclosed.correct_response = question_feedback.correct_response.clone();
+    if decision.question_answer {
+        disclosed.question_answer = content
+            .question_answer
+            .as_ref()
+            .map(|question_answer| question_answer.content().to_vec());
     }
-    (decision.per_item_correctness || decision.score || decision.feedback_text || decision.solution)
+    if decision.question_answer_explanation {
+        disclosed.question_answer_explanation = content
+            .question_answer_explanation
+            .as_ref()
+            .map(|explanation| explanation.content().to_vec());
+    }
+    (decision.per_item_correctness
+        || decision.score
+        || decision.feedback_text
+        || decision.question_answer
+        || decision.question_answer_explanation)
         .then_some(disclosed)
 }
 
 /// Projects feedback for an Instructor inspecting one Student's submitted work.
 ///
 /// Inspection can show only the current score and correctness permitted by
-/// assignment disclosure. Question Hint, rationale, solution, and correct-response
-/// content have no representation in this detail capability.
+/// assignment disclosure. Question Hint, Question Answer, and Question Answer
+/// Explanation have no representation in this detail capability.
 pub fn project_student_response_inspection_feedback(
     decision: StudentFeedbackReleaseDecision,
     assignment_scoring_state: AssignmentScoringState,
@@ -153,8 +167,15 @@ pub fn evaluate_allowed_student_feedback_release(
             policy.due_at.value,
             policy.closes_at.value,
         ),
-        solution: timing_released(
-            rule.solution,
+        question_answer: timing_released(
+            rule.question_answer,
+            now,
+            submitted_at,
+            policy.due_at.value,
+            policy.closes_at.value,
+        ),
+        question_answer_explanation: timing_released(
+            rule.question_answer_explanation,
             now,
             submitted_at,
             policy.due_at.value,

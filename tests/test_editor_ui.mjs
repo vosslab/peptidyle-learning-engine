@@ -183,13 +183,13 @@ test("a publish refusal preserves the caller's unversioned draft for correction"
   assert.equal(refusal.violations[0].capability, "hints");
 });
 
-test("publication presents an immutable comparison before confirmation", () => {
-  const diff = {
-    baseline: "newQuestion",
+test("Question Publication Review presents an immutable comparison before confirmation", () => {
+  const review = {
+    baseQuestion: "newQuestion",
     proposedTitle: draft.title,
     sections: [{ label: "Prompt", before: "Older prompt", after: "Estimate the omega angle." }],
   };
 
-  assert.equal(diff.baseline, "newQuestion");
-  assert.equal(diff.sections[0].label, "Prompt");
+  assert.equal(review.baseQuestion, "newQuestion");
+  assert.equal(review.sections[0].label, "Prompt");
 });

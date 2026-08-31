@@ -7,6 +7,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeStudentFeedback,
   decodeStudentQuestionAttempt,
+  decodeStudentIssuedQuestion,
   decodeAssignmentAttemptSummaryResponse,
   decodeGradedQuestionSubmissionReceipt,
 } from "../src/api/decoders.ts";
@@ -70,7 +71,7 @@ test("attempt decoder accepts only the closed Question Attempt state vocabulary"
     ...structuredClone(publishedProblemFixture.attempts.at(-1)),
     state: "closed_at_deadline",
     assignmentScoringState: "current",
-    questionPoolSelection: null,
+    questionPoolSelectionPosition: null,
   };
   assert.equal(decodeStudentQuestionAttempt(deadlineClosed).state, "closed_at_deadline");
   for (const nonCanonicalState of [
@@ -83,7 +84,7 @@ test("attempt decoder accepts only the closed Question Attempt state vocabulary"
           ...attempt,
           state: nonCanonicalState,
           assignmentScoringState: "current",
-          questionPoolSelection: null,
+          questionPoolSelectionPosition: null,
         }),
       DecodeError,
       `${nonCanonicalState} must be rejected`,
@@ -91,19 +92,19 @@ test("attempt decoder accepts only the closed Question Attempt state vocabulary"
   }
 });
 
-test("Student Question Pool selection exposes only a valid server-selected ordinal", () => {
+test("Student Question Pool Selection Position exposes only a valid server-selected ordinal", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   const pooled = {
     ...attempt,
     assignmentScoringState: "current",
-    questionPoolSelection: { itemNumber: 1, itemCount: 2 },
+    questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2 },
   };
   assert.deepEqual(decodeStudentQuestionAttempt(pooled), pooled);
   assert.throws(
     () =>
       decodeStudentQuestionAttempt({
         ...pooled,
-        questionPoolSelection: { itemNumber: 3, itemCount: 2 },
+        questionPoolSelectionPosition: { itemNumber: 3, itemCount: 2 },
       }),
     DecodeError,
   );
@@ -111,7 +112,20 @@ test("Student Question Pool selection exposes only a valid server-selected ordin
     () =>
       decodeStudentQuestionAttempt({
         ...pooled,
-        questionPoolSelection: { itemNumber: 1, itemCount: 2, seed: 7 },
+        questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2, seed: 7 },
+      }),
+    DecodeError,
+  );
+});
+
+test("Student Issued Question excludes durable Question Pool Selection evidence", () => {
+  const issuedQuestion = structuredClone(publishedProblemFixture.issuedQuestions[0]);
+  assert.deepEqual(decodeStudentIssuedQuestion(issuedQuestion), issuedQuestion);
+  assert.throws(
+    () =>
+      decodeStudentIssuedQuestion({
+        ...issuedQuestion,
+        questionPoolSelection: "0198e000-0000-7000-8000-000000000060",
       }),
     DecodeError,
   );
@@ -167,7 +181,7 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
 });
 
 test("submission receipts require an exact feedback field and reject hostile nested material", () => {
-  const { questionPoolSelection: _questionPoolSelection, ...attempt } =
+  const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...attempt } =
     publishedProblemFixture.attempts[0];
   const receipt = {
     accepted: true,

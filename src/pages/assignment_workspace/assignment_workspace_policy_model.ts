@@ -14,6 +14,7 @@ export type PolicyFocusTarget =
   | "attemptLimit"
   | "completionFraction"
   | "additionalRuns"
+  | "questionPoolReuseRule"
   | "questionVariationRule"
   | "questions"
   | "schedule";
@@ -145,16 +146,6 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
         message: assignmentWorkingCopyDefinitionMessage(issue),
         target: assignmentWorkingCopyDefinitionTarget(issue),
         details: [],
-        questionRepairRequired: false,
-      };
-    case "configuration":
-      return {
-        kind: "error",
-        message: "Selected Question Variants require fixed Assignment Questions.",
-        target: "questionVariationRule",
-        details: [
-          "Choose a different next-practice Assignment Attempt rule or revise the Assignment Questions.",
-        ],
         questionRepairRequired: false,
       };
     case "capability": {

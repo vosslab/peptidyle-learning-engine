@@ -34,7 +34,7 @@ import {
   decodeQuestionAttemptLimit,
   decodeContentBlock,
   decodeDraftQuestionSource,
-  decodeGradingDefinition,
+  decodeQuestionGradingRule,
   decodeQuestionSource,
   decodeQuestionVariationDefinition,
   decodeQuestionResponseFormat,
@@ -90,7 +90,7 @@ function decodeQuestionContent(
       `${path}.questionVariationDefinition`,
       true,
     ),
-    grading: decodeGradingDefinition(field(record, "grading", path), `${path}.grading`, true),
+    grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
   } satisfies Omit<QuestionVersion, "questionId" | "versionNumber">;
 }
@@ -141,7 +141,7 @@ function decodeDraftQuestionContent(
       `${path}.questionVariationDefinition`,
       true,
     ),
-    grading: decodeGradingDefinition(field(record, "grading", path), `${path}.grading`, true),
+    grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
   } satisfies DraftQuestionDefinition;
 }
@@ -397,8 +397,8 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
     "choiceFeedback",
     "correctFeedback",
     "incorrectFeedback",
-    "correctResponse",
-    "rationale",
+    "questionAnswer",
+    "questionAnswerExplanation",
   ]);
   const correctness =
     "correctness" in record
@@ -436,18 +436,20 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
           (block, blockPath) => decodeContentBlock(block, blockPath, true),
         )
       : undefined;
-  const correctResponse =
-    "correctResponse" in record
+  const questionAnswer =
+    "questionAnswer" in record
       ? decodeArray(
-          field(record, "correctResponse", path),
-          `${path}.correctResponse`,
+          field(record, "questionAnswer", path),
+          `${path}.questionAnswer`,
           (block, blockPath) => decodeContentBlock(block, blockPath, true),
         )
       : undefined;
-  const rationale =
-    "rationale" in record
-      ? decodeArray(field(record, "rationale", path), `${path}.rationale`, (block, blockPath) =>
-          decodeContentBlock(block, blockPath, true),
+  const questionAnswerExplanation =
+    "questionAnswerExplanation" in record
+      ? decodeArray(
+          field(record, "questionAnswerExplanation", path),
+          `${path}.questionAnswerExplanation`,
+          (block, blockPath) => decodeContentBlock(block, blockPath, true),
         )
       : undefined;
   return {
@@ -457,7 +459,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
     ...(choiceFeedback === undefined ? {} : { choiceFeedback }),
     ...(correctFeedback === undefined ? {} : { correctFeedback }),
     ...(incorrectFeedback === undefined ? {} : { incorrectFeedback }),
-    ...(correctResponse === undefined ? {} : { correctResponse }),
-    ...(rationale === undefined ? {} : { rationale }),
+    ...(questionAnswer === undefined ? {} : { questionAnswer }),
+    ...(questionAnswerExplanation === undefined ? {} : { questionAnswerExplanation }),
   } satisfies StudentFeedback;
 }

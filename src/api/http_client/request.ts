@@ -542,7 +542,7 @@ export function createRequestClient(
         throw new ApiProtocolError("publication requires one to sixteen reviewed author names");
       if (!validRevision(revision))
         throw new ApiProtocolError("publication revision must be one positive strong numeric ETag");
-      const path = `/api/problems/${encodedId(workspace)}/publish`;
+      const path = `/api/questions/${encodedId(workspace)}/publish`;
       const response = await fetchImplementation(requestPath(basePath, path), {
         method: "POST",
         headers: {

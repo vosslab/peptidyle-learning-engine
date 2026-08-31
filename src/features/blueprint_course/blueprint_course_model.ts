@@ -59,7 +59,8 @@ function defaultDefaults(): ReusableAssignmentDefaults {
       assignmentCompletionRule: { kind: "answerAll" },
       assignmentAttemptGradeRule: "highest",
       assignmentAttemptContinuationRule: { kind: "unlimited" },
-      questionVariationRule: "reuseQuestionsWithNewSeeds",
+      questionPoolReuseRule: "reuseSelection",
+      questionVariationRule: "newVariation",
       assignmentAttemptResumeRule: "resumable",
       assignmentQuestionDisplayRule: "allQuestions",
       assignmentNavigationRule: "freeNavigation",
@@ -69,7 +70,8 @@ function defaultDefaults(): ReusableAssignmentDefaults {
       score: "after_submit",
       per_item_correctness: "after_submit",
       feedback_text: "after_submit",
-      solution: "after_close",
+      question_answer: "after_close",
+      question_answer_explanation: "after_close",
       class_statistics: "never",
     },
   };
@@ -114,10 +116,10 @@ function poolEntry(questionIds: ReadonlyArray<string>): ReusableAssignmentEntryI
   return {
     kind: "pool",
     candidates: [...questionIds],
-    draw_count: 1,
+    selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
-    selection_rule: { algorithm: "v1", ordering: "candidateOrder" },
+    selection_rule: { selectedQuestionOrder: "candidateOrder" },
   };
 }
 
@@ -170,15 +172,15 @@ export function removeReusableEntry(
   };
 }
 
-export function updateReusablePoolDrawCount(
+export function updateReusablePoolSelectionCount(
   definition: ReusableAssignmentDefinitionInput,
   index: number,
-  drawCount: number,
+  selectionCount: number,
 ): ReusableAssignmentDefinitionInput {
   const entry = definition.entries[index];
   if (entry === undefined || entry.kind !== "pool") return definition;
   const entries = [...definition.entries];
-  entries[index] = { ...entry, draw_count: drawCount };
+  entries[index] = { ...entry, selection_count: selectionCount };
   return { ...definition, entries };
 }
 
@@ -277,13 +279,14 @@ export function validateReusableDefinition(
       return { valid: false, message: "Each Question Pool candidate must appear only once." };
     }
     if (
-      !Number.isSafeInteger(entry.draw_count) ||
-      entry.draw_count < 1 ||
-      entry.draw_count > entry.candidates.length
+      !Number.isSafeInteger(entry.selection_count) ||
+      entry.selection_count < 1 ||
+      entry.selection_count > entry.candidates.length
     ) {
       return {
         valid: false,
-        message: "Choose a whole draw count between 1 and this pool's candidate count.",
+        message:
+          "Choose a whole selection count between 1 and this Question Pool's candidate count.",
       };
     }
   }
@@ -328,7 +331,7 @@ function entryInputFromView(entry: ReusableAssignmentEntryView): ReusableAssignm
       candidates: entry.candidates.map(
         (candidate) => candidate.question_library.summary.questionId,
       ),
-      draw_count: entry.draw_count,
+      selection_count: entry.selection_count,
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,
       selection_rule: entry.selection_rule,

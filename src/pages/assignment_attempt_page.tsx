@@ -17,7 +17,7 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
   PrefetchedNextQuestion,
-  QuestionPoolSelection,
+  QuestionPoolSelectionPosition,
   NextIssuedAttempt,
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryOutcome,
@@ -153,8 +153,10 @@ function AttemptExperience(props: {
   const seenSummaryCursors = new Set<string>();
   const [practiceError, setPracticeError] = createSignal<string | null>(null);
   const [prefetched, setPrefetched] = createSignal<PrefetchedNextQuestion | null>(null);
-  const [questionPoolSelection, setQuestionPoolSelection] =
-    createSignal<QuestionPoolSelection | null>(props.initialScreen.attempt.questionPoolSelection);
+  const [questionPoolSelectionPosition, setQuestionPoolSelectionPosition] =
+    createSignal<QuestionPoolSelectionPosition | null>(
+      props.initialScreen.attempt.questionPoolSelectionPosition,
+    );
   let requestedPrefetchFor: string | null = null;
   let prefetchController: AbortController | null = null;
   let recoveredSuccessorScreen: AssignmentAttemptScreenData | null = null;
@@ -244,7 +246,7 @@ function AttemptExperience(props: {
           envelope: cached.envelope,
         }),
       );
-      setQuestionPoolSelection(cached.questionPoolSelection);
+      setQuestionPoolSelectionPosition(cached.questionPoolSelectionPosition);
       setPrefetched(null);
       requestPrefetch(receiptNext.id);
       return;
@@ -276,7 +278,7 @@ function AttemptExperience(props: {
     }
     recoveredSuccessorScreen = null;
     setScreen(recovered);
-    setQuestionPoolSelection(recovered.attempt.questionPoolSelection);
+    setQuestionPoolSelectionPosition(recovered.attempt.questionPoolSelectionPosition);
     setPrefetched(null);
     requestPrefetch(recovered.attempt.id);
   }
@@ -508,7 +510,7 @@ function AttemptExperience(props: {
           )}
         </span>
       </header>
-      <Show when={questionPoolSelection()}>
+      <Show when={questionPoolSelectionPosition()}>
         {(selection) => (
           <p class="assignment-attempt-question-pool-selection" role="status">
             Server-selected Question Pool item {selection().itemNumber} of {selection().itemCount}{" "}

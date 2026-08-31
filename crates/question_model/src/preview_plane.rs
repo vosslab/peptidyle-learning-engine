@@ -382,14 +382,15 @@ pub enum PreviewDisclosureMoment {
     Close,
 }
 
-/// Five safe visibility flags; no feedback, solution, answer, or score content is transported.
+/// Six safe visibility flags; no feedback, answer, explanation, or score content is transported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewDisclosureFlags {
     pub score_shown: bool,
     pub correctness_shown: bool,
     pub feedback_shown: bool,
-    pub solution_shown: bool,
+    pub question_answer_shown: bool,
+    pub question_answer_explanation_shown: bool,
     pub statistics_shown: bool,
 }
 

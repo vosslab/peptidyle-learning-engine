@@ -18,7 +18,7 @@ import {
   type QuestionSearchState,
 } from "./library_page_model";
 
-/* Each virtual row reserves room for a title, two-line summary, byline, and taxonomy.
+/* Each virtual row reserves room for a title, two-line summary, byline, and classification.
  * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 164;
 const OVERSCAN_ROWS = 5;
@@ -117,7 +117,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "backend"
       | "tag"
       | "questionType"
-      | "taxonomy"
+      | "classification"
       | "capability"
       | "license"
       | "evidence"
@@ -263,11 +263,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         <label>
           Topic
           <select
-            value={query().taxonomy ?? ""}
-            onChange={(event) => changeQuery({ taxonomy: event.currentTarget.value || null })}
+            value={query().classification ?? ""}
+            onChange={(event) => changeQuery({ classification: event.currentTarget.value || null })}
           >
             <option value="">All topics</option>
-            <For each={facets("taxonomy")()}>
+            <For each={facets("classification")()}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>
@@ -378,8 +378,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     <p class="question-library-row-byline" aria-label="Published by">
                       By {row.byline.join(", ")}
                     </p>
-                    <p class="question-library-row-taxonomy card-kicker">
-                      {row.taxonomy.join(" / ")}
+                    <p class="question-library-row-classifications card-kicker">
+                      {row.classifications.join(" / ")}
                     </p>
                     <QuestionStatisticsPreview row={row} />
                     <CopyableQuestionId displayId={row.displayId} />

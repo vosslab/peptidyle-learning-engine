@@ -13,7 +13,8 @@ export function decodeStudentFeedbackReleaseRule(
     "score",
     "per_item_correctness",
     "feedback_text",
-    "solution",
+    "question_answer",
+    "question_answer_explanation",
     "class_statistics",
   ] as const;
   requireOnlyFields(record, path, fields);
@@ -29,7 +30,8 @@ export function decodeStudentFeedbackReleaseRule(
     score: decodeTiming("score"),
     per_item_correctness: decodeTiming("per_item_correctness"),
     feedback_text: decodeTiming("feedback_text"),
-    solution: decodeTiming("solution"),
+    question_answer: decodeTiming("question_answer"),
+    question_answer_explanation: decodeTiming("question_answer_explanation"),
     class_statistics: decodeTiming("class_statistics"),
   };
 }

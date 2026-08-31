@@ -8,17 +8,17 @@
 //!
 //! The definition describes a question. It carries no Answer Key, Question
 //! Feedback, Question Answer Explanation, or Question Grading Input:
-//! [`GradingDefinition`] states *how* a response is judged, while the private
+//! [`QuestionGradingRule`] states *how* a response is judged, while the private
 //! values it is judged against live in `crates/grading`, server-side.
 
 use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
+use crate::classification::{License, QuestionClassification, Tag};
 use crate::envelope::ContentBlock;
 use crate::generation::QuestionVariationDefinition;
 use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
 use crate::response::{QuestionResponseFormat, QuestionType};
-use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{QuestionId, QuestionVersionNumber};
 
 /// Maximum Unicode scalar values permitted in a student-facing question title.
@@ -248,7 +248,7 @@ pub enum DraftSourcePublicationError {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum GradingDefinition {
+pub enum QuestionGradingRule {
     /// Correct or incorrect, with no middle ground.
     AllOrNothing {
         /// Points awarded for a correct response.
@@ -277,8 +277,8 @@ pub struct QuestionMetadata {
     pub title: String,
     /// Free-form labels for search.
     pub tags: Vec<Tag>,
-    /// Controlled-vocabulary terms that survive export.
-    pub taxonomy: Vec<TaxonomyTerm>,
+    /// Exact mappings to external or institutional classification systems.
+    pub classifications: Vec<QuestionClassification>,
     /// Terms under which the content may be reused.
     pub license: License,
     /// BCP 47 language tag for the prompt, for example `en-US`.
@@ -318,8 +318,8 @@ pub struct DraftQuestionDefinition {
     /// How content varies between students and runs.
     pub question_variation_definition: QuestionVariationDefinition,
     /// How a response is judged.
-    pub grading: GradingDefinition,
-    /// Title, tags, taxonomy, license, language.
+    pub grading: QuestionGradingRule,
+    /// Title, tags, Question Classifications, license, language.
     pub metadata: QuestionMetadata,
 }
 
@@ -386,8 +386,8 @@ pub struct QuestionVersion {
     /// How content varies between students and runs.
     pub question_variation_definition: QuestionVariationDefinition,
     /// How a response is judged.
-    pub grading: GradingDefinition,
-    /// Title, tags, taxonomy, license, language.
+    pub grading: QuestionGradingRule,
+    /// Title, tags, Question Classifications, license, language.
     pub metadata: QuestionMetadata,
 }
 
@@ -440,11 +440,11 @@ mod tests {
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             question_variation_definition: QuestionVariationDefinition::Static,
-            grading: GradingDefinition::AllOrNothing { points: 1.0 },
+            grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
             metadata: QuestionMetadata {
                 title: "Molar mass".to_string(),
                 tags: vec![Tag::new("stoichiometry")],
-                taxonomy: Vec::new(),
+                classifications: Vec::new(),
                 license: License::CcBySa,
                 language: "en-US".to_string(),
             },

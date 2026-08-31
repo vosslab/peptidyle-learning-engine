@@ -7,7 +7,7 @@ import type {
   FlatQuestionLicense,
   FlatQuestionOutcomeFeedback,
   FlatQuestionSourceV2,
-  FlatQuestionTaxonomyTerm,
+  FlatQuestionClassification,
   FlatQuestionAttemptTimeLimit,
 } from "./flat_question_source";
 
@@ -544,11 +544,11 @@ export function setTags(
   return { ...source, tags: [...tags] };
 }
 
-export function setTaxonomy(
+export function setClassifications(
   source: FlatQuestionSourceV2,
-  taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>,
+  classifications: ReadonlyArray<FlatQuestionClassification>,
 ): FlatQuestionSourceV2 {
-  return { ...source, taxonomy: [...taxonomy] };
+  return { ...source, classifications: [...classifications] };
 }
 
 export function setLicense(

@@ -358,54 +358,22 @@ pub struct FixedQuestionAssignmentEntry {
     pub scoring_rule: AssignmentEntryScoringRule,
 }
 
-/// Ordering policy for candidates selected from one Question Pool.
+/// Order used for the selected Questions from one Question Pool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum QuestionPoolSelectionOrdering {
+pub enum QuestionPoolSelectedQuestionOrder {
     /// Preserve candidate order after deterministic selection.
     CandidateOrder,
-    /// Deterministically shuffle selected candidates from the run seed.
-    Randomized,
-}
-
-/// Reviewed deterministic selection implementation stored with one Question
-/// Pool Selection Rule.
-///
-/// This closed value makes the persisted draw contract explicit. A later
-/// algorithm may be added without changing how existing definitions or issued
-/// run evidence are interpreted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum QuestionPoolDrawAlgorithm {
-    /// The first reviewed candidate-ranking implementation.
-    V1,
-}
-
-impl QuestionPoolDrawAlgorithm {
-    /// Integer representation retained by the normalized PostgreSQL schema.
-    pub const fn storage_version(self) -> u16 {
-        match self {
-            Self::V1 => 1,
-        }
-    }
-
-    /// Decodes only algorithms the current server can execute.
-    pub const fn from_storage_version(version: u16) -> Option<Self> {
-        match version {
-            1 => Some(Self::V1),
-            _ => None,
-        }
-    }
+    /// Deterministically shuffle selected candidates from the server selection entropy.
+    RandomOrder,
 }
 
 /// Complete reviewed selection behavior for one Question Pool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolSelectionRule {
-    /// Reviewed candidate-ranking implementation.
-    pub algorithm: QuestionPoolDrawAlgorithm,
-    /// Output ordering after selection.
-    pub ordering: QuestionPoolSelectionOrdering,
+    /// Order used when the selected Questions are issued.
+    pub selected_question_order: QuestionPoolSelectedQuestionOrder,
 }
 
 /// One pinned candidate eligible for its owning Question Pool.
@@ -431,10 +399,10 @@ pub struct QuestionPoolAssignmentEntry {
     /// Current-only scoring rule applied to every selected candidate.
     pub scoring_rule: AssignmentEntryScoringRule,
     /// Number of available candidates selected for each future Assignment Attempt.
-    pub draw_count: u32,
+    pub selection_count: u32,
     /// Uniform current points for each selected candidate.
     pub points_per_item: AssignmentPointValue,
-    /// Complete reviewed algorithm and output-ordering behavior.
+    /// Instructor-owned ordering behavior for the selected Questions.
     pub selection_rule: QuestionPoolSelectionRule,
     /// Pinned candidate set; search criteria are deliberately absent.
     pub candidates: Vec<QuestionPoolCandidate>,
@@ -453,7 +421,7 @@ pub struct QuestionPoolAssignmentEntry {
 pub enum AssignmentEntry {
     /// One exact published Question delivered as written.
     FixedQuestion(FixedQuestionAssignmentEntry),
-    /// A deterministic draw from explicit Question Pool Candidates.
+    /// A deterministic selection from explicit Question Pool Candidates.
     QuestionPool(QuestionPoolAssignmentEntry),
 }
 
@@ -493,9 +461,14 @@ mod tests {
     }
 
     #[test]
-    fn question_pool_draw_algorithm_accepts_only_the_reviewed_storage_version() {
-        assert_eq!(QuestionPoolDrawAlgorithm::V1.storage_version(), 1);
-        assert_eq!(QuestionPoolDrawAlgorithm::from_storage_version(2), None);
+    fn question_pool_selection_rule_contains_only_instructor_owned_order() {
+        let rule = QuestionPoolSelectionRule {
+            selected_question_order: QuestionPoolSelectedQuestionOrder::CandidateOrder,
+        };
+        assert_eq!(
+            rule.selected_question_order,
+            QuestionPoolSelectedQuestionOrder::CandidateOrder
+        );
     }
 
     #[test]
@@ -624,7 +597,7 @@ mod tests {
                     "assignmentCompletionRule": { "kind": "answerAll" },
                     "assignmentAttemptGradeRule": "highest",
                     "assignmentAttemptContinuationRule": { "kind": "unlimited" },
-                    "questionVariationRule": "reuseQuestionsWithNewSeeds",
+                    "questionVariationRule": "invalidValue",
                     "assignmentAttemptResumeRule": "resumable",
                     "assignmentQuestionDisplayRule": "allQuestions",
                     "assignmentNavigationRule": "freeNavigation",

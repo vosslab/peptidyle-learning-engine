@@ -88,7 +88,7 @@ export function HotspotResponse(
         disabled={controller.locked()}
       >
         <legend>Choose the labeled image region{required === 1 ? "" : "s"}</legend>
-        <p class="keyboard-hint" id={`${props.attemptId}-hotspot-help`}>
+        <p class="keyboard-instructions" id={`${props.attemptId}-hotspot-help`}>
           {props.definition.description}. Tab to a region and press Space to select it. This list is
           the primary no-mouse alternative to selecting the image.
         </p>

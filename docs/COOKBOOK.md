@@ -89,7 +89,7 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
 1. In a Course Instance, open **Assignments**, choose **New assignment**, enter a title, and select
    **Create assignment draft**.
 2. In **Questions**, use the saved-assignment picker or question library to add published questions.
-   Arrange fixed questions, add pools with candidate IDs and draw counts, and choose **Save questions
+   Arrange fixed Questions, add Question Pools with candidate IDs and selection counts, and choose **Save questions
    and order**. Pool samples create no Student work.
 3. Open **Policies**. Enter Student instructions, availability and due/close times in the Course
    Instance time zone, run limits, completion and continued-practice rules, late behavior, and

@@ -17,7 +17,7 @@ export const EDITOR_PAGE_STYLES = `
 .editor-draft-list { display:grid; gap:.25rem; padding:0; list-style:none; }
 .editor-draft-list button { width:100%; min-height:var(--ple-control-min-height,2.25rem); padding:.35rem .45rem; border:0; border-left:3px solid transparent; border-radius:var(--ple-radius-control,.45rem); background:transparent; color:var(--ple-ink); text-align:left; }
 .editor-draft-list button[aria-current="page"] { border-color:var(--ple-accent); background:var(--ple-surface-soft); }
-.editor-diff { padding-left:1.25rem; }
+.editor-review { padding-left:1.25rem; }
 .instructor-preview { display:grid; gap:.65rem; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--ple-border); }
 .instructor-preview h3, .instructor-preview h4 { margin:0; }
 .instructor-preview__card { display:grid; gap:1rem; }

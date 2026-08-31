@@ -193,7 +193,7 @@ function PreviewResult(props: {
                   >
                     <span>
                       {projection.kind === "available"
-                        ? ` Score ${projection.flags.scoreShown ? "shown" : "withheld"}; correctness ${projection.flags.correctnessShown ? "shown" : "withheld"}; feedback ${projection.flags.feedbackShown ? "shown" : "withheld"}; solution ${projection.flags.solutionShown ? "shown" : "withheld"}; statistics ${projection.flags.statisticsShown ? "shown" : "withheld"}.`
+                        ? ` Score ${projection.flags.scoreShown ? "shown" : "withheld"}; correctness ${projection.flags.correctnessShown ? "shown" : "withheld"}; feedback ${projection.flags.feedbackShown ? "shown" : "withheld"}; Question Answer ${projection.flags.questionAnswerShown ? "shown" : "withheld"}; Answer Explanation ${projection.flags.questionAnswerExplanationShown ? "shown" : "withheld"}; statistics ${projection.flags.statisticsShown ? "shown" : "withheld"}.`
                         : ""}
                     </span>
                   </Show>

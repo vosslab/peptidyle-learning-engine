@@ -111,7 +111,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
     update(
       appendQuestionPool(draft()),
-      "Question pool added. Add candidate Question IDs, set its draw count, then save questions and order.",
+      "Question Pool added. Add candidate Question IDs, set its selection count, then save questions and order.",
     );
   }
 
@@ -398,12 +398,14 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   async function previewPool(assignmentEntryId: string): Promise<void> {
     const failure = validateAssignmentEditorDraft(draft());
     if (failure !== null) {
-      setValidationMessage(`${failure} Correct the questions, then preview a pool draw.`);
+      setValidationMessage(
+        `${failure} Correct the questions, then preview a Question Pool selection.`,
+      );
       return;
     }
     if (hasUnsavedContent()) {
       setMessage(
-        "Save questions and order before previewing a pool draw. Your local question changes remain here.",
+        "Save questions and order before previewing a Question Pool selection. Your local question changes remain here.",
       );
       queueMicrotask(() => saveQuestionsButton?.focus());
       return;
@@ -561,8 +563,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
               Add question pool
             </button>
             <p class="assignment-editor-note">
-              A pool draws a configured number of candidates with the server&apos;s fixed Draw
-              algorithm v1.
+              A Question Pool selects its configured number of candidates with the server&apos;s
+              current selection implementation.
             </p>
             <Show
               when={draft().entries.length > 0}

@@ -38,7 +38,7 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
 }
 import type { AssignmentPointValue } from "../../../generated/api/AssignmentPointValue";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
-import type { QuestionPoolSelectionOrdering } from "../../../generated/api/QuestionPoolSelectionOrdering";
+import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type { QuestionPoolSelectionRule } from "../../../generated/api/QuestionPoolSelectionRule";
 import type {
   AssignmentContentInput,
@@ -485,6 +485,7 @@ function decodeAssignmentActivityRules(
       "assignmentCompletionRule",
       "assignmentAttemptGradeRule",
       "assignmentAttemptContinuationRule",
+      "questionPoolReuseRule",
       "questionVariationRule",
       "assignmentAttemptResumeRule",
       "assignmentQuestionDisplayRule",
@@ -508,10 +509,15 @@ function decodeAssignmentActivityRules(
       `${path}.assignmentAttemptContinuationRule`,
       strict,
     ),
+    questionPoolReuseRule: decodeStringEnum(
+      field(record, "questionPoolReuseRule", path),
+      `${path}.questionPoolReuseRule`,
+      ["reuseSelection", "selectAgain"],
+    ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),
       `${path}.questionVariationRule`,
-      ["reuseQuestionsWithNewSeeds", "selectedQuestionVariants", "redrawQuestionPools"],
+      ["reuseVariation", "newVariation"],
     ),
     assignmentAttemptResumeRule: decodeStringEnum(
       field(record, "assignmentAttemptResumeRule", path),
@@ -673,9 +679,9 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
     "candidateQuestionIds",
     "availability",
     "scoringRule",
-    "drawCount",
+    "selectionCount",
     "pointsPerItem",
-    "ordering",
+    "selectionRule",
   ]);
   const candidateQuestionIds = decodeBoundedArray(
     field(record, "candidateQuestionIds", path),
@@ -685,9 +691,12 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   );
   if (new Set(candidateQuestionIds).size !== candidateQuestionIds.length)
     throw new DecodeError(`${path}.candidateQuestionIds`, "unique Question IDs");
-  const drawCount = decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`);
-  if (drawCount > candidateQuestionIds.length)
-    throw new DecodeError(`${path}.drawCount`, "a value no greater than the candidate count");
+  const selectionCount = decodePositiveInteger(
+    field(record, "selectionCount", path),
+    `${path}.selectionCount`,
+  );
+  if (selectionCount > candidateQuestionIds.length)
+    throw new DecodeError(`${path}.selectionCount`, "a value no greater than the candidate count");
   return {
     kind: "questionPool",
     candidateQuestionIds,
@@ -701,7 +710,7 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
       "extraCredit",
       "excluded",
     ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
-    drawCount,
+    selectionCount,
     pointsPerItem: decodeAssignmentPointValue(
       field(record, "pointsPerItem", path),
       `${path}.pointsPerItem`,
@@ -783,13 +792,16 @@ function decodeQuestionPoolCandidate(value: unknown, path: string): QuestionPool
 
 function decodeQuestionPoolSelectionRule(value: unknown, path: string): QuestionPoolSelectionRule {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["algorithm", "ordering"]);
+  requireOnlyFields(record, path, ["selectedQuestionOrder"]);
   return {
-    algorithm: decodeStringEnum(field(record, "algorithm", path), `${path}.algorithm`, ["v1"]),
-    ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
-      "candidateOrder",
-      "randomized",
-    ] as const satisfies ReadonlyArray<QuestionPoolSelectionOrdering>),
+    selectedQuestionOrder: decodeStringEnum(
+      field(record, "selectedQuestionOrder", path),
+      `${path}.selectedQuestionOrder`,
+      [
+        "candidateOrder",
+        "randomOrder",
+      ] as const satisfies ReadonlyArray<QuestionPoolSelectedQuestionOrder>,
+    ),
   };
 }
 
@@ -803,7 +815,7 @@ function decodeQuestionPoolAssignmentEntry(
     "id",
     "availability",
     "scoringRule",
-    "drawCount",
+    "selectionCount",
     "pointsPerItem",
     "selectionRule",
     "candidates",
@@ -820,7 +832,10 @@ function decodeQuestionPoolAssignmentEntry(
       "extraCredit",
       "excluded",
     ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
-    drawCount: decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`),
+    selectionCount: decodePositiveInteger(
+      field(record, "selectionCount", path),
+      `${path}.selectionCount`,
+    ),
     pointsPerItem: decodeAssignmentPointValue(
       field(record, "pointsPerItem", path),
       `${path}.pointsPerItem`,

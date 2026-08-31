@@ -26,14 +26,15 @@ function assignmentAttemptGradeRule(
   throw new Error("Assignment Attempt Grade Rule selection is invalid");
 }
 
-function questionVariationRule(value: string): AssignmentActivityRules["questionVariationRule"] {
-  if (
-    value === "reuseQuestionsWithNewSeeds" ||
-    value === "selectedQuestionVariants" ||
-    value === "redrawQuestionPools"
-  ) {
+function questionPoolReuseRule(value: string): AssignmentActivityRules["questionPoolReuseRule"] {
+  if (value === "reuseSelection" || value === "selectAgain") {
     return value;
   }
+  throw new Error("Question Pool Reuse Rule selection is invalid");
+}
+
+function questionVariationRule(value: string): AssignmentActivityRules["questionVariationRule"] {
+  if (value === "reuseVariation" || value === "newVariation") return value;
   throw new Error("Question Variation Rule selection is invalid");
 }
 
@@ -93,8 +94,10 @@ interface AssignmentWorkspacePolicyPanelProps {
   readonly studentFeedbackReleaseRule: () => StudentFeedbackReleaseRule;
   readonly activityRuleDraft: () => AssignmentActivityRuleDraft;
   readonly activityRuleFieldError: (field: AssignmentActivityRuleDraftField) => string | undefined;
+  readonly questionPoolReuseRuleError: () => string | undefined;
   readonly questionVariationRuleError: () => string | undefined;
   readonly onPoliciesChange: (policies: AssignmentActivityRules) => void;
+  readonly onQuestionPoolReuseRuleChange: (policies: AssignmentActivityRules) => void;
   readonly onQuestionVariationRuleChange: (policies: AssignmentActivityRules) => void;
   readonly onStudentFeedbackReleaseRuleChange: (rule: StudentFeedbackReleaseRule) => void;
   readonly onActivityRuleDraftChange: (
@@ -244,9 +247,32 @@ export function AssignmentWorkspacePolicyPanel(
         </Show>
       </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--variation">
-        <legend>Question variation rule</legend>
+        <legend>Later Assignment Attempt rules</legend>
         <label class="assignment-editor-field">
-          Next practice Assignment Attempt
+          Question Pool selection
+          <select
+            aria-label="Question Pool Reuse Rule"
+            ref={(element) => props.onRegisterPolicyControl("questionPoolReuseRule", element)}
+            value={props.policies().questionPoolReuseRule}
+            aria-invalid={props.questionPoolReuseRuleError() !== undefined}
+            aria-describedby={
+              props.questionPoolReuseRuleError() === undefined
+                ? undefined
+                : "assignment-policies-field-error"
+            }
+            onChange={(event) =>
+              props.onQuestionPoolReuseRuleChange({
+                ...props.policies(),
+                questionPoolReuseRule: questionPoolReuseRule(event.currentTarget.value),
+              })
+            }
+          >
+            <option value="reuseSelection">Reuse the previous Question Pool Selection</option>
+            <option value="selectAgain">Select Questions again from each Question Pool</option>
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Question Variation
           <select
             aria-label="Question variation rule"
             ref={(element) => props.onRegisterPolicyControl("questionVariationRule", element)}
@@ -264,11 +290,8 @@ export function AssignmentWorkspacePolicyPanel(
               })
             }
           >
-            <option value="reuseQuestionsWithNewSeeds">
-              Keep Questions and use fresh Question Seeds
-            </option>
-            <option value="selectedQuestionVariants">Use selected Question Variants</option>
-            <option value="redrawQuestionPools">Redraw Question Pools</option>
+            <option value="reuseVariation">Reuse the previous Question Variations</option>
+            <option value="newVariation">Use new Question Variations</option>
           </select>
           <Show when={props.questionVariationRuleError()}>
             {(message) => (
@@ -370,9 +393,14 @@ export function AssignmentWorkspacePolicyPanel(
           onChange={(value) => changeDisclosure("feedback_text", value)}
         />
         <DisclosureControl
-          label="Correct answer or solution"
-          value={props.studentFeedbackReleaseRule().solution}
-          onChange={(value) => changeDisclosure("solution", value)}
+          label="Show Question Answer"
+          value={props.studentFeedbackReleaseRule().question_answer}
+          onChange={(value) => changeDisclosure("question_answer", value)}
+        />
+        <DisclosureControl
+          label="Show Explanation"
+          value={props.studentFeedbackReleaseRule().question_answer_explanation}
+          onChange={(value) => changeDisclosure("question_answer_explanation", value)}
         />
         <DisclosureControl
           label="Class statistics"

@@ -354,6 +354,16 @@ BEGIN
 		SELECT 1 FROM pg_constraint
 		WHERE conrelid = 'ple_private.assignment_attempt'::regclass
 		AND conname = 'assignment_attempt_revision_belongs_to_assignment'
+	) OR to_regclass('ple_private.question_pool_selection') IS NULL
+		OR to_regclass('ple_private.question_pool_selected_candidate') IS NULL
+		OR (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private'
+			AND table_name = 'assignment_attempt' AND column_name IN ('question_pool_reuse_rule', 'question_variation_rule')) <> 2
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.issued_question'::regclass
+			AND conname = 'issued_question_selection_candidate_matches_version'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger WHERE tgrelid = 'ple_private.question_pool_selection'::regclass
+			AND tgname = 'question_pool_selection_is_immutable' AND NOT tgisinternal
 	) OR NOT EXISTS (
 		SELECT 1 FROM pg_trigger
 		WHERE tgrelid = 'ple_private.assignment_attempt'::regclass
@@ -375,7 +385,7 @@ BEGIN
 		WHERE tgrelid = 'ple_private.assignment_submission'::regclass
 		AND tgname = 'assignment_submission_is_immutable' AND NOT tgisinternal
 	) THEN
-		RAISE EXCEPTION 'issued work does not retain its exact pin and Question Statistics Eligibility, or accepted submission evidence is not immutable';
+		RAISE EXCEPTION 'issued work lacks exact immutable Question Pool Selection evidence, exact pins, Question Statistics Eligibility, or immutable submissions';
 	END IF;
 	IF (SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = 'ple_private' AND table_name = 'question_attempt'
@@ -487,10 +497,10 @@ BEGIN
 			'assignment_title', 'assignment_instructions', 'late_work_rule',
 			'assignment_deadline_rule', 'assignment_completion_rule',
 			'assignment_attempt_grade_rule', 'assignment_attempt_continuation_rule',
-			'question_variation_rule', 'assignment_attempt_resume_rule',
+			'question_pool_reuse_rule', 'question_variation_rule', 'assignment_attempt_resume_rule',
 			'assignment_question_display_rule', 'assignment_navigation_rule',
 			'assignment_question_order_rule'
-		) AND is_nullable = 'NO') <> 12 OR (SELECT count(*) FROM information_schema.columns
+		) AND is_nullable = 'NO') <> 13 OR (SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
 		AND column_name IN (
 			'assignment_attempt_time_limit_seconds', 'attempt_limit',

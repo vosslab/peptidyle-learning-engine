@@ -11,7 +11,7 @@ export interface QuestionSearchResult {
   readonly summary: string;
   /** Reviewed publication-time attribution; never an account or ownership identity. */
   readonly byline: ReadonlyArray<string>;
-  readonly taxonomy: ReadonlyArray<string>;
+  readonly classifications: ReadonlyArray<string>;
   readonly capabilities: ReadonlyArray<string>;
   readonly license: string;
   /** Server-disclosed learning evidence for this exact immutable publication. */
@@ -42,7 +42,7 @@ export interface QuestionSearchFacetAggregate {
     | "backend"
     | "tag"
     | "questionType"
-    | "taxonomy"
+    | "classification"
     | "capability"
     | "license"
     | "evidence"
@@ -57,7 +57,7 @@ export interface QuestionSearchQuery {
   readonly backend: string | null;
   readonly tag: string | null;
   readonly questionType: string | null;
-  readonly taxonomy: string | null;
+  readonly classification: string | null;
   readonly capability: string | null;
   readonly license: string | null;
   readonly evidence: string | null;
@@ -144,7 +144,7 @@ function decodeRow(value: unknown, path: string): QuestionSearchResult {
       "displayId",
       "license",
       "summary",
-      "taxonomy",
+      "classifications",
       "title",
       "evidence",
     ])
@@ -161,7 +161,7 @@ function decodeRow(value: unknown, path: string): QuestionSearchResult {
     title: boundedText(value["title"], `${path}.title`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     byline: stringList(value["byline"], `${path}.byline`),
-    taxonomy: stringList(value["taxonomy"], `${path}.taxonomy`),
+    classifications: stringList(value["classifications"], `${path}.classifications`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),
     license: boundedText(value["license"], `${path}.license`),
     evidence,
@@ -251,7 +251,7 @@ function decodeAggregate(value: unknown, path: string): QuestionSearchFacetAggre
     facet !== "backend" &&
     facet !== "tag" &&
     facet !== "questionType" &&
-    facet !== "taxonomy" &&
+    facet !== "classification" &&
     facet !== "capability" &&
     facet !== "license" &&
     facet !== "evidence" &&
@@ -308,7 +308,7 @@ export const EMPTY_QUESTION_SEARCH_QUERY: QuestionSearchQuery = {
   backend: null,
   tag: null,
   questionType: null,
-  taxonomy: null,
+  classification: null,
   capability: null,
   license: null,
   evidence: null,
@@ -323,7 +323,7 @@ export function normalizeQuestionSearchQuery(query: QuestionSearchQuery): Questi
     backend: query.backend,
     tag: query.tag,
     questionType: query.questionType,
-    taxonomy: query.taxonomy,
+    classification: query.classification,
     capability: query.capability,
     license: query.license,
     evidence: query.evidence,

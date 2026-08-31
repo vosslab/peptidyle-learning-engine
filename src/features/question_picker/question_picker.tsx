@@ -71,7 +71,7 @@ function facetValues(
     | "backend"
     | "tag"
     | "questionType"
-    | "taxonomy"
+    | "classification"
     | "capability"
     | "license"
     | "evidence"
@@ -275,13 +275,13 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </select>
         </label>
         <label>
-          Topic
+          Classification
           <select
-            value={query().taxonomy ?? ""}
-            onChange={(event) => updateQuery({ taxonomy: event.currentTarget.value || null })}
+            value={query().classification ?? ""}
+            onChange={(event) => updateQuery({ classification: event.currentTarget.value || null })}
           >
-            <option value="">All topics</option>
-            <For each={facetValues(state(), "taxonomy")}>
+            <option value="">All classifications</option>
+            <For each={facetValues(state(), "classification")}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>
@@ -389,7 +389,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                         <span>
                           <strong>{row.title}</strong>
                           <span>{row.summary}</span>
-                          <small>{`${row.displayId} - ${row.taxonomy.join(" / ") || "No topic label"}`}</small>
+                          <small>{`${row.displayId} - ${row.classifications.join(" / ") || "No classification"}`}</small>
                         </span>
                       </article>
                     }
@@ -404,7 +404,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                       <span>
                         <strong>{row.title}</strong>
                         <span>{row.summary}</span>
-                        <small>{`${row.displayId} - ${row.taxonomy.join(" / ") || "No topic label"}`}</small>
+                        <small>{`${row.displayId} - ${row.classifications.join(" / ") || "No classification"}`}</small>
                       </span>
                     </label>
                   </Show>

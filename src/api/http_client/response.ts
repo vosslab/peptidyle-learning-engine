@@ -17,7 +17,7 @@ import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
   AssignmentAttemptScreenData,
-  PublicationDiff,
+  QuestionPublicationReview,
   AssignmentAttemptSummaryResponse,
   StudentQuestionAttempt,
   WorkspaceDraftDetail,
@@ -46,9 +46,9 @@ import {
   decodeAssignmentAttemptPage,
   decodeAssignmentAttemptSummaryResponse,
   decodeAssignmentProgress,
-  decodeTaxonomyPage,
+  decodeQuestionClassificationPage,
   decodeWorkspaceDraftPage,
-  decodePublicationDiff,
+  decodeQuestionPublicationReview,
   decodeNavigationResolution,
 } from "../decoders";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -212,7 +212,7 @@ async function questionDetails(
   basePath: string,
   questionId: QuestionId,
 ): Promise<QuestionDetails> {
-  const path = `/api/problems/by-id/${encodedId(questionId)}/detail`;
+  const path = `/api/questions/by-id/${encodedId(questionId)}/detail`;
   const detail = await requestJson(fetchImplementation, basePath, path, decodeQuestionDetails);
   if (detail.summary.questionId !== questionId)
     throw new ApiProtocolError(
@@ -220,22 +220,27 @@ async function questionDetails(
     );
   return detail;
 }
-async function publicationDiff(
+async function questionPublicationReview(
   fetchImplementation: ApiFetch,
   basePath: string,
   workspace: WorkspaceId,
-): Promise<PublicationDiff> {
-  const path = `${workspacePath(workspace)}/publication-diff`;
+): Promise<QuestionPublicationReview> {
+  const path = `${workspacePath(workspace)}/question-publication-review`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     headers: { accept: "application/json" },
     credentials: "same-origin",
     cache: "no-store",
   });
   if (!response.ok) throw new ApiRequestError(response.status, path);
-  const diff = decodePublicationDiff(await boundedResponseJson(response, path), "response");
-  if (workspaceRevision(response, path) !== diff.revision)
-    throw new ApiProtocolError("Publication diff ETag does not match its draftRevision");
-  return diff;
+  const review = decodeQuestionPublicationReview(
+    await boundedResponseJson(response, path),
+    "response",
+  );
+  if (workspaceRevision(response, path) !== review.revision)
+    throw new ApiProtocolError(
+      "Question Publication Review ETag does not match its working-copy edit number",
+    );
+  return review;
 }
 async function activeAttempt(
   client: ApiClient,
@@ -279,12 +284,12 @@ export function createResponseClient(
   | "listWorkspaceDrafts"
   | "resolveNavigation"
   | "getWorkspaceDraft"
-  | "getWorkspacePublicationDiff"
+  | "getQuestionPublicationReview"
   | "listQuestions"
   | "searchQuestionLibrary"
   | "resolveQuestion"
   | "getQuestionDetails"
-  | "listTaxonomy"
+  | "listQuestionClassifications"
   | "listCourses"
   | "getCourse"
   | "getCourseAppearance"
@@ -321,13 +326,13 @@ export function createResponseClient(
         decodeWorkspaceDraftPage,
       ),
     getWorkspaceDraft: (workspace) => workspaceDraft(fetchImplementation, basePath, workspace),
-    getWorkspacePublicationDiff: (workspace) =>
-      publicationDiff(fetchImplementation, basePath, workspace),
+    getQuestionPublicationReview: (workspace) =>
+      questionPublicationReview(fetchImplementation, basePath, workspace),
     listQuestions: (cursor) =>
       requestJson(
         fetchImplementation,
         basePath,
-        cursorPath("/api/problems", cursor),
+        cursorPath("/api/questions", cursor),
         decodeQuestionPage,
       ),
     searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> =>
@@ -344,12 +349,12 @@ export function createResponseClient(
       );
     },
     getQuestionDetails: (questionId) => questionDetails(fetchImplementation, basePath, questionId),
-    listTaxonomy: (cursor) =>
+    listQuestionClassifications: (cursor) =>
       requestJson(
         fetchImplementation,
         basePath,
-        cursorPath("/api/taxonomy", cursor),
-        decodeTaxonomyPage,
+        cursorPath("/api/question-classifications", cursor),
+        decodeQuestionClassificationPage,
       ),
     listCourses: (cursor) =>
       requestJson(

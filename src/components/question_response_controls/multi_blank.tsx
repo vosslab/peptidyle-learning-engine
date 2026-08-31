@@ -60,7 +60,7 @@ export function MultiBlankResponse(
         disabled={controller.locked()}
       >
         <legend>Complete each blank</legend>
-        <p class="keyboard-hint" id={`${props.attemptId}-multi-blank-help`}>
+        <p class="keyboard-instructions" id={`${props.attemptId}-multi-blank-help`}>
           Use Tab and Shift+Tab to move between blanks. Type each response, then use the Submit
           answer button. Enter is an optional submit shortcut.
         </p>

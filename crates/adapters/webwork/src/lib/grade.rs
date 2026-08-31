@@ -20,12 +20,12 @@ pub(super) async fn grade<R: WebworkRenderer>(
     crate::source_object_reference::verify_source(source)?;
     crate::source_object_reference::verify_source_binding(source, &question_version)?;
     let (points_possible, partial_credit) = match question.grading {
-        question_model::GradingDefinition::AllOrNothing { points }
+        question_model::QuestionGradingRule::AllOrNothing { points }
             if points.is_finite() && points >= 0.0 =>
         {
             (points, false)
         }
-        question_model::GradingDefinition::PartialCredit { points }
+        question_model::QuestionGradingRule::PartialCredit { points }
             if points.is_finite()
                 && points >= 0.0
                 && crate::reviewed_webwork_source_capabilities(
@@ -36,12 +36,14 @@ pub(super) async fn grade<R: WebworkRenderer>(
         {
             (points, true)
         }
-        question_model::GradingDefinition::PartialCredit { .. } => {
+        question_model::QuestionGradingRule::PartialCredit { .. } => {
             return Err(WebworkAdapterError::InvalidRendererEnvelope(
                 "WeBWorK partial credit requires an accepted source profile".to_string(),
             ));
         }
-        question_model::GradingDefinition::Ungraded => return Ok(QuestionGradingOutcome::Ungraded),
+        question_model::QuestionGradingRule::Ungraded => {
+            return Ok(QuestionGradingOutcome::Ungraded);
+        }
         _ => {
             return Err(WebworkAdapterError::InvalidRendererEnvelope(
                 "WeBWorK grading requires finite nonnegative points".to_string(),

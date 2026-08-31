@@ -26,7 +26,7 @@ function source(response) {
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
     tags: [],
-    taxonomy: [],
+    classifications: [],
     license: { kind: "allRightsReserved" },
     language: "en",
   };

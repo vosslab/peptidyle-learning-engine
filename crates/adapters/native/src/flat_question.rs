@@ -15,8 +15,8 @@ pub use grading::flat_question::{
     validate_flat_question_question, validate_for_draft,
 };
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
+use question_model::classification::{License, QuestionClassification};
 use question_model::envelope::ContentBlock;
-use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
     DraftQuestionDefinition, QuestionFormat, QuestionType, QuestionVersion, WorkspaceId,
     capability::{Capability, QuestionBackendCapabilities},
@@ -95,21 +95,21 @@ impl From<FlatQuestionAttemptTimeLimit> for QuestionAttemptTimeLimit {
     }
 }
 
-/// Closed authoring form of one controlled-vocabulary term.
+/// Closed authoring form of one exact Question Classification.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct FlatTaxonomyTerm {
-    scheme: String,
+struct FlatQuestionClassification {
+    system: String,
     code: String,
-    label: String,
+    name: String,
 }
 
-impl From<&FlatTaxonomyTerm> for TaxonomyTerm {
-    fn from(value: &FlatTaxonomyTerm) -> Self {
+impl From<&FlatQuestionClassification> for QuestionClassification {
+    fn from(value: &FlatQuestionClassification) -> Self {
         Self {
-            scheme: value.scheme.clone(),
+            system: value.system.clone(),
             code: value.code.clone(),
-            label: value.label.clone(),
+            name: value.name.clone(),
         }
     }
 }

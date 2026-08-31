@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::taxonomy::{License, Tag, TaxonomyTerm};
+use crate::classification::{License, QuestionClassification, Tag};
 use crate::{
     ActivityTimestamp, CourseInstanceReference, DraftQuestionSource, QuestionBackendCapabilities,
     QuestionMetadata, QuestionSource, QuestionVersionNumber,
@@ -13,17 +13,16 @@ pub use crate::question_search::{
     MAX_QUESTION_SEARCH_BYLINE_FILTERS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
     MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchBylineFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
-    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter,
-    QuestionSearchLicense, QuestionSearchLicenseFacet, QuestionSearchRequest,
-    QuestionSearchRequestError, QuestionSearchTagFacet, QuestionSearchTaxonomyFacet,
-    QuestionSearchTaxonomyFilter, QuestionStatisticsAvailability,
-    QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
+    QuestionSearchBylineFacet, QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
+    QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
+    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchLicense, QuestionSearchLicenseFacet,
+    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
+    QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
 };
 pub use crate::response::QuestionType;
 
-/// Maximum taxonomy facet values returned with one bounded Question Search page.
-pub const MAX_QUESTION_SEARCH_TAXONOMY_FACETS: usize = 64;
+/// Maximum Question Classification values returned with one bounded Question Search page.
+pub const MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS: usize = 64;
 
 /// Maximum own-course rows included with one exact Question Library usage detail.
 ///
@@ -276,7 +275,7 @@ pub struct QuestionSummary {
     pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: QuestionBackendCapabilities,
-    /// Shared metadata used for title, taxonomy, license, and language facets.
+    /// Shared metadata used for title, Question Classification, license, and language facets.
     pub metadata: QuestionMetadata,
     /// Immutable reviewed publication attribution; never account authority.
     pub byline: crate::PublicByline,
@@ -293,9 +292,9 @@ impl QuestionSummary {
         &self.metadata.tags
     }
 
-    /// Controlled terms for taxonomy aggregation and filtering.
-    pub fn taxonomy(&self) -> &[TaxonomyTerm] {
-        &self.metadata.taxonomy
+    /// Exact Question Classifications for aggregation and filtering.
+    pub fn classifications(&self) -> &[QuestionClassification] {
+        &self.metadata.classifications
     }
 
     /// License facet for reuse decisions.
@@ -560,13 +559,13 @@ mod tests {
                 "protein structure".to_string(),
             ],
             question_types: vec![QuestionType::MultipleChoice; 2],
-            taxonomy: vec![
-                QuestionSearchTaxonomyFilter {
-                    scheme: "  discipline ".to_string(),
+            classifications: vec![
+                QuestionSearchClassificationFilter {
+                    system: "  discipline ".to_string(),
                     code: " core ".to_string(),
                 },
-                QuestionSearchTaxonomyFilter {
-                    scheme: "discipline".to_string(),
+                QuestionSearchClassificationFilter {
+                    system: "discipline".to_string(),
                     code: "core".to_string(),
                 },
             ],
@@ -581,7 +580,7 @@ mod tests {
         assert_eq!(query.backends, vec![QuestionBackend::Native]);
         assert_eq!(query.tags, vec!["protein structure"]);
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
-        assert_eq!(query.taxonomy.len(), 1);
+        assert_eq!(query.classifications.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.licenses, vec![QuestionSearchLicense::CcBy]);
         assert!(
@@ -605,7 +604,7 @@ mod tests {
                 metadata: QuestionMetadata {
                     title: "Safe detail".to_string(),
                     tags: Vec::new(),
-                    taxonomy: Vec::new(),
+                    classifications: Vec::new(),
                     license: License::Cc0,
                     language: "en".to_string(),
                 },

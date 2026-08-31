@@ -15,7 +15,7 @@ import {
   moveReusableEntry,
   removeReusableEntry,
   updateReusableDefaults,
-  updateReusablePoolDrawCount,
+  updateReusablePoolSelectionCount,
   updateReusableSchedule,
   updateReusableText,
   type ReusableEntryDirection,
@@ -51,7 +51,7 @@ function readMoment(value: string): RelativeAssignmentScheduleMoment | null {
 
 function entrySummary(entry: ReusableAssignmentDefinitionInput["entries"][number]): string {
   if (entry.kind === "fixed") return `Fixed Question ${entry.question_id}`;
-  return `Question Pool: draw ${entry.draw_count} from ${plural(entry.candidates.length, "candidate")}`;
+  return `Question Pool: select ${entry.selection_count} from ${plural(entry.candidates.length, "candidate")}`;
 }
 
 function lateWorkRuleFromValue(
@@ -136,7 +136,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
     const kind = intent === "pool" ? "a pool" : "fixed entries";
     props.onChange(
       next,
-      `Added ${plural(selection.questionIds.length, "selected question")} as ${kind}. Set pool draw count or continue arranging the definition.`,
+      `Added ${plural(selection.questionIds.length, "selected question")} as ${kind}. Set Question Pool selection count or continue arranging the definition.`,
     );
   }
 
@@ -212,13 +212,17 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
                           type="number"
                           min="1"
                           max={entry.kind === "pool" ? entry.candidates.length : 1}
-                          value={entry.kind === "pool" ? entry.draw_count : 1}
+                          value={entry.kind === "pool" ? entry.selection_count : 1}
                           disabled={!props.editable}
                           onInput={(event) => {
-                            const drawCount = Number(event.currentTarget.value);
+                            const selectionCount = Number(event.currentTarget.value);
                             props.onChange(
-                              updateReusablePoolDrawCount(props.definition, index(), drawCount),
-                              "Pool draw count updated. It must not exceed the candidate count.",
+                              updateReusablePoolSelectionCount(
+                                props.definition,
+                                index(),
+                                selectionCount,
+                              ),
+                              "Question Pool selection count updated. It must not exceed the candidate count.",
                             );
                           }}
                         />

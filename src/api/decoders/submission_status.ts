@@ -18,7 +18,10 @@ import {
   decodeStringEnum,
   decodeTrue,
 } from "../decoder";
-import { decodeIssuedQuestion, decodeStudentQuestionAttemptView } from "./assignment_attempt";
+import {
+  decodeStudentIssuedQuestion,
+  decodeStudentQuestionAttemptView,
+} from "./assignment_attempt";
 import { decodeStudentFeedback } from "./question_delivery";
 import { decodeIdentifier, decodeSha256, field, requireOnlyFields } from "./shared";
 
@@ -157,7 +160,7 @@ export function decodeNextIssuedAttempt(value: unknown, path = "response"): Next
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    issuedQuestion: decodeIssuedQuestion(
+    issuedQuestion: decodeStudentIssuedQuestion(
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),

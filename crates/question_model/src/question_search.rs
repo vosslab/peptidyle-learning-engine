@@ -3,9 +3,11 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
-use crate::question_library::{MAX_QUESTION_SEARCH_TAXONOMY_FACETS, QuestionBackend, QuestionId};
+use crate::classification::{License, QuestionClassification};
+use crate::question_library::{
+    MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS, QuestionBackend, QuestionId,
+};
 use crate::response::QuestionType;
-use crate::taxonomy::{License, TaxonomyTerm};
 
 /// Maximum public byline selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_BYLINE_FILTERS: usize = 16;
@@ -101,16 +103,16 @@ pub struct QuestionSearchCourseUseFacet {
     pub used: u64,
 }
 
-/// One exact controlled-vocabulary term selected in Question Search.
+/// One exact Question Classification selected in Question Search.
 ///
 /// The label is intentionally absent. It is presentation metadata, while a
 /// `(scheme, code)` pair is the durable term identity.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchTaxonomyFilter {
-    /// Vocabulary namespace.
-    pub scheme: String,
-    /// Controlled term within the namespace.
+pub struct QuestionSearchClassificationFilter {
+    /// External or institutional classification system.
+    pub system: String,
+    /// Classification code within that system.
     pub code: String,
 }
 
@@ -193,8 +195,8 @@ pub struct QuestionSearchRequest {
     pub tags: Vec<String>,
     /// Immutable Question Types; any supplied type may match.
     pub question_types: Vec<QuestionType>,
-    /// Exact controlled terms; every supplied term must be present.
-    pub taxonomy: Vec<QuestionSearchTaxonomyFilter>,
+    /// Exact Question Classifications; every supplied classification must be present.
+    pub classifications: Vec<QuestionSearchClassificationFilter>,
     /// Required adapter capabilities; every supplied capability must be present.
     pub capabilities: Vec<Capability>,
     /// Accepted license classes; any supplied value may match.
@@ -227,7 +229,7 @@ pub struct QuestionSearchFilter {
     pub backends: Vec<QuestionBackend>,
     pub tags: Vec<String>,
     pub question_types: Vec<QuestionType>,
-    pub taxonomy: Vec<QuestionSearchTaxonomyFilter>,
+    pub classifications: Vec<QuestionSearchClassificationFilter>,
     pub capabilities: Vec<Capability>,
     pub licenses: Vec<QuestionSearchLicense>,
     pub evidence: QuestionStatisticsAvailability,
@@ -250,7 +252,7 @@ impl QuestionSearchFilter {
             backends: query.backends,
             tags: query.tags,
             question_types: query.question_types,
-            taxonomy: query.taxonomy,
+            classifications: query.classifications,
             capabilities: query.capabilities,
             licenses: query.licenses,
             evidence: query.evidence,
@@ -273,7 +275,7 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             backends: filter.backends,
             tags: filter.tags,
             question_types: filter.question_types,
-            taxonomy: filter.taxonomy,
+            classifications: filter.classifications,
             capabilities: filter.capabilities,
             licenses: filter.licenses,
             evidence: filter.evidence,
@@ -293,7 +295,7 @@ impl Default for QuestionSearchRequest {
             backends: Vec::new(),
             tags: Vec::new(),
             question_types: Vec::new(),
-            taxonomy: Vec::new(),
+            classifications: Vec::new(),
             capabilities: Vec::new(),
             licenses: Vec::new(),
             evidence: QuestionStatisticsAvailability::Any,
@@ -344,7 +346,7 @@ impl QuestionSearchRequest {
     /// `authorship`
     /// combine with every other active filter using AND. Within bylines,
     /// backends, tags, Question Types, and licenses, values combine using
-    /// OR. Taxonomy and capabilities retain every-value-matches semantics.
+    /// OR. Question Classifications and capabilities retain every-value-matches semantics.
     pub fn normalized(mut self) -> Result<Self, QuestionSearchRequestError> {
         self.text = self
             .text
@@ -353,17 +355,19 @@ impl QuestionSearchRequest {
             .filter(|text| !text.is_empty());
         normalize_text_filters(&mut self.bylines, MAX_QUESTION_SEARCH_BYLINE_FILTERS, 120)?;
         normalize_text_filters(&mut self.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
-        for term in &mut self.taxonomy {
-            term.scheme = term.scheme.trim().to_string();
-            term.code = term.code.trim().to_string();
-            if term.scheme.is_empty() || term.code.is_empty() {
+        for classification in &mut self.classifications {
+            classification.system = classification.system.trim().to_string();
+            classification.code = classification.code.trim().to_string();
+            if classification.system.is_empty() || classification.code.is_empty() {
                 return Err(QuestionSearchRequestError::BlankFilter);
             }
-            if term.scheme.chars().count() > 128 || term.code.chars().count() > 128 {
+            if classification.system.chars().count() > 128
+                || classification.code.chars().count() > 128
+            {
                 return Err(QuestionSearchRequestError::TooLarge);
             }
         }
-        if self.taxonomy.len() > MAX_QUESTION_SEARCH_TAXONOMY_FACETS
+        if self.classifications.len() > MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS
             || self.capabilities.len() > Capability::ALL.len()
             || self.licenses.len() > 6
             || self.backends.len() > QuestionBackend::ALL.len()
@@ -371,8 +375,8 @@ impl QuestionSearchRequest {
         {
             return Err(QuestionSearchRequestError::TooLarge);
         }
-        self.taxonomy.sort();
-        self.taxonomy.dedup();
+        self.classifications.sort();
+        self.classifications.dedup();
         self.capabilities.sort();
         self.capabilities.dedup();
         self.licenses.sort();
@@ -422,12 +426,12 @@ fn normalize_text(
     Ok(normalized)
 }
 
-/// Server-computed count for a controlled taxonomy value.
+/// Server-computed count for one exact Question Classification.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchTaxonomyFacet {
-    /// Controlled term identity and display label.
-    pub term: TaxonomyTerm,
+pub struct QuestionSearchClassificationFacet {
+    /// Classification system, code, and display name.
+    pub classification: QuestionClassification,
     /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
@@ -474,8 +478,8 @@ pub struct QuestionSearchFacets {
     pub tags: Vec<QuestionSearchTagFacet>,
     /// Closed immutable Question Type counts.
     pub question_types: Vec<QuestionTypeFacet>,
-    /// Controlled taxonomy counts.
-    pub taxonomy: Vec<QuestionSearchTaxonomyFacet>,
+    /// Question Classification counts.
+    pub classifications: Vec<QuestionSearchClassificationFacet>,
     /// Adapter capability counts.
     pub capabilities: Vec<QuestionSearchCapabilityFacet>,
     /// Reuse-license counts.

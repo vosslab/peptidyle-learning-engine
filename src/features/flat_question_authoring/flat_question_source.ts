@@ -26,10 +26,10 @@ export type FlatQuestionAttemptTimeLimit =
   | { readonly kind: "unlimited" }
   | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number };
 
-export type FlatQuestionTaxonomyTerm = {
-  readonly scheme: string;
+export type FlatQuestionClassification = {
+  readonly system: string;
   readonly code: string;
-  readonly label: string;
+  readonly name: string;
 };
 
 export type FlatQuestionLicense =
@@ -171,7 +171,7 @@ export type FlatQuestionSourceV2 = {
   readonly questionAttemptLimit: FlatQuestionAttemptLimit;
   readonly questionAttemptTimeLimit: FlatQuestionAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
-  readonly taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>;
+  readonly classifications: ReadonlyArray<FlatQuestionClassification>;
   readonly license: FlatQuestionLicense;
   readonly language: string;
 };

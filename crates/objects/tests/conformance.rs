@@ -5,7 +5,7 @@ use objects::{
     ObjectAddress, ObjectDataClass, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
     Sha256Digest,
 };
-use question_model::taxonomy::License;
+use question_model::classification::License;
 use question_model::{
     ActivityTimestamp, AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
     QuestionId, QuestionVersionNumber, QuestionVersionReference, WorkspaceId, WorkspaceImportId,

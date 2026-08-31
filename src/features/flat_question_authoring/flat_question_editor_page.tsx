@@ -18,7 +18,7 @@ import {
   setLicense,
   setOutcomeFeedback,
   setTags,
-  setTaxonomy,
+  setClassifications,
   setQuestionAttemptTimeLimit,
   validateFlatQuestionSource,
   type FlatQuestionEditorAction,
@@ -44,7 +44,7 @@ export type {
 
 type Review = {
   readonly revision: string;
-  readonly baseline: "newQuestion";
+  readonly baseQuestion: "newQuestion";
   readonly title: string;
   readonly changed: ReadonlyArray<string>;
 };
@@ -443,19 +443,19 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
         setStatus("The saved draft changed. Reload it before publishing.");
         return;
       }
-      const diff = await props.api.getWorkspacePublicationDiff(props.workspace);
+      const review = await props.api.getQuestionPublicationReview(props.workspace);
       if (!reviewRequestIsCurrent(generation, revision)) return;
-      if (diff.revision !== revision) {
+      if (review.revision !== revision) {
         setStatus(
           "The saved draft changed while its review was loading. Reload it before publishing.",
         );
         return;
       }
       const nextReview: Review = {
-        revision: diff.revision,
-        baseline: diff.baseline,
-        title: diff.current.title,
-        changed: diff.changed,
+        revision: review.revision,
+        baseQuestion: review.baseQuestion,
+        title: review.current.title,
+        changed: review.changed,
       };
       setReview(nextReview);
       transition({
@@ -642,13 +642,15 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
               />
               <FlatMetadataFields
                 tags={currentSource().tags}
-                taxonomy={currentSource().taxonomy}
+                classifications={currentSource().classifications}
                 license={currentSource().license}
                 language={currentSource().language}
                 fieldErrors={errors()}
                 disabled={isLocked()}
                 onTagsChange={(tags) => applyEdit(setTags(currentSource(), tags))}
-                onTaxonomyChange={(taxonomy) => applyEdit(setTaxonomy(currentSource(), taxonomy))}
+                onClassificationsChange={(classifications) =>
+                  applyEdit(setClassifications(currentSource(), classifications))
+                }
                 onLicenseChange={(license) => applyEdit(setLicense(currentSource(), license))}
                 onLanguageChange={(language) => applyEdit(setLanguage(currentSource(), language))}
               />

@@ -18,17 +18,20 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
       assignmentDeadlineRule: "autoSubmit",
     },
     questionsPerRun: 0,
-    questionVariationRule: "redrawQuestionPools",
+    questionPoolReuseRule: "selectAgain",
+    questionVariationRule: "newVariation",
     studentFeedbackReleaseRule: {
       score: "never",
       per_item_correctness: "never",
       feedback_text: "never",
-      solution: "never",
+      question_answer: "never",
+      question_answer_explanation: "never",
       class_statistics: "never",
     },
   });
   assert.equal(view.questionsPerRun, 0);
-  assert.equal(view.questionVariationRule, "redrawQuestionPools");
+  assert.equal(view.questionPoolReuseRule, "selectAgain");
+  assert.equal(view.questionVariationRule, "newVariation");
   assert.equal("lateStatus" in view.delivery, false);
   assert.throws(() =>
     decodeInstructorStudentView({ ...view, assignmentId: "00000000-0000-0000-0000-000000000001" }),

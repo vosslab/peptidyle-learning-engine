@@ -10,7 +10,7 @@ use domain::statistics::QuestionStatisticsObservation;
 use domain::validation::{StudentResponseFormatIssue, validate_response_format};
 use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
-use question_model::{GradingDefinition, GradingResult, QuestionVersion};
+use question_model::{GradingResult, QuestionGradingRule, QuestionVersion};
 
 use crate::AnswerKey;
 
@@ -58,7 +58,7 @@ impl std::fmt::Display for GradingError {
                 "Question Response Format, Student Response, and Answer Key kinds must agree",
             ),
             Self::InvalidDefinition(message) => {
-                write!(formatter, "invalid grading definition: {message}")
+                write!(formatter, "invalid Question Grading Rule: {message}")
             }
             Self::PartialCreditRequiresBackend => {
                 formatter.write_str("partial credit requires a deterministic backend checker")
@@ -94,15 +94,15 @@ pub fn grade(
     }
 
     let points = match question.grading {
-        GradingDefinition::Ungraded => {
+        QuestionGradingRule::Ungraded => {
             return if key.is_none() {
                 Ok(QuestionGradingOutcome::Ungraded)
             } else {
                 Err(GradingError::UnexpectedAnswerKey)
             };
         }
-        GradingDefinition::AllOrNothing { points } => validated_points(points)?,
-        GradingDefinition::PartialCredit { points } => {
+        QuestionGradingRule::AllOrNothing { points } => validated_points(points)?,
+        QuestionGradingRule::PartialCredit { points } => {
             let _ = validated_points(points)?;
             return Err(GradingError::PartialCreditRequiresBackend);
         }
@@ -345,10 +345,10 @@ mod tests {
     use question_model::assignment_activity_rules::{
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
+    use question_model::classification::License;
     use question_model::envelope::ContentBlock;
     use question_model::generation::QuestionVariationDefinition;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
-    use question_model::taxonomy::License;
     use question_model::{
         QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionVersionNumber,
         WorkspaceId,
@@ -369,7 +369,7 @@ mod tests {
         }
     }
 
-    fn question(response: QuestionResponseFormat, grading: GradingDefinition) -> QuestionVersion {
+    fn question(response: QuestionResponseFormat, grading: QuestionGradingRule) -> QuestionVersion {
         QuestionVersion {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
             version_number: QuestionVersionNumber::new(2).expect("positive version"),
@@ -388,7 +388,7 @@ mod tests {
             metadata: QuestionMetadata {
                 title: "Grading fixture".to_string(),
                 tags: Vec::new(),
-                taxonomy: Vec::new(),
+                classifications: Vec::new(),
                 license: License::CcBySa,
                 language: "en-US".to_string(),
             },
@@ -396,7 +396,7 @@ mod tests {
     }
 
     fn all_or_nothing(response: QuestionResponseFormat) -> QuestionVersion {
-        question(response, GradingDefinition::AllOrNothing { points: 2.0 })
+        question(response, QuestionGradingRule::AllOrNothing { points: 2.0 })
     }
 
     #[test]
@@ -607,7 +607,7 @@ mod tests {
                 tolerance: NumericResponseTolerance::Exact,
                 unit: None,
             },
-            GradingDefinition::AllOrNothing { points: -1.0 },
+            QuestionGradingRule::AllOrNothing { points: -1.0 },
         );
         assert_eq!(
             grade(
@@ -643,7 +643,7 @@ mod tests {
                 match_mode: TextResponseMatchRule::Exact,
                 max_length: 10,
             },
-            GradingDefinition::Ungraded,
+            QuestionGradingRule::Ungraded,
         );
         assert_eq!(
             grade(
@@ -673,7 +673,7 @@ mod tests {
                 tolerance: NumericResponseTolerance::Exact,
                 unit: None,
             },
-            GradingDefinition::PartialCredit { points: 2.0 },
+            QuestionGradingRule::PartialCredit { points: 2.0 },
         );
         assert_eq!(
             grade(

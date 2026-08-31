@@ -89,7 +89,7 @@ identity.
 Question Library is the shared authoritative set of Published Questions.
 My Questions filters it to Published Questions owned by the current Account,
 and My Question Drafts filters private Draft Questions the current Account may
-edit. Tags and taxonomy guide search within the Question Library; they do not
+edit. Tags and Question Classifications guide search within the Question Library; they do not
 partition questions by subject, author, course, or audience. Every assignment item
 resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
@@ -231,7 +231,7 @@ Question definitions imply these requirements:
 | All-or-nothing grading            | `serverGrading`                     |
 | Partial-credit grading            | `serverGrading` and `partialCredit` |
 | Immediate correctness with a hint | `hints`                             |
-| Per-question timer                | `questionAttemptTimeLimit`                 |
+| Per-question timer                | `questionAttemptTimeLimit`          |
 | Untimed, ungraded static question | None                                |
 
 Assignment delivery can additionally require `clientRendering`, `printExport`,
@@ -243,20 +243,20 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 `QuestionVersion` carries the fields the specification names:
 
-| Field           | Type                      | Purpose                                                                        |
-| --------------- | ------------------------- | ------------------------------------------------------------------------------ |
-| `questionId`    | `QuestionId`              | Stable Question lineage                                                        |
-| `versionNumber` | `QuestionVersionNumber`   | Exact immutable version within the lineage                                     |
-| `workspace`     | `WorkspaceId`             | Authoring workspace                                                            |
-| `source`        | `QuestionSource`          | Which engine, and where to find it there                                       |
-| `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order                                                   |
-| `questionType`  | `QuestionType`            | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
-| `response`      | `QuestionResponseFormat`  | Accepted Student Response shape and constraints                                |
-| `questionAttemptLimit` | `QuestionAttemptLimit`    | Retry bound for this Question                                                  |
-| `questionAttemptTimeLimit`  | `QuestionAttemptTimeLimit`            | Time limits, with grace                                                        |
-| `questionVariationDefinition` | `QuestionVariationDefinition` | Static or seeded definition for how this Question varies                     |
-| `grading`       | `GradingDefinition`       | How a response is judged                                                       |
-| `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language                                       |
+| Field                         | Type                          | Purpose                                                                        |
+| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| `questionId`                  | `QuestionId`                  | Stable Question lineage                                                        |
+| `versionNumber`               | `QuestionVersionNumber`       | Exact immutable version within the lineage                                     |
+| `workspace`                   | `WorkspaceId`                 | Authoring workspace                                                            |
+| `source`                      | `QuestionSource`              | Which engine, and where to find it there                                       |
+| `prompt`                      | `Vec<ContentBlock>`           | Renderable content, in order                                                   |
+| `questionType`                | `QuestionType`                | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
+| `response`                    | `QuestionResponseFormat`      | Accepted Student Response shape and constraints                                |
+| `questionAttemptLimit`        | `QuestionAttemptLimit`        | Retry bound for this Question                                                  |
+| `questionAttemptTimeLimit`    | `QuestionAttemptTimeLimit`    | Time limits, with grace                                                        |
+| `questionVariationDefinition` | `QuestionVariationDefinition` | Static or seeded definition for how this Question varies                       |
+| `grading`                     | `QuestionGradingRule`         | How a response is judged                                                       |
+| `metadata`                    | `QuestionMetadata`            | Title, tags, Question Classifications, license, language                       |
 
 ### Response shapes
 
@@ -307,16 +307,16 @@ Question Response Format: it replaces durable response-item references with
 rendered IDs while preserving the exact response shape. The schema currently
 covers the eight native flat Question Types:
 
-| `IssuedQuestionResponseFormatV1` | Shared Question Response Format  |
-| -------------------------------- | --------------------------- |
-| `singleChoice`                   | exactly-one multiple choice |
-| `multipleAnswer`                 | one-or-more multiple choice |
-| `fillIn`                         | short text                  |
-| `multiFillIn`                    | multi-blank                 |
-| `numerical`                      | numeric                     |
-| `matching`                       | matching                    |
-| `ordering`                       | ordering                    |
-| `hotspot`                        | hotspot                     |
+| `IssuedQuestionResponseFormatV1` | Shared Question Response Format |
+| -------------------------------- | ------------------------------- |
+| `singleChoice`                   | exactly-one multiple choice     |
+| `multipleAnswer`                 | one-or-more multiple choice     |
+| `fillIn`                         | short text                      |
+| `multiFillIn`                    | multi-blank                     |
+| `numerical`                      | numeric                         |
+| `matching`                       | matching                        |
+| `ordering`                       | ordering                        |
+| `hotspot`                        | hotspot                         |
 
 The durable Question Response Format names the item role at the model boundary:
 Multiple Choice has Question Choices; MATCH has Matching Prompts and Matching
@@ -389,12 +389,13 @@ For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.
 
-The four explicit Assignment activity rules are chosen per Assignment and are independent enums:
-`AssignmentCompletionRule`, `AssignmentAttemptGradeRule`, `AssignmentAttemptContinuationRule`, and
-`QuestionVariationRule`. They stay independent so an instructor can express "mastery
-required, highest score kept, practice allowed after completion while retaining
-Questions with fresh Question Seeds", which is the behavior students were observed using. A single combined
-mode enum would offer a fixed menu instead.
+The explicit Assignment activity rules are chosen per Assignment and are independent enums.
+The later-Attempt rules split Question Pool membership from Question Variation:
+`QuestionPoolReuseRule` chooses Reuse Selection or Select Again, while
+`QuestionVariationRule` chooses Reuse Variation or New Variation. This lets an
+instructor express mastery-required practice that keeps the selected Questions
+while using new Question Variations, or any other meaningful combination,
+without a combined mode hiding either decision.
 
 Each top-level Fixed Question or Question Pool has Assignment Entry Availability:
 Available includes it in future Assignment Attempts and Retired preserves historical
@@ -462,7 +463,7 @@ The exact sampling and parity rules are documented in
 Question Tags are free-form search labels. A Question Classification maps one
 Question Revision to a real external or institutional system through its
 Classification System, Classification Code, and Classification Name. Question
-Bloom Classification is PLE's required two-dimensional classification and
+Bloom Classification is PLE's dedicated two-dimensional classification and
 therefore has its own closed fields instead of using that generic mapping.
 
 Question License is the exact versioned SPDX expression governing one Question
@@ -473,8 +474,9 @@ for the complete Question Metadata vocabulary.
 
 #### Bloom classification
 
-Every Published Question Revision has one derived Question Bloom Classification
-formed from exactly two independently selected closed fields:
+Once automatic AI classification completes, every Published Question Revision
+has one current Question Bloom Classification derived from exactly two independently selected
+closed fields:
 
 - Bloom Cognitive Process: Remember, Understand, Apply, Analyze, Evaluate, or
   Create.
@@ -497,9 +499,9 @@ Revision:
    knowledge and select its Cognitive Process Dimension.
 4. Check the pair against the actual grading requirement. The complete task
    determines the pair; a command verb or Question Type alone does not.
-5. For a Question with several tasks, use the pair representing the dominant
-   full-credit performance. Send a genuinely co-dominant or ambiguous case for
-   Instructor review.
+5. For a Question with several tasks, use the best-supported pair representing
+   the dominant full-credit performance. An Instructor can correct the assigned
+   pair later.
 
 Use these short category meanings:
 
@@ -519,13 +521,18 @@ Use these short category meanings:
 | Procedural Knowledge    | Skills, algorithms, techniques, methods, and use      |
 | Metacognitive Knowledge | Strategies and awareness of one's own cognition       |
 
-Prior learning and course context can change the cognitive work a task
-demands. The Bloom Classification Assistant uses all authored Question
-evidence and sends uncertain cases for Instructor review. It fills the two
-enum fields on one exact Draft Question Revision. A Draft Question may have a
-pending suggestion; every Published Question Revision has the complete
-Instructor-accepted pair. A later accepted change follows the ordinary
-Question Revision and Reason for Edit workflow.
+Prior learning and course context can change the cognitive work a task demands.
+Publishing creates the exact immutable Question Revision with Bloom classification
+unassigned. AI classification work searches for unassigned Published Question
+Revisions and supplies each initial two-enum pair. The Question remains Published
+and discoverable while unassigned. An Instructor may later edit either value for
+that exact Question Revision. This classification edit changes discovery metadata
+without changing Question content or creating a Question Revision.
+
+The later AI integration plan owns model execution, scheduling, the answer-bearing
+input boundary, concurrent work claims, retry behavior, and operational evidence.
+This Question Model defines the classification result and its timing without selecting
+those implementation details.
 
 The reference two-dimensional graphic uses one hue family for each Cognitive
 Process column. PLE retains these sampled associations:

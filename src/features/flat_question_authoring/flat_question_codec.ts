@@ -21,7 +21,7 @@ import {
   type FlatQuestionNumericResponseTolerance,
   type FlatQuestionOutcomeFeedback,
   type FlatQuestionSourceV2,
-  type FlatQuestionTaxonomyTerm,
+  type FlatQuestionClassification,
   type FlatQuestionAttemptTimeLimit,
   type FlatQuestionTextResponseMatchRule,
 } from "./flat_question_source";
@@ -489,24 +489,23 @@ function decodeTags(value: unknown, path: string): ReadonlyArray<string> {
   return value.map((entry, index) => boundedText(entry, `${path}[${index}]`, MAX_TAG_CHARS));
 }
 
-function decodeTaxonomy(value: unknown, path: string): ReadonlyArray<FlatQuestionTaxonomyTerm> {
+function decodeClassifications(
+  value: unknown,
+  path: string,
+): ReadonlyArray<FlatQuestionClassification> {
   if (!Array.isArray(value)) throw new DecodeError(path, "an array");
   return value.map((entry, index) => {
     const entryPath = `${path}[${index}]`;
     const record = decodeRecord(entry, entryPath);
-    onlyFields(record, entryPath, ["scheme", "code", "label"]);
+    onlyFields(record, entryPath, ["system", "code", "name"]);
     return {
-      scheme: boundedText(
-        field(record, "scheme", entryPath),
-        `${entryPath}.scheme`,
+      system: boundedText(
+        field(record, "system", entryPath),
+        `${entryPath}.system`,
         MAX_METADATA_CHARS,
       ),
       code: boundedText(field(record, "code", entryPath), `${entryPath}.code`, MAX_METADATA_CHARS),
-      label: boundedText(
-        field(record, "label", entryPath),
-        `${entryPath}.label`,
-        MAX_METADATA_CHARS,
-      ),
+      name: boundedText(field(record, "name", entryPath), `${entryPath}.name`, MAX_METADATA_CHARS),
     };
   });
 }
@@ -544,7 +543,7 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
     "tags",
-    "taxonomy",
+    "classifications",
     "license",
     "language",
   ]);
@@ -673,8 +672,10 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
       `${path}.questionAttemptTimeLimit`,
     ),
     tags: record.tags === undefined ? [] : decodeTags(record.tags, `${path}.tags`),
-    taxonomy:
-      record.taxonomy === undefined ? [] : decodeTaxonomy(record.taxonomy, `${path}.taxonomy`),
+    classifications:
+      record.classifications === undefined
+        ? []
+        : decodeClassifications(record.classifications, `${path}.classifications`),
     license: decodeLicense(field(record, "license", path), `${path}.license`),
     language: boundedText(field(record, "language", path), `${path}.language`, MAX_METADATA_CHARS),
   };

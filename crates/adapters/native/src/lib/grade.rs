@@ -1,7 +1,7 @@
 use grading::QuestionGradingOutcome;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionFeedback, QuestionHint, QuestionVersion,
+    QuestionAttemptReproductionDetails, QuestionHint, QuestionPostGradingContent, QuestionVersion,
     StudentResponse,
 };
 
@@ -85,7 +85,7 @@ impl NativeAdapter {
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         asset_bindings: &[AssetObjectBinding],
         response: &StudentResponse,
-    ) -> Result<(QuestionGradingOutcome, QuestionFeedback), NativeAdapterError> {
+    ) -> Result<(QuestionGradingOutcome, QuestionPostGradingContent), NativeAdapterError> {
         let backend_execution =
             self.backend_execution_for(&recorded_reproduction_details.backend)?;
         let grader_execution = self.grader_execution_for(&recorded_reproduction_details.grader)?;
@@ -104,11 +104,11 @@ impl NativeAdapter {
             )
             .map_err(NativeAdapterError::Grading)?;
         let QuestionGradingOutcome::Graded(result) = &outcome else {
-            return Ok((outcome, QuestionFeedback::default()));
+            return Ok((outcome, QuestionPostGradingContent::default()));
         };
         let implementation =
             self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
-        let feedback = implementation.derive_feedback(
+        let content = implementation.derive_post_grading_content(
             question,
             &prepared.generated,
             &prepared.envelope,
@@ -116,6 +116,6 @@ impl NativeAdapter {
             result,
             response,
         )?;
-        Ok((outcome, feedback))
+        Ok((outcome, content))
     }
 }

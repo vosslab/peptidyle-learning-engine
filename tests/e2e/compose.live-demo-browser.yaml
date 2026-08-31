@@ -3,7 +3,12 @@
 
 services:
   identity-secret-init:
-    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret"]
+    command:
+      [
+        "/bin/sh",
+        "-ec",
+        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret",
+      ]
 
   api:
     build:

@@ -1,6 +1,6 @@
 // Strict runtime decoding for the answer-free Question Search facet DTO.
 
-import { MAX_QUESTION_SEARCH_TAXONOMY_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAXONOMY_FACETS";
+import { MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS";
 import { MAX_QUESTION_SEARCH_BYLINE_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FACETS";
 import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
 import type { QuestionSearchBackendFacet } from "../../../generated/api/QuestionSearchBackendFacet";
@@ -12,7 +12,7 @@ import type { QuestionSearchLicense } from "../../../generated/api/QuestionSearc
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
 import type { QuestionSearchFacets } from "../../../generated/api/QuestionSearchFacets";
 import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
-import type { QuestionSearchTaxonomyFacet } from "../../../generated/api/QuestionSearchTaxonomyFacet";
+import type { QuestionSearchClassificationFacet } from "../../../generated/api/QuestionSearchClassificationFacet";
 import type { QuestionSearchCourseUseFacet } from "../../../generated/api/QuestionSearchCourseUseFacet";
 import {
   DecodeError,
@@ -26,7 +26,7 @@ import {
   MAX_QUESTION_SEARCH_LICENSE_FACETS,
   decodeBoundedArray,
   decodeCapability,
-  decodeTaxonomyTerm,
+  decodeQuestionClassification,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -34,14 +34,18 @@ import {
 const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
 const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
 
-function decodeQuestionSearchTaxonomyFacet(
+function decodeQuestionSearchClassificationFacet(
   value: unknown,
   path: string,
-): QuestionSearchTaxonomyFacet {
+): QuestionSearchClassificationFacet {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["term", "count"]);
+  requireOnlyFields(record, path, ["classification", "count"]);
   return {
-    term: decodeTaxonomyTerm(field(record, "term", path), `${path}.term`, true),
+    classification: decodeQuestionClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+      true,
+    ),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
 }
@@ -177,7 +181,7 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     "backends",
     "tags",
     "questionTypes",
-    "taxonomy",
+    "classifications",
     "capabilities",
     "licenses",
     "evidence",
@@ -208,11 +212,11 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
       decodeQuestionTypeFacet,
     ),
-    taxonomy: decodeBoundedArray(
-      field(record, "taxonomy", path),
-      `${path}.taxonomy`,
-      MAX_QUESTION_SEARCH_TAXONOMY_FACETS,
-      decodeQuestionSearchTaxonomyFacet,
+    classifications: decodeBoundedArray(
+      field(record, "classifications", path),
+      `${path}.classifications`,
+      MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS,
+      decodeQuestionSearchClassificationFacet,
     ),
     capabilities: decodeBoundedArray(
       field(record, "capabilities", path),

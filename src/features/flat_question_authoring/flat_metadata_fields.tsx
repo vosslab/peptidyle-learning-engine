@@ -2,17 +2,19 @@
 
 import { For, Show, type JSX } from "solid-js";
 
-import type { FlatQuestionLicense, FlatQuestionTaxonomyTerm } from "./flat_question_source";
+import type { FlatQuestionClassification, FlatQuestionLicense } from "./flat_question_source";
 
-const MAXIMUM_TAXONOMY_TERMS = 32;
+const MAXIMUM_CLASSIFICATIONS = 32;
 
 export interface FlatMetadataFieldsProps {
   readonly tags: ReadonlyArray<string>;
-  readonly taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>;
+  readonly classifications: ReadonlyArray<FlatQuestionClassification>;
   readonly license: FlatQuestionLicense;
   readonly language: string;
   readonly onTagsChange: (tags: ReadonlyArray<string>) => void;
-  readonly onTaxonomyChange: (taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>) => void;
+  readonly onClassificationsChange: (
+    classifications: ReadonlyArray<FlatQuestionClassification>,
+  ) => void;
   readonly onLicenseChange: (license: FlatQuestionLicense) => void;
   readonly onLanguageChange: (language: string) => void;
   readonly fieldErrors?: Readonly<Record<string, string | undefined>>;
@@ -46,18 +48,27 @@ function isLicenseKind(value: string): value is FlatQuestionLicense["kind"] {
   return LICENSES.some((license) => license.kind === value);
 }
 
-/** Metadata remains deliberate and compact: taxonomy rows are capped before schema validation. */
+/** Metadata remains deliberate and compact: classification rows are capped before validation. */
 export function FlatMetadataFields(props: FlatMetadataFieldsProps): JSX.Element {
-  const taxonomyError = (): string | undefined => props.fieldErrors?.["taxonomy"];
-  const updateTerm = (index: number, patch: Partial<FlatQuestionTaxonomyTerm>): void => {
-    props.onTaxonomyChange(
-      props.taxonomy.map((term, termIndex) => (termIndex === index ? { ...term, ...patch } : term)),
+  const classificationsError = (): string | undefined => props.fieldErrors?.["classifications"];
+  const updateClassification = (
+    index: number,
+    patch: Partial<FlatQuestionClassification>,
+  ): void => {
+    props.onClassificationsChange(
+      props.classifications.map((classification, classificationIndex) =>
+        classificationIndex === index ? { ...classification, ...patch } : classification,
+      ),
     );
   };
-  const removeTerm = (index: number): void =>
-    props.onTaxonomyChange(props.taxonomy.filter((_term, termIndex) => termIndex !== index));
-  const addTerm = (): void =>
-    props.onTaxonomyChange([...props.taxonomy, { scheme: "", code: "", label: "" }]);
+  const removeClassification = (index: number): void =>
+    props.onClassificationsChange(
+      props.classifications.filter(
+        (_classification, classificationIndex) => classificationIndex !== index,
+      ),
+    );
+  const addClassification = (): void =>
+    props.onClassificationsChange([...props.classifications, { system: "", code: "", name: "" }]);
   const changeLicenseKind = (kind: FlatQuestionLicense["kind"]): void =>
     props.onLicenseChange(kind === "other" ? { kind, spdx: "" } : { kind });
   return (
@@ -106,55 +117,59 @@ export function FlatMetadataFields(props: FlatMetadataFieldsProps): JSX.Element 
           />
         </label>
       </Show>
-      <section aria-labelledby="flat-taxonomy-heading">
-        <h3 id="flat-taxonomy-heading">Taxonomy</h3>
+      <section aria-labelledby="flat-classifications-heading">
+        <h3 id="flat-classifications-heading">Question classification</h3>
         <p class="flat-question-authoring__help">
-          Use an established scheme, code, and student-readable label.
+          Use the established classification system, code, and readable name.
         </p>
-        <Show when={taxonomyError() !== undefined}>
+        <Show when={classificationsError() !== undefined}>
           <p class="flat-question-authoring__error" role="alert">
-            {taxonomyError()}
+            {classificationsError()}
           </p>
         </Show>
-        <ol class="flat-question-authoring__taxonomy-list">
-          <For each={props.taxonomy}>
-            {(term, index) => (
-              <li class="flat-question-authoring__taxonomy-row">
+        <ol class="flat-question-authoring__classification-list">
+          <For each={props.classifications}>
+            {(classification, index) => (
+              <li class="flat-question-authoring__classification-row">
                 <div class="flat-question-authoring__grid">
                   <label class="flat-question-authoring__field">
-                    <span>Scheme</span>
+                    <span>Classification system</span>
                     <input
-                      value={term.scheme}
+                      value={classification.system}
                       disabled={props.disabled}
                       onInput={(event) =>
-                        updateTerm(index(), { scheme: event.currentTarget.value })
+                        updateClassification(index(), { system: event.currentTarget.value })
                       }
                     />
                   </label>
                   <label class="flat-question-authoring__field">
                     <span>Code</span>
                     <input
-                      value={term.code}
+                      value={classification.code}
                       disabled={props.disabled}
-                      onInput={(event) => updateTerm(index(), { code: event.currentTarget.value })}
+                      onInput={(event) =>
+                        updateClassification(index(), { code: event.currentTarget.value })
+                      }
                     />
                   </label>
                 </div>
                 <label class="flat-question-authoring__field">
-                  <span>Label</span>
+                  <span>Classification name</span>
                   <input
-                    value={term.label}
+                    value={classification.name}
                     disabled={props.disabled}
-                    onInput={(event) => updateTerm(index(), { label: event.currentTarget.value })}
+                    onInput={(event) =>
+                      updateClassification(index(), { name: event.currentTarget.value })
+                    }
                   />
                 </label>
                 <button
                   type="button"
                   class="quiet-action"
                   disabled={props.disabled}
-                  onClick={() => removeTerm(index())}
+                  onClick={() => removeClassification(index())}
                 >
-                  Remove taxonomy term
+                  Remove classification
                 </button>
               </li>
             )}
@@ -163,10 +178,10 @@ export function FlatMetadataFields(props: FlatMetadataFieldsProps): JSX.Element 
         <button
           type="button"
           class="quiet-action"
-          disabled={props.disabled || props.taxonomy.length >= MAXIMUM_TAXONOMY_TERMS}
-          onClick={addTerm}
+          disabled={props.disabled || props.classifications.length >= MAXIMUM_CLASSIFICATIONS}
+          onClick={addClassification}
         >
-          Add taxonomy term
+          Add classification
         </button>
       </section>
     </fieldset>

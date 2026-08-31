@@ -157,6 +157,7 @@ function defaults(value: unknown, path: string): unknown {
     "assignmentCompletionRule",
     "assignmentAttemptGradeRule",
     "assignmentAttemptContinuationRule",
+    "questionPoolReuseRule",
     "questionVariationRule",
     "assignmentAttemptResumeRule",
     "assignmentQuestionDisplayRule",
@@ -198,10 +199,15 @@ function defaults(value: unknown, path: string): unknown {
         field(policies, "assignmentAttemptContinuationRule", `${path}.activity_rules`),
         `${path}.activity_rules.assignmentAttemptContinuationRule`,
       ),
+      questionPoolReuseRule: decodeStringEnum(
+        field(policies, "questionPoolReuseRule", `${path}.activity_rules`),
+        `${path}.activity_rules.questionPoolReuseRule`,
+        ["reuseSelection", "selectAgain"],
+      ),
       questionVariationRule: decodeStringEnum(
         field(policies, "questionVariationRule", `${path}.activity_rules`),
         `${path}.activity_rules.questionVariationRule`,
-        ["reuseQuestionsWithNewSeeds", "selectedQuestionVariants", "redrawQuestionPools"],
+        ["reuseVariation", "newVariation"],
       ),
       assignmentAttemptResumeRule: decodeStringEnum(
         field(policies, "assignmentAttemptResumeRule", `${path}.activity_rules`),
@@ -252,7 +258,7 @@ function assignmentEntry(
   requireOnlyFields(record, path, [
     "kind",
     "candidates",
-    "draw_count",
+    "selection_count",
     "points_per_item",
     "scoring_rule",
     "selection_rule",
@@ -263,13 +269,19 @@ function assignmentEntry(
     MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
     questionId,
   );
-  const drawCount = decodePositiveInteger(field(record, "draw_count", path), `${path}.draw_count`);
+  const selectionCount = decodePositiveInteger(
+    field(record, "selection_count", path),
+    `${path}.selection_count`,
+  );
   if (
     candidates.length === 0 ||
-    drawCount > candidates.length ||
+    selectionCount > candidates.length ||
     new Set(candidates).size !== candidates.length
   ) {
-    throw new DecodeError(path, "a nonempty pool with distinct candidates and a valid draw count");
+    throw new DecodeError(
+      path,
+      "a nonempty pool with distinct candidates and a valid selection count",
+    );
   }
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
   selectionRule(field(record, "selection_rule", path), `${path}.selection_rule`);
@@ -278,12 +290,12 @@ function assignmentEntry(
 
 function selectionRule(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["algorithm", "ordering"]);
-  decodeStringEnum(field(record, "algorithm", path), `${path}.algorithm`, ["v1"]);
-  decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
-    "candidateOrder",
-    "randomized",
-  ]);
+  requireOnlyFields(record, path, ["selected_question_order"]);
+  decodeStringEnum(
+    field(record, "selected_question_order", path),
+    `${path}.selected_question_order`,
+    ["candidateOrder", "randomOrder"],
+  );
 }
 
 function assignmentDefinition(value: unknown, path: string): unknown {
@@ -453,7 +465,7 @@ function definitionView(value: unknown, path: string): void {
         requireOnlyFields(entry, entryPath, [
           "kind",
           "candidates",
-          "draw_count",
+          "selection_count",
           "points_per_item",
           "scoring_rule",
           "selection_rule",

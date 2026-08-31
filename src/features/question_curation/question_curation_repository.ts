@@ -27,7 +27,9 @@ function rowFromFolderEntry(
     title: entry.summary.metadata.title,
     summary: `Published ${entry.summary.backend} Question.`,
     byline: entry.summary.byline.names,
-    taxonomy: entry.summary.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),
+    classifications: entry.summary.metadata.classifications.map(
+      (classification) => `${classification.system}:${classification.code}`,
+    ),
     capabilities: entry.summary.capabilities,
     license: entry.summary.metadata.license.kind,
     evidence: { state: "insufficientEvidence" },

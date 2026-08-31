@@ -116,7 +116,7 @@ export function createAssignmentEditorPickerController(
     props.onDraftChange({ ...draft, entries });
     const added = candidates.length - entry.candidates.length;
     props.onMessage(
-      `${added} candidate Question ID${added === 1 ? "" : "s"} added to this pool. Set its draw count, then save the assignment.`,
+      `${added} candidate Question ID${added === 1 ? "" : "s"} added to this Question Pool. Set its selection count, then save the Assignment.`,
     );
   }
 

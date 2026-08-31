@@ -265,7 +265,7 @@ the strict `answer` decoder from the attempt's issued Question Response Format.
 | Numerical         | `{ "text": "1.25e-3" }`                                      |
 | Matching          | `{ "matches": [{ "prompt": "12a4", "choice": "ef32" }] }`    |
 | Ordering          | `{ "order": ["91c2", "bb28", "4ef3"] }`                      |
-| Hotspot           | `{ "selections": [{ "region": "4ef3" }] }`                      |
+| Hotspot           | `{ "selections": [{ "region": "4ef3" }] }`                   |
 
 Numerical input remains lexical text on the wire. This preserves what the student typed, permits
 strict server parsing, and avoids browser/server disagreement about floating-point serialization or
@@ -377,12 +377,12 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 
 ### Detection boundary
 
-| Mechanism                         | Detects                                                                                                 | Does not prove                                                 |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Mechanism                         | Detects                                                                                                   | Does not prove                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
-| Presentation digest               | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce      | TLS, browser integrity, pixel display, or image decode success |
-| Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                | That the browser rendered every asset                          |
-| Idempotency record                | Exact retry versus changed replay                                                                       | Correctness of the answer                                      |
+| Presentation digest               | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
+| Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                  | That the browser rendered every asset                          |
+| Idempotency record                | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
 
 An ordinary transport checksum is unnecessary because TLS and HTTP already detect transfer
 corruption. The digest addresses application-state disagreement: the wrong valid render paired with

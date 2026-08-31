@@ -247,7 +247,8 @@ forming a fixed menu of assignment modes.
 | Completion requirement  | Answer all, all correct, or score threshold                                                          |
 | Grade policy            | First, latest, highest, or instructor-selected Assignment Attempt                                    |
 | Continued practice      | Unlimited, capped, or closed after completion                                                        |
-| Question Variation Rule | Retain Questions with fresh Question Seeds, use selected Question Variants, or redraw Question Pools |
+| Question Pool Reuse Rule | Reuse the previous Question Pool Selection or select Questions again |
+| Question Variation Rule | Reuse the previous Question Variations or use new Question Variations |
 
 For example, an instructor can require mastery, keep the highest score, allow
 unlimited practice, and issue new seeds on every Assignment Attempt. Continued practice does

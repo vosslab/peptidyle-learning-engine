@@ -1,4 +1,4 @@
-# MOD-QM: question types, capabilities, identity, and taxonomy.
+# MOD-QM: Question types, capabilities, identity, metadata, and Question Classification.
 # Boundary rule: depends on external crates only, never on another member.
 [package]
 name = "question_model"

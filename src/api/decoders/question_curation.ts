@@ -31,9 +31,9 @@ import {
 } from "./shared";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_TAXONOMY_FILTERS = 64;
+const MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS = 64;
 const MAX_QUESTION_SEARCH_FILTER_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_TAXONOMY_PART_UNICODE_SCALARS = 128;
+const MAX_QUESTION_SEARCH_CLASSIFICATION_PART_UNICODE_SCALARS = 128;
 const MAX_SAVED_QUESTION_SEARCHES_PAGE_ITEMS = 100;
 const MAX_NAMED_QUESTION_FOLDERS_PAGE_ITEMS = 100;
 const QUESTION_ID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
@@ -86,7 +86,7 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
     "backends",
     "tags",
     "question_types",
-    "taxonomy",
+    "classifications",
     "capabilities",
     "licenses",
     "evidence",
@@ -133,23 +133,23 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
           "hotspot",
         ]),
     ),
-    taxonomy: decodeBoundedArray(
-      field(record, "taxonomy", path),
-      `${path}.taxonomy`,
-      MAX_QUESTION_SEARCH_TAXONOMY_FILTERS,
+    classifications: decodeBoundedArray(
+      field(record, "classifications", path),
+      `${path}.classifications`,
+      MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS,
       (entry, entryPath) => {
-        const taxonomy = decodeRecord(entry, entryPath);
-        requireOnlyFields(taxonomy, entryPath, ["scheme", "code"]);
+        const classification = decodeRecord(entry, entryPath);
+        requireOnlyFields(classification, entryPath, ["system", "code"]);
         return {
-          scheme: decodeFilterText(
-            field(taxonomy, "scheme", entryPath),
-            `${entryPath}.scheme`,
-            MAX_QUESTION_SEARCH_TAXONOMY_PART_UNICODE_SCALARS,
+          system: decodeFilterText(
+            field(classification, "system", entryPath),
+            `${entryPath}.system`,
+            MAX_QUESTION_SEARCH_CLASSIFICATION_PART_UNICODE_SCALARS,
           ),
           code: decodeFilterText(
-            field(taxonomy, "code", entryPath),
+            field(classification, "code", entryPath),
             `${entryPath}.code`,
-            MAX_QUESTION_SEARCH_TAXONOMY_PART_UNICODE_SCALARS,
+            MAX_QUESTION_SEARCH_CLASSIFICATION_PART_UNICODE_SCALARS,
           ),
         };
       },

@@ -16,7 +16,7 @@ export {
   replacementDefinitionFromBlueprintCourse,
   reusableDefinitionInputFromView,
   updateReusableDefaults,
-  updateReusablePoolDrawCount,
+  updateReusablePoolSelectionCount,
   updateReusableSchedule,
   updateReusableText,
   validateReusableDefinition,

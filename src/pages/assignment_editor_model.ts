@@ -39,11 +39,10 @@ export interface AssignmentEditorQuestionPoolEntry {
   readonly availability: "available" | "retired";
   readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
   readonly candidates: ReadonlyArray<AssignmentQuestionRow>;
-  readonly drawCount: number;
+  readonly selectionCount: number;
   readonly pointsPerItem: string;
   readonly selectionRule: {
-    readonly algorithm: "v1";
-    readonly ordering: "candidateOrder" | "randomized";
+    readonly selectedQuestionOrder: "candidateOrder" | "randomOrder";
   };
 }
 
@@ -82,9 +81,6 @@ export function fixedQuestionEntry(
 export function questionPoolEntry(
   entry: QuestionPoolAssignmentEntrySummary,
 ): AssignmentEditorQuestionPoolEntry {
-  if (entry.selectionRule.algorithm !== "v1") {
-    throw new Error("This assignment uses an unsupported pool draw algorithm.");
-  }
   return {
     kind: "questionPool",
     id: entry.id,
@@ -95,7 +91,7 @@ export function questionPoolEntry(
       title: candidate.title,
       backend: candidate.backend,
     })),
-    drawCount: entry.drawCount,
+    selectionCount: entry.selectionCount,
     pointsPerItem: entry.pointsPerItem,
     selectionRule: entry.selectionRule,
   };
@@ -161,9 +157,9 @@ export function appendQuestionPool(draft: AssignmentEditorDraft): AssignmentEdit
     candidates: [],
     availability: "available",
     scoringRule: "normal",
-    drawCount: 1,
+    selectionCount: 1,
     pointsPerItem: "1",
-    selectionRule: { algorithm: "v1", ordering: "candidateOrder" },
+    selectionRule: { selectedQuestionOrder: "candidateOrder" },
   };
   return { ...draft, entries: [...draft.entries, questionPool] };
 }
@@ -183,7 +179,7 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
     candidateQuestionIds: entry.candidates.map((candidate) => candidate.questionId),
     availability: entry.availability,
     scoringRule: entry.scoringRule,
-    drawCount: entry.drawCount,
+    selectionCount: entry.selectionCount,
     pointsPerItem: entry.pointsPerItem,
     selectionRule: entry.selectionRule,
   };
@@ -201,9 +197,9 @@ export function validateQuestionPoolEntry(entry: AssignmentEditorQuestionPoolEnt
   if (entry.candidates.length === 0) return "Add at least one candidate Question ID.";
   if (entry.candidates.length > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL)
     return `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL} candidate Question IDs or fewer.`;
-  if (entry.drawCount < 1) return "Draw count must be at least one.";
-  if (entry.drawCount > entry.candidates.length)
-    return "Draw count cannot exceed the number of candidate Question IDs.";
+  if (entry.selectionCount < 1) return "Selection count must be at least one.";
+  if (entry.selectionCount > entry.candidates.length)
+    return "Selection count cannot exceed the number of candidate Question IDs.";
   if (
     new Set(entry.candidates.map((candidate) => candidate.questionId)).size !==
     entry.candidates.length

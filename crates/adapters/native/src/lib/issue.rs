@@ -70,8 +70,8 @@ impl NativeAdapter {
         )
         .map_err(NativeAdapterError::Presentation)?;
         let Some(AuthorPresentationContent {
-            correct_response,
-            rationale,
+            question_answer,
+            question_answer_explanation,
         }) = implementation.derive_author_presentation(question, &generated, &prompt)?
         else {
             return Ok(None);
@@ -80,8 +80,8 @@ impl NativeAdapter {
             title: question.metadata.title.clone(),
             prompt,
             response: question.response.clone(),
-            correct_response,
-            rationale,
+            question_answer,
+            question_answer_explanation,
         }))
     }
 

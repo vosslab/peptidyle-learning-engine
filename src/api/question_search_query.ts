@@ -5,7 +5,7 @@ import { MAX_QUESTION_SEARCH_BYLINE_FILTERS } from "../../generated/api/MAX_QUES
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_TAXONOMY_FILTERS = 64;
+const MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS = 64;
 const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
 const MAX_PROBLEM_DISPLAY_REFERENCE_CHARACTERS = 44;
 const QUESTION_SEARCH_CAPABILITIES = [
@@ -43,7 +43,7 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "backends",
   "tags",
   "question_types",
-  "taxonomy",
+  "classifications",
   "capabilities",
   "licenses",
   "evidence",
@@ -156,15 +156,23 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
       catalogEnum(questionType, QUESTION_SEARCH_QUESTION_TYPES, "Question Library Question Type"),
     );
   }
-  if (query.taxonomy.length > MAX_QUESTION_SEARCH_TAXONOMY_FILTERS) {
+  if (query.classifications.length > MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS) {
     throw new Error(
-      `Question Library taxonomy filters must contain at most ${MAX_QUESTION_SEARCH_TAXONOMY_FILTERS} entries`,
+      `Question Library classification filters must contain at most ${MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS} entries`,
     );
   }
-  for (const taxonomy of query.taxonomy) {
-    const scheme = catalogFilterText(taxonomy.scheme, "Question Library taxonomy scheme", 128);
-    const code = catalogFilterText(taxonomy.code, "Question Library taxonomy code", 128);
-    parameters.append("taxonomy", `${scheme}:${code}`);
+  for (const classification of query.classifications) {
+    const system = catalogFilterText(
+      classification.system,
+      "Question Library classification system",
+      128,
+    );
+    const code = catalogFilterText(
+      classification.code,
+      "Question Library classification code",
+      128,
+    );
+    parameters.append("classifications", `${system}:${code}`);
   }
   if (query.capabilities.length > QUESTION_SEARCH_CAPABILITIES.length) {
     throw new Error(
@@ -226,7 +234,7 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     parameters.set("page_size", String(query.page_size));
   }
   const suffix = parameters.size === 0 ? "" : `?${parameters.toString()}`;
-  return `/api/problems/search${suffix}`;
+  return `/api/questions/search${suffix}`;
 }
 
 /** Serializes the bounded copyable Question ID without interpreting its server-owned syntax. */
@@ -238,5 +246,5 @@ export function questionReferencePath(displayReference: string): string {
   ) {
     throw new Error("Question ID must be 1 to 44 characters");
   }
-  return `/api/problems/by-id/${encodeURIComponent(reference)}`;
+  return `/api/questions/by-id/${encodeURIComponent(reference)}`;
 }

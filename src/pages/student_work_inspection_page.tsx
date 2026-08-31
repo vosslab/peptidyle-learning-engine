@@ -1,4 +1,4 @@
-// student_work_inspection_page.tsx - audited, solution-free Instructor inspection.
+// student_work_inspection_page.tsx - audited Instructor inspection of a Student Response.
 
 import { A, useLocation, useParams } from "@solidjs/router";
 import {

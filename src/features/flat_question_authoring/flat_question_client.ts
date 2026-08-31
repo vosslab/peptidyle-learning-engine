@@ -115,7 +115,7 @@ function sourcePath(workspace: WorkspaceId): string {
 }
 
 function publishPath(workspace: WorkspaceId): string {
-  return `/api/problems/${encodedId(workspace)}/flat-question-publish`;
+  return `/api/questions/${encodedId(workspace)}/flat-question-publish`;
 }
 
 /** Proves that every browser-relative request remains under the current origin and base path. */

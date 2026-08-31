@@ -132,7 +132,7 @@ interface QuestionVersion {
   questionAttemptLimit: QuestionAttemptLimit;
   timingPolicy: TimingPolicy;
   questionVariationDefinition?: QuestionVariationDefinition;
-  grading: GradingDefinition;
+  grading: QuestionGradingRule;
   metadata: QuestionMetadata;
 }
 ```

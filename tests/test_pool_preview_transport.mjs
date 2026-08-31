@@ -24,7 +24,7 @@ function previewResponse() {
     assignmentEntryId,
     questionPoolLabel: "Pool 2",
     selectionCount: 1,
-    selectionRule: { ordering: "randomized", algorithm: "v1" },
+    selectionRule: { selectedQuestionOrder: "randomOrder" },
     candidates: [
       { questionId: "7K3-M9QP", title: "First candidate" },
       { questionId: "7K4-M9QP", title: "Second candidate" },
@@ -72,7 +72,10 @@ test("pool preview transport sends only position with revision and requires no-s
   });
   const preview = await client.previewQuestionPool(course, assignment, revision, assignmentEntryId);
   assert.equal(preview.questionPoolLabel, "Pool 2");
-  assert.equal(calls[0]?.input, "/api/courses/C-12/assignments/A-34/preview-pool-draw");
+  assert.equal(
+    calls[0]?.input,
+    "/api/courses/C-12/assignments/A-34/preview-question-pool-selection",
+  );
   assert.equal(calls[0]?.init?.method, "POST");
   assert.equal(calls[0]?.init?.headers?.["if-match"], '"7"');
   assert.equal(calls[0]?.init?.body, JSON.stringify({ assignmentEntryId }));

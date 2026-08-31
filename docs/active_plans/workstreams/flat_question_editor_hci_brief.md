@@ -49,7 +49,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
    - local preview request through WASM facade only.
 6. **Instructor preview** (explicit action)
    - "Load instructor answer preview" save-first + server request,
-   - shows answer key + rationale in teacher-facing panel.
+   - shows Question Answer + Question Answer Explanation in the Instructor-facing panel.
 7. **Capabilities + publish review**
    - check/collect required capabilities via checkboxes,
    - request publish review (saves draft first),
@@ -63,7 +63,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 - **Revision**: server strong ETag string used for optimistic concurrency.
 - **Seed**: per-preview randomization input for reproducible student variant.
 - **Student preview**: local key-free derivation + question response control, no grading.
-- **Instructor preview**: protected server derivation of `correctResponse` + optional rationale.
+- **Instructor preview**: protected server derivation of `questionAnswer` + optional `questionAnswerExplanation`.
 - **Capability**: policy dimension required before publish (`algorithmicGeneration`, `hints`, `perQuestionTiming`, `offlinePreview`).
 - **Publication readiness failure**: capability/infra issue message shown in editor.
 - **Stale conflict**: CAS mismatch; local unsaved content is preserved and can be reloaded.
@@ -182,7 +182,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 - **Stale conflict recovery**
   - tests check local unsaved edits remain visible and stale answers are cleared in conflict/reload flow.
 - **Publish diff scope and CAS**
-  - live test checks publish calls are `POST /api/problems/{id}/publish` with JSON body only `{ "scope": "public" }` and changing `if-match`.
+  - live test checks publish calls are `POST /api/questions/{id}/publish` with JSON body only `{ "scope": "public" }` and changing `if-match`.
 - **No answer/key/source leakage**
   - tests verify request payloads and decode boundaries exclude forbidden fields.
 - **Compile-time boundary**
@@ -209,7 +209,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 |                           +--------------------------------------------------+
 |                           | Instructor answer preview                          |
 |                           | button: Load/Retry instructor answer preview        |
-|                           | - Correct response (feedback/rationale)            |
+|                           | - Question Answer and Question Answer Explanation  |
 |                           +--------------------------------------------------+
 |                           | Publish panel                                    |
 |                           | Review publication changes -> version diff           |
@@ -242,7 +242,7 @@ This brief is marked DONE_WITH_CONCERNS because the current visible editor is no
 multi-choice authoring surface:
 
 - It supports title + first-text prompt editing and does not expose explicit per-choice input fields
-  for first-choice feedback/rationale creation.
+  for first-choice Question Feedback and Question Answer Explanation creation.
 - It does provide response-widget based student preview and instructor answer feedback display
   (`Correct response`/`Why this works`) as output, not authoring controls.
 - If "create per-choice outcomes during initial authoring" is a hard requirement,

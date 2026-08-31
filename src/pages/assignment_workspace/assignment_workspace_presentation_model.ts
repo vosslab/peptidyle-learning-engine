@@ -17,6 +17,7 @@ export type AssignmentPolicySummaryKey =
   | "assignmentCompletionRule"
   | "assignmentAttemptGradeRule"
   | "assignmentAttemptContinuationRule"
+  | "questionPoolReuseRule"
   | "questionVariationRule"
   | "disclosure"
   | "assignmentStatus"
@@ -101,7 +102,8 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule): string {
     `Score ${timing[rule.score]}`,
     `correctness ${timing[rule.per_item_correctness]}`,
     `feedback ${timing[rule.feedback_text]}`,
-    `solutions ${timing[rule.solution]}`,
+    `Question Answer ${timing[rule.question_answer]}`,
+    `Answer Explanation ${timing[rule.question_answer_explanation]}`,
     `statistics ${timing[rule.class_statistics]}`,
   ].join("; ");
 }
@@ -148,10 +150,13 @@ export function assignmentPolicyDraftSummary(
     first: "First Assignment Attempt score",
     instructorSelected: "Instructor-selected Assignment Attempt",
   } as const;
+  const questionPoolReuseRule = {
+    reuseSelection: "Reuse the previous Question Pool Selection",
+    selectAgain: "Select Questions again from each Question Pool",
+  } as const;
   const questionVariationRule = {
-    reuseQuestionsWithNewSeeds: "Keep Questions and use fresh Question Seeds",
-    selectedQuestionVariants: "Use selected Question Variants",
-    redrawQuestionPools: "Redraw Question Pools",
+    reuseVariation: "Reuse the previous Question Variations",
+    newVariation: "Use new Question Variations",
   } as const;
   const status = {
     unreleased: "Unreleased",
@@ -183,6 +188,11 @@ export function assignmentPolicyDraftSummary(
       key: "assignmentAttemptContinuationRule",
       label: "Assignment Attempt continuation rule",
       value: assignmentAttemptContinuationRuleSummary(input),
+    },
+    {
+      key: "questionPoolReuseRule",
+      label: "Question Pool reuse",
+      value: questionPoolReuseRule[input.policies.questionPoolReuseRule],
     },
     {
       key: "questionVariationRule",

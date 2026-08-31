@@ -25,7 +25,7 @@ export function createDefaultFlatQuestionSource(): FlatQuestionSourceV2 {
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
     tags: [],
-    taxonomy: [],
+    classifications: [],
     license: { kind: "allRightsReserved" },
     language: "en-US",
   };

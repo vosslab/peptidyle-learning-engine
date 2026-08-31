@@ -47,7 +47,7 @@ pub enum QtiSafeDiagnosticTemplate {
     PleDefaultEnglishUs,
     PleDefaultAllRightsReserved,
     PleDefaultEmptyTags,
-    PleDefaultEmptyTaxonomy,
+    PleDefaultEmptyQuestionClassifications,
     PleDefaultNoFeedback,
     BlackboardPointsDefaulted,
     UnsupportedMarkup,
@@ -64,7 +64,9 @@ impl QtiSafeDiagnosticTemplate {
             Self::PleDefaultEnglishUs => "PLE default applied: en-US.",
             Self::PleDefaultAllRightsReserved => "PLE default applied: allRightsReserved.",
             Self::PleDefaultEmptyTags => "PLE default applied: empty tags.",
-            Self::PleDefaultEmptyTaxonomy => "PLE default applied: empty taxonomy.",
+            Self::PleDefaultEmptyQuestionClassifications => {
+                "PLE default applied: empty Question Classifications."
+            }
             Self::PleDefaultNoFeedback => "PLE default applied: no feedback.",
             Self::BlackboardPointsDefaulted => {
                 "Blackboard item points were absent; PLE default 1.0 applied."
@@ -117,7 +119,7 @@ impl QtiSafeDiagnostic {
                 QtiSafeDiagnosticTemplate::PleDefaultEmptyTags
             ) | (
                 QtiProfileDiagnosticCode::Policy,
-                QtiSafeDiagnosticTemplate::PleDefaultEmptyTaxonomy
+                QtiSafeDiagnosticTemplate::PleDefaultEmptyQuestionClassifications
             ) | (
                 QtiProfileDiagnosticCode::Policy,
                 QtiSafeDiagnosticTemplate::PleDefaultNoFeedback
@@ -238,7 +240,9 @@ impl QtiPleDefault {
             Self::EnglishUs => QtiSafeDiagnosticTemplate::PleDefaultEnglishUs,
             Self::AllRightsReserved => QtiSafeDiagnosticTemplate::PleDefaultAllRightsReserved,
             Self::EmptyTags => QtiSafeDiagnosticTemplate::PleDefaultEmptyTags,
-            Self::EmptyTaxonomy => QtiSafeDiagnosticTemplate::PleDefaultEmptyTaxonomy,
+            Self::EmptyTaxonomy => {
+                QtiSafeDiagnosticTemplate::PleDefaultEmptyQuestionClassifications
+            }
             Self::NoFeedback => QtiSafeDiagnosticTemplate::PleDefaultNoFeedback,
         };
         QtiSafeDiagnostic::new(

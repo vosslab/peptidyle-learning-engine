@@ -9,6 +9,7 @@ import type { StudentClassStatistics } from "../../generated/api/StudentClassSta
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
 import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
+import type { QuestionPoolReuseRule } from "../../generated/api/QuestionPoolReuseRule";
 import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
@@ -36,6 +37,7 @@ export interface StudentAssignmentPresentationData {
   readonly timeZone: string;
   readonly delivery: StudentAssignmentPresentationDelivery;
   readonly questionsPerRun: number;
+  readonly questionPoolReuseRule?: QuestionPoolReuseRule;
   readonly questionVariationRule?: QuestionVariationRule;
   readonly studentFeedbackReleaseRule?: StudentFeedbackReleaseRule;
 }
@@ -60,6 +62,7 @@ export function toStudentAssignmentPresentationData(
       timeZone: assignment.timeZone,
       delivery: assignment.delivery,
       questionsPerRun: assignment.questionsPerRun,
+      questionPoolReuseRule: assignment.questionPoolReuseRule,
       questionVariationRule: assignment.questionVariationRule,
       studentFeedbackReleaseRule: assignment.studentFeedbackReleaseRule,
     };
@@ -83,7 +86,7 @@ export function toStudentAssignmentPresentationData(
       (count, entry) =>
         entry.kind === "fixedQuestion"
           ? count + (entry.availability === "available" ? 1 : 0)
-          : count + (entry.availability === "available" ? entry.drawCount : 0),
+          : count + (entry.availability === "available" ? entry.selectionCount : 0),
       0,
     ),
   };
@@ -142,15 +145,23 @@ function formatLateStatus(value: StudentLateWorkStatus): string {
   return "Accepted late";
 }
 
-function formatQuestionVariationRule(rule: QuestionVariationRule | undefined): string {
-  if (rule === "reuseQuestionsWithNewSeeds") {
-    return "Each Assignment Attempt keeps these Questions and uses fresh Question Seeds.";
-  }
-  if (rule === "selectedQuestionVariants") {
-    return "Each attempt selects Question Variants.";
-  }
-  if (rule === "redrawQuestionPools") return "Each Assignment Attempt redraws its Question Pools.";
-  return "This Assignment uses its Question Variation Rule.";
+function formatLaterAttemptRules(
+  poolReuseRule: QuestionPoolReuseRule | undefined,
+  variationRule: QuestionVariationRule | undefined,
+): string {
+  const selection =
+    poolReuseRule === "reuseSelection"
+      ? "keeps its previous Question Pool Selection"
+      : poolReuseRule === "selectAgain"
+        ? "selects Questions again from each Question Pool"
+        : "uses its Question Pool Reuse Rule";
+  const variation =
+    variationRule === "reuseVariation"
+      ? "reuses the previous Question Variations"
+      : variationRule === "newVariation"
+        ? "uses new Question Variations"
+        : "uses its Question Variation Rule";
+  return `A later Assignment Attempt ${selection} and ${variation}.`;
 }
 
 function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
@@ -164,8 +175,9 @@ function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
 function disclosureSummary(rule: StudentFeedbackReleaseRule | undefined): string | undefined {
   if (rule === undefined) return undefined;
   const feedbackTiming = formatDisclosureTiming(rule.feedback_text);
-  const solutionTiming = formatDisclosureTiming(rule.solution);
-  return `Feedback is shown ${feedbackTiming}; solutions are shown ${solutionTiming}.`;
+  const questionAnswerTiming = formatDisclosureTiming(rule.question_answer);
+  const questionAnswerExplanationTiming = formatDisclosureTiming(rule.question_answer_explanation);
+  return `Feedback is shown ${feedbackTiming}; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
 }
 
 function classStatisticsSummary(statistics: StudentClassStatistics): string {
@@ -291,8 +303,13 @@ export function StudentAssignmentPresentation(
           <dd>{props.assignment.questionsPerRun}</dd>
         </div>
         <div>
-          <dt>Variation</dt>
-          <dd>{formatQuestionVariationRule(props.assignment.questionVariationRule)}</dd>
+          <dt>Later Assignment Attempt</dt>
+          <dd>
+            {formatLaterAttemptRules(
+              props.assignment.questionPoolReuseRule,
+              props.assignment.questionVariationRule,
+            )}
+          </dd>
         </div>
         <div>
           <dt>Feedback</dt>

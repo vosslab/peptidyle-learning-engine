@@ -10,7 +10,8 @@ const baseInput = {
     assignmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
     assignmentAttemptGradeRule: "instructorSelected",
     assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalRuns: 3 },
-    questionVariationRule: "selectedQuestionVariants",
+    questionPoolReuseRule: "selectAgain",
+    questionVariationRule: "reuseVariation",
     assignmentAttemptResumeRule: "resumable",
     assignmentQuestionDisplayRule: "allQuestions",
     assignmentNavigationRule: "freeNavigation",
@@ -21,7 +22,8 @@ const baseInput = {
     score: "after_submit",
     per_item_correctness: "after_submit",
     feedback_text: "after_due",
-    solution: "after_close",
+    question_answer: "after_close",
+    question_answer_explanation: "after_close",
     class_statistics: "never",
   },
   assignmentWorkingCopyDefinition: {
@@ -46,7 +48,8 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   assert.match(valueFor("assignmentCompletionRule"), /75%/);
   assert.match(valueFor("assignmentAttemptGradeRule"), /Instructor-selected/);
   assert.match(valueFor("assignmentAttemptContinuationRule"), /2 additional Assignment Attempts/);
-  assert.match(valueFor("questionVariationRule"), /selected Question Variants/);
+  assert.match(valueFor("questionPoolReuseRule"), /Select Questions again/);
+  assert.match(valueFor("questionVariationRule"), /previous Question Variations/);
   assert.match(valueFor("savedDelivery"), /open now/);
   assert.match(valueFor("assignmentStatus"), /Released/);
   assert.match(valueFor("assignmentStatus"), /Student instructions included/);
@@ -57,7 +60,14 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   assert.match(schedule, /America\/Chicago/);
   assert.match(schedule, /auto-submits.*effective deadline/);
   const disclosure = valueFor("disclosure");
-  for (const category of ["Score", "correctness", "feedback", "solutions", "statistics"]) {
+  for (const category of [
+    "Score",
+    "correctness",
+    "feedback",
+    "Question Answer",
+    "Explanation",
+    "statistics",
+  ]) {
     assert.match(disclosure, new RegExp(category));
   }
 });

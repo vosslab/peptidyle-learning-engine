@@ -58,33 +58,33 @@ details through storage, browser DTOs, and UI components.
 **Planned closure.** The release plan owns full student-runtime and authoring acceptance for the
 eight native Question Types, broader WeBWorK compatibility, and explicitly bounded export claims.
 
-### Bloom classification is Instructor-accepted
+### Bloom classification follows publication
 
-**Decision.** Every Published Question Revision carries one Question Bloom Classification derived
-from exactly two independently selected closed fields: Bloom Cognitive Process and Bloom Knowledge
-Dimension. An automated
-Bloom Classification Assistant suggests the pair on the exact Draft Question Revision before
-Instructor review. The Instructor keeps or changes each value, and publication stores the accepted
-pair on the immutable Question Revision.
+**Decision.** Publishing a Question Revision leaves its Question Bloom Classification unassigned
+and completes immediately. AI classification work searches for unassigned Published Question
+Revisions and assigns each initial Bloom Cognitive Process and Bloom Knowledge Dimension pair. An
+Instructor may later edit either value without creating a Question Revision.
 
 **Why.** The Anderson and Krathwohl revision provides a useful two-dimensional search model for
-the cognitive work and knowledge a Question assesses. Automated suggestions make classification
-practical across a large Question Library, while Instructor acceptance preserves teaching intent
-and catches context that the Question wording alone cannot establish.
+the cognitive work and knowledge a Question assesses. Searching for unassigned Published Questions
+supports automatic library-wide classification without coupling publication to AI availability or
+a dedicated queue. Later Instructor correction preserves teaching judgment when course context
+changes the best pair.
 
-**Consequence.** Question Search exposes independent Cognitive Process Dimension and Knowledge
-Dimension facets plus the 4 by 6 intersection derived from their ordered pair. Bloom classification
-remains distinct from cohort-measured Question Difficulty. A later accepted classification change
-creates a Question Revision through the ordinary Reason for Edit workflow. Interface colors follow
-the six Cognitive Process hue families and always appear with the category labels.
+**Consequence.** A Published Question remains usable and discoverable while classification is
+unassigned. Classification metadata targets the exact immutable Question Revision while remaining
+separate from its content. Question Search exposes assigned pairs through independent dimension
+facets and their derived 4 by 6 intersection. Instructor correction updates that metadata without a
+Reason for Edit. Bloom classification remains distinct from cohort-measured Question Difficulty.
 
 **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the canonical fields.
-[QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the rubric, suggestion workflow,
-search semantics, and color associations.
+[QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the rubric, timing, search
+semantics, and color associations.
 
-**Planned closure.** Question Model, persistence, publication validation, server, generated API,
-strict decoder, Question Search, authoring, and browser owners implement the open migration rows
-and pass their focused contract and consumer gates.
+**Planned closure.** Question Model, persistence, unassigned-classification search, server,
+generated API, strict decoder, Question Search, Instructor metadata editing, and browser owners
+implement the result boundary. A separate AI integration plan must settle model execution,
+protected input, scheduling, concurrent claims, retry behavior, and operational evidence.
 
 ### Mastery is an assignment activity
 
@@ -975,6 +975,7 @@ question contract compact even when author feedback is incomplete.
 ## Identity, authentication, and compliance
 
 The settled identity, authentication, privacy, recovery, and Blueprint-collaboration decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md).
+
 ## Repository and runtime policy
 
 ## Focused operational decisions

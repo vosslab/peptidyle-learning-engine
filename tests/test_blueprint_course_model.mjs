@@ -25,16 +25,18 @@ test("reusable entries preserve fixed and Question Pool interleaving", () => {
     reordered.entries.map((entry) => entry.kind),
     ["pool", "fixed"],
   );
-  assert.equal(reordered.entries[0]?.kind === "pool" && reordered.entries[0].draw_count, 1);
+  assert.equal(reordered.entries[0]?.kind === "pool" && reordered.entries[0].selection_count, 1);
 });
 
-test("Question Pool validation keeps draw count inside the selected candidate set", () => {
+test("Question Pool validation keeps selection count inside the selected candidate set", () => {
   const definition = appendPickedPool(emptyReusableDefinition("Quiz"), selection("AAA-BBBB"));
   const pool = definition.entries[0];
   const invalid =
-    pool?.kind === "pool" ? { ...definition, entries: [{ ...pool, draw_count: 2 }] } : definition;
+    pool?.kind === "pool"
+      ? { ...definition, entries: [{ ...pool, selection_count: 2 }] }
+      : definition;
 
-  assert.match(validateReusableDefinition(invalid).message ?? "", /draw count/);
+  assert.match(validateReusableDefinition(invalid).message ?? "", /selection count/);
 });
 
 test("relative schedule keeps a valid independently useful due moment", () => {

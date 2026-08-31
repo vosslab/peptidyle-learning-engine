@@ -27,6 +27,8 @@ pub mod item_analysis;
 pub mod policy;
 /// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-INST-T3).
 pub mod preview_plane;
+/// Server-owned exact Question Pool Candidate selection.
+pub mod question_pool_selection;
 /// Completed Assignment Attempt score selection and summary projection (MOD-SCORE).
 pub mod scoring;
 /// Retention-safe anonymous question-statistics aggregation (MOD-STATS).
@@ -43,6 +45,9 @@ pub mod validation;
 pub use crate::course_grade::{
     CourseGradeAssignment, CourseGradeError, CourseGradeOutcome, CourseGradeUnavailableReason,
     calculate_course_grade,
+};
+pub use crate::question_pool_selection::{
+    QuestionPoolSelectionEntropy, QuestionPoolSelectionError, select_question_pool_candidates,
 };
 pub use crate::teaching_authority::{
     CourseInvitationAcceptance, CourseInvitationError, DirectInstructorMembership,

@@ -355,7 +355,7 @@ function GradebookCoursePage(props: {
       </h1>
       <p class="page-lede">
         Current course totals and assignment scores calculated by the server. Open a submitted run
-        to inspect the Student&apos;s exact response with solution-free grading evidence.
+        to inspect the Student&apos;s exact response with permitted correctness and score.
       </p>
       <p class="gradebook-status" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}

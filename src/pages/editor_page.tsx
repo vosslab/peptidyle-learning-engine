@@ -27,7 +27,7 @@ import {
   type EditorPreview,
   type EditorRepository,
   type PreviewFacade,
-  type PublishVersionDiff,
+  type QuestionPublicationReview,
   type WorkspaceDraftSummary,
 } from "./editor_page_model";
 import { EDITOR_PAGE_STYLES } from "./editor_page_styles";
@@ -59,7 +59,11 @@ type InstructorPreviewState =
 type PublishState =
   | { readonly kind: "idle" }
   | { readonly kind: "loadingDiff" }
-  | { readonly kind: "confirm"; readonly diff: PublishVersionDiff; readonly message: string | null }
+  | {
+      readonly kind: "confirm";
+      readonly review: QuestionPublicationReview;
+      readonly message: string | null;
+    }
   | { readonly kind: "publishing" }
   | { readonly kind: "published"; readonly questionId: string }
   | { readonly kind: "error"; readonly message: string };
@@ -412,7 +416,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       }
       setPublish({
         kind: "confirm",
-        diff: await props.repository.getPublishDiff(saved),
+        review: await props.repository.getQuestionPublicationReview(saved),
         message: null,
       });
     } catch (error: unknown) {
@@ -443,7 +447,11 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     const request: { readonly byline: PublicByline } = { byline };
     setPublish({ kind: "publishing" });
     try {
-      const outcome = await props.repository.publish(current.draft, request, review.diff.revision);
+      const outcome = await props.repository.publish(
+        current.draft,
+        request,
+        review.review.revision,
+      );
       switch (outcome.kind) {
         case "published":
           setPublish({
@@ -846,15 +854,19 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                         <section aria-labelledby="instructor-correct-response-heading">
                           <h4 id="instructor-correct-response-heading">Correct response</h4>
                           <ContentBlockList
-                            blocks={state().presentation.correctResponse}
+                            blocks={state().presentation.questionAnswer}
                             assetUrl={(asset) => safeAssetUrl(asset.asset)}
                           />
                         </section>
-                        <Show when={(state().presentation.rationale?.length ?? 0) > 0}>
-                          <section aria-labelledby="instructor-rationale-heading">
-                            <h4 id="instructor-rationale-heading">Why this works</h4>
+                        <Show
+                          when={(state().presentation.questionAnswerExplanation?.length ?? 0) > 0}
+                        >
+                          <section aria-labelledby="instructor-question-answer-explanation-heading">
+                            <h4 id="instructor-question-answer-explanation-heading">
+                              Answer Explanation
+                            </h4>
                             <ContentBlockList
-                              blocks={state().presentation.rationale ?? []}
+                              blocks={state().presentation.questionAnswerExplanation ?? []}
                               assetUrl={(asset) => safeAssetUrl(asset.asset)}
                             />
                           </section>
@@ -885,10 +897,10 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                         assigned questions until an instructor deliberately replaces an item.
                       </p>
                       <p>
-                        Publishing saved title: <strong>{state().diff.proposedTitle}</strong>
+                        Publishing saved title: <strong>{state().review.proposedTitle}</strong>
                       </p>
-                      <ul class="editor-diff">
-                        <For each={state().diff.sections}>
+                      <ul class="editor-review">
+                        <For each={state().review.sections}>
                           {(section) => (
                             <li>
                               <strong>{section.label}:</strong> {section.before ?? "New"} to{" "}

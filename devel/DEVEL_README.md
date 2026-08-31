@@ -18,17 +18,17 @@ appropriate repo root or package.
 
 ## Current root scripts
 
-| File | Kind of work |
-| --- | --- |
-| [bump_version.py](bump_version.py) | Preview and save repo version changes; enter `patch` for the next patch release. |
-| [version_lib.py](version_lib.py) | Shared version parsing and normalization behavior. |
-| [version_files.py](version_files.py) | Discover and update files that carry version metadata. |
-| [changelog_lib.py](changelog_lib.py) | Shared parser and helpers for changelog tools. |
-| [commit_changelog.py](commit_changelog.py) | Draft a commit message from new changelog entries. |
-| [query_changelog.py](query_changelog.py) | Search active and archived changelog entries. |
-| [rotate_changelog.py](rotate_changelog.py) | Move old changelog day blocks into archive files. |
-| [flatten_broken_md_links.py](flatten_broken_md_links.py) | Repair or flatten broken Markdown links. |
-| [dist_clean.sh](dist_clean.sh) | Remove build artifacts, caches, and dependency installs. |
+| File                                                     | Kind of work                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [bump_version.py](bump_version.py)                       | Preview and save repo version changes; enter `patch` for the next patch release. |
+| [version_lib.py](version_lib.py)                         | Shared version parsing and normalization behavior.                               |
+| [version_files.py](version_files.py)                     | Discover and update files that carry version metadata.                           |
+| [changelog_lib.py](changelog_lib.py)                     | Shared parser and helpers for changelog tools.                                   |
+| [commit_changelog.py](commit_changelog.py)               | Draft a commit message from new changelog entries.                               |
+| [query_changelog.py](query_changelog.py)                 | Search active and archived changelog entries.                                    |
+| [rotate_changelog.py](rotate_changelog.py)               | Move old changelog day blocks into archive files.                                |
+| [flatten_broken_md_links.py](flatten_broken_md_links.py) | Repair or flatten broken Markdown links.                                         |
+| [dist_clean.sh](dist_clean.sh)                           | Remove build artifacts, caches, and dependency installs.                         |
 
 ## Propagated devel scripts
 

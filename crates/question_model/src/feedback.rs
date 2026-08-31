@@ -1,4 +1,4 @@
-//! Server-owned Question feedback, Question hints, and browser-safe feedback.
+//! Server-owned Question teaching content and browser-safe Student Feedback.
 //!
 //! [`QuestionFeedback`] is deliberately not serializable. It belongs only to a
 //! trusted Question backend and, once persistence lands, to Question-owned
@@ -25,10 +25,59 @@ pub struct QuestionFeedback {
     pub correct_feedback: Option<Vec<ContentBlock>>,
     /// Feedback authored for an incorrect automatically graded response.
     pub incorrect_feedback: Option<Vec<ContentBlock>>,
-    /// A rendered, accessible correct-response explanation.
-    pub correct_response: Option<Vec<ContentBlock>>,
-    /// A rationale that may contain answer-bearing instructional content.
-    pub rationale: Option<Vec<ContentBlock>>,
+}
+
+/// Trusted display-ready accepted response for one exact Question Variation.
+///
+/// The trusted Question Backend derives this from the Answer Key without
+/// allowing answer-key facts to cross into the browser contract.
+#[derive(Clone, PartialEq, Eq)]
+pub struct QuestionAnswer {
+    content: Vec<ContentBlock>,
+}
+
+impl QuestionAnswer {
+    /// Creates one non-empty display-ready Question Answer.
+    pub fn new(content: Vec<ContentBlock>) -> Option<Self> {
+        (!content.is_empty()).then_some(Self { content })
+    }
+
+    /// Returns the display-ready content for an authorized release projection.
+    pub fn content(&self) -> &[ContentBlock] {
+        &self.content
+    }
+}
+
+/// Trusted display-ready explanation of how or why one Question Answer is reached.
+#[derive(Clone, PartialEq, Eq)]
+pub struct QuestionAnswerExplanation {
+    content: Vec<ContentBlock>,
+}
+
+impl QuestionAnswerExplanation {
+    /// Creates one non-empty Question Answer Explanation.
+    pub fn new(content: Vec<ContentBlock>) -> Option<Self> {
+        (!content.is_empty()).then_some(Self { content })
+    }
+
+    /// Returns the display-ready content for an authorized release projection.
+    pub fn content(&self) -> &[ContentBlock] {
+        &self.content
+    }
+}
+
+/// Complete trusted post-grading teaching output for one exact Question Variation.
+///
+/// Named fields keep outcome-selected Question Feedback, the accepted Question
+/// Answer, and its optional Question Answer Explanation independently owned.
+#[derive(Clone, PartialEq, Eq, Default)]
+pub struct QuestionPostGradingContent {
+    /// Teaching content selected by the Student's graded response.
+    pub question_feedback: QuestionFeedback,
+    /// Display-ready accepted response derived from the Answer Key.
+    pub question_answer: Option<QuestionAnswer>,
+    /// Optional explanation of the Question Answer.
+    pub question_answer_explanation: Option<QuestionAnswerExplanation>,
 }
 
 /// Trusted Question-attached instructional support requested before a response.
@@ -79,12 +128,12 @@ pub struct StudentFeedback {
     /// Released feedback for an incorrect automatically graded response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub incorrect_feedback: Option<Vec<ContentBlock>>,
-    /// A server-sanitized correct-response explanation, not a raw answer key.
+    /// Server-sanitized display-ready accepted response, never an Answer Key.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub correct_response: Option<Vec<ContentBlock>>,
-    /// A server-sanitized teaching rationale.
+    pub question_answer: Option<Vec<ContentBlock>>,
+    /// Server-sanitized explanation of the released Question Answer.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub rationale: Option<Vec<ContentBlock>>,
+    pub question_answer_explanation: Option<Vec<ContentBlock>>,
 }
 
 impl StudentFeedback {
@@ -98,16 +147,16 @@ impl StudentFeedback {
             choice_feedback: None,
             correct_feedback: None,
             incorrect_feedback: None,
-            correct_response: None,
-            rationale: None,
+            question_answer: None,
+            question_answer_explanation: None,
         }
     }
 }
 
 /// Closed score-only feedback for an audited Instructor Student-work read.
 ///
-/// This type deliberately cannot carry Question Hints, rationale, correct
-/// responses, or any other instructional material.
+/// This type deliberately cannot carry Question Hints, Question Answer,
+/// Question Answer Explanation, or any other instructional material.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentResponseInspectionFeedback {

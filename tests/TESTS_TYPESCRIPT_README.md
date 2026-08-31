@@ -10,13 +10,13 @@ is the whole interface: drive the repo through them and you never need to open
 
 ## Front door shell scripts
 
-| Script | What it does |
-| --- | --- |
-| `./check_codebase.sh` | Fast gate: typecheck, lint, format check, Node unit tests. |
-| `./build_github_pages.sh` | Bundle `src/` into `dist/` (the Pages artifact). |
-| `./run_web_server.sh` | Build `dist/`, serve a local preview on a random port. |
-| `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed. |
-| `./dist_clean.sh` | Wipe `dist/`. |
+| Script                      | What it does                                               |
+| --------------------------- | ---------------------------------------------------------- |
+| `./check_codebase.sh`       | Fast gate: typecheck, lint, format check, Node unit tests. |
+| `./build_github_pages.sh`   | Bundle `src/` into `dist/` (the Pages artifact).           |
+| `./run_web_server.sh`       | Build `dist/`, serve a local preview on a random port.     |
+| `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed.               |
+| `./dist_clean.sh`           | Wipe `dist/`.                                              |
 
 Run `./check_codebase.sh --help` for usage. `./run_web_server.sh` picks a
 random port each run so the browser cache stays fresh; set `PORT` to override.

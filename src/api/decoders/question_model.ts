@@ -3,7 +3,7 @@
 import type { QuestionAttemptLimit } from "../../../generated/api/QuestionAttemptLimit";
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../../generated/api/DraftQuestionSource";
-import type { GradingDefinition } from "../../../generated/api/GradingDefinition";
+import type { QuestionGradingRule } from "../../../generated/api/QuestionGradingRule";
 import type { QuestionGeneratorParameter } from "../../../generated/api/QuestionGeneratorParameter";
 import type { QuestionSource } from "../../../generated/api/QuestionSource";
 import type { QuestionVariationDefinition } from "../../../generated/api/QuestionVariationDefinition";
@@ -21,9 +21,9 @@ function decodeAuthoringWorkspaceReference(value: unknown, path: string): Worksp
   return reference;
 }
 import type {
-  PublicationDiff,
+  QuestionPublicationReview,
   PublicationReadinessFailure,
-  PublicationSemanticProjection,
+  QuestionPublicationReviewSummary,
   PublicationValidationReport,
   PublicationViolation,
 } from "../contracts";
@@ -51,7 +51,7 @@ import {
   decodeEnvelopeTitle,
   decodeIdentifier,
   decodeLicense,
-  decodeTaxonomyTerm,
+  decodeQuestionClassification,
   field,
   kind,
   requireOnlyFields,
@@ -389,11 +389,11 @@ export function decodeQuestionAttemptTimeLimit(
   }
 }
 
-export function decodeGradingDefinition(
+export function decodeQuestionGradingRule(
   value: unknown,
   path: string,
   strict = false,
-): GradingDefinition {
+): QuestionGradingRule {
   const record = decodeRecord(value, path);
   const mode = decodeString(field(record, "mode", path), `${path}.mode`);
   switch (mode) {
@@ -405,7 +405,7 @@ export function decodeGradingDefinition(
       const decoded = {
         mode,
         points: decodeFiniteNumber(field(record, "points", path), `${path}.points`),
-      } satisfies GradingDefinition;
+      } satisfies QuestionGradingRule;
       return decoded;
     }
     case "ungraded":
@@ -414,7 +414,7 @@ export function decodeGradingDefinition(
       }
       return { mode };
     default:
-      throw new DecodeError(`${path}.mode`, "a known grading definition");
+      throw new DecodeError(`${path}.mode`, "a known Question Grading Rule");
   }
 }
 
@@ -534,10 +534,10 @@ export function decodePublicationValidationFailure(
   };
 }
 
-function decodePublicationSemanticProjection(
+function decodeQuestionPublicationReviewSummary(
   value: unknown,
   path: string,
-): PublicationSemanticProjection {
+): QuestionPublicationReviewSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "sourceBackend",
@@ -587,7 +587,12 @@ function decodePublicationSemanticProjection(
   );
   requireOnlyFields(questionVariationDefinition, `${path}.questionVariationDefinition`, ["kind"]);
   const metadata = decodeRecord(field(record, "metadata", path), `${path}.metadata`);
-  requireOnlyFields(metadata, `${path}.metadata`, ["tags", "taxonomy", "license", "language"]);
+  requireOnlyFields(metadata, `${path}.metadata`, [
+    "tags",
+    "classifications",
+    "license",
+    "language",
+  ]);
   return {
     sourceBackend: decodeStringEnum(
       field(record, "sourceBackend", path),
@@ -629,11 +634,12 @@ function decodePublicationSemanticProjection(
         MAX_PUBLICATION_SEMANTIC_ENTRIES,
         decodeString,
       ),
-      taxonomy: decodeBoundedArray(
-        field(metadata, "taxonomy", `${path}.metadata`),
-        `${path}.metadata.taxonomy`,
+      classifications: decodeBoundedArray(
+        field(metadata, "classifications", `${path}.metadata`),
+        `${path}.metadata.classifications`,
         MAX_PUBLICATION_SEMANTIC_ENTRIES,
-        (term, termPath) => decodeTaxonomyTerm(term, termPath, true),
+        (classification, classificationPath) =>
+          decodeQuestionClassification(classification, classificationPath, true),
       ),
       license: decodeLicense(
         field(metadata, "license", `${path}.metadata`),
@@ -648,17 +654,22 @@ function decodePublicationSemanticProjection(
   };
 }
 
-export function decodePublicationDiff(value: unknown, path = "response"): PublicationDiff {
+export function decodeQuestionPublicationReview(
+  value: unknown,
+  path = "response",
+): QuestionPublicationReview {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["draftRevision", "baseline", "current", "changed"]);
-  const draftRevision = decodePositiveInteger(
-    field(record, "draftRevision", path),
-    `${path}.draftRevision`,
+  requireOnlyFields(record, path, ["workingCopyEditNumber", "baseQuestion", "current", "changed"]);
+  const workingCopyEditNumber = decodePositiveInteger(
+    field(record, "workingCopyEditNumber", path),
+    `${path}.workingCopyEditNumber`,
   );
-  const baseline = decodeStringEnum(field(record, "baseline", path), `${path}.baseline`, [
-    "newQuestion",
-  ] as const);
-  const current = decodePublicationSemanticProjection(
+  const baseQuestion = decodeStringEnum(
+    field(record, "baseQuestion", path),
+    `${path}.baseQuestion`,
+    ["newQuestion"] as const,
+  );
+  const current = decodeQuestionPublicationReviewSummary(
     field(record, "current", path),
     `${path}.current`,
   );
@@ -670,14 +681,14 @@ export function decodePublicationDiff(value: unknown, path = "response"): Public
   );
   if (
     new Set(changed).size !== changed.length ||
-    (baseline === "newQuestion" && changed.length !== 0)
+    (baseQuestion === "newQuestion" && changed.length !== 0)
   ) {
     throw new DecodeError(`${path}.changed`, "unique baseline-consistent semantic fields");
   }
   return {
-    draftRevision,
-    revision: `"${draftRevision}"`,
-    baseline,
+    workingCopyEditNumber,
+    revision: `"${workingCopyEditNumber}"`,
+    baseQuestion,
     current,
     changed,
   };

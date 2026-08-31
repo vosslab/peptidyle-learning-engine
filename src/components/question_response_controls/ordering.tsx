@@ -116,7 +116,7 @@ export function OrderingResponse(
         disabled={controller.locked()}
       >
         <legend>Put the items in order</legend>
-        <p class="keyboard-hint" id={`${props.attemptId}-order-help`}>
+        <p class="keyboard-instructions" id={`${props.attemptId}-order-help`}>
           Tab to a move control and press Space to activate it. Shortcut: use the Up or Down Arrow
           key on the focused move control.
         </p>

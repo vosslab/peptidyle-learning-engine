@@ -6,15 +6,15 @@ use grading::{AnswerKey, GradingError};
 use question_model::answer::{NumericResponseTolerance, ResponseSelectionRule};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
+use question_model::classification::License;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{
     QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
     QuestionVariationDefinition,
 };
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
-use question_model::taxonomy::License;
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionFormat,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, QuestionFormat, QuestionGradingRule,
     QuestionId, QuestionMetadata, QuestionSource, QuestionType, QuestionVersion,
     QuestionVersionNumber, StudentResponse, WorkspaceId,
 };
@@ -62,7 +62,7 @@ fn metadata(title: &str) -> QuestionMetadata {
     QuestionMetadata {
         title: title.to_string(),
         tags: Vec::new(),
-        taxonomy: Vec::new(),
+        classifications: Vec::new(),
         license: License::CcBySa,
         language: "en-US".to_string(),
     }
@@ -110,7 +110,7 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionV
             },
             parameters,
         },
-        grading: GradingDefinition::AllOrNothing { points: 2.0 },
+        grading: QuestionGradingRule::AllOrNothing { points: 2.0 },
         metadata: metadata("Peptide-bond geometry"),
     }
 }
@@ -153,14 +153,14 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
                 && (markdown.contains("alanine") || markdown.contains("glycine"))
     ));
     assert_eq!(
-        first.correct_response,
+        first.question_answer,
         vec![ContentBlock::Text {
             markdown: "amide".to_string(),
         }],
         "the presentation copies the public choice body, never its identifier"
     );
     assert!(matches!(
-        first.rationale.as_deref(),
+        first.question_answer_explanation.as_deref(),
         Some([ContentBlock::Text { markdown }])
             if markdown.contains("partial double-bond") && markdown.contains("planar")
     ));
@@ -365,7 +365,7 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
     let issued = adapter
         .issue(&question, QuestionSeed::new(99), &[])
         .expect("native issue");
-    let (outcome, feedback) = adapter
+    let (outcome, content) = adapter
         .grade_with_feedback(
             &question,
             QuestionSeed::new(99),
@@ -379,7 +379,9 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
         .expect("verified wrong response receives teaching feedback");
     assert!(matches!(outcome, QuestionGradingOutcome::Graded(result) if !result.correct));
     assert_eq!(
-        feedback.correct_response,
+        content
+            .question_answer
+            .map(|answer| answer.content().to_vec()),
         Some(vec![ContentBlock::Text {
             markdown: "amide".to_string(),
         }])
@@ -394,14 +396,14 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
         )
         .expect("verified issued Question accepts a hint request")
         .expect("implemented Question Implementation advertises a real hint");
-    let rationale = feedback
-        .rationale
-        .expect("implemented Question Implementation provides rationale");
+    let explanation = content
+        .question_answer_explanation
+        .expect("implemented Question Implementation provides a Question Answer Explanation");
     assert!(
         matches!(&hint.content()[0], ContentBlock::Text { markdown } if markdown.contains("lone pair"))
     );
     assert!(
-        matches!(&rationale[0], ContentBlock::Text { markdown } if markdown.contains("partial double-bond") && markdown.contains("planar"))
+        matches!(&explanation.content()[0], ContentBlock::Text { markdown } if markdown.contains("partial double-bond") && markdown.contains("planar"))
     );
     assert!(
         adapter
@@ -683,7 +685,7 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         question_variation_definition: QuestionVariationDefinition::Static,
-        grading: GradingDefinition::AllOrNothing { points: 1.0 },
+        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: metadata("Numeric registry extension"),
     };
     let issued = adapter
@@ -712,6 +714,7 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
 #[derive(Debug, Clone, Copy)]
 struct VersionedNumericImplementation {
     version: &'static str,
+    implementation_release: &'static str,
     expected: f64,
     supports_client_rendering: bool,
 }
@@ -728,7 +731,7 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
     fn implementation_release(&self) -> crate::generator::NativeQuestionImplementationRelease {
         crate::generator::NativeQuestionImplementationRelease {
             id: "versioned-numeric".to_string(),
-            version: self.version.to_string(),
+            version: self.implementation_release.to_string(),
         }
     }
 
@@ -785,7 +788,7 @@ fn versioned_numeric_question(version: &str) -> QuestionVersion {
             },
             parameters: BTreeMap::new(),
         },
-        grading: GradingDefinition::AllOrNothing { points: 1.0 },
+        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: metadata("Versioned numeric implementation"),
     }
 }
@@ -796,6 +799,7 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
     adapter
         .register_implementation(VersionedNumericImplementation {
             version: "1",
+            implementation_release: "1",
             expected: 1.0,
             supports_client_rendering: true,
         })
@@ -803,6 +807,7 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
     adapter
         .register_implementation(VersionedNumericImplementation {
             version: "2",
+            implementation_release: "2",
             expected: 2.0,
             supports_client_rendering: false,
         })
@@ -843,5 +848,32 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
             &StudentResponse::Numeric { value: 2.0 },
         ),
         Ok(QuestionGradingOutcome::Graded(result)) if result.correct
+    ));
+}
+
+#[test]
+fn native_implementation_registration_is_unique_per_source_contract() {
+    let mut adapter = NativeAdapter::empty();
+    adapter
+        .register_implementation(VersionedNumericImplementation {
+            version: "1",
+            implementation_release: "1",
+            expected: 1.0,
+            supports_client_rendering: true,
+        })
+        .expect("first source contract should register");
+
+    assert!(matches!(
+        adapter.register_implementation(VersionedNumericImplementation {
+            version: "1",
+            implementation_release: "replacement",
+            expected: 2.0,
+            supports_client_rendering: false,
+        }),
+        Err(NativeAdapterError::DuplicateQuestionImplementation {
+            question_format: QuestionFormat::NativeAlgorithmic,
+            question_type: QuestionType::Numeric,
+            generator: Some(QuestionGeneratorReference { .. }),
+        })
     ));
 }

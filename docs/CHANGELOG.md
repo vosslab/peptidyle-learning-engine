@@ -2,23 +2,23 @@
 
 ## 2026-08-31
 
-- Renamed fresh migration boundaries for Authenticated Session resolution,
-  authorization checks, and credential-authentication completion; their database functions now name exact Account, Session, workspace, and credential decisions.
+- Renamed fresh migration boundaries for Authenticated Session resolution, authorization checks, and credential-authentication completion; their database functions now name exact Account, Session, workspace, and credential decisions. Browser authoring now names its answer-free comparison Question Publication Review, including its Working Copy Edit Number, summary, route, strict decoder, and test contract; a mounted server publication boundary remains open. Native adapter registration now uses one source-contract key of Question Format, Question Type, and Question Source generator reference; software release metadata remains reproduction evidence.
 
-- Renamed the server-owned Question Pool selection inputs and browser-safe
-  Question Pool Preview boundary. The compact preview request, Rust model,
-  generated API, strict decoder, client action, and editor now distinguish
-  selected candidates from ordinary Student work without exposing selection
-  entropy. The persisted Question Pool Selection Rule cutover remains open.
+- Split the combined Assignment later-Attempt policy into independent Question Pool Reuse Rule and Question Variation Rule contracts. The Question Model, generated browser types, strict decoders, Instructor policy controls, Student-facing policy copy, Blueprint defaults, fixtures, and the fresh PostgreSQL 17 schema now use Reuse Selection or Select Again separately from Reuse Variation or New Variation. The policy tables and each Assignment Attempt record both exact rules; durable Question Pool Selection persistence and actual later-Attempt issuance remain tracked separately.
 
+- Replaced Question Pool draw vocabulary and algorithm versions with Instructor-owned
+  Question Pool Selection Count and Selected Question Order. Rust, generated API,
+  strict decoders, Blueprint Course inputs, editor and preview controls, tests, and Instructor documentation now use the direct selection contract and canonical preview route. Student contracts name their ordinal-only field `questionPoolSelectionPosition`; the server owns its one
+  current selection implementation, which samples available candidates without replacement from transient server entropy. Stored selected-candidate persistence and replay remain open.
 - Replaced generic private Question grading-record tables with exact Answer Key,
   Question Feedback, Question Answer Explanation, and format-specific Question
-  Grading Input records. Every Draft Question Revision record is immutable and
-  workspace-authorized; every Question Revision record is immutable and pinned;
-  Workspace Import input freezes after commit. The fresh PostgreSQL catalog oracle
-  proves record names, revision/import binding, checksums, immutability triggers,
-  and forced RLS. Store-backed persistence and delivery remain explicitly open.
-
+  Grading Input records; public scoring rule is now `QuestionGradingRule`; persistent
+  response-control help uses Keyboard Instructions. Trusted Native and Flat Question
+  producers, the Student Feedback Release evaluator, generated contracts, strict decoder, policy controls,
+  and UI now preserve Question Feedback, Question Answer, and Question Answer
+  Explanation independently. The fresh PostgreSQL catalog oracle proves record
+  names, revision/import binding, checksums, immutability triggers, and forced RLS.
+  Store-backed persistence, publication, and delivery remain explicitly open.
 - Established the Assignment Working Copy persistence boundary. Ordinary
   Questions, Policies, and fixed-question saves now carry the exact Assignment
   Edit Number; the fresh SD1 schema stores one edit-number-guarded working copy
@@ -51,19 +51,19 @@
 
 - Added a CELT-based Bloom taxonomy guide for PLE Question classification. It defines the two
   independently selected dimensions, their derived 4 by 6 matrix position, biology-oriented
-  examples for all 24 intersections, the Assistant-to-Instructor review workflow, independent
+  examples for all 24 intersections, automatic AI assignment and later Instructor correction, independent
   search facets, and accessible use of the six Cognitive Process hue families.
 
-- Defined Question Bloom Classification as two required closed fields on every
-  Published Question Revision: Bloom Cognitive Process and Bloom Knowledge
-  Dimension. The Bloom Classification Assistant suggests both values on the
-  exact Draft Question Revision, the Instructor accepts or edits them before
-  publication, and Question Search exposes each dimension plus their 4 by 6
-  intersection. Added the classification rubric, kept cohort-measured Question
-  Difficulty separate, and recorded the six Cognitive Process hue families as
-  accessible interface reference anchors. The implementation checklist and
-  current handoff keep the source, schema, publication, API, search, authoring,
-  and browser cutover explicitly open.
+- Defined Question Bloom Classification as the two-field pair assigned by AI
+  work discovered through unassigned Published Question Revisions. Publication
+  completes with classification unassigned; AI supplies the initial values, and an
+  Instructor may edit either value later without creating a Question Revision.
+  Question Search exposes each dimension plus their derived 4 by 6 intersection.
+  Added the classification rubric, kept cohort-measured Question Difficulty
+  separate, and recorded the six Cognitive Process hue families as accessible
+  interface reference anchors. The implementation checklist and current handoff
+  keep the source, schema, work discovery, AI integration, API, search,
+  metadata editing, and browser cutover explicitly open.
 
 - Separated Blackboard assessment-source language from PLE Assignment
   composition. Question Pool now names an Assignment-local selection from
@@ -304,8 +304,8 @@
   Guidance, or active plans still carry the outgoing term. Each reopened row
   now states the exact replacement action, affected owners and consumers, and
   validation step. Clarified Assignment Point Value, Hotspot Region, Course
-  Date, and Relative Assignment Schedule rows so their checked state describes
-  a completed contextual correction.
+  Date, Relative Assignment Schedule, and Question Library route rows so their
+  checked state describes a completed contextual correction.
 
 - Replaced generic private `FeedbackContent` with Question Feedback and the
   opaque `DisclosedFeedback` and version-suffixed

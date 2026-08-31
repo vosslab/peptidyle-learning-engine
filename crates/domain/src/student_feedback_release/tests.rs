@@ -3,7 +3,8 @@ use std::num::NonZeroU32;
 use question_model::envelope::ContentBlock;
 use question_model::{
     ActivityTimestamp, AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule,
-    QuestionFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionPostGradingContent,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 
 use super::{
@@ -24,7 +25,8 @@ fn rule() -> StudentFeedbackReleaseRule {
         score: StudentFeedbackReleaseTiming::DuringAttempt,
         per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
         feedback_text: StudentFeedbackReleaseTiming::AfterDue,
-        solution: StudentFeedbackReleaseTiming::AfterClose,
+        question_answer: StudentFeedbackReleaseTiming::AfterClose,
+        question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
         class_statistics: StudentFeedbackReleaseTiming::Never,
     }
 }
@@ -72,7 +74,8 @@ fn independent_fields_follow_their_own_timings() {
             score: true,
             per_item_correctness: false,
             feedback_text: false,
-            solution: false,
+            question_answer: false,
+            question_answer_explanation: false,
             class_statistics: false,
         }
     );
@@ -107,8 +110,10 @@ fn due_and_close_release_at_the_exact_resolved_boundaries() {
 
     assert!(!just_before_due.feedback_text);
     assert!(at_due.feedback_text);
-    assert!(!just_before_close.solution);
-    assert!(at_close.solution);
+    assert!(!just_before_close.question_answer);
+    assert!(!just_before_close.question_answer_explanation);
+    assert!(at_close.question_answer);
+    assert!(at_close.question_answer_explanation);
 }
 
 #[test]
@@ -118,7 +123,8 @@ fn absent_due_and_close_do_not_release_timed_fields() {
             .expect("allowed Student has a disclosure decision");
 
     assert!(!decision.feedback_text);
-    assert!(!decision.solution);
+    assert!(!decision.question_answer);
+    assert!(!decision.question_answer_explanation);
 }
 
 #[test]
@@ -134,7 +140,8 @@ fn never_stays_hidden_after_every_other_release() {
     assert!(decision.score);
     assert!(decision.per_item_correctness);
     assert!(decision.feedback_text);
-    assert!(decision.solution);
+    assert!(decision.question_answer);
+    assert!(decision.question_answer_explanation);
     assert!(!decision.class_statistics);
 }
 
@@ -152,23 +159,29 @@ fn denied_s3_verdict_has_no_student_feedback_release_decision() {
     );
 }
 
-fn question_feedback() -> QuestionFeedback {
-    QuestionFeedback {
-        choice_feedback: Some(vec![ContentBlock::Text {
-            markdown: "Choice feedback".to_string(),
-        }]),
-        correct_feedback: Some(vec![ContentBlock::Text {
-            markdown: "Correct feedback".to_string(),
-        }]),
-        incorrect_feedback: Some(vec![ContentBlock::Text {
-            markdown: "Incorrect feedback".to_string(),
-        }]),
-        rationale: Some(vec![ContentBlock::Text {
-            markdown: "Rationale".to_string(),
-        }]),
-        correct_response: Some(vec![ContentBlock::Text {
-            markdown: "Correct response".to_string(),
-        }]),
+fn post_grading_content() -> QuestionPostGradingContent {
+    let question_answer = QuestionAnswer::new(vec![ContentBlock::Text {
+        markdown: "Correct response".to_string(),
+    }])
+    .expect("one answer block is non-empty");
+    let question_answer_explanation = QuestionAnswerExplanation::new(vec![ContentBlock::Text {
+        markdown: "Answer explanation".to_string(),
+    }])
+    .expect("one explanation block is non-empty");
+    QuestionPostGradingContent {
+        question_feedback: QuestionFeedback {
+            choice_feedback: Some(vec![ContentBlock::Text {
+                markdown: "Choice feedback".to_string(),
+            }]),
+            correct_feedback: Some(vec![ContentBlock::Text {
+                markdown: "Correct feedback".to_string(),
+            }]),
+            incorrect_feedback: Some(vec![ContentBlock::Text {
+                markdown: "Incorrect feedback".to_string(),
+            }]),
+        },
+        question_answer: Some(question_answer),
+        question_answer_explanation: Some(question_answer_explanation),
     }
 }
 
@@ -186,18 +199,19 @@ fn feedback_projection_allowlists_each_released_field() {
         score: true,
         per_item_correctness: true,
         feedback_text: true,
-        solution: true,
+        question_answer: true,
+        question_answer_explanation: true,
         class_statistics: false,
     };
-    let disclosed = project_student_feedback(decision, Some(result()), &question_feedback())
+    let disclosed = project_student_feedback(decision, Some(result()), &post_grading_content())
         .expect("released fields produce feedback");
     assert_eq!(disclosed.correctness, Some(true));
     assert_eq!(disclosed.points_earned, Some(2.0));
     assert!(disclosed.choice_feedback.is_some());
     assert!(disclosed.correct_feedback.is_some());
     assert!(disclosed.incorrect_feedback.is_some());
-    assert!(disclosed.rationale.is_some());
-    assert!(disclosed.correct_response.is_some());
+    assert!(disclosed.question_answer.is_some());
+    assert!(disclosed.question_answer_explanation.is_some());
 }
 
 #[test]
@@ -206,7 +220,8 @@ fn inspection_projects_only_score_fields_and_hides_stale_values() {
         score: true,
         per_item_correctness: true,
         feedback_text: true,
-        solution: true,
+        question_answer: true,
+        question_answer_explanation: true,
         class_statistics: false,
     };
     for status in [
@@ -233,7 +248,8 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
         score: true,
         per_item_correctness: true,
         feedback_text: false,
-        solution: false,
+        question_answer: false,
+        question_answer_explanation: false,
         class_statistics: false,
     };
     let stale =

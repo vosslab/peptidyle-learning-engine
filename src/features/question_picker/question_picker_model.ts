@@ -242,10 +242,10 @@ function reusableQuestionLibraryRow(item: {
     readonly questionId: string;
     readonly metadata: {
       readonly title: string;
-      readonly taxonomy: ReadonlyArray<{
-        readonly scheme: string;
+      readonly classifications: ReadonlyArray<{
+        readonly system: string;
         readonly code: string;
-        readonly label: string;
+        readonly name: string;
       }>;
       readonly license:
         | { readonly kind: "allRightsReserved" | "ccBy" | "ccBySa" | "ccByNc" | "cc0" }
@@ -280,7 +280,9 @@ function reusableQuestionLibraryRow(item: {
     title: summary.metadata.title,
     summary: summary.metadata.title,
     byline: summary.byline.names,
-    taxonomy: summary.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),
+    classifications: summary.metadata.classifications.map(
+      (classification) => `${classification.system}:${classification.code}`,
+    ),
     capabilities: summary.capabilities,
     license:
       summary.metadata.license.kind === "other"

@@ -9,12 +9,12 @@ use objects::memory::MemoryObjectStore;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
+use question_model::classification::License;
 use question_model::envelope::ContentBlock;
 use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
-use question_model::taxonomy::License;
 use question_model::{
-    GradingDefinition, ObjectId, QuestionFormat, QuestionId, QuestionMetadata,
+    ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
     QuestionRendererVersion, QuestionType, QuestionVariation, QuestionVersionNumber,
     QuestionVersionReference, SourceObjectReference, WorkspaceId,
 };
@@ -183,11 +183,11 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionVersion {
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         question_variation_definition: QuestionVariationDefinition::Static,
-        grading: GradingDefinition::AllOrNothing { points: 1.0 },
+        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded OPL selection".to_string(),
             tags: Vec::new(),
-            taxonomy: Vec::new(),
+            classifications: Vec::new(),
             license: License::CcBySa,
             language: "en-US".to_string(),
         },
@@ -642,7 +642,7 @@ async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
     let store = MemoryObjectStore::default();
     let adapter = WebworkAdapter::new(store.clone(), recorded_renderer(calls));
     let mut question = question_with_response(fixture_response());
-    question.grading = GradingDefinition::PartialCredit { points: 1.0 };
+    question.grading = QuestionGradingRule::PartialCredit { points: 1.0 };
     let source = source(&store, &question).await;
     let error = adapter
         .grade(

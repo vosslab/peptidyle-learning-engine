@@ -34,8 +34,8 @@ export interface InstructorPreviewPresentation {
   readonly response: QuestionResponseFormat;
   readonly seed: QuestionSeed;
   /** Display-ready blocks, not a reusable grading key or answer representation. */
-  readonly correctResponse: ReadonlyArray<ContentBlock>;
-  readonly rationale?: ReadonlyArray<ContentBlock>;
+  readonly questionAnswer: ReadonlyArray<ContentBlock>;
+  readonly questionAnswerExplanation?: ReadonlyArray<ContentBlock>;
 }
 
 export type InstructorPreviewResult =
@@ -124,8 +124,8 @@ function decodePresentation(
     "prompt",
     "response",
     "seed",
-    "correctResponse",
-    "rationale",
+    "questionAnswer",
+    "questionAnswerExplanation",
   ]);
   const seed = decodePreviewSeed(decodeField(record, "seed", path), `${path}.seed`);
   const title = decodeNonemptyString(decodeField(record, "title", path), `${path}.title`);
@@ -137,22 +137,28 @@ function decodePresentation(
   );
   const answer = decodeStudentFeedback(
     {
-      correctResponse: decodeField(record, "correctResponse", path),
-      ...("rationale" in record ? { rationale: decodeField(record, "rationale", path) } : {}),
+      questionAnswer: decodeField(record, "questionAnswer", path),
+      ...("questionAnswerExplanation" in record
+        ? {
+            questionAnswerExplanation: decodeField(record, "questionAnswerExplanation", path),
+          }
+        : {}),
     },
     `${path}.authorPresentation`,
   );
-  const correctResponse = answer.correctResponse;
-  if (correctResponse === undefined || correctResponse.length === 0) {
-    throw new DecodeError(`${path}.correctResponse`, "a nonempty display-ready response");
+  const questionAnswer = answer.questionAnswer;
+  if (questionAnswer === undefined || questionAnswer.length === 0) {
+    throw new DecodeError(`${path}.questionAnswer`, "a nonempty display-ready Question Answer");
   }
   const presentation: InstructorPreviewPresentation = {
     title: safePreview.title,
     prompt: safePreview.prompt,
     response: safePreview.response,
     seed: safePreview.seed,
-    correctResponse,
-    ...(answer.rationale === undefined ? {} : { rationale: answer.rationale }),
+    questionAnswer,
+    ...(answer.questionAnswerExplanation === undefined
+      ? {}
+      : { questionAnswerExplanation: answer.questionAnswerExplanation }),
   };
   return presentation;
 }

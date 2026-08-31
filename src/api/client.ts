@@ -23,7 +23,7 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
+import type { QuestionClassification } from "../../generated/api/QuestionClassification";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { AccountApprovalView } from "../../generated/api/AccountApprovalView";
@@ -77,7 +77,7 @@ import type {
   AssignmentAttemptSummaryResponse,
   WorkspaceDraftDetail,
   WorkspaceDraftPage,
-  PublicationDiff,
+  QuestionPublicationReview,
   PublicationResult,
   PublicationRequest,
   PublicationValidationResponse,
@@ -320,7 +320,9 @@ export interface ApiClient
   readonly validateWorkspacePublication: (
     workspace: WorkspaceId,
   ) => Promise<PublicationValidationResponse>;
-  readonly getWorkspacePublicationDiff: (workspace: WorkspaceId) => Promise<PublicationDiff>;
+  readonly getQuestionPublicationReview: (
+    workspace: WorkspaceId,
+  ) => Promise<QuestionPublicationReview>;
   readonly publishWorkspace: (
     workspace: WorkspaceId,
     request: PublicationRequest,
@@ -333,7 +335,9 @@ export interface ApiClient
   readonly resolveQuestion: (displayReference: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable library projection, never a question definition. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
-  readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
+  readonly listQuestionClassifications: (
+    cursor?: string,
+  ) => Promise<CursorPage<QuestionClassification>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Creates one course for an authenticated instructor or sysadmin. */
   readonly createCourse: (input: CourseCreateInput) => Promise<CourseSummary>;

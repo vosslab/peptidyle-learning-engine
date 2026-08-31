@@ -5,7 +5,7 @@
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
-use question_model::taxonomy::License;
+use question_model::classification::License;
 use question_model::{ActivityTimestamp, ObjectId, QuestionVersionReference};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};

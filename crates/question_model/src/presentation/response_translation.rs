@@ -25,7 +25,7 @@ pub enum RenderedResponseTranslationErrorV1 {
     WrongRenderedItemRole,
 }
 
-/// A solution-free rendering of one immutable submitted response.
+/// A closed rendering of one immutable submitted Student Response.
 ///
 /// This is deliberately a closed projection.  It contains only the Student's
 /// submitted values and the rendered identifiers from the issued presentation;

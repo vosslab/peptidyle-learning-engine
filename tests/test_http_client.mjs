@@ -196,7 +196,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
         },
         seed: predecessor.seed,
         renderedQuestionSha256: "a".repeat(64),
-        questionPoolSelection: null,
+        questionPoolSelectionPosition: null,
         envelope,
       }),
   });
@@ -219,12 +219,12 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
         issuedQuestion: publishedProblemFixture.issuedQuestions[1],
         seed: envelope.seed,
         renderedQuestionSha256: "b".repeat(64),
-        questionPoolSelection: { itemNumber: 1, itemCount: 2 },
+        questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2 },
         envelope,
       }),
   });
   const prefetched = await client.prefetchNextQuestion(course.id, assignment.id, predecessor.id);
-  assert.deepEqual(prefetched?.questionPoolSelection, { itemNumber: 1, itemCount: 2 });
+  assert.deepEqual(prefetched?.questionPoolSelectionPosition, { itemNumber: 1, itemCount: 2 });
 });
 
 test("external-tool launch is a strict same-origin route projection", async () => {
@@ -280,7 +280,8 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
   const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
-  const { questionPoolSelection: _questionPoolSelection, ...receiptAttempt } = attempt;
+  const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...receiptAttempt } =
+    attempt;
   const response = { kind: "numeric", value: 18 };
   const receipt = {
     receipt: {
@@ -343,7 +344,8 @@ test("external-tool submission sends only the marker with its caller idempotency
   const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
-  const { questionPoolSelection: _questionPoolSelection, ...receiptAttempt } = attempt;
+  const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...receiptAttempt } =
+    attempt;
   const receipt = {
     receipt: {
       accepted: true,

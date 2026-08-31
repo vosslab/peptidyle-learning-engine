@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::{
-    Capability, DraftQuestionDefinition, GradingDefinition, QuestionBackendCapabilities,
+    Capability, DraftQuestionDefinition, QuestionBackendCapabilities, QuestionGradingRule,
     QuestionVersion, QuestionVersionReference,
 };
 use serde::{Deserialize, Serialize};
@@ -118,7 +118,7 @@ trait QuestionContentView {
     fn question_variation_definition(
         &self,
     ) -> &question_model::generation::QuestionVariationDefinition;
-    fn grading(&self) -> &GradingDefinition;
+    fn grading(&self) -> &QuestionGradingRule;
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit;
 }
 
@@ -128,7 +128,7 @@ impl QuestionContentView for QuestionVersion {
     ) -> &question_model::generation::QuestionVariationDefinition {
         &self.question_variation_definition
     }
-    fn grading(&self) -> &GradingDefinition {
+    fn grading(&self) -> &QuestionGradingRule {
         &self.grading
     }
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit {
@@ -142,7 +142,7 @@ impl QuestionContentView for DraftQuestionDefinition {
     ) -> &question_model::generation::QuestionVariationDefinition {
         &self.question_variation_definition
     }
-    fn grading(&self) -> &GradingDefinition {
+    fn grading(&self) -> &QuestionGradingRule {
         &self.grading
     }
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit {
@@ -160,14 +160,14 @@ fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capabili
         required.insert(Capability::AlgorithmicGeneration);
     }
     match question.grading() {
-        GradingDefinition::AllOrNothing { .. } => {
+        QuestionGradingRule::AllOrNothing { .. } => {
             required.insert(Capability::ServerGrading);
         }
-        GradingDefinition::PartialCredit { .. } => {
+        QuestionGradingRule::PartialCredit { .. } => {
             required.insert(Capability::ServerGrading);
             required.insert(Capability::PartialCredit);
         }
-        GradingDefinition::Ungraded => {}
+        QuestionGradingRule::Ungraded => {}
     }
     if matches!(
         question.question_attempt_time_limit(),
@@ -186,10 +186,10 @@ mod tests {
     use super::*;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
+    use question_model::classification::{License, Tag};
     use question_model::envelope::ContentBlock;
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
-    use question_model::taxonomy::{License, Tag};
     use question_model::{
         QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionType,
         QuestionVersionNumber, QuestionVersionReference, WorkspaceId,
@@ -243,11 +243,11 @@ mod tests {
             },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             question_variation_definition: QuestionVariationDefinition::Static,
-            grading: GradingDefinition::Ungraded,
+            grading: QuestionGradingRule::Ungraded,
             metadata: QuestionMetadata {
                 title: "Capability fixture".to_string(),
                 tags: vec![Tag::new("fixture")],
-                taxonomy: Vec::new(),
+                classifications: Vec::new(),
                 license: License::CcBy,
                 language: "en-US".to_string(),
             },
@@ -269,10 +269,10 @@ mod tests {
                 };
             }
             CaseFeature::AllOrNothing => {
-                question.grading = GradingDefinition::AllOrNothing { points: 1.0 };
+                question.grading = QuestionGradingRule::AllOrNothing { points: 1.0 };
             }
             CaseFeature::PartialCredit => {
-                question.grading = GradingDefinition::PartialCredit { points: 1.0 };
+                question.grading = QuestionGradingRule::PartialCredit { points: 1.0 };
                 question.response = QuestionResponseFormat::Numeric {
                     tolerance: NumericResponseTolerance::Absolute { epsilon: 0.1 },
                     unit: None,

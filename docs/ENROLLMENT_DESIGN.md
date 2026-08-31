@@ -620,17 +620,17 @@ The strongest ADAPT ideas for PLE are:
 
 PLE intentionally improves several implementation details:
 
-| ADAPT behavior observed in `OTHER_REPOS/adapt`                                                                    | PLE decision                                                                                                                        |
-| ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Controllers combine Account Creation, email, LMS checks, enrollment, analytics, and assignment distribution. | Separate account authentication, invitation delivery, authorization, and Store-owned roster reconciliation.                         |
-| A roster upload is parsed, then the browser sends one invitation request per row.                                 | Stage one bounded import and commit the reviewed set idempotently.                                                                  |
-| An Instructor invitation may create an Account row by email before that student authenticates.                    | Create only a pending invitation; a Sysadmin-owned Account Creation workflow creates the Account before its first email authentication. |
-| `student_id` is stored on the global ADAPT user.                                                                  | Store an institution-provided roster identifier only on the protected course roster/export mapping.                                 |
-| Domain whitelist validation uses substring matching.                                                              | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary.                                        |
-| Access codes are visible, reusable course/invitation values.                                                      | Use random, expiring, single-purpose invitation secrets stored only as hashes.                                                      |
-| Course enrollment and assignment distribution are coupled procedurally.                                           | Keep current membership/entitlement separate from lazily materialized assignment activity.                                          |
-| Unenrollment can permanently remove submissions and scores.                                                       | Revoke access while retaining educational records until the explicit retention workflow acts.                                       |
-| Section is a second course subdivision.                                                                           | Treat a PLE `CourseId` as the current course or section boundary; add another hierarchy only from demonstrated need.                |
+| ADAPT behavior observed in `OTHER_REPOS/adapt`                                                               | PLE decision                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Controllers combine Account Creation, email, LMS checks, enrollment, analytics, and assignment distribution. | Separate account authentication, invitation delivery, authorization, and Store-owned roster reconciliation.                             |
+| A roster upload is parsed, then the browser sends one invitation request per row.                            | Stage one bounded import and commit the reviewed set idempotently.                                                                      |
+| An Instructor invitation may create an Account row by email before that student authenticates.               | Create only a pending invitation; a Sysadmin-owned Account Creation workflow creates the Account before its first email authentication. |
+| `student_id` is stored on the global ADAPT user.                                                             | Store an institution-provided roster identifier only on the protected course roster/export mapping.                                     |
+| Domain whitelist validation uses substring matching.                                                         | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary.                                            |
+| Access codes are visible, reusable course/invitation values.                                                 | Use random, expiring, single-purpose invitation secrets stored only as hashes.                                                          |
+| Course enrollment and assignment distribution are coupled procedurally.                                      | Keep current membership/entitlement separate from lazily materialized assignment activity.                                              |
+| Unenrollment can permanently remove submissions and scores.                                                  | Revoke access while retaining educational records until the explicit retention workflow acts.                                           |
+| Section is a second course subdivision.                                                                      | Treat a PLE `CourseId` as the current course or section boundary; add another hierarchy only from demonstrated need.                    |
 
 The relevant ADAPT evidence is in the local reference checkout at
 `OTHER_REPOS/adapt/routes/api.php`,

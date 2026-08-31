@@ -2,7 +2,6 @@
 
 import type { AssignmentProgressRecord } from "../../../generated/api/AssignmentProgressRecord";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
-import type { IssuedQuestion } from "../../../generated/api/IssuedQuestion";
 import type { AssignmentAttemptRouteReference } from "../../navigation/public_route";
 import { parseAssignmentAttemptReference } from "../../navigation/public_route";
 
@@ -27,14 +26,15 @@ import type { AssignmentProgress } from "../../../generated/api/AssignmentProgre
 import type { StudentClassStatistics } from "../../../generated/api/StudentClassStatistics";
 import type { AssignmentProgressScoreState } from "../../../generated/api/AssignmentProgressScoreState";
 import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
-import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
+import type { QuestionClassification } from "../../../generated/api/QuestionClassification";
 import type {
   AuthenticatedSession,
   CursorPage,
   FeedbackReleaseResponse,
   StudentQuestionAttempt,
   PrefetchedNextQuestion,
-  QuestionPoolSelection,
+  QuestionPoolSelectionPosition,
+  StudentIssuedQuestion,
   AssignmentAttemptSummaryOutcome,
   AssignmentAttemptSummaryResponse,
   SignedOutResponse,
@@ -68,7 +68,7 @@ import {
   decodeIdentifier,
   decodeQuestionVersionReference,
   decodeSha256,
-  decodeTaxonomyTerm,
+  decodeQuestionClassification,
   decodeTimestamp,
   field,
   kind,
@@ -130,7 +130,7 @@ function decodeQuestionAttemptTiming(value: unknown, path: string): QuestionAtte
   return decoded;
 }
 
-export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuestion {
+export function decodeStudentIssuedQuestion(value: unknown, path: string): StudentIssuedQuestion {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -140,8 +140,6 @@ export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuesti
     "issuedPosition",
     "reference",
     "statisticsEligible",
-    "questionPoolEntry",
-    "selectionSeed",
   ]);
   const reference = decodeRecord(field(record, "reference", path), `${path}.reference`);
   requireOnlyFields(reference, `${path}.reference`, ["questionId", "versionNumber"]);
@@ -168,17 +166,7 @@ export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuesti
       field(record, "statisticsEligible", path),
       `${path}.statisticsEligible`,
     ),
-    questionPoolEntry: decodeNullable(
-      field(record, "questionPoolEntry", path),
-      `${path}.questionPoolEntry`,
-      decodeIdentifier,
-    ),
-    selectionSeed: decodeNullable(
-      field(record, "selectionSeed", path),
-      `${path}.selectionSeed`,
-      decodeNonnegativeInteger,
-    ),
-  } satisfies IssuedQuestion;
+  } satisfies StudentIssuedQuestion;
 }
 
 export function decodeStudentQuestionAttemptView(
@@ -256,9 +244,9 @@ export function decodeStudentQuestionAttempt(
   requireOnlyFields(record, path, [
     ...QUESTION_ATTEMPT_FIELDS,
     "assignmentScoringState",
-    "questionPoolSelection",
+    "questionPoolSelectionPosition",
   ]);
-  const { assignmentScoringState, questionPoolSelection, ...attempt } = record;
+  const { assignmentScoringState, questionPoolSelectionPosition, ...attempt } = record;
   const decoded = {
     ...decodeStudentQuestionAttemptView(attempt, path),
     assignmentScoringState: decodeStringEnum(
@@ -266,9 +254,9 @@ export function decodeStudentQuestionAttempt(
       `${path}.assignmentScoringState`,
       ASSIGNMENT_SCORING_STATES,
     ),
-    questionPoolSelection: decodeQuestionPoolSelection(
-      questionPoolSelection,
-      `${path}.questionPoolSelection`,
+    questionPoolSelectionPosition: decodeQuestionPoolSelectionPosition(
+      questionPoolSelectionPosition,
+      `${path}.questionPoolSelectionPosition`,
     ),
   } satisfies StudentQuestionAttempt;
   if (
@@ -284,7 +272,10 @@ export function decodeStudentQuestionAttempt(
   return decoded;
 }
 
-function decodeQuestionPoolSelection(value: unknown, path: string): QuestionPoolSelection | null {
+function decodeQuestionPoolSelectionPosition(
+  value: unknown,
+  path: string,
+): QuestionPoolSelectionPosition | null {
   if (value === null) return null;
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["itemNumber", "itemCount"]);
@@ -320,10 +311,15 @@ export function decodeAssignmentAttempt(value: unknown, path = "response"): Assi
       decodeTimestamp,
     ),
     score: decodeNullable(field(record, "score", path), `${path}.score`, decodeFiniteNumber),
+    questionPoolReuseRule: decodeStringEnum(
+      field(record, "questionPoolReuseRule", path),
+      `${path}.questionPoolReuseRule`,
+      ["reuseSelection", "selectAgain"],
+    ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),
       `${path}.questionVariationRule`,
-      ["reuseQuestionsWithNewSeeds", "selectedQuestionVariants", "redrawQuestionPools"],
+      ["reuseVariation", "newVariation"],
     ),
   } satisfies AssignmentAttempt;
   return decoded;
@@ -341,6 +337,7 @@ function decodeStrictAssignmentAttempt(value: unknown, path: string): Assignment
     "startedAt",
     "completedAt",
     "score",
+    "questionPoolReuseRule",
     "questionVariationRule",
   ]);
   return decodeAssignmentAttempt(value, path);
@@ -537,7 +534,7 @@ function decodeAssignmentAttemptSummaryOutcome(
   ]);
   const decoded = {
     attempt: decodeIdentifier(field(record, "attempt", path), `${path}.attempt`),
-    issuedQuestion: decodeIssuedQuestion(
+    issuedQuestion: decodeStudentIssuedQuestion(
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),
@@ -653,12 +650,12 @@ export function decodePrefetchedNextQuestion(
     "issuedQuestion",
     "seed",
     "renderedQuestionSha256",
-    "questionPoolSelection",
+    "questionPoolSelectionPosition",
     "envelope",
   ]);
   const decoded = {
     predecessor: decodeIdentifier(field(record, "predecessor", path), `${path}.predecessor`),
-    issuedQuestion: decodeIssuedQuestion(
+    issuedQuestion: decodeStudentIssuedQuestion(
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),
@@ -667,9 +664,9 @@ export function decodePrefetchedNextQuestion(
       field(record, "renderedQuestionSha256", path),
       `${path}.renderedQuestionSha256`,
     ),
-    questionPoolSelection: decodeQuestionPoolSelection(
-      field(record, "questionPoolSelection", path),
-      `${path}.questionPoolSelection`,
+    questionPoolSelectionPosition: decodeQuestionPoolSelectionPosition(
+      field(record, "questionPoolSelectionPosition", path),
+      `${path}.questionPoolSelectionPosition`,
     ),
     envelope: decodeIssuedPresentationEnvelope(field(record, "envelope", path), `${path}.envelope`),
   } satisfies PrefetchedNextQuestion;
@@ -691,9 +688,12 @@ export function decodeQuestionPage(value: unknown, path = "response"): CursorPag
   );
 }
 
-export function decodeTaxonomyPage(value: unknown, path = "response"): CursorPage<TaxonomyTerm> {
+export function decodeQuestionClassificationPage(
+  value: unknown,
+  path = "response",
+): CursorPage<QuestionClassification> {
   return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeTaxonomyTerm(item, itemPath, true),
+    decodeQuestionClassification(item, itemPath, true),
   );
 }
 

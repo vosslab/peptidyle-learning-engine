@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::QuestionVersionReference;
-use crate::assignment_activity_rules::QuestionVariationRule;
+use crate::assignment_activity_rules::{QuestionPoolReuseRule, QuestionVariationRule};
 use crate::generation::{QuestionGeneratorReference, QuestionSeed};
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
@@ -31,6 +31,11 @@ pub struct AssignmentEntryId(Uuid);
 /// One stable candidate inside its owning Question Pool Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionPoolCandidateId(Uuid);
+
+/// One immutable Question Pool result for one Assignment Attempt and one Assignment Entry.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct QuestionPoolSelectionId(Uuid);
 
 /// A course or section containing assignments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -101,6 +106,7 @@ macro_rules! impl_student_work_identifier {
 impl_student_work_identifier!(AssignmentId);
 impl_student_work_identifier!(AssignmentEntryId);
 impl_student_work_identifier!(QuestionPoolCandidateId);
+impl_student_work_identifier!(QuestionPoolSelectionId);
 impl_student_work_identifier!(CourseId);
 impl_student_work_identifier!(CourseMembershipId);
 impl_student_work_identifier!(StudentRecordId);
@@ -174,6 +180,8 @@ pub struct AssignmentAttempt {
     pub completed_at: Option<ActivityTimestamp>,
     /// Score fraction recorded on completion, if complete.
     pub score: Option<f64>,
+    /// Question Pool Reuse Rule applied when this Assignment Attempt was issued.
+    pub question_pool_reuse_rule: QuestionPoolReuseRule,
     /// Question Variation Rule applied when this Assignment Attempt was issued.
     pub question_variation_rule: QuestionVariationRule,
 }
@@ -208,7 +216,36 @@ impl AssignmentAttempt {
     }
 }
 
+/// One exact candidate selected from a Question Pool, in delivery order.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionPoolSelectedCandidate {
+    /// Stable identity of the candidate in its source Question Pool Assignment Entry.
+    pub candidate: QuestionPoolCandidateId,
+    /// Exact immutable Question Revision selected for delivery.
+    pub reference: QuestionVersionReference,
+}
+
+/// Immutable Question Pool result for one Assignment Attempt and one Question Pool Assignment Entry.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionPoolSelection {
+    /// Durable Question Pool Selection identity.
+    pub id: QuestionPoolSelectionId,
+    /// Assignment Attempt that owns this selected candidate set.
+    pub assignment_attempt: AssignmentAttemptId,
+    /// Question Pool Assignment Entry that supplied the candidates.
+    pub question_pool_entry: AssignmentEntryId,
+    /// Database-authoritative time at which the server selected these candidates.
+    pub created_at: ActivityTimestamp,
+    /// Exact selected candidates in their frozen delivery order.
+    pub selected_candidates: Vec<QuestionPoolSelectedCandidate>,
+}
+
 /// Immutable question selection and issued order for one Assignment Attempt.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssuedQuestion {
@@ -229,10 +266,10 @@ pub struct IssuedQuestion {
     /// The value is frozen when the run begins so later assignment scoring
     /// changes cannot rewrite the validity of an observed student response.
     pub statistics_eligible: bool,
-    /// Question Pool entry that produced this item, if it was drawn.
-    pub question_pool_entry: Option<AssignmentEntryId>,
-    /// Deterministic selection seed, absent for fixed items.
-    pub selection_seed: Option<u64>,
+    /// Immutable Question Pool Selection that produced this item, if it was drawn.
+    pub question_pool_selection: Option<QuestionPoolSelectionId>,
+    /// Exact candidate in that Question Pool Selection, if it was drawn.
+    pub question_pool_candidate: Option<QuestionPoolCandidateId>,
 }
 
 /// Server-recorded timing inputs for one issued question.
@@ -610,12 +647,48 @@ mod tests {
             started_at: ActivityTimestamp::from_unix_millis(1_000),
             completed_at: None,
             score: None,
-            question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+            question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
+            question_variation_rule: QuestionVariationRule::NewVariation,
         };
 
         assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
         assert_eq!(attempt.assignment.as_uuid(), Uuid::from_u128(3));
         assert_eq!(attempt.assignment_revision.revision_number.value(), 1);
+    }
+
+    #[test]
+    fn question_pool_selection_retains_exact_candidates_and_issued_question_link() {
+        let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
+        let candidate_id = QuestionPoolCandidateId::from_uuid(Uuid::from_u128(11));
+        let reference = QuestionVersionReference {
+            question_id: "123-4567".parse().expect("valid Question ID"),
+            version_number: crate::QuestionVersionNumber::new(1).expect("positive version"),
+        };
+        let selection = QuestionPoolSelection {
+            id: selection_id,
+            assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(12)),
+            question_pool_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(13)),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            selected_candidates: vec![QuestionPoolSelectedCandidate {
+                candidate: candidate_id,
+                reference: reference.clone(),
+            }],
+        };
+        let issued_question = IssuedQuestion {
+            id: IssuedQuestionId::from_uuid(Uuid::from_u128(14)),
+            assignment_attempt: selection.assignment_attempt,
+            assignment_entry: selection.question_pool_entry,
+            definition_entry_index: 0,
+            issued_position: 0,
+            reference,
+            statistics_eligible: true,
+            question_pool_selection: Some(selection_id),
+            question_pool_candidate: Some(candidate_id),
+        };
+
+        assert_eq!(selection.selected_candidates.len(), 1);
+        assert_eq!(issued_question.question_pool_selection, Some(selection.id));
+        assert_eq!(issued_question.question_pool_candidate, Some(candidate_id));
     }
 
     #[test]

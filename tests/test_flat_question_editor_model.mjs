@@ -23,7 +23,7 @@ import {
   setLicense,
   setOutcomeFeedback,
   setTags,
-  setTaxonomy,
+  setClassifications,
   setQuestionAttemptTimeLimit,
   validateFlatQuestionSource,
 } from "../src/features/flat_question_authoring/flat_question_editor_model.ts";
@@ -132,7 +132,7 @@ test("policy and metadata helpers are immutable and validation gives safe author
   const base = source();
   const edited = setLanguage(
     setLicense(
-      setTaxonomy(
+      setClassifications(
         setTags(
           setQuestionAttemptTimeLimit(
             setQuestionAttemptLimit(
@@ -143,7 +143,7 @@ test("policy and metadata helpers are immutable and validation gives safe author
           ),
           ["biology", "assessment"],
         ),
-        [{ scheme: "Bloom", code: "apply", label: "Apply" }],
+        [{ system: "Bloom", code: "apply", name: "Apply" }],
       ),
       { kind: "ccBy" },
     ),

@@ -144,7 +144,8 @@ The deleted student graph includes:
 
 The purge retains:
 
-- Published Questions, immutable versions, Source Object References, Question Library metadata, taxonomy, and
+- Published Questions, immutable versions, Source Object References, Question Library metadata, Question
+  Classifications, and
   licensing;
 - the Question Library and every `BlueprintCourse`, including its reusable
   assignment definitions and immutable revisions;

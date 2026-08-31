@@ -43,7 +43,7 @@ function source() {
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
     tags: ["example"],
-    taxonomy: [],
+    classifications: [],
     license: { kind: "ccBySa" },
     language: "en-US",
   };
@@ -71,7 +71,7 @@ function publicDefinition(includeVersion = false) {
     metadata: {
       title: "Favorite color",
       tags: ["example"],
-      taxonomy: [],
+      classifications: [],
       license: { kind: "ccBySa" },
       language: "en-US",
     },
@@ -136,7 +136,7 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
   const input = source();
   delete input.feedback;
   delete input.tags;
-  delete input.taxonomy;
+  delete input.classifications;
   const serialized = serializeFlatQuestionSource(decodeFlatQuestionSource(input));
   assert.equal(
     serialized,
@@ -144,7 +144,7 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
       ...source(),
       feedback: { correct: null, incorrect: null },
       tags: [],
-      taxonomy: [],
+      classifications: [],
     }),
   );
 });
@@ -571,7 +571,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
   assert.equal(requests[1].init.headers["content-type"], FLAT_QUESTION_MEDIA_TYPE);
   assert.equal(requests[1].init.headers["if-match"], '"1"');
   assert.equal(requests[1].init.body, serializeFlatQuestionSource(source()));
-  assert.equal(requests[2].input, `/ple/api/problems/${workspace}/flat-question-publish`);
+  assert.equal(requests[2].input, `/ple/api/questions/${workspace}/flat-question-publish`);
   assert.equal(requests[2].init.body, JSON.stringify(publicationRequest));
   assert.equal(requests[2].init.headers["if-match"], '"2"');
 });

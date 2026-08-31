@@ -51,8 +51,10 @@ pub struct StudentFeedbackReleaseRule {
     pub per_item_correctness: StudentFeedbackReleaseTiming,
     /// When the Student may see teaching feedback text.
     pub feedback_text: StudentFeedbackReleaseTiming,
-    /// When the Student may see correct answers or solutions.
-    pub solution: StudentFeedbackReleaseTiming,
+    /// When the Student may see the display-ready Question Answer.
+    pub question_answer: StudentFeedbackReleaseTiming,
+    /// When the Student may see the Question Answer Explanation.
+    pub question_answer_explanation: StudentFeedbackReleaseTiming,
     /// When the Student may see anonymous class statistics.
     pub class_statistics: StudentFeedbackReleaseTiming,
 }
@@ -67,7 +69,8 @@ impl Default for StudentFeedbackReleaseRule {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
             feedback_text: StudentFeedbackReleaseTiming::AfterSubmit,
-            solution: StudentFeedbackReleaseTiming::AfterSubmit,
+            question_answer: StudentFeedbackReleaseTiming::AfterSubmit,
+            question_answer_explanation: StudentFeedbackReleaseTiming::AfterSubmit,
             class_statistics: StudentFeedbackReleaseTiming::Never,
         }
     }
@@ -161,16 +164,24 @@ pub enum AssignmentAttemptContinuationRule {
     Closed,
 }
 
-/// How much changes when a Student starts another Assignment Attempt.
+/// What a later Assignment Attempt does with Question Pool membership.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum QuestionPoolReuseRule {
+    /// Retain the Student's prior Question Pool Selection.
+    ReuseSelection,
+    /// Create a new Question Pool Selection for the later Assignment Attempt.
+    SelectAgain,
+}
+
+/// What a later Assignment Attempt does with Question Variations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum QuestionVariationRule {
-    /// Retain the Questions and issue fresh Question Seeds.
-    ReuseQuestionsWithNewSeeds,
-    /// Instructor-selected Question Variants are used for the next Assignment Attempt.
-    SelectedQuestionVariants,
-    /// Questions are redrawn from the pool as well as reseeded.
-    RedrawQuestionPools,
+    /// Retain each selected Question's existing Question Variation.
+    ReuseVariation,
+    /// Issue a fresh Question Seed for every selected Question.
+    NewVariation,
 }
 
 /// Whether one Assignment Attempt can be left and later resumed.
@@ -256,48 +267,25 @@ impl QuestionPoolPreviewNonce {
     }
 }
 
-/// Question Variation Rule cannot derive a pool selection until the instructor supplies a
-/// real selected-variant model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionPoolSelectionInputsError {
-    /// A Question Pool has no instructor-selected variant source.
-    SelectedQuestionVariantsRequireExplicitPoolSelection,
-}
-
-impl std::fmt::Display for QuestionPoolSelectionInputsError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::SelectedQuestionVariantsRequireExplicitPoolSelection => formatter.write_str(
-                "selected Question Variants require an explicit pool-variant selection model",
-            ),
-        }
-    }
-}
-
-impl std::error::Error for QuestionPoolSelectionInputsError {}
-
-impl QuestionVariationRule {
+impl QuestionPoolReuseRule {
     /// Derives the only accepted server-owned selection inputs for one Question Pool entry.
     pub fn question_pool_selection_inputs(
         self,
         assignment: AssignmentId,
         assignment_attempt: &AssignmentAttempt,
         question_pool_entry: AssignmentEntryId,
-    ) -> Result<QuestionPoolSelectionInputs, QuestionPoolSelectionInputsError> {
+    ) -> QuestionPoolSelectionInputs {
         match self {
-            Self::ReuseQuestionsWithNewSeeds => Ok(QuestionPoolSelectionInputs::StableStudentRecord {
+            Self::ReuseSelection => QuestionPoolSelectionInputs::StableStudentRecord {
                 student_record: assignment_attempt.student_record,
                 assignment,
                 question_pool_entry,
-            }),
-            Self::RedrawQuestionPools => Ok(QuestionPoolSelectionInputs::RegeneratedAssignmentAttempt {
+            },
+            Self::SelectAgain => QuestionPoolSelectionInputs::RegeneratedAssignmentAttempt {
                 assignment_attempt: assignment_attempt.id,
                 assignment,
                 question_pool_entry,
-            }),
-            Self::SelectedQuestionVariants => {
-                Err(QuestionPoolSelectionInputsError::SelectedQuestionVariantsRequireExplicitPoolSelection)
-            }
+            },
         }
     }
 }
@@ -317,7 +305,7 @@ impl QuestionPoolSelectionInputs {
     }
 }
 
-/// The eight explicit Assignment activity rules an Assignment chooses, gathered for convenience.
+/// The nine explicit Assignment activity rules an Assignment chooses, gathered for convenience.
 ///
 /// A struct of independent enums rather than one combined enum: the rules vary
 /// independently, and all combinations are meaningful.
@@ -330,7 +318,9 @@ pub struct AssignmentActivityRules {
     pub assignment_attempt_grade_rule: AssignmentAttemptGradeRule,
     /// Whether another Assignment Attempt may start after completion.
     pub assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule,
-    /// How much changes between Assignment Attempts.
+    /// Whether a later Assignment Attempt reuses its Question Pool Selection.
+    pub question_pool_reuse_rule: QuestionPoolReuseRule,
+    /// Whether a later Assignment Attempt reuses each selected Question Variation.
     pub question_variation_rule: QuestionVariationRule,
     /// Whether the current Assignment Attempt can be resumed after leaving.
     pub assignment_attempt_resume_rule: AssignmentAttemptResumeRule,
@@ -348,7 +338,8 @@ impl Default for AssignmentActivityRules {
             assignment_completion_rule: AssignmentCompletionRule::AnswerAll,
             assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
             assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
-            question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+            question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
+            question_variation_rule: QuestionVariationRule::NewVariation,
             assignment_attempt_resume_rule: AssignmentAttemptResumeRule::Resumable,
             assignment_question_display_rule: AssignmentQuestionDisplayRule::AllQuestions,
             assignment_navigation_rule: AssignmentNavigationRule::FreeNavigation,
@@ -360,6 +351,7 @@ impl Default for AssignmentActivityRules {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn unlimited_attempts_are_expressed_as_none() {
@@ -378,12 +370,13 @@ mod tests {
     }
 
     #[test]
-    fn the_eight_assignment_activity_rules_compose_freely() {
+    fn the_nine_assignment_activity_rules_compose_freely() {
         let mastery_with_practice = AssignmentActivityRules {
             assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
             assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
             assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
-            question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+            question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
+            question_variation_rule: QuestionVariationRule::NewVariation,
             assignment_attempt_resume_rule: AssignmentAttemptResumeRule::Resumable,
             assignment_question_display_rule: AssignmentQuestionDisplayRule::AllQuestions,
             assignment_navigation_rule: AssignmentNavigationRule::FreeNavigation,
@@ -394,23 +387,94 @@ mod tests {
         let restored: AssignmentActivityRules =
             serde_json::from_str(&json).expect("deserialization should succeed");
         assert_eq!(restored, mastery_with_practice);
-        assert!(json.contains(r#""questionVariationRule":"reuseQuestionsWithNewSeeds""#));
+        assert!(json.contains(r#""questionPoolReuseRule":"reuseSelection""#));
+        assert!(json.contains(r#""questionVariationRule":"newVariation""#));
         assert!(serde_json::from_str::<AssignmentActivityRules>(
             r#"{"completion":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"variation":"newSeeds"}"#,
         )
         .is_err());
         assert!(serde_json::from_str::<AssignmentActivityRules>(
-            r#"{"completion":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"reuseQuestionsWithNewSeeds"}"#,
+            r#"{"completion":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"invalidValue"}"#,
         )
         .is_err());
         assert!(serde_json::from_str::<AssignmentActivityRules>(
-            r#"{"assignmentCompletionRule":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"reuseQuestionsWithNewSeeds"}"#,
+            r#"{"assignmentCompletionRule":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"invalidValue"}"#,
         )
         .is_err());
         assert!(serde_json::from_str::<AssignmentActivityRules>(
-            r#"{"assignmentCompletionRule":{"kind":"allCorrect"},"assignmentAttemptGradeRule":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"reuseQuestionsWithNewSeeds"}"#,
+            r#"{"assignmentCompletionRule":{"kind":"allCorrect"},"assignmentAttemptGradeRule":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"invalidValue"}"#,
         )
         .is_err());
+    }
+
+    #[test]
+    fn every_pool_reuse_and_variation_combination_is_an_explicit_policy() {
+        for question_pool_reuse_rule in [
+            QuestionPoolReuseRule::ReuseSelection,
+            QuestionPoolReuseRule::SelectAgain,
+        ] {
+            for question_variation_rule in [
+                QuestionVariationRule::ReuseVariation,
+                QuestionVariationRule::NewVariation,
+            ] {
+                let rules = AssignmentActivityRules {
+                    question_pool_reuse_rule,
+                    question_variation_rule,
+                    ..AssignmentActivityRules::default()
+                };
+                let json = serde_json::to_string(&rules).expect("policy combination serializes");
+                let restored: AssignmentActivityRules =
+                    serde_json::from_str(&json).expect("policy combination deserializes");
+                assert_eq!(restored, rules);
+            }
+        }
+    }
+
+    #[test]
+    fn pool_reuse_rule_derives_the_exact_selection_identity() {
+        let assignment = AssignmentId::from_uuid(Uuid::from_u128(1));
+        let assignment_attempt = AssignmentAttempt {
+            id: crate::AssignmentAttemptId::from_uuid(Uuid::from_u128(2)),
+            reference: crate::AssignmentAttemptReference::new(1).expect("valid attempt reference"),
+            student_record: crate::StudentRecordId::from_uuid(Uuid::from_u128(3)),
+            assignment,
+            assignment_revision: crate::AssignmentRevisionReference {
+                assignment: crate::AssignmentReference::new(1).expect("valid assignment reference"),
+                revision_number: crate::AssignmentRevisionNumber::INITIAL,
+            },
+            attempt_number: 2,
+            started_at: crate::ActivityTimestamp::from_unix_millis(1),
+            completed_at: None,
+            score: None,
+            question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
+            question_variation_rule: QuestionVariationRule::NewVariation,
+        };
+        let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(4));
+
+        assert_eq!(
+            QuestionPoolReuseRule::ReuseSelection.question_pool_selection_inputs(
+                assignment,
+                &assignment_attempt,
+                entry,
+            ),
+            QuestionPoolSelectionInputs::StableStudentRecord {
+                student_record: assignment_attempt.student_record,
+                assignment,
+                question_pool_entry: entry,
+            }
+        );
+        assert_eq!(
+            QuestionPoolReuseRule::SelectAgain.question_pool_selection_inputs(
+                assignment,
+                &assignment_attempt,
+                entry,
+            ),
+            QuestionPoolSelectionInputs::RegeneratedAssignmentAttempt {
+                assignment_attempt: assignment_attempt.id,
+                assignment,
+                question_pool_entry: entry,
+            }
+        );
     }
 
     #[test]
@@ -429,7 +493,8 @@ mod tests {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterDue,
             feedback_text: StudentFeedbackReleaseTiming::DuringAttempt,
-            solution: StudentFeedbackReleaseTiming::AfterClose,
+            question_answer: StudentFeedbackReleaseTiming::AfterClose,
+            question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,
         };
 
@@ -452,7 +517,14 @@ mod tests {
             rule.feedback_text,
             StudentFeedbackReleaseTiming::AfterSubmit
         );
-        assert_eq!(rule.solution, StudentFeedbackReleaseTiming::AfterSubmit);
+        assert_eq!(
+            rule.question_answer,
+            StudentFeedbackReleaseTiming::AfterSubmit
+        );
+        assert_eq!(
+            rule.question_answer_explanation,
+            StudentFeedbackReleaseTiming::AfterSubmit
+        );
         assert_eq!(rule.class_statistics, StudentFeedbackReleaseTiming::Never);
     }
 }

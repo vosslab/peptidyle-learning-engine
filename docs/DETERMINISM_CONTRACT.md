@@ -13,13 +13,13 @@ attempt uses the stored values.
 
 ## Contract layers
 
-| Layer                  | Authoritative inputs                                        | Exact result                                     | Owner                              |
-| ---------------------- | ----------------------------------------------------------- | ------------------------------------------------ | ---------------------------------- |
-| Question Variation Parameters | generator reference, definition, seed                 | `QuestionVariationParameters` and SHA-256        | `domain` and Wasm                  |
-| Native issued question | immutable question version, seed                            | envelope and Question Attempt Reproduction Details | trusted server backend             |
-| WeBWorK safe render    | problem, immutable version, source source_object_reference, seed, renderer | safe cached envelope and sanitized markup        | private adapter/renderer           |
-| Student presentation   | answer-free envelope, asset bindings, stored nonce          | Question Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
-| Submission             | authenticated attempt, idempotency key, student response    | one stored receipt or conflict                   | trusted server/store               |
+| Layer                         | Authoritative inputs                                                       | Exact result                                              | Owner                              |
+| ----------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- |
+| Question Variation Parameters | generator reference, definition, seed                                      | `QuestionVariationParameters` and SHA-256                 | `domain` and Wasm                  |
+| Native issued question        | immutable question version, seed                                           | envelope and Question Attempt Reproduction Details        | trusted server backend             |
+| WeBWorK safe render           | problem, immutable version, source source_object_reference, seed, renderer | safe cached envelope and sanitized markup                 | private adapter/renderer           |
+| Student presentation          | answer-free envelope, asset bindings, stored nonce                         | Question Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
+| Submission                    | authenticated attempt, idempotency key, student response                   | one stored receipt or conflict                            | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
@@ -152,15 +152,15 @@ other internal identities remain server-side.
 
 ### Checksum roles
 
-| Value                       | Detects or proves                                                    | Does not provide                                                 |
-| --------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Source-source_object_reference SHA-256     | immutable source bytes match their published record                  | authorization or a rendered output                               |
-| Generated-variant SHA-256   | same generator definition and seed produced the reviewed values      | a student presentation or grade                                  |
-| Safe-render SHA-256         | cached WeBWorK safe render has stable provenance                     | private replay state or student authorization                    |
-| Full presentation SHA-256   | persisted descriptor agrees with a reconstructed public presentation | authentication, transport integrity, or pixel rendering          |
-| `pd1_` 128-bit public token | compact browser/server presentation-consistency comparison           | a durable secret or a substitute for the full stored digest      |
-| Rendered-item CRC16         | selected item corresponds to one unique object in this presentation  | collision resistance across presentations or a security boundary |
-| Idempotency record          | exact retry is replayed and changed retry conflicts                  | question correctness                                             |
+| Value                                  | Detects or proves                                                    | Does not provide                                                 |
+| -------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Source-source_object_reference SHA-256 | immutable source bytes match their published record                  | authorization or a rendered output                               |
+| Generated-variant SHA-256              | same generator definition and seed produced the reviewed values      | a student presentation or grade                                  |
+| Safe-render SHA-256                    | cached WeBWorK safe render has stable provenance                     | private replay state or student authorization                    |
+| Full presentation SHA-256              | persisted descriptor agrees with a reconstructed public presentation | authentication, transport integrity, or pixel rendering          |
+| `pd1_` 128-bit public token            | compact browser/server presentation-consistency comparison           | a durable secret or a substitute for the full stored digest      |
+| Rendered-item CRC16                    | selected item corresponds to one unique object in this presentation  | collision resistance across presentations or a security boundary |
+| Idempotency record                     | exact retry is replayed and changed retry conflicts                  | question correctness                                             |
 
 ## WeBWorK cache and replay
 

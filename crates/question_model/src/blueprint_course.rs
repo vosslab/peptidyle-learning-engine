@@ -210,8 +210,8 @@ pub struct ReusableFixedQuestionInput {
 pub struct ReusablePoolInput {
     /// Public candidates resolved under destination authority in this order.
     pub candidates: Vec<QuestionId>,
-    /// Number of candidates drawn into each future run.
-    pub draw_count: u32,
+    /// Number of candidates selected for each future Assignment Attempt.
+    pub selection_count: u32,
     /// Points copied for every selected candidate.
     pub points_per_item: AssignmentPointValue,
     /// Scoring rule copied for every selected candidate.
@@ -227,10 +227,10 @@ impl ReusablePoolInput {
         {
             return Err(BlueprintCourseValidationError::InvalidPoolCandidates);
         }
-        if self.draw_count == 0
-            || usize::try_from(self.draw_count).ok() > Some(self.candidates.len())
+        if self.selection_count == 0
+            || usize::try_from(self.selection_count).ok() > Some(self.candidates.len())
         {
-            return Err(BlueprintCourseValidationError::InvalidPoolDrawCount);
+            return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
         }
         if self.candidates.iter().collect::<BTreeSet<_>>().len() != self.candidates.len() {
             return Err(BlueprintCourseValidationError::DuplicatePoolCandidate);
@@ -326,8 +326,8 @@ pub struct ReusablePoolCandidateView {
 pub struct ReusablePoolView {
     /// Current candidates in their retained definition order.
     pub candidates: Vec<ReusablePoolCandidateView>,
-    /// Number of candidates drawn into each future run.
-    pub draw_count: u32,
+    /// Number of candidates selected for each future Assignment Attempt.
+    pub selection_count: u32,
     /// Points copied for every selected candidate.
     pub points_per_item: AssignmentPointValue,
     /// Scoring rule copied for every selected candidate.
@@ -498,8 +498,8 @@ pub enum BlueprintCourseValidationError {
     InvalidModuleDefinitionCount,
     /// A pool candidate list has no members or exceeds its shared bound.
     InvalidPoolCandidates,
-    /// A pool draw count cannot select a meaningful subset of its candidates.
-    InvalidPoolDrawCount,
+    /// A pool selection count cannot select a meaningful subset of its candidates.
+    InvalidPoolSelectionCount,
     /// A pool repeats a candidate and therefore changes no selectable meaning.
     DuplicatePoolCandidate,
     /// All pool candidates exceed the assignment-level shared bound.
@@ -528,7 +528,9 @@ impl std::fmt::Display for BlueprintCourseValidationError {
                 "BlueprintCourse module must contain bounded reusable definitions"
             }
             Self::InvalidPoolCandidates => "pool candidates must be present and within their bound",
-            Self::InvalidPoolDrawCount => "pool draw count must be between one and candidate count",
+            Self::InvalidPoolSelectionCount => {
+                "pool selection count must be between one and candidate count"
+            }
             Self::DuplicatePoolCandidate => "pool candidates must be distinct",
             Self::TooManyPoolCandidates => "pool candidates exceed the assignment-level bound",
             Self::InvalidScheduleOrder => {
@@ -553,7 +555,7 @@ impl std::error::Error for BlueprintCourseValidationError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::taxonomy::License;
+    use crate::classification::License;
     use crate::{
         ActivityTimestamp, PublicAuthorName, PublicByline, QuestionBackend,
         QuestionBackendCapabilities, QuestionMetadata, QuestionStatistics, QuestionSummary,
@@ -584,7 +586,8 @@ mod tests {
                 assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule:
                     crate::AssignmentAttemptContinuationRule::Unlimited,
-                question_variation_rule: crate::QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                question_variation_rule: crate::QuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
@@ -607,12 +610,12 @@ mod tests {
                         question_id(),
                         "12A-4BCZ".parse().expect("valid question ID"),
                     ],
-                    draw_count: 1,
+                    selection_count: 1,
                     points_per_item: AssignmentPointValue::from_whole(2),
                     scoring_rule: AssignmentEntryScoringRule::Normal,
                     selection_rule: QuestionPoolSelectionRule {
-                        ordering: crate::QuestionPoolSelectionOrdering::Randomized,
-                        algorithm: crate::QuestionPoolDrawAlgorithm::V1,
+                        selected_question_order:
+                            crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
                     },
                 }),
             ],
@@ -631,7 +634,7 @@ mod tests {
                 metadata: QuestionMetadata {
                     title: "Safe Question Library row".to_string(),
                     tags: Vec::new(),
-                    taxonomy: Vec::new(),
+                    classifications: Vec::new(),
                     license: License::Cc0,
                     language: "en".to_string(),
                 },
@@ -723,12 +726,12 @@ mod tests {
         let duplicate_pool = ReusableAssignmentDefinitionInput {
             entries: vec![ReusableAssignmentEntryInput::Pool(ReusablePoolInput {
                 candidates: vec![question_id(), question_id()],
-                draw_count: 1,
+                selection_count: 1,
                 points_per_item: AssignmentPointValue::from_whole(1),
                 scoring_rule: AssignmentEntryScoringRule::Normal,
                 selection_rule: QuestionPoolSelectionRule {
-                    ordering: crate::QuestionPoolSelectionOrdering::CandidateOrder,
-                    algorithm: crate::QuestionPoolDrawAlgorithm::V1,
+                    selected_question_order:
+                        crate::QuestionPoolSelectedQuestionOrder::CandidateOrder,
                 },
             })],
             ..definition
@@ -830,8 +833,8 @@ mod blueprint_course_tests {
                                 crate::AssignmentAttemptGradeRule::Highest,
                             assignment_attempt_continuation_rule:
                                 crate::AssignmentAttemptContinuationRule::Unlimited,
-                            question_variation_rule:
-                                crate::QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                            question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                            question_variation_rule: crate::QuestionVariationRule::NewVariation,
                             ..AssignmentActivityRules::default()
                         },
                         student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
@@ -884,8 +887,8 @@ mod blueprint_course_tests {
                     assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
                     assignment_attempt_continuation_rule:
                         crate::AssignmentAttemptContinuationRule::Unlimited,
-                    question_variation_rule:
-                        crate::QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                    question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                    question_variation_rule: crate::QuestionVariationRule::NewVariation,
                     ..AssignmentActivityRules::default()
                 },
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),

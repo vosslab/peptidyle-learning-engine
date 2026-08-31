@@ -281,6 +281,7 @@ export function decodeInstructorStudentView(
     "timeZone",
     "delivery",
     "questionsPerRun",
+    "questionPoolReuseRule",
     "questionVariationRule",
     "studentFeedbackReleaseRule",
   ]);
@@ -338,10 +339,15 @@ export function decodeInstructorStudentView(
       field(record, "questionsPerRun", path),
       `${path}.questionsPerRun`,
     ),
+    questionPoolReuseRule: decodeStringEnum(
+      field(record, "questionPoolReuseRule", path),
+      `${path}.questionPoolReuseRule`,
+      ["reuseSelection", "selectAgain"] as const,
+    ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),
       `${path}.questionVariationRule`,
-      ["reuseQuestionsWithNewSeeds", "selectedQuestionVariants", "redrawQuestionPools"] as const,
+      ["reuseVariation", "newVariation"] as const,
     ),
     studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(
       field(record, "studentFeedbackReleaseRule", path),

@@ -9,7 +9,7 @@ import type { QuestionVersionReference } from "../../../generated/api/QuestionVe
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
-import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
+import type { QuestionClassification } from "../../../generated/api/QuestionClassification";
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
@@ -232,16 +232,20 @@ export function decodeQuestionVersionReference(
   return decoded;
 }
 
-export function decodeTaxonomyTerm(value: unknown, path: string, strict = false): TaxonomyTerm {
+export function decodeQuestionClassification(
+  value: unknown,
+  path: string,
+  strict = false,
+): QuestionClassification {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["scheme", "code", "label"]);
+    requireOnlyFields(record, path, ["system", "code", "name"]);
   }
   const decoded = {
-    scheme: decodeNonemptyString(field(record, "scheme", path), `${path}.scheme`),
+    system: decodeNonemptyString(field(record, "system", path), `${path}.system`),
     code: decodeNonemptyString(field(record, "code", path), `${path}.code`),
-    label: decodeNonemptyString(field(record, "label", path), `${path}.label`),
-  } satisfies TaxonomyTerm;
+    name: decodeNonemptyString(field(record, "name", path), `${path}.name`),
+  } satisfies QuestionClassification;
   return decoded;
 }
 
@@ -280,13 +284,16 @@ export function decodeQuestionMetadata(
 ): QuestionMetadata {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["title", "tags", "taxonomy", "license", "language"]);
+    requireOnlyFields(record, path, ["title", "tags", "classifications", "license", "language"]);
   }
   const decoded = {
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     tags: decodeArray(field(record, "tags", path), `${path}.tags`, decodeString),
-    taxonomy: decodeArray(field(record, "taxonomy", path), `${path}.taxonomy`, (term, termPath) =>
-      decodeTaxonomyTerm(term, termPath, strict),
+    classifications: decodeArray(
+      field(record, "classifications", path),
+      `${path}.classifications`,
+      (classification, classificationPath) =>
+        decodeQuestionClassification(classification, classificationPath, strict),
     ),
     license: decodeLicense(field(record, "license", path), `${path}.license`, strict),
     language: decodeNonemptyString(field(record, "language", path), `${path}.language`),

@@ -177,7 +177,7 @@ export function createPreviewPlaneClient(
       revision,
       assignmentEntryId,
     ): Promise<QuestionPoolPreview> => {
-      const path = `${previewRoutePath(course, assignment)}/preview-pool-draw`;
+      const path = `${previewRoutePath(course, assignment)}/preview-question-pool-selection`;
       const body = decodeQuestionPoolPreviewRequest({ assignmentEntryId }, "request");
       return previewJson(fetchImplementation, basePath, path, decodeQuestionPoolPreview, {
         method: "POST",

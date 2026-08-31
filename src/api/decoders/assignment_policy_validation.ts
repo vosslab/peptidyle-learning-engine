@@ -33,7 +33,6 @@ function decodePolicyValidationIssue(
   const record = decodeRecord(value, path);
   const issueKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
     "assignmentWorkingCopyDefinition",
-    "configuration",
     "capability",
     "assignmentReleaseRequirements",
   ] as const);
@@ -46,14 +45,6 @@ function decodePolicyValidationIssue(
           field(record, "correction", path),
           `${path}.correction`,
         ),
-      } satisfies AssignmentPoliciesValidationIssue;
-    case "configuration":
-      requireOnlyFields(record, path, ["kind", "reason"]);
-      return {
-        kind: issueKind,
-        reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-          "selectedQuestionVariantsWithQuestionPools",
-        ] as const),
       } satisfies AssignmentPoliciesValidationIssue;
     case "capability":
       requireOnlyFields(record, path, ["kind", "title", "questionId", "capability"]);

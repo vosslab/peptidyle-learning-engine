@@ -10,8 +10,13 @@ type BrowserQuestionAttempt = Omit<
   (typeof fixtureSet.attempts)[number],
   "parameterHash" | "reproductionDetails"
 > & {
-  readonly questionPoolSelection: null;
+  readonly questionPoolSelectionPosition: null;
 };
+
+type BrowserIssuedQuestion = Omit<
+  (typeof fixtureSet.issuedQuestions)[number],
+  "questionPoolSelection" | "questionPoolCandidate"
+>;
 
 function browserQuestionAttempt(
   attempt: (typeof fixtureSet.attempts)[number],
@@ -21,7 +26,18 @@ function browserQuestionAttempt(
     reproductionDetails: _reproductionDetails,
     ...browserSafeAttempt
   } = attempt;
-  return { ...browserSafeAttempt, questionPoolSelection: null };
+  return { ...browserSafeAttempt, questionPoolSelectionPosition: null };
+}
+
+function browserIssuedQuestion(
+  issuedQuestion: (typeof fixtureSet.issuedQuestions)[number],
+): BrowserIssuedQuestion {
+  const {
+    questionPoolSelection: _questionPoolSelection,
+    questionPoolCandidate: _questionPoolCandidate,
+    ...browserSafeIssuedQuestion
+  } = issuedQuestion;
+  return browserSafeIssuedQuestion;
 }
 
 export const publishedProblemFixture = {
@@ -32,6 +48,6 @@ export const publishedProblemFixture = {
   assignment: fixtureSet.assignment,
   studentRecord: fixtureSet.studentRecord,
   runs: fixtureSet.runs,
-  issuedQuestions: fixtureSet.issuedQuestions,
+  issuedQuestions: fixtureSet.issuedQuestions.map(browserIssuedQuestion),
   attempts: fixtureSet.attempts.map(browserQuestionAttempt),
 };

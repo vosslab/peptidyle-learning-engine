@@ -146,7 +146,7 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Open Student view for a stable-identity, answer-free inspection of the current live assignment while retaining
   the Instructor session. Use ordinary Student entry when graded work is needed.
 - Build one ordered assignment from fixed questions and reusable question pools by using public Question IDs. Configure
-  each pool's draw count and delivery order, then request fresh server-generated preview draws without creating Student
+  each pool's selection count and selected-Question order, then request fresh server-generated preview selections without creating Student
   work or changing grades.
 - Review an answer-free server preview before every live change. Completed changes return an immutable receipt and a
   reconciliation result; the visible destination and next action remain available after apply.

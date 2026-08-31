@@ -19,7 +19,8 @@ const studentFeedbackReleaseRule = {
   score: "after_submit",
   per_item_correctness: "after_submit",
   feedback_text: "after_due",
-  solution: "after_close",
+  question_answer: "after_close",
+  question_answer_explanation: "after_close",
   class_statistics: "never",
 };
 
@@ -27,7 +28,8 @@ const policies = {
   assignmentCompletionRule: { kind: "allCorrect" },
   assignmentAttemptGradeRule: "highest",
   assignmentAttemptContinuationRule: { kind: "unlimited" },
-  questionVariationRule: "reuseQuestionsWithNewSeeds",
+  questionPoolReuseRule: "reuseSelection",
+  questionVariationRule: "newVariation",
   assignmentAttemptResumeRule: "resumable",
   assignmentQuestionDisplayRule: "allQuestions",
   assignmentNavigationRule: "freeNavigation",

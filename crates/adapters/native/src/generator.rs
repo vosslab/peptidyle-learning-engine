@@ -14,8 +14,8 @@ use question_model::envelope::ContentBlock;
 use question_model::envelope::QuestionPresentation;
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    GradingResult, QuestionFeedback, QuestionFormat, QuestionHint, QuestionType, QuestionVersion,
-    StudentResponse,
+    GradingResult, QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionType,
+    QuestionVersion, StudentResponse,
 };
 
 use crate::NativeAdapterError;
@@ -27,10 +27,10 @@ use crate::NativeAdapterError;
 /// grading rules remain inside the native adapter.
 #[derive(Clone, PartialEq)]
 pub struct AuthorPresentationContent {
-    /// Accessible blocks that explain the correct response.
-    pub correct_response: Vec<ContentBlock>,
-    /// Optional teaching explanation for why that response is correct.
-    pub rationale: Option<Vec<ContentBlock>>,
+    /// Display-ready accepted response for the exact generated variation.
+    pub question_answer: Vec<ContentBlock>,
+    /// Optional display-ready explanation of how or why the answer is reached.
+    pub question_answer_explanation: Option<Vec<ContentBlock>>,
 }
 
 /// Exact release of one Native Question Implementation.
@@ -83,7 +83,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// been reproduced and graded. The answer key never leaves this trusted
     /// adapter boundary; implementations must return rendered public blocks,
     /// not answer identifiers or key material.
-    fn derive_feedback(
+    fn derive_post_grading_content(
         &self,
         question: &QuestionVersion,
         generated: &QuestionVariationParameters,
@@ -91,9 +91,9 @@ pub trait NativeQuestionImplementation: Send + Sync {
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<QuestionFeedback, NativeAdapterError> {
+    ) -> Result<QuestionPostGradingContent, NativeAdapterError> {
         let _ = (question, generated, envelope, answer_key, result, response);
-        Ok(QuestionFeedback::default())
+        Ok(QuestionPostGradingContent::default())
     }
 
     /// Builds one authorized pre-response hint for an exact issued Question.

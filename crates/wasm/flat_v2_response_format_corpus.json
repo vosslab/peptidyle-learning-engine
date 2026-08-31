@@ -5,27 +5,35 @@
       "definition": {
         "kind": "multipleChoice",
         "choices": [
-          {"id": "cystic-fibrosis", "body": [{"kind": "text", "markdown": "Cystic fibrosis"}]},
-          {"id": "phenylketonuria", "body": [{"kind": "text", "markdown": "Phenylketonuria (PKU)"}]}
+          { "id": "cystic-fibrosis", "body": [{ "kind": "text", "markdown": "Cystic fibrosis" }] },
+          {
+            "id": "phenylketonuria",
+            "body": [{ "kind": "text", "markdown": "Phenylketonuria (PKU)" }]
+          }
         ],
-        "selection": {"kind": "exactlyOne"}
+        "selection": { "kind": "exactlyOne" }
       },
-      "response": {"kind": "multipleChoice", "selected": ["phenylketonuria"]},
-      "expectedReport": {"violations": []}
+      "response": { "kind": "multipleChoice", "selected": ["phenylketonuria"] },
+      "expectedReport": { "violations": [] }
     },
     {
       "name": "flat-v2-single-choice-empty-selection",
       "definition": {
         "kind": "multipleChoice",
         "choices": [
-          {"id": "cystic-fibrosis", "body": [{"kind": "text", "markdown": "Cystic fibrosis"}]},
-          {"id": "phenylketonuria", "body": [{"kind": "text", "markdown": "Phenylketonuria (PKU)"}]}
+          { "id": "cystic-fibrosis", "body": [{ "kind": "text", "markdown": "Cystic fibrosis" }] },
+          {
+            "id": "phenylketonuria",
+            "body": [{ "kind": "text", "markdown": "Phenylketonuria (PKU)" }]
+          }
         ],
-        "selection": {"kind": "exactlyOne"}
+        "selection": { "kind": "exactlyOne" }
       },
-      "response": {"kind": "multipleChoice", "selected": []},
+      "response": { "kind": "multipleChoice", "selected": [] },
       "expectedReport": {
-        "violations": [{"kind": "selectionCount", "expected": {"kind": "exactlyOne"}, "actual": 0}]
+        "violations": [
+          { "kind": "selectionCount", "expected": { "kind": "exactlyOne" }, "actual": 0 }
+        ]
       }
     },
     {
@@ -33,38 +41,38 @@
       "definition": {
         "kind": "matching",
         "prompts": [
-          {"id": "cooh", "body": [{"kind": "text", "markdown": "Written as -COOH"}]},
-          {"id": "hydrocarbon", "body": [{"kind": "text", "markdown": "Written as -CH3"}]}
+          { "id": "cooh", "body": [{ "kind": "text", "markdown": "Written as -COOH" }] },
+          { "id": "hydrocarbon", "body": [{ "kind": "text", "markdown": "Written as -CH3" }] }
         ],
         "choices": [
-          {"id": "carboxyl", "body": [{"kind": "text", "markdown": "Carboxyl"}]},
-          {"id": "methyl", "body": [{"kind": "text", "markdown": "Methyl"}]}
+          { "id": "carboxyl", "body": [{ "kind": "text", "markdown": "Carboxyl" }] },
+          { "id": "methyl", "body": [{ "kind": "text", "markdown": "Methyl" }] }
         ]
       },
       "response": {
         "kind": "matching",
         "matches": [
-          {"prompt": "cooh", "choice": "methyl"},
-          {"prompt": "hydrocarbon", "choice": "carboxyl"}
+          { "prompt": "cooh", "choice": "methyl" },
+          { "prompt": "hydrocarbon", "choice": "carboxyl" }
         ]
       },
-      "expectedReport": {"violations": []}
+      "expectedReport": { "violations": [] }
     },
     {
       "name": "flat-v2-matching-empty-response",
       "definition": {
         "kind": "matching",
         "prompts": [
-          {"id": "cooh", "body": [{"kind": "text", "markdown": "Written as -COOH"}]},
-          {"id": "hydrocarbon", "body": [{"kind": "text", "markdown": "Written as -CH3"}]}
+          { "id": "cooh", "body": [{ "kind": "text", "markdown": "Written as -COOH" }] },
+          { "id": "hydrocarbon", "body": [{ "kind": "text", "markdown": "Written as -CH3" }] }
         ],
         "choices": [
-          {"id": "carboxyl", "body": [{"kind": "text", "markdown": "Carboxyl"}]},
-          {"id": "methyl", "body": [{"kind": "text", "markdown": "Methyl"}]}
+          { "id": "carboxyl", "body": [{ "kind": "text", "markdown": "Carboxyl" }] },
+          { "id": "methyl", "body": [{ "kind": "text", "markdown": "Methyl" }] }
         ]
       },
-      "response": {"kind": "matching", "matches": []},
-      "expectedReport": {"violations": [{"kind": "matchingPromptsMismatch"}]}
+      "response": { "kind": "matching", "matches": [] },
+      "expectedReport": { "violations": [{ "kind": "matchingPromptsMismatch" }] }
     }
   ]
 }

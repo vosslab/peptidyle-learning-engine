@@ -42,14 +42,15 @@ export interface ReusableAssignment {
 function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQuery): boolean {
   const search = query.search.trim().toLocaleLowerCase();
   if (search !== "") {
-    const haystack = [row.title, row.displayId, row.summary, ...row.taxonomy, ...row.byline]
+    const haystack = [row.title, row.displayId, row.summary, ...row.classifications, ...row.byline]
       .join(" ")
       .toLocaleLowerCase();
     if (!haystack.includes(search)) return false;
   }
   if (query.byline !== null && !row.byline.includes(query.byline)) return false;
   if (query.backend !== null || query.questionType !== null || query.tag !== null) return false;
-  if (query.taxonomy !== null && !row.taxonomy.includes(query.taxonomy)) return false;
+  if (query.classification !== null && !row.classifications.includes(query.classification))
+    return false;
   if (query.capability !== null && !row.capabilities.includes(query.capability)) return false;
   if (query.license !== null && row.license !== query.license) return false;
   if (query.evidence === "available" || query.usedInMyCourses === "used") return false;
@@ -98,7 +99,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
           title: entry.title,
           summary: "Active fixed question retained in this assignment.",
           byline: [],
-          taxonomy: [],
+          classifications: [],
           capabilities: entry.capabilities,
           license: "allRightsReserved",
           evidence: { state: "insufficientEvidence" as const },
@@ -110,7 +111,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
               title: candidate.title,
               summary: "Question retained in this assignment pool.",
               byline: [],
-              taxonomy: [],
+              classifications: [],
               capabilities: [],
               license: "allRightsReserved",
               evidence: { state: "insufficientEvidence" as const },

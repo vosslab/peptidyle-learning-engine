@@ -121,7 +121,7 @@ export function MatchingResponse(
         disabled={controller.locked()}
       >
         <legend>Match each prompt</legend>
-        <p class="keyboard-hint" id={`${props.attemptId}-matching-help`}>
+        <p class="keyboard-instructions" id={`${props.attemptId}-matching-help`}>
           Tab to every available pairing and press Space to select it. Arrow keys are an optional
           shortcut within a prompt. Each choice may be used once.
         </p>

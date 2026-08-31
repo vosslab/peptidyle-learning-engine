@@ -6,15 +6,15 @@ use grading::AnswerKey;
 use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
+use question_model::classification::{License, QuestionClassification, Tag};
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::QuestionVariationDefinition;
 use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
-use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionFormat,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, QuestionFormat, QuestionGradingRule,
     QuestionMetadata, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
@@ -22,8 +22,8 @@ use uuid::Uuid;
 
 use super::{
     CompiledFlatQuestion, FORMAT_NAME, FlatChoice, FlatLicense, FlatOutcomeFeedback,
-    FlatQuestionAttemptLimit, FlatQuestionAttemptTimeLimit, FlatQuestionError, FlatQuestionPrivate,
-    FlatTaxonomyTerm, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
+    FlatQuestionAttemptLimit, FlatQuestionAttemptTimeLimit, FlatQuestionClassification,
+    FlatQuestionError, FlatQuestionPrivate, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
     MAX_METADATA_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_TAG_CHARS, invalid, markdown_blocks,
     validate_bounded_text, validate_choice_id, validate_markdown, validate_metadata_text,
     validate_optional_feedback,
@@ -50,7 +50,7 @@ pub(super) struct FlatQuestionV2 {
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default)]
-    taxonomy: Vec<FlatTaxonomyTerm>,
+    classifications: Vec<FlatQuestionClassification>,
     license: FlatLicense,
     language: String,
 }
@@ -228,7 +228,7 @@ impl FlatQuestionV2 {
             question_attempt_limit: FlatQuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: FlatQuestionAttemptTimeLimit::Unlimited,
             tags: Vec::new(),
-            taxonomy: Vec::new(),
+            classifications: Vec::new(),
             license: FlatLicense::AllRightsReserved,
             language: "en-US".to_string(),
         }
@@ -256,10 +256,10 @@ impl FlatQuestionV2 {
         for tag in &self.tags {
             validate_bounded_text("tag", tag, MAX_TAG_CHARS)?;
         }
-        for term in &self.taxonomy {
-            validate_metadata_text("taxonomy scheme", &term.scheme)?;
-            validate_metadata_text("taxonomy code", &term.code)?;
-            validate_metadata_text("taxonomy label", &term.label)?;
+        for classification in &self.classifications {
+            validate_metadata_text("classification system", &classification.system)?;
+            validate_metadata_text("classification code", &classification.code)?;
+            validate_metadata_text("classification name", &classification.name)?;
         }
         if let FlatLicense::Other { spdx } = &self.license {
             validate_metadata_text("SPDX license", spdx)?;
@@ -325,13 +325,17 @@ impl FlatQuestionV2 {
             question_attempt_limit: self.question_attempt_limit.into(),
             question_attempt_time_limit: self.question_attempt_time_limit.into(),
             question_variation_definition: QuestionVariationDefinition::Static,
-            grading: GradingDefinition::AllOrNothing {
+            grading: QuestionGradingRule::AllOrNothing {
                 points: self.points,
             },
             metadata: QuestionMetadata {
                 title: self.title.clone(),
                 tags: self.tags.iter().map(Tag::new).collect(),
-                taxonomy: self.taxonomy.iter().map(TaxonomyTerm::from).collect(),
+                classifications: self
+                    .classifications
+                    .iter()
+                    .map(QuestionClassification::from)
+                    .collect(),
                 license: License::from(&self.license),
                 language: self.language.clone(),
             },

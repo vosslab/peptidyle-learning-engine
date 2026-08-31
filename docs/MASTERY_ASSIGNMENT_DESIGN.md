@@ -100,13 +100,19 @@ Continued practice answers whether another Assignment Attempt may begin after fi
 - `Capped` allows a stated number after the first completed Assignment Attempt.
 - `Closed` rejects another Assignment Attempt after completion.
 
-Question Variation Rule answers what changes in a new Assignment Attempt:
+Question Pool Reuse Rule answers what happens to Question Pool membership in a
+new Assignment Attempt:
 
-- `ReuseQuestionsWithNewSeeds` retains the Assignment's selected Questions and issues fresh Question Seeds.
-- `SelectedQuestionVariants` uses Instructor-selected Question Variants.
-- `RedrawQuestionPools` redraws Question Pools and issues fresh Question Seeds.
+- `ReuseSelection` retains the Student's prior Question Pool Selection.
+- `SelectAgain` creates a new Question Pool Selection.
 
-The continued-practice rule does not choose a grade, and the Question Variation Rule does not permit an
+Question Variation Rule independently answers what happens to the selected
+Questions' generated values:
+
+- `ReuseVariation` retains the prior Question Variations.
+- `NewVariation` issues fresh Question Variations.
+
+The continued-practice rule does not choose a grade, and the two later-Attempt rules do not permit an
 Assignment Attempt. This separation is deliberate and implemented in
 `crates/question_model/src/assignment_activity_rules.rs` and
 [the Domain Assignment Activity module](../crates/domain/src/lib.rs). A resumed existing attempt keeps its stored
@@ -122,7 +128,8 @@ explicit composition of those existing values, not a hidden special case:
 | Completion              | `AllCorrect`                  | Keep working until every required question is correct                                                       |
 | Grade                   | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
 | Continued practice      | `Unlimited`                   | Start another run after completion whenever useful                                                          |
-| Question Variation Rule | `ReuseQuestionsWithNewSeeds`  | Keep the selected Questions while using fresh generated values                                              |
+| Question Pool Reuse Rule | `ReuseSelection`              | Keep the selected Questions from the prior Question Pool Selection                                           |
+| Question Variation Rule | `NewVariation`                | Use fresh generated values for the selected Questions                                                        |
 | Question attempts       | `max_attempts: None`          | Retry a question until correct                                                                              |
 | Student disclosure      | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
 | Timing                  | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |

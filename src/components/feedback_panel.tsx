@@ -262,8 +262,8 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
                   hasBlocks(released().choiceFeedback) ||
                   hasBlocks(released().correctFeedback) ||
                   hasBlocks(released().incorrectFeedback) ||
-                  hasBlocks(released().correctResponse) ||
-                  hasBlocks(released().rationale)
+                  hasBlocks(released().questionAnswer) ||
+                  hasBlocks(released().questionAnswerExplanation)
                 }
                 fallback={<p class="feedback-panel__empty">No additional feedback was provided.</p>}
               >
@@ -291,17 +291,17 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
                 assetUrl={props.assetUrl}
               />
             </Show>
-            <Show when={hasBlocks(released().correctResponse)}>
+            <Show when={hasBlocks(released().questionAnswer)}>
               <FeedbackSection
-                title="Correct response"
-                blocks={released().correctResponse ?? []}
+                title="Question Answer"
+                blocks={released().questionAnswer ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>
-            <Show when={hasBlocks(released().rationale)}>
+            <Show when={hasBlocks(released().questionAnswerExplanation)}>
               <FeedbackSection
-                title="Why this works"
-                blocks={released().rationale ?? []}
+                title="Answer Explanation"
+                blocks={released().questionAnswerExplanation ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>

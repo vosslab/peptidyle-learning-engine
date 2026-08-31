@@ -353,7 +353,7 @@ nonparticipants, and unshared workspaces. Responses are `no-store`.
 The author route never serializes `AnswerKey`, Question Feedback, Question
 Answer Explanation, Question Grading Input, source
 locator, object key, provider credential, or published identity. A supported
-Native Question Implementation may supply only display-ready correct-response and rationale
+Native Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
 content through its server-only adapter seam. External sources and native
 Native Question Implementations without a reviewed presentation return an explicit unavailable state;
 they do not invent answer material. The editor saves before requesting this

@@ -130,10 +130,10 @@ async function createCourseWithMixedPool(
   await picker.getByRole("button", { name: "Add selected candidates", exact: true }).click();
   await expect(picker).toHaveCount(0);
   for (const candidate of candidates) await expect(pool).toContainText(candidate.title);
-  await pool.getByLabel("Draw count").fill("2");
-  await pool.getByLabel("Points per drawn question").fill("2");
-  await pool.getByLabel("Delivery order").selectOption("candidateOrder");
-  await expect(pool).toContainText("Draw algorithm v1");
+  await pool.getByLabel("Selection count").fill("2");
+  await pool.getByLabel("Points per selected Question").fill("2");
+  await pool.getByLabel("Selected Question order").selectOption("candidateOrder");
+  await expect(pool).toContainText("Question Pool Selection");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Questions and order saved." }),
@@ -292,16 +292,16 @@ async function inspectPostIssueEdits(
   await expect(page.getByLabel("Assignment title")).toHaveValue(revisedTitle);
   await expect(pool.getByLabel("Points per drawn question")).toHaveValue("2");
 
-  await pool.getByLabel("Points per drawn question").fill("3");
-  await pool.getByLabel("Draw count").fill("1");
+  await pool.getByLabel("Points per selected Question").fill("3");
+  await pool.getByLabel("Selection count").fill("1");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   const recovery = page.getByRole("alert");
   await expect(recovery).toContainText("Student work has already been issued");
   await expect(recovery).toContainText("Your local question changes remain here");
   await expect(recovery).toContainText("issued student work remains unchanged");
   await expect(recovery.getByRole("link", { name: "Create a new assignment" })).toBeVisible();
-  await expect(pool.getByLabel("Points per drawn question")).toHaveValue("3");
-  await expect(pool.getByLabel("Draw count")).toHaveValue("1");
+  await expect(pool.getByLabel("Points per selected Question")).toHaveValue("3");
+  await expect(pool.getByLabel("Selection count")).toHaveValue("1");
 }
 
 test.describe("item-pool delivery on the production PLE stack", () => {
@@ -310,7 +310,7 @@ test.describe("item-pool delivery on the production PLE stack", () => {
     "the disposable production browser-suite owner supplies this scenario input",
   );
 
-  test("server previews and delivers a fixed item plus an ordered immutable pool draw", async ({
+  test("server previews and delivers a fixed item plus an ordered immutable Question Pool Selection", async ({
     browser,
   }) => {
     test.setTimeout(scenarioTimeoutMs);

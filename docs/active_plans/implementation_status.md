@@ -13,7 +13,6 @@ current plan. Durable product decisions remain in
 Closed package receipts remain in the changelog and retained package reports. Work-package labels such as `WP-INST-G2` are temporary plan coordinates. They identify the current
 handoff while the plan is active and retire with the planning layer; product contracts and durable
 data use domain identifiers.
-
 ## Current handoff
 
 - **Current scoped correction package:** `WP-SD1-A-TERM-01` aligns terminology with Human Guidance
@@ -28,18 +27,27 @@ data use domain identifiers.
   `SubmissionAccepted` with one Question Submission, allow `Open` or `ClosedAtDeadline` without
   one, and preserve terminal history through a forward-only state trigger.
   The canonical `python3 local_stack.py acceptance` path generated its private manifest and passed fresh apply, no-op, staged verification, catalog, ACL, and restricted-login database acceptance; direct tool invocation remains intentionally manifest-less.
-  The Answer/Explanation split, Store-backed grading-record persistence, Question Pool
-  selection, and Question Bloom Classification remain open. The fresh schema now names
-  exact Answer Key, Question Feedback, Question Answer Explanation, and Question Grading
-  Input records; their data-access, publication, and route closure remains open. Pool work stores exact
-  selections and separates pool reuse from Question Variation. Bloom work requires
-  an Instructor-accepted two-enum pair on every Published Question Revision after a
-  Draft Question suggestion. Question Model, storage/schema, publication/server,
-  generated API/browser, and the Bloom Classification Assistant own their respective
-  boundaries. Success removes generic or one-dimensional Bloom fields. Focused model,
-  Memory/PostgreSQL, publication, server, generated-contract, decoder, search,
-  authoring, and accessible light/dark interface gates validate it. This scoped
-  package does not advance SD1-A acceptance.
+  Trusted grading producers, Student Feedback Release, generated browser contracts, strict
+  decoders, policy controls, and UI now separate Question Feedback, Question Answer, and
+  Question Answer Explanation. Store-backed grading-record persistence, publication, and delivery;
+  stored Question Pool Selection evidence; and Question Bloom Classification remain open. The fresh schema now names
+  exact Answer Key, Question Feedback, Question Answer Explanation, and Question Grading Input
+  records; their data-access, publication, and route closure remains open. Pool schema describes exact
+  selection outcomes, and `domain::select_question_pool_candidates` creates them from transient server
+  entropy; `2026082937` snapshots independent Question Pool Reuse and Question Variation Rules on each
+  Assignment Attempt, while
+  durable Question Pool Selection persistence and replay remain open. Bloom work requires
+  publication to leave the exact new Question Revision classification unassigned. AI
+  work searches for unassigned Published Question Revisions and supplies each initial
+  two-enum pair; an Instructor may edit either value later without creating a Question
+  Revision. Question Model, storage/schema, unassigned-classification search, server,
+  generated API/browser, and a separate AI integration plan own their boundaries.
+  Success removes generic or one-dimensional Bloom fields. Focused model,
+  Memory/PostgreSQL, publication, work discovery, server, decoder, search, metadata editing,
+  and accessible light/dark interface gates validate it. This scoped package does not advance SD1-A acceptance.
+  **Question Classification cutover:** PLE-owned model, Flat Question JSON, generated
+  contracts, strict decoders, search, and Instructor metadata use System, Code, and Name.
+  Its opaque schema metadata awaits publication/data-access closure; this cutover adds no detached relation.
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
   ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
   Question Library, stable `QuestionId` lineage with immutable `QuestionVersion`s and explicit forks,
@@ -171,7 +179,7 @@ data use domain identifiers.
   reports 56, 57, and 59 for the server-only `NamedQuestionSavedSearch` value aggregate. It retains
   one immutable global `AccountId` owner, one opaque server-only UUID identity, one validated title,
   one normalized no-scope `QuestionSearchFilter` (`text`, `bylines`, `backends`, `tags`,
-  `question_types`, `taxonomy`, `capabilities`, `licenses`, `evidence`, `used_in_my_courses`,
+  `question_types`, `classifications`, `capabilities`, `licenses`, `evidence`, `used_in_my_courses`,
   and `authorship`), and one positive storage-safe revision. The aggregate has no installation scope, course,
   saved-owner identity, cursor, page size, route, DTO, browser, or Serde boundary; reruns use a fresh
   current-Question-Library query, with account-bound filters evaluated for the rerunning Account. Its revision-CAS
@@ -242,7 +250,7 @@ data use domain identifiers.
   `StudentWorkInspectionStore`, and
   migrations `2026081870` through `2026081878`; G2 W5/W6 resume after WN1 acceptance.
   `CourseGradebookStore` owns the roster-first, server-calculated page; a dedicated
-  `StudentWorkInspectionStore` owns one explicit, atomic-audit, solution-free detail read. The package reserves
+  `StudentWorkInspectionStore` owns one explicit, atomic-audit detail read carrying the Student Response with permitted correctness and score. The package reserves
   migrations `2026081870` through `2026081878` as authority foundation, private immutable witness,
   only app-executable broker, query evidence, historically global-scope-bound worker failure, a forward broker
   rowset-contract repair, and server-owned safe detail labels; it preserves
@@ -277,7 +285,7 @@ in the SD1 scope register. The graph and inventories are one-time evidence; curr
 the authority.
 
 `SD1-A3` implementation is complete. The PostgreSQL table, key, policy, grant, broker, and typed
-scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082936`. Historical
+scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082937`. Historical
 `2026081881` and `2026081882` WN1-D work is retained as evidence/input absorbed by that fresh epoch,
 not as an active SD1 schema dependency.
 
@@ -686,7 +694,7 @@ and all 3,790 source-style checks pass.
 
 The binding is implementation-ready on 2026-08-28. Independent architecture, security, and HCI
 rereviews accept the roster-first calculated Gradebook, exact Student/run choice, browser-valid
-Fetch Metadata decision table, solution-free response projection, atomic audit boundary, accessible
+Fetch Metadata decision table, closed Student Response projection with permitted correctness and score, atomic audit boundary, accessible
 recovery, and permanent/connected/visual evidence allocation with no remaining P0-P3 finding.
 `G2-W2A` and `G2-W2B` proceeded as independent contract slices and are accepted below.
 
@@ -708,7 +716,7 @@ migrations; this W2 acceptance does not accept G2 as a whole.
 - **Audited Student work:** `StudentWorkInspectionStore` verifies the exact immutable submission,
   receipt presentation, response digest, composite identity, retention state, and closed
   `IssuedPresentation` or verified ExternalTool `PresentationNotApplicable` evidence before
-  returning a solution-free response projection. Successful reads create paired internal audit
+  returning a closed Student Response projection with permitted correctness and score. Successful reads create paired internal audit
   witnesses; concealed unavailable reads create neither success witness.
 - **Focused permanent evidence:** six Gradebook Store conformance cases, eight inspection Store
   conformance cases, eleven presentation cases, nine disclosure-policy cases, and thirty browser
@@ -779,7 +787,7 @@ explicit clean-cluster baseline decision. After v1 ships, accepted files are imm
 an allocation before implementation. Non-schema packages do not receive an implicit allocation.
 
 The owner-confirmed single-installation correction keeps PLE in its pre-production clean-cluster
-state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082936`, split by focused
+state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082937`, split by focused
 capability as registered in its plan. Earlier allocations remain package-history evidence until
 SD1-C records the exact replacement ledger.
 
@@ -887,7 +895,7 @@ SD1-C records the exact replacement ledger.
 | `2026082903`              | `WP-SD1-C`             | Private verified Authentication Email relation, email challenges, and rate limits                                                                                                                   |
 | `2026082904`              | `WP-SD1-C`             | WebAuthn ceremonies and passkeys                                                                                                                                                                    |
 | `2026082905`              | `WP-SD1-C`             | Instructor vetting, current approval predicates, and role predicates                                                                                                                                |
-| `2026082906`              | `WP-SD1-C`             | Authenticated Session resolution, installer, and session RLS authorization check                                                                                                                   |
+| `2026082906`              | `WP-SD1-C`             | Authenticated Session resolution, installer, and session RLS authorization check                                                                                                                    |
 | `2026082907`              | `WP-SD1-C`             | Question Library roots and immutable versions                                                                                                                                                       |
 | `2026082908`              | `WP-SD1-C`             | Question Publication and Question Version Availability evidence                                                                                                                                     |
 | `2026082909`              | `WP-SD1-C`             | Question Library lineage, proposals, Stars, Watches, and improvement audit                                                                                                                          |
@@ -918,8 +926,8 @@ SD1-C records the exact replacement ledger.
 | `2026082934`              | `WP-SD1-C`             | Sysadmin-only global Account Creation broker with immutable Product Role                                                                                                                            |
 | `2026082935`              | `WP-SD1-C`             | Exact Draft Blueprint Revision collaboration, publication, and availability evidence                                                                                                                |
 | `2026082936`              | `WP-SD1-C`             | Identity-free exact Question Version Statistics and idempotent accepted-grade observation evidence                                                                                                  |
-
-This registry is the complete, current number-to-capability ledger for `WP-SD1-C`; historical
+| `2026082937`              | `WP-SD1-C`             | Assignment policy split: independent Question Pool Reuse Rule and Question Variation Rule                                                                                                          |
+This registry is the current number-to-capability ledger for `WP-SD1-C`; historical
 `2026081881` and `2026081882` remain immutable evidence/input.
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
@@ -969,7 +977,7 @@ The current handoff is:
    contracts.
 2. `SD1-B1-P0` is accepted preparatory identity-only work. Complete `SD1-B2` through `SD1-B4` as
    exact-scope contract roots, without claiming route conversion.
-3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082936`, then
+3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082937`, then
    implement SD1-D Store/RLS and direct protected-service support with its connected proof. The
    historical `2026081881` and `2026081882` work is evidence/input to C, not an active WN1 queue
    item.
@@ -988,6 +996,4 @@ The current handoff is:
 - [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) defines required Validation evidence.
 - [DEVELOPMENT.md](../DEVELOPMENT.md), [INSTALL.md](../INSTALL.md), [USAGE.md](../USAGE.md), and
   [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) own operational instructions.
-- The dated comparison snapshot is
-  [project_status_report_2026-08-10.md](reports/project_status_report_2026-08-10.md); older status
-  notes and `partial_commit_status.md` are historical references.
+- The dated comparison snapshot is [project_status_report_2026-08-10.md](reports/project_status_report_2026-08-10.md); older status notes and `partial_commit_status.md` are historical references.

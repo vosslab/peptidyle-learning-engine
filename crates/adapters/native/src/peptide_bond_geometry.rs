@@ -11,13 +11,14 @@ use domain::generator::{QuestionVariationParameterValue, QuestionVariationParame
 use grading::AnswerKey;
 use question_model::answer::ResponseSelectionRule;
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::definition::GradingDefinition;
+use question_model::definition::QuestionGradingRule;
 use question_model::envelope::{ContentBlock, QuestionPresentation};
 use question_model::generation::QuestionGeneratorReference;
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    DraftQuestionDefinition, GradingResult, QuestionFeedback, QuestionFormat, QuestionHint,
-    QuestionType, QuestionVersion, StudentResponse,
+    DraftQuestionDefinition, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
+    QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionType, QuestionVersion,
+    StudentResponse,
 };
 
 use crate::NativeAdapterError;
@@ -96,7 +97,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         Ok(Some(answer_key))
     }
 
-    fn derive_feedback(
+    fn derive_post_grading_content(
         &self,
         question: &QuestionVersion,
         generated: &QuestionVariationParameters,
@@ -104,7 +105,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<QuestionFeedback, NativeAdapterError> {
+    ) -> Result<QuestionPostGradingContent, NativeAdapterError> {
         validate_question_shape(question)?;
         let _ = generated_residue(generated)?;
         // Require the same trusted key shape used by grading, but never expose
@@ -149,14 +150,18 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
             .ok_or_else(|| {
                 invalid_definition("response choices must include the stable amide identifier")
             })?;
-        Ok(QuestionFeedback {
-            choice_feedback: None,
-            correct_feedback: None,
-            incorrect_feedback: None,
-            correct_response: Some(correct_choice.body.clone()),
-            rationale: Some(vec![ContentBlock::Text {
+        let question_answer =
+            QuestionAnswer::new(correct_choice.body.clone()).ok_or_else(|| {
+                invalid_definition("correct choice must contain display-ready content")
+            })?;
+        let question_answer_explanation = QuestionAnswerExplanation::new(vec![ContentBlock::Text {
                 markdown: "In a peptide bond, resonance delocalizes the nitrogen lone pair into the carbonyl. The C-N bond therefore has partial double-bond character, which restricts rotation and keeps the peptide group approximately planar.".to_string(),
-            }]),
+            }])
+            .expect("the native Question Answer Explanation has one text block");
+        Ok(QuestionPostGradingContent {
+            question_feedback: Default::default(),
+            question_answer: Some(question_answer),
+            question_answer_explanation: Some(question_answer_explanation),
         })
     }
 
@@ -199,8 +204,8 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
                 invalid_definition("response choices must include the stable amide identifier")
             })?;
         Ok(Some(AuthorPresentationContent {
-            correct_response: correct_choice.body.clone(),
-            rationale: Some(vec![ContentBlock::Text {
+            question_answer: correct_choice.body.clone(),
+            question_answer_explanation: Some(vec![ContentBlock::Text {
                 markdown: "In a peptide bond, resonance delocalizes the nitrogen lone pair into the carbonyl. The C-N bond therefore has partial double-bond character, which restricts rotation and keeps the peptide group approximately planar.".to_string(),
             }]),
         }))
@@ -217,7 +222,7 @@ fn validate_draft_shape(question: &DraftQuestionDefinition) -> Result<(), Native
 
 fn validate_response_and_grading(
     response: &QuestionResponseFormat,
-    grading: &GradingDefinition,
+    grading: &QuestionGradingRule,
 ) -> Result<(), NativeAdapterError> {
     let QuestionResponseFormat::MultipleChoice { choices, selection } = response else {
         return Err(invalid_definition(
@@ -237,7 +242,7 @@ fn validate_response_and_grading(
             "response choices must include the stable amide identifier",
         ));
     }
-    if !matches!(grading, GradingDefinition::AllOrNothing { .. }) {
+    if !matches!(grading, QuestionGradingRule::AllOrNothing { .. }) {
         return Err(invalid_definition(
             "peptide-bond geometry uses all-or-nothing grading",
         ));

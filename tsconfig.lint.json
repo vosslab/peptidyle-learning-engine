@@ -1,5 +1,5 @@
 {
-	"extends": "./tsconfig.json",
-	"//": "Wider type-check pass for files outside src/. Root-level *.ts (playwright.config.ts) is included because tsc exits 2 with TS18003 when an include list matches nothing, and typescript-eslint then fails to parse those same files.",
-	"include": ["*.ts", "tests/**/*.ts", "tests/**/*.tsx", "tools/**/*.ts"]
+  "extends": "./tsconfig.json",
+  "//": "Wider type-check pass for files outside src/. Root-level *.ts (playwright.config.ts) is included because tsc exits 2 with TS18003 when an include list matches nothing, and typescript-eslint then fails to parse those same files.",
+  "include": ["*.ts", "tests/**/*.ts", "tests/**/*.tsx", "tools/**/*.ts"]
 }

@@ -15,18 +15,11 @@
         "parameters": {
           "choice_many": {
             "kind": "choice",
-            "options": [
-              "alanine",
-              "cysteine",
-              "aspartate",
-              "glutamate"
-            ]
+            "options": ["alanine", "cysteine", "aspartate", "glutamate"]
           },
           "choice_one": {
             "kind": "choice",
-            "options": [
-              "glycine"
-            ]
+            "options": ["glycine"]
           },
           "decimal_range": {
             "kind": "decimalRange",

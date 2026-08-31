@@ -21,8 +21,8 @@
   "questionAttemptLimit": { "maxAttempts": null },
   "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["biochemistry", "functional-groups", "chapter-1"],
-  "taxonomy": [
-    { "scheme": "Peptidyle", "code": "BIOCHEMISTRY.CHAPTER_1", "label": "Biochemistry Chapter 1" }
+  "classifications": [
+    { "system": "Peptidyle", "code": "BIOCHEMISTRY.CHAPTER_1", "name": "Biochemistry Chapter 1" }
   ],
   "license": { "kind": "ccBy" },
   "language": "en-US"

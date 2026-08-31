@@ -1,4 +1,4 @@
-//! Tags, taxonomy, and licensing (WP-C1).
+//! Question Classifications, Tags, and licensing (WP-C1).
 //!
 //! Shared content carries no deployment partition: one published Question carries
 //! one set of tags for every approved Instructor. That is what lets a single
@@ -29,20 +29,20 @@ impl Tag {
     }
 }
 
-/// A term from a controlled vocabulary.
+/// One exact mapping to a real external or institutional classification system.
 ///
-/// Distinct from [`Tag`] because a taxonomy term is meaningful outside this
-/// platform: it names a scheme and a code within it, so a curriculum standard
-/// or a subject classification survives export and re-import.
+/// Distinct from [`Tag`] because a Question Classification preserves its
+/// external system and code through import and export. Bloom's revised
+/// framework uses its dedicated two-axis Question Bloom Classification contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TaxonomyTerm {
-    /// The vocabulary this term belongs to, for example a standards body.
-    pub scheme: String,
-    /// The term's code within that scheme.
+pub struct QuestionClassification {
+    /// The external or institutional system that owns the code.
+    pub system: String,
+    /// The classification code within that system.
     pub code: String,
-    /// Human-readable label for display.
-    pub label: String,
+    /// Human-readable classification name for display.
+    pub name: String,
 }
 
 /// The terms under which content may be reused.

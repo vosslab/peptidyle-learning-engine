@@ -18,8 +18,8 @@ const presentation = {
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response,
   seed: 17,
-  correctResponse: [{ kind: "text", markdown: "180 degrees." }],
-  rationale: [{ kind: "text", markdown: "The peptide bond is planar." }],
+  questionAnswer: [{ kind: "text", markdown: "180 degrees." }],
+  questionAnswerExplanation: [{ kind: "text", markdown: "The peptide bond is planar." }],
 };
 
 test("author preview accepts only an exact display-ready presentation", () => {
@@ -31,8 +31,8 @@ test("author preview accepts only an exact display-ready presentation", () => {
       prompt: presentation.prompt,
       response: presentation.response,
       seed: presentation.seed,
-      correctResponse: presentation.correctResponse,
-      rationale: presentation.rationale,
+      questionAnswer: presentation.questionAnswer,
+      questionAnswerExplanation: presentation.questionAnswerExplanation,
     },
   });
   assert.equal("workspace" in decoded.presentation, false);
@@ -49,7 +49,7 @@ test("author preview accepts only an exact display-ready presentation", () => {
       decodeInstructorPreview(
         {
           ...presentation,
-          correctResponse: [{ ...presentation.correctResponse[0], rawKey: "forbidden" }],
+          questionAnswer: [{ ...presentation.questionAnswer[0], rawKey: "forbidden" }],
         },
         workspace,
       ),
@@ -61,7 +61,7 @@ test("author preview represents unavailable source support without fabricating a
   const unavailable = { kind: "unavailable", backend: "webwork", reason: "No safe derivation." };
   assert.deepEqual(decodeInstructorPreview(unavailable, workspace), unavailable);
   assert.throws(
-    () => decodeInstructorPreview({ ...unavailable, correctResponse: [] }, workspace),
+    () => decodeInstructorPreview({ ...unavailable, questionAnswer: [] }, workspace),
     /allowed by this response contract/,
   );
 });

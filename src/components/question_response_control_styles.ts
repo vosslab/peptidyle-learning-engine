@@ -4,7 +4,7 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .response-widget { display: grid; gap: var(--ple-space-2, 0.5rem); }
   .response-widget fieldset { display: grid; gap: 0.15rem; min-width: 0; border: 0; margin: 0; padding: 0; }
   .response-widget legend { padding: 0; font-size: 1rem; font-weight: 720; }
-  .response-widget .keyboard-hint { margin: 0; color: var(--ple-muted); font-size: 0.92rem; }
+  .response-widget .keyboard-instructions { margin: 0; color: var(--ple-muted); font-size: 0.92rem; }
   .response-widget .completion-progress { margin: 0; color: var(--ple-muted); font-size: 0.92rem; font-weight: 700; }
   .response-widget .response-control, .response-widget .choice-card, .response-widget .order-action,
   .response-widget .primary-action, .response-widget .quiet-action { min-height: var(--ple-response-min-height, 44px); padding: 0.35rem 0.65rem; }

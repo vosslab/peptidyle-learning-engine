@@ -283,6 +283,15 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     return relevantField(failureField(), "questionVariationRule") ? feedback()?.message : undefined;
   }
 
+  function questionPoolReuseRuleError(): string | undefined {
+    return relevantField(failureField(), "questionPoolReuseRule") ? feedback()?.message : undefined;
+  }
+
+  function updateQuestionPoolReuseRule(next: AssignmentActivityRules): void {
+    setPolicies(next);
+    clearRecoveredControl("questionPoolReuseRule");
+  }
+
   function updateQuestionVariationRule(next: AssignmentActivityRules): void {
     setPolicies(next);
     clearRecoveredControl("questionVariationRule");
@@ -521,8 +530,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             studentFeedbackReleaseRule={studentFeedbackReleaseRule}
             activityRuleDraft={activityRuleDraft}
             activityRuleFieldError={activityRuleFieldError}
+            questionPoolReuseRuleError={questionPoolReuseRuleError}
             questionVariationRuleError={questionVariationRuleError}
             onPoliciesChange={setPolicies}
+            onQuestionPoolReuseRuleChange={updateQuestionPoolReuseRule}
             onQuestionVariationRuleChange={updateQuestionVariationRule}
             onStudentFeedbackReleaseRuleChange={setStudentFeedbackReleaseRule}
             onActivityRuleDraftChange={updateActivityRuleDraft}

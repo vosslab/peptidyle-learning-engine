@@ -514,7 +514,7 @@ fn validate_immutable_publication_tags<'a>(
 mod tests {
     use super::*;
     use crate::ObjectDataClass;
-    use question_model::taxonomy::License;
+    use question_model::classification::License;
     use question_model::{
         AssetId, ObjectId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
     };

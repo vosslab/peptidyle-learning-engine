@@ -12,8 +12,8 @@ use crate::{
     AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
     AssignmentPointValue, AssignmentStatus, AssignmentTitle, Capability, CourseTimeZone,
     InstructorAssignmentWorkingCopyDefinitionLocal, LateWorkRule, QuestionId,
-    QuestionPoolCandidateAvailability, QuestionPoolSelectionRule, QuestionVariationRule,
-    StudentFeedbackReleaseRule,
+    QuestionPoolCandidateAvailability, QuestionPoolReuseRule, QuestionPoolSelectionRule,
+    QuestionVariationRule, StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create one stable Assignment and its first working copy.
@@ -96,10 +96,6 @@ pub enum AssignmentPoliciesValidationIssue {
     AssignmentWorkingCopyDefinition {
         correction: crate::AssignmentWorkingCopyDefinitionValidationFailure,
     },
-    /// The combined policy configuration is not available.
-    Configuration {
-        reason: AssignmentPolicyConfigurationReason,
-    },
     /// A selected question backend cannot satisfy one required capability.
     Capability {
         title: String,
@@ -110,13 +106,6 @@ pub enum AssignmentPoliciesValidationIssue {
     AssignmentReleaseRequirements {
         blocking_issues: Vec<AssignmentReleaseIssue>,
     },
-}
-
-/// Closed reason a combined assignment policy cannot be saved.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssignmentPolicyConfigurationReason {
-    SelectedQuestionVariantsWithQuestionPools,
 }
 
 /// Closed structural-content refusal that requires a successor Draft Assignment
@@ -145,12 +134,12 @@ pub enum AssignmentEntryRequest {
         availability: AssignmentEntryAvailability,
         scoring_rule: AssignmentEntryScoringRule,
     },
-    /// A random draw from a server-resolved pool of immutable questions.
+    /// A server-resolved selection from a pool of immutable questions.
     QuestionPool {
         candidate_question_ids: Vec<QuestionId>,
         availability: AssignmentEntryAvailability,
         scoring_rule: AssignmentEntryScoringRule,
-        draw_count: u32,
+        selection_count: u32,
         points_per_item: AssignmentPointValue,
         selection_rule: QuestionPoolSelectionRule,
     },
@@ -193,6 +182,8 @@ pub struct InstructorStudentView {
     pub delivery: InstructorStudentViewDelivery,
     /// Number of questions a student receives in one run; derived by the server.
     pub questions_per_run: u32,
+    /// Student-visible Question Pool Reuse Rule.
+    pub question_pool_reuse_rule: QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
     pub question_variation_rule: QuestionVariationRule,
     /// Student-visible disclosure schedule.
@@ -226,6 +217,7 @@ impl InstructorStudentView {
             time_zone: landing.time_zone,
             delivery,
             questions_per_run: landing.questions_per_run,
+            question_pool_reuse_rule: landing.question_pool_reuse_rule,
             question_variation_rule: landing.question_variation_rule,
             student_feedback_release_rule: landing.student_feedback_release_rule,
         }
@@ -242,7 +234,7 @@ impl AssignmentReleaseValidation {
         let has_deliverable_question_pool = entries.iter().any(|entry| match entry {
             AssignmentEntry::QuestionPool(pool) => {
                 pool.availability == AssignmentEntryAvailability::Available
-                    && pool.draw_count > 0
+                    && pool.selection_count > 0
                     && pool
                         .candidates
                         .iter()
@@ -250,7 +242,7 @@ impl AssignmentReleaseValidation {
                             candidate.availability == QuestionPoolCandidateAvailability::Available
                         })
                         .count()
-                        >= usize::try_from(pool.draw_count).unwrap_or(usize::MAX)
+                        >= usize::try_from(pool.selection_count).unwrap_or(usize::MAX)
             }
             AssignmentEntry::FixedQuestion(_) => false,
         });
@@ -318,10 +310,6 @@ mod tests {
         let failure = AssignmentPoliciesValidationFailure {
             error: AssignmentPoliciesValidationFailureCode::AssignmentPoliciesInvalid,
             issues: vec![
-                AssignmentPoliciesValidationIssue::Configuration {
-                    reason:
-                        AssignmentPolicyConfigurationReason::SelectedQuestionVariantsWithQuestionPools,
-                },
                 AssignmentPoliciesValidationIssue::AssignmentReleaseRequirements {
                     blocking_issues: vec![AssignmentReleaseIssue::QuestionsRequired],
                 },
@@ -334,10 +322,6 @@ mod tests {
             serde_json::json!({
                 "error": "assignmentPoliciesInvalid",
                 "issues": [
-                    {
-                        "kind": "configuration",
-                        "reason": "selectedQuestionVariantsWithQuestionPools"
-                    },
                     {
                         "kind": "assignmentReleaseRequirements",
                         "blockingIssues": [{"kind": "questionsRequired"}]
@@ -374,12 +358,12 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssignmentContentRequest>(
-            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","drawCount":1,"pointsPerItem":"1","selectionRule":{"algorithm":"v1","ordering":"candidateOrder"}}]}"#,
+            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"candidateOrder"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(
             serde_json::from_str::<ReplaceAssignmentContentRequest>(
-                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"drawCount":1,"pointsPerItem":"1","ordering":"candidateOrder"}]}"#,
+                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"selectionCount":1,"pointsPerItem":"1","selectedQuestionOrder":"candidateOrder"}]}"#,
             )
             .is_err()
         );
@@ -392,7 +376,8 @@ mod tests {
                 assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule:
                     crate::AssignmentAttemptContinuationRule::Unlimited,
-                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                question_variation_rule: QuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
             assignment_working_copy_definition:

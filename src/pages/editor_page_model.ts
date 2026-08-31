@@ -62,20 +62,20 @@ export interface DraftCapabilityViolation {
   readonly capability: Capability;
 }
 
-export interface VersionDiffSection {
+export interface QuestionPublicationReviewSection {
   readonly label: string;
   readonly before: string | null;
   readonly after: string;
 }
 
-/** A server-computed, browser-safe structural projection; never a raw record diff. */
-export interface PublishVersionDiff {
-  /** Exact strong ETag returned with the server-computed comparison. */
+/** A server-computed, browser-safe review of one saved Question Working Copy. */
+export interface QuestionPublicationReview {
+  /** Exact strong ETag returned with the server-computed review. */
   readonly revision: string;
   /** Every review proposes a distinct immutable Question ID. */
-  readonly baseline: "newQuestion";
+  readonly baseQuestion: "newQuestion";
   readonly proposedTitle: string;
-  readonly sections: ReadonlyArray<VersionDiffSection>;
+  readonly sections: ReadonlyArray<QuestionPublicationReviewSection>;
 }
 
 /** Authoring projection that preserves the repository's private strong revision ownership. */
@@ -103,8 +103,8 @@ export interface EditorRepository {
     draft: EditorDraft,
     required: ReadonlyArray<Capability>,
   ) => Promise<ReadonlyArray<DraftCapabilityViolation>>;
-  readonly getPublishDiff: (draft: EditorDraft) => Promise<PublishVersionDiff>;
-  /** Publishes only the exact revision represented by a previously reviewed server diff. */
+  readonly getQuestionPublicationReview: (draft: EditorDraft) => Promise<QuestionPublicationReview>;
+  /** Publishes only the exact revision represented by a previously reviewed server result. */
   readonly publish: (
     draft: EditorDraft,
     request: { readonly byline: PublicByline },

@@ -476,11 +476,10 @@ Question Search, Question Star, Question Watch, and Question Change Proposal.
 **Question Metadata** is the structured, answer-free discovery and credit
 information stored with every Question Revision. Publication requires a
 Question Title, Question Description, Question Authorship, Question License,
-language, at least one Question Subject, and one Question Bloom Classification.
-Question Subsubjects, Question Tags, other Question Classifications, and a
-Question Citation are optional. Question Type, Question Format, and Question
-Backend remain exact searchable Question Revision facts rather than free-form
-metadata.
+language, and at least one Question Subject. Question Bloom Classification begins unassigned and is
+filled automatically after publication. Question Subsubjects, Question Tags, other Question
+Classifications, and a Question Citation are optional. Question Type, Question Format, and Question
+Backend remain exact searchable Question Revision facts rather than free-form metadata.
 
 **Question Title** is the short name used to identify a Question. **Question
 Description** is a concise Instructor-facing, answer-free explanation of what
@@ -528,18 +527,19 @@ meaning. PLE needs no authoring surface for a generic classification until a
 real system is supported. Bloom's revised taxonomy uses the dedicated Question
 Bloom Classification contract rather than this generic mapping.
 
-**Question Bloom Classification** is the required derived ordered pair describing the cognitive
-demand of one Question Revision. Its independent fields are exactly one **Bloom Cognitive Process**
-value and one **Bloom Knowledge Dimension** value. Bloom Cognitive Process is Remember, Understand,
-Apply, Analyze, Evaluate, or Create. Bloom Knowledge Dimension is Factual Knowledge, Conceptual
-Knowledge, Procedural Knowledge, or Metacognitive Knowledge. The pair alone determines its combined
-label and 4 by 6 matrix position. The visible field labels are Cognitive Process Dimension and
-Knowledge Dimension.
+**Question Bloom Classification** is the initially AI-assigned, Instructor-editable ordered pair
+describing the cognitive demand of one exact Published Question Revision. Its independent fields
+are exactly one **Bloom Cognitive Process** value and one **Bloom Knowledge Dimension** value. Bloom
+Cognitive Process is Remember, Understand, Apply, Analyze, Evaluate, or Create. Bloom Knowledge
+Dimension is Factual Knowledge, Conceptual Knowledge, Procedural Knowledge, or Metacognitive
+Knowledge. The pair alone determines its combined label and 4 by 6 matrix position. The visible
+field labels are Cognitive Process Dimension and Knowledge Dimension.
 
-A **Bloom Classification Suggestion** is calculated authoring help for one exact Draft Question
-Revision. The Bloom Classification Assistant fills the fields before Instructor review; the
-Instructor may keep or change either value. Publication stores the Instructor-accepted Question
-Bloom Classification on the immutable Question Revision. The exact rubric, suggestion workflow,
+Publishing creates the exact Question Revision with its Bloom classification unassigned. AI
+classification work searches for unassigned Published Question Revisions and supplies each initial
+pair. The Question remains Published and discoverable while unassigned. An Instructor may later
+record a corrected pair for the same exact Question Revision; that metadata correction changes no
+Question content and creates no Question Revision. The exact rubric, automatic assignment behavior,
 search behavior, and color associations live in
 [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification).
 
@@ -549,23 +549,23 @@ Classification describes intended cognitive demand. Neither value substitutes fo
 
 The Published Question discovery, credit, and control facts are closed:
 
-| Canonical term          | Publication requirement | Owning scope      | Question Search use                         |
-| ----------------------- | ----------------------- | ----------------- | ------------------------------------------- |
-| Question Title          | Required                | Question Revision | Text search and visible result name         |
-| Question Description    | Required                | Question Revision | Text search and visible discovery summary   |
-| Question Authorship     | Required                | Question Revision | Author text, facet, and Authored by Me       |
-| Question Owner          | Required                | Question lineage  | My Questions relationship filter            |
-| Question License        | Required                | Question Revision | Exact license facet                         |
-| Question Citation       | Optional                | Question Revision | Citation text and URL search                |
-| Language                | Required                | Question Revision | Exact language facet                        |
-| Question Subject        | One or more required    | Question Revision | Subject text and facet                      |
-| Question Subsubject     | Optional                | Question Revision | Subsubject text and facet                   |
-| Question Tag            | Optional                | Question Revision | Tag text and facet                          |
-| Question Bloom Classification | Required          | Question Revision | Both Bloom dimension facets                |
-| Question Classification | Optional                | Question Revision | Exact system/code filter and name text      |
-| Question Type           | Required, derived       | Question Revision | Exact Question Type facet                   |
-| Question Format         | Required, derived       | Question Revision | Exact Question Format facet                 |
-| Question Backend        | Required, derived       | Question Revision | Exact Question Backend facet                |
+| Canonical term                | Publication requirement | Owning scope      | Question Search use                       |
+| ----------------------------- | ----------------------- | ----------------- | ----------------------------------------- |
+| Question Title                | Required                | Question Revision | Text search and visible result name       |
+| Question Description          | Required                | Question Revision | Text search and visible discovery summary |
+| Question Authorship           | Required                | Question Revision | Author text, facet, and Authored by Me    |
+| Question Owner                | Required                | Question lineage  | My Questions relationship filter          |
+| Question License              | Required                | Question Revision | Exact license facet                       |
+| Question Citation             | Optional                | Question Revision | Citation text and URL search              |
+| Language                      | Required                | Question Revision | Exact language facet                      |
+| Question Subject              | One or more required    | Question Revision | Subject text and facet                    |
+| Question Subsubject           | Optional                | Question Revision | Subsubject text and facet                 |
+| Question Tag                  | Optional                | Question Revision | Tag text and facet                        |
+| Question Bloom Classification | Assigned after publication | Question Revision | Both Bloom dimension facets             |
+| Question Classification       | Optional                | Question Revision | Exact system/code filter and name text    |
+| Question Type                 | Required, derived       | Question Revision | Exact Question Type facet                 |
+| Question Format               | Required, derived       | Question Revision | Exact Question Format facet               |
+| Question Backend              | Required, derived       | Question Revision | Exact Question Backend facet              |
 
 **Question Search** applies normalized criteria to the current Question
 Library. Its text search covers the Question ID, Question Title, Question
@@ -951,17 +951,17 @@ position. Question positions are Attempt content rather than Ribbon navigation.
 Authority is derived through exact stored relationships. These paths name the
 ordinary sources of PLE authority:
 
-| Capability                            | Required path                                                                                                                                        |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authenticate                          | Active Account -> Authenticated Session                                                                                                              |
-| Question Library                      | Authenticated Session -> Active Approved Instructor Account -> Published Question                                                                    |
-| Private authoring                     | Authenticated Session -> Active Approved Instructor Account -> exact Authoring Workspace ownership or Workspace Collaborator relationship            |
-| Draft Blueprint Revision contribution | Authenticated Session -> Active Approved Instructor Account -> current Blueprint Collaborator relationship -> exact Draft Blueprint Revision         |
-| Teach a Course Instance               | Authenticated Session -> Active Approved Instructor Account -> active Instructor Course Membership -> Course Instance                                |
+| Capability                            | Required path                                                                                                                                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticate                          | Active Account -> Authenticated Session                                                                                                                                                                  |
+| Question Library                      | Authenticated Session -> Active Approved Instructor Account -> Published Question                                                                                                                        |
+| Private authoring                     | Authenticated Session -> Active Approved Instructor Account -> exact Authoring Workspace ownership or Workspace Collaborator relationship                                                                |
+| Draft Blueprint Revision contribution | Authenticated Session -> Active Approved Instructor Account -> current Blueprint Collaborator relationship -> exact Draft Blueprint Revision                                                             |
+| Teach a Course Instance               | Authenticated Session -> Active Approved Instructor Account -> active Instructor Course Membership -> Course Instance                                                                                    |
 | Student course work                   | Authenticated Session -> Active Student Account -> active Student Course Membership -> Student Record -> Assignment Attempt -> exact Released Assignment Revision -> Issued Question -> Question Attempt |
-| Student FERPA information             | exact Student Record and Course Instance relationship, limited to the approved viewer and requested record scope                                     |
-| Course observation                    | Authenticated Session -> Active Approved Instructor Account -> current Course Observer Relationship -> Course Instance, within its closed read scope |
-| System administration                 | Authenticated Session -> Active Sysadmin Account -> exact audited support operation; general Sysadmin status does not provide general FERPA access   |
+| Student FERPA information             | exact Student Record and Course Instance relationship, limited to the approved viewer and requested record scope                                                                                         |
+| Course observation                    | Authenticated Session -> Active Approved Instructor Account -> current Course Observer Relationship -> Course Instance, within its closed read scope                                                     |
+| System administration                 | Authenticated Session -> Active Sysadmin Account -> exact audited support operation; general Sysadmin status does not provide general FERPA access                                                       |
 
 The arrows show inheritance, not merely convenient joins. A caller may receive
 only the records and fields supported by the complete path. A direct

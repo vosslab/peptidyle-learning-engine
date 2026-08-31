@@ -8,7 +8,7 @@ use question_model::{
     StudentResponse,
 };
 
-use crate::generator::{NativeQuestionImplementation, NativeQuestionImplementationRelease};
+use crate::generator::NativeQuestionImplementation;
 use crate::peptide_bond_geometry::PeptideBondGeometryV1;
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, NativeAdapter, NativeAdapterError,
@@ -44,23 +44,22 @@ impl NativeExecution {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct NativeQuestionImplementationRegistrationKey {
+/// Exact source contract claimed by one installed Native Question Implementation.
+///
+/// The Question Source owns generator identity and version. An implementation release
+/// remains reproduction evidence and is intentionally not a dispatch dimension.
+pub(super) struct NativeQuestionImplementationKey {
     pub(super) question_format: QuestionFormat,
     pub(super) question_type: QuestionType,
     pub(super) generator: Option<QuestionGeneratorReference>,
-    pub(super) implementation_id: String,
-    pub(super) implementation_version: String,
 }
 
-impl NativeQuestionImplementationRegistrationKey {
+impl NativeQuestionImplementationKey {
     pub(super) fn from_implementation(implementation: &dyn NativeQuestionImplementation) -> Self {
-        let release = implementation.implementation_release();
         Self {
             question_format: implementation.question_format(),
             question_type: implementation.question_type(),
             generator: implementation.generator(),
-            implementation_id: release.id,
-            implementation_version: release.version,
         }
     }
 }
@@ -129,16 +128,12 @@ impl NativeAdapter {
     where
         F: NativeQuestionImplementation + 'static,
     {
-        let key = NativeQuestionImplementationRegistrationKey::from_implementation(&implementation);
+        let key = NativeQuestionImplementationKey::from_implementation(&implementation);
         if self.implementations.contains_key(&key) {
             return Err(NativeAdapterError::DuplicateQuestionImplementation {
                 question_format: key.question_format,
                 question_type: key.question_type,
                 generator: key.generator.clone(),
-                implementation: NativeQuestionImplementationRelease {
-                    id: key.implementation_id.clone(),
-                    version: key.implementation_version.clone(),
-                },
             });
         }
         self.implementations

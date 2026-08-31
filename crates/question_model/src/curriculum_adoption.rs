@@ -222,16 +222,16 @@ pub enum BlueprintAssignmentEntryContent {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
     candidates: Vec<QuestionVersionReference>,
-    draw_count: u32,
+    selection_count: u32,
     points_per_item: AssignmentPointValue,
     scoring_rule: AssignmentEntryScoringRule,
     selection_rule: crate::QuestionPoolSelectionRule,
 }
 impl BlueprintQuestionPoolContent {
-    /// Validates pool cardinality, uniqueness, and draw bounds.
+    /// Validates pool cardinality, uniqueness, and selection bounds.
     pub fn new(
         candidates: Vec<QuestionVersionReference>,
-        draw_count: u32,
+        selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
@@ -239,15 +239,15 @@ impl BlueprintQuestionPoolContent {
         if candidates.is_empty() || candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL {
             return Err(BlueprintCourseValidationError::InvalidPoolCandidates);
         }
-        if draw_count == 0 || usize::try_from(draw_count).ok() > Some(candidates.len()) {
-            return Err(BlueprintCourseValidationError::InvalidPoolDrawCount);
+        if selection_count == 0 || usize::try_from(selection_count).ok() > Some(candidates.len()) {
+            return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
         }
         if candidates.iter().collect::<BTreeSet<_>>().len() != candidates.len() {
             return Err(BlueprintCourseValidationError::DuplicatePoolCandidate);
         }
         Ok(Self {
             candidates,
-            draw_count,
+            selection_count,
             points_per_item,
             scoring_rule,
             selection_rule,
@@ -258,10 +258,10 @@ impl BlueprintQuestionPoolContent {
         &self.candidates
     }
     /// Returns the number of candidates selected for one run.
-    pub fn draw_count(&self) -> u32 {
-        self.draw_count
+    pub fn selection_count(&self) -> u32 {
+        self.selection_count
     }
-    /// Returns the point value assigned to every drawn item.
+    /// Returns the point value assigned to every selected Question.
     pub fn points_per_item(&self) -> AssignmentPointValue {
         self.points_per_item
     }
@@ -370,7 +370,7 @@ enum CanonicalEntry<'a> {
     },
     Pool {
         candidates: &'a [QuestionVersionReference],
-        draw_count: u32,
+        selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
@@ -428,7 +428,7 @@ fn canonical_assignment(assignment: &BlueprintAssignmentContent) -> CanonicalAss
                 },
                 BlueprintAssignmentEntryContent::Pool(pool) => CanonicalEntry::Pool {
                     candidates: &pool.candidates,
-                    draw_count: pool.draw_count,
+                    selection_count: pool.selection_count,
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,
                     selection_rule: pool.selection_rule,

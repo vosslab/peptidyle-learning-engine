@@ -18,7 +18,7 @@ use question_model::{
     QuestionGraderVersion, QuestionTitleError,
 };
 
-use crate::generator::{NativeQuestionImplementation, NativeQuestionImplementationRelease};
+use crate::generator::NativeQuestionImplementation;
 
 #[path = "lib/capabilities.rs"]
 mod capabilities;
@@ -33,7 +33,7 @@ mod reproduction;
 #[path = "lib/source_implementation.rs"]
 mod source_implementation;
 
-use registry::{NativeExecution, NativeQuestionImplementationRegistrationKey};
+use registry::{NativeExecution, NativeQuestionImplementationKey};
 
 #[cfg(test)]
 use grading::QuestionGradingOutcome;
@@ -98,18 +98,16 @@ pub struct NativeDraftAuthorPresentation {
     pub prompt: Vec<ContentBlock>,
     /// Browser-safe response shape.
     pub response: question_model::QuestionResponseFormat,
-    /// Rendered explanation of the correct response.
-    pub correct_response: Vec<ContentBlock>,
-    /// Optional teaching rationale.
-    pub rationale: Option<Vec<ContentBlock>>,
+    /// Display-ready accepted response for the exact generated variation.
+    pub question_answer: Vec<ContentBlock>,
+    /// Optional display-ready explanation of how or why the answer is reached.
+    pub question_answer_explanation: Option<Vec<ContentBlock>>,
 }
 
 /// Versioned native Question Implementation registry and orchestration boundary.
 pub struct NativeAdapter {
-    implementations: BTreeMap<
-        NativeQuestionImplementationRegistrationKey,
-        Arc<dyn NativeQuestionImplementation>,
-    >,
+    implementations:
+        BTreeMap<NativeQuestionImplementationKey, Arc<dyn NativeQuestionImplementation>>,
     backend_versions: BTreeMap<(String, String), NativeExecution>,
     grader_versions: BTreeMap<(String, String), NativeExecution>,
     current_backend: QuestionBackendVersion,
@@ -145,7 +143,6 @@ pub enum NativeAdapterError {
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
         generator: Option<question_model::QuestionGeneratorReference>,
-        implementation: NativeQuestionImplementationRelease,
     },
     /// A persisted Question Backend Version has no compiled implementation.
     UnknownQuestionBackendVersion { version: QuestionBackendVersion },
@@ -189,11 +186,9 @@ impl std::fmt::Display for NativeAdapterError {
                 question_format,
                 question_type,
                 generator,
-                implementation,
             } => write!(
                 formatter,
-                "native Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}/{}@{}",
-                implementation.id, implementation.version
+                "native Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}"
             ),
             Self::UnknownQuestionBackendVersion { version } => write!(
                 formatter,

@@ -92,7 +92,7 @@ pub struct QuestionPoolAssignmentEntrySummary {
     /// Current-only scoring rule applied to every selected candidate.
     pub scoring_rule: AssignmentEntryScoringRule,
     /// Number of available candidates selected for each future Assignment Attempt.
-    pub draw_count: u32,
+    pub selection_count: u32,
     /// Uniform current points for each selected candidate.
     pub points_per_item: AssignmentPointValue,
     /// Complete reviewed selection behavior.
@@ -131,7 +131,7 @@ pub struct AssignmentSummary {
     pub entries: Vec<AssignmentEntrySummary>,
     /// Assignment-owned student-facing disclosure schedule.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
-    /// Eight independent Assignment Activity Rules.
+    /// Nine independent Assignment Activity Rules.
     pub policies: AssignmentActivityRules,
 }
 
@@ -152,6 +152,8 @@ pub struct AssignmentOverview {
     pub time_zone: CourseTimeZone,
     /// Number of active questions a student receives in one run.
     pub questions_per_run: u32,
+    /// Student-visible Question Pool Reuse Rule.
+    pub question_pool_reuse_rule: crate::QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
     pub question_variation_rule: QuestionVariationRule,
     /// Student-visible disclosure schedule.
@@ -326,7 +328,8 @@ mod tests {
                 assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
                 assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
-                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                question_variation_rule: QuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
         };
@@ -351,7 +354,8 @@ mod tests {
                 assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
                 assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
-                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                question_variation_rule: QuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
         });
@@ -373,7 +377,8 @@ mod tests {
                 assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
                 assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
-                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                question_variation_rule: QuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
         };
@@ -385,7 +390,8 @@ mod tests {
                     .expect("valid instructions"),
                 time_zone: CourseTimeZone::parse("America/Chicago").expect("known zone"),
                 questions_per_run: 0,
-                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
+                question_variation_rule: QuestionVariationRule::NewVariation,
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },
             StudentAssignmentDelivery {

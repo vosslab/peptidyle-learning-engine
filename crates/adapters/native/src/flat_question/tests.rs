@@ -403,7 +403,13 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         QuestionGradingOutcome::Graded(result) if !result.correct && result.points_earned == 0.0
     ));
     assert_eq!(
-        text(wrong.feedback.choice_feedback.as_ref()),
+        text(
+            wrong
+                .post_grading_content
+                .question_feedback
+                .choice_feedback
+                .as_ref(),
+        ),
         vec![
             wrong_choice
                 .feedback
@@ -412,10 +418,22 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         ]
     );
     assert_eq!(
-        text(wrong.feedback.incorrect_feedback.as_ref()),
+        text(
+            wrong
+                .post_grading_content
+                .question_feedback
+                .incorrect_feedback
+                .as_ref(),
+        ),
         vec![stored.feedback.incorrect.as_str()]
     );
-    assert!(wrong.feedback.correct_feedback.is_none());
+    assert!(
+        wrong
+            .post_grading_content
+            .question_feedback
+            .correct_feedback
+            .is_none()
+    );
 
     let correct = private
         .evaluate(
@@ -430,7 +448,13 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == 1.0
     ));
     assert_eq!(
-        text(correct.feedback.choice_feedback.as_ref()),
+        text(
+            correct
+                .post_grading_content
+                .question_feedback
+                .choice_feedback
+                .as_ref(),
+        ),
         vec![
             stored
                 .response
@@ -442,10 +466,22 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         ]
     );
     assert_eq!(
-        text(correct.feedback.correct_feedback.as_ref()),
+        text(
+            correct
+                .post_grading_content
+                .question_feedback
+                .correct_feedback
+                .as_ref(),
+        ),
         vec![stored.feedback.correct.as_str()]
     );
-    assert!(correct.feedback.incorrect_feedback.is_none());
+    assert!(
+        correct
+            .post_grading_content
+            .question_feedback
+            .incorrect_feedback
+            .is_none()
+    );
 }
 
 #[test]

@@ -10,8 +10,8 @@ export const FLAT_QUESTION_EDITOR_STYLES = `
 .flat-question-authoring__field textarea { min-height:5.5rem; resize:vertical; }
 .flat-question-authoring__help { margin:.25rem 0; color:var(--ple-muted); font-size:.92rem; font-weight:500; }
 .flat-question-authoring__error { margin:.35rem 0; padding:.6rem .7rem; border-left:4px solid var(--ple-danger); background:color-mix(in srgb, var(--ple-danger) 7%, white); color:var(--ple-ink); font-weight:650; }
-.flat-question-authoring__choice-list, .flat-question-authoring__taxonomy-list { display:grid; gap:.35rem; margin:0; padding:0; list-style:none; }
-.flat-question-authoring__choice, .flat-question-authoring__taxonomy-row { min-width:0; padding:.45rem .55rem; border:0; border-inline-start:3px solid var(--ple-border); border-radius:0; background:var(--ple-surface-soft); }
+.flat-question-authoring__choice-list, .flat-question-authoring__classification-list { display:grid; gap:.35rem; margin:0; padding:0; list-style:none; }
+.flat-question-authoring__choice, .flat-question-authoring__classification-row { min-width:0; padding:.45rem .55rem; border:0; border-inline-start:3px solid var(--ple-border); border-radius:0; background:var(--ple-surface-soft); }
 .flat-question-authoring__choice-header, .flat-question-authoring__row-actions, .flat-question-authoring__actions { display:flex; flex-wrap:wrap; gap:.25rem; align-items:center; }
 .flat-question-authoring__choice-header { justify-content:space-between; }
 .flat-question-authoring__choice-title { margin:0; font-size:1rem; }

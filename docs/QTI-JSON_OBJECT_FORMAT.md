@@ -67,15 +67,15 @@ other media as explicit files or resources.
 
 PLE maps those meanings to narrower contracts:
 
-| Reviewed QTI meaning                      | PLE contract                       | PLE timing and ownership                                      |
-| ----------------------------------------- | ---------------------------------- | ------------------------------------------------------------- |
-| Requested Hint                            | Question Hint                      | Issued-Question-bound support before response or grading      |
-| Feedback selected by a response item      | Choice Feedback                    | Post-grading Question Feedback                                |
-| Feedback selected by a correct outcome    | Correct Feedback                   | Post-grading Question Feedback                                |
-| Feedback selected by an incorrect outcome | Incorrect Feedback                 | Post-grading Question Feedback                                |
-| Correct-response declaration              | Answer Key, then Question Answer   | Private grading facts, then separately released display form  |
-| Model solution                            | Question Answer Explanation        | Explanatory content with independent release timing           |
-| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role  | Checksummed Object bound to the exact Question Version        |
+| Reviewed QTI meaning                               | PLE contract                     | PLE timing and ownership                                     |
+| -------------------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
+| Requested Hint                                     | Question Hint                    | Issued-Question-bound support before response or grading     |
+| Feedback selected by a response item               | Choice Feedback                  | Post-grading Question Feedback                               |
+| Feedback selected by a correct outcome             | Correct Feedback                 | Post-grading Question Feedback                               |
+| Feedback selected by an incorrect outcome          | Incorrect Feedback               | Post-grading Question Feedback                               |
+| Correct-response declaration                       | Answer Key, then Question Answer | Private grading facts, then separately released display form |
+| Model solution                                     | Question Answer Explanation      | Explanatory content with independent release timing          |
+| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role        | Checksummed Object bound to the exact Question Version       |
 
 A QTI Hint request maps to Question Hint even when QTI uses a feedback block as
 its display container. A correct-response declaration supplies private Answer
@@ -108,7 +108,7 @@ Version 2 keeps the same top-level metadata and policies but places family data
 inside one closed `response` object. The common top-level members are
 `format`, `version`, `title`, `prompt`, `response`, optional `feedback`,
 `points`, `questionAttemptLimit`, `questionAttemptTimeLimit`, optional `tags`, optional
-`taxonomy`, `license`, and `language`. Unknown and duplicate members are
+`classifications`, `license`, and `language`. Unknown and duplicate members are
 refused at every level.
 
 `questionAttemptLimit` is closed and contains only `maxAttempts`, which controls the
@@ -168,7 +168,7 @@ For example, a matching question is:
   },
   "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["nucleic-acids"],
-  "taxonomy": [],
+  "classifications": [],
   "license": { "kind": "ccBySa" },
   "language": "en-US"
 }
@@ -207,18 +207,18 @@ public question  private answer and feedback records
 model            answer key + three feedback forms
 ```
 
-| Value                        | Storage and readers                                                                       | Contents                                                                                           |
-| ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback      |
-| Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import       |
-| Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, taxonomy, license, and language; no answer or private feedback  |
+| Value                        | Storage and readers                                                                       | Contents                                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                     |
+| Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import                      |
+| Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
 | Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
-| Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                       |
+| Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                      |
 
 The private Answer Key and Question Feedback record carries the SHA-256 binding
 of the public model. Grading
 refuses a different prompt, choice set, policy, metadata record, source family,
-or grading definition. Authored and published source objects are private source
+or Question Grading Rule. Authored and published source objects are private source
 records and cannot receive signed delivery URLs. Publication IDs are minted
 only after both compiled halves validate successfully.
 
@@ -249,11 +249,12 @@ The native codec currently enforces these bounds:
 - the complete source is at most 256 KiB;
 - the exact format and schema version are required;
 - unknown and duplicate members are rejected, including nested policies,
-  taxonomy terms, and licenses;
+  Question Classifications, and licenses;
 - a choice question has 2 through 100 choices; `singleChoice` has exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
-- prompt, choice, title, tag, taxonomy, language, and license text is nonblank and bounded;
+- prompt, choice, title, tag, classification system, classification code, classification name, language, and
+  license text is nonblank and bounded;
 - Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.

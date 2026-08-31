@@ -19,7 +19,7 @@ function choiceInputType(definition: MultipleChoiceDefinition): "radio" | "check
   return definition.selection.kind === "exactlyOne" ? "radio" : "checkbox";
 }
 
-function choiceKeyboardHint(definition: MultipleChoiceDefinition): string {
+function choiceKeyboardInstructions(definition: MultipleChoiceDefinition): string {
   const count = definition.choices.length;
   return definition.selection.kind === "exactlyOne"
     ? `Tab to the choices and press Space to select. Shortcuts: use the Arrow keys or press 1-${count}.`
@@ -112,7 +112,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
         disabled={controller.locked()}
       >
         <legend>Choose your response</legend>
-        <p class="keyboard-hint">{choiceKeyboardHint(props.definition)}</p>
+        <p class="keyboard-instructions">{choiceKeyboardInstructions(props.definition)}</p>
         {progress() === null ? null : (
           <p
             class="completion-progress"

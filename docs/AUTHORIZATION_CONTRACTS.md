@@ -328,7 +328,7 @@ camelCase contracts and reject unknown fields:
 | `QuestionSearchPage`   | `items`, optional `nextCursor`, `facets`                                                                                                                                                                                               |
 | `QuestionDetails`      | `summary`, answer-free `prompt`, `evidence`, `usage`                                                                                                                                                                                   |
 
-`taxonomy`, `license`, `byline`, `lifecycle`, `facets`, and prompt blocks have
+Question Classifications, license, byline, lifecycle, facets, and prompt blocks have
 their closed shapes defined by the single-installation plan. Evidence is
 released only after its formula-versioned disclosure threshold is satisfied.
 Facet counts are published-question metadata counts. Usage is

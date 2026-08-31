@@ -11,7 +11,7 @@ use question_model::response::{
 };
 use question_model::{
     QuestionFormat, QuestionId, QuestionSource, QuestionVersion, QuestionVersionNumber,
-    WorkspaceId, taxonomy::License,
+    WorkspaceId, classification::License,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -344,11 +344,11 @@ fn validate_flat(
     if !compiled
         .draft()
         .metadata
-        .taxonomy
+        .classifications
         .iter()
-        .any(|term| term.label == format!("{} Chapter 1", chapter.course))
+        .any(|classification| classification.name == format!("{} Chapter 1", chapter.course))
     {
-        bail!("PLE flat pilot payload taxonomy does not match its chapter");
+        bail!("PLE flat pilot payload classification does not match its chapter");
     }
     let expected_question_type = match question.question_type {
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,

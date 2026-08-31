@@ -12,7 +12,7 @@ export interface FlatQuestionEditorPageProps {
   readonly initial: FlatQuestionRead;
   readonly repository: FlatQuestionRepository;
   /** The ordinary browser client supplies only answer-free publication review data. */
-  readonly api: Pick<ApiClient, "validateWorkspacePublication" | "getWorkspacePublicationDiff">;
+  readonly api: Pick<ApiClient, "validateWorkspacePublication" | "getQuestionPublicationReview">;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
   /** Protected image metadata client; absent only in a deliberately limited embedded fixture. */

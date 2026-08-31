@@ -4,11 +4,11 @@ use std::sync::{Arc, Mutex};
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
+use question_model::classification::License;
 use question_model::envelope::ContentBlock;
 use question_model::generation::QuestionVariationDefinition;
-use question_model::taxonomy::License;
 use question_model::{
-    GradingDefinition, ObjectId, QuestionFormat, QuestionId, QuestionMetadata, QuestionType,
+    ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata, QuestionType,
     QuestionVersion, QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
     WorkspaceId,
 };
@@ -132,11 +132,11 @@ fn question_and_source() -> (QuestionVersion, ImathasSource) {
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         question_variation_definition: QuestionVariationDefinition::Static,
-        grading: GradingDefinition::AllOrNothing { points: 1.0 },
+        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded broker question".into(),
             tags: Vec::new(),
-            taxonomy: Vec::new(),
+            classifications: Vec::new(),
             license: License::CcBySa,
             language: "en-US".into(),
         },

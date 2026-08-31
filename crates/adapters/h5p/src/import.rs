@@ -16,7 +16,7 @@ use question_model::ObjectId;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::definition::{GradingDefinition, QuestionMetadata, QuestionSource};
+use question_model::definition::{QuestionGradingRule, QuestionMetadata, QuestionSource};
 use question_model::envelope::ContentBlock;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
@@ -210,8 +210,8 @@ pub struct ImportedH5pQuestion {
     /// H5P imports are static until a server-owned generator is selected.
     pub question_variation_definition: QuestionVariationDefinition,
     /// Always `Ungraded` for native H5P practice.
-    pub grading: GradingDefinition,
-    /// Browser-safe title, taxonomy, and licensing metadata.
+    pub grading: QuestionGradingRule,
+    /// Browser-safe title, Question Classification, and licensing metadata.
     pub metadata: QuestionMetadata,
     /// Deterministic identity of the exact source package and reference.
     pub source_identity: H5pSourceIdentity,
@@ -276,7 +276,7 @@ impl H5pImporter {
             question_attempt_limit: request.question_attempt_limit,
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             question_variation_definition: QuestionVariationDefinition::Static,
-            grading: GradingDefinition::Ungraded,
+            grading: QuestionGradingRule::Ungraded,
             metadata: request.metadata,
             source_identity,
         })
@@ -528,9 +528,9 @@ mod tests {
     use super::*;
     use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::capability::Capability;
-    use question_model::definition::{GradingDefinition, QuestionSource};
+    use question_model::classification::License;
+    use question_model::definition::{QuestionGradingRule, QuestionSource};
     use question_model::envelope::ContentBlock;
-    use question_model::taxonomy::License;
     use uuid::Uuid;
 
     const ARCHIVE_BYTES: &[u8] = b"fixture h5p archive bytes";
@@ -562,7 +562,7 @@ mod tests {
             metadata: QuestionMetadata {
                 title: "Peptide bonds practice".to_string(),
                 tags: Vec::new(),
-                taxonomy: Vec::new(),
+                classifications: Vec::new(),
                 license: License::CcBy,
                 language: "en-US".to_string(),
             },
@@ -613,7 +613,7 @@ mod tests {
                 content_type: MULTI_CHOICE_CONTENT_TYPE.to_string(),
             }
         );
-        assert_eq!(imported.grading, GradingDefinition::Ungraded);
+        assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
         assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
         assert_eq!(imported.source_reference, request().source);
         assert_eq!(
@@ -681,7 +681,7 @@ mod tests {
             .expect("verified archive can be re-imported");
 
         assert_eq!(imported.source_reference, source);
-        assert_eq!(imported.grading, GradingDefinition::Ungraded);
+        assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
     }
 
     #[tokio::test]

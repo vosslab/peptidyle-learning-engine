@@ -69,8 +69,7 @@ mod tests {
             question_pool_label: "Pool 3".to_string(),
             selection_count: 1,
             selection_rule: QuestionPoolSelectionRule {
-                ordering: crate::QuestionPoolSelectionOrdering::Randomized,
-                algorithm: crate::QuestionPoolDrawAlgorithm::V1,
+                selected_question_order: crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
             },
             candidates: vec![QuestionPoolPreviewQuestion {
                 question_id: question_id.clone(),
@@ -85,7 +84,7 @@ mod tests {
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
                 "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
-                "selectionCount":1, "selectionRule":{"ordering":"randomized", "algorithm":"v1"},
+                "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
                 "candidates":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}],
                 "selected":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}]
             })

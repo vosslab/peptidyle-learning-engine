@@ -1,7 +1,6 @@
 // contracts.ts - browser-safe DTOs at the transport boundary (MOD-CLIENT).
 
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
-import type { IssuedQuestion } from "../../generated/api/IssuedQuestion";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
@@ -9,18 +8,21 @@ import type { CourseSummary } from "../../generated/api/CourseSummary";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
+import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
+import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
+import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
+import type { QuestionVersionReference } from "../../generated/api/QuestionVersionReference";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
-import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
 import type { Capability } from "../../generated/api/Capability";
 import type { License } from "../../generated/api/License";
-import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
+import type { QuestionClassification } from "../../generated/api/QuestionClassification";
 import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
@@ -111,8 +113,7 @@ export interface QuestionPoolPreview {
   readonly questionPoolLabel: string;
   readonly selectionCount: number;
   readonly selectionRule: {
-    readonly algorithm: "v1";
-    readonly ordering: "candidateOrder" | "randomized";
+    readonly selectedQuestionOrder: "candidateOrder" | "randomOrder";
   };
   readonly candidates: ReadonlyArray<QuestionPoolPreviewQuestion>;
   readonly selected: ReadonlyArray<QuestionPoolPreviewQuestion>;
@@ -120,7 +121,7 @@ export interface QuestionPoolPreview {
 
 /**
  * One public, ordered assignment-definition entry. The browser sends compact Question IDs only;
- * the server resolves immutable publications and owns all internal identities and algorithm state.
+ * the server resolves immutable publications and owns all internal identities and selection mechanics.
  */
 export type AssignmentEditorEntryInput =
   | {
@@ -135,11 +136,10 @@ export type AssignmentEditorEntryInput =
       readonly candidateQuestionIds: ReadonlyArray<string>;
       readonly availability: "available" | "retired";
       readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
-      readonly drawCount: number;
+      readonly selectionCount: number;
       readonly pointsPerItem: string;
       readonly selectionRule: {
-        readonly algorithm: "v1";
-        readonly ordering: "candidateOrder" | "randomized";
+        readonly selectedQuestionOrder: "candidateOrder" | "randomOrder";
       };
     };
 
@@ -180,13 +180,30 @@ export interface SignedOutResponse {
 export interface StudentQuestionAttempt extends StudentQuestionAttemptView {
   readonly assignmentScoringState: AssignmentScoringState;
   /** Null for a fixed item; a safe ordinal explanation for one server-selected pool item. */
-  readonly questionPoolSelection: QuestionPoolSelection | null;
+  readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
 }
 
-/** Browser-safe ordinal evidence for one Question Pool Selection. */
-export interface QuestionPoolSelection {
+/** Browser-safe ordinal position within one server-owned Question Pool Selection. */
+export interface QuestionPoolSelectionPosition {
   readonly itemNumber: number;
   readonly itemCount: number;
+}
+
+/**
+ * Browser-safe Issued Question identity and exact published Question Revision.
+ *
+ * The durable source selection and candidate stay in server-held Student Work
+ * records. Student delivery identifies pooled work only through
+ * QuestionPoolSelectionPosition.
+ */
+export interface StudentIssuedQuestion {
+  readonly id: IssuedQuestionId;
+  readonly assignmentAttempt: AssignmentAttemptId;
+  readonly assignmentEntry: AssignmentEntryId;
+  readonly definitionEntryIndex: number;
+  readonly issuedPosition: number;
+  readonly reference: QuestionVersionReference;
+  readonly statisticsEligible: boolean;
 }
 
 /** Explicit acknowledgement of an idempotent response submission. */
@@ -234,7 +251,7 @@ export type QuestionSubmissionAcknowledgement =
 /** Safe binding for a newly active next attempt; no source record or source material leaks. */
 export interface NextIssuedAttempt {
   readonly id: QuestionAttemptId;
-  readonly issuedQuestion: IssuedQuestion;
+  readonly issuedQuestion: StudentIssuedQuestion;
   readonly seed: number;
   readonly deadline: number | null;
   readonly renderedQuestionSha256: string;
@@ -243,18 +260,18 @@ export interface NextIssuedAttempt {
 /** Key-free envelope cached only behind its owned predecessor attempt. */
 export interface PrefetchedNextQuestion {
   readonly predecessor: QuestionAttemptId;
-  readonly issuedQuestion: IssuedQuestion;
+  readonly issuedQuestion: StudentIssuedQuestion;
   readonly seed: number;
   readonly renderedQuestionSha256: string;
   /** Same safe ordinal provenance used when this cached successor becomes current. */
-  readonly questionPoolSelection: QuestionPoolSelection | null;
+  readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
   readonly envelope: QuestionPresentation;
 }
 
 /** Server-redacted one-question outcome in a bounded Assignment Attempt summary. */
 export interface AssignmentAttemptSummaryOutcome {
   readonly attempt: QuestionAttemptId;
-  readonly issuedQuestion: IssuedQuestion;
+  readonly issuedQuestion: StudentIssuedQuestion;
   readonly submittedAt: number | null;
   readonly response: StudentResponse | null;
   readonly feedback: StudentFeedback | null;
@@ -307,11 +324,12 @@ export type PublicationValidationResponse =
     }
   | PublicationReadinessFailure;
 
-export interface PublicationDiff {
-  readonly draftRevision: number;
+/** Answer-free review of the saved Question Working Copy proposed for publication. */
+export interface QuestionPublicationReview {
+  readonly workingCopyEditNumber: number;
   readonly revision: string;
-  readonly baseline: "newQuestion";
-  readonly current: PublicationSemanticProjection;
+  readonly baseQuestion: "newQuestion";
+  readonly current: QuestionPublicationReviewSummary;
   readonly changed: ReadonlyArray<
     | "sourceBackend"
     | "title"
@@ -324,8 +342,8 @@ export interface PublicationDiff {
   >;
 }
 
-/** Safe semantic comparison only; source locators, grading, and keys never cross this boundary. */
-export interface PublicationSemanticProjection {
+/** Safe review summary; source locators, grading, and keys remain server-held. */
+export interface QuestionPublicationReviewSummary {
   readonly sourceBackend: QuestionBackend;
   readonly title: string;
   readonly prompt: { readonly blocks: ReadonlyArray<PublicationPromptBlockKind> };
@@ -338,7 +356,7 @@ export interface PublicationSemanticProjection {
   readonly questionVariationDefinition: { readonly kind: "static" | "seeded" };
   readonly metadata: {
     readonly tags: ReadonlyArray<string>;
-    readonly taxonomy: ReadonlyArray<TaxonomyTerm>;
+    readonly classifications: ReadonlyArray<QuestionClassification>;
     readonly license: License;
     readonly language: string;
   };

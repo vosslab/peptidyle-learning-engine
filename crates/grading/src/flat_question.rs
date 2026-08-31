@@ -14,9 +14,9 @@ use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
 };
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, GradingResult,
-    QuestionFeedback, QuestionFormat, QuestionMetadata, QuestionSource, QuestionTitleError,
-    QuestionVersion,
+    DraftQuestionDefinition, DraftQuestionSource, GradingResult, QuestionAnswer, QuestionFeedback,
+    QuestionFormat, QuestionGradingRule, QuestionMetadata, QuestionPostGradingContent,
+    QuestionSource, QuestionTitleError, QuestionVersion,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -107,7 +107,7 @@ struct FlatOutcomeFeedback {
 /// Result and private teaching content from one trusted evaluation.
 pub struct FlatQuestionEvaluation {
     pub outcome: QuestionGradingOutcome,
-    pub feedback: QuestionFeedback,
+    pub post_grading_content: QuestionPostGradingContent,
 }
 
 impl FlatQuestionPrivate {
@@ -237,7 +237,7 @@ impl FlatQuestionPrivate {
         };
         Ok(FlatQuestionEvaluation {
             outcome: QuestionGradingOutcome::Graded(result),
-            feedback: self.feedback_for(question, response, result)?,
+            post_grading_content: self.post_grading_content_for(question, response, result)?,
         })
     }
 
@@ -298,12 +298,12 @@ impl FlatQuestionPrivate {
         Ok(())
     }
 
-    fn feedback_for(
+    fn post_grading_content_for(
         &self,
         question: &QuestionVersion,
         response: &StudentResponse,
         result: GradingResult,
-    ) -> Result<QuestionFeedback, FlatQuestionError> {
+    ) -> Result<QuestionPostGradingContent, FlatQuestionError> {
         let mut choice_feedback = Vec::new();
         if let StudentResponse::MultipleChoice { selected } = response {
             for selected_choice in selected {
@@ -321,15 +321,19 @@ impl FlatQuestionPrivate {
         } else {
             (None, self.outcome_feedback.incorrect.as_deref())
         };
-        Ok(QuestionFeedback {
-            choice_feedback: (!choice_feedback.is_empty()).then_some(choice_feedback),
-            correct_feedback: correct_feedback.map(markdown_blocks),
-            incorrect_feedback: incorrect_feedback.map(markdown_blocks),
-            correct_response: Some(correct_response_blocks(
-                &question.response,
-                &self.answer_key,
-            )?),
-            rationale: None,
+        let question_answer = QuestionAnswer::new(correct_response_blocks(
+            &question.response,
+            &self.answer_key,
+        )?)
+        .ok_or(FlatQuestionError::PublicBindingMismatch)?;
+        Ok(QuestionPostGradingContent {
+            question_feedback: QuestionFeedback {
+                choice_feedback: (!choice_feedback.is_empty()).then_some(choice_feedback),
+                correct_feedback: correct_feedback.map(markdown_blocks),
+                incorrect_feedback: incorrect_feedback.map(markdown_blocks),
+            },
+            question_answer: Some(question_answer),
+            question_answer_explanation: None,
         })
     }
 }
@@ -370,7 +374,7 @@ fn validate_flat_shape(
     question_type: QuestionType,
     question_variation_definition: &QuestionVariationDefinition,
     response: &QuestionResponseFormat,
-    grading: &GradingDefinition,
+    grading: &QuestionGradingRule,
 ) -> Result<(), FlatQuestionError> {
     if !matches!(
         question_variation_definition,
@@ -379,7 +383,7 @@ fn validate_flat_shape(
         return invalid("flat questions require a static Question Variation Definition");
     }
     validate_response_for_type(question_type, response)?;
-    let GradingDefinition::AllOrNothing { points } = grading else {
+    let QuestionGradingRule::AllOrNothing { points } = grading else {
         return invalid("flat Question Type requires all-or-nothing grading");
     };
     if !points.is_finite() || *points < 0.0 {
@@ -743,7 +747,7 @@ struct PublicBinding<'a> {
     question_attempt_limit: QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
     question_variation_definition: &'a QuestionVariationDefinition,
-    grading: &'a GradingDefinition,
+    grading: &'a QuestionGradingRule,
     metadata: &'a QuestionMetadata,
 }
 /// Returns the checksum that binds private Answer Key and Question Feedback to one exact
