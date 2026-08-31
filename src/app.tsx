@@ -172,7 +172,7 @@ export function App(props: RouteSectionProps): JSX.Element {
             </A>
           </Show>
           <Show when={session.state().kind === "authenticated"}>
-            <A href="/account/co-instructor-invitations" activeClass="active">
+            <A href="/account/course-invitations" activeClass="active">
               Invitations
             </A>
             <button

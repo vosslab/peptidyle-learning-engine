@@ -31,7 +31,7 @@ All installed backends enter the server through `crates/server/src/run/contracts
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source authority | A published `QuestionDefinition` and immutable `QuestionVersionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                              |
 | Issuance         | `RunBackend::issue` receives trusted `AuthenticatedSession`, exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance. |
-| Reproduction     | `RunBackend::reproduce` is limited to issue-time work and explicit envelope-less active families. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead. |
+| Reproduction     | `RunBackend::reproduce` is limited to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead. |
 | Response         | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                |
 | Grade            | `RunBackend::grade` returns a server-side outcome. The common route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                      |
 | Provenance       | `AttemptProvenance` records adapter, optional renderer/generator, source artifact, bound assets, grader, and rendered-question SHA-256.                                                                          |
@@ -119,7 +119,7 @@ When explicitly configured, QTI declares `serverGrading`. Current accepted impor
 single-choice Canvas QTI 1.2 and Blackboard Original QTI 2.1 pools. Other XML, interaction types,
 embedded execution, and broad QTI interchange are refused rather than partially interpreted.
 
-**Planned.** Broader QTI families and external QTI-JSONL interchange require new profile decisions,
+**Planned.** Broader QTI Question Types and external QTI-JSONL interchange require new profile decisions,
 conversion semantics, private key handling, and independent live acceptance. Flat JSON v2 alone does
 not enable them.
 

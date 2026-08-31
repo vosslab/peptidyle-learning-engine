@@ -11,7 +11,8 @@ import { decodeNativeDraftPreviewResult } from "../src/wasm/index.ts";
 const draft = {
   workspace: "0198e000-0000-7000-8000-000000000010",
   title: "Peptide-bond geometry",
-  source: { backend: "native", family: "peptide-bond" },
+  source: { backend: "native" },
+  questionFormat: "nativeAlgorithmic",
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response: { kind: "numeric", tolerance: { kind: "absolute", epsilon: 0.5 }, unit: "degrees" },
   attemptPolicy: { maxAttempts: null },

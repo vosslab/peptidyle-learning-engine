@@ -1,7 +1,6 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
-
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -371,7 +370,7 @@ partial credit, and permitted feedback.
 **Owner.** [SECURITY_MODEL.md](SECURITY_MODEL.md#grading-boundary),
 [crates/grading/src/lib.rs](../crates/grading/src/lib.rs), and the MOD-GRD/MOD-WASM boundaries in
 [CONTRACTS.md](CONTRACTS.md#boundary-invariants).
-**Planned closure.** Every new adapter and question family must prove the same closure before its
+**Planned closure.** Every new Question Backend and Question Type must prove the same closure before its
 browser projection is accepted.
 
 ### The attempt is the grading authority
@@ -402,7 +401,7 @@ buffer and exposes **Check grading status**; the worker owns later progress.
 **Decision.** Accepted automated grading uses one private execution handler shared by the
 synchronous exact-claim path and the background recovery worker. `AcceptedSubmissionExecutionWorker`
 owns the worker-only claim, private load, grading call, and tuple-fenced completion or failure.
-The ordinary worker retains the existing queue families; automated execution uses a dedicated
+The ordinary worker retains the existing Job Kinds; automated execution uses a dedicated
 store capability and process login, while Instructor operations receive metadata-only recovery
 commands.
 
@@ -866,7 +865,7 @@ state, and gives each retry and revocation path one exact boundary to verify.
 The enqueue transaction resolves it from currently authorized records; a new
 generation creates new work rather than changing a claim's target. The
 acceptance suite proves rejection for foreign targets, stale generations,
-mismatched handler families, expired leases, and client-supplied scope values.
+mismatched Job Kind Registrations, expired leases, and client-supplied scope values.
 **Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 `crates/learning-data-access/src/jobs.rs`, and the baseline job broker.
@@ -911,7 +910,7 @@ can preserve interchange without dictating the engine's internal representation.
 
 ### Native interactions adapt the QTI self-test model
 
-**Decision.** Native families borrow the QTI Package Maker self-test's compact task, obvious submit,
+**Decision.** Native Question Implementations borrow the QTI Package Maker self-test's compact task, obvious submit,
 visible response state, per-part completion, plain-language feedback, reset, and completed state.
 PLE retains server-only grading, labeled controls, keyboard operation, and recoverable errors.
 

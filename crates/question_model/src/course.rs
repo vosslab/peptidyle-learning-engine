@@ -6,7 +6,7 @@ use crate::{
     ActivityTimestamp, AssignmentProgressRecord, AssignmentDeadlineBehavior,
     AssignmentDeliveryState, AssignmentId, AssignmentInstructions, AssignmentEntryId,
     AssignmentReference, AssignmentScoringMode, BackendCapabilities,
-    CourseId, CourseReference, IanaTimeZone, LateSubmissionPolicy, PointValue, QuestionBackend,
+    CourseId, CourseInstanceReference, IanaTimeZone, LateSubmissionPolicy, PointValue, QuestionBackend,
     QuestionId, AssignmentActivityRules, ScoringStatus, SelectionOrdering, StudentDisclosurePolicy,
     QuestionPoolCandidateId, StudentRecordId, VariationPolicy,
 };
@@ -31,7 +31,7 @@ pub struct CourseSummary {
     /// Durable course identity.
     pub id: CourseId,
     /// Stable typed locator used in application navigation.
-    pub reference: CourseReference,
+    pub reference: CourseInstanceReference,
     /// Human-facing course or section title.
     pub title: String,
     /// Required inclusive term bounds and authoritative scheduling zone.

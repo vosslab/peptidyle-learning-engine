@@ -11,7 +11,7 @@ use question_model::generation::{RandomizationDefinition, Seed};
 use question_model::{DraftQuestionSource, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
-use crate::generator::{GeneratedValue, GenerationError, generate};
+use crate::generator::{generate, GeneratedValue, GenerationError};
 
 /// Browser-safe inputs needed to preview one editable workspace draft.
 ///
@@ -62,7 +62,7 @@ pub enum DraftPreviewResult {
     Ready { preview: DraftQuestionPreview },
     /// This source needs a backend path rather than a synthetic browser preview.
     Unavailable {
-        /// Family selected by the draft source.
+        /// Question Backend selected by the draft source.
         backend: QuestionBackend,
         /// Capability the source cannot provide locally.
         capability: Capability,
@@ -106,7 +106,7 @@ impl std::error::Error for PresentationError {}
 
 /// Produces a local preview when the source is first-party native.
 ///
-/// All other draft families deliberately return an explicit capability result;
+/// All other draft Question Backends deliberately return an explicit capability result;
 /// they do not fall back to an invented browser evaluator.
 pub fn preview_native_draft(
     request: &DraftPreviewRequest,
@@ -133,7 +133,7 @@ pub fn preview_native_draft(
 /// Applies generated values to the explicitly safe prompt fields.
 ///
 /// The allowed fields are data-driven by `ContentBlock`, rather than a native
-/// question-family switch: prose, math, image descriptions, code source, and
+/// question-content switch: prose, math, image descriptions, code source, and
 /// table text.  Asset identifiers, checksums, code language labels, and all
 /// response data remain literal.
 pub fn materialize_prompt(
@@ -234,11 +234,11 @@ fn generated_text(value: &GeneratedValue) -> String {
 mod tests {
     use std::collections::BTreeMap;
 
-    use question_model::DraftQuestionSource;
     use question_model::answer::TextMatchMode;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec};
     use question_model::response::QuestionResponseFormat;
+    use question_model::DraftQuestionSource;
     use uuid::Uuid;
 
     use super::*;
@@ -287,13 +287,8 @@ mod tests {
 
     #[test]
     fn native_preview_is_key_free_and_materializes_every_safe_text_field() {
-        let result = preview_native_draft(
-            &request(DraftQuestionSource::Native {
-                family: "fixture".to_string(),
-            }),
-            Seed::new(19),
-        )
-        .expect("valid preview");
+        let result = preview_native_draft(&request(DraftQuestionSource::Native), Seed::new(19))
+            .expect("valid preview");
         let DraftPreviewResult::Ready { preview } = result else {
             panic!("native is ready")
         };
@@ -332,9 +327,7 @@ mod tests {
 
     #[test]
     fn unresolved_or_unknown_placeholders_are_explicit() {
-        let mut request = request(DraftQuestionSource::Native {
-            family: "fixture".to_string(),
-        });
+        let mut request = request(DraftQuestionSource::Native);
         request.prompt = vec![ContentBlock::Text {
             markdown: "{{missing}}".to_string(),
         }];

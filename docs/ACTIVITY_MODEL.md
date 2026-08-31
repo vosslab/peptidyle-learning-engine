@@ -250,7 +250,7 @@ Question-level policies remain separate from Assignment Activity policy. Every i
 published question version owns an `AttemptPolicy` retry bound and a
 `TimingPolicy`; an assignment cannot silently rewrite either one. Attempt
 policy does not disclose results, feedback, or answers. That lets the same Assignment Attempt
-model work for native, QTI, WeBWorK, and future question families while keeping
+model work for native, QTI, WeBWorK, and future Question Backends while keeping
 response and grading authority server-side.
 
 ### Student disclosure
@@ -418,7 +418,7 @@ Attempt transition and returned activity view in one transaction, so a page
 never computes a grade by scanning activity history. Activity time never moves
 backward when an older event is replayed.
 
-`domain::scoring::select_assignment_attempt_grade` is the batch reconciliation contract over completed
+`domain::scoring::select_assignment_attempt_grade` is the batch Recalculation contract over completed
 Assignment Attempt IDs, one-based attempt numbers, and score fractions. First and latest use
 attempt number rather than input order. Highest keeps the earlier Assignment Attempt when scores tie,
 so the selected pointer is stable. Instructor-selected grading remains empty

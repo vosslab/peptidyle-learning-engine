@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn native_draft_preview_stays_key_free() {
         let preview = preview_native_draft(
-            r#"{"workspace":"00000000-0000-0000-0000-000000000001","source":{"backend":"native","family":"fixture"},"title":"Fixture","prompt":[{"kind":"text","markdown":"Value {{value}}"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20},"randomization":{"kind":"seeded","generator":{"id":"fixture","version":"1"},"parameters":{"value":{"kind":"fixed","value":"safe"}}}}"#,
+            r#"{"workspace":"00000000-0000-0000-0000-000000000001","source":{"backend":"native"},"title":"Fixture","prompt":[{"kind":"text","markdown":"Value {{value}}"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20},"randomization":{"kind":"seeded","generator":{"id":"fixture","version":"1"},"parameters":{"value":{"kind":"fixed","value":"safe"}}}}"#,
             "4",
         )
         .expect("native draft preview");

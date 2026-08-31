@@ -1,577 +1,83 @@
 # Database structure
 
-This document is the durable map of PLE's PostgreSQL schema: what owns each kind of
-fact, which migration state is accepted, and where to find the detailed contracts. It
-does not authorize changing an accepted migration. The shared status registry and release
-plan remain the authority for unfinished work and deployment acceptance.
+This document maps the checked-in pre-production PostgreSQL baseline. The SQL
+files under [schemas/migrations/](../schemas/migrations/) are the physical
+schema authority. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product
+decisions; [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns product
+meaning; [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) owns database
+authorization; and [implementation_status.md](active_plans/implementation_status.md)
+owns migration allocation and package acceptance.
 
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) supersedes this document for
-the meaning of PLE-owned terms. This document owns their physical PostgreSQL
-representation and migration history.
+## Baseline and migration rules
 
-## Schema authority
+The current disposable baseline is exactly `2026082901` through `2026082936`.
+Apply it only to a clean disposable database. The prior migration epoch was
+removed during the SD1 clean break; it is neither an upgrade path nor a source
+of current table, role, or policy names.
 
-The checked-in SQLx migrations in [schemas/migrations/](../schemas/migrations/) define
-the schema. The Rust Store contracts and PostgreSQL implementation must agree with those
-migrations, but do not replace them as schema authority. The shared registry in
-[implementation_status.md](active_plans/implementation_status.md) owns unfinished migration
-allocation and current package handoff; the release plan owns package scope and acceptance evidence:
+Each accepted migration is immutable. Before acceptance, correct a wrong
+baseline migration directly, update its owning package evidence, and rebuild a
+clean database. The baseline has no compatibility migrations, backfills,
+legacy readers, or parallel authorization model.
 
-- [implementation plan](active_plans/implementation_plan.md) defines the platform
-  architecture and storage boundaries.
-- [release completion plan](active_plans/active/release_completion_plan.md) defines
-  the active migration sequence and release gates.
-- The current pre-production baseline changes directly with its owning package;
-  clean disposable databases replace obsolete baseline state.
-- [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) is the sole durable PostgreSQL
-  authorization authority; this document maps structure and does not duplicate its predicates.
-- [CONTRACTS.md](CONTRACTS.md) registers frozen cross-module contracts.
-- [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) owns the PostgreSQL/object-storage
-  commit, repair, and reconciliation contract.
+## Physical ownership map
 
-The browser never connects to PostgreSQL. It receives answer-free public envelopes from
-the API; server code establishes authenticated transaction context and calls Store
-capabilities. A private `account_authentication_email` relation retains the verified,
-mutable passwordless email credential for one existing global Account. It is distinct
-from immutable Account identity and role, and is neither a course relationship nor a
-browser DTO.
-
-The current migration directory is also the pre-SD1 physical source inventory. Its historical
-legacy installation-scope keys and context are not the binding single-installation target. SD1-C owns the fresh
-epoch that replaces those shapes with global identities, exact course/Student and workspace
-relationships, and typed capability scopes. Until that epoch lands, current source names are
-migration input and one-time evidence; this document does not introduce compatibility columns,
-aliases, or a parallel authorization model.
-
-## Migration ledger
-
-The checked-in `schemas/migrations/` directory is the physical inventory authority. The current
-pre-production baseline begins at `2026082901`; it replaces the removed pre-SD1 migration epoch.
-Apply it only to a clean disposable PostgreSQL database. The shared [implementation status
-ledger](active_plans/implementation_status.md) owns allocation and disposition; a successful
-migration run does not itself accept an unfinished package.
-
-| Version | File | Owns |
+| Migration range | Physical owner | Principal records |
 | --- | --- | --- |
-| 2026082901 | [principal baseline](../schemas/migrations/2026082901_principal_baseline.sql) | Default-deny schemas and PostgreSQL capability roles. |
-| 2026082902 | [global Account and session](../schemas/migrations/2026082902_global_account_authenticated_session.sql) | Immutable Product Role, Account State Events, and opaque Authenticated Session records. |
-| 2026082903 | [email challenges](../schemas/migrations/2026082903_email_challenges_and_rate_limits.sql) | Private Authentication Email, passwordless email ceremonies, and rate limits. |
-| 2026082904 | [WebAuthn](../schemas/migrations/2026082904_webauthn_ceremonies_and_passkeys.sql) | Browser-bound WebAuthn ceremonies and passkeys. |
-| 2026082905 | [Instructor approval](../schemas/migrations/2026082905_instructor_approval.sql) | Immutable global Instructor Approval Events; current eligibility grants no course authority. |
-| 2026082906 | [session resolver](../schemas/migrations/2026082906_session_resolution_broker.sql) | Active-Account Authenticated Session resolution, installation, creation, and revocation brokers. |
-| 2026082914 | [course relationships](../schemas/migrations/2026082914_course_memberships.sql) | Immutable Course Membership and Course Invitation event-ledger transitions. |
-| 2026082933 | `authentication_ceremony_brokers.sql` | Atomic email-challenge and validated-passkey completion for existing Accounts. |
-| 2026082934 | `sysadmin_account_creation.sql` | Sysadmin-only Account Creation for a global Account and immutable Product Role. |
-| 2026082935 | `blueprint_revision_collaboration.sql` | Immutable Blueprint Publication, Blueprint Collaborator, and Blueprint Revision Availability Events. |
-| 2026082936 | `question_version_statistics.sql` | Identity-free exact Question Version Statistics and idempotent accepted-grade evidence. |
+| 2901–2906 | Global Account and Authenticated Session | PostgreSQL roles, `account`, Account State Events, `authenticated_session`, Authentication Email, email challenges, WebAuthn ceremonies, passkeys, Instructor Approval Events, and session-resolution brokers. |
+| 2907–2910 | Shared Question Corpus and private authoring | Published Questions and immutable Question Versions, publication and availability events, Question Change Proposals, Authoring Workspaces, Draft Questions and their Revisions, source, grading material, and private QTI import facts. |
+| 2911–2915 | Reusable and live course roots | Blueprint Courses and Revisions, Account-owned Question Collections and Saved Question Searches, Course Instances and Course Origin, Course Membership Events, Course Invitations, and Student Records. |
+| 2916–2918 | Assignment delivery and Student work | Assignments and immutable Assignment Revisions, Assignment Attempts, Issued Questions, Question Attempts, Question Submissions, Assignment Submissions, and Student Feedback Release. |
+| 2919–2924 | Course objects, grading, analysis, and correction | Course Object Metadata, Automated Grading Operations and Receipts, Assignment Grades and Events, Course and Item Analysis, Forced Question Corrections, Question Change Events, and correction evidence. |
+| 2925–2931 | Jobs, retention, external tools, objects, and authorization closure | Typed Jobs and leases, exports and retention events, external-tool state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, capability brokers, forced RLS policies, and final ACL closure. |
+| 2932–2936 | Baseline witness and current root extensions | Baseline Acceptance Witness, authentication ceremony brokers, Sysadmin Account Creation, Blueprint publication/collaboration/availability events, and identity-free Question Version Statistics. |
 
-Later `20260829xx` files build the shared catalog, authoring workspaces,
-BlueprintCourses, CourseInstances, Student records, delivery, grading, capability brokers,
-and forced-RLS closure on those roots. They remain pre-production source until their individual
-package gates are accepted. The deleted pre-SD1 files are historical implementation evidence only;
-they are not part of this schema, an upgrade path, or a documentation target.
+## Ownership boundaries
 
-### Selected physical migration inventory
+- `ple_private` contains Account credentials, sessions, invitations, draft-authoring facts,
+  Student work, operational state, and private grading or provider material.
+- `ple_data` contains shared Question, Blueprint Course, Course Instance, Membership,
+  Student Record, Assignment, delivery, correction, and aggregate analysis facts.
+- `ple_audit` contains immutable visible security, grading, retention, correction, and
+  object-storage evidence.
+- The browser never connects to PostgreSQL. Server code resolves an Authenticated Session,
+  authorizes exact Account and durable-resource relationships, and invokes narrow Store or
+  broker capabilities.
 
-An accepted migration is immutable and later accepted work takes the next ordered forward version.
-An unaccepted pre-production migration is different: when its design is wrong, correct or replace
-that source directly, update the checked ledger expectation, and rebuild a clean disposable
-database. Do not add a compatibility migration, nullable fallback, backfill, or legacy reader for
-data that does not exist. This selected table inventories representative migration files and their
-observed source state; it is intentionally non-exhaustive and is not an allocation or reservation
-authority. The checked-in [`schemas/migrations/`](../schemas/migrations/) directory is the complete
-physical inventory. The shared registry in
-[implementation_status.md](active_plans/implementation_status.md) is the sole authority for
-unfinished migration allocation, while the active release plan owns package acceptance.
-
-| Version    | Planned owner     | Intended scope                                                                                                                                                                                                                                                      | Current source state                                                                                       |
-| ---------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 2026080908 | WP-P2             | Secure student grading payload binding and WeBWorK replay state                                                                                                                                                                                                     | File present; acceptance open                                                                              |
-| 2026080909 | WP-RC8            | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit                                                                                                                                                             | File present; migration gate passed; package acceptance open                                               |
-| 2026080914 | WP-RC4            | Flat-question v2 grading                                                                                                                                                                                                                                            | File present; package acceptance open                                                                      |
-| 2026080915 | WP-HG1            | Historical internal catalog display-number range                                                                                                                                                                                                                    | File present; public use superseded by 2026080931                                                          |
-| 2026080916 | Receipt closeout  | Submission receipt presentation payload/checksum; retired disclosure field removed by 2026081805                                                                                                                                                                    | File present; live receipt oracle passed                                                                   |
-| 2026080917 | Receipt closeout  | Issued presentation capability/payload and successor receipt descriptor                                                                                                                                                                                             | File present; live receipt oracle passed                                                                   |
-| 2026080918 | WP-RC5            | Immutable workspace flat-question asset descriptors and delivery bindings                                                                                                                                                                                           | Unaccepted source corrected to canonical `private-content` descriptor bucket; live oracle pending          |
-| 2026080919 | Receipt closeout  | Issued private grading envelope for presentation-bearing attempts                                                                                                                                                                                                   | File present; live receipt oracle passed                                                                   |
-| 2026080920 | WP-RC5            | Rebound private flat-question HOTSPOT grading for version-scoped assets                                                                                                                                                                                             | File present; acceptance open                                                                              |
-| 2026080921 | Receipt closeout  | Issued private flat-question grading contract for first submission                                                                                                                                                                                                  | File present; live receipt oracle passed                                                                   |
-| 2026080922 | Receipt closeout  | Issued private WeBWorK definition contract for first submission                                                                                                                                                                                                     | File present; live receipt oracle passed                                                                   |
-| 2026080929 | WP-UI1            | Human route references for courses, assignments, runs, and workspaces                                                                                                                                                                                               | File present; browser route contract implemented                                                           |
-| 2026080930 | WP-UI1            | Account-backed standard or increased-contrast presentation preference                                                                                                                                                                                               | Unaccepted source uses a session-hash broker; live oracle pending                                          |
-| 2026080931 | Question ID       | Crockford Base32 Question ID, current-question projection, and owner-correction propagation                                                                                                                                                                         | File present; Memory/browser gates passed                                                                  |
-| 2026080932 | Question ID       | Recreate `catalog_search_view` after 0931 to project `question_id`, preserving `security_invoker`, statistics, and grants                                                                                                                                           | File present; disposable migration baseline passed; acceptance open                                        |
-| 2026080933 | Security repair   | Historical pre-SD1 repair: replace the boolean audit switch with a non-action precheck and audited Sysadmin account, use built-in SHA-256, and retain the dedicated roster-support broker | File present; focused static/offline checks pending live baseline |
-| 2026080934 | Security repair   | Historical pre-SD1 repair: require current course ownership, not catalog visibility, to append catalog grants, immutable version payloads, or source artifacts | File present; focused live RLS oracle pending |
-| 2026080935 | Question ID       | Require a live original-instructor session capability for owner corrections; propagate only future assignment definitions through a narrow broker while preserving issued evidence                                                                                  | File present; focused static/offline checks pending live baseline                                          |
-| 2026081401 | Catalog discovery | Ranked lexical catalog discovery and stable paging                                                                                                                                                                                                                  | File present; disposable catalog gate passed                                                               |
-| 2026081501 | WP-RC8 account    | Historical pre-SD1 account/session revocation and verified-email replacement                                                                                                                                                                                        | File present; package acceptance open                                                                      |
-| 2026081502 | WP-RC8 delivery   | Bounded course-invitation delivery outbox, leases, provider receipts, and cancellation                                                                                                                                                                              | File present; package acceptance open                                                                      |
-| 2026081503 | WP-RC8 repair     | Relation-qualified invitation-delivery claim function                                                                                                                                                                                                               | File present; disposable PostgreSQL gate passed                                                            |
-| 2026081504 | WP-RC8 repair     | Relation-qualified email-change completion and session-revocation function                                                                                                                                                                                          | File present; disposable PostgreSQL gate passed                                                            |
-| 2026081801 | WP-INST-S2        | Mandatory inclusive teaching-course term dates and exact IANA time-zone text on the course row                                                                                                                                                                      | Accepted and immutable; disposable PostgreSQL 17 baseline passed                                           |
-| 2026081802 | WP-INST-S7        | Positive public scalar for course groups; immutable validated public byline on published versions and catalog projection                                                                                                                                            | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
-| 2026081803 | WP-INST-S5        | Canonical membership episodes, derived entitlement, typed group purposes/audiences, sealed materialization provenance, and typed assignment summaries                                                                                                               | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
-| 2026081804 | WP-INST-S3        | Normalized base policy, group offsets/accommodations, individual exceptions, sealed per-attempt effective-policy receipts, field provenance, and current pointer                                                                                                    | Accepted and immutable; fresh PostgreSQL 17 baseline and exact normalized resolver/RLS oracle passed       |
-| 2026081805 | WP-INST-S4        | Assignment-owned five-field student disclosure policy and removal of retired coarse disclosure columns                                                                                                                                                              | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
-| 2026081806 | WP-INST-S6        | Course-owned total-points and weighted-category schemes, normalized categories and letter bands, compact-summary totals, and PII-free export audit                                                                                                                  | Accepted and immutable                                                                                     |
-| 2026081807 | WP-INST-T2        | Purpose-aware course-group membership policy, global non-authorizing Instructor approval, target-bound co-instructor invitations, safe public teaching references, final-Instructor protection, and modifier reference guards                                       | Accepted and immutable; fresh PostgreSQL 17 upgrade, group, authority, RLS, and concurrency oracles passed |
-| 2026081837 | WP-INST-B1        | Historical pre-SD1 evidence: split personal Blueprint and Alpha curriculum tables, validators, pins, policies, and broker functions                                                                                                                                   | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081838 | WP-INST-B2        | Historical pre-SD1 evidence: curriculum-adoption lineage, schedules, provenance, receipts, integrity, and forced-RLS foundation                                                                                                                                      | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081839 | WP-INST-B2        | Historical pre-SD1 evidence: curriculum-adoption broker authority, retention integration, and capability boundary                                                                                                                                                     | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081840 | WP-INST-B2        | Historical pre-SD1 evidence: relational snapshots, locked preparation, inspection, and reconciliation helpers                                                                                                                                                         | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081841 | WP-INST-B2        | Historical pre-SD1 evidence: ordinary-course topology, issued-work fencing, and topology assertions                                                                                                                                                                 | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081842 | WP-INST-B2        | Historical pre-SD1 evidence: source authorization, closed request validation, and source snapshot facts                                                                                                                                                             | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081843 | WP-INST-B2        | Historical pre-SD1 evidence: teaching-course, import, inspection, reconciliation, and controlled schedule facts                                                                                                                                                     | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081844 | WP-INST-B2        | Historical pre-SD1 evidence: shared materializer validation, idempotency, receipts, and evidence helpers                                                                                                                                                             | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081845 | WP-INST-B2        | Historical pre-SD1 evidence: fork, assignment adoption, fast-forward, and reconciliation materializers                                                                                                                                                              | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081846 | WP-INST-B2        | Historical pre-SD1 evidence: whole-course instantiation, rollover, and term-shift materializers                                                                                                                                                                     | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-| 2026081847 | WP-INST-B2        | Historical pre-SD1 evidence: public bridge completion and final broker catalog assertions                                                                                                                                                                           | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
-
-The 2026080931 and 2026080935 entries describe superseded pre-production migration behavior. The
-current WP-R2 schema contract uses one immutable Question ID per publication, fresh hidden
-`(QuestionId, QuestionVersionNumber)` evidence, optional one-way provenance, and deliberate revision-checked
-assignment replacement. The migration ledger remains historical evidence; it does not authorize
-same-question correction, version-chain resolution, or automatic propagation.
-
-Student file responses remain unavailable until their dedicated current-schema
-contract and validation evidence exist.
-The fresh pre-production baseline starts with the global Account and Authenticated Session roots in
-`2026082902_global_account_authenticated_session.sql`. `2026082903` adds private verified
-Authentication Email and browser-bound email-challenge state; `2026082904` adds private WebAuthn
-ceremony and Passkey state. These credential relations establish an existing Account only; they do
-not provision accounts, assign Product Roles, or create Course Memberships. Local browser entry
-uses the same Account and Authenticated Session records as the deployed product: the
-deployment-gated seeded-persona selector may enter one of the configured disposable Accounts, but
-it introduces no alternate identity or session model. Because this checked-in schema is
-pre-production-only, a changed baseline applies to a clean disposable PostgreSQL volume.
-
-`2026081801_course_term.sql` keeps the term's three atomic attributes on `public.course` because
-they depend on the course key and have no independent lifecycle. Native `date` columns preserve
-calendar values, `text` preserves exact IANA spelling, and `NOT NULL`, ordering, range, trim, and
-length constraints reject malformed row shapes. Exact known-zone membership remains in the shared
-Rust value type so the application can update its reviewed IANA corpus without a competing database
-enum or lookup table. The migration has no default, backfill, compatibility reader, or new index.
-
-`2026081804_effective_policy_resolver.sql` keeps mutable assignment policy inputs separate from
-immutable attempt evidence. The base row, group schedule offsets, group accommodations, and one
-student exception are normalized assignment relations. Each attempt receipt records all resolved
-fields and their ordered sources, seals only after complete provenance exists, and is selected by a
-current pointer that can reference only a sealed generation. The schema therefore preserves why an
-issued policy applied without reconstructing historical timing from changed current inputs.
-WP-INST-T1 makes that normalized base row the only stored schedule/limit/late/deadline authority and
-uses the existing assignment lifecycle and instructions columns. A teaching-settings write locks the
-assignment, validates the authoritative course term, updates lifecycle, instructions, and base policy
-under one revision, then re-resolves active attempts in the same transaction. No legacy
-`AssignmentRunTiming`, defaulted compatibility column, or parallel browser-owned clock is retained.
-
-`2026081805_assignment_learner_disclosure_policy.sql` makes assignment disclosure the one current
-authority. It adds non-null, checked `score_disclosure`,
-`per_item_correctness_disclosure`, `feedback_text_disclosure`,
-`solution_disclosure`, and `class_statistics_disclosure` columns. The migration uses temporary
-defaults only while adding the closed columns, then drops all defaults, so future application
-writes choose every value. It drops `assignment.feedback_disclosure`,
-`question_attempt.issued_feedback_disclosure`, and
-`submission_receipt_snapshot.feedback_disclosure`; no legacy disclosure column remains as a
-reader or writer surface. `feedback_release` remains separate immutable audit evidence under its
-retention fence, not a disclosure authority.
-
-`2026081806_course_grade_scheme.sql` adds the course-owned `course_grade_scheme`, normalized
-`course_grade_category`, `course_grade_category_assignment`, and `course_grade_letter_band`
-relations plus `course_total_export_audit`. The mode check is closed to total points and weighted
-categories; completion-based grading is not represented. The scheme revision is positive and
-strong-CAS updates replace the whole title-free assignment setting, while scheme reads project
-the current server-owned assignment titles. Course totals read one scheme snapshot and maintained
-compact assignment summaries; the browser receives no email, student identity, or raw summary
-payload. Export rows are synchronous and ephemeral; only bounded, PII-free audit metadata is
-durable. All new relations use exact relationship keys, forced RLS, and retention reachability.
-
-`2026081807_teaching_operations.sql` adds one course-owned membership policy for each of the five
-group purposes. Multiple Section membership warns without blocking; the other defaults allow it.
-Global Instructor approval is eligibility evidence only and grants no course or platform authority.
-Co-instructor invitations are target-bound, contain no email address, expire after 30 days, and
-recheck approval when accepted. Positive public `U-`, `M-`, and `CI-` references are minted and
-resolved only through narrow session-, operator-, target-, or exact-course-Instructor capabilities;
-the browser never receives account UUIDs or email. Restrictive M2/M3 references, deferred purpose
-guards, and the serialized final-active-Instructor guard preserve assignment and roster invariants.
-The added relations use forced RLS and least-privilege broker functions; active-attempt S5
-entitlement and S3 effective-policy re-resolution remains an atomic Store transaction with the
-group or modifier mutation.
-
-The unaccepted `2026080930_account_presentation_preference.sql` derives presentation
-preference reads and writes only from a live, opaque 32-byte account-session hash.
-`ple_auth` has no direct preference-table privilege; its two callable functions are
-owned by the membership-free, forced-RLS `ple_account_presentation_broker`. The
-database-baseline oracle creates its own accounts and sessions to prove default/save/get,
-isolation, expiry failure, direct-access denial, and broker metadata.
-
-## BlueprintCourse and CourseInstance
-
-The fresh SD1-C schema has one reusable course aggregate. `BlueprintCourse` owns the complete
-ordered reusable tree. `CourseInstance` is the exact teaching `CourseId` created from that tree;
-it is a separate aggregate and is not another Blueprint kind. A one-assignment reuse is a bounded
-module/assignment projection of the same BlueprintCourse, not a second source model.
-
-### Reusable tree
-
-The canonical relational shape is one root, one ordered module level, and one ordered assignment
-level. Entry tables remain children of the assignment that owns their meaning:
+## Current relational chains
 
 ```text
-course_blueprint (BlueprintCourse root)
-  -> course_blueprint_module (ordered module or week)
-       -> course_blueprint_assignment (ordered reusable assignment)
-            -> course_blueprint_entry (ordered fixed or pool entry)
-                 -> course_blueprint_fixed (exact published-question pin)
-                 -> course_blueprint_pool (draw and ordering policy)
-                      -> course_blueprint_pool_candidate (exact published-question pin)
+Account
+  -> Authenticated Session
+  -> Course Membership -> Student Record
+  -> Course Instance -> Assignment -> Assignment Revision
+  -> Assignment Attempt -> Issued Question -> Question Attempt -> Question Submission
+
+Blueprint Course -> Blueprint Course Revision -> Course Instance -> Course Origin
+Published Question -> Question Version -> Question Version Availability Event
+Authoring Workspace -> Draft Question -> Draft Question Revision
 ```
 
-The root carries the stable `BlueprintReference`, owner/workspace relationship, lifecycle and
-publication state, reviewed public byline snapshot, semantic digest, aggregate revision, and
-timestamps. Modules carry their normalized position and label/week metadata. Assignments carry
-their normalized position, title, instructions, reusable policy defaults, evidence context, and
-relative schedule defaults. Relative calendar-day and local-wall-clock values are reusable intent;
-they are not live deadlines.
+Question Collections organize shared Question lineages for an Account; they do
+not grant visibility or Course authority. Course Invitations are target-bound
+Course Membership operations. An Instructor Course Invitation is the
+Instructor-only Teaching Team operation; pending account acceptance remains a
+generic Course Invitation boundary.
 
-Every fixed entry and pool candidate resolves its submitted public `QuestionId` to one exact,
-immutable `(question_id, version_number)` publication pin. The public ID is the catalog locator and the
-hidden pair is the server-side grading, provenance, and replay identity. A replacement resolves all
-pins atomically under the current authority before changing any child row. No current catalog
-lookup, latest-version rule, or pool draw may reinterpret an existing pin.
+## Object, grading, and retention boundaries
 
-### Revision and ownership
+An Object Delivery authorizes retrieval of one exact Object Reference. An Object
+Storage Check records a completed verified, missing, or mismatched observation.
+Object Cleanup requires a separate manifest, Job, and immutable receipt.
 
-One positive aggregate revision covers the complete root/module/assignment/entry tree. A changed
-meaning locks the root, replaces the ordered child document atomically, and advances the revision
-once; a semantic no-op keeps the revision. An observed stale revision refuses without changing the
-stored tree. There is no separate revision stream for modules, assignments, or individual pins.
+Accepted Student responses, automated grading, Gradebook calculations, and
+retention lifecycle operations each retain their own immutable receipts or
+events. No aggregate projection replaces the source record that proves it.
 
-Draft Question ownership is the root `owner_account_id` (`AccountId`) in its `WorkspaceId`, with
-explicit Workspace Collaborators receiving only the workspace capability. Immutable Workspace
-Collaborator start and end events derive that current relationship. A Draft Blueprint Revision has
-a separate, exact Blueprint Collaborator relationship. Its immutable grant and end
-events bind an Approved Instructor to one unpublished Blueprint Revision; the relationship grants
-neither Authoring Workspace access nor Course Instance authority. The creating Instructor is the
-owner; there is no separate creator authority or creator-owned second course type.
-Publication is an explicit lifecycle transition that stores one immutable reviewed `PublicByline`
-snapshot and exposes the answer-free reusable projection to every approved Instructor. The creator
-snapshot is attribution, not an additional authorization role. The current owner/collaborator and
-approved-Instructor predicates are defined only by
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
+## Verification
 
-### CourseInstance binding
-
-The teaching `course` row is the `CourseInstance` aggregate. Each row has exactly one non-null,
-immutable `blueprint_course_id` parent and one immutable `applied_blueprint_revision` captured at
-instantiation. This is one parent/applied-revision relationship per CourseInstance; it is not a
-collection of source branches and it is not replaceable by a compatibility alias. A blank-course
-flow creates a minimal BlueprintCourse before creating its CourseInstance. A referenced
-BlueprintCourse archives instead of being hard-deleted.
-
-Instantiation copies reusable assignment meaning, reviewed relative schedule defaults, policy
-defaults, theme defaults, and import provenance into the exact CourseInstance. It never copies
-Students, Course Memberships, Course Invitations, Teaching Team Members, accommodations, live deadlines, releases,
-grades, attempts, responses, retention state, or other FERPA records. The target CourseInstance
-resolves relative schedules against its own term and time zone during preview and apply; it then
-owns the resulting live deadlines and every later delivery edit.
-
-CourseInstance owns Course Memberships, Student Records, Assignments and Assignment Revisions,
-Assignment Attempts, submissions, feedback, Gradebook evidence, accommodations, releases, and
-retention linkage. Those relations are private to its current equal Teaching Team Members and
-enrolled Students under the exact course authorization boundary. A BlueprintCourse read never
-exposes this state, and a Published Question's shared catalog visibility never grants access to it.
-
-A later BlueprintCourse revision is a controlled update. Each new Blueprint assignment materializes
-in every affected daughter CourseInstance as an unreleased assignment projection. Existing local
-delivery edits remain intact. Current Teaching Team Members review the resolved preview and explicitly
-release the new assignment before an enrolled Student can receive it; propagation never silently
-releases, overwrites, or creates student records.
-
-### SD1-C cutover
-
-SD1-C builds this shape on a fresh database using the status-owned allocations
-`2026082913`-`2026082916` for courses, memberships, Students, invitations, and curricula and
-`2026082929`-`2026082932` for Course Observer relationships, exact authorization brokers,
-forced RLS, and acceptance helpers, plus `2026082935` for exact Draft Blueprint Revision
-publication and collaboration evidence and `2026082936` for exact Question Version Statistics.
-The exact migration allocation remains owned by
-[implementation_status.md](active_plans/implementation_status.md).
-
-The fresh epoch removes the pre-SD1 Alpha tables, Alpha functions, and personal one-assignment
-Blueprint tables and functions. It replaces them with the single tree above and one adoption path
-to CourseInstance. It adds no compatibility aliases, legacy views, dual Store capability, or
-latest-resolution reader. The historical 1837-1847 files remain unchanged and are labeled in the
-migration ledger as evidence of the superseded split; their names and old SQL do not establish a
-current table, route, function, or authorization contract.
-
-## Data ownership
-
-PLE keeps shared catalog facts, course teaching configuration, Student records, and
-replaceable projections separate. JSONB holds cohesive, versioned payloads; relational
-columns hold identities, ownership, constraints, joins, and lifecycle state. Object bytes
-are not stored in these relations.
-
-| Data class                 | Primary relations                                                                                                                                                                       | Ownership and mutability                                                                                                    |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| PLE account authentication | `ple_private.account`, `account_authentication_email`, `email_authentication_challenge`, `authentication_rate_limit`, `webauthn_ceremony`, `passkey`, `authenticated_session` | Global Account, opaque Authenticated Session, and private credential state under the authentication capability; email is mutable and never a primary key. |
-| Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                                                      | One human Question ID names one immutable published question; hidden exact evidence preserves grading and provenance.       |
-| Reusable course           | `course_blueprint`, `course_blueprint_module`, `course_blueprint_assignment`, `course_blueprint_entry`, `course_blueprint_fixed`, `course_blueprint_pool`, `course_blueprint_pool_candidate` | One revisioned BlueprintCourse tree; draft ownership is workspace-scoped and published projection is shared with approved Instructors. |
-| Private authoring          | `workspace_draft` and `workspace_*` import/source relations                                                                                                                             | Workspace-private mutable work before publication.                                                                          |
-| Course activity            | `course_instance`, `course_membership`, `course_membership_event`, `student_record`, `assignment`, `assignment_revision`, `course_invitation`, `course_invitation_event` | Course Instance configuration, protected Student Record, event-derived membership and invitation state, and Assignment definition. |
-| Student evidence           | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and immutable receipts                                                     | Course/Student educational records; selection, responses, grading, and finalization stay in their owning records.            |
-| Current projections        | `assignment_grade`, `assignment_activity_summary`, `assignment_analysis`                                                                                                                   | Derived course records; not a substitute for source evidence.                                                                |
-| Course grading             | `course_grade_scheme`, `course_grade_category`, `course_grade_category_assignment`, `course_grade_letter_band`, `course_total_export_audit`                                             | Course-owned scheme and normalized membership; export audit stores only account/course/revision/mode/rounding/count metadata. |
-| Protected delivery/audit   | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event`                                                                                                                | Explicitly authorized and retention-bound record access/evidence.                                                           |
-
-Publication pins an Assignment Entry to an exact `(question_id, version_number)` and an Issued Question
-to what that student actually received. A course edit therefore does not reinterpret an
-already issued question. The detailed lifecycle is in
-[ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and the information-class boundary is in
-[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). The authoritative database-facing list of
-especially radioactive and linkage-radioactive relations is the
-[radioactive records and retention model](DATABASE_AUTHORIZATION.md#radioactive-records-and-retention). Its label also follows data into
-partitions, views, temporary tables, query results, dumps, WAL, replicas, snapshots, and restores.
-
-## Assessment record chain
-
-The relational activity spine is:
-
-```text
-course_instance -> student_record
-course_instance -> assignment -> assignment_revision
-student_record + assignment -> assignment_attempt -> issued_question -> question_attempt
-                                                                  -> question_submission -> grading_result
-assignment_attempt -> assignment_submission
-student_record + assignment -> assignment_grade
-```
-
-All Student-facing transitions derive the authenticated Account, exact course/Student relationship, assignment position, version, seed,
-policy, backend, and timing from the authenticated attempt record. A request body cannot
-select those facts.
-
-| Relation                                                 | Durable responsibility                                                                                                                                                                      |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assignment_attempt`                                    | One complete Student pass through one Assignment; it owns pass-level variation, timing, and derived completion.                                                                             |
-| `issued_question`                                       | One selected Question Version for an Assignment Attempt, with frozen delivery order, Assignment Entry scoring treatment, Question Statistics Eligibility, and selection evidence.               |
-| `question_attempt`                                      | One server-issued try for an Issued Question, including seed, provenance, timing, and controlled state.                                                                                     |
-| `question_prefetch`                                      | One bounded, server-only reservation; it has no started timer, response, or score, but may contain private issue-time grading authority and must never enter a student DTO or public cache. |
-| `question_submission`                                    | Immutable accepted Student Response evidence for one Question Attempt.                                                                                                                      |
-| `assignment_submission`                                  | Explicit accepted whole-attempt finalization with an attributed Receipt.                                                                                                                    |
-| `submission_idempotency` and receipt relations           | Exact retry/replay fence; no second grade on a conflicting retry.                                                                                                                           |
-| `grading_result`                                         | Server-produced result for an accepted Question Submission and policy-controlled feedback basis.                                                                                            |
-| `assignment_grade` and `assignment_activity_summary`    | Selected course-record result and derived activity presentation, updated under scoring-generation rules.                                                                                   |
-
-The accepted issuance and receipt design binds a Student Response to one exact Question Attempt, an idempotency key, and
-the issued presentation. The current browser request still carries a tagged `StudentResponse`; the
-server validates that tag against issued authority and never trusts it to select a question, key,
-or grader. The later compact student-wire target removes the redundant response kind and sends only
-the family-minimal answer plus presentation binding. See
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for that explicit
-current-versus-target boundary.
-
-### Presentation and replay state
-
-Migration 0908 introduces descriptor primitives for the secure grading-payload cutover;
-0916, 0917, 0919, 0921, and 0922 complete the receipt and private-grading persistence:
-
-| Relation or columns                                                  | Purpose                                                                                                                                                  | Privacy boundary                                                                                                                        |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `question_attempt.presentation_descriptor_*`                         | Versioned descriptor, nonce, and digest from 0908.                                                                                                       | Public descriptor primitives; never a grading key.                                                                                      |
-| `question_attempt.presentation_capability`, `presentation_*_payload` | 0917 explicit capability and checksummed answer-free issued presentation snapshot.                                                                       | `EnvelopeV1` is complete; `NotApplicable` contains no inferred fallback data.                                                           |
-| `question_attempt.grading_envelope_*`                                | 0919 server-only checksummed answer-free envelope with durable response IDs.                                                                             | First submit translates public rendered IDs without rerendering mutable catalog/backend state; this payload never enters a student DTO. |
-| `question_attempt.flat_grading_*`                                    | 0921 server-only checksummed flat `QuestionDefinition` plus private grading payload.                                                                     | Required for issued flat attempts; first grade reads this immutable contract rather than a current catalog/grader view.                 |
-| `question_attempt.webwork_grading_*`                                 | 0922 server-only checksummed WeBWorK `QuestionDefinition`.                                                                                               | Required for issued WeBWorK attempts; first grade does not resolve a current catalog definition or reissue to recover it.               |
-| `question_prefetch.presentation_*`                                   | The same binding for one reservation before promotion to an attempt.                                                                                     | Prevents an unbound prefetch from becoming an issued render.                                                                            |
-| `submission_idempotency.request_*`                                   | Versioned request fingerprint for safe response retries.                                                                                                 | Server compares it before regrading.                                                                                                    |
-| `submission_receipt_snapshot.presentation_*`                         | First-receipt copy of the issued envelope and exact public asset bindings, plus checksum.                                                                | Submitted reads/replays fail closed instead of regenerating mutable presentation data.                                                  |
-| `submission_next_attempt.next_payload`                               | Checksummed immutable descriptor of the delivered successor, or a terminal all-null row. The absence of a receipt-link row is recoverable `nextPending`. | A retry cannot infer a successor from later run state.                                                                                  |
-| `webwork_grade_replay_state`                                         | Attempt-bound, answer-free mapping needed to reproduce a private WeBWorK grade call.                                                                     | Never enters the browser envelope; contains no source text, credentials, correct answer, or raw renderer result.                        |
-
-The relation is Account-, course-, Student-, attempt-, version-, source-, seed-, renderer-, and
-presentation-bound. Its mapping has an explicit size and item-count limit, an SHA-256
-fingerprint, forced RLS, retention-broker access, and a foreign key to the precise
-attempt. The complete render/response contract, including attempt-specific CRC-16 item IDs,
-is in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md), not this schema map.
-
-## Relational integrity and query paths
-
-Protected foreign keys include exact course, Student, workspace, and operation relationships. These
-keys prove relational integrity; they do not, by themselves, authorize the current Account to read or
-mutate a row. Authorization is a separate Store/PostgreSQL decision using the exact course/Student
-relationship, current workspace owner/collaborator relationship, approved-Instructor predicate, or
-registered typed capability/lease.
-Shared published content is the deliberate exception: course/run records reference immutable global
-`(question_id, version_number)` identities, while authorization remains on the exact course-owned
-assignment and Student attempt chain. Delete behavior is explicit rather than inherited from
-application convention:
-assignment composition and course membership use bounded cascades, published versions and receipt
-evidence use restrictive references, and student-record purges go through the retention capability.
-
-JSONB is reserved for cohesive versioned payloads. Every authoritative JSON payload has a relational
-identity/owner, a closed discriminator or version, bounded size, and, where replay or private/public
-binding matters, a server-computed SHA-256 checksum. Fields used for ownership, joins, state
-transitions, ordering, filtering, or lifecycle remain typed relational columns with constraints and
-indexes; application decoding is not a substitute for database integrity.
-
-The migration owns indexes alongside the query contract. Representative hot paths are:
-
-| Query path                                       | Owning indexes or constraint                                                              |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Exact Question ID and text search                | `catalog_search_document_question_id_idx` and `catalog_search_document_search_idx`        |
-| Course assignment paging and selected item order | `assignment_course_page_idx` and `assignment_item_assignment_idx`                         |
-| Gradebook enrollment paging                      | `enrollment_gradebook_summary_page_idx` over the current summary join key                 |
-| Assignment Attempt and Question Attempt paging   | `assignment_attempt_student_assignment_idx` and `question_attempt_issued_question_idx`    |
-| Submission replay and immutable successor lookup | primary/unique idempotency keys plus `submission_next_attempt_next_idx`                   |
-| Ready worker claims and expired leases           | partial `worker_job_claim_ready_idx` and `worker_job_expired_lease_idx`                   |
-| Active Account sessions and credential lookup    | `authenticated_session_active_account_idx`, `email_authentication_challenge_active_token_idx`, and `passkey_active_account_idx` |
-
-This table is a query-ownership map, not an exhaustive index inventory. A new index must name the
-production query it serves, retain result-equivalence coverage, and show representative
-`EXPLAIN (ANALYZE, BUFFERS)` evidence. The disposable scale oracle currently exercises 260,000
-attempts, partition pruning, and a bounded 51-row gradebook page; it is evidence for those shapes,
-not a universal production-size claim.
-
-## Account-scoped isolation and grants
-
-Protected and Student-record relations enable and force RLS. The application role is not a
-table owner, superuser, or `BYPASSRLS` role. Each server transaction sets its authenticated Account context
-locally; pooled connections must not inherit context. Forced RLS applies operation-specific
-predicates, while Store queries additionally bind a Student to the owned enrollment or require
-exact Instructor course membership.
-
-| Role/capability                     | Narrow purpose                                                                                                                                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ple_app`                           | Normal API/server work through RLS and narrowly granted tables/functions.                                                                                                                         |
-| `ple_student`                       | Read-only Student projections subject to exact course/Student ownership predicates.                                                                                                              |
-| `ple_automated_grading` / `ple_grading_reader` | Server-only automated-grading material and approved reader functions. This service capability is distinct from the reserved human Grader Course Membership Role. |
-| `ple_auth`                          | Hash-based session resolution only.                                                                                                                                                               |
-| `ple_retention_broker`              | Retention-manifest and student-record cleanup work under its RLS policies.                                                                                                                        |
-| `ple_statistics_broker`             | Identity-free aggregate/statistics contribution work.                                                                                                                                             |
-| `ple_qti_*_broker`                  | Narrow staging/provenance capabilities for QTI import.                                                                                                                                            |
-| `ple_roster_support_broker`         | RLS-obeying owner for the non-action roster precheck and narrow audited Sysadmin roster-support capability; it has only the membership-column privilege needed to take a key-share lock. |
-
-Grants do not replace RLS, and RLS does not prove individual student ownership by itself.
-Production acceptance must exercise the deployed roles and transaction context, including
-foreign-course, foreign-Student, and foreign-Account denial. The detailed model is in
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
-and [SECURITY_MODEL.md](SECURITY_MODEL.md).
-
-A `SECURITY DEFINER` function is accepted only as a narrow capability: it has an explicit owner,
-pins a safe `search_path`, revokes `PUBLIC` execution, and grants only the role that needs that
-operation. New functions must pass the same inventory and deployed-role denial checks; a definer
-function is never a convenience escape from RLS or Store authorization.
-
-## Transactions, MVCC, and failure semantics
-
-Each multi-step Store mutation owns one explicit transaction and sets `ple.session_account_id` with
-transaction-local scope before protected data is read or written. Mutations lock the smallest stable
-parent row first (for example course, assignment, run, attempt, or draft), then update children in a
-documented order. Partial unique indexes and compare-and-swap revisions enforce single-current facts
-such as one active run; correctness does not depend on a prior unlocked read.
-
-Commands that opt into automatic retry replay the complete idempotent transaction at most three
-times after PostgreSQL serialization failure (`40001`) or deadlock (`40P01`). Code never continues a
-failed transaction, retries only the last statement, or retries an ambiguous connection/commit
-failure. A retry closure contains no object-store, renderer, email, callback, or other external
-effect. Client idempotency keys, immutable receipt checksums, and revision tokens distinguish a safe
-replay from a conflicting request. See
-[CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md) for lock order, retry bounds, and command-level
-examples.
-
-PostgreSQL and object storage do not form a distributed transaction. Cross-store capabilities write
-typed candidate objects, validate exact checksums/ownership, commit the relational pointer, and
-compensate only the exact uncommitted candidate on failure. Reconciliation and retention recheck
-authoritative references before deleting anything. The full ownership and crash-window rules are in
-[STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
-
-## Worker, retention, and statistics
-
-`worker_job` is a durable typed queue. Its claim function uses bounded job kinds,
-leases, attempt counts, and `FOR UPDATE SKIP LOCKED`; handlers commit under lease and
-generation fences. Worker payloads carry identifiers and generations rather than student
-names, raw responses, grades, answer keys, or storage credentials.
-
-Retention is a database-backed lifecycle, not an ad hoc delete:
-
-- Deployment retention policy is trusted installation configuration for notify/archive/delete
-  intervals. It is not an Account attribute, institution selector, request field, or authorization
-  partition. The current SD1 baseline records the resulting exact course plan rather than a
-  global retention-policy relation.
-- `course_retention_plan` records one exact Course Instance, action stage, generation, schedule,
-  and current execution state. `retention_lifecycle_event` records immutable scheduled, claimed,
-  completed, cancelled, or failed evidence for that plan. Worker dispatch, cleanup manifests, and
-  browser/API receipts remain separately incomplete work rather than implied current relations.
-- Cleanup manifest relations freeze the exact typed object set for one course, stage, and generation
-  before a worker removes student records, so a retry cannot discover a newly written or unrelated
-  object.
-- Purge relations record ordered deletion progress for attempts, runs, and exports.
-- Shared published content, private drafts, and identity-free question statistics remain
-  outside a student-record purge.
-
-`question_version_statistics` is shared, identity-free accepted-grade and correct-count
-state for one immutable Question Version. `question_version_choice_statistics` retains
-eligible-choice selection counts only where the Question Response Format supplies that
-meaning. `question_statistics_observation_receipt` binds one accepted automated-grading
-receipt to one Question Attempt, so exactly one accepted grade updates those counts. Its
-observation time derives from the immutable automated-grading receipt rather than a
-caller-selected timestamp. The private receipt can be deleted with Student evidence
-without deleting the identity-free Question Version Statistics.
-Course item analysis remains a separate radioactive course-owned current projection. Its
-student-safe class-statistics read uses the latest completed run for each
-enrollment and releases only a metric-free `insufficientEvidence` state or an
-`available` cohort count plus normalized assignment average. The Store checks
-current S5 entitlement; the server exposes that union only when the assignment
-field's current S3/time disclosure decision allows it. The default minimum
-cohort is five, and incomplete automated scoring, recent rescoring, or a missing
-or invalid average suppress metric fields. Detailed cross-store failure/recovery
-behavior is owned by [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md); retention
-policy is in [RETENTION_POLICY.md](RETENTION_POLICY.md).
-
-## Partitioning and operations
-
-The baseline partitions the high-churn student evidence tables by month, including
-`question_attempt`, `submission`, `record_access_log`, and `audit_event`; a default
-partition catches unprepared dates. `problem_version_payload` uses hash partitions by
-`question_id`. Partition children are runtime schema objects and are not included in the
-80-relation inventory above.
-
-Keep current grade summaries and compact identity/header relations unpartitioned unless
-measured query and retention behavior requires a change. New indexes, partitions, poolers,
-read replicas, or external search require representative result-equality checks and
-`EXPLAIN (ANALYZE, BUFFERS)` evidence. PostgreSQL remains the source of truth.
-
-Autovacuum, analyze cadence, fillfactor, connection-pool sizing, and per-partition maintenance are
-deployment measurements rather than universal constants in a migration. Before production, observe
-dead tuples, freeze age, table/index growth, cache hit behavior, lock waits, and slow-query plans
-through PostgreSQL statistics, then record any nondefault tuning with its measured workload and
-removal condition. Do not disable autovacuum or add an index merely to silence a synthetic test.
-
-Migration startup is read-only: application startup reads the granted
-`ple_migration_state` projection and refuses known-incompatible, dirty, pending, or
-checksum-mismatched ledgers. Only the explicit migration command applies DDL. A fresh
-database, a no-op second apply, and deployed-role RLS checks are separate acceptance
-evidence; a passing Rust compile does not prove any of them.
-
-## Change rules
-
-For a durable schema change:
-
-1. Confirm the owning package and the migration's allocation in
-   [implementation_status.md](active_plans/implementation_status.md), then confirm accepted or
-   unaccepted status in the active release plan.
-2. For an accepted version, add the next forward migration allocated in the shared registry and
-   never rewrite its filename, version, or checksum. For unaccepted pre-production work, fix the design at its source and
-   rebuild the disposable database rather than preserving a superseded shape.
-3. Preserve exact relationship keys, forced RLS, least-privilege grants, retention reachability, and
-   answer-key isolation in the same change.
-4. Update the Store contract and memory/PostgreSQL conformance only when behavior changes.
-5. Use expand, backfill, verify, switch, and retire stages only after durable data actually exists
-   and the active plan explicitly owns that rollout; do not pre-build a legacy path for hypothetical
-   users.
-6. Run the package's fresh/no-op migration, deployed-role, Store-conformance, and security
-   gates before calling the schema accepted.
-
-The exact acceptance commands and historical compatibility obligations belong to the
-[release completion plan](active_plans/active/release_completion_plan.md), so this document
-does not turn a design description into release evidence.
+The disposable schema acceptance lane is the authoritative connected check for
+migration order, ACL closure, RLS, and broker behavior. Permanent tests prove
+stable value and transport contracts; they do not substitute for a database
+acceptance run. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
+required evidence classes.

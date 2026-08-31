@@ -119,7 +119,7 @@ pub struct AuthSessionResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthAccountResponse {
-    /// Authenticated Account, not an assignment enrollment identifier.
+    /// Authenticated Account, not a course-work record identifier.
     pub id: AccountId,
     /// Immutable account role.
     pub role: AccountRole,

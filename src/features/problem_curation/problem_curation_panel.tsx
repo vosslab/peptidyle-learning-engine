@@ -553,9 +553,9 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
                     <strong>{member.summary.metadata.title}</strong> - {member.questionId}
                   </span>
                   <span>
-                    {member.selectionAvailability === "available"
+                    {member.questionVersionAvailability.availability === "available"
                       ? "Ready to reuse"
-                      : "Retained record"}
+                      : "Archived version"}
                   </span>
                 </li>
               )}

@@ -1,7 +1,7 @@
 // Passwordless account and course-roster browser contracts.
 
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseReference } from "../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import {
   DecodeError,
   decodeArray,
@@ -32,7 +32,7 @@ export type RosterImportRowReason =
 
 export interface ClaimedCourseInvitation {
   readonly courseId: CourseId;
-  readonly courseReference: CourseReference;
+  readonly courseReference: CourseInstanceReference;
   readonly membershipStatus: "active";
 }
 

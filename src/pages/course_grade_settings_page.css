@@ -13,7 +13,7 @@
   align-items: end;
   padding: 0.85rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
 }
 
 .course-grade-settings label {
@@ -31,7 +31,7 @@
 .course-grade-errors {
   padding: 0.8rem 1rem;
   border-left: 0.3rem solid var(--ple-danger, #a81f3b);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 

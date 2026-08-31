@@ -102,7 +102,7 @@ Route changes focus the main content rather than leaving focus on a removed navi
 Feedback may focus its heading and later its primary advance control only when the student has not
 moved focus elsewhere. A delayed focus helper never steals focus back from the student.
 
-## Response-family contract
+## Question Type contract
 
 ### Single choice and WeBWorK RadioButtons
 
@@ -220,7 +220,7 @@ Permanent tests protect stable user behavior, not today's component layout:
 
 - the built mock route completes course to assignment to question to explicit submission to
   continued practice with the primary platform keys and no widget extension;
-- response-family fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
+- Question Type fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
   regressions while operating real production components;
 - the student question and feedback surfaces have no serious or critical axe findings;
 - focus management tests cover feedback, summaries, route changes, recovery, and avoidance of

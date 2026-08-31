@@ -3,7 +3,7 @@
 import { A } from "@solidjs/router";
 import type { JSX } from "solid-js";
 
-import type { CourseReference } from "../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import { courseRouteReference } from "../navigation/public_route";
 import "./course_management_nav.css";
 
@@ -18,7 +18,7 @@ export type CourseManagementSection =
   | "curriculumAdoption";
 
 interface CourseManagementNavProps {
-  readonly courseReference: CourseReference;
+  readonly courseReference: CourseInstanceReference;
   readonly active?: CourseManagementSection;
 }
 

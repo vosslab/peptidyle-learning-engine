@@ -10,7 +10,7 @@ and Biochemistry Chapter 1 each contain exactly:
 
 The authoritative human-readable inventory is
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml). It uses
-question slugs, titles, subject and course display names, point values, families, and source paths
+question slugs, titles, subject and course display names, point values, Question Types, and source paths
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
 second human-visible catalog. The instructor UI presents one canonical `AAA-BBBB` Crockford
 Question ID for each question. Server-side checksum validation and Account authorization

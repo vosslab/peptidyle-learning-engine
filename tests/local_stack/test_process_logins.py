@@ -41,7 +41,7 @@ def _load_compose_mapping(path: pathlib.Path) -> dict[str, object]:
 
 
 class RecordingRunner(local_stack_control.process.CommandRunner):
-	"""Record provisioning input without starting a database or Compose."""
+	"""Record service-login setup input without starting a database or Compose."""
 
 	def __init__(self) -> None:
 		self.environment: dict[str, str] | None = None
@@ -65,12 +65,12 @@ class RecordingRunner(local_stack_control.process.CommandRunner):
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
 	) -> int:
-		raise AssertionError("process login provisioning does not stream commands")
+		raise AssertionError("service-login setup does not stream commands")
 
 
 #============================================
 def target(tmp_path: pathlib.Path) -> local_stack_control.models.ComposeTarget:
-	"""Build the smallest private Compose target used by the provisioner."""
+	"""Build the smallest private Compose target used by service-login setup."""
 	env_file = tmp_path / "env.local"
 	env_file.write_text("POSTGRES_DB=ple\nPLE_POSTGRES_HOST_PORT=55432\n", encoding="utf-8")
 	env_file.chmod(0o600)
@@ -126,7 +126,7 @@ def test_process_login_profiles_reject_unallowlisted_capability() -> None:
 
 
 #============================================
-def test_provision_writes_separate_service_urls_without_service_credentials_in_child(
+def test_service_login_setup_writes_separate_service_urls_without_service_credentials_in_child(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -139,7 +139,7 @@ def test_provision_writes_separate_service_urls_without_service_credentials_in_c
 		lambda size: next(passwords),
 	)
 	selected = target(tmp_path)
-	local_stack_control.process_logins.provision(
+	local_stack_control.process_logins.setup_service_logins(
 		selected,
 		runner,
 		values(),
@@ -156,8 +156,8 @@ def test_provision_writes_separate_service_urls_without_service_credentials_in_c
 
 
 #============================================
-def test_provisioning_failure_redacts_ephemeral_process_passwords() -> None:
-	"""Failed provisioning provides an actionable bounded diagnostic."""
+def test_service_login_setup_failure_redacts_ephemeral_process_passwords() -> None:
+	"""Failed service-login setup provides an actionable bounded diagnostic."""
 	private_values = (
 		"admin-private",
 		"private-api",
@@ -169,7 +169,7 @@ def test_provisioning_failure_redacts_ephemeral_process_passwords() -> None:
 		("psql",), 1, "failed " + " ".join(private_values), "database refused",
 	)
 	with pytest.raises(local_stack_control.models.ControllerError) as error:
-		local_stack_control.process_logins.require_provision_success(
+		local_stack_control.process_logins.require_service_login_setup_success(
 			result, private_values
 		)
 	assert all(value not in str(error.value) for value in private_values)

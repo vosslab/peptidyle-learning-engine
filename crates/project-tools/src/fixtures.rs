@@ -35,7 +35,7 @@ use question_model::{
     ActivityTimestamp, AssignmentAttempt, AssignmentAttemptId, AssignmentDeliveryState,
     AssignmentEntryId, AssignmentEntrySummary, AssignmentId,
     FixedQuestionAssignmentEntrySummary, AssignmentProgressRecord,
-    AssignmentScoringMode, AssignmentSummary, CatalogProblemSummary,
+    AssignmentScoringMode, AssignmentSummary, CatalogQuestionSummary,
     CourseId, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
     IssuedQuestion, IssuedQuestionId, PointValue, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptTiming, QuestionBackend, QuestionId, QuestionVersionNumber,
@@ -114,7 +114,7 @@ struct FixtureAsset {
 struct FixtureCorpus {
     fixture_schema_version: u32,
     model_schema_version: u32,
-    catalog_problem: CatalogProblemSummary,
+    catalog_question: CatalogQuestionSummary,
     published_problem: QuestionDefinition,
     draft: DraftQuestionDefinition,
     assets: Vec<FixtureAsset>,
@@ -195,7 +195,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         QuestionSource::Native,
     );
     let adapter = NativeAdapter::new();
-    let catalog_problem = CatalogProblemSummary {
+    let catalog_question = CatalogQuestionSummary {
         question_id: "7K3-M9QP"
             .parse()
             .expect("fixture Question ID is canonical"),
@@ -308,13 +308,13 @@ fn build_corpus() -> Result<FixtureCorpus> {
     Ok(FixtureCorpus {
         fixture_schema_version: 4,
         model_schema_version: 1,
-        catalog_problem: catalog_problem.clone(),
+        catalog_question: catalog_question.clone(),
         published_problem,
         draft,
         assets,
         course: CourseSummary {
             id: course_id,
-            reference: question_model::CourseReference::new(1).expect("valid course reference"),
+            reference: question_model::CourseInstanceReference::new(1).expect("valid Course Instance reference"),
             title: "BIOC 301: Biochemistry".to_string(),
             term: question_model::CourseTerm::from_parts(
                 "2026-08-24",
@@ -334,10 +334,10 @@ fn build_corpus() -> Result<FixtureCorpus> {
             entries: vec![AssignmentEntrySummary::FixedQuestion(
                 FixedQuestionAssignmentEntrySummary {
                     id: assignment_entry_id("0198e000-0000-7000-8000-000000000017"),
-                    question_id: catalog_problem.question_id.clone(),
-                    title: catalog_problem.metadata.title.clone(),
-                    backend: catalog_problem.backend,
-                    capabilities: catalog_problem.capabilities.clone(),
+                    question_id: catalog_question.question_id.clone(),
+                    title: catalog_question.metadata.title.clone(),
+                    backend: catalog_question.backend,
+                    capabilities: catalog_question.capabilities.clone(),
                     points_possible: PointValue::from_whole(1),
                     delivery_state: AssignmentDeliveryState::Active,
                     scoring_mode: AssignmentScoringMode::Normal,

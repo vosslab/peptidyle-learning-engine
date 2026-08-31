@@ -6,8 +6,8 @@ import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } fro
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
-import type { CourseReference } from "../../generated/api/CourseReference";
-import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { InstructorGradingOperationReference } from "../../generated/api/InstructorGradingOperationReference";
 import type { ApiClient } from "../api/client";
 import { inspectedStudentWorkUrl } from "./gradebook_navigation";
 import {
@@ -18,10 +18,10 @@ import {
 interface GradebookRunChooserProps {
   readonly client: Pick<ApiClient, "getSubmittedRunChoices">;
   readonly courseId: CourseId;
-  readonly course: CourseReference;
+  readonly course: CourseInstanceReference;
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
-  readonly operation?: GradingOperationReference;
+  readonly operation?: InstructorGradingOperationReference;
   readonly studentLabel: string;
   readonly assignmentTitle: string;
   readonly onDismiss: () => void;

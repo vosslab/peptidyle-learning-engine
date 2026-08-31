@@ -326,7 +326,9 @@ def start_lifecycle(
 	synchronize_database(target, runner, values, options)
 	run_migrations(runner, repo_root, values, environment)
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
-		local_stack_control.process_logins.provision(selected, runner, values, child_environment(selected))
+		local_stack_control.process_logins.setup_service_logins(
+			selected, runner, values, child_environment(selected)
+		)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])

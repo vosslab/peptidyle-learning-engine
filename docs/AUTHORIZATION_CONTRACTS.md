@@ -146,14 +146,14 @@ opaque `capability_id`, exact `course_id`, acting `sysadmin_user_id`,
 reference. The server derives this record after session authentication; a
 browser cannot create, widen, renew, or select it.
 
-An active capability has one exact CourseId, one closed operation family, and
+An active capability has one exact CourseId, one closed Operation Kind, and
 one stated support purpose. It is issued by a current CourseInstance Instructor
 for support requested by that course. The platform retention scheduler is the
 registered issuer for its payload-free lifecycle operation. The capability
 registry begins after provisioning has committed an exact CourseInstance and
 its first direct Instructor membership.
 
-### Registered operation families
+### Registered operations
 
 #### `course_roster_support`
 
@@ -188,12 +188,12 @@ its first direct Instructor membership.
 - Appends `sysadmin_support.retention`.
 
 Every capability use verifies the acting Sysadmin, exact CourseId, current
-operation family, purpose, expiry, and absence of revocation inside the same
+Operation Kind, purpose, expiry, and absence of revocation inside the same
 Store transaction as the command. Missing, foreign, expired, revoked,
-wrong-family, or malformed capability state fails closed with the normal
+wrong-kind, or malformed capability state fails closed with the normal
 concealed result. Each issuance, use, rejection, expiry, and revocation appends
 an audit event that identifies the acting Sysadmin, issuer, exact CourseId,
-operation family, purpose, result, and time without copying roster PII,
+Operation Kind, purpose, result, and time without copying roster PII,
 invitation secrets, raw Student responses, answer keys, or scores.
 
 The registry gives no Gradebook browsing, general Student-record browsing,
@@ -244,7 +244,7 @@ QuestionVersions, visible to every approved Instructor through exactly one share
 catalog state. A publication mints a new Question ID only for a new lineage,
 after the private workspace material validates. A same-lineage semantic change
 publishes a new immutable QuestionVersion under the existing Question ID. An
-incompatible objective, task, response-family, or educational-purpose change is
+incompatible objective, task, Question Type, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
 Question ID and visible source ancestry. Existing assignments and issued runs
 retain their exact reference until a current course Instructor performs an
@@ -274,9 +274,9 @@ assignments, but are excluded from ordinary new selection.
 
 Same-lineage publication is limited to the closed semantic classes: presentation,
 accessibility, or metadata work that preserves grading meaning; compatible
-student-content improvement that preserves the objective, task, and response
-family; and a grading-semantic correction with an impact and recalculation record.
-An incompatible objective, task, response-family, or educational-purpose change
+student-content improvement that preserves the objective, task, and Question
+Type; and a grading-semantic correction with an impact and recalculation record.
+An incompatible objective, task, Question Type, or educational-purpose change
 is a fork. `ModerateEdit` is available only to the question owner or original
 lineage steward; it publishes a new immutable QuestionVersion in the same
 Question ID lineage, preserves original authorship, and retains the existing CC
@@ -348,9 +348,9 @@ asset delivery has its own typed object authorization.
 Workers have no browser-session authority and are not HTTP targets. A worker
 may act only through a locked, current typed lease containing an opaque lease
 token, typed durable scope (`course`, `workspace`, `catalog`, or `system`),
-job family, target identity, handler/committer pair, and generation fence.
+Job Kind, target identity, Handler/Effect Committer pair, and generation fence.
 The broker and RLS validate all of those values on claim, renewal, and
-completion. A stale, foreign, superseded, or wrong-family lease cannot read,
+completion. A stale, foreign, superseded, or Job-Kind-mismatched lease cannot read,
 commit, or repeat work. Queue messages carry bounded IDs and generations, not
 names, raw responses, answer keys, grades, object URLs, or authority claims.
 
@@ -392,7 +392,7 @@ privacy/disclosure rules, and denial tests before activation.
 An issued attempt is the sole student grading authority. It binds the exact
 Student owner, course assignment, immutable question version, seed, timing
 state, and grading backend. The server checks that binding, current Student
-authority, timing, idempotency, response family, presentation consistency, and
+authority, timing, idempotency, Question Type, presentation consistency, and
 lifecycle before it loads answer-bearing material through a separately injected
 restricted grader capability. Correctness, partial credit, feedback, and score
 persistence are deterministic server decisions.

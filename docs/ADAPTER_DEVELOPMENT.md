@@ -2,7 +2,7 @@
 
 This guide explains how an external or first-party question engine joins Peptidyle without changing
 the shared attempt loop, gradebook, or browser trust boundary. It is for contributors adding an
-adapter, not for defining a new student response family. The shared public contract is
+adapter, not for defining a new student Question Type. The shared public contract is
 [QUESTION_MODEL.md](QUESTION_MODEL.md); authoritative release scope and acceptance state are in
 [release_completion_plan.md](active_plans/active/release_completion_plan.md).
 

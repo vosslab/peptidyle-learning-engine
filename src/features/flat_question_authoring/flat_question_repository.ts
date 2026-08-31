@@ -1,4 +1,4 @@
-import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
@@ -19,7 +19,7 @@ export interface FlatQuestionAuthoringClient {
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
     revision: string,
-  ): Promise<CatalogProblemSummary>;
+  ): Promise<CatalogQuestionSummary>;
 }
 
 export interface FlatQuestionRepository {
@@ -29,7 +29,7 @@ export interface FlatQuestionRepository {
   publish(
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
-  ): Promise<CatalogProblemSummary>;
+  ): Promise<CatalogQuestionSummary>;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
@@ -95,7 +95,7 @@ export function createFlatQuestionRepository(
   async function publish(
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
-  ): Promise<CatalogProblemSummary> {
+  ): Promise<CatalogQuestionSummary> {
     const revision = revisions.get(workspace);
     if (revision === undefined) {
       throw new Error("Load the saved flat question before publishing it.");

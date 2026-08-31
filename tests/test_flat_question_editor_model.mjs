@@ -172,7 +172,7 @@ test("matching edits preserve semantic identities and prevent duplicate pair cho
   assert.equal(duplicate.changed, false);
 });
 
-test("ordinary family switches use complete valid defaults with stable semantic IDs", () => {
+test("ordinary Question Type switches use complete valid defaults with stable semantic IDs", () => {
   const expected = {
     multipleAnswer: true,
     fillIn: true,

@@ -1,6 +1,6 @@
 // Browser capability contract for reusable Blueprint Courses.
 
-import type { BlueprintReference } from "../../generated/api/BlueprintReference";
+import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { CreateBlueprintCourseDefinitionInput } from "../../generated/api/CreateBlueprintCourseDefinitionInput";
@@ -22,18 +22,18 @@ export interface ReusableCurriculumClient {
     pageSize?: number,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
-    reference: BlueprintReference,
+    reference: BlueprintCourseReference,
   ) => Promise<RevisionedBlueprintCourse>;
   readonly createBlueprintCourse: (
     definition: CreateBlueprintCourseDefinitionInput,
   ) => Promise<RevisionedBlueprintCourse>;
   readonly replaceBlueprintCourse: (
-    reference: BlueprintReference,
+    reference: BlueprintCourseReference,
     definition: ReplaceBlueprintCourseDefinitionInput,
     etag: ReusableCurriculumEtag,
   ) => Promise<RevisionedBlueprintCourse>;
   readonly deleteBlueprintCourse: (
-    reference: BlueprintReference,
+    reference: BlueprintCourseReference,
     etag: ReusableCurriculumEtag,
   ) => Promise<void>;
 }

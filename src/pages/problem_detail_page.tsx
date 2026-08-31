@@ -19,7 +19,7 @@ export function ProblemDetailPage(): JSX.Element {
       throw new Error("The Question ID address is incomplete.");
     }
     return runtime.client
-      .resolveCatalogProblem(problemReference)
+      .resolveCatalogQuestion(problemReference)
       .then((summary) => runtime.queries.catalogDetail(summary.questionId));
   });
   return (

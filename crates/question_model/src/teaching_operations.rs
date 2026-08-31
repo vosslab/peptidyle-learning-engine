@@ -32,8 +32,9 @@ pub use student_memberships::CourseStudentMembershipsPage;
 pub use target_search::{
     AccountApprovalView, CourseInvitationTargetSearchPage, CourseInvitationTargetSearchQuery,
     CourseInvitationTargetSearchRequest, CourseInvitationTargetView, InstructorApprovalStateView,
-    MAX_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
-    MIN_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS, SysadminInstructorApprovalStateView,
+    MAX_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
+    MIN_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
+    SysadminInstructorApprovalStateView,
     SysadminInstructorApprovalView, SysadminInstructorCandidateSearchPage,
     SysadminInstructorCandidateSearchRequest, SysadminInstructorCandidateView, TeachingAccountView,
 };
@@ -395,17 +396,21 @@ pub enum TeachingPreviewView {
     },
 }
 
-/// Strict course invitation creation request for one approved existing account.
+/// Strict Instructor Course Invitation creation request for one existing Account.
+///
+/// The target-discovery and teaching-team endpoints are exclusively for adding
+/// an Instructor Course Membership. The generic `CourseInvitation` persistence
+/// value carries the role for workflows that support other membership roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseInvitationCreateRequest {
+pub struct InstructorCourseInvitationCreateRequest {
     pub target: AccountReference,
 }
 
-/// Course-authorized co-instructor invitation row with no email or raw identity.
+/// Course-authorized Instructor Course Invitation row with no email or raw identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseCourseInvitationView {
+pub struct InstructorCourseInvitationView {
     pub reference: CourseInvitationReference,
     pub target: CourseInvitationTargetView,
     pub state: CourseInvitationStateView,
@@ -414,11 +419,11 @@ pub struct CourseCourseInvitationView {
     pub revision: TeachingOperationRevision,
 }
 
-/// Bounded exact-course co-instructor invitation page.
+/// Bounded exact-course Instructor Course Invitation page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseCourseInvitationsPage {
-    pub invitations: Vec<CourseCourseInvitationView>,
+pub struct InstructorCourseInvitationsPage {
+    pub invitations: Vec<InstructorCourseInvitationView>,
     pub next_cursor: Option<String>,
 }
 

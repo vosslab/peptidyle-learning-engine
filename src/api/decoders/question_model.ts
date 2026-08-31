@@ -14,7 +14,7 @@ import type { WorkspaceDraftSummary } from "../../../generated/api/WorkspaceDraf
 import type { WorkspaceRouteReference } from "../../navigation/public_route";
 import { parseWorkspaceReference } from "../../navigation/public_route";
 
-function decodeWorkspaceReference(value: unknown, path: string): WorkspaceRouteReference {
+function decodeAuthoringWorkspaceReference(value: unknown, path: string): WorkspaceRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a W- reference");
   const reference = parseWorkspaceReference(value);
   if (reference === null) throw new DecodeError(path, "a W- reference");
@@ -411,7 +411,7 @@ export function decodeWorkspaceDraftSummary(
   requireOnlyFields(record, path, ["workspace", "reference", "title", "sourceBackend"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    reference: decodeWorkspaceReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAuthoringWorkspaceReference(field(record, "reference", path), `${path}.reference`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     sourceBackend: decodeStringEnum(
       field(record, "sourceBackend", path),

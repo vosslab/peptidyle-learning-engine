@@ -230,25 +230,27 @@ That materially changes the load model. Assignment completion is not the end of 
 
 Use separate concepts:
 
-assignment_enrollment
+student_record_id
+assignment_id
 current_grade
 best_grade
 completion_status
 first_completed_at
-assignment_run
-run_number
+assignment_attempt
+attempt_number
 started_at
 completed_at
 score
 mode
 question_attempt
-run_id
+issued_question_id
 question_version_id
 seed
 response
 result
 
-A student may have one enrollment record but 30 or more assignment runs. Each run may contain several attempts per question.
+A Student may have one enrollment record but 30 or more Assignment Attempts. Each Assignment
+Attempt may contain several Question Attempts per Issued Question.
 
 For 50,000 students, 10 assignments, 20 questions, and 30 complete runs:
 

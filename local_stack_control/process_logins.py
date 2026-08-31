@@ -1,4 +1,4 @@
-"""Closed disposable PostgreSQL service-login provisioning."""
+"""Set up closed disposable PostgreSQL service logins."""
 
 import pathlib
 import secrets
@@ -19,7 +19,7 @@ LOGIN_PROFILES = (
 
 
 #============================================
-def provision(
+def setup_service_logins(
 	target: local_stack_control.models.ComposeTarget,
 	runner: local_stack_control.process.CommandRunner,
 	values: dict[str, str],
@@ -51,7 +51,7 @@ def provision(
 	sql += "COMMIT;\n"
 	result = runner.run(argv, child, target.repo_root, sql)
 	private_values = (values["POSTGRES_PASSWORD"],) + passwords
-	require_provision_success(result, private_values)
+	require_service_login_setup_success(result, private_values)
 	urls = tuple(
 		database_url(values, login, password)
 		for (login, _, _), password in zip(LOGIN_PROFILES, passwords, strict=True)
@@ -153,7 +153,7 @@ def write_runtime_urls(
 
 
 #============================================
-def require_provision_success(
+def require_service_login_setup_success(
 	result: local_stack_control.models.CommandResult,
 	private_values: tuple[str, ...],
 ) -> None:
@@ -164,6 +164,6 @@ def require_provision_success(
 		result, private_values
 	)
 	raise local_stack_control.models.ControllerError(
-		"process login provisioning failed "
+		"service login setup failed "
 		f"({detail}); retained stack resources are available for diagnostics"
 	)

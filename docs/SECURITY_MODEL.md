@@ -105,7 +105,7 @@ not an authority. The browser-safe validator can check only the disclosed
 artifact shape; it cannot establish that a reference names an authorized
 object. The server therefore requires a server-issued upload capability and
 metadata binding before any artifact backend or Store mutation. Unsupported
-artifact families fail closed. A future dedicated upload contract must establish
+artifact types fail closed. A future dedicated upload contract must establish
 file size, profile, checksum, ownership, Student, and attempt binding from
 server-owned object metadata rather than browser claims.
 
@@ -351,9 +351,9 @@ nonparticipants, and unshared workspaces. Responses are `no-store`.
 
 The author route never serializes `AnswerKey`, grading material, source
 locator, object key, provider credential, or published identity. A supported
-native family may supply only display-ready correct-response and rationale
+Native Question Implementation may supply only display-ready correct-response and rationale
 content through its server-only adapter seam. External sources and native
-families without a reviewed presentation return an explicit unavailable state;
+Native Question Implementations without a reviewed presentation return an explicit unavailable state;
 they do not invent answer material. The editor saves before requesting this
 view, rejects a mismatched response ETag, and keeps author-preview data out of
 browser persistence. Student routes deny the authoring surface before its
@@ -393,7 +393,7 @@ updated or deleted by the application role.
 
 The no-drift contract pins every assignment and grading record to an exact
 Question Version. Editorial or accessibility corrections may continue a
-Question ID under its immutable version history; a changed objective, family,
+Question ID under its immutable version history; a changed objective, Question Type,
 or substantially different task becomes a fork with a new Question ID.
 Existing assignments retain their exact references until an Instructor makes a
 deliberate, revision-checked replacement. The server resolves only the version
@@ -401,7 +401,7 @@ chosen by that controlled operation, and never silently changes issued or
 graded work.
 
 Catalog browse responses contain hot browser-safe metadata only. They expose a
-backend family but no native family name, WeBWorK path, QTI package identifier,
+Question Backend but no Native Question Implementation name, WeBWorK path, QTI package identifier,
 H5P package identifier, prompt, response definition, or answer-bearing value.
 Every published question remains discoverable to every approved Instructor while
 its lifecycle is `active`, `deprecated`, or `archived`; the safe projection

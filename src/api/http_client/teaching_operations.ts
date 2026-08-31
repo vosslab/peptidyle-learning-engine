@@ -17,11 +17,11 @@ import type { TeachingOperationRevisionResponse } from "../../../generated/api/T
 import type { ApiClient, SysadminInstructorCandidateClient } from "../client";
 import {
   decodeAccountApprovalView,
-  decodeCourseInvitationCreateRequest,
+  decodeInstructorCourseInvitationCreateRequest,
   decodeCourseInvitationTerminalActionRequest,
   decodeCourseInvitationTargetSearchPage,
   decodeCourseInvitationTargetSearchRequest,
-  decodeCourseCourseInvitationsPage,
+  decodeInstructorCourseInvitationsPage,
   decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
   decodeInstructorMembershipsPage,
@@ -67,7 +67,7 @@ function pagePath(path: string, cursor: string | undefined, pageSize: number | u
   return `${path}${suffix}`;
 }
 
-function targetSearchPath(
+function instructorInvitationTargetSearchPath(
   courseId: CourseId,
   query: CourseInvitationTargetSearchQuery,
   cursor: string | undefined,
@@ -80,7 +80,7 @@ function targetSearchPath(
   const parameters = new URLSearchParams({ query: request.query });
   if (request.after !== null) parameters.set("after", request.after);
   if (pageSize !== undefined) parameters.set("size", String(request.size));
-  return `/api/courses/${encodedId(courseId)}/co-instructor-targets?${parameters.toString()}`;
+  return `/api/courses/${encodedId(courseId)}/instructor-course-invitation-targets?${parameters.toString()}`;
 }
 
 function sysadminCandidateSearchPath(request: SysadminInstructorCandidateSearchRequest): string {
@@ -240,10 +240,10 @@ export function createTeachingOperationsClient(
   | "approveInstructorAccount"
   | "revokeInstructorApproval"
   | "searchSysadminInstructorCandidates"
-  | "listCourseCourseInvitations"
-  | "searchCourseCourseInvitationTargets"
-  | "createCourseCourseInvitation"
-  | "revokeCourseCourseInvitation"
+  | "listInstructorCourseInvitations"
+  | "searchInstructorCourseInvitationTargets"
+  | "createInstructorCourseInvitation"
+  | "revokeInstructorCourseInvitation"
   | "listPendingCourseInvitations"
   | "respondToCourseInvitation"
   | "listCourseInstructors"
@@ -330,20 +330,20 @@ export function createTeachingOperationsClient(
       );
       return result.body;
     },
-    listCourseCourseInvitations: (courseId, cursor, pageSize) =>
+    listInstructorCourseInvitations: (courseId, cursor, pageSize) =>
       teachingJson(
         fetchImplementation,
         basePath,
-        pagePath(`/api/courses/${encodedId(courseId)}/co-instructor-invitations`, cursor, pageSize),
-        decodeCourseCourseInvitationsPage,
+        pagePath(`/api/courses/${encodedId(courseId)}/instructor-course-invitations`, cursor, pageSize),
+        decodeInstructorCourseInvitationsPage,
       ).then((result) => result.body),
-    searchCourseCourseInvitationTargets: async (
+    searchInstructorCourseInvitationTargets: async (
       courseId,
       query,
       cursor,
       pageSize,
     ): Promise<CourseInvitationTargetSearchPage> => {
-      const path = targetSearchPath(courseId, query, cursor, pageSize);
+      const path = instructorInvitationTargetSearchPath(courseId, query, cursor, pageSize);
       const result = await teachingJson(
         fetchImplementation,
         basePath,
@@ -352,30 +352,30 @@ export function createTeachingOperationsClient(
       );
       return result.body;
     },
-    createCourseCourseInvitation: async (
+    createInstructorCourseInvitation: async (
       courseId,
       request,
     ): Promise<CourseInvitationReference> => {
-      const path = `/api/courses/${encodedId(courseId)}/co-instructor-invitations`;
-      const body = decodeCourseInvitationCreateRequest(request, "request");
+      const path = `/api/courses/${encodedId(courseId)}/instructor-course-invitations`;
+      const body = decodeInstructorCourseInvitationCreateRequest(request, "request");
       const response = await createdEmpty(fetchImplementation, basePath, path, body);
       const location = requireLocation(response, path);
       const reference = invitationReferenceFromLocation(location, path);
       verifyLocationRevision(response, path);
       return reference;
     },
-    revokeCourseCourseInvitation: (courseId, invitation, revision) =>
+    revokeInstructorCourseInvitation: (courseId, invitation, revision) =>
       noContent(
         fetchImplementation,
         basePath,
-        `/api/courses/${encodedId(courseId)}/co-instructor-invitations/${encodeURIComponent(invitation)}`,
+        `/api/courses/${encodedId(courseId)}/instructor-course-invitations/${encodeURIComponent(invitation)}`,
         { method: "DELETE", revision },
       ),
     listPendingCourseInvitations: (cursor, pageSize) =>
       teachingJson(
         fetchImplementation,
         basePath,
-        pagePath("/api/account/co-instructor-invitations", cursor, pageSize),
+        pagePath("/api/account/course-invitations", cursor, pageSize),
         decodePendingCourseInvitationsPage,
       ).then((result) => result.body),
     respondToCourseInvitation: (invitation, request, revision): Promise<void> => {
@@ -383,7 +383,7 @@ export function createTeachingOperationsClient(
       return noContent(
         fetchImplementation,
         basePath,
-        `/api/account/co-instructor-invitations/${encodeURIComponent(invitation)}`,
+        `/api/account/course-invitations/${encodeURIComponent(invitation)}`,
         { method: "POST", body, revision },
       );
     },

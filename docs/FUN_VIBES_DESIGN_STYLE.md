@@ -299,7 +299,7 @@ right.
 ## See also
 
 - [docs/PLAYFUL_TRAINING_GAME_STYLE.md](PLAYFUL_TRAINING_GAME_STYLE.md):
-  sibling doc tuned for older students (lab students, technical apprentices).
+  sibling doc tuned for older learners (lab students, technical apprentices).
   Same engine, calmer tone. Use that doc when the target is competence
   building rather than kid-arcade replay.
 - `docs/REPO_STYLE.md`: repo-wide conventions, including

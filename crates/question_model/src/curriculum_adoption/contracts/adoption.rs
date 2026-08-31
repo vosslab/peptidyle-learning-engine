@@ -9,8 +9,8 @@ use super::{
     UnavailableCurriculumPinRecovery,
 };
 use crate::{
-    AccountId, ActivityTimestamp, AssignmentReference, BlueprintReference, BlueprintRevision,
-    CourseReference, CourseTerm,
+    AccountId, ActivityTimestamp, AssignmentReference, BlueprintCourseReference, BlueprintRevision,
+    CourseInstanceReference, CourseTerm,
 };
 
 /// One server-reserved BlueprintCourse creation bound to an authenticated Instructor operation.
@@ -23,7 +23,7 @@ pub struct BlueprintCourseCreationWitness {
     authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
-    reserved_blueprint: BlueprintReference,
+    reserved_blueprint: BlueprintCourseReference,
 }
 
 impl BlueprintCourseCreationWitness {
@@ -33,7 +33,7 @@ impl BlueprintCourseCreationWitness {
         authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
-        reserved_blueprint: BlueprintReference,
+        reserved_blueprint: BlueprintCourseReference,
     ) -> Self {
         Self {
             source,
@@ -65,7 +65,7 @@ impl BlueprintCourseCreationWitness {
     }
 
     /// Returns the server-reserved identity that the successful transaction materializes.
-    pub fn reserved_blueprint(&self) -> BlueprintReference {
+    pub fn reserved_blueprint(&self) -> BlueprintCourseReference {
         self.reserved_blueprint
     }
 }
@@ -115,7 +115,7 @@ pub struct AdoptBlueprintAssignmentPreviewRequest {
     /// One bounded assignment location in the selected source revision.
     pub source: AssignmentDefinitionSourceView,
     /// Existing CourseInstance destination.
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     /// Explicit QuestionId substitutions selected during preview correction.
     pub replacements: CurriculumPinReplacements,
 }
@@ -240,7 +240,7 @@ impl AdoptBlueprintAssignmentCommand {
     }
 
     /// Derives the sole destination course locator from its exact server witness.
-    pub fn course(&self) -> CourseReference {
+    pub fn course(&self) -> CourseInstanceReference {
         self.destination.course
     }
 }
@@ -424,7 +424,7 @@ pub enum CurriculumReplayStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct AdoptBlueprintAssignmentCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
     pub replay: CurriculumReplayStatus,
 }
@@ -433,7 +433,7 @@ pub struct AdoptBlueprintAssignmentCompleted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ForkBlueprintCourseCompleted {
-    pub blueprint: BlueprintReference,
+    pub blueprint: BlueprintCourseReference,
     pub revision: BlueprintRevision,
     pub replay: CurriculumReplayStatus,
 }
@@ -442,7 +442,7 @@ pub struct ForkBlueprintCourseCompleted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstantiateBlueprintCourseCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub replay: CurriculumReplayStatus,
 }
 
@@ -450,7 +450,7 @@ pub struct InstantiateBlueprintCourseCompleted {
 mod tests {
     use super::*;
     use crate::{
-        AccountId, BlueprintAssignmentId, BlueprintReference, BlueprintRevision,
+        AccountId, BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision,
         CourseInstanceApplicationBinding, CourseScheduleRevision, CurriculumAdoptionRequestBinding,
         QuestionId, QuestionVersionNumber, QuestionVersionReference,
     };
@@ -458,7 +458,7 @@ mod tests {
 
     fn source() -> ObservedBlueprintSource {
         ObservedBlueprintSource {
-            reference: BlueprintReference::new(7).expect("BP reference"),
+            reference: BlueprintCourseReference::new(7).expect("BP reference"),
             revision: BlueprintRevision::new(2).expect("revision"),
         }
     }
@@ -493,7 +493,7 @@ mod tests {
 
     fn destination() -> CourseInstanceWitness {
         CourseInstanceWitness::new(
-            CourseReference::new(3).expect("course"),
+            CourseInstanceReference::new(3).expect("course"),
             CourseScheduleRevision::new(1).expect("revision"),
             vec![],
         )
@@ -533,7 +533,7 @@ mod tests {
                     authorized_account(),
                     [4; 32],
                     key.clone(),
-                    BlueprintReference::new(8).expect("reserved blueprint"),
+                    BlueprintCourseReference::new(8).expect("reserved blueprint"),
                 ),
                 fork.eligibility.clone(),
             )
@@ -597,7 +597,7 @@ mod tests {
         assert_eq!(command.source().assignment_id(), assignment_id());
         assert_eq!(command.idempotency_key(), &key);
         assert_eq!(command.destination(), &destination());
-        assert_eq!(command.course(), CourseReference::new(3).expect("course"));
+        assert_eq!(command.course(), CourseInstanceReference::new(3).expect("course"));
 
         let term =
             CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
@@ -618,7 +618,7 @@ mod tests {
                     authorized_account(),
                     [5; 32],
                     key.clone(),
-                    CourseReference::new(4).expect("reserved course"),
+                    CourseInstanceReference::new(4).expect("reserved course"),
                 ),
                 instantiation.eligibility,
             )
@@ -628,7 +628,7 @@ mod tests {
         assert_eq!(command.target_term(), &term);
         assert_eq!(
             command.creation().reserved_course(),
-            CourseReference::new(4).expect("reserved course")
+            CourseInstanceReference::new(4).expect("reserved course")
         );
     }
 
@@ -681,7 +681,7 @@ mod tests {
             BlueprintAdoptionRefusal::DestinationWitnessDrift {
                 expected: destination(),
                 observed: CourseInstanceWitness::new(
-                    CourseReference::new(3).expect("course"),
+                    CourseInstanceReference::new(3).expect("course"),
                     CourseScheduleRevision::new(2).expect("revision"),
                     vec![],
                 )
@@ -694,7 +694,7 @@ mod tests {
                 authorized_account(),
                 [9; 32],
                 key.clone(),
-                BlueprintReference::new(9).expect("reserved blueprint"),
+                BlueprintCourseReference::new(9).expect("reserved blueprint"),
             );
             assert_eq!(
                 super::super::ForkBlueprintCourseApplyRecord::new(
@@ -723,7 +723,7 @@ mod tests {
             authorized_account(),
             [6; 32],
             key.clone(),
-            BlueprintReference::new(10).expect("reserved blueprint"),
+            BlueprintCourseReference::new(10).expect("reserved blueprint"),
         );
         let command = ForkBlueprintCourseCommand::from_server_record(
             super::super::ForkBlueprintCourseApplyRecord::new(
@@ -739,13 +739,13 @@ mod tests {
 
         let mismatched = BlueprintCourseCreationWitness::new(
             ObservedBlueprintSource {
-                reference: BlueprintReference::new(11).expect("other source"),
+                reference: BlueprintCourseReference::new(11).expect("other source"),
                 revision: BlueprintRevision::new(1).expect("revision"),
             },
             authorized_account(),
             [7; 32],
             key.clone(),
-            BlueprintReference::new(12).expect("reserved blueprint"),
+            BlueprintCourseReference::new(12).expect("reserved blueprint"),
         );
         assert_eq!(
             super::super::ForkBlueprintCourseApplyRecord::new(
@@ -773,7 +773,7 @@ mod tests {
             authorized_account(),
             [8; 32],
             instance_key.clone(),
-            CourseReference::new(13).expect("reserved course"),
+            CourseInstanceReference::new(13).expect("reserved course"),
         );
         let instance_command = InstantiateBlueprintCourseCommand::from_server_record(
             super::super::InstantiateBlueprintCourseApplyRecord::new(
@@ -796,7 +796,7 @@ mod tests {
             authorized_account(),
             [3; 32],
             key,
-            BlueprintReference::new(14).expect("reserved BlueprintCourse"),
+            BlueprintCourseReference::new(14).expect("reserved BlueprintCourse"),
         );
         let record = super::super::ForkBlueprintCourseApplyRecord::new(
             source(),
@@ -811,7 +811,7 @@ mod tests {
             eligibility: BlueprintAdoptionEligibility::Eligible,
         };
         browser_preview.source = ObservedBlueprintSource {
-            reference: BlueprintReference::new(15).expect("forged source"),
+            reference: BlueprintCourseReference::new(15).expect("forged source"),
             revision: BlueprintRevision::new(1).expect("forged revision"),
         };
         let command = ForkBlueprintCourseCommand::from_server_record(record);

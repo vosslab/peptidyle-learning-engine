@@ -1,4 +1,4 @@
-//! Shared, internal approval and target-bound co-instructor invitation facts.
+//! Shared, internal approval and target-bound Course Invitation facts.
 //!
 //! These are persistence contracts, not browser projections. Later HTTP
 //! contracts must expose only authorized, opaque course-scoped actions and use
@@ -6,7 +6,7 @@
 
 use uuid::Uuid;
 
-use crate::{AccountId, ActivityTimestamp, CourseId, CourseMembershipId};
+use crate::{AccountId, ActivityTimestamp, CourseId, CourseMembershipId, CourseMembershipRole};
 
 /// One immutable Sysadmin-authorized global Instructor eligibility transition.
 ///
@@ -32,7 +32,7 @@ pub enum InstructorApprovalEventKind {
     Revoked,
 }
 
-/// Stable internal identifier for a target-bound co-instructor invitation.
+/// Stable internal identifier for one target-bound Course Invitation.
 ///
 /// It has no display implementation because it is never a user-facing
 /// locator. Later HTTP contracts should use a course-scoped opaque action.
@@ -51,7 +51,7 @@ impl CourseInvitationId {
     }
 }
 
-/// Closed lifecycle state of a target-bound co-instructor invitation.
+/// Closed lifecycle state of one target-bound Course Invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CourseInvitationState {
     Pending,
@@ -82,7 +82,7 @@ pub enum CourseInvitationEventKind {
     Revoked,
 }
 
-/// Target-bound co-instructor invitation facts persisted by a later Store.
+/// Target-bound Course Invitation facts persisted by a later Store.
 ///
 /// No email field exists: acceptance is available to the authenticated target
 /// account. The 30-day expiry is validated by pure domain code with a supplied
@@ -95,7 +95,9 @@ pub struct CourseInvitation {
     pub course: CourseId,
     /// Exact direct Instructor membership episode that initiated the invitation.
     pub invited_by: CourseMembershipId,
-    /// Existing approved account invited to this exact course.
+    /// Exact Course Membership Role granted if the target accepts this invitation.
+    pub membership_role: CourseMembershipRole,
+    /// Existing account invited to this exact course with that exact role.
     pub target: AccountId,
     /// Authoritative creation time.
     pub created_at: ActivityTimestamp,

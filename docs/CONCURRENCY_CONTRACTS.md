@@ -253,7 +253,7 @@ durable storage boundary.
 
 ### Planned reconciliation fence
 
-WP-RC7 owns the general object reconciliation job. It must compare typed
+WP-RC7 owns the general Object Storage Check job. It must compare typed
 database records with bucket inventory, repair only evidence-backed
 prepare/promote/cleanup states, and record every decision. It must not treat a
 bucket listing as permission to expose, delete, or recreate an object. Until

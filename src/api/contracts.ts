@@ -28,7 +28,7 @@ import type { AccountRole } from "../../generated/api/AccountRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { InstructorAssignmentCurrentState } from "../../generated/api/InstructorAssignmentCurrentState";
-import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionSummary } from "../../generated/api/CatalogQuestionSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
@@ -91,16 +91,16 @@ export interface PoolDrawPreviewQuestion {
   readonly title: string;
 }
 
-/** Strict browser request for one saved Question Pool by its ordered entry index. */
+/** Strict browser request for one saved Question Pool by its Assignment Entry reference. */
 export interface PoolDrawPreviewRequest {
-  readonly assignmentEntryId: number;
+  readonly assignmentEntryId: string;
 }
 
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface PoolDrawPreview {
   readonly assignment: AssignmentReference;
   readonly revision: string;
-  readonly assignmentEntryId: number;
+  readonly assignmentEntryId: string;
   readonly questionPoolLabel: string;
   readonly drawCount: number;
   readonly ordering: "candidateOrder" | "randomized";
@@ -335,11 +335,11 @@ export type PublicationResponseKind =
   | "externalTool";
 
 export interface PublicationResult {
-  readonly summary: CatalogProblemSummary;
+  readonly summary: CatalogQuestionSummary;
 }
 
 export interface PublicationRequest {
-  readonly byline: CatalogProblemSummary["byline"];
+  readonly byline: CatalogQuestionSummary["byline"];
 }
 
 /**

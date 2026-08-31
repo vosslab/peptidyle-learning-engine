@@ -35,8 +35,8 @@
         "Fixture Instructor"
       ]
     },
-    "lifecycle": {
-      "state": "published"
+    "availability": {
+      "availability": "available"
     },
     "publishedAt": 1786000000000
   },
@@ -45,9 +45,10 @@
     "versionNumber": 1,
     "workspace": "0198e000-0000-7000-8000-000000000002",
     "source": {
-      "backend": "native",
-      "family": "peptide_bond_geometry"
+      "backend": "native"
     },
+    "questionFormat": "nativeAlgorithmic",
+    "questionType": "multipleChoice",
     "prompt": [
       {
         "kind": "text",
@@ -154,9 +155,10 @@
   "draft": {
     "workspace": "0198e000-0000-7000-8000-000000000002",
     "source": {
-      "backend": "native",
-      "family": "peptide_bond_geometry"
+      "backend": "native"
     },
+    "questionFormat": "nativeAlgorithmic",
+    "questionType": "multipleChoice",
     "prompt": [
       {
         "kind": "text",

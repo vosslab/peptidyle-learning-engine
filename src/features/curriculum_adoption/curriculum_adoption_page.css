@@ -36,7 +36,7 @@
   min-width: 0;
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-card-surface);
 }
 

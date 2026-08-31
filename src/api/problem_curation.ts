@@ -4,7 +4,7 @@ import type { CatalogSearchFilter } from "../../generated/api/CatalogSearchFilte
 import type { QuestionCollectionMemberView } from "../../generated/api/QuestionCollectionMemberView";
 import type { QuestionCollectionReference } from "../../generated/api/QuestionCollectionReference";
 import type { QuestionCollectionSummaryView } from "../../generated/api/QuestionCollectionSummaryView";
-import type { SavedProblemSearchReference } from "../../generated/api/SavedProblemSearchReference";
+import type { SavedQuestionSearchReference } from "../../generated/api/SavedQuestionSearchReference";
 import type { SavedProblemSearchView } from "../../generated/api/SavedProblemSearchView";
 import type { CursorPage } from "./contracts";
 
@@ -77,18 +77,18 @@ export interface ProblemCurationClient {
     pageSize?: number,
   ) => Promise<CursorPage<SavedProblemSearchView>>;
   readonly getSavedProblemSearch: (
-    search: SavedProblemSearchReference,
+    search: SavedQuestionSearchReference,
   ) => Promise<RevisionedSavedProblemSearch>;
   readonly createSavedProblemSearch: (
     request: SavedProblemSearchReplaceRequest,
   ) => Promise<RevisionedSavedProblemSearch>;
   readonly replaceSavedProblemSearch: (
-    search: SavedProblemSearchReference,
+    search: SavedQuestionSearchReference,
     request: SavedProblemSearchReplaceRequest,
     etag: ProblemCurationEtag,
   ) => Promise<RevisionedSavedProblemSearch>;
   readonly deleteSavedProblemSearch: (
-    search: SavedProblemSearchReference,
+    search: SavedQuestionSearchReference,
     etag: ProblemCurationEtag,
   ) => Promise<void>;
 }

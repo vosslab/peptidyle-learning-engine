@@ -26,7 +26,7 @@ export function assignmentPickerMaximum(
     (count, item) => count + (item.kind === "questionPool" ? item.candidates.length : 0),
     0,
   );
-  const groupRemaining = MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL - entry.candidates.length;
+  const poolRemaining = MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL - entry.candidates.length;
   const assignmentRemaining = MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES - usedCandidates;
-  return Math.max(0, Math.min(groupRemaining, assignmentRemaining));
+  return Math.max(0, Math.min(poolRemaining, assignmentRemaining));
 }

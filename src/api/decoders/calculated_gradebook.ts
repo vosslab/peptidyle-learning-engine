@@ -7,8 +7,8 @@ import type { AssetBindingV1 } from "../../../generated/api/AssetBindingV1";
 import type { CourseGradeMode } from "../../../generated/api/CourseGradeMode";
 import type { CourseGradeRoundingRule } from "../../../generated/api/CourseGradeRoundingRule";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
-import type { CourseReference } from "../../../generated/api/CourseReference";
-import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
+import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { InspectedStudentResponseV1 } from "../../../generated/api/InspectedStudentResponseV1";
 import type { InspectedStudentScoreFeedbackV1 } from "../../../generated/api/InspectedStudentScoreFeedbackV1";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
@@ -26,7 +26,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
-import { decodeGradingOperationReference } from "./grading_operations";
+import { decodeInstructorGradingOperationReference } from "./grading_operations";
 import {
   decodeAssignmentInspectionChoice,
   type AssignmentInspectionChoice,
@@ -126,7 +126,7 @@ export type CalculatedGradebookFilter =
   | { readonly kind: "all" }
   | { readonly kind: "assignment"; readonly assignment: AssignmentReference }
   | { readonly kind: "student"; readonly membership: CourseMembershipReference }
-  | { readonly kind: "operation"; readonly operation: GradingOperationReference };
+  | { readonly kind: "operation"; readonly operation: InstructorGradingOperationReference };
 
 export interface CalculatedGradebookQuery {
   readonly cursor?: string;
@@ -153,7 +153,7 @@ export interface InspectedStudentSubmission {
 }
 
 export interface InspectedStudentWorkDetail {
-  readonly course: CourseReference;
+  readonly course: CourseInstanceReference;
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
   readonly run: AssignmentAttemptReference;
@@ -168,7 +168,7 @@ export interface InspectedStudentWorkDetail {
 export type InspectedStudentWorkReturnContext =
   | {
       readonly kind: "gradebook";
-      readonly course: CourseReference;
+      readonly course: CourseInstanceReference;
       readonly membership: CourseMembershipReference;
       readonly assignment: AssignmentReference;
       readonly focus: {
@@ -179,15 +179,15 @@ export type InspectedStudentWorkReturnContext =
     }
   | {
       readonly kind: "gradingOperation";
-      readonly course: CourseReference;
+      readonly course: CourseInstanceReference;
       readonly membership: CourseMembershipReference;
       readonly assignment: AssignmentReference;
-      readonly operation: GradingOperationReference;
+      readonly operation: InstructorGradingOperationReference;
       readonly focus: {
         readonly kind: "gradingOperationControl";
         readonly membership: CourseMembershipReference;
         readonly assignment: AssignmentReference;
-        readonly operation: GradingOperationReference;
+        readonly operation: InstructorGradingOperationReference;
       };
     };
 
@@ -700,7 +700,7 @@ function decodeReturnContext(
     course: publicReference(field(record, "course", path), `${path}.course`, "C"),
     membership: publicReference(field(record, "membership", path), `${path}.membership`, "M"),
     assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
-    operation: decodeGradingOperationReference(
+    operation: decodeInstructorGradingOperationReference(
       field(record, "operation", path),
       `${path}.operation`,
     ),
@@ -716,7 +716,7 @@ function decodeReturnContext(
         `${focusPath}.assignment`,
         "A",
       ),
-      operation: decodeGradingOperationReference(
+      operation: decodeInstructorGradingOperationReference(
         field(focus, "operation", focusPath),
         `${focusPath}.operation`,
       ),

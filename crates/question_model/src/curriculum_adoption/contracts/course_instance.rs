@@ -12,7 +12,7 @@ use super::{
     CurriculumReplayStatus, ObservedBlueprintSource, ReplacementQuestionChoices,
 };
 use crate::{
-    AccountId, AssignmentReference, AssignmentRevision, CourseReference, CourseScheduleRevision,
+    AccountId, AssignmentReference, AssignmentRevision, CourseInstanceReference, CourseScheduleRevision,
     CourseTerm, QuestionVersionReference, ResolvedRelativeAssignmentSchedule,
 };
 
@@ -31,7 +31,7 @@ pub struct ObservedCourseInstanceAssignment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CourseInstanceWitness {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub schedule_revision: CourseScheduleRevision,
     assignments: BoundedCourseInstanceAssignments,
 }
@@ -54,7 +54,7 @@ pub struct CourseInstanceWitnessError;
 impl CourseInstanceWitness {
     /// Creates exact bounded destination evidence retained by commands and receipts.
     pub fn new(
-        course: CourseReference,
+        course: CourseInstanceReference,
         schedule_revision: CourseScheduleRevision,
         assignments: Vec<ObservedCourseInstanceAssignment>,
     ) -> Result<Self, CourseInstanceWitnessError> {
@@ -95,7 +95,7 @@ pub struct CourseInstanceCreationWitness {
     authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: CurriculumAdoptionIdempotencyKey,
-    reserved_course: CourseReference,
+    reserved_course: CourseInstanceReference,
 }
 
 impl CourseInstanceCreationWitness {
@@ -105,7 +105,7 @@ impl CourseInstanceCreationWitness {
         authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
-        reserved_course: CourseReference,
+        reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
             origin: CourseInstanceCreationOrigin::Blueprint(source),
@@ -123,7 +123,7 @@ impl CourseInstanceCreationWitness {
         authorized_account: AccountId,
         request_digest: [u8; 32],
         idempotency_key: CurriculumAdoptionIdempotencyKey,
-        reserved_course: CourseReference,
+        reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
             origin: CourseInstanceCreationOrigin::Rollover(source),
@@ -156,7 +156,7 @@ impl CourseInstanceCreationWitness {
     pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
         &self.idempotency_key
     }
-    pub fn reserved_course(&self) -> CourseReference {
+    pub fn reserved_course(&self) -> CourseInstanceReference {
         self.reserved_course
     }
 }
@@ -227,7 +227,7 @@ pub enum ControlledUpdateEffect {
 pub struct AssignmentImportReceiptTarget {
     receipt_account: AccountId,
     receipt_key: CurriculumAdoptionIdempotencyKey,
-    course: CourseReference,
+    course: CourseInstanceReference,
     assignment: AssignmentReference,
     import_revision: CurriculumImportRevision,
 }
@@ -236,7 +236,7 @@ impl AssignmentImportReceiptTarget {
     pub fn new(
         receipt_account: AccountId,
         receipt_key: CurriculumAdoptionIdempotencyKey,
-        course: CourseReference,
+        course: CourseInstanceReference,
         assignment: AssignmentReference,
         import_revision: CurriculumImportRevision,
     ) -> Self {
@@ -254,7 +254,7 @@ impl AssignmentImportReceiptTarget {
     pub fn receipt_key(&self) -> &CurriculumAdoptionIdempotencyKey {
         &self.receipt_key
     }
-    pub fn course(&self) -> CourseReference {
+    pub fn course(&self) -> CourseInstanceReference {
         self.course
     }
     pub fn assignment(&self) -> AssignmentReference {
@@ -321,7 +321,7 @@ pub struct CourseInstanceBlueprintInspectionView {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CourseInstanceRefusal {
     IssuedWork {
-        course: CourseReference,
+        course: CourseInstanceReference,
     },
     Divergent {
         assignment: AssignmentReference,
@@ -349,21 +349,21 @@ pub enum CourseInstanceEligibility {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct RolloverCourseInstancePreviewRequest {
-    pub source_course: CourseReference,
+    pub source_course: CourseInstanceReference,
     pub target_term: CourseTerm,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ShiftCourseInstanceTermPreviewRequest {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub target_term: CourseTerm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ControlledUpdateBlueprintAssignmentPreviewRequest {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub source: AssignmentDefinitionSourceView,
     pub assignment: AssignmentReference,
 }
@@ -371,7 +371,7 @@ pub struct ControlledUpdateBlueprintAssignmentPreviewRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateSelectedBlueprintAssignmentPreviewRequest {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub source: AssignmentDefinitionSourceView,
     pub replacements: CurriculumPinReplacements,
 }
@@ -525,7 +525,7 @@ impl ReconcileCourseInstanceAdoptionPreview {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct RolloverCourseInstanceCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub replay: CurriculumReplayStatus,
 }
 
@@ -533,7 +533,7 @@ pub struct RolloverCourseInstanceCompleted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ShiftCourseInstanceTermCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub replay: CurriculumReplayStatus,
 }
 
@@ -541,7 +541,7 @@ pub struct ShiftCourseInstanceTermCompleted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ControlledUpdateBlueprintAssignmentCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
     pub replay: CurriculumReplayStatus,
 }
@@ -550,7 +550,7 @@ pub struct ControlledUpdateBlueprintAssignmentCompleted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateSelectedBlueprintAssignmentCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
     pub replay: CurriculumReplayStatus,
 }
@@ -559,7 +559,7 @@ pub struct CreateSelectedBlueprintAssignmentCompleted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReconcileCourseInstanceAdoptionCompleted {
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     pub replay: CurriculumReplayStatus,
 }
 

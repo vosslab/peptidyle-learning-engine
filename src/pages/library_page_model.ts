@@ -37,7 +37,7 @@ export type CatalogBrowseEvidence =
 
 /** Server-computed count for the exact active query; never derived from loaded rows. */
 export interface CatalogFacetAggregate {
-  readonly group:
+  readonly facet:
     | "byline"
     | "backend"
     | "tag"
@@ -242,22 +242,22 @@ function correlation(value: unknown, path: string): number {
 }
 
 function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
-  if (!isRecord(value) || !hasExactKeys(value, ["count", "group", "value"])) {
+  if (!isRecord(value) || !hasExactKeys(value, ["count", "facet", "value"])) {
     throw new Error(`${path} has an unexpected shape`);
   }
-  const group = value["group"];
+  const facet = value["facet"];
   if (
-    group !== "byline" &&
-    group !== "backend" &&
-    group !== "tag" &&
-    group !== "questionType" &&
-    group !== "taxonomy" &&
-    group !== "capability" &&
-    group !== "license" &&
-    group !== "evidence" &&
-    group !== "usedInMyCourses"
+    facet !== "byline" &&
+    facet !== "backend" &&
+    facet !== "tag" &&
+    facet !== "questionType" &&
+    facet !== "taxonomy" &&
+    facet !== "capability" &&
+    facet !== "license" &&
+    facet !== "evidence" &&
+    facet !== "usedInMyCourses"
   ) {
-    throw new Error(`${path}.group is not a catalog facet`);
+    throw new Error(`${path}.facet is not a catalog facet`);
   }
   const count = value["count"];
   if (
@@ -268,7 +268,7 @@ function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
   ) {
     throw new Error(`${path}.count must be a non-negative safe integer`);
   }
-  return { group, value: boundedText(value["value"], `${path}.value`), count };
+  return { facet, value: boundedText(value["value"], `${path}.value`), count };
 }
 
 /** Strictly decode the live/generated-client result before browser presentation. */

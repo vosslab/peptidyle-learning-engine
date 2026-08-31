@@ -39,7 +39,7 @@ interface CourseThemeDefinition {
  * normal presentation; the stored three-color palettes remain unchanged. */
 const THEME_MIX = {
   surfaceCanvas: 58,
-  groupingCanvas: 78,
+  softSurfaceCanvas: 78,
   cardCanvas: 30,
   inkAction: 22,
   mutedAction: 10,
@@ -60,7 +60,7 @@ function theme(definition: CourseThemeDefinition): CourseThemeTokens {
     ink: definition.ink ?? mix(action, THEME_MIX.inkAction, "#485260"),
     muted: definition.muted ?? mix(action, THEME_MIX.mutedAction, "#4c5663"),
     surface: mix(anchors.canvas, THEME_MIX.surfaceCanvas, "white"),
-    surfaceSoft: mix(anchors.canvas, THEME_MIX.groupingCanvas, "white"),
+    surfaceSoft: mix(anchors.canvas, THEME_MIX.softSurfaceCanvas, "white"),
     card: mix(anchors.canvas, THEME_MIX.cardCanvas, "white"),
     action,
     actionHover: mix(action, THEME_MIX.hoverAction, "#172033"),

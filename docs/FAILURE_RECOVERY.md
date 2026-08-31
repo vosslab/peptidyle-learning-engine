@@ -30,7 +30,7 @@ Its race-safety mechanism is specified separately in
 [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
 
 **Planned boundaries.** Presentation-digest recovery awaits its accepted
-payload package; object reconciliation is WP-RC7; managed point-in-time
+payload package; Object Storage Checks are WP-RC7; managed point-in-time
 recovery and production failover are WP-RC10 deployment work. None is current
 automatic recovery behavior.
 
@@ -203,7 +203,7 @@ not object commit mechanics.
 | Bytes exist without a database record        | Treat as an orphan; do not serve it.                                                        |
 | Object-store dependency is unavailable       | Return bounded unavailable behavior and leave durable metadata/leases recoverable.          |
 
-WP-RC7 object reconciliation is planned, not implemented. Until that package
+WP-RC7 Object Storage Checks are planned, not implemented. Until that package
 is accepted, operators preserve the evidence and repair the backing store;
 application code must not silently delete mismatched records.
 

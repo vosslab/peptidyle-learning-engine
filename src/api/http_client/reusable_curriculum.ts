@@ -1,6 +1,6 @@
 // Strict same-origin transport for instructor reusable curricula.
 
-import type { BlueprintReference } from "../../../generated/api/BlueprintReference";
+import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
 import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
@@ -10,7 +10,7 @@ import {
   decodeBlueprintCoursePage,
   decodeBlueprintCourseView,
   decodeCreateBlueprintCourseDefinitionInput,
-  decodeBlueprintReference,
+  decodeBlueprintCourseReference,
   decodeReplaceBlueprintCourseDefinitionInput,
 } from "../decoders/reusable_curriculum";
 import type {
@@ -57,8 +57,8 @@ function requestRevision(value: ReusableCurriculumEtag, path: string): string {
   return parseStrongEtag(value, `${path} If-Match`);
 }
 
-function blueprintPath(value: BlueprintReference): string {
-  const reference = decodeBlueprintReference(value, "blueprint");
+function blueprintPath(value: BlueprintCourseReference): string {
+  const reference = decodeBlueprintCourseReference(value, "blueprint");
   return `/api/course-blueprints/${encodeURIComponent(reference)}`;
 }
 

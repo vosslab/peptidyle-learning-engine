@@ -254,7 +254,7 @@ async function verifyLibraryFilters(page: Page): Promise<void> {
   await page.getByLabel("Byline").selectOption("Dr. Elena Rivera");
   await page.getByLabel("Backend").selectOption("native");
   await page.getByLabel("Tag").selectOption("peptide-bond");
-  await page.getByLabel("Response family").selectOption("multipleChoice");
+  await page.getByLabel("Question Type").selectOption("multipleChoice");
   await page.getByLabel("Used in my courses").selectOption("used");
   const result = library
     .getByRole("region", { name: "Published questions" })

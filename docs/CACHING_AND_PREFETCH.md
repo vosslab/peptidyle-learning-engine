@@ -98,7 +98,7 @@ course, Student, attempt, or reference from queue input.
 Native questions generate an answer-free envelope at issue time. A
 presentation-bearing attempt retains that exact public snapshot and matching
 server-only grading envelope; submit and submitted reads validate those
-persisted artifacts rather than recomputing a renderer output. Native families
+persisted artifacts rather than recomputing a renderer output. Native Question Implementations
 without an envelope remain explicitly `NotApplicable`.
 
 ### WeBWorK
@@ -168,8 +168,8 @@ explicit presentation capability, presentation binding, exact answer-free public
 snapshot, and matching server-only grading envelope. An identical request is
 idempotent; a conflicting request cannot rewrite its immutable variation.
 
-The reservation's private execution material is not a browser capability. The Store keeps family-
-specific grading contracts and replay mappings behind the server-owned typed capability, or derives
+The reservation's private execution material is not a browser capability. The Store keeps
+Question Backend-specific grading contracts and replay mappings behind the server-owned typed capability, or derives
 them from a locked worker lease whose target is the same exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`,
 predecessor `QuestionAttemptId`, `QuestionVersionReference`, and seed. No caller-supplied scope or provider
 metadata can widen that lease.

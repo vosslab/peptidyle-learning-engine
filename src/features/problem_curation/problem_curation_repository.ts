@@ -150,7 +150,7 @@ function memberPage(value: {
 }): unknown {
   return {
     items: value.page.items
-      .filter((member) => member.selectionAvailability === "available")
+      .filter((member) => member.questionVersionAvailability.availability === "available")
       .map(rowFromMember),
     nextCursor: value.page.nextCursor,
     aggregates: [],

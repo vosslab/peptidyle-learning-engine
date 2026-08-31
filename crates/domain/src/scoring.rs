@@ -1,7 +1,7 @@
 //! Score selection and compact summary projection (MOD-SCORE).
 //!
 //! `select_assignment_attempt_grade` selects a completed Assignment Attempt for
-//! reconciliation and explicit instructor
+//! grade selection during recalculation and explicit Instructor
 //! actions. `project_summary` updates the ordinary course-page projection one
 //! transition at a time, so storage never scans Assignment Attempt history on a
 //! synchronous page request. Both functions are pure.
@@ -9,7 +9,7 @@
 use std::collections::HashSet;
 
 use question_model::{
-    ActivityTimestamp, AssignmentProgressRecord, AssignmentAttemptId, GradePolicy,
+    ActivityTimestamp, AssignmentAttemptId, AssignmentProgressRecord, GradePolicy,
 };
 
 use crate::run::AssignmentActivityError;

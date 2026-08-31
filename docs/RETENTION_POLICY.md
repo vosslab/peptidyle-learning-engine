@@ -60,7 +60,7 @@ global account session and stored membership in the exact CourseInstance;
 Sysadmin support authority derives from the closed registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry).
 There is no institution lookup. A missing, foreign, expired, revoked,
-or wrong-family capability and a missing, foreign, archived, or revoked
+or wrong-kind capability and a missing, foreign, archived, or revoked
 CourseInstance/Student relationship fail closed and are concealed. A request
 never supplies Account, course, Student, role, or support-capability authority.
 

@@ -2,7 +2,7 @@
 
 import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
 import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
-import type { SavedProblemSearchReference } from "../../../generated/api/SavedProblemSearchReference";
+import type { SavedQuestionSearchReference } from "../../../generated/api/SavedQuestionSearchReference";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { ApiClient } from "../client";
 import {
@@ -53,7 +53,7 @@ function collectionPath(collection: QuestionCollectionReference): string {
   return `/api/question-collections/${encodeURIComponent(reference)}`;
 }
 
-function savedSearchPath(search: SavedProblemSearchReference): string {
+function savedSearchPath(search: SavedQuestionSearchReference): string {
   const reference = decodeSavedProblemSearchReference(search, "search");
   return `/api/saved-problem-searches/${encodeURIComponent(reference)}`;
 }

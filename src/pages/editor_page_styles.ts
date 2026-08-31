@@ -2,7 +2,7 @@
 
 export const EDITOR_PAGE_STYLES = `
 .editor-grid { display:grid; gap:1rem; grid-template-columns:minmax(28rem, 1.25fr) minmax(23rem, .9fr); }
-.editor-panel { min-width:0; padding:.8rem; border:0; border-radius:var(--ple-radius-group,.7rem); background:color-mix(in srgb,var(--ple-card-surface) 84%,transparent); box-shadow:var(--ple-shadow); }
+.editor-panel { min-width:0; padding:.8rem; border:0; border-radius:var(--ple-radius-inset,.7rem); background:color-mix(in srgb,var(--ple-card-surface) 84%,transparent); box-shadow:var(--ple-shadow); }
 .editor-panel h2 { margin-top:0; }
 .editor-field { display:grid; gap:.25rem; margin:.45rem 0; font-size:.9rem; font-weight:680; }
 .editor-field input, .editor-field textarea, .editor-field select { width:100%; min-height:var(--ple-control-min-height,2.25rem); padding:.35rem .5rem; border:1px solid var(--ple-border); border-radius:var(--ple-radius-control,.25rem); background:var(--ple-surface); color:var(--ple-ink); }

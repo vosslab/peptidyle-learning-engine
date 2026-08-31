@@ -154,7 +154,7 @@ renderer provenance before mutating the selected target. It then:
 
 1. removes the prior fixed project while retaining no stale owner resources;
 2. runs `postgres-major-guard`, starts PostgreSQL, and waits for readiness;
-3. applies the migration set and provisions bounded runtime logins;
+3. applies the migration set and sets up bounded runtime service logins;
 4. starts MinIO and idempotently creates its declared buckets;
 5. starts, probes, and attests the private renderer;
 6. starts API initializers, builds API and gateway images, and starts API and

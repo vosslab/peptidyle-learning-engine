@@ -72,7 +72,7 @@ lineage has a fresh immutable `QuestionVersionNumber`, and `QuestionVersionRefer
 exact `(QuestionId, QuestionVersionNumber)` evidence only in trusted delivery, grading,
 replay, audit, assignment pins, and optional non-operative provenance records.
 An allowed original-lineage correction may retain the `QuestionId` while
-archiving the replaced version. A major objective, task, or response-family
+archiving the replaced version. A major objective, task, or Question Type
 change is a fork: its creator edits a private draft and publication gives it a
 new `QuestionId`, a new version, and exact source ancestry. Every successful
 publication enters one installation-wide shared catalog for approved
@@ -85,8 +85,8 @@ resolves a Question ID already present in this published corpus. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
 assignment cannot contain private question content.
 
-`CatalogProblemSummary` is the hot browse projection. It contains the Question
-ID, backend family, capabilities, metadata, lifecycle, and publication time,
+`CatalogQuestionSummary` is the hot browse projection. It contains the Question
+ID, Question Backend, capabilities, metadata, Current Question Version Availability, and publication time,
 but not prompt, response, private source-locator fields, or the opaque internal
 pair. Trusted server work resolves the Question ID and loads the separate
 internal `QuestionDefinition` payload. Browser catalog detail uses that safe
@@ -154,7 +154,7 @@ reason.
 Catalog evidence is version-specific and excludes previews and the Instructor
 Student view. After the configured privacy threshold, the safe aggregate may
 expose accepted-attempt count, graded-attempt count, correct count, and
-eligible-choice selection counts for supported choice families. Below the
+eligible-choice selection counts for supported choice Question Types. Below the
 threshold it exposes availability only; it never exposes raw responses,
 small-cell counts, linkable cohorts, or Student identities. Course-local
 item-analysis metrics remain separately authorized and never become global
@@ -339,7 +339,7 @@ generic run route has already completed its payload cutover. The current route
 still issues `QuestionEnvelope` and accepts a tagged `StudentResponse` in
 `{ "response": ... }`; its `kind` is therefore part of today's wire shape.
 The planned compact response uses the attempt route identity, presentation
-digest, and rendered IDs, then resolves the response family and durable IDs
+digest, and rendered IDs, then resolves the Question Type and durable IDs
 server-side. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
 own that transition and its acceptance gates.
@@ -455,7 +455,7 @@ profile.
 The former flat-question v1 `singleChoice` reader and source contract are
 retired and unsupported. There is no v1 compatibility reader, source-byte
 fallback, or compatibility behavior. Version 2 is the only current native
-source shape: a closed contract with eight families, `singleChoice`,
+source shape: a closed contract with eight Question Types, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
 and `hotspot`. V2 input is answer-bearing private authoring material, not a
 Student payload. It does not claim file-upload or external-tool authoring

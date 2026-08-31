@@ -449,7 +449,7 @@ The roster response is deliberately small:
 The object above is the approved direct-Serde `snake_case` contract; browser DOM and framework values retain their upstream spellings.
 
 It does not return provider subjects, passkey state, raw invitation tokens,
-course-selection fields, assignment enrollments, attempts, submissions, or
+course-selection fields, course-work records, Assignment Attempts, submissions, or
 grades. A pending row may show the exact address and roster identifier entered
 by that course's Instructor so a typo or mismatch can be corrected. After claim,
 that address becomes protected course roster metadata; a later account-email

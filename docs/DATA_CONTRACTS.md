@@ -87,7 +87,7 @@ trust levels:
 | --- | --- | --- | --- | --- |
 | Render | **Implemented** foundation | Answer-free prompt, public assets, widget shape, and safe presentation metadata | Key, rubric, backend provenance, private replay mapping, and policy authority | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Submit | **Current compatibility contract** | Question Attempt route, idempotency key, and tagged `StudentResponse` | Account, Student, exact course/Assignment Attempt, version, seed, backend, policy, and expected family | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
-| Compact submit | **Reserved** cutover | Attempt route, idempotency key, presentation digest, and family-minimal answer | The response family and all attempt-owned context | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
+| Compact submit | **Reserved** cutover | Attempt route, idempotency key, presentation digest, and Question-Type-minimal answer | The Question Type and all attempt-owned context | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 
 `kind` is needed in the current render payload so the browser can select the
 correct widget. It remains on the current compatibility submission wire. The
@@ -128,7 +128,7 @@ Use the narrowest owner document for a design or implementation decision:
 | Need | Start here |
 | --- | --- |
 | Contract state, module owner, acceptance evidence | [CONTRACTS.md](CONTRACTS.md) |
-| Question families, publication, answer-free envelope | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
+| Question Types, publication, answer-free envelope | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
 | Attempt issuance, grade lifecycle, mastery behavior | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) and [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) |
 | Render/response payloads, CRC presentation IDs, WeBWorK boundary | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | HTTP routes, session boundary, idempotency | [API_CONTRACTS.md](API_CONTRACTS.md) |

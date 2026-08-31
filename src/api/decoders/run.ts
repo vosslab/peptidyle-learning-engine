@@ -19,7 +19,7 @@ import type { StudentAssignmentLandingSummary } from "../../../generated/api/Stu
 import type { AttemptProvenance } from "../../../generated/api/AttemptProvenance";
 import type { AttemptStatus } from "../../../generated/api/AttemptStatus";
 import type { QuestionAttemptTiming } from "../../../generated/api/QuestionAttemptTiming";
-import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { IssuedAttemptCapabilityV1 } from "../../../generated/api/IssuedAttemptCapabilityV1";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
@@ -83,7 +83,7 @@ import {
 } from "./question_delivery";
 import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
 import {
-  decodeCatalogProblemSummary,
+  decodeCatalogQuestionSummary,
   decodeCourseRouteData,
   decodeCourseSummary,
 } from "./catalog_course";
@@ -675,9 +675,9 @@ export function decodePrefetchedNextQuestion(
 export function decodeCatalogPage(
   value: unknown,
   path = "response",
-): CursorPage<CatalogProblemSummary> {
+): CursorPage<CatalogQuestionSummary> {
   return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeCatalogProblemSummary(item, itemPath, true),
+    decodeCatalogQuestionSummary(item, itemPath, true),
   );
 }
 

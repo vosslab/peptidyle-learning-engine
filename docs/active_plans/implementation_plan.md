@@ -200,7 +200,8 @@ its subsequent work follows the Instructor dependency queue, while the release p
 later acceptance gates.
 
 **WP-R2 test and live-evidence boundary.** Offline Memory publication, replacement, and replay behavior
-belongs in `crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs`; server
+requires a current registered conformance test target. The former disconnected
+`crates/learning-data-access/tests/conformance/` corpus is retired; server
 Question-ID request and replacement behavior belongs in `crates/server/src/catalog/tests/publication.rs`
 and `crates/server/src/course/tests/assignment_revision.rs`. The disposable PostgreSQL/RLS driver is
 `tests/e2e/e2e_wp_r2_postgres_rls.py`; `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
@@ -1729,7 +1730,7 @@ permanent credentialed or network test.
 ### Milestone: M5 integration hardening
 
 - Depends on: M3, M4.
-- Deliverables: cross-cutting `tests/e2e/` suite; orphaned-object reconciliation; MOD-STATS
+- Deliverables: cross-cutting `tests/e2e/` suite; orphaned-object Storage Checks; MOD-STATS
   incremental aggregation with the k-anonymity gate; MOD-RETENTION lifecycle with configured course
   policy; asynchronous analytics; `docs/SECURITY_MODEL.md`, `docs/RETENTION_POLICY.md`.
 - Lanes: (1) MOD-STATS; (2) MOD-RETENTION; (3) cross-cutting E2E, owned by `integrator`.

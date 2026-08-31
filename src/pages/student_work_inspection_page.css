@@ -26,7 +26,7 @@
   gap: var(--ple-layout-gap);
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }

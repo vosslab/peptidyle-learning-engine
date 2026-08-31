@@ -40,7 +40,7 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
   CourseInstance, that Instructor's initial direct membership, and an append-only audit event;
   the Sysadmin account receives no course membership.
 - A support capability is purpose-bound, time-bounded, revocable, audited, and limited to its
-  registered operation family and minimum projection. Sysadmin status supplies platform operations,
+  registered Operation Kind and minimum projection. Sysadmin status supplies platform operations,
   not ambient course-record authority.
 
 Dr. Voss may use separate Instructor and Sysadmin accounts. Instructors are
@@ -102,7 +102,7 @@ under the course retention lifecycle.
 This includes, at minimum:
 
 - roster membership, roster email, optional external roster ID, and group data;
-- assignment enrollments, accommodations, runs, attempts, responses, and
+- Course Memberships, accommodations, Assignment Attempts, Question Attempts, responses, and
   feedback;
 - grades, item analysis, grading-operation evidence, and grade exports;
 - student uploads, generated student artifacts, protected-delivery grants,
@@ -136,7 +136,7 @@ asset bytes after the committed outbox decision.
   FERPA-bearing operation unless its contract defines a narrower audited
   Sysadmin support or lifecycle capability.
 - Issue a Sysadmin support capability only through the closed registry, bound
-  to one exact course, a stated purpose, an issuer, an operation family, an
+  to one exact course, a stated purpose, an issuer, an Operation Kind, an
   expiry, and a minimum projection. Record issuance, use, revocation, authenticated account,
   course, action, and time; keep roster PII and invitation secrets out of audit
   payloads.

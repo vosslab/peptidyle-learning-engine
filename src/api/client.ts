@@ -4,8 +4,8 @@ import type { AssetId } from "../../generated/api/AssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
-import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
-import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
+import type { CatalogQuestionSummary } from "../../generated/api/CatalogQuestionSummary";
+import type { CatalogQuestionDetail } from "../../generated/api/CatalogQuestionDetail";
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { CourseId } from "../../generated/api/CourseId";
@@ -30,12 +30,12 @@ import type { AccountApprovalView } from "../../generated/api/AccountApprovalVie
 import type { AccountReference } from "../../generated/api/AccountReference";
 import type { SysadminInstructorCandidateSearchPage } from "../../generated/api/SysadminInstructorCandidateSearchPage";
 import type { SysadminInstructorCandidateSearchRequest } from "../../generated/api/SysadminInstructorCandidateSearchRequest";
-import type { CourseInvitationCreateRequest } from "../../generated/api/CourseInvitationCreateRequest";
+import type { InstructorCourseInvitationCreateRequest } from "../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { CourseInvitationTargetSearchPage } from "../../generated/api/CourseInvitationTargetSearchPage";
 import type { CourseInvitationTargetSearchQuery } from "../../generated/api/CourseInvitationTargetSearchQuery";
-import type { CourseCourseInvitationsPage } from "../../generated/api/CourseCourseInvitationsPage";
+import type { InstructorCourseInvitationsPage } from "../../generated/api/InstructorCourseInvitationsPage";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { CourseStudentMembershipsPage } from "../../generated/api/CourseStudentMembershipsPage";
 import type { AccommodationPatchUpdateRequest } from "../../generated/api/AccommodationPatchUpdateRequest";
@@ -49,7 +49,7 @@ import type { RetentionReadView } from "../../generated/api/RetentionReadView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import type { TeachingOperationRevisionResponse } from "../../generated/api/TeachingOperationRevisionResponse";
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
-import type { CourseReference } from "../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { DerivedPreviewSubjectRequest } from "../../generated/api/DerivedPreviewSubjectRequest";
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
@@ -93,11 +93,11 @@ import type { CurriculumAdoptionClient } from "./curriculum_adoption";
 import type {
   GradingOperationActionId,
   GradingOperationActionReceipt,
-  GradingOperationGroupBy,
+  GradingOperationFocus,
   GradingOperationStrongEtag,
   InstructorGradingOperationsPage,
 } from "./decoders/grading_operations";
-import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type { InstructorGradingOperationReference } from "../../generated/api/InstructorGradingOperationReference";
 import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type {
   CalculatedGradebookQuery,
@@ -116,14 +116,14 @@ export interface GradingOperationsClient {
   readonly listInstructorGradingOperations: (
     courseId: CourseId,
     assignmentId: AssignmentId,
-    groupBy?: GradingOperationGroupBy,
+    focus?: GradingOperationFocus,
     cursor?: string,
     pageSize?: number,
   ) => Promise<InstructorGradingOperationsPage>;
   readonly retryInstructorGradingOperation: (
     courseId: CourseId,
     assignmentId: AssignmentId,
-    operation: GradingOperationReference,
+    operation: InstructorGradingOperationReference,
     expectedRevision: GradingOperationStrongEtag,
     idempotencyKey: GradingOperationActionId,
   ) => Promise<GradingOperationActionReceipt>;
@@ -156,7 +156,7 @@ export interface CalculatedGradebookClient {
     membership: CourseMembershipReference,
     assignment: AssignmentReference,
     run: AssignmentAttemptReference,
-    operationRef?: GradingOperationReference,
+    operationRef?: InstructorGradingOperationReference,
   ) => Promise<InspectedStudentWorkDetail>;
 }
 
@@ -201,7 +201,7 @@ export interface ApiClient
   ) => Promise<TeachingPreviewView>;
   /** Instructor-only T3 schedule projection using public C-/A- route references. */
   readonly listPreviewSchedule: (
-    course: CourseReference,
+    course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
     cursor?: string,
@@ -209,24 +209,24 @@ export interface ApiClient
   ) => Promise<InstructorPreviewSchedulePage>;
   /** Builds one identity-free synthetic subject and returns its server-resolved projection. */
   readonly constructSyntheticPreview: (
-    course: CourseReference,
+    course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
     request: Omit<SyntheticPreviewSubjectRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
   /** Resolves one authorized M- request locator into an identity-free derived projection. */
   readonly constructDerivedPreview: (
-    course: CourseReference,
+    course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
     request: Omit<DerivedPreviewSubjectRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
-  /** Samples one saved item pool with server-owned entropy and no student activity. */
+  /** Samples one saved Question Pool with server-owned entropy and no student activity. */
   readonly previewPoolDraw: (
-    course: CourseReference,
+    course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
-    assignmentEntryId: number,
+    assignmentEntryId: string,
   ) => Promise<PoolDrawPreview>;
   readonly approveInstructorAccount: (
     account: AccountReference,
@@ -236,22 +236,22 @@ export interface ApiClient
     account: AccountReference,
     revision: TeachingOperationRevision,
   ) => Promise<AccountApprovalView>;
-  readonly listCourseCourseInvitations: (
+  readonly listInstructorCourseInvitations: (
     courseId: CourseId,
     cursor?: string,
     pageSize?: number,
-  ) => Promise<CourseCourseInvitationsPage>;
-  readonly searchCourseCourseInvitationTargets: (
+  ) => Promise<InstructorCourseInvitationsPage>;
+  readonly searchInstructorCourseInvitationTargets: (
     courseId: CourseId,
     query: CourseInvitationTargetSearchQuery,
     cursor?: string,
     pageSize?: number,
   ) => Promise<CourseInvitationTargetSearchPage>;
-  readonly createCourseCourseInvitation: (
+  readonly createInstructorCourseInvitation: (
     courseId: CourseId,
-    request: CourseInvitationCreateRequest,
+    request: InstructorCourseInvitationCreateRequest,
   ) => Promise<CourseInvitationReference>;
-  readonly revokeCourseCourseInvitation: (
+  readonly revokeInstructorCourseInvitation: (
     courseId: CourseId,
     invitation: CourseInvitationReference,
     revision: TeachingOperationRevision,
@@ -326,13 +326,13 @@ export interface ApiClient
     request: PublicationRequest,
     revision: string,
   ) => Promise<PublicationResult>;
-  readonly listProblems: (cursor?: string) => Promise<CursorPage<CatalogProblemSummary>>;
+  readonly listProblems: (cursor?: string) => Promise<CursorPage<CatalogQuestionSummary>>;
   /** Searches immutable hot catalog metadata with server-computed facets. */
   readonly searchCatalog: (query: CatalogSearchQuery) => Promise<CatalogSearchPage>;
   /** Resolves one copyable instructor-facing ID to its exact safe catalog summary. */
-  readonly resolveCatalogProblem: (displayReference: string) => Promise<CatalogProblemSummary>;
+  readonly resolveCatalogQuestion: (displayReference: string) => Promise<CatalogQuestionSummary>;
   /** Gets the safe immutable library projection, never a question definition. */
-  readonly getCatalogProblemDetail: (questionId: QuestionId) => Promise<CatalogProblemDetail>;
+  readonly getCatalogQuestionDetail: (questionId: QuestionId) => Promise<CatalogQuestionDetail>;
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Creates one course for an authenticated instructor or sysadmin. */

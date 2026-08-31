@@ -6,12 +6,12 @@ import type { ApiClient } from "../client";
 import {
   decodeGradingOperationActionId,
   decodeGradingOperationActionReceipt,
-  decodeGradingOperationReference,
+  decodeInstructorGradingOperationReference,
   decodeGradingOperationStrongEtag,
   decodeInstructorGradingOperationsPage,
   type GradingOperationActionId,
   type GradingOperationActionReceipt,
-  type GradingOperationGroupBy,
+  type GradingOperationFocus,
   type GradingOperationStrongEtag,
   type InstructorGradingOperationsPage,
 } from "../decoders/grading_operations";
@@ -32,7 +32,7 @@ function courseAssignmentPath(courseId: CourseId, assignmentId: AssignmentId): s
 function listPath(
   courseId: CourseId,
   assignmentId: AssignmentId,
-  groupBy: GradingOperationGroupBy,
+  focus: GradingOperationFocus,
   cursor: string | undefined,
   pageSize: number | undefined,
 ): string {
@@ -44,8 +44,8 @@ function listPath(
       "grading operations page size must be an integer from 1 through 100",
     );
   }
-  const checkedGroupBy = decodeStringEnum(groupBy, "groupBy", ["question", "student"] as const);
-  const query = new URLSearchParams({ groupBy: checkedGroupBy });
+  const checkedFocus = decodeStringEnum(focus, "focus", ["question", "student"] as const);
+  const query = new URLSearchParams({ focus: checkedFocus });
   if (cursor !== undefined) query.set("cursor", decodeCursor(cursor, "cursor"));
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));
   const path = `${courseAssignmentPath(courseId, assignmentId)}/grading-operations`;
@@ -53,7 +53,7 @@ function listPath(
 }
 
 function retryPath(courseId: CourseId, assignmentId: AssignmentId, operation: string): string {
-  const reference = decodeGradingOperationReference(operation);
+  const reference = decodeInstructorGradingOperationReference(operation);
   return `${courseAssignmentPath(courseId, assignmentId)}/grading-operations/${encodeURIComponent(reference)}/retry`;
 }
 
@@ -130,11 +130,11 @@ export function createGradingOperationsClient(
     listInstructorGradingOperations: async (
       courseId,
       assignmentId,
-      groupBy: GradingOperationGroupBy = "question",
+      focus: GradingOperationFocus = "question",
       cursor,
       pageSize,
     ): Promise<InstructorGradingOperationsPage> => {
-      const path = listPath(courseId, assignmentId, groupBy, cursor, pageSize);
+      const path = listPath(courseId, assignmentId, focus, cursor, pageSize);
       const result = await operationJson(
         fetchImplementation,
         basePath,

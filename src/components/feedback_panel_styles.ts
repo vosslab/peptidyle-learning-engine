@@ -9,7 +9,7 @@ export const FEEDBACK_PANEL_STYLES = `
   .feedback-panel__blocks { display: grid; gap: var(--ple-space-2, 0.5rem); }
   .feedback-panel__blocks > * { margin: 0; }
   .feedback-panel__math { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  .feedback-panel__image { display: block; max-width: 100%; height: auto; border-radius: var(--ple-radius-group, 0.5rem); }
+  .feedback-panel__image { display: block; max-width: 100%; height: auto; border-radius: var(--ple-radius-inset, 0.5rem); }
   .feedback-panel__code { overflow-x: auto; padding: 0.65rem; border-radius: var(--ple-radius-control, 0.375rem); background: var(--ple-surface-soft); }
   .feedback-panel__table-wrap { overflow-x: auto; }
   .feedback-panel__table { width: 100%; border-collapse: collapse; }

@@ -198,7 +198,7 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
 }
 
 /** Serializes the bounded copyable problem locator without interpreting its server-owned syntax. */
-export function catalogProblemReferencePath(displayReference: string): string {
+export function catalogQuestionReferencePath(displayReference: string): string {
   const reference = displayReference.trim();
   if (
     reference.length === 0 ||

@@ -28,7 +28,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeAssignmentPolicyPatchUpdateRequest } from "./teaching_operations";
-import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
+import { decodeBoundedArray, decodeCursor, decodeIdentifier, field, requireOnlyFields } from "./shared";
 
 const MAX_ROUTE_REFERENCE = 2_147_483_647;
 const POLICY_SOURCES = ["base", "accommodation"] as const;
@@ -84,7 +84,7 @@ export function decodePoolDrawPreviewRequest(
   path = "request",
 ): PoolDrawPreviewRequest {
   const record = closed(value, path, ["assignmentEntryId"]);
-  return { assignmentEntryId: decodeSafeInteger(record.assignmentEntryId, `${path}.assignmentEntryId`) };
+  return { assignmentEntryId: decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`) };
 }
 
 export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDrawPreview {
@@ -112,8 +112,10 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
     previewQuestion,
   );
   const drawCount = decodeSafeInteger(record.drawCount, `${path}.drawCount`);
-  const assignmentEntryId = decodeSafeInteger(record.assignmentEntryId, `${path}.assignmentEntryId`);
-  if (assignmentEntryId < 0) throw new DecodeError(`${path}.assignmentEntryId`, "a nonnegative position");
+  const assignmentEntryId = decodeIdentifier(
+    record.assignmentEntryId,
+    `${path}.assignmentEntryId`,
+  );
   if (drawCount < 1 || drawCount > candidates.length || sampled.length !== drawCount)
     throw new DecodeError(`${path}.drawCount`, "a valid draw count for the returned pool");
   const sampledIds = new Set(sampled.map((question) => question.questionId));

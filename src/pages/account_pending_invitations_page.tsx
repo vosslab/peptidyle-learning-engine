@@ -1,4 +1,4 @@
-// Account-owned response surface for pending co-instructor invitations.
+// Account-owned response surface for pending Course Invitations.
 
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
@@ -38,7 +38,7 @@ function responseHeading(action: CourseInvitationTerminalAction): string {
 
 function responseCopy(action: CourseInvitationTerminalAction): string {
   return action === "accept"
-    ? "Accepting grants you direct instructor access to this course."
+    ? "Accepting grants you direct course membership."
     : "Declining closes this invitation. A course instructor can invite you again later.";
 }
 

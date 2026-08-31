@@ -21,7 +21,7 @@ import { QtiProfileImportPage } from "../features/qti_profile_import/qti_profile
 import { WasmEditorPage } from "./editor_page";
 import { createInstructorPreviewClient } from "./editor_instructor_preview";
 import { createWorkspaceEditorRepository } from "./editor_workspace_repository";
-import { workspaceRouteReference } from "../navigation/public_route";
+import { authoringWorkspaceRouteReference } from "../navigation/public_route";
 import { resolveWorkspaceRoute } from "../navigation/resolved_route";
 
 /** `/workspace`: a server-backed private draft list with its first draft selected. */
@@ -37,7 +37,7 @@ export function WorkspaceListLivePage(): JSX.Element {
   return (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
-      onOpenDraft={(draft) => navigate(`/workspace/${workspaceRouteReference(draft.reference)}`)}
+      onOpenDraft={(draft) => navigate(`/workspace/${authoringWorkspaceRouteReference(draft.reference)}`)}
       onCreateFlatQuestion={createFlatQuestion}
     />
   );

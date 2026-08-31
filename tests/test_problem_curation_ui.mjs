@@ -8,7 +8,7 @@ import {
 
 test("curation deletion presents one named dialog with Cancel as the initial action", () => {
   const deletion = collectionDeletionFromObserved({
-    reference: "PC-7",
+    reference: "QC-7",
     kind: "named",
     title: "Exam candidates",
     visibility: "private",

@@ -75,7 +75,7 @@ deduplication or rendition replacement without rewriting question content.
 | ------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `CourseId`, `CourseMembershipId`                 | A Course Instance and one exact membership         | Course membership is not assignment ownership                                 |
 | `AssignmentId`                                   | One course assignment                              | Defines learning activity and policy, not content                             |
-| `AssignmentItemId`, `AssignmentSelectionGroupId` | A stable assignment item or random-selection group | Preserves position and selection semantics when content repeats               |
+| `AssignmentEntryId` | A stable Assignment Entry | Names one Fixed Question or Question Pool while the ordered definition establishes its authored place |
 | `StudentRecordId`                                 | One Student's protected course record              | Separates course-local educational records from global Account identity        |
 | `AssignmentAttemptId`                             | One pass through an Assignment                     | Binds one exact Student Record and Assignment while preserving continued practice |
 | `IssuedQuestionId`                                | One selected Question in an Assignment Attempt     | Freezes source entry, exact Question Version, order, selection evidence, and scoring treatment |
@@ -136,7 +136,7 @@ or issued attempt. A grading-semantic correction is an impact and recalculation
 operation: it records affected exact pins, evaluates the permitted impact, and
 publishes the replacement only through that controlled workflow.
 
-Major objective, response-family, task, or other incompatible changes require
+Major objective, Question Type, task, or other incompatible changes require
 a fork. Any approved Instructor may start a fork from a published version, but
 the fork draft is private to its creator until validation succeeds. Publication
 then enters the global catalog with a new `QuestionId`, a new immutable
@@ -198,7 +198,7 @@ retain their source, successor, and fork ancestry.
 Catalog evidence is version-specific. After the configured disclosure
 threshold, the safe rollup may expose accepted-attempt count, graded-attempt
 count, correct count, and eligible-choice selection counts for supported choice
-families. Before the threshold, the values remain unavailable; raw responses,
+Question Types. Before the threshold, the values remain unavailable; raw responses,
 small cells, and linkable cohorts never appear. Preview traffic and the
 Instructor Student view contribute no catalog metrics.
 
@@ -283,7 +283,7 @@ inside the family-specific answer shape.
 | Never inferred from a label or position             | Derived from the full rendered context     |
 
 At issuance, PLE derives IDs for the entire presentation, requires uniqueness
-across roles as well as within a response family, retries with a fresh
+across roles as well as within a Question Type, retries with a fresh
 16-byte nonce when a collision occurs, and fails closed after the documented
 retry limit. The server either reproduces the native mapping deterministically
 from immutable version, seed, and nonce or persists the validated external

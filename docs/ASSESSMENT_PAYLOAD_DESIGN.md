@@ -147,7 +147,7 @@ the response against the checksummed issued public snapshot, and atomically reco
 accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
 matching server-only grading envelope, grades under server authority, and commits the completed
 aggregate. Neither path reproduces a mutable issued envelope. Therefore the submitted `kind` is
-redundant. The attempt already determines the expected response family.
+redundant. The attempt already determines the expected Question Type.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
 and its issued public snapshot response schema, then select a closed, family-specific decoder for `answer`.
@@ -179,12 +179,12 @@ An issued attempt already binds the facts required to grade safely:
 - course and assignment context;
 - exact immutable QuestionVersionReference and assignment position;
 - generated seed and immutable provenance;
-- expected response family and grading backend;
+- expected Question Type and grading backend;
 - issue time, effective deadline, and submission state; and
 - feedback, retry, grading, and continued-practice policies.
 
 The browser therefore does not need to resend a question ID, course ID, assignment ID, version,
-seed, backend, response family, points, or grading mode. Treating browser copies of those values as
+seed, backend, Question Type, points, or grading mode. Treating browser copies of those values as
 authority would create disagreement cases without adding information.
 
 ### UUID cost
@@ -497,9 +497,9 @@ and solutions when release policy does not allow them.
 The native browser submits `assignment_id`, `question_id`, serialized `submission`, and a
 client-selected `technology`; current client code also constructs `max_score`. The server loads the
 stored question and infers `questionType`, so ADAPT already demonstrates that the student does not
-need to submit the native question family. It computes partial credit server-side.
+need to submit the native Question Type. It computes partial credit server-side.
 
-ADAPT's simple multiple-choice answer can be one choice identifier, but some families are more
+ADAPT's simple multiple-choice answer can be one choice identifier, but some Question Types are more
 verbose than necessary. Matching submits complete mutated `termsToMatch` objects even though grading
 needs relationships between identifiers. No attempt ID, presentation digest, version token, or ETag
 was found on the inspected native submission boundary.
@@ -690,7 +690,7 @@ easy to navigate without duplicating its exact migration and codec specification
   Playwright scenarios.
 - Behavior: consume the single student screen, compute/verify through Wasm, gate required asset
   readiness, submit the compact body, and recover compatible drafts after same-attempt refresh.
-- Success: keyboard-only paths for all accepted families pass; a network trace contains no submission
+- Success: keyboard-only paths for all accepted Question Types pass; a network trace contains no submission
   `kind`, private field, full attempt, or provider data.
 - Validation: built-browser Playwright, no-mouse contract, mismatch/offline retry, and accessibility
   review.
@@ -739,7 +739,7 @@ remove rebuild-only evidence once the maintained gate proves the final contract.
 
 ## Rollout decision
 
-The public contract changes atomically before WP-RC5 adds new flat families. PLE must not maintain a
+The public contract changes atomically before WP-RC5 adds new flat Question Types. PLE must not maintain a
 long-lived mixed endpoint where some active attempts use tagged responses and others use type-free
 answers without an explicit contract version.
 

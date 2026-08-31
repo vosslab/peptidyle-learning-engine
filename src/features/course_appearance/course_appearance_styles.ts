@@ -183,7 +183,7 @@ export const COURSE_APPEARANCE_STYLES = `
   min-width: 0;
   padding: 0.75rem;
   border: 0;
-  border-radius: var(--ple-radius-group, 0.7rem);
+  border-radius: var(--ple-radius-inset, 0.7rem);
   background:
     radial-gradient(
       circle at 92% 0%,
@@ -230,7 +230,7 @@ export const COURSE_APPEARANCE_STYLES = `
   height: auto;
   aspect-ratio: 1200 / 328;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group, 0.25rem);
+  border-radius: var(--ple-radius-inset, 0.25rem);
   object-fit: cover;
 }
 

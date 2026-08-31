@@ -118,7 +118,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
   };
   return {
     resolvePublished: async (questionId) =>
-      catalogRow(await client.resolveCatalogProblem(questionId)),
+      catalogRow(await client.resolveCatalogQuestion(questionId)),
     problemPickerRepository,
     listProblemPickerSources: async (
       course,

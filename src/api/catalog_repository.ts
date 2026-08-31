@@ -104,47 +104,47 @@ function facets(
 ): ReadonlyArray<CatalogFacetAggregate> {
   return [
     ...page.facets.bylines.map((facet) => ({
-      group: "byline" as const,
+      facet: "byline" as const,
       value: facet.byline,
       count: facet.count,
     })),
     ...page.facets.backends.map((facet) => ({
-      group: "backend" as const,
+      facet: "backend" as const,
       value: facet.backend,
       count: facet.count,
     })),
     ...page.facets.tags.map((facet) => ({
-      group: "tag" as const,
+      facet: "tag" as const,
       value: facet.tag,
       count: facet.count,
     })),
     ...page.facets.questionTypes.map((facet) => ({
-      group: "questionType" as const,
+      facet: "questionType" as const,
       value: facet.questionType,
       count: facet.count,
     })),
     ...page.facets.taxonomy.map((facet) => ({
-      group: "taxonomy" as const,
+      facet: "taxonomy" as const,
       value: `${facet.term.scheme}:${facet.term.code}`,
       count: facet.count,
     })),
     ...page.facets.capabilities.map((facet) => ({
-      group: "capability" as const,
+      facet: "capability" as const,
       value: facet.capability,
       count: facet.count,
     })),
     ...page.facets.licenses.map((facet) => ({
-      group: "license" as const,
+      facet: "license" as const,
       value: facet.license,
       count: facet.count,
     })),
-    { group: "evidence" as const, value: "available", count: page.facets.evidence.available },
+    { facet: "evidence" as const, value: "available", count: page.facets.evidence.available },
     {
-      group: "evidence" as const,
+      facet: "evidence" as const,
       value: "unavailable",
       count: page.facets.evidence.unavailable,
     },
-    { group: "usedInMyCourses" as const, value: "used", count: page.facets.usedInMyCourses.used },
+    { facet: "usedInMyCourses" as const, value: "used", count: page.facets.usedInMyCourses.used },
   ];
 }
 

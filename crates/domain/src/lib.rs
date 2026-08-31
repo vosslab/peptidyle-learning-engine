@@ -33,7 +33,7 @@ pub mod run;
 pub mod scoring;
 /// Retention-safe anonymous question-statistics aggregation (MOD-STATS).
 pub mod statistics;
-/// Pure group-membership and co-instructor authority validation (WP-INST-T2).
+/// Pure Course Membership and Course Invitation authority validation (WP-INST-T2).
 pub mod teaching_authority;
 /// Timer verdict for time-limited attempts (MOD-TIME).
 pub mod timing;

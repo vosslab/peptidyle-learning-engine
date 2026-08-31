@@ -3,7 +3,7 @@
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
-import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type { InstructorGradingOperationReference } from "../../generated/api/InstructorGradingOperationReference";
 import type {
   SubmittedRunChoice,
   SubmittedRunChoicesPage,
@@ -15,7 +15,7 @@ export interface GradebookRunChooserScope {
   readonly courseId: CourseId;
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
-  readonly operation?: GradingOperationReference;
+  readonly operation?: InstructorGradingOperationReference;
 }
 
 /** Narrow exact-run boundary used by the chooser; the production adapter is the API client. */

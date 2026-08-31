@@ -66,7 +66,7 @@ pub mod assignment_activity_rules;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
 pub mod statistics;
 pub mod taxonomy;
-/// Internal global approval and target-bound co-instructor lifecycle facts.
+/// Internal global approval and target-bound Course Invitation lifecycle facts.
 pub mod teaching_authority;
 /// Browser/server teaching-operations wire contracts.
 pub mod teaching_operations;
@@ -114,7 +114,7 @@ pub use crate::catalog::{
     CatalogAuthorship, CatalogBackendFacet, CatalogBylineFacet, CatalogCapabilityFacet,
     CatalogDiscoveryEvidence, CatalogDiscoveryItem, CatalogEvidenceAvailability,
     CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue,
-    CatalogOwnCourseUsage, CatalogProblemDetail, CatalogProblemSummary, CatalogPromptProjection,
+    CatalogOwnCourseUsage, CatalogQuestionDetail, CatalogQuestionSummary, CatalogPromptProjection,
     QuestionTypeFacet, CatalogSearchFacets, CatalogSearchFilter,
     CatalogSearchPage, CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet,
     CatalogTaxonomyFacet, CatalogTaxonomyFilter, CatalogUsageDetail, CatalogUsageSummary,
@@ -122,7 +122,7 @@ pub use crate::catalog::{
     MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_OWN_COURSE_USAGES,
     MAX_CATALOG_QUESTION_TYPE_FACETS, MAX_CATALOG_QUESTION_TYPE_FILTERS,
     MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS, MAX_CATALOG_TAXONOMY_FACETS,
-    MAX_QUESTION_ID_COUNT, ProblemDisplayRef, QuestionVersionAvailability, QuestionVersionReference, QUESTION_ID_ALPHABET,
+    MAX_QUESTION_ID_COUNT, QuestionVersionAvailability, QuestionVersionReference, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
 };
 pub use crate::course::{
@@ -153,7 +153,7 @@ pub use crate::curation::{
     MAX_NAMED_QUESTION_COLLECTIONS, MAX_QUESTION_COLLECTION_MEMBERS,
     MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, MAX_SAVED_PROBLEM_SEARCHES,
     QuestionCollectionMemberView,
-    QuestionCollectionEditNumber, QuestionCollectionSelectionAvailability,
+    QuestionCollectionEditNumber,
     QuestionCollectionSummaryView, ProblemCurationTitleError,
     SavedProblemSearchEditNumber, SavedProblemSearchView, validate_problem_curation_title,
 };
@@ -172,7 +172,7 @@ pub use crate::envelope::QuestionEnvelope;
 pub use crate::feedback::{DisclosedFeedback, FeedbackContent, InspectedStudentScoreFeedbackV1};
 pub use crate::generation::GeneratorReference;
 pub use crate::grading_operations::{
-    AutomatedGradingStatus, GradingOperationAction, GradingOperationReason, GradingOperationState,
+    AutomatedGradingStatus, GradingOperationAction, GradingOperationReason, InstructorGradingOperationState,
     GradingOperationVisibleState, SubmissionEvaluationStatus,
 };
 pub use crate::identity::{
@@ -199,11 +199,11 @@ pub use crate::preview_plane::{
     SyntheticPreviewSubjectRequest,
 };
 pub use crate::public_route::{
-    AccountReference, AssignmentAttemptReference, AssignmentReference, BlueprintReference,
+    AccountReference, AssignmentAttemptReference, AssignmentReference, BlueprintCourseReference,
     CourseInvitationReference, CourseMembershipReference,
-    CourseReference, GradingOperationReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
-    QuestionCollectionReference, RESERVED_REFERENCE_PREFIXES, SavedProblemSearchReference,
-    WorkspaceReference,
+    CourseInstanceReference, InstructorGradingOperationReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
+    QuestionCollectionReference, RESERVED_REFERENCE_PREFIXES, SavedQuestionSearchReference,
+    AuthoringWorkspaceReference,
 };
 pub use crate::response::{
     QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,
@@ -238,11 +238,11 @@ pub use crate::teaching_authority::{
     InstructorApprovalEventKind,
 };
 pub use crate::teaching_operations::{
-    AccountApprovalView, AssignmentPolicyPatchUpdateRequest, CourseInvitationCreateRequest,
+    AccountApprovalView, AssignmentPolicyPatchUpdateRequest, InstructorCourseInvitationCreateRequest,
     CourseInvitationStateView, CourseInvitationTerminalAction,
     CourseInvitationTerminalActionRequest, CourseInvitationTargetSearchPage,
     CourseInvitationTargetSearchQuery, CourseInvitationTargetSearchRequest, CourseInvitationTargetView,
-    CourseCourseInvitationView, CourseCourseInvitationsPage, CourseStudentMembershipsPage,
+    InstructorCourseInvitationView, InstructorCourseInvitationsPage, CourseStudentMembershipsPage,
     StudentMembershipView,
     AccommodationPatchUpdateRequest, InstructorApprovalStateView,
     InstructorMembershipRemovalRequest, InstructorMembershipView, InstructorMembershipsPage,

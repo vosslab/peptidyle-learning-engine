@@ -4,16 +4,16 @@ import test from "node:test";
 import { ApiRequestError } from "../src/api/http_client/error.ts";
 import {
   gradingOperationsActionFailure,
-  gradingOperationsGroupLabel,
-  gradingOperationsPositionForGroup,
+  gradingOperationsSubjectLabel,
+  gradingOperationsPositionForFocus,
   gradingOperationsRetryLabel,
   retryGradingOperationsAction,
   retryOperationIntent,
 } from "../src/pages/assignment_workspace/assignment_workspace_operations_model.ts";
 
-test("grading-operation grouping starts with no cursor", () => {
-  assert.deepEqual(gradingOperationsPositionForGroup("student"), {
-    groupBy: "student",
+test("grading-operation focus starts with no cursor", () => {
+  assert.deepEqual(gradingOperationsPositionForFocus("student"), {
+    focus: "student",
     cursor: undefined,
   });
 });
@@ -34,14 +34,14 @@ test("grading-operation stale conflicts require an explicit reload", () => {
 
 test("grading-operation retry control names its exact recovery target", () => {
   const row = {
-    group: {
+    subject: {
       kind: "question",
       questionId: "PEP-7B4D",
       title: "Peptide bond resonance",
     },
   };
 
-  assert.equal(gradingOperationsGroupLabel(row), "Question: Peptide bond resonance");
+  assert.equal(gradingOperationsSubjectLabel(row), "Question: Peptide bond resonance");
   assert.equal(
     gradingOperationsRetryLabel(row),
     "Retry automated grading for Peptide bond resonance (PEP-7B4D)",

@@ -1,7 +1,7 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
-import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
-import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionDetail } from "../../../generated/api/CatalogQuestionDetail";
+import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../../generated/api/CatalogSearchQuery";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
@@ -22,7 +22,7 @@ import type {
   StudentQuestionAttempt,
   WorkspaceDraftDetail,
 } from "../contracts";
-import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
+import { catalogQuestionReferencePath, catalogSearchPath } from "../catalog_query";
 import { assignmentRouteReference } from "../../navigation/public_route";
 import {
   decodeStudentAssignmentPage,
@@ -30,8 +30,8 @@ import {
   decodeStudentAssignmentDetail,
   decodeAttemptPage,
   decodeCatalogPage,
-  decodeCatalogProblemDetail,
-  decodeCatalogProblemSummary,
+  decodeCatalogQuestionDetail,
+  decodeCatalogQuestionSummary,
   decodeCatalogSearchPage,
   decodeCourseAppearance,
   decodeCourseGradeSchemeView,
@@ -207,13 +207,13 @@ async function courseAppearance(
     throw new ApiProtocolError(`API response ${path} ETag does not match its appearance revision`);
   return appearance;
 }
-async function catalogProblemDetail(
+async function catalogQuestionDetail(
   fetchImplementation: ApiFetch,
   basePath: string,
   questionId: QuestionId,
-): Promise<CatalogProblemDetail> {
+): Promise<CatalogQuestionDetail> {
   const path = `/api/problems/by-id/${encodedId(questionId)}/detail`;
-  const detail = await requestJson(fetchImplementation, basePath, path, decodeCatalogProblemDetail);
+  const detail = await requestJson(fetchImplementation, basePath, path, decodeCatalogQuestionDetail);
   if (detail.summary.questionId !== questionId)
     throw new ApiProtocolError(
       "Catalog detail identity does not match its requested immutable version",
@@ -282,8 +282,8 @@ export function createResponseClient(
   | "getWorkspacePublicationDiff"
   | "listProblems"
   | "searchCatalog"
-  | "resolveCatalogProblem"
-  | "getCatalogProblemDetail"
+  | "resolveCatalogQuestion"
+  | "getCatalogQuestionDetail"
   | "listTaxonomy"
   | "listCourses"
   | "getCourse"
@@ -332,14 +332,14 @@ export function createResponseClient(
       ),
     searchCatalog: (query: CatalogSearchQuery): Promise<CatalogSearchPage> =>
       requestJson(fetchImplementation, basePath, catalogSearchPath(query), decodeCatalogSearchPage),
-    resolveCatalogProblem: (displayReference: string): Promise<CatalogProblemSummary> => {
-      const path = catalogProblemReferencePath(displayReference);
+    resolveCatalogQuestion: (displayReference: string): Promise<CatalogQuestionSummary> => {
+      const path = catalogQuestionReferencePath(displayReference);
       return requestJson(fetchImplementation, basePath, path, (value, decoderPath) =>
-        decodeCatalogProblemSummary(value, decoderPath, true),
+        decodeCatalogQuestionSummary(value, decoderPath, true),
       );
     },
-    getCatalogProblemDetail: (questionId) =>
-      catalogProblemDetail(fetchImplementation, basePath, questionId),
+    getCatalogQuestionDetail: (questionId) =>
+      catalogQuestionDetail(fetchImplementation, basePath, questionId),
     listTaxonomy: (cursor) =>
       requestJson(
         fetchImplementation,

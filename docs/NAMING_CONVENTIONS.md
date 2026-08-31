@@ -74,7 +74,7 @@ Name every identifying value for its exact boundary, representation, and role:
 | --- | --- | --- |
 | Complete domain aggregate or record | The domain noun | `Account`, `CourseInstance`, `Assignment` |
 | Typed internal UUID value | Complete subject plus `Uuid` | `StudentRecordUuid`, `AssignmentAttemptUuid` |
-| Human-usable locator | Its reviewed product name | `CourseReference`, `BlueprintReference` |
+| Human-usable locator | Its reviewed product name | `CourseInstanceReference`, `BlueprintCourseReference` |
 | Reviewed public identifier whose product name includes ID | `Id` | `QuestionId` |
 | Physical UUID column | Complete subject plus `_uuid` | `assignment_attempt_uuid` |
 | Optimistic concurrency value | Complete subject plus `Revision` | `AssignmentRevision` |

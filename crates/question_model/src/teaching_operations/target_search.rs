@@ -1,4 +1,4 @@
-//! Bounded, display-name-only co-instructor target discovery contracts.
+//! Bounded, display-name-only Instructor Course Invitation target discovery contracts.
 
 use serde::{Deserialize, Serialize};
 
@@ -6,13 +6,13 @@ use crate::AccountReference;
 
 use super::{TeachingDisplayLabel, TeachingOperationRevision, TeachingPageSize};
 
-/// Smallest useful display-name fragment for co-instructor target discovery.
+/// Smallest useful display-name fragment for Instructor Course Invitation target discovery.
 ///
 /// Requiring two characters prevents this endpoint from becoming an account
 /// directory while still supporting ordinary name lookup.
-pub const MIN_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS: usize = 2;
+pub const MIN_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS: usize = 2;
 /// Discovery input is intentionally shorter than a display label.
-pub const MAX_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS: usize = 100;
+pub const MAX_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS: usize = 100;
 
 /// Safe current account projection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -38,7 +38,7 @@ pub enum InstructorApprovalStateView {
     Revoked,
 }
 
-/// Account eligible as a co-instructor invitation target.
+/// Account eligible as an Instructor Course Invitation target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseInvitationTargetView {
@@ -46,7 +46,7 @@ pub struct CourseInvitationTargetView {
     pub approval: AccountApprovalView,
 }
 
-/// A bounded, nonblank display-name fragment used only for co-instructor
+/// A bounded, nonblank display-name fragment used only for Instructor Course Invitation
 /// target discovery. It is not an email address, account identifier, or
 /// general account-search capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,12 +66,12 @@ impl TryFrom<String> for CourseInvitationTargetSearchQuery {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let length = value.chars().count();
         if value.trim() != value
-            || !(MIN_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS
-                ..=MAX_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS)
+            || !(MIN_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS
+                ..=MAX_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS)
                 .contains(&length)
         {
             return Err(
-                "co-instructor target search query must be trimmed and contain 2 to 100 characters",
+                "Instructor Course Invitation target search query must be trimmed and contain 2 to 100 characters",
             );
         }
         Ok(Self(value))
@@ -84,7 +84,7 @@ impl From<CourseInvitationTargetSearchQuery> for String {
     }
 }
 
-/// Strict bounded request for safe co-instructor target discovery.
+/// Strict bounded request for safe Instructor Course Invitation target discovery.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseInvitationTargetSearchRequest {
@@ -94,7 +94,7 @@ pub struct CourseInvitationTargetSearchRequest {
     pub size: TeachingPageSize,
 }
 
-/// Authorized bounded co-instructor target search result.
+/// Authorized bounded Instructor Course Invitation target search result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseInvitationTargetSearchPage {

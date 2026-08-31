@@ -20,7 +20,7 @@ function page() {
           revision: 3,
           nextAction: "retry",
         },
-        group: { kind: "question", questionId: "ABC-1234", title: "Protein folding" },
+        subject: { kind: "question", questionId: "ABC-1234", title: "Protein folding" },
         affectedStudentCount: 2,
         trustGeneration: { kind: "execution", generation: 4 },
       },
@@ -38,7 +38,7 @@ function jsonResponse(body, headers = {}) {
 
 test("grading operation decoder accepts safe closed metadata and rejects additional fields", () => {
   const decoded = decodeInstructorGradingOperationsPage(page());
-  assert.equal(decoded.items[0].group.kind, "question");
+  assert.equal(decoded.items[0].subject.kind, "question");
   assert.equal(decoded.items[0].operation.reference, "GO-7");
 
   const withExtraField = page();
@@ -92,7 +92,7 @@ test("grading operations client sends no-store list and empty guarded action req
 
   assert.equal(
     calls[0].input,
-    `/live/api/courses/${COURSE_ID}/assignments/${ASSIGNMENT_ID}/grading-operations?groupBy=student&cursor=next&pageSize=25`,
+    `/live/api/courses/${COURSE_ID}/assignments/${ASSIGNMENT_ID}/grading-operations?focus=student&cursor=next&pageSize=25`,
   );
   assert.equal(calls[0].init.cache, "no-store");
   assert.equal(calls[1].init.method, "POST");

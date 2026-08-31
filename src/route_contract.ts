@@ -53,8 +53,8 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "pendingCourseInvitations",
-    path: "/account/co-instructor-invitations",
-    surface: "Account-owned pending co-instructor invitations",
+    path: "/account/course-invitations",
+    surface: "Account-owned pending Course Invitations",
     requiredRoles: [],
   },
   {

@@ -1,7 +1,7 @@
 # PLE flat-question JSON
 
 Status: accepted v2-only source contract. Version 2 implements all eight required
-flat-question families through strict parsing, answer-free compilation,
+flat-question Question Types through strict parsing, answer-free compilation,
 publication validation, student rendering, response validation, and isolated
 server grading.
 
@@ -15,9 +15,9 @@ the internal model.
 Version 2 uses a closed type-specific `response` object. PLE does not add QTI
 expression trees, arbitrary response processing, or vendor extension containers.
 
-## Required family roadmap
+## Required Question Type roadmap
 
-The complete product must support at least these eight flat-question families:
+The complete product must support at least these eight flat-question Question Types:
 
 - multiple choice (MC), implemented by `singleChoice`;
 - multiple answer (MA);

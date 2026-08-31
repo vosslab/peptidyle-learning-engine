@@ -11,9 +11,9 @@ import type { SysadminInstructorCandidateSearchPage } from "../../../generated/a
 import type { SysadminInstructorCandidateSearchRequest } from "../../../generated/api/SysadminInstructorCandidateSearchRequest";
 import type { SysadminInstructorCandidateView } from "../../../generated/api/SysadminInstructorCandidateView";
 import type { AssignmentPolicyPatchUpdateRequest } from "../../../generated/api/AssignmentPolicyPatchUpdateRequest";
-import type { CourseInvitationCreateRequest } from "../../../generated/api/CourseInvitationCreateRequest";
+import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
-import type { CourseCourseInvitationsPage } from "../../../generated/api/CourseCourseInvitationsPage";
+import type { InstructorCourseInvitationsPage } from "../../../generated/api/InstructorCourseInvitationsPage";
 import type { AccommodationPatchUpdateRequest } from "../../../generated/api/AccommodationPatchUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
@@ -497,12 +497,14 @@ export function decodeInstructorMembershipsPage(
   };
 }
 
-export function decodeCourseInvitationCreateRequest(
+export function decodeInstructorCourseInvitationCreateRequest(
   value: unknown,
   path = "request",
-): CourseInvitationCreateRequest {
+): InstructorCourseInvitationCreateRequest {
   const record = closed(value, path, ["target"]);
-  return { target: reference(record.target, `${path}.target`, "U") };
+  return {
+    target: reference(record.target, `${path}.target`, "U"),
+  };
 }
 
 function courseInvitationTarget(value: unknown, path: string): CourseInvitationTargetView {
@@ -565,10 +567,10 @@ export function decodeCourseStudentMembershipsPage(
   return { students, nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`) };
 }
 
-export function decodeCourseCourseInvitationsPage(
+export function decodeInstructorCourseInvitationsPage(
   value: unknown,
   path = "response",
-): CourseCourseInvitationsPage {
+): InstructorCourseInvitationsPage {
   const record = closed(value, path, ["invitations", "nextCursor"]);
   return {
     invitations: decodeBoundedArray(

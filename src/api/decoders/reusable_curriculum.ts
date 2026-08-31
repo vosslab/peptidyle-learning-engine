@@ -7,7 +7,7 @@ import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generate
 import { MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import type { BlueprintReference } from "../../../generated/api/BlueprintReference";
+import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
 import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
 import type { CursorPage } from "../contracts";
@@ -23,7 +23,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeStudentDisclosurePolicy } from "./assignment_policy";
-import { decodeCatalogProblemSummary } from "./catalog_course";
+import { decodeCatalogQuestionSummary } from "./catalog_course";
 import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
 
 const MAX_PAGE_SIZE = 100;
@@ -42,7 +42,7 @@ function text(value: unknown, path: string): string {
   return decoded;
 }
 
-function blueprintReference(value: unknown, path: string): BlueprintReference {
+function blueprintReference(value: unknown, path: string): BlueprintCourseReference {
   const decoded = decodeString(value, path);
   if (!/^BP-[1-9][0-9]{0,9}$/u.test(decoded) || Number(decoded.slice(3)) > 2_147_483_647) {
     throw new DecodeError(path, "a canonical Blueprint Course public reference");
@@ -367,7 +367,7 @@ function questionView(value: unknown, path: string): void {
   requireOnlyFields(record, path, ["catalog", "selection_availability"]);
   const catalog = decodeRecord(field(record, "catalog", path), `${path}.catalog`);
   requireOnlyFields(catalog, `${path}.catalog`, ["summary", "evidence"]);
-  decodeCatalogProblemSummary(
+  decodeCatalogQuestionSummary(
     field(catalog, "summary", `${path}.catalog`),
     `${path}.catalog.summary`,
     true,
@@ -496,7 +496,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
   };
 }
 
-export function decodeBlueprintReference(value: unknown, path = "reference"): BlueprintReference {
+export function decodeBlueprintCourseReference(value: unknown, path = "reference"): BlueprintCourseReference {
   return blueprintReference(value, path);
 }
 

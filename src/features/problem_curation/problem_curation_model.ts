@@ -3,7 +3,7 @@
 import type { QuestionCollectionMemberView } from "../../../generated/api/QuestionCollectionMemberView";
 import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
 import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
-import type { SavedProblemSearchReference } from "../../../generated/api/SavedProblemSearchReference";
+import type { SavedQuestionSearchReference } from "../../../generated/api/SavedQuestionSearchReference";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { CatalogSearchFilter } from "../../../generated/api/CatalogSearchFilter";
 import type { ProblemCurationEtag } from "../../api/problem_curation";
@@ -37,7 +37,7 @@ export interface QuestionCollectionReplacement {
 
 /** A complete edit-number-checked saved-search replacement. */
 export interface SavedProblemSearchReplacement {
-  readonly reference: SavedProblemSearchReference | null;
+  readonly reference: SavedQuestionSearchReference | null;
   readonly title: string;
   readonly query: CatalogBrowseQuery;
   /** Existing searches retain their exact D1 filter while a title changes. */
@@ -58,7 +58,7 @@ export type ProblemCurationDeletion =
     }
   | {
       readonly kind: "savedSearch";
-      readonly reference: SavedProblemSearchReference;
+      readonly reference: SavedQuestionSearchReference;
       readonly title: string;
       readonly editNumber: ProblemCurationEtag;
       readonly heading: string;
@@ -105,10 +105,10 @@ export interface ProblemCurationRepository {
     replacement: SavedProblemSearchReplacement,
   ) => Promise<RevisionedCurationValue<SavedProblemSearchView>>;
   readonly getSavedSearch: (
-    reference: SavedProblemSearchReference,
+    reference: SavedQuestionSearchReference,
   ) => Promise<RevisionedCurationValue<SavedProblemSearchView>>;
   readonly deleteSavedSearch: (
-    reference: SavedProblemSearchReference,
+    reference: SavedQuestionSearchReference,
     editNumber: string,
   ) => Promise<void>;
 }

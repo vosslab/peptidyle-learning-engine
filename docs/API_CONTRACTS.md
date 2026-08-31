@@ -65,7 +65,7 @@ The fuller authorization and forced account-and-relationship-scoped RLS evidence
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
 and [SECURITY_MODEL.md](SECURITY_MODEL.md).
 
-## Mounted route families
+## Mounted routes
 
 The current executable surface is intentionally small while SD1 reconstructs
 the Store-backed course-delivery composition. Exact methods, request parsing,
@@ -77,7 +77,7 @@ and HTTP status behavior remain in the linked owner.
 | Authenticated Session | `GET /api/auth/session`; `POST /api/auth/logout` | The server resolves or revokes one bounded Authenticated Session for one global Account. The browser receives an Account ID and immutable Product Role, never a credential or course authority. | [auth.rs](../crates/server/src/auth.rs) |
 | Seeded Live Demo | Deployment-gated `GET/POST /api/auth/live-demo/accounts` | The selector exists only with complete disposable-demo configuration and mints the ordinary Authenticated Session for a seeded Account. It is not a product authentication provider. | [auth/live_demo.rs](../crates/server/src/auth/live_demo.rs), [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) |
 
-## Deferred delivery families
+## Deferred delivery routes
 
 The following product capabilities remain authoritative design targets, not
 mounted routes: shared Question Catalog and lifecycle; private authoring and
@@ -130,7 +130,7 @@ meaning.
 Catalog evidence is version-specific. After the configured disclosure
 threshold, a safe rollup may expose accepted-attempt, graded-attempt, and
 correct counts plus eligible-choice selection counts for supported choice
-families. Below the threshold the counts remain unavailable. The rollup never
+Question Types. Below the threshold the counts remain unavailable. The rollup never
 includes raw responses, small cells, linkable cohorts, Student identities,
 preview traffic, or the Instructor Student view. Course-local item analysis is
 a separate exact-course projection. The evidence is keyed to the immutable
@@ -225,13 +225,13 @@ projection. `GET
 /api/courses/{course}/assignments/{assignment}/grading-operations` resolves
 the direct Instructor relationship from the session, verifies the exact course
 and assignment pair, and returns a bounded `no-store` page of metadata-only
-rows. **Target WN1-C6-GO1 and QM-GRADING-OPS:** `group_by=question|student`; `cursor`
+rows. **Target WN1-C6-GO1 and QM-GRADING-OPS:** `focus=question|student`; `cursor`
 and `page_size` are opaque and bounded. Rows expose safe operation state, reason, revision, next
-action, grouping label, affected Student count, and trust generation. They
+action, exact subject, affected Student count, and trust generation. They
 never expose Student responses, answer keys, feedback internals, private
 source, or score values.
 
-**Current pre-WN1:** this route currently uses `groupBy`, `student`, and `pageSize`.
+**Current pre-WN1:** this route uses `focus`, `student`, and `pageSize`.
 The C6-GO1/QM-GRADING-OPS closure moves its parser, generated DTO, browser client, and strict
 decoder together to the target PLE spelling.
 
@@ -274,7 +274,7 @@ passwordless/account/session graph. Its eight-hour `FirstPartyHttps` policy
 makes account, email-binding, and authenticated-session cookies Secure, HttpOnly, and
 first-party `SameSite=Lax`; its explicit `ReviewNotRequired` gate leaves
 institutional review integration optional. It mounts only the production
-account and session route families listed above.
+account and session routes listed above.
 
 Production is a same-origin first-party application. It does not support an
 embedded `SameSite=None` session mode. A future LTI integration is a separate

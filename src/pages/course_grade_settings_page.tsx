@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js
 
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseGradeOutcomeView } from "../../generated/api/CourseGradeOutcomeView";
-import type { CourseReference } from "../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
 import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
@@ -23,7 +23,7 @@ import { formatPercentScore } from "../score_format";
 type State = "loading" | "ready" | "saving" | "error";
 interface CoursePageProps {
   readonly courseId: CourseId;
-  readonly courseReference: CourseReference;
+  readonly courseReference: CourseInstanceReference;
 }
 
 function draftFrom(view: CourseGradeSchemeView): CourseGradeSchemeUpdateView {

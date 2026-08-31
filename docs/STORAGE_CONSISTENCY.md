@@ -16,7 +16,7 @@ An **object** is immutable bytes and its server-created `ObjectRecord`. A **refe
 | State | Meaning | Required treatment |
 | --- | --- | --- |
 | Reference and SHA-256-verified bytes | Healthy | Deliver only under its typed delivery policy. |
-| Bytes without reference | Orphan | Never deliver. Preserve for reconciliation quarantine. |
+| Bytes without reference | Orphan | Never deliver. Preserve for Object Storage Check quarantine. |
 | Reference without bytes | Broken reference | Fail closed, alert, and preserve database evidence. |
 | Reference with wrong bytes/checksum | Corruption or substitution | Fail closed; do not replace it with a near match. |
 
@@ -95,7 +95,7 @@ The current pre-SD1 retention source still carries legacy scope fields in its wo
 storage. SD1-C owns the source/schema replacement with the exact course/stage/generation scope above;
 no compatibility scope field is added here.
 
-General bucket-to-database reconciliation is not yet implemented. Until it is, operators must preserve missing/mismatched reference evidence and investigate the backing store; application code must not silently delete references or serve unregistered bytes. Production backup restore, KMS rotation, Object Lock retention, lifecycle policy, and cross-region/failover claims need live deployment evidence.
+General Object Storage Checks are not yet implemented. Until they are, operators must preserve missing/mismatched reference evidence and investigate the backing store; application code must not silently delete references or serve unregistered bytes. Production backup restore, KMS rotation, Object Lock retention, lifecycle policy, and cross-region/failover claims need live deployment evidence.
 
 ## Change rule
 

@@ -112,7 +112,7 @@ design intent rather than a privacy assurance.
   answer-bearing values, object keys, grades, and provider state are not
   stored in `localStorage`, `sessionStorage`, or persistent browser caches.
 - Render payloads may be richer than submissions. The server derives expected
-  response family, grading backend, seed, ownership, and policy from the
+  Question Type, grading backend, seed, ownership, and policy from the
   authenticated attempt. The browser never supplies grading authority.
 - Protected route responses use `no-store`. A signed object URL is an
   authorization result returned only by the protected delivery POST; it is not

@@ -1,12 +1,12 @@
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { QuestionType } from "../../../generated/api/QuestionType";
-import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
-  decodeCatalogProblemSummary,
+  decodeCatalogQuestionSummary,
   decodeDraftQuestionDefinition,
-  isAvailableNativeCatalogProblemSummary,
+  isAvailableNativeCatalogQuestionSummary,
 } from "../../api/decoders";
 import { isPublicByline } from "../../api/public_byline";
 import { FLAT_QUESTION_MEDIA_TYPE, type FlatQuestionSourceV2 } from "./flat_question_source";
@@ -66,7 +66,7 @@ export interface FlatQuestionClient {
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
     revision: string,
-  ): Promise<CatalogProblemSummary>;
+  ): Promise<CatalogQuestionSummary>;
 }
 
 function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -285,7 +285,7 @@ export function createFlatQuestionClient(
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
     revision: string,
-  ): Promise<CatalogProblemSummary> {
+  ): Promise<CatalogQuestionSummary> {
     if (!isPublicByline(request.byline)) {
       throw new FlatQuestionProtocolError(
         "Flat-question publication requires one to sixteen reviewed author names",
@@ -309,12 +309,12 @@ export function createFlatQuestionClient(
       throw new FlatQuestionConflictError(response.status, path);
     if (!response.ok) throw new FlatQuestionRequestError(response.status, path);
     requireJson(response, path);
-    const summary = decodeCatalogProblemSummary(
+    const summary = decodeCatalogQuestionSummary(
       decodeJson(await boundedText(response, path), path),
       path,
       true,
     );
-    if (!isAvailableNativeCatalogProblemSummary(summary)) {
+    if (!isAvailableNativeCatalogQuestionSummary(summary)) {
       throw new FlatQuestionProtocolError(
         "Flat-question publication response must be an available native catalog summary",
       );

@@ -29,7 +29,7 @@ import {
   kind,
   requireOnlyFields,
 } from "./shared";
-import { decodeCatalogProblemSummary } from "./catalog_course";
+import { decodeCatalogQuestionSummary } from "./catalog_course";
 import {
   decodeAttemptPolicy,
   decodeContentBlock,
@@ -197,7 +197,7 @@ export function decodeDraftQuestionDefinition(
 }
 
 export function decodePublicationResult(value: unknown, path = "response"): PublicationResult {
-  return { summary: decodeCatalogProblemSummary(value, path, true) };
+  return { summary: decodeCatalogQuestionSummary(value, path, true) };
 }
 
 /** Strictly decodes the key-free rendered variant delivered for an attempt. */

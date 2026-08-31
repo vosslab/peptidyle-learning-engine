@@ -3,7 +3,7 @@
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
-import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type { InstructorGradingOperationReference } from "../../generated/api/InstructorGradingOperationReference";
 import type {
   CalculatedAssignmentCell,
   CalculatedGradebookResult,
@@ -71,7 +71,7 @@ export interface GradebookPageRepository {
     request: {
       readonly filter: {
         readonly kind: "operation";
-        readonly operation: GradingOperationReference;
+        readonly operation: InstructorGradingOperationReference;
       };
       readonly cursor?: string;
     },
@@ -366,7 +366,7 @@ export class GradebookPageSession {
     }
   }
 
-  private startSelection(operation: GradingOperationReference, generation: number): void {
+  private startSelection(operation: InstructorGradingOperationReference, generation: number): void {
     const request = this.nextRequest();
     const identity = `operation:${operation}`;
     this.#selectionRequest = request;
@@ -374,7 +374,7 @@ export class GradebookPageSession {
   }
 
   private async loadInitialSelection(
-    operation: GradingOperationReference,
+    operation: InstructorGradingOperationReference,
     generation: number,
     identity: string,
     request: number,
@@ -396,7 +396,7 @@ export class GradebookPageSession {
 
   private async continueSelection(
     current: Extract<GradebookPageSelectionState, { readonly kind: "studentSelection" }>,
-    operation: GradingOperationReference,
+    operation: InstructorGradingOperationReference,
     generation: number,
     identity: string,
     request: number,

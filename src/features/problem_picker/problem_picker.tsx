@@ -63,7 +63,7 @@ function selectedCopy(selection: ProblemPickerSelection, mode: ProblemPickerSele
 
 function facetValues(
   state: ProblemPickerState,
-  group:
+  facet:
     | "byline"
     | "backend"
     | "tag"
@@ -74,7 +74,7 @@ function facetValues(
     | "evidence"
     | "usedInMyCourses",
 ): ReadonlyArray<{ readonly value: string; readonly count: number }> {
-  return state.aggregates.filter((aggregate) => aggregate.group === group);
+  return state.aggregates.filter((aggregate) => aggregate.facet === facet);
 }
 
 /**

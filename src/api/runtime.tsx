@@ -5,7 +5,7 @@ import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
+import type { CatalogQuestionDetail } from "../../generated/api/CatalogQuestionDetail";
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { QuestionId } from "../../generated/api/QuestionId";
@@ -34,7 +34,7 @@ export interface ApiRuntime<Client extends ApiClient = ApiClient> {
   readonly queries: {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
-    readonly catalogDetail: QueryFunction<[QuestionId], CatalogProblemDetail>;
+    readonly catalogDetail: QueryFunction<[QuestionId], CatalogQuestionDetail>;
     readonly gradebook: QueryFunction<[CourseId], CalculatedGradebookResult>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
@@ -62,7 +62,7 @@ export function createApiRuntime<Client extends ApiClient>(client: Client): ApiR
         "catalog-search",
       ),
       catalogDetail: query(
-        (questionId: QuestionId) => client.getCatalogProblemDetail(questionId),
+        (questionId: QuestionId) => client.getCatalogQuestionDetail(questionId),
         "catalog-detail",
       ),
       gradebook: query(

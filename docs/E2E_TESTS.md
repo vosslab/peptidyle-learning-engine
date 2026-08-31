@@ -52,7 +52,7 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 ## How to run non-browser E2E tests
 
 - Run a single shell runner: `bash tests/e2e/e2e_<name>.sh`.
-- Run a single Python runner: `source source_me.sh && .venv/bin/python tests/e2e/e2e_<name>.py`.
+- Run a single Python runner: `source source_me.sh && python3 tests/e2e/e2e_<name>.py`.
 - Run all E2E tests: provide a `tests/e2e/run_all.sh` that iterates over the
   `e2e_*` files and reports pass/fail for each.
 - For browser-driven Playwright runs, TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.

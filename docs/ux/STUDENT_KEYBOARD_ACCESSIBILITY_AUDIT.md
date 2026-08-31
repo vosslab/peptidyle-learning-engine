@@ -18,13 +18,13 @@ not present. No student participants or screen-reader users were recruited for t
 of a third-party external-tool frame remains that provider's responsibility.
 
 The durable required behavior is now separated from this dated evidence in
-`docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. New response families must satisfy that contract as part
+`docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. New Question Formats must satisfy that contract as part
 of their own acceptance package.
 
 The acceptance goal is direct: a student can open a course, open an assignment, begin or resume a
-run, answer every currently implemented response family, submit, read feedback, continue, review a
+run, answer every currently implemented Question Format, submit, read feedback, continue, review a
 summary, recover from an error, and return without a mouse. The completed evidence demonstrates the
-full route only for the built mock journey below; the remaining response families have the fixture or
+full route only for the built mock journey below; the remaining Question Formats have the fixture or
 source-inspection coverage named in their rows.
 
 ## Evidence layers
@@ -55,12 +55,12 @@ response components, but their convenience does not become a prerequisite for an
 The built mock journey through a single-choice response is covered by `a student completes the
 primary platform-key course-to-answer path without a pointer` in
 `tests/playwright/frontend_contract.spec.ts`. It also proves Shift+Tab can reverse from Submit answer
-to the selected response and return. It is not evidence that every response family has completed the
+to the selected response and return. It is not evidence that every Question Format has completed the
 entire route end to end.
 
-## Response-family keyboard contract
+## Question Format keyboard contract
 
-| Response family | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
+| Question Format | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
 | --------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
 | Single choice   | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, mounted extension scenarios, and live PLE-owned WebWork path |
 | Multiple answer | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Mounted production-component platform and extension fixtures                              |

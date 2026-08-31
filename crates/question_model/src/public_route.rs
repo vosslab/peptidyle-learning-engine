@@ -13,7 +13,7 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
 pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "BP", "GO",
+    "C", "A", "R", "W", "G", "U", "M", "CI", "QC", "QS", "BP", "GO",
 ];
 
 macro_rules! impl_reference {
@@ -77,7 +77,7 @@ macro_rules! impl_reference {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseReference(NonZeroU32);
+pub struct CourseInstanceReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AssignmentReference(NonZeroU32);
@@ -86,7 +86,7 @@ pub struct AssignmentReference(NonZeroU32);
 pub struct AssignmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct WorkspaceReference(NonZeroU32);
+pub struct AuthoringWorkspaceReference(NonZeroU32);
 /// An authorized locator for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -95,7 +95,7 @@ pub struct AccountReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseMembershipReference(NonZeroU32);
-/// An authorized locator for one target-bound co-instructor invitation.
+/// An authorized locator for one target-bound Course Invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInvitationReference(NonZeroU32);
@@ -103,27 +103,27 @@ pub struct CourseInvitationReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct QuestionCollectionReference(NonZeroU32);
-/// An authorized locator for one personal saved catalog search.
+/// An authorized locator for one personal saved Question Search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct SavedProblemSearchReference(NonZeroU32);
-/// An authorized locator for one reusable BlueprintCourse.
+pub struct SavedQuestionSearchReference(NonZeroU32);
+/// An authorized locator for one reusable Blueprint Course.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintReference(NonZeroU32);
+pub struct BlueprintCourseReference(NonZeroU32);
 /// An authorized locator for one Instructor-facing automated-grading recovery thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct GradingOperationReference(NonZeroU32);
+pub struct InstructorGradingOperationReference(NonZeroU32);
 
-impl_reference!(CourseReference, "C", "course reference");
+impl_reference!(CourseInstanceReference, "C", "Course Instance reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
 impl_reference!(
     AssignmentAttemptReference,
     "R",
     "Assignment Attempt reference"
 );
-impl_reference!(WorkspaceReference, "W", "workspace reference");
+impl_reference!(AuthoringWorkspaceReference, "W", "Authoring Workspace reference");
 impl_reference!(AccountReference, "U", "account reference");
 impl_reference!(
     CourseMembershipReference,
@@ -133,21 +133,21 @@ impl_reference!(
 impl_reference!(
     CourseInvitationReference,
     "CI",
-    "co-instructor invitation reference"
+    "Course Invitation reference"
 );
 impl_reference!(
     QuestionCollectionReference,
-    "PC",
-    "problem-collection reference"
+    "QC",
+    "question-collection reference"
 );
 impl_reference!(
-    SavedProblemSearchReference,
-    "PS",
-    "saved-problem-search reference"
+    SavedQuestionSearchReference,
+    "QS",
+    "saved-question-search reference"
 );
-impl_reference!(BlueprintReference, "BP", "blueprint reference");
+impl_reference!(BlueprintCourseReference, "BP", "Blueprint Course reference");
 impl_reference!(
-    GradingOperationReference,
+    InstructorGradingOperationReference,
     "GO",
     "grading-operation reference"
 );
@@ -205,7 +205,7 @@ mod tests {
             }};
         }
         assert_reference_wire!(
-            CourseReference,
+            CourseInstanceReference,
             "C-123",
             "A-123",
             "C-0",
@@ -229,7 +229,7 @@ mod tests {
             "R-2147483648"
         );
         assert_reference_wire!(
-            WorkspaceReference,
+            AuthoringWorkspaceReference,
             "W-126",
             "C-126",
             "W-0",
@@ -262,22 +262,22 @@ mod tests {
         );
         assert_reference_wire!(
             QuestionCollectionReference,
-            "PC-131",
-            "PS-131",
-            "PC-0",
-            "PC-01",
-            "PC-2147483648"
+            "QC-131",
+            "QS-131",
+            "QC-0",
+            "QC-01",
+            "QC-2147483648"
         );
         assert_reference_wire!(
-            SavedProblemSearchReference,
-            "PS-132",
-            "PC-132",
-            "PS-0",
-            "PS-01",
-            "PS-2147483648"
+            SavedQuestionSearchReference,
+            "QS-132",
+            "QC-132",
+            "QS-0",
+            "QS-01",
+            "QS-2147483648"
         );
         assert_reference_wire!(
-            BlueprintReference,
+            BlueprintCourseReference,
             "BP-133",
             "GO-133",
             "BP-0",
@@ -285,7 +285,7 @@ mod tests {
             "BP-2147483648"
         );
         assert_reference_wire!(
-            GradingOperationReference,
+            InstructorGradingOperationReference,
             "GO-135",
             "A-135",
             "GO-0",

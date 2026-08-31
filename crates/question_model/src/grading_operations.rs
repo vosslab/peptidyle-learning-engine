@@ -50,7 +50,7 @@ pub enum GradingOperationReason {
 /// Current server-owned operation state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum GradingOperationState {
+pub enum InstructorGradingOperationState {
     Actionable,
     ActionInProgress,
     Completed,
@@ -71,7 +71,7 @@ pub enum GradingOperationAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GradingOperationVisibleState {
-    pub state: GradingOperationState,
+    pub state: InstructorGradingOperationState,
     pub reason: GradingOperationReason,
     pub next_action: Option<GradingOperationAction>,
 }
@@ -165,7 +165,7 @@ mod tests {
             "\"scoring_recalculation_requested\""
         );
         assert_eq!(
-            serde_json::to_string(&GradingOperationState::ActionInProgress).expect("serializes"),
+            serde_json::to_string(&InstructorGradingOperationState::ActionInProgress).expect("serializes"),
             "\"action_in_progress\""
         );
         assert_eq!(

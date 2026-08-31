@@ -130,7 +130,7 @@ field/value mapping only in server-side replay state.
 The student envelope may contain:
 
 - sanitized prompt HTML;
-- the PLE question family and browser rendering metadata;
+- the PLE Question Type and browser rendering metadata;
 - visible choice labels; and
 - opaque PLE choice identifiers.
 
@@ -201,7 +201,7 @@ questions and matching partial credit, through the real renderer, PLE grading, a
 student path on 2026-08-11.
 
 That evidence supports this bounded path. It does not imply every Open Problem
-Library item or PG macro is compatible. New families require behavior-focused
+Library item or PG macro is compatible. New Question Types require behavior-focused
 adapter tests and a real source-to-browser acceptance path; temporary diagnostic
 probes should be removed after they have served that implementation purpose.
 

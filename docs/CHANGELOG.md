@@ -4,6 +4,144 @@
 
 ### Changes
 
+- Replaced Catalog Problem summary/detail contracts and client operations with Catalog Question
+  contracts. Rust, regenerated browser types, strict decoders, runtime cache, authoring consumers,
+  and assignment lookup now use Question-only names with no compatibility aliases.
+
+- Rebuilt the database structure map from the active `2026082901`–`2026082936`
+  pre-production migration baseline. It now names current physical owners and removes the
+  deleted-migration inventory that incorrectly claimed retired files and group policy tables existed.
+
+- Removed the disconnected `learning-data-access` conformance corpus, including its stale synthetic
+  preview-group fixture. Hypothetical Student View construction carries only its selected moment and
+  explicit direct modifiers; the current feature-gated package suite runs its nine registered tests.
+
+- Replaced the Pool Draw Basis's generic `group` selector with the exact Question Pool Assignment
+  Entry, and aligned the editor's local Question Pool capacity calculation with the same term.
+
+- Replaced PLE-owned family wording with the exact Question Backend, Question Format, and
+  Operation Kind terms. The preview model and current authoring, catalog, prefetch, authorization,
+  and Product Role documentation now preserve those distinct boundaries.
+
+- Replaced the Question Collection member's invented retained-selection state with the exact
+  Current Question Version Availability. Generated contracts, strict decoding, collection filtering,
+  and visible curation UI now use the shared Available or Archived availability fact and its
+  archived reason.
+
+- Closed the retired `NavigationResolution::Run` checklist row. The current closed
+  `AssignmentAttempt` route-resolution variant carries the exact Course Instance, Assignment,
+  Student Record, and Assignment Attempt identities.
+
+- Closed the retired Run route vocabulary in the retained checklist. Active code uses Assignment
+  Attempt references, route parameters, page owners, and recovery owners; durable architecture
+  documentation now names the current Assignment Attempt page rather than deleted `run_page` paths.
+
+- Replaced `GradingOperationState` with the exact `InstructorGradingOperationState`. The closed
+  state now names only Instructor-requested recovery work across the Rust model, regenerated
+  contracts, and strict Gradebook decoding, separate from automated grading, scoring, and Job state.
+
+- Separated the generic Course Invitation from the Instructor-only Teaching Team operation. The
+  durable invitation retains its exact Student or Instructor Course Membership Role, while the
+  Instructor Course Invitation request, view, paths, generated types, strict decoder, and visible
+  interface are explicitly Instructor-only. Account-pending acceptance remains the generic Course
+  Invitation boundary.
+
+- Replaced `GradingOperationReference` with `InstructorGradingOperationReference` for the exact
+  Instructor-requested recovery-work locator. The `GO-` reference is now explicit throughout the
+  Rust model, regenerated browser types, Gradebook and workspace clients, strict decoders, route
+  helpers, and focused behavior tests.
+
+- Replaced `WorkspaceReference` with `AuthoringWorkspaceReference` for private draft-authoring
+  routes. The `W-` locator now names the Authoring Workspace through the Rust model, regenerated
+  browser types, strict decoder, editor navigation, public-navigation tests, and identity contract.
+
+- Replaced `CourseReference` with `CourseInstanceReference` across the live-teaching locator
+  boundary. The `C-` reference now names a Course Instance throughout the Rust model and
+  curriculum-adoption contracts, regenerated browser types, strict decoders, typed clients, route
+  helpers, tests, and durable terminology documentation.
+
+- Replaced generic `BlueprintReference` with `BlueprintCourseReference` across the reusable-course
+  public route, curriculum-adoption contracts, regenerated TypeScript, strict browser decoding,
+  typed clients, and durable documentation. The `BP-` locator remains the exact reusable Blueprint
+  Course reference; focused browser consumers pass.
+
+- Replaced the Question Collection locator's legacy `PC-` wire prefix with `QC-`. The existing
+  `QuestionCollectionReference` now has matching public terminology through the Rust contract,
+  regenerated TypeScript, strict decoder, typed clients, and curation UI tests.
+
+- Replaced the saved-catalog locator's legacy `SavedProblemSearchReference` with
+  `SavedQuestionSearchReference`. The canonical `QS-` wire prefix now flows from the Rust public
+  route contract through regenerated TypeScript, strict browser decoding, typed clients, and tests;
+  focused Rust and browser-contract tests pass.
+
+- Removed the redundant `ProblemDisplayRef` wrapper from the catalog contract. The canonical
+  `QuestionId` now directly represents the version-free, instructor-entered public lookup value;
+  catalog behavior tests (9) pass.
+
+- Replaced generic visual grouping names with their rendered responsibilities: the shared CSS
+  inset radius is `--ple-radius-inset`, and the theme mix feeding `surfaceSoft` is
+  `softSurfaceCanvas`. All style consumers now use the canonical token; TypeScript and the three
+  focused theme-token tests pass.
+
+- Replaced the local-stack service-login provisioning API with the exact Service Login Setup
+  boundary. `setup_service_logins` and its bounded failure contract now describe disposable
+  database-login creation or refresh in the controller, lifecycle, focused tests, and operations
+  guide; the 42-test local-stack suite confirms least-privilege URL handling and credential
+  redaction.
+
+- Completed an evidence-guided documentation pass for PLE-owned family terminology. Engineering
+  contracts now distinguish Question Type, Question Backend, Native Question Implementation, and
+  Job Kind while preserving `HUMAN_GUIDANCE.md`, relational-table wording, and platform terms in
+  their own scopes. Markdown-link and focused native-preview checks pass.
+
+- Closed the retired native-registration failure names in the vocabulary checklist. The Native
+  Adapter exposes explicit Unknown, Duplicate, and Incompatible Question Implementation errors
+  keyed by Question Format, Question Type, Question Generator, and implementation release; its
+  35 behavior tests and six documentation tests pass.
+
+- Replaced the worker documentation's generic family vocabulary with the closed Job Kind model:
+  a Job Kind Registration joins the Job Handler and Effect Committer, each queued item has its
+  typed Job Payload, and prepared output is a Prepared Effect. The durable `handler_kind` schema
+  and authorization documentation now use the same terms.
+
+- Repaired the committed native-question corpus at the current source boundary. Native source
+  fixtures now use the closed unit `Native` variant with explicit Question Format and Question
+  Type; the catalog summary now records current Question Version Availability instead of retired
+  lifecycle state. Wasm preview, browser-model, and project-tools corpus reproduction/grading
+  tests pass.
+
+- Replaced Score reconciliation with the exact Recalculation boundary. The pure domain selector
+  now describes batch grade selection during recalculation, while immutable accepted submissions,
+  prior results, and receipts retain their separate evidence roles. Completed native-source test
+  fixtures use the closed unit `Native` source and explicit Native Algorithmic Question Format.
+  Targeted Rust formatting, focused domain tests, and whitespace checks pass.
+
+- Replaced the fresh SD1 object-delivery reconciliation record with a completed Object Storage
+  Check, keeping only verified, missing, or mismatched results. Object Cleanup now has an exact
+  manifest with a permitted disposition and worker Job plus a separate immutable cleanup receipt.
+  The allocation and migration filename now name Object Storage Checks and Object Cleanup; the
+  vocabulary checklist and operational documentation use the same terms. The disposable
+  PostgreSQL 17 baseline gate passes fresh apply, no-op reapply, catalog/ACL checks, and restricted
+  login probes.
+
+- Replaced the grading-operations list's generic grouping boundary with a closed Grading
+  Operation Focus and exact Grading Operation Subject. The strict decoder, same-origin query,
+  client contract, pagination state, controls, tests, and API contract now use `focus` and
+  `subject`; visible controls say “Show by Question” or “Show by Student.” The focused browser
+  contracts, TypeScript check, and whitespace gate pass.
+
+- Replaced the browser catalog aggregate's generic `group` field with `facet`. Library and
+  Question-picker state now carry the exact Question Catalog Facet plus its server-calculated
+  value and count. The focused picker tests, TypeScript check, and whitespace gate pass.
+
+- Unified Assignment composition around one ordered `AssignmentEntry` collection with closed
+  Fixed Question and Question Pool variants. The browser, strict decoders, fixtures, generated
+  contracts, and Question Model now use that direct boundary; entry and candidate collection
+  order replaces duplicate stored positions. Issued Questions name their source Assignment Entry
+  and optional source Question Pool entry, while pool-preview requests locate a saved Question
+  Pool by Assignment Entry reference. Question Model tests, focused browser-contract tests, the
+  TypeScript check, and whitespace gate pass.
+
 - Completed the Question Response/Format and Native Question Implementation cutover. Durable
   Question definitions, authored-source schema, native registration, flat-question validation,
   generated browser contracts, strict decoders, authoring client, fixtures, and focused
@@ -534,6 +672,9 @@
 
 - Converted the catalog, preview-plane, pool-preview, and entitlement persistence contracts to `SessionRecord`. Preview audit provenance now records the exact Account, course, assignment, and membership target rather than a redundant installation-wide scope. Implementations and database predicates remain explicitly allocated to the corresponding data-access family.
 
+### Fixes and Maintenance
+
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 ## 2026-08-29
 
 ### Additions and New Features

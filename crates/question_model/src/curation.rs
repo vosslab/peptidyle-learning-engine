@@ -5,8 +5,8 @@ use std::num::NonZeroU64;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CatalogProblemSummary, CatalogSearchFilter, QuestionCollectionReference, QuestionId,
-    SavedProblemSearchReference,
+    CatalogQuestionSummary, CatalogSearchFilter, QuestionCollectionReference, QuestionId,
+    QuestionVersionAvailability, SavedQuestionSearchReference,
 };
 
 /// Maximum ordered Question IDs accepted in one atomic collection replacement.
@@ -17,16 +17,6 @@ pub const MAX_NAMED_QUESTION_COLLECTIONS: usize = 100;
 pub const MAX_SAVED_PROBLEM_SEARCHES: usize = 100;
 /// Maximum trimmed Unicode scalar values in a collection or saved-search title.
 pub const MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS: usize = 200;
-
-/// Current safe selection state for a retained exact collection member.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum QuestionCollectionSelectionAvailability {
-    /// The current publication remains eligible for a new selection.
-    Available,
-    /// The exact immutable member remains inspectable but cannot be newly selected.
-    Retained,
-}
 
 /// Strong edit-number evidence for one complete collection state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -121,8 +111,9 @@ pub fn validate_problem_curation_title(value: &str) -> Result<(), ProblemCuratio
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionCollectionMemberView {
     pub question_id: QuestionId,
-    pub summary: CatalogProblemSummary,
-    pub selection_availability: QuestionCollectionSelectionAvailability,
+    pub summary: CatalogQuestionSummary,
+    /// Current availability of the entry's exact Question Version.
+    pub question_version_availability: QuestionVersionAvailability,
 }
 
 /// Browser-safe private Question Collection projection.
@@ -138,7 +129,7 @@ pub struct QuestionCollectionSummaryView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SavedProblemSearchView {
-    pub reference: SavedProblemSearchReference,
+    pub reference: SavedQuestionSearchReference,
     pub title: String,
     pub filter: CatalogSearchFilter,
     pub edit_number: SavedProblemSearchEditNumber,

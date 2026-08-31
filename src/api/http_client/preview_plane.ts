@@ -1,7 +1,7 @@
 // Strict same-origin browser transport for the read-only WP-INST-T3 preview plane.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
-import type { CourseReference } from "../../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { DerivedPreviewSubjectRequest } from "../../../generated/api/DerivedPreviewSubjectRequest";
 import type { InstructorPreviewSchedulePage } from "../../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneResponse";
@@ -31,7 +31,7 @@ function strongRevision(value: TeachingOperationRevision, path: string): string 
   return `"${value}"`;
 }
 
-function previewRoutePath(course: CourseReference, assignment: AssignmentReference): string {
+function previewRoutePath(course: CourseInstanceReference, assignment: AssignmentReference): string {
   if (parseCourseReference(course) === null || parseAssignmentReference(assignment) === null) {
     throw new ApiProtocolError("Preview requests require exact C- and A- route references");
   }
@@ -39,7 +39,7 @@ function previewRoutePath(course: CourseReference, assignment: AssignmentReferen
 }
 
 function schedulePath(
-  course: CourseReference,
+  course: CourseInstanceReference,
   assignment: AssignmentReference,
   cursor: string | undefined,
   pageSize: number | undefined,

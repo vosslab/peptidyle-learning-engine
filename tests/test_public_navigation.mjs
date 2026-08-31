@@ -14,7 +14,7 @@ import {
   parseWorkspaceReference,
   problemRouteReference,
   assignmentAttemptRouteReference,
-  workspaceRouteReference,
+  authoringWorkspaceRouteReference,
 } from "../src/navigation/public_route.ts";
 import {
   resolveAssignmentRoute,
@@ -28,7 +28,7 @@ test("human route references are compact, typed, and bounded", () => {
   assert.equal(courseRouteReference("C-1"), "C-1");
   assert.equal(assignmentRouteReference("A-2147483647"), "A-2147483647");
   assert.equal(assignmentAttemptRouteReference("R-30"), "R-30");
-  assert.equal(workspaceRouteReference("W-40"), "W-40");
+  assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
   assert.equal(problemRouteReference("7K3-M9QP"), "7K3-M9QP");
   assert.equal(isCourseReference("C-1"), true);
   assert.equal(isCourseReference("A-1"), false);
@@ -108,7 +108,7 @@ test("route resolution recovers protected API identities without weakening refer
       }),
   };
   await assert.rejects(resolveCourseRoute(wrongKindClient, fixture.course.reference), {
-    message: "Course reference resolved to another resource",
+    message: "Course Instance reference resolved to another resource",
   });
   await assert.rejects(resolveCourseRoute(client, fixture.course.id), {
     message: "Course route is incomplete",

@@ -2,17 +2,17 @@
 
 import type {
   GradingOperationActionId,
-  GradingOperationGroupBy,
+  GradingOperationFocus,
   GradingOperationStrongEtag,
   InstructorGradingOperationRow,
 } from "../../api/decoders/grading_operations";
 import { ApiRequestError } from "../../api/http_client";
-import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
+import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 
 export type GradingOperationsActionIntent =
   | {
       readonly kind: "retry";
-      readonly operation: GradingOperationReference;
+      readonly operation: InstructorGradingOperationReference;
       readonly expectedRevision: GradingOperationStrongEtag;
       readonly idempotencyKey: GradingOperationActionId;
     }
@@ -27,15 +27,15 @@ export type GradingOperationsActionFailure =
   | { readonly kind: "retryable"; readonly message: string };
 
 export interface GradingOperationsListPosition {
-  readonly groupBy: GradingOperationGroupBy;
+  readonly focus: GradingOperationFocus;
   readonly cursor: string | undefined;
 }
 
-/** A grouping change begins a new ordered list; cursors never cross that boundary. */
-export function gradingOperationsPositionForGroup(
-  groupBy: GradingOperationGroupBy,
+/** A focus change begins a new ordered list; cursors never cross that boundary. */
+export function gradingOperationsPositionForFocus(
+  focus: GradingOperationFocus,
 ): GradingOperationsListPosition {
-  return { groupBy, cursor: undefined };
+  return { focus, cursor: undefined };
 }
 
 /** The same accepted intent is deliberately replayed after an ambiguous transport outcome. */
@@ -46,7 +46,7 @@ export function retryGradingOperationsAction(
 }
 
 export function retryOperationIntent(
-  operation: GradingOperationReference,
+  operation: InstructorGradingOperationReference,
   revision: number,
   idempotencyKey: GradingOperationActionId,
 ): GradingOperationsActionIntent {
@@ -81,12 +81,12 @@ export function gradingOperationsActionFailure(error: unknown): GradingOperation
   };
 }
 
-export function gradingOperationsGroupLabel(row: InstructorGradingOperationRow): string {
-  switch (row.group.kind) {
+export function gradingOperationsSubjectLabel(row: InstructorGradingOperationRow): string {
+  switch (row.subject.kind) {
     case "question":
-      return `Question: ${row.group.title}`;
+      return `Question: ${row.subject.title}`;
     case "student":
-      return `Student: ${row.group.displayName}`;
+      return `Student: ${row.subject.displayName}`;
     case "assignment":
       return "Entire assignment";
   }
@@ -138,11 +138,11 @@ export function gradingOperationsTrustGenerationLabel(row: InstructorGradingOper
 }
 
 export function gradingOperationsRetryLabel(row: InstructorGradingOperationRow): string {
-  switch (row.group.kind) {
+  switch (row.subject.kind) {
     case "question":
-      return `Retry automated grading for ${row.group.title} (${row.group.questionId})`;
+      return `Retry automated grading for ${row.subject.title} (${row.subject.questionId})`;
     case "student":
-      return `Retry automated grading for ${row.group.displayName}`;
+      return `Retry automated grading for ${row.subject.displayName}`;
     case "assignment":
       return "Retry automated grading for this assignment";
   }

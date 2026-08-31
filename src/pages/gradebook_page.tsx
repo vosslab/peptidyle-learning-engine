@@ -6,8 +6,8 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
-import type { CourseReference } from "../../generated/api/CourseReference";
-import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { InstructorGradingOperationReference } from "../../generated/api/InstructorGradingOperationReference";
 import type {
   CalculatedAssignmentCell,
   CalculatedGradebookRow,
@@ -40,7 +40,7 @@ import "./instructor_data_tables.css";
 interface RunChooserRequest {
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
-  readonly operation?: GradingOperationReference;
+  readonly operation?: InstructorGradingOperationReference;
   readonly studentLabel: string;
   readonly assignmentTitle: string;
   readonly trigger: HTMLButtonElement;
@@ -101,10 +101,10 @@ function assignmentTitle(
 }
 
 function InspectionChoiceActions(props: {
-  readonly course: CourseReference;
+  readonly course: CourseInstanceReference;
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
-  readonly operation?: GradingOperationReference;
+  readonly operation?: InstructorGradingOperationReference;
   readonly inspectionChoice: AssignmentInspectionChoice;
   readonly studentLabel: string;
   readonly assignmentTitle: string;
@@ -166,10 +166,10 @@ function InspectionChoiceActions(props: {
   );
 }
 function AssignmentCell(props: {
-  readonly course: CourseReference;
+  readonly course: CourseInstanceReference;
   readonly row: CalculatedGradebookRow;
   readonly cell: CalculatedAssignmentCell;
-  readonly operation?: GradingOperationReference;
+  readonly operation?: InstructorGradingOperationReference;
   readonly onChooseRun: (
     request: Omit<RunChooserRequest, "trigger">,
     trigger: HTMLButtonElement,
@@ -211,7 +211,7 @@ function AssignmentCell(props: {
 
 function GradebookCoursePage(props: {
   readonly courseId: CourseId;
-  readonly courseReference: CourseReference;
+  readonly courseReference: CourseInstanceReference;
 }): JSX.Element {
   const runtime = useApiRuntime();
   const location = useLocation();

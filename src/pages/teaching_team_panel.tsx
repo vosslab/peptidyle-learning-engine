@@ -1,11 +1,11 @@
-// Course-scoped co-instructor invitation and direct-membership management.
+// Course-scoped Instructor Course Invitation and direct-membership management.
 
 import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInvitationTargetView } from "../../generated/api/CourseInvitationTargetView";
-import type { CourseCourseInvitationView } from "../../generated/api/CourseCourseInvitationView";
+import type { InstructorCourseInvitationView } from "../../generated/api/InstructorCourseInvitationView";
 import type { InstructorMembershipView } from "../../generated/api/InstructorMembershipView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import { ApiRequestError } from "../api/http_client/error";
@@ -26,7 +26,7 @@ interface TeachingTeamPanelProps {
 
 interface TeachingTeamData {
   readonly instructors: ReadonlyArray<InstructorMembershipView>;
-  readonly invitations: ReadonlyArray<CourseCourseInvitationView>;
+  readonly invitations: ReadonlyArray<InstructorCourseInvitationView>;
   readonly rosterRevision: TeachingOperationRevision;
   readonly instructorCursor: string | null;
   readonly invitationCursor: string | null;
@@ -35,7 +35,7 @@ interface TeachingTeamData {
 type PendingAction =
   | {
       readonly kind: "revoke";
-      readonly row: CourseCourseInvitationView;
+      readonly row: InstructorCourseInvitationView;
       readonly trigger: HTMLButtonElement;
     }
   | {
@@ -72,7 +72,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     try {
       const [instructors, invitations] = await Promise.all([
         runtime.client.listCourseInstructors(props.courseId, undefined, 25),
-        runtime.client.listCourseCourseInvitations(props.courseId, undefined, 25),
+        runtime.client.listInstructorCourseInvitations(props.courseId, undefined, 25),
       ]);
       setData({
         instructors: instructors.instructors,
@@ -95,7 +95,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     setSearching(true);
     setError(null);
     try {
-      const result = await runtime.client.searchCourseCourseInvitationTargets(
+      const result = await runtime.client.searchInstructorCourseInvitationTargets(
         props.courseId,
         query().trim(),
         undefined,
@@ -118,7 +118,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     setSearching(true);
     setError(null);
     try {
-      const result = await runtime.client.searchCourseCourseInvitationTargets(
+      const result = await runtime.client.searchInstructorCourseInvitationTargets(
         props.courseId,
         query().trim(),
         cursor,
@@ -144,7 +144,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await runtime.client.createCourseCourseInvitation(props.courseId, {
+      await runtime.client.createInstructorCourseInvitation(props.courseId, {
         target: target.account.reference,
       });
       setAnnouncement(`An invitation was created for ${target.account.display}.`);
@@ -182,7 +182,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
           instructorCursor: next.nextCursor,
         });
       } else {
-        const next = await runtime.client.listCourseCourseInvitations(
+        const next = await runtime.client.listInstructorCourseInvitations(
           props.courseId,
           cursor,
           25,
@@ -216,12 +216,12 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     try {
       if (action.kind === "revoke") {
         const invitation = action.row;
-        await runtime.client.revokeCourseCourseInvitation(
+        await runtime.client.revokeInstructorCourseInvitation(
           props.courseId,
           invitation.reference,
           invitation.revision,
         );
-        setAnnouncement("The pending co-instructor invitation was canceled.");
+        setAnnouncement("The pending Instructor Course Invitation was canceled.");
       } else {
         const instructor = action.row;
         await runtime.client.removeCourseInstructor(
@@ -252,7 +252,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
       <p class="page-lede">
         Approved eligibility allows an invitation; it does not itself grant course authority.
       </p>
-      <A class="quiet-link" href="/account/co-instructor-invitations">
+      <A class="quiet-link" href="/account/course-invitations">
         Review invitations addressed to your account
       </A>
       <p class="sr-only" role="status" aria-live="polite">
@@ -277,10 +277,10 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
             void search();
           }}
         >
-          <h3>Invite a co-instructor</h3>
-          <label for="co-instructor-search">Find an approved colleague</label>
+          <h3>Invite an Instructor</h3>
+          <label for="instructor-course-invitation-search">Find an approved colleague</label>
           <input
-            id="co-instructor-search"
+            id="instructor-course-invitation-search"
             type="search"
             minlength={2}
             maxlength={100}
@@ -298,7 +298,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
             {searching() ? "Searching..." : "Search eligible people"}
           </button>
           <Show when={targets().length > 0}>
-            <ul class="teaching-team-results" aria-label="Eligible co-instructor search results">
+            <ul class="teaching-team-results" aria-label="Eligible Instructor Course Invitation search results">
               <For each={targets()}>
                 {(target) => (
                   <li class="teaching-team-result">

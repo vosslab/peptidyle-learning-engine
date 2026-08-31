@@ -111,7 +111,7 @@ grants.
 ## Typed operations and objects
 
 A worker first locks a current lease. The immutable job manifest and lease derive the job's typed
-course, workspace, catalog, object, export, retention, or system target. Handler family,
+course, workspace, catalog, object, export, retention, or system target. Job Kind Registration,
 generation, broker grant, and target type must agree before a handler reads, writes, dispatches, or
 finalizes anything. Queue payloads, retry input, provider responses, and object references cannot
 widen that scope.

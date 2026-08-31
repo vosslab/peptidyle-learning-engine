@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
-    ActivityTimestamp, BackendCapabilities, CourseReference, DraftQuestionSource, QuestionMetadata,
+    ActivityTimestamp, BackendCapabilities, CourseInstanceReference, DraftQuestionSource, QuestionMetadata,
     QuestionSource, QuestionVersionNumber,
 };
 
@@ -147,29 +147,6 @@ impl From<QuestionId> for String {
     }
 }
 
-/// Copyable Question ID accepted by Instructor import and direct lookup.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ProblemDisplayRef {
-    /// Stable human-facing question identity for authorized direct resolution.
-    pub question_id: QuestionId,
-}
-
-impl std::fmt::Display for ProblemDisplayRef {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}", self.question_id)
-    }
-}
-
-impl std::str::FromStr for ProblemDisplayRef {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(Self {
-            question_id: value.parse()?,
-        })
-    }
-}
-
 /// Exact immutable publication evidence used by storage, delivery, grading,
 /// replay, and audit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -291,7 +268,7 @@ impl From<&DraftQuestionSource> for QuestionBackend {
 /// Hot catalog metadata returned by browse endpoints without loading payloads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CatalogProblemSummary {
+pub struct CatalogQuestionSummary {
     /// Sole human-facing identity of this immutable published question.
     pub question_id: QuestionId,
     /// Question Backend, without private source-locator fields.
@@ -311,7 +288,7 @@ pub struct CatalogProblemSummary {
     pub published_at: ActivityTimestamp,
 }
 
-impl CatalogProblemSummary {
+impl CatalogQuestionSummary {
     /// Free-form tags for filtering without loading the question payload.
     pub fn tags(&self) -> &[Tag] {
         &self.metadata.tags
@@ -371,7 +348,7 @@ pub enum CatalogDiscoveryEvidence {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogDiscoveryItem {
     /// Exact immutable hot catalog metadata.
-    pub summary: CatalogProblemSummary,
+    pub summary: CatalogQuestionSummary,
     /// Decomposed anonymous evidence suitable for search discovery.
     pub evidence: CatalogDiscoveryEvidence,
 }
@@ -399,7 +376,7 @@ pub struct CatalogUsageSummary {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogOwnCourseUsage {
     /// Authorized public course locator; it is never authority by itself.
-    pub course: CourseReference,
+    pub course: CourseInstanceReference,
     /// Current course title visible to the requesting instructor.
     pub title: String,
     /// Number of current assignment uses in this course.
@@ -454,9 +431,9 @@ pub enum CatalogPromptProjection {
 /// Safe immutable content projection for catalog detail.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CatalogProblemDetail {
+pub struct CatalogQuestionDetail {
     /// Exact immutable hot metadata for this publication.
-    pub summary: CatalogProblemSummary,
+    pub summary: CatalogQuestionSummary,
     /// Static content or one server-materialized example; source, response,
     /// randomization, grading, keys, and the preview seed are excluded.
     pub prompt: CatalogPromptProjection,
@@ -510,12 +487,11 @@ mod tests {
 
     #[test]
     fn human_question_references_are_unambiguous_and_version_free() {
-        let reference: ProblemDisplayRef = "7k3m9qx".parse().expect("Question ID parses");
-        assert_eq!(reference.question_id.to_string(), "7K3-M9QX");
-        assert_eq!(reference.to_string(), "7K3-M9QX");
+        let question_id: QuestionId = "7k3m9qx".parse().expect("Question ID parses");
+        assert_eq!(question_id.to_string(), "7K3-M9QX");
 
         for invalid in ["P-123456", "P-12-v3", "7K3-M9Q", "7K3-M9QU"] {
-            assert!(invalid.parse::<ProblemDisplayRef>().is_err(), "{invalid}");
+            assert!(invalid.parse::<QuestionId>().is_err(), "{invalid}");
         }
     }
 
@@ -624,8 +600,8 @@ mod tests {
 
     #[test]
     fn catalog_detail_wire_shape_has_no_source_or_grading_fields() {
-        let detail = CatalogProblemDetail {
-            summary: CatalogProblemSummary {
+        let detail = CatalogQuestionDetail {
+            summary: CatalogQuestionSummary {
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                 backend: QuestionBackend::Native,
                 question_type: QuestionType::MultipleChoice,

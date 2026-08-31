@@ -357,7 +357,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda runner, root, values, environment: mark("migrated"))
 	monkeypatch.setattr(
 		local_stack_control.process_logins,
-		"provision",
+		"setup_service_logins",
 		lambda target, runner, values, environment: mark("process-logins"),
 	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda target, runner, options, identity: mark("renderer-ready"))

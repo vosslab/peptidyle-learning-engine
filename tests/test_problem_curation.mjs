@@ -15,13 +15,39 @@ import {
   savedSearchDeletionFromObserved,
   savedSearchReplacementFromObserved,
 } from "../src/features/problem_curation/problem_curation_model.ts";
+import { decodeQuestionCollectionMemberPage } from "../src/api/decoders/problem_curation.ts";
 import { EMPTY_CATALOG_QUERY } from "../src/pages/library_page_model.ts";
+import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 
 test("collection edits retain a unique ordered public Question ID list", () => {
   const appended = appendCollectionQuestionIds(["ABC-1234", "DEF-5678"], ["DEF-5678", "GHJ-9KMP"]);
   const moved = moveCollectionQuestionId(appended, 2, -1);
 
   assert.deepEqual(removeCollectionQuestionId(moved, "DEF-5678"), ["ABC-1234", "GHJ-9KMP"]);
+});
+
+test("collection members carry the exact current Question Version Availability", () => {
+  const member = {
+    questionId: publishedProblemFixture.catalogProblem.questionId,
+    summary: publishedProblemFixture.catalogProblem,
+    questionVersionAvailability: { availability: "archived", reason: "Replaced by a correction." },
+  };
+
+  const decoded = decodeQuestionCollectionMemberPage({ items: [member], nextCursor: null });
+  assert.deepEqual(decoded.items[0]?.questionVersionAvailability, member.questionVersionAvailability);
+  assert.throws(
+    () =>
+      decodeQuestionCollectionMemberPage({
+        items: [
+          {
+            ...member,
+            selectionAvailability: "retained",
+          },
+        ],
+        nextCursor: null,
+      }),
+    /allowed by this response contract/u,
+  );
 });
 
 test("saved search filter keeps the current normalized Library meaning", () => {
@@ -49,7 +75,7 @@ test("saved search filter keeps the current normalized Library meaning", () => {
 
 test("running a saved search starts with its current-catalog filters", () => {
   const query = libraryQueryFromSavedSearch({
-    reference: "PS-7",
+    reference: "QS-7",
     title: "Molecular genetics",
     editNumber: "3",
     filter: {
@@ -108,7 +134,7 @@ test("picker maps named private collections beside the current Library and autho
   const sources = problemCurationPickerSources(
     [
       {
-        reference: "PC-2",
+        reference: "QC-2",
         title: "Exam candidates",
         editNumber: "7",
       },
@@ -128,7 +154,7 @@ test("picker maps named private collections beside the current Library and autho
 
 test("saved-search replacement sends the edit number already observed with retained filter meaning", () => {
   const search = {
-    reference: "PS-3",
+    reference: "QS-3",
     title: "Peptide candidates",
     editNumber: "3",
     filter: catalogSearchFilterFromLibraryQuery({
@@ -149,18 +175,18 @@ test("saved-search replacement sends the edit number already observed with retai
       editNumber: replacement.editNumber,
       filter: replacement.filter,
     },
-    { reference: "PS-3", editNumber: '"3"', filter: search.filter },
+    { reference: "QS-3", editNumber: '"3"', filter: search.filter },
   );
 });
 
 test("named deletion confirmations carry visible names, consequences, and observed edit numbers", () => {
   const collectionDeletion = collectionDeletionFromObserved({
-    reference: "PC-7",
+    reference: "QC-7",
     title: "Exam candidates",
     editNumber: "7",
   });
   const savedDeletion = savedSearchDeletionFromObserved({
-    reference: "PS-3",
+    reference: "QS-3",
     title: "Peptide candidates",
     editNumber: "3",
     filter: catalogSearchFilterFromLibraryQuery(EMPTY_CATALOG_QUERY),

@@ -3,7 +3,7 @@
 .gradebook-table-wrap,
 .roster-table-wrap {
   overflow-x: auto;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }
@@ -54,7 +54,7 @@
   margin-block-end: var(--ple-layout-gap);
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 
@@ -141,7 +141,7 @@
   margin-block: var(--ple-layout-gap);
   padding: var(--ple-layout-gap);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 
@@ -158,7 +158,7 @@
   gap: 0.45rem;
   padding: 0.8rem;
   border: 1px solid var(--ple-border);
-  border-radius: calc(var(--ple-radius-group) - 0.1rem);
+  border-radius: calc(var(--ple-radius-inset) - 0.1rem);
   background: var(--ple-card-surface);
 }
 
@@ -178,7 +178,7 @@
   overflow: auto;
   padding: clamp(1rem, 3vw, 1.5rem);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   color: var(--ple-ink);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
@@ -203,7 +203,7 @@
   gap: 1rem;
   padding: 0.75rem;
   border: 1px solid var(--ple-border);
-  border-radius: calc(var(--ple-radius-group) - 0.1rem);
+  border-radius: calc(var(--ple-radius-inset) - 0.1rem);
   background: var(--ple-surface-soft);
 }
 

@@ -197,7 +197,7 @@ pub struct ImportedH5pQuestion {
     pub import_schema_version: u16,
     /// Authoritative source record retained for re-import and provenance.
     pub source_reference: H5pSourceReference,
-    /// The source family safe for downstream adapter dispatch.
+    /// The Question Backend source safe for downstream adapter dispatch.
     pub source: QuestionSource,
     /// Prompt ready for the browser-safe renderer.
     pub prompt: Vec<ContentBlock>,

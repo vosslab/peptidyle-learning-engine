@@ -30,7 +30,7 @@
   align-items: center;
   padding: calc(var(--ple-panel-padding, 0.85rem) + 0.12rem);
   border-inline-start: 0.35rem solid var(--ple-accent-strong);
-  border-radius: var(--ple-radius-group, 0.7rem);
+  border-radius: var(--ple-radius-inset, 0.7rem);
   background: color-mix(in srgb, var(--ple-theme-primary) 9%, var(--ple-card-surface));
   box-shadow: var(--ple-shadow);
 }
@@ -67,7 +67,7 @@
   max-width: 100%;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group, 0.7rem);
+  border-radius: var(--ple-radius-inset, 0.7rem);
   background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
 }
 
@@ -94,7 +94,7 @@
 .assignment-workspace-operations-inline-error {
   padding: var(--ple-panel-padding, 0.85rem);
   border-inline-start: 0.35rem solid var(--ple-focus);
-  border-radius: var(--ple-radius-group, 0.7rem);
+  border-radius: var(--ple-radius-inset, 0.7rem);
   background: color-mix(in srgb, var(--ple-focus) 7%, var(--ple-card-surface));
 }
 
@@ -128,7 +128,7 @@
   align-items: start;
   min-inline-size: 0;
   padding: var(--ple-panel-padding, 0.85rem);
-  border-radius: var(--ple-radius-group, 0.7rem);
+  border-radius: var(--ple-radius-inset, 0.7rem);
   background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
   box-shadow: var(--ple-shadow);
 }

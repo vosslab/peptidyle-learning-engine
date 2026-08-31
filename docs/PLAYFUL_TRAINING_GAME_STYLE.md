@@ -1,6 +1,6 @@
 # Playful training game style
 
-Design guide for arcade-style onboarding trainers aimed at older students
+Design guide for arcade-style onboarding trainers aimed at older learners
 (lab students, new hires, technical apprentices). Sibling document to
 [docs/FUN_VIBES_DESIGN_STYLE.md](FUN_VIBES_DESIGN_STYLE.md), which targets
 middle-school kids. Same engine. Tighter tone.
@@ -44,7 +44,7 @@ The mental model is "arcade onboarding trainer," not "kid arcade game."
 Five principles override others when they conflict.
 
 - **Competence is the product.** Every interaction should leave the
-  student more capable. Reward systems are scaffolding for repetition,
+  learner more capable. Reward systems are scaffolding for repetition,
   not the goal.
 - **Wrong answers are the lesson.** This is the single highest-value
   screen in the entire trainer. Make it readable, specific, and
@@ -55,7 +55,7 @@ Five principles override others when they conflict.
   trainer with two strong scenario types replays better than one with
   six half-baked ones.
 - **Loud feedback only when it serves recall.** Color, motion, and
-  emphasis are tools for marking what the student should remember, not
+  emphasis are tools for marking what the learner should remember, not
   decoration.
 
 ## What goes loud (keep)
@@ -101,7 +101,7 @@ Five principles override others when they conflict.
   "scenario you fumbled last time", one "new topic". Keep the pool
   varied so it does not feel like a chore.
 - **Anti-grind cap.** Same rule as the kid version: hard ceiling on
-  reward-granting events per day so a student cannot speedrun
+  reward-granting events per day so a learner cannot speedrun
   completion. Encourages spaced practice.
 - **Visible "ready for wet lab" checklist** as the long-term goal.
   Competency stamps roll up into a readable readiness statement.
@@ -111,7 +111,7 @@ Five principles override others when they conflict.
 The single most important rule in this doc. Every wrong answer must
 deliver, in this order:
 
-1. **What the student picked**, repeated back verbatim.
+1. **What the learner picked**, repeated back verbatim.
 2. **The correct answer**, marked clearly.
 3. **Why** - one sentence of context that connects the choice to a
    real-world consequence or principle.
@@ -135,7 +135,7 @@ scrolling, and the panel itself is tap-to-continue.
 ## Scenario authenticity
 
 Scenarios should sound like real lab situations, not textbook trivia. The
-game can be polished and still fail if students think "this would never
+game can be polished and still fail if learners think "this would never
 happen." Prefer:
 
 - Messy but realistic context.
@@ -144,7 +144,7 @@ happen." Prefer:
 - Short explanations tied to actual lab practice.
 
 Avoid trick questions, obscure policy trivia, and scenarios that punish
-students for not knowing unstated assumptions. If a scenario only makes
+learners for not knowing unstated assumptions. If a scenario only makes
 sense to someone who already wrote it, rewrite it.
 
 ## Feedback rules
@@ -222,7 +222,7 @@ type - the engine handles draw, answer, scoring, feedback identically.
   small portrait, calm reactions, no party mode. Skip if it reads as
   childish for your audience.
 - **Progress board** as the dominant home-screen element. Stats and
-  competency stamps tell the student where they stand.
+  competency stamps tell the learner where they stand.
 
 ## Architecture rules that protect the vibe
 
@@ -266,7 +266,7 @@ Inject this into every reviewer / QA prompt for trainers in this style:
 > reward systems as a problem if they cause a specific usability
 > failure (unreadable text, hidden content, broken layout, keyboard
 > failure, visual ambiguity) OR a specific pedagogical regression
-> (the student cannot tell what they got wrong, the explanation is
+> (the learner cannot tell what they got wrong, the explanation is
 > missing or vague, the reward overshadows the lesson).
 
 Aesthetic restraint and "feels too playful for lab training" are not

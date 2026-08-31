@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BlueprintReference, BlueprintRevision};
+use crate::{BlueprintCourseReference, BlueprintRevision};
 
 /// A revision-bound BlueprintCourse observed through an authorized read.
 ///
@@ -12,7 +12,7 @@ use crate::{BlueprintReference, BlueprintRevision};
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ObservedBlueprintSource {
     /// The sole reusable-course locator.
-    pub reference: BlueprintReference,
+    pub reference: BlueprintCourseReference,
     /// Complete ordered-tree revision selected for preview or apply.
     pub revision: BlueprintRevision,
 }

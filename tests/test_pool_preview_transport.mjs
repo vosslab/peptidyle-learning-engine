@@ -12,12 +12,13 @@ import {
 const course = "C-12";
 const assignment = "A-34";
 const revision = "7";
+const assignmentEntryId = "0198e000-0000-7000-8000-000000000017";
 
 function previewResponse() {
   return {
     assignment,
     revision,
-    assignmentEntryId: 1,
+    assignmentEntryId,
     questionPoolLabel: "Pool 2",
     drawCount: 1,
     ordering: "randomized",
@@ -40,9 +41,9 @@ function jsonResponse(value, status = 200, cacheControl = "no-store") {
 test("pool preview decoder accepts only the safe closed server projection", () => {
   const response = previewResponse();
   assert.deepEqual(decodePoolDrawPreview(response), response);
-  assert.deepEqual(decodePoolDrawPreviewRequest({ assignmentEntryId: 1 }), { assignmentEntryId: 1 });
+  assert.deepEqual(decodePoolDrawPreviewRequest({ assignmentEntryId }), { assignmentEntryId });
   assert.throws(
-    () => decodePoolDrawPreviewRequest({ assignmentEntryId: 1, seed: "browser" }),
+    () => decodePoolDrawPreviewRequest({ assignmentEntryId, seed: "browser" }),
     DecodeError,
   );
   assert.throws(
@@ -64,12 +65,12 @@ test("pool preview transport sends only position with revision and requires no-s
       return jsonResponse(previewResponse());
     },
   });
-  const preview = await client.previewPoolDraw(course, assignment, revision, 1);
+  const preview = await client.previewPoolDraw(course, assignment, revision, assignmentEntryId);
   assert.equal(preview.questionPoolLabel, "Pool 2");
   assert.equal(calls[0]?.input, "/api/courses/C-12/assignments/A-34/preview-pool-draw");
   assert.equal(calls[0]?.init?.method, "POST");
   assert.equal(calls[0]?.init?.headers?.["if-match"], '"7"');
-  assert.equal(calls[0]?.init?.body, JSON.stringify({ assignmentEntryId: 1 }));
+  assert.equal(calls[0]?.init?.body, JSON.stringify({ assignmentEntryId }));
   assert.equal(calls[0]?.init?.credentials, "same-origin");
   assert.equal(calls[0]?.init?.cache, "no-store");
 });
@@ -77,12 +78,12 @@ test("pool preview transport sends only position with revision and requires no-s
 test("pool preview reports reload and unavailable recovery without response enumeration", async () => {
   const stale = createHttpApiClient({ fetch: async () => jsonResponse({}, 412) });
   await assert.rejects(
-    stale.previewPoolDraw(course, assignment, revision, 1),
+    stale.previewPoolDraw(course, assignment, revision, assignmentEntryId),
     PreviewPlaneConflictError,
   );
   const unavailable = createHttpApiClient({ fetch: async () => jsonResponse({}, 404) });
   await assert.rejects(
-    unavailable.previewPoolDraw(course, assignment, revision, 1),
+    unavailable.previewPoolDraw(course, assignment, revision, assignmentEntryId),
     (error) => error instanceof ApiRequestError && error.status === 404,
   );
 });

@@ -8,17 +8,17 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentReference, PoolDrawAlgorithm, QuestionId, SelectionOrdering,
+    AssignmentEntryId, AssignmentReference, PoolDrawAlgorithm, QuestionId, SelectionOrdering,
     TeachingOperationRevision,
 };
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.
 /// The route owns course and assignment identity; the revision comes from the
-/// `If-Match` header, so the browser can select only a visible entry index.
+/// `If-Match` header, so the browser can select only one saved Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PoolDrawPreviewRequest {
-    pub assignment_entry_id: u32,
+    pub assignment_entry_id: AssignmentEntryId,
 }
 
 /// The public catalog identity and title that are safe in an Instructor
@@ -36,7 +36,7 @@ pub struct PoolDrawPreviewQuestion {
 pub struct PoolDrawPreview {
     pub assignment: AssignmentReference,
     pub revision: TeachingOperationRevision,
-    pub assignment_entry_id: u32,
+    pub assignment_entry_id: AssignmentEntryId,
     /// Stable presentation label derived from the saved entry order. Pool
     /// definitions have no user-authored label in v1.
     pub question_pool_label: String,
@@ -63,7 +63,10 @@ mod tests {
         let result = PoolDrawPreview {
             assignment: "A-4".parse().expect("assignment reference"),
             revision: TeachingOperationRevision::new(3).expect("revision"),
-            assignment_entry_id: 2,
+            assignment_entry_id: serde_json::from_value(serde_json::json!(
+                "0198e000-0000-7000-8000-000000000017"
+            ))
+            .expect("entry ID"),
             question_pool_label: "Pool 3".to_string(),
             draw_count: 1,
             ordering: SelectionOrdering::Randomized,
@@ -80,7 +83,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
-                "assignment":"A-4", "revision":"3", "assignmentEntryId":2, "questionPoolLabel":"Pool 3",
+                "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "drawCount":1, "ordering":"randomized", "algorithm":"v1",
                 "candidates":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}],
                 "sampled":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}]

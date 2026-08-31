@@ -69,7 +69,8 @@ const response = {
 };
 
 const questionSettings = {
-  source: { backend: "native", family: "peptide_bond_geometry" },
+  source: { backend: "native" },
+  questionFormat: "nativeAlgorithmic",
   prompt,
   response,
   attemptPolicy: { maxAttempts: null },

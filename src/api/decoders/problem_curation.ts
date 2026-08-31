@@ -9,7 +9,7 @@ import type { QuestionCollectionMemberView } from "../../../generated/api/Questi
 import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
 import type { QuestionCollectionEditNumber } from "../../../generated/api/QuestionCollectionEditNumber";
 import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
-import type { SavedProblemSearchReference } from "../../../generated/api/SavedProblemSearchReference";
+import type { SavedQuestionSearchReference } from "../../../generated/api/SavedQuestionSearchReference";
 import type { SavedProblemSearchEditNumber } from "../../../generated/api/SavedProblemSearchEditNumber";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { CursorPage } from "../contracts";
@@ -21,8 +21,14 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeCatalogProblemSummary } from "./catalog_course";
-import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
+import { decodeCatalogQuestionSummary } from "./catalog_course";
+import {
+  decodeBoundedArray,
+  decodeCursor,
+  decodeQuestionVersionAvailability,
+  field,
+  requireOnlyFields,
+} from "./shared";
 
 const MAX_CATALOG_TEXT_UNICODE_SCALARS = 256;
 const MAX_CATALOG_TAXONOMY_FILTERS = 64;
@@ -47,7 +53,7 @@ function decodeCurationTitle(value: unknown, path: string): string {
   return title;
 }
 
-function decodeReference(value: unknown, path: string, prefix: "PC" | "PS"): string {
+function decodeReference(value: unknown, path: string, prefix: "QC" | "QS"): string {
   const reference = decodeString(value, path);
   const expression = new RegExp(`^${prefix}-[1-9][0-9]{0,9}$`, "u");
   if (!expression.test(reference) || Number(reference.slice(prefix.length + 1)) > 2_147_483_647) {
@@ -207,7 +213,7 @@ function decodeQuestionCollectionSummary(
     "editNumber",
   ]);
   return {
-    reference: decodeReference(field(record, "reference", path), `${path}.reference`, "PC"),
+    reference: decodeReference(field(record, "reference", path), `${path}.reference`, "QC"),
     title: decodeCurationTitle(field(record, "title", path), `${path}.title`),
     editNumber: decodeEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
   };
@@ -215,8 +221,8 @@ function decodeQuestionCollectionSummary(
 
 function decodeQuestionCollectionMember(value: unknown, path: string): QuestionCollectionMemberView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionId", "summary", "selectionAvailability"]);
-  const summary = decodeCatalogProblemSummary(
+  requireOnlyFields(record, path, ["questionId", "summary", "questionVersionAvailability"]);
+  const summary = decodeCatalogQuestionSummary(
     field(record, "summary", path),
     `${path}.summary`,
     true,
@@ -228,10 +234,10 @@ function decodeQuestionCollectionMember(value: unknown, path: string): QuestionC
   return {
     questionId,
     summary,
-    selectionAvailability: decodeStringEnum(
-      field(record, "selectionAvailability", path),
-      `${path}.selectionAvailability`,
-      ["available", "retained"],
+    questionVersionAvailability: decodeQuestionVersionAvailability(
+      field(record, "questionVersionAvailability", path),
+      `${path}.questionVersionAvailability`,
+      true,
     ),
   };
 }
@@ -240,7 +246,7 @@ function decodeSavedProblemSearch(value: unknown, path: string): SavedProblemSea
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["reference", "title", "filter", "editNumber"]);
   return {
-    reference: decodeReference(field(record, "reference", path), `${path}.reference`, "PS"),
+    reference: decodeReference(field(record, "reference", path), `${path}.reference`, "QS"),
     title: decodeCurationTitle(field(record, "title", path), `${path}.title`),
     filter: decodeCatalogSearchFilter(field(record, "filter", path), `${path}.filter`),
     editNumber: decodeEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
@@ -342,14 +348,14 @@ export function decodeQuestionCollectionReference(
   value: unknown,
   path = "reference",
 ): QuestionCollectionReference {
-  return decodeReference(value, path, "PC");
+  return decodeReference(value, path, "QC");
 }
 
 export function decodeSavedProblemSearchReference(
   value: unknown,
   path = "reference",
-): SavedProblemSearchReference {
-  return decodeReference(value, path, "PS");
+): SavedQuestionSearchReference {
+  return decodeReference(value, path, "QS");
 }
 
 export function decodeQuestionCollectionEditNumber(

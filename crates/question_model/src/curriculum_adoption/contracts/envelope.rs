@@ -121,13 +121,13 @@ pub struct CurriculumAdoptionApplyIntent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BlueprintReference, BlueprintRevision};
+    use crate::{BlueprintCourseReference, BlueprintRevision};
 
     fn fork_request() -> CurriculumAdoptionPreviewRequest {
         CurriculumAdoptionPreviewRequest::ForkBlueprintCourse {
             request: ForkBlueprintCoursePreviewRequest {
                 source: super::super::ObservedBlueprintSource {
-                    reference: BlueprintReference::new(7).expect("blueprint"),
+                    reference: BlueprintCourseReference::new(7).expect("blueprint"),
                     revision: BlueprintRevision::new(2).expect("revision"),
                 },
                 replacements: super::super::CurriculumPinReplacements::default(),

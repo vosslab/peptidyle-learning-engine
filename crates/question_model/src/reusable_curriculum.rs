@@ -13,7 +13,7 @@ use chrono::NaiveTime;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode, BlueprintReference,
+    AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode, BlueprintCourseReference,
     CatalogDiscoveryItem, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
     MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
     MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
@@ -456,7 +456,7 @@ pub enum BlueprintCourseAccess {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseSummaryView {
     /// Typed route locator resolved under current read authority.
-    pub reference: BlueprintReference,
+    pub reference: BlueprintCourseReference,
     /// Display title from the aggregate.
     pub title: String,
     /// Strong complete-aggregate revision.
@@ -470,7 +470,7 @@ pub struct BlueprintCourseSummaryView {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseView {
     /// Typed route locator resolved under current owner or published-read authority.
-    pub reference: BlueprintReference,
+    pub reference: BlueprintCourseReference,
     /// Instructor-visible course title.
     pub title: String,
     /// Strong complete-aggregate revision.
@@ -554,7 +554,7 @@ mod tests {
     use crate::taxonomy::License;
     use crate::{
         ActivityTimestamp, BackendCapabilities, CatalogDiscoveryEvidence, QuestionVersionAvailability,
-        CatalogProblemSummary, QuestionType, PublicAuthorName, PublicByline,
+        CatalogQuestionSummary, QuestionType, PublicAuthorName, PublicByline,
         QuestionBackend, QuestionMetadata,
     };
     use uuid::Uuid;
@@ -616,7 +616,7 @@ mod tests {
 
     fn discovery() -> CatalogDiscoveryItem {
         CatalogDiscoveryItem {
-            summary: CatalogProblemSummary {
+            summary: CatalogQuestionSummary {
                 question_id: question_id(),
                 backend: QuestionBackend::Native,
                 question_type: QuestionType::MultipleChoice,
@@ -641,13 +641,13 @@ mod tests {
 
     #[test]
     fn curriculum_references_round_trip_as_compact_wire_values() {
-        let blueprint: BlueprintReference = "BP-42".parse().expect("valid reference");
+        let blueprint: BlueprintCourseReference = "BP-42".parse().expect("valid reference");
         assert_eq!(
             serde_json::to_value(blueprint).expect("serializes"),
             "BP-42"
         );
-        assert!("BP-042".parse::<BlueprintReference>().is_err());
-        assert!("AC-43".parse::<BlueprintReference>().is_err());
+        assert!("BP-042".parse::<BlueprintCourseReference>().is_err());
+        assert!("AC-43".parse::<BlueprintCourseReference>().is_err());
     }
 
     #[test]

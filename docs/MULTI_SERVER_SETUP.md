@@ -149,7 +149,7 @@ The locked lease and immutable job manifest determine the typed target:
 course, workspace, catalog, object, export, retention, or system. Before any
 read, write, provider dispatch, or finalization, all of these must agree:
 
-- handler family and declared job payload;
+- Job Kind Registration and declared typed Job Payload;
 - current lease and lease token;
 - immutable target type and exact target identity;
 - broker capability; and
@@ -157,7 +157,7 @@ read, write, provider dispatch, or finalization, all of these must agree:
 
 Queue payloads, retry input, object references, provider responses, and caller
 input are evidence, not authority. A stale token, expired lease, foreign-course
-object, foreign job target, stale generation, wrong handler family, or forged
+object, foreign job target, stale generation, mismatched Job Kind Registration, or forged
 provider completion is rejected before the protected effect. Preparation writes
 only replay-safe private output; the committer makes the effect visible and
 completes the same claim atomically.

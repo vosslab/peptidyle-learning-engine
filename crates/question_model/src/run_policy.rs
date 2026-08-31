@@ -192,18 +192,18 @@ pub enum PoolDrawBasis {
     StableStudentRecord {
         student_record: crate::StudentRecordId,
         assignment: AssignmentId,
-        group: AssignmentEntryId,
+        question_pool_entry: AssignmentEntryId,
     },
     /// Each new Assignment Attempt receives an independently derived candidate selection.
     RegeneratedAssignmentAttempt {
         assignment_attempt: crate::AssignmentAttemptId,
         assignment: AssignmentId,
-        group: AssignmentEntryId,
+        question_pool_entry: AssignmentEntryId,
     },
     /// An instructor-authorized, server-minted no-store preview sample.
     Preview {
         assignment: AssignmentId,
-        group: AssignmentEntryId,
+        question_pool_entry: AssignmentEntryId,
         nonce: PoolDrawPreviewNonce,
     },
 }
@@ -245,23 +245,23 @@ impl std::fmt::Display for PoolDrawBasisError {
 impl std::error::Error for PoolDrawBasisError {}
 
 impl VariationPolicy {
-    /// Derives the only accepted server-owned basis for one pool group.
+    /// Derives the only accepted server-owned basis for one Question Pool entry.
     pub fn pool_draw_basis(
         self,
         assignment: AssignmentId,
         assignment_attempt: &AssignmentAttempt,
-        group: AssignmentEntryId,
+        question_pool_entry: AssignmentEntryId,
     ) -> Result<PoolDrawBasis, PoolDrawBasisError> {
         match self {
             Self::NewSeeds => Ok(PoolDrawBasis::StableStudentRecord {
                 student_record: assignment_attempt.student_record,
                 assignment,
-                group,
+                question_pool_entry,
             }),
             Self::FullRegeneration => Ok(PoolDrawBasis::RegeneratedAssignmentAttempt {
                 assignment_attempt: assignment_attempt.id,
                 assignment,
-                group,
+                question_pool_entry,
             }),
             Self::SelectedProblemVariants => {
                 Err(PoolDrawBasisError::SelectedProblemVariantsRequireExplicitPoolSelection)
@@ -274,12 +274,12 @@ impl PoolDrawBasis {
     /// Creates the independent no-store preview basis for a saved definition.
     pub const fn preview(
         assignment: AssignmentId,
-        group: AssignmentEntryId,
+        question_pool_entry: AssignmentEntryId,
         nonce: PoolDrawPreviewNonce,
     ) -> Self {
         Self::Preview {
             assignment,
-            group,
+            question_pool_entry,
             nonce,
         }
     }

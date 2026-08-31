@@ -412,7 +412,7 @@ pub enum SelectionOrdering {
 }
 
 /// Reviewed deterministic pool-draw implementation stored with a selection
-/// group.
+/// Question Pool.
 ///
 /// This closed value makes the persisted draw contract explicit. A later
 /// algorithm may be added without changing how existing definitions or issued

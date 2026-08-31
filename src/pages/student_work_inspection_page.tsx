@@ -14,7 +14,7 @@ import {
 } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseReference } from "../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { InspectedStudentResponseV1 } from "../../generated/api/InspectedStudentResponseV1";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type {
@@ -261,7 +261,7 @@ function SubmissionCard(props: {
 
 function StudentWorkCoursePage(props: {
   readonly courseId: CourseId;
-  readonly courseReference: CourseReference;
+  readonly courseReference: CourseInstanceReference;
 }): JSX.Element {
   const runtime = useApiRuntime();
   const location = useLocation();

@@ -8,7 +8,7 @@ import type { QuestionResponseFormat } from "../../generated/api/QuestionRespons
 import type { Seed } from "../../generated/api/Seed";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { WorkspaceReference } from "../../generated/api/WorkspaceReference";
+import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { PublicByline } from "../../generated/api/PublicByline";
 import type { InstructorPreviewResult } from "./editor_instructor_preview";
@@ -37,7 +37,7 @@ export interface EditorDraftDisplayState {
 
 export interface WorkspaceDraftSummary {
   readonly workspace: WorkspaceId;
-  readonly reference: WorkspaceReference;
+  readonly reference: AuthoringWorkspaceReference;
   readonly title: string;
   readonly sourceBackend: DraftQuestionSource["backend"];
 }

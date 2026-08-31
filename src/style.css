@@ -24,7 +24,7 @@
   --ple-space-6: 1.75rem;
   --ple-space-7: 2.25rem;
   --ple-radius-control: 0.45rem;
-  --ple-radius-group: 0.7rem;
+  --ple-radius-inset: 0.7rem;
   --ple-radius-surface: 0.9rem;
   --ple-control-min-height: 2.25rem;
   --ple-response-min-height: 2.75rem;
@@ -357,7 +357,7 @@ h3 {
   min-height: 5.75rem;
   padding: var(--ple-section-gap) calc(var(--ple-row-padding-inline) + var(--ple-space-1));
   border: 1px solid transparent;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-card-surface) 82%, transparent);
 }
 
@@ -414,7 +414,7 @@ h3 {
   align-items: end;
   margin: 0.7rem 0;
   padding: 0.65rem 0.75rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 
@@ -526,7 +526,7 @@ textarea:hover {
 
 .assignment-facts div {
   padding: 0.7rem 0.8rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 
@@ -546,7 +546,7 @@ textarea:hover {
 .gradebook-empty,
 .empty-state {
   padding: 1rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 
@@ -579,7 +579,7 @@ textarea:hover {
   gap: var(--ple-space-3);
   margin-bottom: 0.65rem;
   padding: 0.7rem 0.85rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
 }
 
@@ -687,7 +687,7 @@ textarea:hover {
 .inline-error,
 .route-error {
   padding: 0.65rem 0.8rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
 }
 
 .inline-error {
@@ -699,7 +699,7 @@ textarea:hover {
 
 .loading-state {
   padding: 0.75rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-surface-soft);
   color: var(--ple-muted);
 }
@@ -768,7 +768,7 @@ textarea:hover {
 .auth-panel,
 .roster-section {
   padding: 0.85rem;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-card-surface) 82%, transparent);
   box-shadow: var(--ple-shadow);
 }
@@ -823,7 +823,7 @@ textarea:hover {
   padding: var(--ple-panel-padding);
   transform: translate(-50%, -50%);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }

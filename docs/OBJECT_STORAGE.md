@@ -164,7 +164,7 @@ server-side protection boundaries.
 
 The current repository validates typed routing, immutable writes, checksums,
 strict image admission, delivery separation, pending-publication behavior, and
-publisher lease/retry behavior. General object reconciliation remains planned:
+publisher lease/retry behavior. General Object Storage Checks remain planned:
 an orphan is never served, and a missing or checksum-mismatched referenced
 object fails closed and retains its database evidence until repair. Production
 KMS rotation, bucket policies, Object Lock retention, backup restore, and IAM

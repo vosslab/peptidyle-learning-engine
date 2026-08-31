@@ -3,7 +3,7 @@
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
-import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
+import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import {
   DecodeError,
@@ -36,7 +36,7 @@ export type AssignmentInspectionChoice =
 
 export type GradebookSelectionFilter =
   | { readonly kind: "assignment"; readonly assignment: AssignmentReference }
-  | { readonly kind: "operation"; readonly operation: GradingOperationReference };
+  | { readonly kind: "operation"; readonly operation: InstructorGradingOperationReference };
 
 export interface GradebookSelectionQuery {
   readonly cursor?: string;
@@ -73,7 +73,7 @@ export interface SubmittedRunChoice {
 export interface SubmittedRunChoicesQuery {
   readonly cursor?: string;
   readonly pageSize?: number;
-  readonly operationRef?: GradingOperationReference;
+  readonly operationRef?: InstructorGradingOperationReference;
 }
 
 export interface SubmittedRunChoicesPage {

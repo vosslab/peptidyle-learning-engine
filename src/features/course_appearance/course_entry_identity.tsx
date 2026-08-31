@@ -25,7 +25,7 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
   height: auto;
   aspect-ratio: 1200 / 328;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group, 0.5rem);
+  border-radius: var(--ple-radius-inset, 0.5rem);
   object-fit: cover;
 }
 `;

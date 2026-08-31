@@ -2,7 +2,7 @@
 
 import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
-import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
 import { parseReviewedPublicByline } from "../../api/public_byline";
 import { FlatFeedbackFields } from "./flat_feedback_fields";
 import { hotspotSourceFromAsset } from "./flat_hotspot_editor_model";
@@ -152,7 +152,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   const [review, setReview] = createSignal<Review | null>(null);
   const [reviewLoading, setReviewLoading] = createSignal(false);
   const [bylineText, setBylineText] = createSignal("");
-  const [publishedSummary, setPublishedSummary] = createSignal<CatalogProblemSummary>();
+  const [publishedSummary, setPublishedSummary] = createSignal<CatalogQuestionSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
   let heading: HTMLHeadingElement | null = null;

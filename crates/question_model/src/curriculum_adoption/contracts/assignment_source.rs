@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::ObservedBlueprintSource;
-use crate::{BlueprintAssignmentId, BlueprintReference, BlueprintRevision};
+use crate::{BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision};
 
 /// One exact stable assignment selected from a revision-bound BlueprintCourse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,7 +12,7 @@ use crate::{BlueprintAssignmentId, BlueprintReference, BlueprintRevision};
     from = "ObservedBlueprintAssignmentSourceParts"
 )]
 pub struct AssignmentDefinitionSourceView {
-    reference: BlueprintReference,
+    reference: BlueprintCourseReference,
     revision: BlueprintRevision,
     assignment_id: BlueprintAssignmentId,
 }
@@ -20,7 +20,7 @@ pub struct AssignmentDefinitionSourceView {
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 struct ObservedBlueprintAssignmentSourceParts {
-    reference: BlueprintReference,
+    reference: BlueprintCourseReference,
     revision: BlueprintRevision,
     assignment_id: BlueprintAssignmentId,
 }

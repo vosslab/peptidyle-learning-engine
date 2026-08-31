@@ -181,8 +181,8 @@ mod tests {
     use question_model::response::QuestionResponseFormat;
     use question_model::taxonomy::{License, Tag};
     use question_model::{
-        QuestionId, QuestionMetadata, QuestionSource, QuestionType, QuestionVersionNumber,
-        QuestionVersionReference, WorkspaceId,
+        QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionType,
+        QuestionVersionNumber, QuestionVersionReference, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -218,9 +218,8 @@ mod tests {
             question_id: question_version.question_id,
             version_number: question_version.version_number,
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
-            source: QuestionSource::Native {
-                family: "capability-fixture".to_string(),
-            },
+            source: QuestionSource::Native,
+            question_format: QuestionFormat::NativeAlgorithmic,
             prompt: vec![ContentBlock::Text {
                 markdown: "Capability fixture".to_string(),
             }],

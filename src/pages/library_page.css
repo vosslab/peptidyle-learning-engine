@@ -9,7 +9,7 @@
   gap: calc(var(--ple-layout-gap) - 0.45rem);
   margin-block: calc(var(--ple-section-gap) - 0.1rem);
   padding: calc(var(--ple-panel-padding) - 0.2rem);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-card-surface) 84%, transparent);
   box-shadow: var(--ple-shadow);
 }
@@ -42,7 +42,7 @@
   );
   overflow: auto;
   overscroll-behavior: contain;
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-card-surface) 78%, transparent);
   box-shadow: var(--ple-shadow);
 }

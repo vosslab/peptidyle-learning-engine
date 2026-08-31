@@ -10,8 +10,8 @@ import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary
 import type { CatalogDiscoveryEvidence } from "../../../generated/api/CatalogDiscoveryEvidence";
 import type { CatalogDiscoveryItem } from "../../../generated/api/CatalogDiscoveryItem";
 import type { CatalogOwnCourseUsage } from "../../../generated/api/CatalogOwnCourseUsage";
-import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
-import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
+import type { CatalogQuestionDetail } from "../../../generated/api/CatalogQuestionDetail";
+import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
 import type { CatalogPromptProjection } from "../../../generated/api/CatalogPromptProjection";
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
 import type { CatalogUsageDetail } from "../../../generated/api/CatalogUsageDetail";
@@ -23,7 +23,7 @@ import type { AssignmentRouteReference, CourseRouteReference } from "../../navig
 import { decodePublicByline } from "../public_byline";
 import { parseAssignmentReference, parseCourseReference } from "../../navigation/public_route";
 
-function decodeCourseReference(value: unknown, path: string): CourseRouteReference {
+function decodeCourseInstanceReference(value: unknown, path: string): CourseRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
   const reference = parseCourseReference(value);
   if (reference === null) throw new DecodeError(path, "a C- reference");
@@ -94,11 +94,11 @@ export {
   decodeCourseBannerCandidateReceipt,
 } from "./course_appearance";
 
-export function decodeCatalogProblemSummary(
+export function decodeCatalogQuestionSummary(
   value: unknown,
   path = "response",
   strict = false,
-): CatalogProblemSummary {
+): CatalogQuestionSummary {
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, [
@@ -147,7 +147,7 @@ export function decodeCatalogProblemSummary(
       strict,
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
-  } satisfies CatalogProblemSummary;
+  } satisfies CatalogQuestionSummary;
   return decoded;
 }
 
@@ -157,14 +157,15 @@ export function decodeCatalogProblemSummary(
  * Decoding establishes the DTO's shape; callers of a publication command must
  * additionally bind that DTO to the published state.
  */
-export function isAvailableNativeCatalogProblemSummary(
-  summary: CatalogProblemSummary,
+export function isAvailableNativeCatalogQuestionSummary(
+  summary: CatalogQuestionSummary,
 ): boolean {
   return (
     summary.backend === "native" &&
     summary.availability.availability === "available"
   );
 }
+
 
 function decodeUnitInterval(value: unknown, path: string): number {
   const decoded = decodeFiniteNumber(value, path);
@@ -279,7 +280,7 @@ function decodeCatalogDiscoveryItem(value: unknown, path: string): CatalogDiscov
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "evidence"]);
   return {
-    summary: decodeCatalogProblemSummary(field(record, "summary", path), `${path}.summary`, true),
+    summary: decodeCatalogQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
     evidence: decodeCatalogDiscoveryEvidence(field(record, "evidence", path), `${path}.evidence`),
   };
 }
@@ -326,7 +327,7 @@ function decodeCatalogOwnCourseUsage(value: unknown, path: string): CatalogOwnCo
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["course", "title", "assignmentCount"]);
   return {
-    course: decodeCourseReference(field(record, "course", path), `${path}.course`),
+    course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     assignmentCount: decodePositiveInteger(
       field(record, "assignmentCount", path),
@@ -417,14 +418,14 @@ export function decodeCatalogSearchPage(value: unknown, path = "response"): Cata
 }
 
 /** Strict safe immutable detail projection; source and grading fields are rejected. */
-export function decodeCatalogProblemDetail(
+export function decodeCatalogQuestionDetail(
   value: unknown,
   path = "response",
-): CatalogProblemDetail {
+): CatalogQuestionDetail {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "prompt", "evidence", "usage"]);
   return {
-    summary: decodeCatalogProblemSummary(field(record, "summary", path), `${path}.summary`, true),
+    summary: decodeCatalogQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
     prompt: decodeCatalogPromptProjection(field(record, "prompt", path), `${path}.prompt`),
     evidence: decodeCatalogDiscoveryEvidence(field(record, "evidence", path), `${path}.evidence`),
     usage: decodeCatalogUsageDetail(field(record, "usage", path), `${path}.usage`),
@@ -516,7 +517,7 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
   requireOnlyFields(record, path, ["id", "reference", "title", "term", "role"]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeCourseReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),

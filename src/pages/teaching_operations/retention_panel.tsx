@@ -1,7 +1,7 @@
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { CourseReference } from "../../../generated/api/CourseReference";
+import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { RetentionDispositionView } from "../../../generated/api/RetentionDispositionView";
 import type { RetentionReadView } from "../../../generated/api/RetentionReadView";
 import type { ApiRuntime } from "../../api/runtime";
@@ -20,7 +20,7 @@ type RetentionAction = "archive" | "delete";
 
 export interface RetentionPanelProps {
   readonly courseId: CourseId;
-  readonly courseReference: CourseReference;
+  readonly courseReference: CourseInstanceReference;
   readonly runtime: Pick<ApiRuntime, "client">;
   readonly mayExtendRetention: boolean;
 }

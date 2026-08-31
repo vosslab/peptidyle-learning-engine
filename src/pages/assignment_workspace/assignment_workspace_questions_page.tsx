@@ -392,7 +392,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  async function previewPool(entryIndex: number): Promise<void> {
+  async function previewPool(assignmentEntryId: string): Promise<void> {
     const failure = validateAssignmentEditorDraft(draft());
     if (failure !== null) {
       setValidationMessage(`${failure} Correct the questions, then preview a pool draw.`);
@@ -413,7 +413,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.courseReference,
         saved.reference,
         previewRevision(saved.revision),
-        entryIndex,
+        assignmentEntryId,
       );
       setPoolPreview(preview);
       setMessage(`${preview.questionPoolLabel} server sample is ready. It does not create Student work.`);
@@ -601,7 +601,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 onPoolChange={replacePool}
                 onRemovePool={removeEntry}
                 onMessage={setMessage}
-                onPreviewPool={(entryIndex) => void previewPool(entryIndex)}
+                onPreviewPool={(assignmentEntryId) => void previewPool(assignmentEntryId)}
                 onChoosePoolCandidates={(entryIndex, trigger) =>
                   pickerController.open({ kind: "pool", entryIndex }, trigger)
                 }

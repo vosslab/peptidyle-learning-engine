@@ -3,7 +3,7 @@
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
-import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
+import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { ApiClient } from "../client";
 import {
@@ -22,7 +22,7 @@ import {
   type SubmittedRunChoicesPage,
   type SubmittedRunChoicesQuery,
 } from "../decoders/gradebook_selection";
-import { decodeGradingOperationReference } from "../decoders/grading_operations";
+import { decodeInstructorGradingOperationReference } from "../decoders/grading_operations";
 import { decodeCursor, decodeIdentifier } from "../decoders/shared";
 import {
   parseAssignmentReference,
@@ -71,7 +71,7 @@ function gradebookPath(courseId: CourseId, request: CalculatedGradebookQuery): s
       canonicalReference(filter.membership, "membership", parseCourseMembershipReference),
     );
   } else if (filter.kind === "operation") {
-    query.set("operationRef", decodeGradingOperationReference(filter.operation));
+    query.set("operationRef", decodeInstructorGradingOperationReference(filter.operation));
   } else if (filter.kind !== "all") {
     throw new ApiProtocolError("Gradebook filter must use one known public reference");
   }
@@ -100,7 +100,7 @@ function addSelectionFilter(query: URLSearchParams, filter: GradebookSelectionFi
     return;
   }
   if (filter.kind === "operation") {
-    query.set("operationRef", decodeGradingOperationReference(filter.operation));
+    query.set("operationRef", decodeInstructorGradingOperationReference(filter.operation));
     return;
   }
   throw new ApiProtocolError("Gradebook selection needs an assignment or operation reference");
@@ -128,7 +128,7 @@ function submittedRunChoicesPath(
   const checkedAssignment = canonicalReference(assignment, "assignment", parseAssignmentReference);
   const query = pageQuery(request.cursor, request.pageSize);
   if (request.operationRef !== undefined) {
-    query.set("operationRef", decodeGradingOperationReference(request.operationRef));
+    query.set("operationRef", decodeInstructorGradingOperationReference(request.operationRef));
   }
   const suffix = query.size === 0 ? "" : `?${query.toString()}`;
   return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/assignment-attempts${suffix}`;
@@ -139,7 +139,7 @@ function inspectionPath(
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
   run: AssignmentAttemptReference,
-  operationRef: GradingOperationReference | undefined,
+  operationRef: InstructorGradingOperationReference | undefined,
 ): string {
   const course = decodeIdentifier(courseId, "course");
   const checkedMembership = canonicalReference(
@@ -153,7 +153,7 @@ function inspectionPath(
     operationRef === undefined
       ? ""
       : `?${new URLSearchParams({
-          operationRef: decodeGradingOperationReference(operationRef),
+          operationRef: decodeInstructorGradingOperationReference(operationRef),
         }).toString()}`;
   return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/assignment-attempts/${encodedId(checkedRun)}${query}`;
 }
@@ -193,7 +193,7 @@ function verifyInspectionIdentity(
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
   run: AssignmentAttemptReference,
-  operationRef: GradingOperationReference | undefined,
+  operationRef: InstructorGradingOperationReference | undefined,
 ): InspectedStudentWorkDetail {
   if (detail.membership !== membership || detail.assignment !== assignment || detail.run !== run) {
     throw new ApiProtocolError("Inspected Student work does not match its requested route");

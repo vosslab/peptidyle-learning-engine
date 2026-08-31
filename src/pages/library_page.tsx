@@ -104,7 +104,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     return current.kind === "ready" ? current : undefined;
   };
   const aggregates = (): ReadonlyArray<{
-    readonly group: string;
+    readonly facet: string;
     readonly value: string;
     readonly count: number;
   }> => {
@@ -112,7 +112,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     return current.aggregates;
   };
   const facets = (
-    group:
+    facet:
       | "byline"
       | "backend"
       | "tag"
@@ -123,7 +123,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "evidence"
       | "usedInMyCourses",
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
-    return () => aggregates().filter((aggregate) => aggregate.group === group);
+    return () => aggregates().filter((aggregate) => aggregate.facet === facet);
   };
   const displayedRows = (): ReadonlyArray<CatalogBrowseRow> => {
     const current = state();

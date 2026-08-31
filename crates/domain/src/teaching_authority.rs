@@ -1,4 +1,4 @@
-//! Pure WP-INST-T2 validation for co-instructor invitations.
+//! Pure WP-INST-T2 validation for Instructor Course Invitations.
 //!
 //! This module is deliberately separate from S5 entitlement. It validates
 //! teaching-operation facts supplied by a Store transaction but never grants
@@ -12,7 +12,7 @@ use question_model::{
 };
 
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
-pub const CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
+pub const COURSE_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
 
 /// Current direct Instructor-membership facts for one exact course.
 ///
@@ -260,7 +260,7 @@ fn validate_invitation_record(
     let expected_expiry = invitation
         .created_at
         .as_unix_millis()
-        .checked_add(CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS)
+        .checked_add(COURSE_INVITATION_LIFETIME_MILLIS)
         .ok_or(CourseInvitationError::TimestampOverflow)?;
     if invitation.expires_at.as_unix_millis() != expected_expiry {
         return Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays);
@@ -300,9 +300,10 @@ mod tests {
             id: CourseInvitationId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             invited_by: CourseMembershipId::from_uuid(id(4)),
+            membership_role: CourseMembershipRole::Instructor,
             target: AccountId::from_uuid(id(3)),
             created_at: stamp(1_000),
-            expires_at: stamp(1_000 + CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS),
+            expires_at: stamp(1_000 + COURSE_INVITATION_LIFETIME_MILLIS),
             terminal_event: None,
         }
     }

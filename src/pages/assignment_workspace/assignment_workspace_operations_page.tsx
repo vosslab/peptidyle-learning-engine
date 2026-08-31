@@ -15,15 +15,15 @@ import {
 
 import type {
   GradingOperationActionId,
-  GradingOperationGroupBy,
+  GradingOperationFocus,
   InstructorGradingOperationRow,
 } from "../../api/decoders/grading_operations";
 import { CopyableQuestionId } from "../../components/copyable_question_id";
 import {
   gradingOperationsActionFailure,
   gradingOperationsAffectedStudentsLabel,
-  gradingOperationsGroupLabel,
-  gradingOperationsPositionForGroup,
+  gradingOperationsSubjectLabel,
+  gradingOperationsPositionForFocus,
   gradingOperationsReasonLabel,
   gradingOperationsRetryLabel,
   gradingOperationsStateLabel,
@@ -60,7 +60,7 @@ function acceptedActionMessage(intent: GradingOperationsActionIntent): string {
 export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
   const location = useLocation();
-  const [groupBy, setGroupBy] = createSignal<GradingOperationGroupBy>("question");
+  const [focus, setFocus] = createSignal<GradingOperationFocus>("question");
   const [rows, setRows] = createSignal<ReadonlyArray<InstructorGradingOperationRow>>([]);
   const [cursor, setCursor] = createSignal<string>();
   const [listState, setListState] = createSignal<ListState>("loading");
@@ -102,7 +102,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   }
 
   async function load(
-    position = gradingOperationsPositionForGroup(groupBy()),
+    position = gradingOperationsPositionForFocus(focus()),
     append = false,
   ): Promise<void> {
     const request = ++listRequest;
@@ -111,7 +111,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
       const page = await workspace.client.listInstructorGradingOperations(
         workspace.courseId,
         workspace.assignmentId,
-        position.groupBy,
+        position.focus,
         position.cursor,
       );
       if (request !== listRequest) return;
@@ -125,18 +125,18 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
     }
   }
 
-  function changeGrouping(nextGroupBy: GradingOperationGroupBy): void {
-    if (nextGroupBy === groupBy()) return;
-    setGroupBy(nextGroupBy);
+  function changeFocus(nextFocus: GradingOperationFocus): void {
+    if (nextFocus === focus()) return;
+    setFocus(nextFocus);
     setRows([]);
     setCursor(undefined);
-    void load(gradingOperationsPositionForGroup(nextGroupBy));
+    void load(gradingOperationsPositionForFocus(nextFocus));
   }
 
   function loadMore(): void {
     const nextCursor = cursor();
     if (nextCursor === undefined || listState() === "loading") return;
-    void load({ groupBy: groupBy(), cursor: nextCursor }, true);
+    void load({ focus: focus(), cursor: nextCursor }, true);
   }
 
   async function executeAction(intent: GradingOperationsActionIntent): Promise<void> {
@@ -163,7 +163,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
       setActionIntent(undefined);
       setFeedback({ kind: "success", message: acceptedActionMessage(intent) });
       focusStatus();
-      await load(gradingOperationsPositionForGroup(groupBy()));
+      await load(gradingOperationsPositionForFocus(focus()));
     } catch (error: unknown) {
       const failure = gradingOperationsActionFailure(error);
       setFeedback(failure);
@@ -209,7 +209,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
           "Latest assignment loaded. Review the current grading operations before requesting another action.",
       });
       focusStatus();
-      await load(gradingOperationsPositionForGroup(groupBy()));
+      await load(gradingOperationsPositionForFocus(focus()));
     } catch (_error: unknown) {
       setFeedback({
         kind: "stale",
@@ -266,27 +266,27 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
 
       <section
         class="assignment-workspace-operations-controls"
-        aria-label="Grading operation grouping"
+        aria-label="Grading operation focus"
       >
         <p>Show operations by:</p>
-        <div class="assignment-workspace-operations-group-actions">
+        <div class="assignment-workspace-operations-subject-actions">
           <button
             class="quiet-action"
             type="button"
-            aria-pressed={groupBy() === "question"}
+            aria-pressed={focus() === "question"}
             disabled={listState() === "loading" && rows().length === 0}
-            onClick={() => changeGrouping("question")}
+            onClick={() => changeFocus("question")}
           >
-            Group by question
+            Show by Question
           </button>
           <button
             class="quiet-action"
             type="button"
-            aria-pressed={groupBy() === "student"}
+            aria-pressed={focus() === "student"}
             disabled={listState() === "loading" && rows().length === 0}
-            onClick={() => changeGrouping("student")}
+            onClick={() => changeFocus("student")}
           >
-            Group by Student
+            Show by Student
           </button>
         </div>
       </section>
@@ -387,8 +387,8 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
               {(row) => (
                 <article class="assignment-workspace-operation-row">
                   <div class="assignment-workspace-operation-row-heading">
-                    <h2>{gradingOperationsGroupLabel(row)}</h2>
-                    <Show when={row.group.kind === "question" ? row.group : undefined}>
+                    <h2>{gradingOperationsSubjectLabel(row)}</h2>
+                    <Show when={row.subject.kind === "question" ? row.subject : undefined}>
                       {(question) => <CopyableQuestionId displayId={question().questionId} />}
                     </Show>
                     <p>{gradingOperationsStateLabel(row)}</p>

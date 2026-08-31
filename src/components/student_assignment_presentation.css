@@ -9,7 +9,7 @@
   padding: var(--ple-space-3) var(--ple-space-4);
   border: 1px solid color-mix(in srgb, var(--ple-accent) 28%, var(--ple-border));
   border-inline-start: 0.3rem solid var(--ple-accent);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-accent) 7%, var(--ple-card-surface));
 }
 

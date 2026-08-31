@@ -26,7 +26,7 @@ export interface AssignmentEditorContentListProps {
   readonly onPoolChange: (entryIndex: number, entry: AssignmentEditorQuestionPoolEntry) => void;
   readonly onRemovePool: (entryIndex: number) => void;
   readonly onMessage: (message: string) => void;
-  readonly onPreviewPool: (entryIndex: number) => void;
+  readonly onPreviewPool: (assignmentEntryId: string) => void;
   readonly onChoosePoolCandidates: (entryIndex: number, trigger: HTMLButtonElement) => void;
 }
 
@@ -43,9 +43,11 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           onMove={(direction) => props.onMove(entryIndex, direction)}
           onRemove={() => props.onRemovePool(entryIndex)}
           onMessage={props.onMessage}
-          preview={props.preview?.entryIndex === entryIndex ? props.preview : undefined}
+          preview={props.preview?.assignmentEntryId === entry.id ? props.preview : undefined}
           previewBusy={props.busy}
-          onPreview={() => props.onPreviewPool(entryIndex)}
+          onPreview={() => {
+            if (entry.id !== undefined) props.onPreviewPool(entry.id);
+          }}
           onChooseCandidates={(trigger) => props.onChoosePoolCandidates(entryIndex, trigger)}
         />
       );

@@ -4,6 +4,7 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeAssignmentPolicyPatchUpdateRequest,
+  decodeInstructorCourseInvitationCreateRequest,
   decodeCourseInvitationTargetSearchPage,
   decodeCourseInvitationTargetSearchRequest,
   decodeCourseStudentMembershipsPage,
@@ -127,6 +128,19 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
         ...studentPage,
         students: [{ ...studentPage.students[0], userId: "private" }],
       }),
+    DecodeError,
+  );
+});
+
+test("Instructor Course Invitation creation accepts only the Instructor-only operation shape", () => {
+  const request = { target: "U-7" };
+  assert.deepEqual(decodeInstructorCourseInvitationCreateRequest(request), request);
+  assert.throws(
+    () => decodeInstructorCourseInvitationCreateRequest({ target: "U-7", membershipRole: "instructor" }),
+    DecodeError,
+  );
+  assert.throws(
+    () => decodeInstructorCourseInvitationCreateRequest({ target: "U-7", membershipRole: "student" }),
     DecodeError,
   );
 });

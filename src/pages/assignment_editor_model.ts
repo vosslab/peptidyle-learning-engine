@@ -31,7 +31,7 @@ export type AssignmentEditorFixedQuestionEntry = FixedQuestionAssignmentEntrySum
 
 /**
  * Browser-owned pool state deliberately names only public Question IDs.
- * The server mints and preserves group/candidate identities when it saves this definition.
+ * The server mints and preserves Question Pool entry/candidate identities when it saves this definition.
  */
 export interface AssignmentEditorQuestionPoolEntry {
   readonly kind: "questionPool";

@@ -4,7 +4,7 @@
   margin-block: var(--ple-section-gap);
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-group);
+  border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-card-surface) 82%, transparent);
   box-shadow: var(--ple-shadow);
 }

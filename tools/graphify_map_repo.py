@@ -9,6 +9,7 @@ import json
 import shutil
 import pathlib
 import argparse
+import datetime
 import subprocess
 
 
@@ -381,9 +382,6 @@ def load_graph_data(repo_root: pathlib.Path) -> dict:
 		if link["source"] not in node_ids or link["target"] not in node_ids:
 			raise RuntimeError(f"Graphify links must reference known nodes: {graph_path}")
 
-	built_at_commit = graph_data.get("built_at_commit")
-	if built_at_commit is not None and not isinstance(built_at_commit, str):
-		raise RuntimeError(f"Graphify built_at_commit must be text: {graph_path}")
 	return graph_data
 
 
@@ -475,16 +473,12 @@ def report_fallback_data(repo_root: pathlib.Path) -> dict | None:
 	if not report_path.is_file():
 		return None
 	lines = report_path.read_text(encoding="utf-8").splitlines()
-	commit = None
 	community_hubs = []
 	community_headings = []
 	bridges = []
 	relationships = []
 	in_hubs = False
 	for line in lines:
-		commit_match = re.match(r"^- Built from commit: `([^`]+)`$", line)
-		if commit_match is not None:
-			commit = clean_graph_text(commit_match.group(1))
 		if line == "## Community Hubs (Navigation)":
 			in_hubs = True
 			continue
@@ -512,10 +506,9 @@ def report_fallback_data(repo_root: pathlib.Path) -> dict | None:
 			)
 	communities = community_hubs if community_hubs else community_headings
 	communities = list(dict.fromkeys(communities))
-	if commit is None and not communities and not bridges and not relationships:
+	if not communities and not bridges and not relationships:
 		return None
 	return {
-		"commit": commit,
 		"communities": communities,
 		"bridges": bridges,
 		"relationships": relationships,
@@ -622,8 +615,43 @@ def analysis_relationships(analysis_data: dict | None) -> list[str]:
 #============================================
 
 
+def graph_mapped_at(repo_root: pathlib.Path) -> datetime.datetime | None:
+	"""Return the local modification time of the primary usable graph artifact."""
+	# ASVS 5.3.2: inspect only fixed Graphify artifact paths beneath the repo root.
+	artifact_names = (GRAPH_FILE_NAME, ANALYSIS_FILE_NAME, REPORT_FILE_NAME)
+	for artifact_name in artifact_names:
+		artifact_path = repo_root / OUTPUT_DIR_NAME / artifact_name
+		if artifact_path.is_file():
+			mapped_at = datetime.datetime.fromtimestamp(
+				artifact_path.stat().st_mtime
+			).astimezone()
+			return mapped_at
+	return None
+
+
+#============================================
+
+
+def format_mapped_at(mapped_at: datetime.datetime) -> str:
+	"""Format one timezone-aware map time for concise manager context."""
+	if mapped_at.tzinfo is None or mapped_at.utcoffset() is None:
+		raise ValueError("Graphify mapping time must include a timezone")
+	timezone_name = mapped_at.tzname()
+	if timezone_name is None:
+		raise ValueError("Graphify mapping time must name its timezone")
+	hour = mapped_at.strftime("%I").lstrip("0")
+	mapped_text = (
+		f"{hour}:{mapped_at:%M %p} {timezone_name} "
+		f"{mapped_at:%b} {mapped_at.day} {mapped_at:%Y}"
+	)
+	return mapped_text
+
+
+#============================================
+
+
 def format_orientation(
-	repo_root: pathlib.Path,
+	mapped_at: datetime.datetime,
 	graph_data: dict | None,
 	analysis_data: dict | None = None,
 	labels_data: dict | None = None,
@@ -646,19 +674,8 @@ def format_orientation(
 		relationships = []
 	if not major_areas:
 		major_areas = graph_community_names(graph_data, labels_data)
-	commit = None
-	if graph_data is not None:
-		built_at_commit = graph_data.get("built_at_commit")
-		if isinstance(built_at_commit, str) and built_at_commit:
-			commit = clean_graph_text(built_at_commit)
-	if commit is None and report_data is not None:
-		commit = report_data["commit"]
 
-	lines = ["GRAPHIFY CONTEXT"]
-	if commit is not None:
-		lines.append(f"Graph mapped at commit {commit[:12]}.")
-	else:
-		lines.append(f"Graph mapped for {clean_graph_text(repo_root.name)}.")
+	lines = ["GRAPHIFY CONTEXT", f"Graph mapped at {format_mapped_at(mapped_at)}"]
 	if major_areas:
 		lines.append("Major repository areas:")
 		lines.extend(f"- {community_name}" for community_name in major_areas)
@@ -721,8 +738,11 @@ def manager_context(repo_root: pathlib.Path) -> str | None:
 	graph_data, analysis_data, labels_data, report_data = load_orientation_data(repo_root)
 	if graph_data is None and analysis_data is None and report_data is None:
 		return None
+	mapped_at = graph_mapped_at(repo_root)
+	if mapped_at is None:
+		raise RuntimeError("Graphify context has data but no timestamped source artifact")
 	context = format_orientation(
-		repo_root,
+		mapped_at,
 		graph_data,
 		analysis_data=analysis_data,
 		labels_data=labels_data,

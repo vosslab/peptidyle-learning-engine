@@ -4,8 +4,8 @@ import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/a
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
 import type { GradingOperationAction } from "../../../generated/api/GradingOperationAction";
 import type { GradingOperationReason } from "../../../generated/api/GradingOperationReason";
-import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
-import type { GradingOperationState } from "../../../generated/api/GradingOperationState";
+import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
+import type { InstructorGradingOperationState } from "../../../generated/api/InstructorGradingOperationState";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import {
   DecodeError,
@@ -46,22 +46,22 @@ const STATES = [
   "repair_required",
   "failed",
   "superseded",
-] as const satisfies ReadonlyArray<GradingOperationState>;
+] as const satisfies ReadonlyArray<InstructorGradingOperationState>;
 const ACTIONS = ["retry", "recalculate"] as const satisfies ReadonlyArray<GradingOperationAction>;
 
-export type GradingOperationGroupBy = "question" | "student";
+export type GradingOperationFocus = "question" | "student";
 export type GradingOperationStrongEtag = string;
 export type GradingOperationActionId = string;
 
 export interface InstructorGradingOperation {
-  readonly reference: GradingOperationReference;
+  readonly reference: InstructorGradingOperationReference;
   readonly reason: GradingOperationReason;
-  readonly state: GradingOperationState;
+  readonly state: InstructorGradingOperationState;
   readonly revision: number;
   readonly nextAction: GradingOperationAction | null;
 }
 
-export type GradingOperationGroup =
+export type GradingOperationSubject =
   | { readonly kind: "question"; readonly questionId: QuestionId; readonly title: string }
   | {
       readonly kind: "student";
@@ -76,7 +76,7 @@ export type GradingOperationTrustGeneration =
 
 export interface InstructorGradingOperationRow {
   readonly operation: InstructorGradingOperation;
-  readonly group: GradingOperationGroup;
+  readonly subject: GradingOperationSubject;
   readonly affectedStudentCount: number;
   readonly trustGeneration: GradingOperationTrustGeneration;
 }
@@ -90,14 +90,14 @@ export type GradingOperationActionReceipt =
   | {
       readonly kind: "retry";
       readonly action: GradingOperationActionId;
-      readonly operation: GradingOperationReference;
+      readonly operation: InstructorGradingOperationReference;
       readonly resultingOperationRevision: number;
       readonly occurredAt: number;
     }
   | {
       readonly kind: "recalculation";
       readonly action: GradingOperationActionId;
-      readonly operation: GradingOperationReference;
+      readonly operation: InstructorGradingOperationReference;
       readonly resultingOperationRevision: number;
       readonly assignmentRevision: number;
       readonly scoringGeneration: number;
@@ -163,29 +163,29 @@ function decodeOperation(value: unknown, path: string): InstructorGradingOperati
   };
 }
 
-function decodeGroup(value: unknown, path: string): GradingOperationGroup {
+function decodeSubject(value: unknown, path: string): GradingOperationSubject {
   const record = decodeRecord(value, path);
-  const groupKind = decodeString(field(record, "kind", path), `${path}.kind`);
-  switch (groupKind) {
+  const subjectKind = decodeString(field(record, "kind", path), `${path}.kind`);
+  switch (subjectKind) {
     case "question":
       requireOnlyFields(record, path, ["kind", "questionId", "title"]);
       return {
-        kind: groupKind,
+        kind: subjectKind,
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
         title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
       };
     case "student":
       requireOnlyFields(record, path, ["kind", "membership", "displayName"]);
       return {
-        kind: groupKind,
+        kind: subjectKind,
         membership: routeReference(field(record, "membership", path), `${path}.membership`, "M"),
         displayName: boundedText(field(record, "displayName", path), `${path}.displayName`),
       };
     case "assignment":
       requireOnlyFields(record, path, ["kind"]);
-      return { kind: groupKind };
+      return { kind: subjectKind };
     default:
-      throw new DecodeError(`${path}.kind`, "a known grading-operation group kind");
+      throw new DecodeError(`${path}.kind`, "a known grading-operation subject kind");
   }
 }
 
@@ -209,7 +209,7 @@ function decodeTrustGeneration(value: unknown, path: string): GradingOperationTr
 function decodeRow(value: unknown, path: string): InstructorGradingOperationRow {
   const record = closed(value, path, [
     "operation",
-    "group",
+    "subject",
     "affectedStudentCount",
     "trustGeneration",
   ]);
@@ -222,7 +222,7 @@ function decodeRow(value: unknown, path: string): InstructorGradingOperationRow 
   }
   return {
     operation: decodeOperation(field(record, "operation", path), `${path}.operation`),
-    group: decodeGroup(field(record, "group", path), `${path}.group`),
+    subject: decodeSubject(field(record, "subject", path), `${path}.subject`),
     affectedStudentCount,
     trustGeneration: decodeTrustGeneration(
       field(record, "trustGeneration", path),
@@ -251,10 +251,10 @@ export function decodeInstructorGradingOperationsPage(
   };
 }
 
-export function decodeGradingOperationReference(
+export function decodeInstructorGradingOperationReference(
   value: unknown,
   path = "operation",
-): GradingOperationReference {
+): InstructorGradingOperationReference {
   return routeReference(value, path, "GO");
 }
 
@@ -296,7 +296,7 @@ export function decodeGradingOperationActionReceipt(
     return {
       kind: receiptKind,
       action: decodeGradingOperationActionId(field(record, "action", path), `${path}.action`),
-      operation: decodeGradingOperationReference(
+      operation: decodeInstructorGradingOperationReference(
         field(record, "operation", path),
         `${path}.operation`,
       ),
@@ -321,7 +321,7 @@ export function decodeGradingOperationActionReceipt(
     return {
       kind: receiptKind,
       action: decodeGradingOperationActionId(field(record, "action", path), `${path}.action`),
-      operation: decodeGradingOperationReference(
+      operation: decodeInstructorGradingOperationReference(
         field(record, "operation", path),
         `${path}.operation`,
       ),

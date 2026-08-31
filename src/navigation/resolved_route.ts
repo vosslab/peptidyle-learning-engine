@@ -25,7 +25,7 @@ export async function resolveCourseRoute(
   raw: string | undefined,
 ): Promise<CourseId> {
   const resolved = await client.resolveNavigation(publicReference(raw, "C", "Course"));
-  if (resolved.kind !== "course") throw new Error("Course reference resolved to another resource");
+  if (resolved.kind !== "course") throw new Error("Course Instance reference resolved to another resource");
   return resolved.courseId;
 }
 

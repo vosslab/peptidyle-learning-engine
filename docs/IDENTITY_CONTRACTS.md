@@ -92,8 +92,8 @@ for SD1, not a second session or Account contract and not a global replacement i
 | Student membership    | Current `CourseMembershipId` with Student role       | Participates in exact Student ownership checks for course work and educational records.                                                     |
 | Instructor membership | Current `CourseMembershipId` with Instructor role    | Together with current approval, establishes `current_course_instructor(account_id, course_id, now)`.                                        |
 | `StudentRecordId`     | One Student Record for one Student Account and Course Instance | Binds a Student's course relationship to the durable educational record across membership episodes; it is not a session or role substitute. |
-| `AssignmentId`        | One course assignment                                | Has one exact `CourseId` parent and owns its current policy and ordered items.                                                              |
-| `AssignmentItemId`    | One current assignment item                          | Retains item identity while a future assignment definition changes.                                                                         |
+| `AssignmentId`        | One course assignment                                | Has one exact `CourseId` parent and owns its current policy and ordered Assignment Entries.                                                 |
+| `AssignmentEntryId`   | One current Assignment Entry                         | Names one Fixed Question or Question Pool in its Assignment's ordered definition.                                                           |
 | `AssignmentAttemptId` | One Assignment Attempt | Target identity for one pass through one exact Student Record and Assignment; later practice creates another Assignment Attempt. |
 | `IssuedQuestionId`    | One selected Question Version | Binds an Assignment Attempt to exact immutable content, Assignment Entry, delivery order, and scoring treatment. |
 | `QuestionAttemptId`   | One server-issued try | Binds an Issued Question to its seed, timing, status, provenance, and grading backend. |
@@ -131,7 +131,7 @@ question or records a new immutable `QuestionVersion` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
 mint a new `QuestionId`; it preserves the lineage and creates exact new
 `QuestionId`/`QuestionVersionNumber` evidence. A full fork for an incompatible objective,
-task, response family, or educational purpose creates a private draft and,
+task, Question Type, or educational purpose creates a private draft and,
 after validation, a new `QuestionId` with source attribution and visible
 ancestry.
 
@@ -193,7 +193,7 @@ until each workflow has its complete privacy and disclosure contract.
 | ------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `JobId`                  | Durable queue record                     | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                          |
 | `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                               |
-| Job target scope         | Locked job manifest                      | A tagged `course`, `workspace`, `catalog`, `object`, or `provider` target resolved from immutable job metadata. Handler family, target type, generation, and broker grant agree before work starts. |
+| Job target scope         | Locked job manifest                      | A tagged `course`, `workspace`, `catalog`, `object`, or `provider` target resolved from immutable job metadata. Job Kind Registration, target type, generation, and broker grant agree before work starts. |
 | `ExportId`               | One authorized export request            | Browser may inspect coarse status; a worker resolves frozen private input from the exact authorized scope.                                                                                          |
 | `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `AssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                               |
 | `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                               |
@@ -213,7 +213,7 @@ session account and the appropriate parent relationship before returning a recor
 | Value                                                                                                  | Browser use                                        | Server meaning                                                                                                                                 |
 | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `QuestionId` (`AAA-BBBB`)                                                                              | Instructor catalog search, display, and selection  | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                 |
-| `CourseReference`, `AssignmentReference`, `AssignmentAttemptReference`, `WorkspaceReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, and `W-` locators resolved only inside the authenticated Account's authorized course or workspace relationship. |
+| `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, and `W-` locators resolved only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship. |
 | `QuestionAttemptId` in a route                                                                         | Names an already issued Question Attempt           | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                  |
 | `SubmissionIdempotencyKey` header                                                                      | Bounded ASCII key for one retry                    | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                  |
 | `RenderedItemIdV1`                                                                                     | Compact presentation-specific selection value      | Maps only through server-held attempt presentation state to a semantic item identity.                                                          |

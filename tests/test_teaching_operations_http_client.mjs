@@ -56,7 +56,7 @@ test("safe picker reads percent-encode pagination and decode only bounded projec
       const url = new URL(request.url);
       assert.equal(request.method, "GET");
       assert.equal(request.headers.get("content-type"), null);
-      if (url.pathname.endsWith("/co-instructor-targets")) {
+      if (url.pathname.endsWith("/instructor-course-invitation-targets")) {
         assert.equal(url.search, "?query=Dr.+A%26B&after=cursor%2Fone&size=2");
         return jsonResponse({
           targets: [
@@ -77,7 +77,12 @@ test("safe picker reads percent-encode pagination and decode only bounded projec
     }),
   });
 
-  const targets = await client.searchCourseCourseInvitationTargets(course, "Dr. A&B", "cursor/one", 2);
+  const targets = await client.searchInstructorCourseInvitationTargets(
+    course,
+    "Dr. A&B",
+    "cursor/one",
+    2,
+  );
   assert.equal(targets.targets[0]?.account.reference, "U-1");
   const students = await client.listCourseStudentTargets(course, "2/next", 1);
   assert.equal(students.students[0]?.reference, "M-1");
