@@ -1,9 +1,8 @@
 # Container port mapping
 
 This document maps the supported local Podman ports. The executable source of
-truth is [containers/compose.yaml](../containers/compose.yaml), with
-`containers/compose.smtp.yaml` as the optional external-provider overlay. The
-typed `local_stack_control` lifecycle selects the gateway host port.
+truth is [containers/compose.yaml](../containers/compose.yaml). The typed
+`local_stack_control` lifecycle selects the gateway host port.
 
 All published ports bind to `127.0.0.1`. They are local-development access
 points, not services exposed to the LAN.
@@ -18,7 +17,6 @@ points, not services exposed to the LAN.
 | `gateway` | Caddy `8080` | `127.0.0.1:8080 -> 8080` | The one browser and API origin. |
 | `api` | Axum `3000` | none | Gateway accesses it on private `gateway_api`. |
 | `webwork-renderer` | PG renderer `3000` | none | API-only private renderer endpoint. |
-| `worker` | no supported HTTP listener | none | Background process, not a browser endpoint. |
 
 The base topology uses `PLE_GATEWAY_HOST_PORT` and defaults to `8080`. The
 fixed `ple-live-demo-browser` lifecycle instead selects private loopback ports
@@ -36,17 +34,14 @@ the separate internal `gateway_api` network.
 
 `podman ps` can show `3000/tcp` without a `HOST:PORT->CONTAINER_PORT` arrow.
 That is a container-local exposed-port declaration, not a host publication.
-The worker image can display that metadata because it shares the API image, but
-worker mode does not run an HTTP server. Treat the worker as having no port to
-connect to.
+The API is reached only through the gateway; no other PLE application process
+has a supported host port.
 
 The renderer intentionally has no host-published port. Its PG/PGML request and
 grading interface carries protected assessment material and remains on
 `renderer_private`. Do not add a normal development mapping for it. If a
 short-lived, operator-approved diagnostic ever requires host access, reserve
 `127.0.0.1:8100 -> webwork-renderer:3000`; remove that override afterward.
-Likewise, `8200` is reserved for a future worker diagnostic endpoint, not for
-the current worker.
 
 ## Reserved ranges
 
@@ -55,7 +50,6 @@ the current worker.
 | `5000-5999` | Databases and supporting infrastructure | PostgreSQL uses `5432`. |
 | `8000-8099` | Public and API gateway | Gateway defaults to `8080`. |
 | `8100-8199` | Rendering diagnostics | `8100` is reserved; renderer remains private. |
-| `8200-8299` | Worker diagnostics | `8200` is reserved; worker exposes no endpoint. |
 | `9000-9099` | Object storage and administration | MinIO API uses `9000`; console uses `9001`. |
 
 Avoid publishing a service merely to make container-to-container communication
@@ -74,8 +68,7 @@ curl -s "http://127.0.0.1:${gateway_port:-8080}/health"
 ```
 
 The first command shows host-published mappings. The second uses the recorded
-gateway selection rather than assuming a port. Add `-f containers/compose.smtp.yaml`
-when the optional SMTP overlay is enabled. See
+gateway selection rather than assuming a port. See
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for startup, health, and
 recovery commands. The fixed production-auth browser, screenshot, and
 service-oracle owner uses its own HTTPS origin and lifecycle commands; it does

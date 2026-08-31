@@ -97,7 +97,7 @@ function updatedRegion(
     return refused(response, "That labeled region no longer exists.");
   }
   if (replacement.label.trim() === "") {
-    return refused(response, "Give every hotspot region a learner-facing label.");
+    return refused(response, "Give every hotspot region a Student-facing label.");
   }
   if (!isInsideSurface(replacement)) {
     return refused(
@@ -121,7 +121,7 @@ export function setHotspotDescription(
   description: string,
 ): FlatHotspotEditResult {
   if (description.trim() === "") {
-    return refused(response, "Describe the image so learners can use the labeled region list.");
+    return refused(response, "Describe the image so Students can use the labeled region list.");
   }
   return changed({ ...response, surface: { ...response.surface, description } });
 }

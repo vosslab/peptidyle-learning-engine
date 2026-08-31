@@ -8,7 +8,7 @@ use super::model::PresentationNonceV1;
 /// Physical descriptor columns stored with an attempt or prefetch row.
 ///
 /// This type is serialized only inside trusted persistence payloads. The
-/// learner receives the nonce in the presentation envelope and only the
+/// student receives the nonce in the presentation envelope and only the
 /// truncated `pd1_` digest token in its minimal attempt descriptor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PresentationBindingV1 {

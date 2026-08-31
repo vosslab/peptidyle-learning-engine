@@ -1,4 +1,4 @@
-// A real learner retry remains visible and durable while the owner recovers the gateway.
+// A real student retry remains visible and durable while the owner recovers the gateway.
 //
 // Selector contract:
 // - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question creation
@@ -6,7 +6,7 @@
 // - src/pages/course_list_page.tsx, course_assignments_page.tsx, assignment_workspace/, and
 //   course_roster_page.tsx own course, title-first assignment setup, and invitation controls.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
-//   learner claiming and the Start assignment control.
+//   student claiming and the Start assignment control.
 // - src/pages/run_page.tsx:442 and src/components/responses/common.tsx:294 own the attempt surface
 //   and visible response controls.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
@@ -39,7 +39,7 @@ async function createQuestion(page: Page, title: string, answer: string): Promis
   await page.getByRole("button", { name: "Create flat question" }).click();
   await page.getByLabel("Question title").fill(title);
   await page
-    .getByLabel("Learner-facing prompt")
+    .getByLabel("Student-facing prompt")
     .fill(`Choose the supported recovery response for ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(answer);
   await page.getByLabel("Choice text").nth(1).fill(`Alternative recovery response for ${title}`);
@@ -101,8 +101,8 @@ async function createCourseAssignment(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Students" }).click();
-  await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill("BIO-MARY-005");
+  await page.getByLabel("Course roster email").fill(maryEmail);
+  await page.getByLabel("Course roster ID").fill("BIO-MARY-005");
   await page.getByRole("button", { name: "Create invitation" }).click();
   const link = page.getByLabel("Invitation link");
   await expect(link).toBeVisible();
@@ -143,7 +143,7 @@ async function observeFreshScore(page: Page, course: string, assignment: string)
 
 test.describe.configure({ mode: "serial" });
 
-test("learner gateway recovery: a saved response retries after the owner restores the real gateway", async ({
+test("student gateway recovery: a saved response retries after the owner restores the real gateway", async ({
   browser,
 }) => {
   test.setTimeout(timeoutMs);
@@ -160,7 +160,7 @@ test("learner gateway recovery: a saved response retries after the owner restore
   const answer = "Resonance restricts peptide-bond rotation";
   const origins = {
     instructor: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
-    learner: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
+    student: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
     fresh_learner: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
   };
   const expected = new URL(scenarioInput.baseUrl).origin;
@@ -178,13 +178,13 @@ test("learner gateway recovery: a saved response retries after the owner restore
     );
     observeContextOrigins(
       learnerContext,
-      origins.learner.pageOrigins,
-      origins.learner.requestOrigins,
+      origins.student.pageOrigins,
+      origins.student.requestOrigins,
     );
     const instructor = await instructorContext.newPage();
-    const learner = await learnerContext.newPage();
+    const student = await learnerContext.newPage();
     configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
-    configureContextAndPage(learnerContext, learner, actionTimeoutMs);
+    configureContextAndPage(learnerContext, student, actionTimeoutMs);
     await chooseSeededIdentity(instructor, /Elena Rivera/u);
     await selectVisibleCourse(instructor, BIOCHEMISTRY_COURSE_TITLE);
     const question = await createQuestion(
@@ -193,35 +193,35 @@ test("learner gateway recovery: a saved response retries after the owner restore
       answer,
     );
     const invitation = await createCourseAssignment(instructor, course, assignment, question);
-    await startRun(learner, invitation, course, assignment, answer);
+    await startRun(student, invitation, course, assignment, answer);
     handshake.notify("response_selected");
     await handshake.waitFor("gateway_stopped");
-    await learner.getByRole("button", { name: "Submit answer" }).click();
-    const selectedResponse = learner.getByRole("radio", { name: answer, exact: true });
+    await student.getByRole("button", { name: "Submit answer" }).click();
+    const selectedResponse = student.getByRole("radio", { name: answer, exact: true });
     await expect(selectedResponse).toBeChecked();
-    const retry = learner.getByRole("button", { name: "Retry saved response" });
+    const retry = student.getByRole("button", { name: "Retry saved response" });
     await expect(retry).toBeVisible();
     await retry.scrollIntoViewIfNeeded();
-    await captureRealStackScreenshot(learner, scenarioInput, "learner_gateway_retry");
+    await captureRealStackScreenshot(student, scenarioInput, "learner_gateway_retry");
     handshake.notify("network_recovery_visible");
     await handshake.waitFor("gateway_recovered");
     await retry.focus();
     await expect(retry).toBeFocused();
-    await learner.keyboard.press("Enter");
-    const feedback = await waitForAutomatedFeedback(learner);
+    await student.keyboard.press("Enter");
+    const feedback = await waitForAutomatedFeedback(student);
     await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
     await feedback.scrollIntoViewIfNeeded();
-    await captureRealStackScreenshot(learner, scenarioInput, "learner_gateway_recovered_feedback");
-    await learner.getByRole("button", { name: "View completed run", exact: true }).click();
-    const completion = learner.locator(".attempt-summary");
+    await captureRealStackScreenshot(student, scenarioInput, "learner_gateway_recovered_feedback");
+    await student.getByRole("button", { name: "View completed run", exact: true }).click();
+    const completion = student.locator(".attempt-summary");
     await expect(completion.getByText("Your completed run is recorded.")).toBeVisible();
     await completion.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(
-      learner,
+      student,
       scenarioInput,
       "learner_gateway_recovered_completion",
     );
-    await signOutVisible(learner);
+    await signOutVisible(student);
     await learnerContext.close();
     contexts.splice(contexts.indexOf(learnerContext), 1);
     const freshContext = await browser.newContext(contextOptions);
@@ -238,7 +238,7 @@ test("learner gateway recovery: a saved response retries after the owner restore
     await freshScore.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(fresh, scenarioInput, "learner_gateway_fresh_session_score");
     expectObservedOrigin(origins.instructor, expected);
-    expectObservedOrigin(origins.learner, expected);
+    expectObservedOrigin(origins.student, expected);
     expectObservedOrigin(origins.fresh_learner, expected);
     originEvidence = true;
     handshake.notify("completed");

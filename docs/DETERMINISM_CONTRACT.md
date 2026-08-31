@@ -2,12 +2,12 @@
 
 This document defines what PLE reproduces exactly, what it merely checks for
 consistency, and what must remain server-owned. It applies to native generated
-questions, WeBWorK renders, issued learner presentations, cache entries, and
+questions, WeBWorK renders, issued student presentations, cache entries, and
 prefetch reservations.
 
 The central rule is deliberately narrow: **the same immutable inputs must
 reproduce the same authoritative artifact.** It does not mean that every new
-attempt receives the same presentation. A newly issued learner attempt gets a
+attempt receives the same presentation. A newly issued student attempt gets a
 fresh seed and a fresh presentation nonce; resuming or reproducing that same
 attempt uses the stored values.
 
@@ -18,12 +18,12 @@ attempt uses the stored values.
 | Generated parameters | generator reference, definition, seed | `GeneratedVariant` and SHA-256 | `domain` and Wasm |
 | Native issued question | immutable question version, seed | envelope and attempt provenance | trusted server backend |
 | WeBWorK safe render | problem, immutable version, source artifact, seed, renderer | safe cached envelope and sanitized markup | private adapter/renderer |
-| Learner presentation | answer-free envelope, asset bindings, stored nonce | response schema, rendered IDs, descriptor digest | trusted server; browser may verify |
-| Submission | authenticated attempt, idempotency key, learner response | one stored receipt or conflict | trusted server/store |
+| Student presentation | answer-free envelope, asset bindings, stored nonce | response schema, rendered IDs, descriptor digest | trusted server; browser may verify |
+| Submission | authenticated attempt, idempotency key, student response | one stored receipt or conflict | trusted server/store |
 
 The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
-learner, replaces TLS, or makes a client-side grade authoritative.
+student, replaces TLS, or makes a client-side grade authoritative.
 
 ## Immutable identity
 
@@ -120,7 +120,7 @@ descriptor includes:
 - the rendered IDs and canonical public basis of every addressable item.
 
 The server computes SHA-256 over the versioned binary descriptor and persists
-the full 32-byte digest with the nonce. The learner receives the nonce in the
+the full 32-byte digest with the nonce. The student receives the nonce in the
 answer-free envelope and a `pd1_` base64url token containing the first 128 bits
 of the digest. Rebuilding the same envelope with the persisted nonce must
 reproduce the stored full digest exactly.
@@ -154,8 +154,8 @@ other internal identities remain server-side.
 | Value | Detects or proves | Does not provide |
 | --- | --- | --- |
 | Source-artifact SHA-256 | immutable source bytes match their published record | authorization or a rendered output |
-| Generated-variant SHA-256 | same generator definition and seed produced the reviewed values | a learner presentation or grade |
-| Safe-render SHA-256 | cached WeBWorK safe render has stable provenance | private replay state or learner authorization |
+| Generated-variant SHA-256 | same generator definition and seed produced the reviewed values | a student presentation or grade |
+| Safe-render SHA-256 | cached WeBWorK safe render has stable provenance | private replay state or student authorization |
 | Full presentation SHA-256 | persisted descriptor agrees with a reconstructed public presentation | authentication, transport integrity, or pixel rendering |
 | `pd1_` 128-bit public token | compact browser/server presentation-consistency comparison | a durable secret or a substitute for the full stored digest |
 | Rendered-item CRC16 | selected item corresponds to one unique object in this presentation | collision resistance across presentations or a security boundary |
@@ -165,7 +165,7 @@ other internal identities remain server-side.
 
 The WeBWorK adapter caches only safe rendered output in content object storage.
 Its key is deterministic from `(problem, version, seed)` and validates cache
-schema, immutable source artifact, version, seed, learner title, and nonempty
+schema, immutable source artifact, version, seed, student title, and nonempty
 renderer identity. Cached bytes contain an answer-free shared envelope,
 sanitized markup, source-artifact binding, and renderer identity. They never
 contain PG source, credentials, answer keys, or upstream field/value mapping.
@@ -212,7 +212,7 @@ The following remain planned integration and acceptance work:
 
 The approved integration sequence and acceptance criteria live in
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-Until the compact learner wire cuts over, submission is still the tagged
+Until the compact student wire cuts over, submission is still the tagged
 `StudentResponse` body. Server-side response-shape validation uses the
 checksummed issued snapshot and translates through its server-only grading
 envelope, not an untrusted browser-selected question type or mutable renderer.
@@ -221,7 +221,7 @@ envelope, not an untrusted browser-selected question type or mutable renderer.
 
 Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
 attempt. The server selects the next position and fresh seed, renders the
-question, creates a course/learner/run/predecessor-bound reservation, and
+question, creates a course/student/run/predecessor-bound reservation, and
 persists its parameter hash, provenance, and presentation binding. It does not
 start the next timer or let the browser choose seed, version, backend, source,
 or grading state.

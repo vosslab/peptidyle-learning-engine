@@ -4,8 +4,8 @@ import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CoInstructorTargetView } from "../../generated/api/CoInstructorTargetView";
-import type { CourseCoInstructorInvitationView } from "../../generated/api/CourseCoInstructorInvitationView";
+import type { CourseInvitationTargetView } from "../../generated/api/CourseInvitationTargetView";
+import type { CourseCourseInvitationView } from "../../generated/api/CourseCourseInvitationView";
 import type { InstructorMembershipView } from "../../generated/api/InstructorMembershipView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import { ApiRequestError } from "../api/http_client/error";
@@ -26,7 +26,7 @@ interface TeachingTeamPanelProps {
 
 interface TeachingTeamData {
   readonly instructors: ReadonlyArray<InstructorMembershipView>;
-  readonly invitations: ReadonlyArray<CourseCoInstructorInvitationView>;
+  readonly invitations: ReadonlyArray<CourseCourseInvitationView>;
   readonly rosterRevision: TeachingOperationRevision;
   readonly instructorCursor: string | null;
   readonly invitationCursor: string | null;
@@ -35,7 +35,7 @@ interface TeachingTeamData {
 type PendingAction =
   | {
       readonly kind: "revoke";
-      readonly row: CourseCoInstructorInvitationView;
+      readonly row: CourseCourseInvitationView;
       readonly trigger: HTMLButtonElement;
     }
   | {
@@ -55,9 +55,9 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
   const runtime = useApiRuntime();
   const [data, setData] = createSignal<TeachingTeamData | null>(null);
   const [query, setQuery] = createSignal("");
-  const [targets, setTargets] = createSignal<ReadonlyArray<CoInstructorTargetView>>([]);
+  const [targets, setTargets] = createSignal<ReadonlyArray<CourseInvitationTargetView>>([]);
   const [targetCursor, setTargetCursor] = createSignal<string | null>(null);
-  const [selectedTarget, setSelectedTarget] = createSignal<CoInstructorTargetView | null>(null);
+  const [selectedTarget, setSelectedTarget] = createSignal<CourseInvitationTargetView | null>(null);
   const [searching, setSearching] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -72,7 +72,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     try {
       const [instructors, invitations] = await Promise.all([
         runtime.client.listCourseInstructors(props.courseId, undefined, 25),
-        runtime.client.listCourseCoInstructorInvitations(props.courseId, undefined, 25),
+        runtime.client.listCourseCourseInvitations(props.courseId, undefined, 25),
       ]);
       setData({
         instructors: instructors.instructors,
@@ -95,7 +95,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     setSearching(true);
     setError(null);
     try {
-      const result = await runtime.client.searchCourseCoInstructorTargets(
+      const result = await runtime.client.searchCourseCourseInvitationTargets(
         props.courseId,
         query().trim(),
         undefined,
@@ -118,7 +118,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     setSearching(true);
     setError(null);
     try {
-      const result = await runtime.client.searchCourseCoInstructorTargets(
+      const result = await runtime.client.searchCourseCourseInvitationTargets(
         props.courseId,
         query().trim(),
         cursor,
@@ -144,7 +144,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await runtime.client.createCourseCoInstructorInvitation(props.courseId, {
+      await runtime.client.createCourseCourseInvitation(props.courseId, {
         target: target.account.reference,
       });
       setAnnouncement(`An invitation was created for ${target.account.display}.`);
@@ -182,7 +182,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
           instructorCursor: next.nextCursor,
         });
       } else {
-        const next = await runtime.client.listCourseCoInstructorInvitations(
+        const next = await runtime.client.listCourseCourseInvitations(
           props.courseId,
           cursor,
           25,
@@ -216,7 +216,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     try {
       if (action.kind === "revoke") {
         const invitation = action.row;
-        await runtime.client.revokeCourseCoInstructorInvitation(
+        await runtime.client.revokeCourseCourseInvitation(
           props.courseId,
           invitation.reference,
           invitation.revision,

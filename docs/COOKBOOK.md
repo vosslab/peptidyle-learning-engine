@@ -9,7 +9,7 @@ A **Blueprint Course** is reusable course-level content and structure. A publish
 visible to every vetted Instructor; a draft is private to its owning workspace and collaborators.
 It has no Students, live deadlines, releases, accommodations, grades, or delivery settings. A
 **Course Instance** is created from exactly one Blueprint parent and is private to its current equal
-co-Instructors and enrolled Students. It owns enrollment, deadlines, releases, accommodations,
+Teaching Team Members and enrolled Students. It owns enrollment, deadlines, releases, accommodations,
 grades, and delivery settings.
 
 Instructor and Sysadmin evidence uses the fixed desktop profile at exactly 1280 by 800 CSS pixels.
@@ -45,10 +45,10 @@ See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the identity and disposable-state
 3. Enter the teaching title, inclusive start and end dates, and an exact IANA time zone such as
    `America/Chicago`.
 4. Activate **Create Course Instance**, open the new card, and confirm the applied Blueprint revision.
-5. Open **Students**, create an invitation with the learner's institutional email and course-scoped
+5. Open **Students**, create an invitation with the Student's course roster email and course-scoped
    student ID, and copy the one-time link from **Share this invitation** into the trusted course
    channel.
-6. Confirm **Invitation pending**, then **Active** after the learner claims it.
+6. Confirm **Invitation pending**, then **Active** after the Student claims it.
 
 The Course Instance is real PostgreSQL-backed state. It receives no Students, invitations, runs,
 responses, grades, retention state, or issued work from the source. Relative schedule defaults are
@@ -66,14 +66,14 @@ correction. The invitation remains single-use; a queued email is not proof of ma
 4. Review the answer-free projection and choose **Publish Blueprint**.
 
 Publishing is explicit. It makes the revision discoverable to every vetted Instructor, but it does
-not create enrollment, release an assignment, or create learner work. Editing a published Blueprint
+not create enrollment, release an assignment, or create Student work. Editing a published Blueprint
 creates a new revision and does not silently mutate existing Course Instances.
 
 ## Exercise Sysadmin operations
 
 1. Start the disposable stack and select the seeded **Sysadmin** persona.
-2. Use the ordinary teaching-operations surfaces to review pending Instructor approval, course
-   groups, or institution-level collection views when the seeded state exposes them.
+2. Use the ordinary teaching-operations surfaces to review pending Instructor approval and
+   course operations when the seeded state exposes them.
 
 The fresh email-code and passkey adapters are not mounted in this build. The visible seeded
 Sysadmin selector provides the current disposable-demo entry while those ordinary authentication
@@ -90,22 +90,22 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
    **Create assignment draft**.
 2. In **Questions**, use the saved-assignment picker or question library to add published questions.
    Arrange fixed questions, add pools with candidate IDs and draw counts, and choose **Save questions
-   and order**. Pool samples create no learner work.
-3. Open **Policies**. Enter learner instructions, availability and due/close times in the Course
+   and order**. Pool samples create no Student work.
+3. Open **Policies**. Enter Student instructions, availability and due/close times in the Course
    Instance time zone, run limits, completion and continued-practice rules, late behavior, and
    disclosure settings. Choose **Save assignment policies**.
 4. Read **Publication readiness** on **Overview**. Resolve every blocking action. Choose **Published
-   - eligible for learner access** in the lifecycle control and save it. Until that save succeeds,
+   - eligible for Student access** in the lifecycle control and save it. Until that save succeeds,
    the assignment remains **Draft - students cannot access it**.
-5. Open **Student view** to inspect the current answer-free learner landing. Student view retains the
-   Instructor session and creates no learner run or grade.
+5. Open **Student view** to inspect the current answer-free Student landing. Student view retains the
+   Instructor session and creates no Student run or grade.
 6. For graded validation, sign out, select the seeded **Student** persona, open the authorized Course
    Instance and published assignment, choose **Start assignment**, answer, and submit.
 7. If **Response received** appears, use **Check grading status** until feedback and **View completed
    run** appear. If attention is required, use the currently enabled action in **Grading operations**.
 8. Return to the Instructor session and confirm the score and authorized evidence in **Gradebook**.
 
-Assignments pin exact immutable questions for issued learner work. A Questions replacement applies to
+Assignments pin exact immutable questions for issued Student work. A Questions replacement applies to
 future runs; existing runs keep their original question. Prefer saved-assignment reuse for a group of
 questions. See [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) and [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
 
@@ -116,7 +116,7 @@ questions. See [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) and [INSTRUCTOR_GUIDE.
 3. Review the source revision, assignment manifest, exact question replacements, and every resolved
    schedule. Correct any DST gap or ambiguity before preparing again.
 4. Choose **Apply proposal**. A newly added Blueprint assignment arrives **Unreleased**; current
-   equal co-Instructors must review and release it in the instance.
+   equal Teaching Team Members must review and release it in the instance.
 5. Choose **Check receipt evidence** after applying. An incomplete receipt refuses reconciliation and
    requires operator recovery.
 
@@ -131,13 +131,13 @@ delivery settings remain instance-owned.
 - **Rollover Course Instance:** choose **Rollover course**, select a target term, and review the
   manifest. The destination starts without Students, invitations, attempts, responses, grades,
   retention state, or issued evidence.
-- **Shift Course Instance term:** choose **Shift course term** only when no learner work has been
+- **Shift Course Instance term:** choose **Shift course term** only when no Student work has been
   issued. Preview every resolved date in the target IANA time zone and apply the witnessed proposal
   atomically. If work has been issued, use rollover instead.
 
 ## Review learning and export grades
 
-After a learner submits, let the visible status determine the next operation:
+After a Student submits, let the visible status determine the next operation:
 
 1. In the Student session, choose **Check grading status** after **Response received**.
 2. If the status says **Your response needs instructor attention**, sign in as the Instructor and
@@ -158,7 +158,7 @@ browser does not recompute either. See [API_CONTRACTS.md](API_CONTRACTS.md) and 
 The production browser suite covers role entry and authorization; Blueprint authoring and publication;
 Course Instance creation and controlled updates; assignment authoring, preview, question replacement,
 pools, and grade settings; Student delivery, gateway recovery, and automated-grading recovery;
-WebWork delivery; catalog discovery and problem curation; rollover and term scheduling; and QTI
+WebWork delivery; catalog discovery and question curation; rollover and term scheduling; and QTI
 profile import. These are live workflows, not mock or fixture walkthroughs. Use [E2E_TESTS.md](E2E_TESTS.md)
 for scenario selectors and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the visible route and policy
 boundary. Screenshots are one-time visual evidence, not a substitute for the live browser journey.

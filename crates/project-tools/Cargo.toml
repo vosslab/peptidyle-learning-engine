@@ -22,7 +22,6 @@ adapter_webwork.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 base64.workspace = true
-base_course_installation.workspace = true
 csv.workspace = true
 domain.workspace = true
 grading.workspace = true

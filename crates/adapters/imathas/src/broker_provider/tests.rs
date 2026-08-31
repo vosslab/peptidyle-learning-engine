@@ -3,13 +3,13 @@ use std::sync::{Arc, Mutex};
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
+use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
-    GradingDefinition, ObjectId, ProblemId, QuestionMetadata, SourceArtifact, VersionId,
-    WorkspaceId,
+    GradingDefinition, ObjectId, QuestionId, QuestionMetadata, QuestionVersionNumber,
+    QuestionVersionReference, SourceArtifact, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -92,7 +92,7 @@ impl ScoredEmbedTransport for RecordedTransport {
 
 fn config() -> ContractedScoredEmbedConfig {
     ContractedScoredEmbedConfig::new(
-        ScoredEmbedProfileConfig::contracted_self_hosted("institution-imathas", true, true)
+        ScoredEmbedProfileConfig::contracted_self_hosted("self-hosted-imathas", true, true)
             .unwrap(),
         b"launch-secret",
         b"result-secret",
@@ -102,8 +102,10 @@ fn config() -> ContractedScoredEmbedConfig {
 }
 
 fn question_and_source() -> (QuestionDefinition, ImathasSource) {
-    let problem = ProblemId::from_uuid(Uuid::from_u128(1));
-    let version = VersionId::from_uuid(Uuid::from_u128(2));
+    let question_version = QuestionVersionReference {
+        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        version_number: QuestionVersionNumber::new(2).expect("positive version"),
+    };
     let bytes = br#"{"recorded":true}"#.to_vec();
     let digest = hex(Sha256::digest(&bytes).as_slice());
     let object = ObjectId::from_uuid(Uuid::from_u128(3));
@@ -112,11 +114,11 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
         sha256: digest.clone(),
     };
     let question = QuestionDefinition {
-        problem,
-        version,
+        question_id: question_version.question_id.clone(),
+        version_number: question_version.version_number,
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
         source: QuestionSource::Imathas {
-            provider: "institution-imathas".into(),
+            provider: "self-hosted-imathas".into(),
             item_ref: "17".into(),
             snapshot: object,
             snapshot_sha256: digest,
@@ -137,10 +139,9 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
         },
     };
     let source = ImathasSource {
-        problem,
-        version,
+        question_version,
         artifact: source_artifact,
-        provider: "institution-imathas".into(),
+        provider: "self-hosted-imathas".into(),
         item_ref: "17".into(),
         profile: SCORED_EMBED_BROKER_PROFILE_ID.into(),
         bytes,
@@ -151,12 +152,16 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
 fn correlation(question: &QuestionDefinition, seed: Seed) -> ServerCorrelation {
     let binding = GradeBinding {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-        problem: question.problem,
-        version: question.version,
+        question_version: QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        },
         seed,
     };
     let issuer = CorrelationIssuer::from_server_secret([3; 32]);
-    issuer.restore(binding, &issuer.begin(binding)).unwrap()
+    issuer
+        .restore(binding.clone(), &issuer.begin(binding))
+        .unwrap()
 }
 
 fn result_token(session: &ContractedLaunchSession, score: f64) -> Vec<u8> {
@@ -332,11 +337,13 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     let expected = ContractedLaunchExpectation::new(
         GradeBinding {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            problem: question.problem,
-            version: question.version,
+            question_version: QuestionVersionReference {
+                question_id: question.question_id.clone(),
+                version_number: question.version_number,
+            },
             seed: Seed::new(10_001),
         },
-        "institution-imathas",
+        "self-hosted-imathas",
         source.artifact.sha256.clone(),
     )
     .unwrap();
@@ -381,10 +388,13 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     assert!(PersistedContractedLaunchSession::from_storage_value(&"a".repeat(8_193)).is_err());
     let wrong_version = ContractedLaunchExpectation::new(
         GradeBinding {
-            version: VersionId::from_uuid(Uuid::from_u128(99)),
-            ..expected.binding
+            question_version: QuestionVersionReference {
+                question_id: expected.binding.question_version.question_id.clone(),
+                version_number: QuestionVersionNumber::new(99).expect("positive version"),
+            },
+            ..expected.binding.clone()
         },
-        "institution-imathas",
+        "self-hosted-imathas",
         source.artifact.sha256,
     )
     .unwrap();
@@ -399,11 +409,13 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let expected = ContractedLaunchExpectation::new(
         GradeBinding {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            problem: question.problem,
-            version: question.version,
+            question_version: QuestionVersionReference {
+                question_id: question.question_id.clone(),
+                version_number: question.version_number,
+            },
             seed: Seed::new(10_001),
         },
-        "institution-imathas",
+        "self-hosted-imathas",
         source.artifact.sha256.clone(),
     )
     .unwrap();

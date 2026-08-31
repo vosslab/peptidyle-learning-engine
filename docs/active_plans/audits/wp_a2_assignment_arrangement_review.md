@@ -60,4 +60,4 @@ npx playwright test tests/playwright/simulator/assignment_arrangement.spec.ts \
 ## Scope boundary
 
 This is an offline review only. M3 live acceptance still requires the existing
-seeded learner to open both later assignments through the integrated runner.
+seeded student to open both later assignments through the integrated runner.

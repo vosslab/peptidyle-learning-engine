@@ -1,5 +1,4 @@
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
-import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
@@ -18,7 +17,7 @@ export interface FlatQuestionAuthoringClient {
   ): Promise<FlatQuestionSave>;
   publish(
     workspace: WorkspaceId,
-    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+    request: { readonly byline: PublicByline },
     revision: string,
   ): Promise<CatalogProblemSummary>;
 }
@@ -29,7 +28,7 @@ export interface FlatQuestionRepository {
   reload(workspace: WorkspaceId): Promise<FlatQuestionRead>;
   publish(
     workspace: WorkspaceId,
-    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+    request: { readonly byline: PublicByline },
   ): Promise<CatalogProblemSummary>;
 }
 
@@ -95,7 +94,7 @@ export function createFlatQuestionRepository(
 
   async function publish(
     workspace: WorkspaceId,
-    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+    request: { readonly byline: PublicByline },
   ): Promise<CatalogProblemSummary> {
     const revision = revisions.get(workspace);
     if (revision === undefined) {

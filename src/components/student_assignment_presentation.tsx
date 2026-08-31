@@ -4,7 +4,7 @@ import { Show, type JSX } from "solid-js";
 
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentClassStatistics } from "../../generated/api/StudentClassStatistics";
 import type { StudentDisclosurePolicy } from "../../generated/api/StudentDisclosurePolicy";
 import type { StudentDisclosureTiming } from "../../generated/api/StudentDisclosureTiming";
@@ -28,7 +28,7 @@ export interface StudentAssignmentPresentationDelivery {
  *
  * This is deliberately independent of route, session, and run state. The
  * Instructor Student-view projection can provide the same shape without
- * introducing learner identity or mutation capabilities.
+ * introducing student identity or mutation capabilities.
  */
 export interface StudentAssignmentPresentationData {
   readonly title: string;
@@ -42,7 +42,7 @@ export interface StudentAssignmentPresentationData {
 
 export interface StudentAssignmentPresentationProps {
   readonly assignment: StudentAssignmentPresentationData;
-  readonly progress?: StudentAssignmentProgress;
+  readonly progress?: AssignmentProgress;
   readonly contextCue?: JSX.Element;
   readonly returnAction?: JSX.Element;
   readonly secondaryAction?: JSX.Element | null;
@@ -113,17 +113,17 @@ export function formatAssignmentLimit(
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
-export function formatAssignmentRunTimeLimit(seconds: number | null): string {
-  if (seconds === null) return "No whole-run time limit";
+export function formatAssignmentAttemptTimeLimit(seconds: number | null): string {
+  if (seconds === null) return "No whole-attempt time limit";
   if (seconds % 3_600 === 0) {
     const hours = seconds / 3_600;
-    return `${hours} ${hours === 1 ? "hour" : "hours"} per run`;
+    return `${hours} ${hours === 1 ? "hour" : "hours"} per attempt`;
   }
   if (seconds % 60 === 0) {
     const minutes = seconds / 60;
-    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} per run`;
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} per attempt`;
   }
-  return `${seconds} ${seconds === 1 ? "second" : "seconds"} per run`;
+  return `${seconds} ${seconds === 1 ? "second" : "seconds"} per attempt`;
 }
 
 export function formatLateSubmission(value: "accept" | "markLate" | "reject"): string {
@@ -249,7 +249,7 @@ export function StudentAssignmentPresentation(
           </div>
           <div>
             <dt>Whole-run limit</dt>
-            <dd>{formatAssignmentRunTimeLimit(props.assignment.delivery.timeLimitSeconds)}</dd>
+            <dd>{formatAssignmentAttemptTimeLimit(props.assignment.delivery.timeLimitSeconds)}</dd>
           </div>
           <div>
             <dt>Attempt limit</dt>
@@ -318,7 +318,7 @@ export function StudentAssignmentPresentation(
               </Show>
               <div>
                 <dt>Completed runs</dt>
-                <dd>{progress().completed_run_count}</dd>
+                <dd>{progress().completed_assignment_attempt_count}</dd>
               </div>
               <div>
                 <dt>Total attempts</dt>

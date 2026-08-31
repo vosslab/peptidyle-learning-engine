@@ -6,8 +6,8 @@ use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::generation::Seed;
 use question_model::{
-    ActivityTimestamp, AttemptProvenance, AttemptResult, ProblemId, QuestionAttemptId,
-    QuestionDefinition, QuestionEnvelope, QuestionSource, SourceArtifact, VersionId,
+    ActivityTimestamp, AttemptProvenance, AttemptResult, QuestionAttemptId, QuestionDefinition,
+    QuestionEnvelope, QuestionSource, QuestionVersionReference, SourceArtifact,
 };
 use sha2::{Digest, Sha256};
 
@@ -25,8 +25,7 @@ use crate::{
 /// Exact immutable source loaded through trusted storage.
 #[derive(Clone)]
 pub struct ImathasSource {
-    pub(crate) problem: ProblemId,
-    pub(crate) version: VersionId,
+    pub(crate) question_version: QuestionVersionReference,
     pub(crate) artifact: SourceArtifact,
     pub(crate) provider: String,
     pub(crate) item_ref: String,
@@ -75,7 +74,7 @@ impl VerifiedGradeReceipt {
 
     /// Exact identity the API/store must use when persisting the first receipt.
     pub fn binding(&self) -> GradeBinding {
-        self.binding
+        self.binding.clone()
     }
 }
 
@@ -166,7 +165,11 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         if !self.profiles.contains(&source.profile) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let key = render_key(question.problem, question.version, seed);
+        let question_version = QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        };
+        let key = render_key(&question_version, seed);
         match self.store.get(&key).await {
             Ok(stored) => {
                 let cached = decode_cache(&stored.bytes)?;
@@ -181,7 +184,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             .render(ProviderRenderRequest {
                 snapshot: &source.bytes,
                 profile: &source.profile,
-                version: question.version,
+                question_version: question_version.clone(),
                 seed,
             })
             .await
@@ -195,7 +198,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             provider: source.provider.clone(),
             profile: source.profile.clone(),
             envelope: QuestionEnvelope {
-                version: question.version,
+                question_version: question_version.clone(),
                 seed,
                 title: safe.title,
                 prompt: safe.prompt,
@@ -267,22 +270,24 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         correlation: &ServerCorrelation,
     ) -> Result<VerifiedGradeReceipt, ImathasAdapterError> {
         verify_binding(question, source)?;
+        let question_version = QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        };
         let verdict = self
             .provider
             .verify_grade(ProviderGradeRequest {
                 snapshot: &source.bytes,
                 profile: &source.profile,
                 attempt,
-                problem: question.problem,
-                version: question.version,
+                question_version: question_version.clone(),
                 seed,
                 correlation,
             })
             .await
             .map_err(ImathasAdapterError::Provider)?;
         if verdict.attempt != attempt
-            || verdict.problem != question.problem
-            || verdict.version != question.version
+            || verdict.question_version != question_version
             || verdict.seed != seed
             || verdict.correlation != correlation.0
         {
@@ -292,8 +297,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             result: verdict.result,
             binding: GradeBinding {
                 attempt,
-                problem: question.problem,
-                version: question.version,
+                question_version,
                 seed,
             },
         })

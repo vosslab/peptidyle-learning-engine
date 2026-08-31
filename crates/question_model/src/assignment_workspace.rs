@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentLandingPresentation,
     AssignmentLifecycle, AssignmentScoringMode, AssignmentSelectionGroup, Capability,
-    CourseGroupReference, IanaTimeZone, InstructorAssignmentTeachingSettingsLocal,
-    LateSubmissionPolicy, PointValue, QuestionId, RunPolicies, SelectionOrdering,
+    IanaTimeZone, InstructorAssignmentTeachingSettingsLocal, LateSubmissionPolicy, PointValue,
+    QuestionId, AssignmentActivityRules, SelectionOrdering,
     StudentDisclosurePolicy, VariationPolicy,
 };
 
@@ -47,26 +47,12 @@ pub struct ReplaceAssignmentFixedItemRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentPoliciesRequest {
-    /// Explicit learner audience.
-    pub audience: AssignmentAudienceRequest,
-    /// Learner-facing disclosure timing.
+    /// Student-facing disclosure timing.
     pub disclosure_policy: StudentDisclosurePolicy,
     /// Completion, grade, practice, and variation policy.
-    pub policies: RunPolicies,
+    pub policies: AssignmentActivityRules,
     /// Course-local teaching settings resolved by the server before storage.
     pub teaching_settings: InstructorAssignmentTeachingSettingsLocal,
-}
-
-/// Browser-safe audience locator. The server resolves group references under
-/// the exact course and Instructor authority before constructing the internal
-/// [`crate::AssignmentAudience`] used by persistence.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum AssignmentAudienceRequest {
-    /// Every currently entitled course member may receive the assignment.
-    CourseWide,
-    /// Any member of one of the supplied course-local groups may receive it.
-    AnyOfGroups { groups: Vec<CourseGroupReference> },
 }
 
 /// Browser-safe refusal returned when the Policies workspace cannot save its
@@ -102,10 +88,6 @@ pub enum AssignmentPoliciesValidationIssue {
     TeachingSettings {
         correction: crate::AssignmentTeachingSettingsValidationFailure,
     },
-    /// The selected learner audience cannot be resolved for this course.
-    Audience {
-        reason: AssignmentAudienceValidationReason,
-    },
     /// The combined policy configuration is not available.
     Configuration {
         reason: AssignmentPolicyConfigurationReason,
@@ -122,15 +104,6 @@ pub enum AssignmentPoliciesValidationIssue {
     },
 }
 
-/// Closed reason an explicitly group-scoped audience cannot be saved.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssignmentAudienceValidationReason {
-    GroupRequired,
-    GroupUnavailable,
-    GroupsMustBeDistinct,
-}
-
 /// Closed reason a combined assignment policy cannot be saved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,7 +112,7 @@ pub enum AssignmentPolicyConfigurationReason {
 }
 
 /// Closed structural-content refusal for a question definition with issued
-/// learner work. Ordinary `409` responses still cover retryable aggregate
+/// student work. Ordinary `409` responses still cover retryable aggregate
 /// conflicts; this body identifies the durable recovery path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -151,7 +124,7 @@ pub struct AssignmentContentIssuedWorkConflict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentContentIssuedWorkConflictKind {
-    IssuedLearnerWork,
+    IssuedStudentWork,
 }
 
 /// One ordered browser content entry. The server resolves every `question_id`
@@ -203,30 +176,30 @@ pub struct AssignmentPublicationReadiness {
     pub blocking_issues: Vec<AssignmentPublicationBlockingIssue>,
 }
 
-/// Answer-free, non-mutating learner landing projection for an Instructor's
+/// Answer-free, non-mutating student landing projection for an Instructor's
 /// stable-identity Student view.  It deliberately omits assignment, item,
 /// question, run, and attempt identities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorStudentView {
-    /// Learner-facing assignment title.
+    /// Student-facing assignment title.
     pub title: String,
-    /// Learner-facing instructions.
+    /// Student-facing instructions.
     pub instructions: crate::AssignmentInstructions,
     /// Course scheduling zone used to present the delivery facts.
     pub time_zone: IanaTimeZone,
-    /// Server-derived base delivery facts, without learner progress or actions.
+    /// Server-derived base delivery facts, without student progress or actions.
     pub delivery: InstructorStudentViewDelivery,
-    /// Number of questions a learner receives in one run; derived by the server.
+    /// Number of questions a student receives in one run; derived by the server.
     pub questions_per_run: u32,
-    /// Learner-visible variation policy.
+    /// Student-visible variation policy.
     pub variation: VariationPolicy,
-    /// Learner-visible disclosure schedule.
+    /// Student-visible disclosure schedule.
     pub disclosure_policy: StudentDisclosurePolicy,
 }
 
 /// Instructor-base delivery facts for stable-identity Student view. These
-/// facts describe assignment policy, never a particular learner's state.
+/// facts describe assignment policy, never a particular student's state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorStudentViewDelivery {
@@ -343,9 +316,6 @@ mod tests {
         let failure = AssignmentPoliciesValidationFailure {
             error: AssignmentPoliciesValidationFailureCode::AssignmentPoliciesInvalid,
             issues: vec![
-                AssignmentPoliciesValidationIssue::Audience {
-                    reason: AssignmentAudienceValidationReason::GroupRequired,
-                },
                 AssignmentPoliciesValidationIssue::Configuration {
                     reason:
                         AssignmentPolicyConfigurationReason::SelectedProblemVariantsWithSelectionGroups,
@@ -362,7 +332,6 @@ mod tests {
             serde_json::json!({
                 "error": "assignmentPoliciesInvalid",
                 "issues": [
-                    {"kind": "audience", "reason": "groupRequired"},
                     {
                         "kind": "configuration",
                         "reason": "selectedProblemVariantsWithSelectionGroups"
@@ -382,15 +351,15 @@ mod tests {
     #[test]
     fn issued_work_content_conflict_is_a_closed_browser_contract() {
         let conflict = AssignmentContentIssuedWorkConflict {
-            kind: AssignmentContentIssuedWorkConflictKind::IssuedLearnerWork,
+            kind: AssignmentContentIssuedWorkConflictKind::IssuedStudentWork,
         };
 
         let value = serde_json::to_value(conflict).expect("issued-work conflict serializes");
-        assert_eq!(value, serde_json::json!({ "kind": "issuedLearnerWork" }));
+        assert_eq!(value, serde_json::json!({ "kind": "issuedStudentWork" }));
         assert!(serde_json::from_value::<AssignmentContentIssuedWorkConflict>(value).is_ok());
         assert!(
             serde_json::from_value::<AssignmentContentIssuedWorkConflict>(
-                serde_json::json!({ "kind": "issuedLearnerWork", "extra": true })
+                serde_json::json!({ "kind": "issuedStudentWork", "extra": true })
             )
             .is_err()
         );
@@ -410,9 +379,8 @@ mod tests {
         );
 
         let policy = ReplaceAssignmentPoliciesRequest {
-            audience: AssignmentAudienceRequest::CourseWide,
             disclosure_policy: StudentDisclosurePolicy::default(),
-            policies: RunPolicies {
+            policies: AssignmentActivityRules {
                 completion: crate::CompletionRequirement::AnswerAll,
                 grade: crate::GradePolicy::Highest,
                 continued_practice: crate::ContinuedPractice::Unlimited,

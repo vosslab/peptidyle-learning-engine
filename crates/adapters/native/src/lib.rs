@@ -76,7 +76,7 @@ pub struct AssetObjectBinding {
     pub object: ObjectId,
 }
 
-/// Key-free native question instance returned at attempt issue time.
+/// Key-free native Issued Question returned at Question Attempt issue time.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NativeIssuedAttempt {
     /// Generated prompt and response shape safe to deliver to the browser.
@@ -89,14 +89,14 @@ pub struct NativeIssuedAttempt {
 
 /// Server-only author presentation for one native draft seed.
 ///
-/// Its fields are already-rendered learner-facing blocks. It deliberately
+/// Its fields are already-rendered student-facing blocks. It deliberately
 /// excludes answer keys, choice IDs, grading rules, source locators, and
 /// published identity.
 #[derive(Clone, PartialEq)]
 pub struct NativeDraftAuthorPresentation {
-    /// Learner-facing title.
+    /// Student-facing title.
     pub title: String,
-    /// Materialized learner-facing prompt.
+    /// Materialized student-facing prompt.
     pub prompt: Vec<ContentBlock>,
     /// Browser-safe response shape.
     pub response: question_model::ResponseDefinition,
@@ -149,7 +149,7 @@ pub enum NativeAdapterError {
     },
     /// The authored definition does not meet its family's versioned contract.
     InvalidFamilyDefinition { family: String, message: String },
-    /// Persisted learner-facing metadata cannot be delivered safely.
+    /// Persisted student-facing metadata cannot be delivered safely.
     InvalidTitle(QuestionTitleError),
     /// Shared deterministic parameter generation failed.
     Generation(GenerationError),

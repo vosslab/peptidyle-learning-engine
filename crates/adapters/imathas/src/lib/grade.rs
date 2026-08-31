@@ -4,7 +4,9 @@ use sha2::{Digest, Sha256};
 
 use objects::ObjectStoreError;
 use question_model::generation::Seed;
-use question_model::{AttemptResult, ProblemId, QuestionAttemptId, QuestionTitleError, VersionId};
+use question_model::{
+    AttemptResult, QuestionAttemptId, QuestionTitleError, QuestionVersionReference,
+};
 
 use crate::cache::{binding_payload, constant_time_eq, hex};
 
@@ -62,11 +64,10 @@ impl CorrelationIssuer {
 }
 
 /// Exact server-owned grade identity persisted alongside its idempotency row.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GradeBinding {
     pub attempt: QuestionAttemptId,
-    pub problem: ProblemId,
-    pub version: VersionId,
+    pub question_version: QuestionVersionReference,
     pub seed: Seed,
 }
 
@@ -88,7 +89,7 @@ impl PersistedCorrelation {
     /// [`CorrelationIssuer::restore`] to validate the issuer MAC and exact
     /// attempt binding before a provider request.
     pub fn from_storage_value(value: &str) -> Result<Self, ImathasAdapterError> {
-        const PAYLOAD_HEX_LEN: usize = (16 * 3 + 8) * 2;
+        const PAYLOAD_HEX_LEN: usize = (16 + 8 + 4 + 8) * 2;
         const MAC_HEX_LEN: usize = 32 * 2;
         const ENCODED_LEN: usize = PAYLOAD_HEX_LEN + 1 + MAC_HEX_LEN;
         if value.len() != ENCODED_LEN {
@@ -128,8 +129,7 @@ impl std::fmt::Debug for ServerCorrelation {
 pub struct VerifiedProviderGrade {
     pub(crate) result: AttemptResult,
     pub(crate) attempt: QuestionAttemptId,
-    pub(crate) problem: ProblemId,
-    pub(crate) version: VersionId,
+    pub(crate) question_version: QuestionVersionReference,
     pub(crate) seed: Seed,
     pub(crate) correlation: String,
 }
@@ -139,8 +139,7 @@ impl std::fmt::Debug for VerifiedProviderGrade {
         f.debug_struct("VerifiedProviderGrade")
             .field("result", &self.result)
             .field("attempt", &self.attempt)
-            .field("problem", &self.problem)
-            .field("version", &self.version)
+            .field("question_version", &self.question_version)
             .field("seed", &self.seed)
             .field("correlation", &"REDACTED")
             .finish()
@@ -158,8 +157,7 @@ impl VerifiedProviderGrade {
     pub fn binding(&self) -> GradeBinding {
         GradeBinding {
             attempt: self.attempt,
-            problem: self.problem,
-            version: self.version,
+            question_version: self.question_version.clone(),
             seed: self.seed,
         }
     }
@@ -170,16 +168,14 @@ impl VerifiedProviderGrade {
     pub(crate) fn verified(
         result: AttemptResult,
         attempt: QuestionAttemptId,
-        problem: ProblemId,
-        version: VersionId,
+        question_version: QuestionVersionReference,
         seed: Seed,
         correlation: &ServerCorrelation,
     ) -> Self {
         Self {
             result,
             attempt,
-            problem,
-            version,
+            question_version,
             seed,
             correlation: correlation.0.clone(),
         }
@@ -196,8 +192,7 @@ impl VerifiedProviderGrade {
         Self {
             result,
             attempt: binding.attempt,
-            problem: binding.problem,
-            version: binding.version,
+            question_version: binding.question_version,
             seed: binding.seed,
             correlation: correlation.0.clone(),
         }
@@ -205,7 +200,7 @@ impl VerifiedProviderGrade {
 }
 
 /// Provider-local failures. They are deliberately classified as unavailable or
-/// invalid rather than a learner correctness decision.
+/// invalid rather than a student correctness decision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderFailure {
     Unavailable,

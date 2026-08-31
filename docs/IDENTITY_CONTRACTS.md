@@ -35,9 +35,9 @@ former installation-scope model to these identities.
 - `AccountId`, `CourseId`, `WorkspaceId`, and published `QuestionId` are
   globally unique. Parent relationships, lifecycle state, and operation-specific
   predicates establish access.
-- Educational records are owned by their exact course and Student
-  membership/enrollment relationships. They do not inherit authority from an
-  account role or a visible course reference.
+- Educational records are owned by their exact Course Instance and Student
+  Course Membership relationships. They do not inherit authority from a
+  Product Role or a visible Course Reference.
 - Published catalog content is immutable and shared. Courses, memberships,
   enrollments, runs, attempts, jobs, and protected objects are independent
   records that may refer to it.
@@ -51,11 +51,11 @@ former installation-scope model to these identities.
 | Identity or value                      | Scope                           | Intended use                                                                                                                                       |
 | -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AccountId`                            | Global, durable                 | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                         |
-| Account role                            | Pending SD1 global account state | Stores exactly one closed Student, Instructor, or Sysadmin role. Target account/session storage never combines roles.                                |
+| Product Role                            | Pending SD1 global Account state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Target Account/session storage never combines roles.                       |
 | `SessionId`                            | Global, durable session record  | Names one server-tracked login session, including expiry and revocation state.                                                                     |
 | `SessionTokenHash`                     | Server-only session record      | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record locator, or log value.                                 |
 | Approved-Instructor state              | Global, revocable account state | `approved_instructor(account_id, now)` establishes current Instructor product capabilities and is re-evaluated for protected operations.           |
-| `Sysadmin` account role                | Pending SD1 global account state | Names limited platform operations. It has no course membership; teaching and FERPA reads use direct Instructor-account authority or audited support. |
+| `Sysadmin` Product Role                | Pending SD1 global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support. |
 
 The server resolves the opaque first-party session credential to a `SessionRecord`
 with its global account and session identity. The browser receives only its own answer-free account/session
@@ -91,27 +91,27 @@ for SD1, not a second session or Account contract and not a global replacement i
 | `CourseMembershipId`  | One immutable course-membership episode              | Binds one `AccountId`, one `CourseId`, a role, lifecycle, and roster revision. Revocation preserves evidence; rejoining creates a new episode. |
 | Student membership    | Current `CourseMembershipId` with Student role       | Participates in exact Student ownership checks for course work and educational records.                                                     |
 | Instructor membership | Current `CourseMembershipId` with Instructor role    | Together with current approval, establishes `current_course_instructor(account_id, course_id, now)`.                                        |
-| `EnrollmentId`        | One assignment enrollment for one Student membership | Binds a Student's course relationship to an assignment. It supports ownership and history; it is not a session or role substitute.          |
-| `CourseGroupId`       | One typed group inside a course                      | Groups membership episodes for an explicit course purpose such as section, lab, cohort, accommodation, or work.                             |
+| `StudentRecordId`     | One Student Record for one Student Account and Course Instance | Binds a Student's course relationship to the durable educational record across membership episodes; it is not a session or role substitute. |
 | `AssignmentId`        | One course assignment                                | Has one exact `CourseId` parent and owns its current policy and ordered items.                                                              |
 | `AssignmentItemId`    | One current assignment item                          | Retains item identity while a future assignment definition changes.                                                                         |
-| `AssignmentAttemptId` | One Assignment Attempt | Target identity for one pass through an Assignment; it belongs to one enrollment and later practice creates another Assignment Attempt. Current source `RunId` is legacy vocabulary pending coordinated replacement. |
-| `QuestionAttemptId`   | One issued question instance | Binds an Assignment Attempt to exact immutable content, seed, timing, status, provenance, and grading backend. |
+| `AssignmentAttemptId` | One Assignment Attempt | Target identity for one pass through one exact Student Record and Assignment; later practice creates another Assignment Attempt. |
+| `IssuedQuestionId`    | One selected Question Version | Binds an Assignment Attempt to exact immutable content, Assignment Entry, delivery order, and scoring treatment. |
+| `QuestionAttemptId`   | One server-issued try | Binds an Issued Question to its seed, timing, status, provenance, and grading backend. |
 
 Under the binding pending SD1 product contract, the closed Sysadmin
-Course Instance Creation command binds an exact BlueprintCourse source and
+course-instance provisioning command binds an exact BlueprintCourse source and
 revision, an explicitly assigned approved Instructor account, and a
 server-reserved CourseInstance identity. One transaction creates the
 CourseInstance, that account's first ordinary Instructor membership, and an
 append-only audit event; it gives the Sysadmin account no membership. Every
-current co-Instructor has the same teaching and FERPA-read predicates. A
+current Teaching Team Member has the same teaching and FERPA-read predicates. A
 current course Instructor may invite an approved Instructor account, and
 acceptance rechecks role agreement, approval, invitation state, and roster
 revision atomically.
 
 Student work is authorized by the authenticated `AccountId` owning the active
 Student membership and enrollment for the exact course. Direct current
-co-Instructors use the same course predicate for permitted teaching-record
+Teaching Team Members use the same course predicate for permitted teaching-record
 reads; neither another course nor a visible record ID extends that authority.
 
 ## Workspace and publication identities
@@ -122,16 +122,16 @@ reads; neither another course nor a visible record ID extends that authority.
 | Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                      |
 | `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                |
 | `QuestionId`                | Global immutable published question identity | Human-facing catalog locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared catalog. |
-| `ProblemId` and `VersionId` | Server-only immutable content evidence       | Exact hidden identity for replay, grading, audit, provenance, and transport. It never lets a browser choose a version or resolve a latest question.              |
+| `QuestionId` and `QuestionVersionNumber` | Server-only immutable content evidence       | Exact hidden identity for replay, grading, audit, provenance, and transport. It never lets a browser choose a version or resolve a latest question.              |
 | `AssetId`                   | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                              |
-| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or learner-record bytes under an exact typed scope.                                                                          |
+| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                          |
 
 Validated publication either starts a new immutable catalog identity for a new
 question or records a new immutable `QuestionVersion` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
 mint a new `QuestionId`; it preserves the lineage and creates exact new
-`ProblemId`/`VersionId` evidence. A full fork for an incompatible objective,
-task, Question Type, or educational purpose creates a private draft and,
+`QuestionId`/`QuestionVersionNumber` evidence. A full fork for an incompatible objective,
+task, response family, or educational purpose creates a private draft and,
 after validation, a new `QuestionId` with source attribution and visible
 ancestry.
 
@@ -213,8 +213,8 @@ session account and the appropriate parent relationship before returning a recor
 | Value                                                                                                  | Browser use                                        | Server meaning                                                                                                                                 |
 | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `QuestionId` (`AAA-BBBB`)                                                                              | Instructor catalog search, display, and selection  | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                 |
-| `CourseReference`, `AssignmentReference`, `RunReference`, `WorkspaceReference`, `CourseGroupReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, `W-`, and `G-` locators resolved only inside the authenticated Account's authorized course or workspace relationship. |
-| `QuestionAttemptId` in a route                                                                         | Names an already issued attempt                    | Server additionally verifies exact active Student ownership/enrollment or permitted current Instructor scope.                                  |
+| `CourseReference`, `AssignmentReference`, `AssignmentAttemptReference`, `WorkspaceReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, and `W-` locators resolved only inside the authenticated Account's authorized course or workspace relationship. |
+| `QuestionAttemptId` in a route                                                                         | Names an already issued Question Attempt           | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                  |
 | `SubmissionIdempotencyKey` header                                                                      | Bounded ASCII key for one retry                    | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                  |
 | `RenderedItemIdV1`                                                                                     | Compact presentation-specific selection value      | Maps only through server-held attempt presentation state to a semantic item identity.                                                          |
 | `PresentationNonceV1` and `PresentationDigestTokenV1`                                                  | Presentation binding values                        | Bind a response to the intended server-generated presentation; neither authorizes a request.                                                   |
@@ -223,7 +223,7 @@ session account and the appropriate parent relationship before returning a recor
 `ChoiceId` remains a server-side semantic identity for a choice, slot, match
 endpoint, order item, or hotspot region. `Seed` plus generator version and the
 full stored presentation digest reproduce an issued variant. They are not
-learner authority to select another variant or browser input to define grading.
+student authority to select another variant or browser input to define grading.
 
 ## Credentials, capabilities, and answer boundaries
 
@@ -260,7 +260,7 @@ When adding an identifier or protocol value, document:
 - [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) defines publication lifecycle.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines public question data and
   server-only answer material.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines learner
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines student
   render, response, and presentation consistency.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) defines authentication, grading,
   storage, and provider boundaries.

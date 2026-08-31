@@ -65,6 +65,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Visual design should be pushed harder. Make the interface less bubbly and reduce excessive padding.
 - Themes should use biome and habitat names, with names removed when their themes look substantially alike.
 - UUIDs should never appear in visible page content, navigation URLs, or copyable links.
+- Atkinson HyperLegible https://www.brailleinstitute.org/freefont/ is my favorite for written text and mononoki font https://madmalik.github.io/mononoki/ for monospace
 
 ## Data philosophy
 
@@ -163,7 +164,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Instructors** log in only with a passkey or email code; no passwords.
 - **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
 - An **Instructor** can upload a small centered course banner and select a three-color theme.
-- Blueprints are personal reusable assignments and Alpha curricula are shared curricula.
+- Blueprint Courses are the shared reusable course definitions.
 - Every approved **Instructor** has the same product capabilities; course membership determines which
   course records each **Instructor** may use.
 

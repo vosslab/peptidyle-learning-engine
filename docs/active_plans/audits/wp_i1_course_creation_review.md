@@ -54,8 +54,8 @@ policy.
   `src/api/http_client/request.ts:395-399`, and
   `src/api/decoders/catalog_course.ts:415-446`).
 - Only an authenticated global instructor or administrator sees the native,
-  labelled form; a learner renders neither form nor button. The production
-  Playwright learner test also observes no creation POST
+  labelled form; a student renders neither form nor button. The production
+  Playwright student test also observes no creation POST
   (`src/pages/course_list_page.tsx:42-49,82-106` and
   `tests/playwright/course_creation.spec.ts:100-119`).
 - Native label/input/form semantics permit Tab and Enter. The control becomes

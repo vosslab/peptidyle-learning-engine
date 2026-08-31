@@ -2,14 +2,14 @@
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
-GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.course_student TO ple_private_owner;
+GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.student_record TO ple_private_owner;
 RESET ROLE;
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.course_object_metadata (
     object_id uuid PRIMARY KEY,
     course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
     scope text NOT NULL CHECK (scope IN ('student_upload', 'student_artifact', 'course_export', 'protected_feedback')),
-    owner_student_id uuid REFERENCES ple_data.course_student (student_id),
+    owner_student_record_id uuid REFERENCES ple_data.student_record (student_record_id),
     sha256 bytea NOT NULL CHECK (pg_catalog.octet_length(sha256) = 32),
     media_type text NOT NULL CHECK (char_length(btrim(media_type)) BETWEEN 1 AND 200),
     byte_length bigint NOT NULL CHECK (byte_length >= 0),

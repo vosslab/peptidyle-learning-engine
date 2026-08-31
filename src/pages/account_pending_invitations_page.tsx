@@ -2,8 +2,8 @@
 
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
-import type { CoInstructorInvitationTerminalAction } from "../../generated/api/CoInstructorInvitationTerminalAction";
-import type { PendingCoInstructorInvitationView } from "../../generated/api/PendingCoInstructorInvitationView";
+import type { CourseInvitationTerminalAction } from "../../generated/api/CourseInvitationTerminalAction";
+import type { PendingCourseInvitationView } from "../../generated/api/PendingCourseInvitationView";
 import { ApiRequestError } from "../api/http_client/error";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
@@ -17,13 +17,13 @@ import {
 import "./teaching_team_panel.css";
 
 interface PendingInvitationData {
-  readonly invitations: ReadonlyArray<PendingCoInstructorInvitationView>;
+  readonly invitations: ReadonlyArray<PendingCourseInvitationView>;
   readonly nextCursor: string | null;
 }
 
 interface PendingResponse {
-  readonly invitation: PendingCoInstructorInvitationView;
-  readonly action: CoInstructorInvitationTerminalAction;
+  readonly invitation: PendingCourseInvitationView;
+  readonly action: CourseInvitationTerminalAction;
   readonly trigger: HTMLButtonElement;
 }
 
@@ -32,11 +32,11 @@ function responseErrorCopy(error: unknown): string {
   return "Your invitation response could not be saved. Check your connection and try again.";
 }
 
-function responseHeading(action: CoInstructorInvitationTerminalAction): string {
+function responseHeading(action: CourseInvitationTerminalAction): string {
   return action === "accept" ? "Accept this invitation?" : "Decline this invitation?";
 }
 
-function responseCopy(action: CoInstructorInvitationTerminalAction): string {
+function responseCopy(action: CourseInvitationTerminalAction): string {
   return action === "accept"
     ? "Accepting grants you direct instructor access to this course."
     : "Declining closes this invitation. A course instructor can invite you again later.";
@@ -56,7 +56,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
     if (session.state().kind !== "authenticated") return;
     setError(null);
     try {
-      const page = await runtime.client.listPendingCoInstructorInvitations(undefined, 25);
+      const page = await runtime.client.listPendingCourseInvitations(undefined, 25);
       setData({ invitations: page.invitations, nextCursor: page.nextCursor });
     } catch {
       setError("Your pending invitations could not load. Check your connection and try again.");
@@ -69,7 +69,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const page = await runtime.client.listPendingCoInstructorInvitations(current.nextCursor, 25);
+      const page = await runtime.client.listPendingCourseInvitations(current.nextCursor, 25);
       setData({
         invitations: appendTeachingTeamPage(current.invitations, page.invitations),
         nextCursor: page.nextCursor,
@@ -95,7 +95,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await runtime.client.respondToCoInstructorInvitation(
+      await runtime.client.respondToCourseInvitation(
         response.invitation.reference,
         { action: response.action },
         response.invitation.revision,

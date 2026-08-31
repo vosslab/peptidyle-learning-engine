@@ -267,7 +267,7 @@ export function createSubmissionController(
     }
   }
 
-  // A fresh issued control starts neutral. Only a genuinely restored learner
+  // A fresh issued control starts neutral. Only a genuinely restored student
   // response should surface format readiness or an error before interaction.
   if (props.initialResponse !== undefined && initialResponse !== undefined) {
     void validate(initialResponse);

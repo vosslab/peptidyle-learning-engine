@@ -89,20 +89,20 @@ native radio controls supply the behavior.
 | Enter the application | The first useful Tab stop exposes Skip to learning content; Enter moves focus to main content      | Main content is focused and named                               |
 | Choose a course       | Tab reaches the course link; Enter opens it                                                        | Route content loads and main receives focus                     |
 | Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                       | Assignment title and action are available                       |
-| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                         | Question heading and Answer Control appear                      |
-| Read the question     | Reading order follows prompt, assets, instructions, answer, status, then submit                    | No interactive content is skipped or inserted out of order      |
-| Answer                | The Answer Control contract below works without a pointer                                          | The selected or entered answer is visibly represented           |
+| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                         | Question heading and response control appear                    |
+| Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                  | No interactive content is skipped or inserted out of order      |
+| Answer                | The family-specific contract below works without a pointer                                         | The selected or entered response is visibly represented         |
 | Validate              | Format state is announced without grading or disclosing an answer                                  | Ready or actionable validation text is available                |
-| Submit                | Tab reaches Submit answer; Space sends exactly one Student Answer                                  | Pending state prevents a duplicate submission                   |
+| Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                | Pending state prevents a duplicate submission                   |
 | Read feedback         | Authorized feedback receives a heading and sensible focus; unreleased feedback is not inferred     | Student can read result and next action                         |
 | Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice                      | The next question, assignment, or fresh-seed practice run opens |
-| Recover               | Error, offline, stale state, and reauthentication retain the answer and expose a keyboard action   | Retry uses the same logical submission identity where required  |
+| Recover               | Error, offline, stale state, and reauthentication retain the response and expose a keyboard action | Retry uses the same logical submission identity where required  |
 
 Route changes focus the main content rather than leaving focus on a removed navigation element.
 Feedback may focus its heading and later its primary advance control only when the student has not
 moved focus elsewhere. A delayed focus helper never steals focus back from the student.
 
-## Answer Control contract
+## Response-family contract
 
 ### Single choice and WeBWorK RadioButtons
 
@@ -220,14 +220,14 @@ Permanent tests protect stable user behavior, not today's component layout:
 
 - the built mock route completes course to assignment to question to explicit submission to
   continued practice with the primary platform keys and no widget extension;
-- Answer Control fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
+- response-family fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
   regressions while operating real production components;
 - the student question and feedback surfaces have no serious or critical axe findings;
 - focus management tests cover feedback, summaries, route changes, recovery, and avoidance of
   keyboard traps;
 - the live WebWork gate proves a keyboard-operated PLE-owned radio path and PLE-only network
   boundary; and
-- each new WP-RC5 Question Type adds its Answer Control no-mouse behavior before acceptance.
+- each new WP-RC5 family adds its family-specific no-mouse behavior before acceptance.
 
 Tests assert outcomes such as focused control, changed selection, preserved response, announcement,
 and completed action. They do not freeze exact Tab counts, DOM ancestry, private helper names, or the

@@ -7,7 +7,7 @@
 href, bounded Tab/Shift+Tab, native Enter, and Space without a pointer action or answer
 reconstruction. J2 is accepted separately in
 [wp_w2_retry_until_correct.md](wp_w2_retry_until_correct.md). This workstream claims only J1; it
-does not accept later learner journeys, scoring verification, or answer-key access.
+does not accept later student journeys, scoring verification, or answer-key access.
 
 ## Supersession note
 

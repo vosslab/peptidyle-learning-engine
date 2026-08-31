@@ -28,7 +28,7 @@ does not add a content-management service or expose source bytes to the browser.
 | `api`              | Authenticates sessions, authorizes course actions, coordinates attempts, and translates private backend results into browser-safe PLE responses.               | None in the container. Authoritative records live in PostgreSQL and MinIO. | Joins the data network, `gateway_api`, and `renderer_private`.                   |
 | `worker`           | Claims durable background jobs for retention, exports, imports, score maintenance, and item analysis.                                                          | None in the container. Its leases and job state live in PostgreSQL.        | Joins only the data network.                                                     |
 | `postgres`         | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                   | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.       | Publishes a loopback development port and joins the data network.                |
-| `minio`            | Stores typed objects too large or inappropriate for relational rows: content packages, protected learner artifacts, exports, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                        | Publishes loopback development API and console ports and joins the data network. |
+| `minio`            | Stores typed objects too large or inappropriate for relational rows: content packages, protected student artifacts, exports, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                        | Publishes loopback development API and console ports and joins the data network. |
 | `webwork-renderer` | Runs the external `webwork-pg-renderer` image to execute PG/PGML render and grade requests. It is an engine, not a second assignment platform.                 | None. It has no volume and no SQL database.                                | Joins only `renderer_private`; it has no host-published port.                    |
 
 PostgreSQL is replaceable as a container, but the database service is not
@@ -152,19 +152,17 @@ and cleanup confirmation preserve their bounded contracts.
 Live container and browser behavior belongs in the explicit E2E lane:
 
 ```bash
-tests/e2e/e2e_webwork_render_rpc.sh
-node tests/e2e/e2e_replica_restart.mjs
 ./run_playwright_tests.sh --build
 ```
 
-The renderer and replica commands are browser-free service checks. Browser
-behavior is selected only through `run_playwright_tests.sh`.
+Browser behavior is selected through `run_playwright_tests.sh`. A successor
+service oracle returns only after the fresh Store and mounted course-delivery
+contracts exist.
 
-The renderer gate exercises render, grade, cache, outage recovery, and
-non-disclosure. The replica gate replaces one of two API replicas and proves
-durable replay against the single PostgreSQL service. Chapter One publication
-semantics stay with the fixed seed/manifest and Rust behavior tests; installation
-occurs through the same live-demo lifecycle rather than a separate stack owner.
+The browser scenario exercises visible render and non-disclosure behavior.
+Chapter One publication semantics stay with the fixed seed/manifest and Rust
+behavior tests; installation occurs through the same live-demo lifecycle rather
+than a separate stack owner.
 
 The aggregate live browser command is
 `source source_me.sh && .venv/bin/python local_stack.py acceptance`. The canonical owner

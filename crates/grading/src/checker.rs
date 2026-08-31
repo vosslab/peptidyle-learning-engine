@@ -341,12 +341,14 @@ fn normalized_text(value: &str) -> String {
 mod tests {
     use super::*;
     use question_model::answer::SelectionCardinality;
+    use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
     use question_model::response::ChoiceOption;
-    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
-    use question_model::{ProblemId, QuestionMetadata, QuestionSource, VersionId, WorkspaceId};
+    use question_model::{
+        QuestionId, QuestionMetadata, QuestionSource, QuestionVersionNumber, WorkspaceId,
+    };
     use uuid::Uuid;
 
     fn choice(id: &str) -> ChoiceOption {
@@ -358,8 +360,8 @@ mod tests {
 
     fn question(response: ResponseDefinition, grading: GradingDefinition) -> QuestionDefinition {
         QuestionDefinition {
-            version: VersionId::from_uuid(Uuid::from_u128(2)),
-            problem: ProblemId::from_uuid(Uuid::from_u128(1)),
+            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+            version_number: QuestionVersionNumber::new(2).expect("positive version"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
             source: QuestionSource::Native {
                 family: "grading-fixture".to_string(),

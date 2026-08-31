@@ -1,0 +1,35 @@
+# Focused operational design decisions
+
+This companion to [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) keeps implementation-specific settled decisions concise.
+
+### Dependency manifests permit current secure releases
+
+**Decision.** Registry dependencies use an open reviewed minimum; exceptions are documented and lockfiles record reviewed resolutions.
+
+### Local controller dependency is reproducible
+
+**Decision.** `devel/setup_python.sh` owns the repo-local Python environment and its receipt over the interpreter and requirements manifests.
+
+### Generated output has tracked authority
+
+**Decision.** Ignored generated output is rebuilt from tracked authority; reviewed goldens remain tracked only when they define durable evidence.
+
+### Local-stack replacement is scoped and inspectable
+
+**Decision.** The Python controller owns labelled lifecycle, readiness, and bounded cleanup for the selected project.
+
+### Gradebook and Student-work inspection have one authority each
+
+**Decision.** The Gradebook is one server-derived projection. Student-work inspection validates the exact authorized course composite, writes its audit fact atomically, and returns an answer-free `no-store` projection with only the Student response and issued presentation needed for teaching.
+
+### Inspected work names its Student and Assignment
+
+**Decision.** The authorized inspection projection includes server-resolved Student and Assignment labels, never placing those labels in cursors, URLs, or browser storage.
+
+### PLE-owned wire names use direct Serde DTOs
+
+**Decision.** PLE-owned serialized fields and portable discriminants use `snake_case`; direct generated DTOs reflect Serde while registered protocols retain their owner spelling.
+
+### Curriculum adoption authorization
+
+**Decision.** Course creation owns normal minimal Blueprint creation. Curriculum adoption is closed to its defined operations and resolves its authenticated Account only through `SessionRecord`.

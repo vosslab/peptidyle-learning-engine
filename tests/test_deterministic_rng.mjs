@@ -20,14 +20,14 @@ function replay_values(master_seed, label, count) {
 }
 
 test("a master seed and label replay fixed uint32 decisions", () => {
-  const values = replay_values(42, "learner.alpha", 5);
+  const values = replay_values(42, "student.alpha", 5);
   assert.deepEqual(values, [1835804778, 1372660255, 1007088323, 974384073, 437026343]);
 });
 
 test("named streams remain isolated when another stream consumes decisions", () => {
   const baseline = replay_values(77, "observer.review", 4);
-  const unrelated = create_named_stream(77, "learner.answer");
-  replay_values(77, "learner.answer", 3);
+  const unrelated = create_named_stream(77, "student.answer");
+  replay_values(77, "student.answer", 3);
   unrelated.next_uint32();
   unrelated.next_uint32();
   const replay = replay_values(77, "observer.review", 4);
@@ -37,9 +37,9 @@ test("named streams remain isolated when another stream consumes decisions", () 
 test("seed, label, and selection bounds fail closed", () => {
   assert.throws(() => validate_master_seed(-1), /unsigned 32-bit/);
   assert.throws(() => validate_master_seed(1.5), /unsigned 32-bit/);
-  assert.throws(() => create_named_stream(1, "Learner"), /stable lowercase/);
+  assert.throws(() => create_named_stream(1, "Student"), /stable lowercase/);
   assert.throws(() => create_named_stream(1, ""), /stable lowercase/);
-  const stream = create_named_stream(1, "learner.answer");
+  const stream = create_named_stream(1, "student.answer");
   assert.throws(() => select_index(stream, 0), /selection bound/);
   assert.throws(() => select_index(stream, 1.5), /selection bound/);
   assert.throws(() => select_index(stream, 0x1_0000_0001), /selection bound/);
@@ -85,8 +85,8 @@ test("allocation and choice replay without mutating candidate order", () => {
 });
 
 test("public identifiers sort predictably without mutating the report input", () => {
-  const identifiers = ["learner-10", "learner-2", "learner-10", "learner-1"];
+  const identifiers = ["student-10", "student-2", "student-10", "student-1"];
   const ordered = sort_public_identifiers(identifiers);
-  assert.deepEqual(ordered, ["learner-1", "learner-10", "learner-10", "learner-2"]);
-  assert.deepEqual(identifiers, ["learner-10", "learner-2", "learner-10", "learner-1"]);
+  assert.deepEqual(ordered, ["student-1", "student-10", "student-10", "student-2"]);
+  assert.deepEqual(identifiers, ["student-10", "student-2", "student-10", "student-1"]);
 });

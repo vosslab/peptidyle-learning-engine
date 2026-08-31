@@ -1,41 +1,24 @@
-//! Pure WP-INST-T2 validation for group warnings and co-instructor invitations.
+//! Pure WP-INST-T2 validation for co-instructor invitations.
 //!
 //! This module is deliberately separate from S5 entitlement. It validates
 //! teaching-operation facts supplied by a Store transaction but never grants
-//! learner entitlement, calculates effective policy, reads a clock, or writes
+//! student entitlement, calculates effective policy, reads a clock, or writes
 //! a direct membership.
 
 use question_model::{
-    AccountId, ActivityTimestamp, CoInstructorInvitation, CoInstructorInvitationState,
-    CourseGroupPurposePolicy, CourseId, CourseMembershipId, CourseMembershipRole,
-    InstructorApproval, MultipleMembershipDisposition, StudentId,
+    AccountId, ActivityTimestamp, CourseInvitation, CourseInvitationEventKind,
+    CourseInvitationState, CourseId, CourseMembershipId, CourseMembershipRole,
+    InstructorApprovalEvent, InstructorApprovalEventKind, StudentRecordId,
 };
 
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
 pub const CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
 
-/// Evaluates an informational multiple-membership result after a valid write.
-pub const fn evaluate_multiple_membership(
-    policy: CourseGroupPurposePolicy,
-    resulting_membership_count: usize,
-) -> MultipleMembershipDisposition {
-    if resulting_membership_count > 1
-        && matches!(
-            policy.multiple_membership,
-            question_model::MultipleMembershipPolicy::Warn
-        )
-    {
-        MultipleMembershipDisposition::AllowedWithWarning
-    } else {
-        MultipleMembershipDisposition::Allowed
-    }
-}
-
 /// Current direct Instructor-membership facts for one exact course.
 ///
 /// The Store supplies this projection after locking the durable membership
 /// record. It deliberately contains no creator distinction: the course creator
-/// and every accepted co-Instructor use the same exact membership relation.
+/// and every accepted Teaching Team Member use the same exact membership relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DirectInstructorMembership {
     pub course: CourseId,
@@ -57,15 +40,15 @@ pub enum InstructorAuthority {
 /// transaction owner provide its authoritative clock. A malformed, future, or
 /// revoked approval fails closed.
 pub fn approved_instructor(
-    approval: Option<InstructorApproval>,
+    approval: Option<InstructorApprovalEvent>,
     instructor_account: AccountId,
     now: ActivityTimestamp,
 ) -> bool {
     match approval {
         Some(approval) => {
             approval.account == instructor_account
-                && approval.approved_at <= now
-                && approval.revoked_at.is_none()
+                && approval.kind == InstructorApprovalEventKind::Approved
+                && approval.occurred_at <= now
         }
         None => false,
     }
@@ -75,9 +58,9 @@ pub fn approved_instructor(
 ///
 /// This is the canonical pure predicate for all course-Instructor operations:
 /// current global approval and an active direct Instructor membership are both
-/// required. Neither a creator flag nor a co-Instructor distinction exists.
+/// required. Neither a creator flag nor a Teaching Team Member distinction exists.
 pub fn current_course_instructor(
-    approval: Option<InstructorApproval>,
+    approval: Option<InstructorApprovalEvent>,
     membership: Option<DirectInstructorMembership>,
     instructor_account: AccountId,
     course: CourseId,
@@ -104,7 +87,7 @@ pub struct StudentCourseMembership {
     pub membership: CourseMembershipId,
     pub course: CourseId,
     pub student_account: AccountId,
-    pub student: StudentId,
+    pub student_record: StudentRecordId,
     pub role: CourseMembershipRole,
     pub active: bool,
 }
@@ -114,14 +97,13 @@ pub struct StudentCourseMembership {
 ///
 /// Callers must supply the membership projection from the same protected
 /// transaction as the educational-record access. A foreign course, account,
-/// Student identity, membership episode, revoked episode, or non-Student role
+/// Student Record, membership episode, revoked episode, or non-Student role
 /// fails closed.
 pub fn student_owns_course_record(
     membership: Option<StudentCourseMembership>,
     student_account: AccountId,
     course: CourseId,
-    record_membership: CourseMembershipId,
-    student: StudentId,
+    student_record: StudentRecordId,
 ) -> bool {
     matches!(
         membership,
@@ -130,15 +112,14 @@ pub fn student_owns_course_record(
                 && membership.role == CourseMembershipRole::Student
                 && membership.course == course
                 && membership.student_account == student_account
-                && membership.membership == record_membership
-                && membership.student == student
+                && membership.student_record == student_record
     )
 }
 
 /// Classifies the exact course-Instructor predicate for callers that need a
 /// denial reason without turning a role label into authority.
 pub fn evaluate_course_instructor_authority(
-    approval: Option<InstructorApproval>,
+    approval: Option<InstructorApprovalEvent>,
     membership: Option<DirectInstructorMembership>,
     course: CourseId,
     instructor_account: AccountId,
@@ -155,7 +136,7 @@ pub fn evaluate_course_instructor_authority(
 
 /// Errors from deterministic invitation lifecycle validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoInstructorInvitationError {
+pub enum CourseInvitationError {
     ExpiryDoesNotMatchThirtyDays,
     TimestampOverflow,
     InvalidTerminalTimestamps,
@@ -170,7 +151,7 @@ pub enum CoInstructorInvitationError {
 
 /// The direct membership fact a Store must atomically create after acceptance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CoInstructorInvitationAcceptance {
+pub struct CourseInvitationAcceptance {
     pub course: CourseId,
     pub target: AccountId,
     pub accepted_at: ActivityTimestamp,
@@ -178,60 +159,63 @@ pub struct CoInstructorInvitationAcceptance {
 
 /// Reads the closed invitation state using only caller-supplied authoritative time.
 pub fn invitation_state(
-    invitation: &CoInstructorInvitation,
+    invitation: &CourseInvitation,
     now: ActivityTimestamp,
-) -> Result<CoInstructorInvitationState, CoInstructorInvitationError> {
+) -> Result<CourseInvitationState, CourseInvitationError> {
     validate_invitation_record(invitation, now)?;
-    match (
-        invitation.accepted_at,
-        invitation.declined_at,
-        invitation.revoked_at,
-    ) {
-        (Some(_), None, None) => return Ok(CoInstructorInvitationState::Accepted),
-        (None, Some(_), None) => return Ok(CoInstructorInvitationState::Declined),
-        (None, None, Some(_)) => return Ok(CoInstructorInvitationState::Revoked),
-        (None, None, None) if now >= invitation.expires_at => {
-            return Ok(CoInstructorInvitationState::Expired);
+    match invitation.terminal_event.map(|event| event.kind) {
+        Some(CourseInvitationEventKind::Accepted) => {
+            return Ok(CourseInvitationState::Accepted);
         }
-        (None, None, None) => {}
-        _ => return Err(CoInstructorInvitationError::InvalidTerminalTimestamps),
+        Some(CourseInvitationEventKind::Declined) => {
+            return Ok(CourseInvitationState::Declined);
+        }
+        Some(CourseInvitationEventKind::Revoked) => {
+            return Ok(CourseInvitationState::Revoked);
+        }
+        None if now >= invitation.expires_at => {
+            return Ok(CourseInvitationState::Expired);
+        }
+        None => {}
     }
-    Ok(CoInstructorInvitationState::Pending)
+    Ok(CourseInvitationState::Pending)
 }
 
 /// Rechecks approval and produces the required ordinary direct-membership write.
-pub fn accept_co_instructor_invitation(
-    invitation: &CoInstructorInvitation,
+pub fn accept_course_invitation(
+    invitation: &CourseInvitation,
     accepting_account: AccountId,
-    current_approval: Option<InstructorApproval>,
+    current_approval: Option<InstructorApprovalEvent>,
     now: ActivityTimestamp,
-) -> Result<CoInstructorInvitationAcceptance, CoInstructorInvitationError> {
+) -> Result<CourseInvitationAcceptance, CourseInvitationError> {
     match invitation_state(invitation, now)? {
-        CoInstructorInvitationState::Pending => {}
-        CoInstructorInvitationState::Expired => {
-            return Err(CoInstructorInvitationError::InvitationExpired);
+        CourseInvitationState::Pending => {}
+        CourseInvitationState::Expired => {
+            return Err(CourseInvitationError::InvitationExpired);
         }
-        CoInstructorInvitationState::Accepted => {
-            return Err(CoInstructorInvitationError::InvitationAlreadyAccepted);
+        CourseInvitationState::Accepted => {
+            return Err(CourseInvitationError::InvitationAlreadyAccepted);
         }
-        CoInstructorInvitationState::Declined => {
-            return Err(CoInstructorInvitationError::InvitationDeclined);
+        CourseInvitationState::Declined => {
+            return Err(CourseInvitationError::InvitationDeclined);
         }
-        CoInstructorInvitationState::Revoked => {
-            return Err(CoInstructorInvitationError::InvitationRevoked);
+        CourseInvitationState::Revoked => {
+            return Err(CourseInvitationError::InvitationRevoked);
         }
     }
     if accepting_account != invitation.target {
-        return Err(CoInstructorInvitationError::WrongTarget);
+        return Err(CourseInvitationError::WrongTarget);
     }
     let Some(approval) = current_approval else {
-        return Err(CoInstructorInvitationError::TargetApprovalRequired);
+        return Err(CourseInvitationError::TargetApprovalRequired);
     };
     validate_instructor_approval(&approval, now)?;
-    if approval.account != invitation.target || approval.revoked_at.is_some() {
-        return Err(CoInstructorInvitationError::TargetApprovalRequired);
+    if approval.account != invitation.target
+        || approval.kind != InstructorApprovalEventKind::Approved
+    {
+        return Err(CourseInvitationError::TargetApprovalRequired);
     }
-    Ok(CoInstructorInvitationAcceptance {
+    Ok(CourseInvitationAcceptance {
         course: invitation.course,
         target: invitation.target,
         accepted_at: now,
@@ -260,57 +244,40 @@ pub const fn refuse_final_instructor_removal(
 /// A valid revoked record is still ineligible for invitation acceptance; this
 /// function validates audit chronology only and does not project eligibility.
 pub fn validate_instructor_approval(
-    approval: &InstructorApproval,
+    approval: &InstructorApprovalEvent,
     now: ActivityTimestamp,
-) -> Result<(), CoInstructorInvitationError> {
-    if approval.approved_at > now
-        || approval
-            .revoked_at
-            .is_some_and(|revoked_at| revoked_at < approval.approved_at || revoked_at > now)
-    {
-        return Err(CoInstructorInvitationError::InvalidApprovalRecord);
+) -> Result<(), CourseInvitationError> {
+    if approval.occurred_at > now {
+        return Err(CourseInvitationError::InvalidApprovalRecord);
     }
     Ok(())
 }
 
 fn validate_invitation_record(
-    invitation: &CoInstructorInvitation,
+    invitation: &CourseInvitation,
     now: ActivityTimestamp,
-) -> Result<(), CoInstructorInvitationError> {
+) -> Result<(), CourseInvitationError> {
     let expected_expiry = invitation
         .created_at
         .as_unix_millis()
         .checked_add(CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS)
-        .ok_or(CoInstructorInvitationError::TimestampOverflow)?;
+        .ok_or(CourseInvitationError::TimestampOverflow)?;
     if invitation.expires_at.as_unix_millis() != expected_expiry {
-        return Err(CoInstructorInvitationError::ExpiryDoesNotMatchThirtyDays);
+        return Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays);
     }
-    let terminal_count = [
-        invitation.accepted_at,
-        invitation.declined_at,
-        invitation.revoked_at,
-    ]
-    .into_iter()
-    .flatten()
-    .count();
-    if terminal_count > 1 {
-        return Err(CoInstructorInvitationError::InvalidTerminalTimestamps);
-    }
-    match (
-        invitation.accepted_at,
-        invitation.declined_at,
-        invitation.revoked_at,
-    ) {
-        (Some(terminal_at), None, None)
-        | (None, Some(terminal_at), None)
-        | (None, None, Some(terminal_at))
-            if terminal_at < invitation.created_at
-                || terminal_at >= invitation.expires_at
-                || terminal_at > now =>
+    if let Some(event) = invitation.terminal_event {
+        if event.invitation != invitation.id
+            || event.occurred_at < invitation.created_at
+            || event.occurred_at >= invitation.expires_at
+            || event.occurred_at > now
+            || (matches!(
+                event.kind,
+                CourseInvitationEventKind::Accepted
+                    | CourseInvitationEventKind::Declined
+            ) && event.performed_by != invitation.target)
         {
-            return Err(CoInstructorInvitationError::InvalidTerminalTimestamps);
+            return Err(CourseInvitationError::InvalidTerminalTimestamps);
         }
-        _ => {}
     }
     Ok(())
 }
@@ -318,8 +285,7 @@ fn validate_invitation_record(
 #[cfg(test)]
 mod tests {
     use question_model::{
-        CoInstructorInvitationId, CourseGroupPurpose, CourseGroupPurposePolicy, CourseMembershipId,
-        MultipleMembershipPolicy,
+        CourseInvitationEvent, CourseInvitationId, CourseMembershipId,
     };
     use uuid::Uuid;
 
@@ -333,66 +299,41 @@ mod tests {
         ActivityTimestamp::from_unix_millis(value)
     }
 
-    fn invitation() -> CoInstructorInvitation {
-        CoInstructorInvitation {
-            id: CoInstructorInvitationId::from_uuid(id(1)),
+    fn invitation() -> CourseInvitation {
+        CourseInvitation {
+            id: CourseInvitationId::from_uuid(id(1)),
             course: CourseId::from_uuid(id(2)),
             invited_by: CourseMembershipId::from_uuid(id(4)),
             target: AccountId::from_uuid(id(3)),
             created_at: stamp(1_000),
             expires_at: stamp(1_000 + CO_INSTRUCTOR_INVITATION_LIFETIME_MILLIS),
-            accepted_at: None,
-            declined_at: None,
-            revoked_at: None,
+            terminal_event: None,
         }
     }
 
-    #[test]
-    fn every_group_purpose_has_its_closed_default() {
-        assert_eq!(
-            CourseGroupPurposePolicy::default_for_purpose(CourseGroupPurpose::Section)
-                .multiple_membership,
-            MultipleMembershipPolicy::Warn
-        );
-        for purpose in [
-            CourseGroupPurpose::Lab,
-            CourseGroupPurpose::Cohort,
-            CourseGroupPurpose::Accommodation,
-            CourseGroupPurpose::Work,
-        ] {
-            assert_eq!(
-                CourseGroupPurposePolicy::default_for_purpose(purpose).multiple_membership,
-                MultipleMembershipPolicy::Allow
-            );
+    fn terminal_event(
+        invitation: &CourseInvitation,
+        kind: CourseInvitationEventKind,
+        performed_by: AccountId,
+        occurred_at: ActivityTimestamp,
+    ) -> CourseInvitationEvent {
+        CourseInvitationEvent {
+            invitation: invitation.id,
+            kind,
+            performed_by,
+            occurred_at,
         }
-    }
-
-    #[test]
-    fn multiple_memberships_warn_but_remain_allowed() {
-        let outcome = evaluate_multiple_membership(
-            CourseGroupPurposePolicy::default_for_purpose(CourseGroupPurpose::Section),
-            2,
-        );
-        assert_eq!(outcome, MultipleMembershipDisposition::AllowedWithWarning);
-        assert!(outcome.permits_write());
-        assert_eq!(
-            evaluate_multiple_membership(
-                CourseGroupPurposePolicy::default_for_purpose(CourseGroupPurpose::Lab),
-                2,
-            ),
-            MultipleMembershipDisposition::Allowed
-        );
     }
 
     #[test]
     fn current_course_instructor_requires_active_approval_and_membership() {
         let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let approval = InstructorApproval {
+        let approval = InstructorApprovalEvent {
             account: instructor_account,
-            approved_by: AccountId::from_uuid(id(9)),
-            approved_at: stamp(10),
-            revoked_at: None,
+            authorized_by: AccountId::from_uuid(id(9)),
+            kind: InstructorApprovalEventKind::Approved,
+            occurred_at: stamp(10),
         };
         let membership = DirectInstructorMembership {
             course,
@@ -417,8 +358,9 @@ mod tests {
         let course = CourseId::from_uuid(id(2));
         let approval = approval(instructor_account);
         assert!(!current_course_instructor(
-            Some(InstructorApproval {
-                revoked_at: Some(stamp(1_001)),
+            Some(InstructorApprovalEvent {
+                kind: InstructorApprovalEventKind::Revoked,
+                occurred_at: stamp(1_001),
                 ..approval
             }),
             Some(DirectInstructorMembership {
@@ -492,29 +434,29 @@ mod tests {
             Some(membership),
             student_account,
             course,
-            membership.membership,
-            membership.student,
+            membership.student_record,
         ));
         assert!(!student_owns_course_record(
             Some(membership),
             student_account,
             course,
-            membership.membership,
-            StudentId::from_uuid(id(7)),
+            StudentRecordId::from_uuid(id(7)),
         ));
     }
 
     #[test]
-    fn mismatched_student_membership_episode_cannot_authorize_course_record_access() {
+    fn renewed_student_membership_reuses_the_stable_course_record() {
         let student_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         let membership = student_membership(student_account, course);
-        assert!(!student_owns_course_record(
-            Some(membership),
+        assert!(student_owns_course_record(
+            Some(StudentCourseMembership {
+                membership: CourseMembershipId::from_uuid(id(7)),
+                ..membership
+            }),
             student_account,
             course,
-            CourseMembershipId::from_uuid(id(7)),
-            membership.student,
+            membership.student_record,
         ));
     }
 
@@ -530,8 +472,7 @@ mod tests {
             }),
             student_account,
             course,
-            membership.membership,
-            membership.student,
+            membership.student_record,
         ));
     }
 
@@ -547,8 +488,7 @@ mod tests {
             }),
             student_account,
             course,
-            membership.membership,
-            membership.student,
+            membership.student_record,
         ));
     }
 
@@ -557,107 +497,135 @@ mod tests {
         let pending = invitation();
         assert_eq!(
             invitation_state(&pending, stamp(1_001)),
-            Ok(CoInstructorInvitationState::Pending)
+            Ok(CourseInvitationState::Pending)
         );
         assert_eq!(
             invitation_state(&pending, pending.expires_at),
-            Ok(CoInstructorInvitationState::Expired)
+            Ok(CourseInvitationState::Expired)
         );
 
-        let accepted = CoInstructorInvitation {
-            accepted_at: Some(stamp(1_010)),
+        let accepted = CourseInvitation {
+            terminal_event: Some(terminal_event(
+                &pending,
+                CourseInvitationEventKind::Accepted,
+                pending.target,
+                stamp(1_010),
+            )),
             ..pending.clone()
         };
         assert_eq!(
             invitation_state(&accepted, stamp(1_011)),
-            Ok(CoInstructorInvitationState::Accepted)
+            Ok(CourseInvitationState::Accepted)
         );
-        let revoked = CoInstructorInvitation {
-            revoked_at: Some(stamp(1_010)),
-            ..pending
+        let revoked = CourseInvitation {
+            terminal_event: Some(terminal_event(
+                &pending,
+                CourseInvitationEventKind::Revoked,
+                AccountId::from_uuid(id(9)),
+                stamp(1_010),
+            )),
+            ..pending.clone()
         };
         assert_eq!(
             invitation_state(&revoked, stamp(1_011)),
-            Ok(CoInstructorInvitationState::Revoked)
+            Ok(CourseInvitationState::Revoked)
         );
-        let declined = CoInstructorInvitation {
-            declined_at: Some(stamp(1_010)),
+        let declined = CourseInvitation {
+            terminal_event: Some(terminal_event(
+                &pending,
+                CourseInvitationEventKind::Declined,
+                pending.target,
+                stamp(1_010),
+            )),
             ..pending
         };
         assert_eq!(
             invitation_state(&declined, stamp(1_011)),
-            Ok(CoInstructorInvitationState::Declined)
+            Ok(CourseInvitationState::Declined)
         );
     }
 
     #[test]
     fn invitation_refuses_invalid_lifetime_and_terminal_records() {
         let invitation = invitation();
-        let invalid_lifetime = CoInstructorInvitation {
+        let invalid_lifetime = CourseInvitation {
             expires_at: stamp(invitation.expires_at.as_unix_millis() - 1),
             ..invitation.clone()
         };
         assert_eq!(
             invitation_state(&invalid_lifetime, stamp(1_001)),
-            Err(CoInstructorInvitationError::ExpiryDoesNotMatchThirtyDays)
+            Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays)
         );
-        let conflicting_terminal = CoInstructorInvitation {
-            accepted_at: Some(stamp(1_010)),
-            declined_at: None,
-            revoked_at: Some(stamp(1_011)),
+        let invalid_terminal = CourseInvitation {
+            terminal_event: Some(CourseInvitationEvent {
+                invitation: CourseInvitationId::from_uuid(id(99)),
+                kind: CourseInvitationEventKind::Accepted,
+                performed_by: invitation.target,
+                occurred_at: stamp(1_010),
+            }),
             ..invitation
         };
         assert_eq!(
-            invitation_state(&conflicting_terminal, stamp(1_012)),
-            Err(CoInstructorInvitationError::InvalidTerminalTimestamps)
+            invitation_state(&invalid_terminal, stamp(1_012)),
+            Err(CourseInvitationError::InvalidTerminalTimestamps)
         );
     }
 
     #[test]
     fn invitation_terminal_timestamp_must_not_be_later_than_now() {
         let now = stamp(1_010);
-        for (terminal, expected_state) in [
+        for (kind, expected_state) in [
             (
-                CoInstructorInvitation {
-                    accepted_at: Some(now),
-                    ..invitation()
-                },
-                CoInstructorInvitationState::Accepted,
+                CourseInvitationEventKind::Accepted,
+                CourseInvitationState::Accepted,
             ),
             (
-                CoInstructorInvitation {
-                    declined_at: Some(now),
-                    ..invitation()
-                },
-                CoInstructorInvitationState::Declined,
+                CourseInvitationEventKind::Declined,
+                CourseInvitationState::Declined,
             ),
             (
-                CoInstructorInvitation {
-                    revoked_at: Some(now),
-                    ..invitation()
-                },
-                CoInstructorInvitationState::Revoked,
+                CourseInvitationEventKind::Revoked,
+                CourseInvitationState::Revoked,
             ),
         ] {
+            let pending = invitation();
+            let terminal = CourseInvitation {
+                terminal_event: Some(terminal_event(
+                    &pending,
+                    kind,
+                    if matches!(kind, CourseInvitationEventKind::Revoked) {
+                        AccountId::from_uuid(id(9))
+                    } else {
+                        pending.target
+                    },
+                    now,
+                )),
+                ..pending
+            };
             assert_eq!(invitation_state(&terminal, now), Ok(expected_state));
         }
-        for terminal in [
-            CoInstructorInvitation {
-                accepted_at: Some(stamp(1_011)),
-                ..invitation()
-            },
-            CoInstructorInvitation {
-                declined_at: Some(stamp(1_011)),
-                ..invitation()
-            },
-            CoInstructorInvitation {
-                revoked_at: Some(stamp(1_011)),
-                ..invitation()
-            },
+        for kind in [
+            CourseInvitationEventKind::Accepted,
+            CourseInvitationEventKind::Declined,
+            CourseInvitationEventKind::Revoked,
         ] {
+            let pending = invitation();
+            let terminal = CourseInvitation {
+                terminal_event: Some(terminal_event(
+                    &pending,
+                    kind,
+                    if matches!(kind, CourseInvitationEventKind::Revoked) {
+                        AccountId::from_uuid(id(9))
+                    } else {
+                        pending.target
+                    },
+                    stamp(1_011),
+                )),
+                ..pending
+            };
             assert_eq!(
                 invitation_state(&terminal, now),
-                Err(CoInstructorInvitationError::InvalidTerminalTimestamps)
+                Err(CourseInvitationError::InvalidTerminalTimestamps)
             );
         }
     }
@@ -668,29 +636,20 @@ mod tests {
         let active = approval(AccountId::from_uuid(id(3)));
         assert_eq!(validate_instructor_approval(&active, now), Ok(()));
 
-        let revoked = InstructorApproval {
-            revoked_at: Some(stamp(950)),
+        let revoked = InstructorApprovalEvent {
+            kind: InstructorApprovalEventKind::Revoked,
+            occurred_at: stamp(950),
             ..active
         };
         assert_eq!(validate_instructor_approval(&revoked, now), Ok(()));
 
-        for invalid in [
-            InstructorApproval {
-                revoked_at: Some(stamp(899)),
-                ..active
-            },
-            InstructorApproval {
-                approved_at: stamp(1_002),
-                ..active
-            },
-            InstructorApproval {
-                revoked_at: Some(stamp(1_002)),
-                ..active
-            },
-        ] {
+        for invalid in [InstructorApprovalEvent {
+            occurred_at: stamp(1_002),
+            ..active
+        }] {
             assert_eq!(
                 validate_instructor_approval(&invalid, now),
-                Err(CoInstructorInvitationError::InvalidApprovalRecord)
+                Err(CourseInvitationError::InvalidApprovalRecord)
             );
         }
     }
@@ -700,69 +659,71 @@ mod tests {
         let invitation = invitation();
         let now = stamp(1_001);
         assert_eq!(
-            accept_co_instructor_invitation(&invitation, invitation.target, None, now),
-            Err(CoInstructorInvitationError::TargetApprovalRequired)
+            accept_course_invitation(&invitation, invitation.target, None, now),
+            Err(CourseInvitationError::TargetApprovalRequired)
         );
         assert_eq!(
-            accept_co_instructor_invitation(
+            accept_course_invitation(
                 &invitation,
                 AccountId::from_uuid(id(4)),
                 Some(approval(invitation.target)),
                 now,
             ),
-            Err(CoInstructorInvitationError::WrongTarget)
+            Err(CourseInvitationError::WrongTarget)
         );
         assert_eq!(
-            accept_co_instructor_invitation(
+            accept_course_invitation(
                 &invitation,
                 invitation.target,
                 Some(approval(invitation.target)),
                 now,
             ),
-            Ok(CoInstructorInvitationAcceptance {
+            Ok(CourseInvitationAcceptance {
                 course: invitation.course,
                 target: invitation.target,
                 accepted_at: now,
             })
         );
-        let revoked_approval = InstructorApproval {
-            revoked_at: Some(stamp(950)),
+        let revoked_approval = InstructorApprovalEvent {
+            kind: InstructorApprovalEventKind::Revoked,
+            occurred_at: stamp(950),
             ..approval(invitation.target)
         };
         assert_eq!(
-            accept_co_instructor_invitation(
+            accept_course_invitation(
                 &invitation,
                 invitation.target,
                 Some(revoked_approval),
                 now,
             ),
-            Err(CoInstructorInvitationError::TargetApprovalRequired)
+            Err(CourseInvitationError::TargetApprovalRequired)
         );
-        let future_approval = InstructorApproval {
-            approved_at: stamp(1_002),
+        let future_approval = InstructorApprovalEvent {
+            occurred_at: stamp(1_002),
             ..approval(invitation.target)
         };
         assert_eq!(
-            accept_co_instructor_invitation(
+            accept_course_invitation(
                 &invitation,
                 invitation.target,
                 Some(future_approval),
                 now,
             ),
-            Err(CoInstructorInvitationError::InvalidApprovalRecord)
+            Err(CourseInvitationError::InvalidApprovalRecord)
         );
-        let future_revocation = InstructorApproval {
-            revoked_at: Some(stamp(1_002)),
+        let future_revocation = InstructorApprovalEvent {
+            kind: InstructorApprovalEventKind::Revoked,
+            occurred_at: stamp(1_002),
             ..approval(invitation.target)
         };
         assert_eq!(
-            accept_co_instructor_invitation(
+            accept_course_invitation(
                 &invitation,
                 invitation.target,
                 Some(future_revocation),
                 now,
             ),
-            Err(CoInstructorInvitationError::InvalidApprovalRecord)
+            Err(CourseInvitationError::InvalidApprovalRecord)
         );
     }
 
@@ -779,12 +740,12 @@ mod tests {
         assert_eq!(refuse_final_instructor_removal(2), Ok(()));
     }
 
-    fn approval(account: AccountId) -> InstructorApproval {
-        InstructorApproval {
+    fn approval(account: AccountId) -> InstructorApprovalEvent {
+        InstructorApprovalEvent {
             account,
-            approved_by: AccountId::from_uuid(id(9)),
-            approved_at: stamp(900),
-            revoked_at: None,
+            authorized_by: AccountId::from_uuid(id(9)),
+            kind: InstructorApprovalEventKind::Approved,
+            occurred_at: stamp(900),
         }
     }
 
@@ -793,7 +754,7 @@ mod tests {
             membership: CourseMembershipId::from_uuid(id(6)),
             course,
             student_account,
-            student: StudentId::from_uuid(id(5)),
+            student_record: StudentRecordId::from_uuid(id(5)),
             role: CourseMembershipRole::Student,
             active: true,
         }

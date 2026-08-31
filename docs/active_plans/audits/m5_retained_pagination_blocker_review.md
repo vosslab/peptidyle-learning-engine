@@ -18,7 +18,7 @@ cleanup.
   visible next-page control.
 - [GradebookPage](../../../src/pages/gradebook_page.tsx) loads one summary page
   with `loadGradebookPage` and renders only `page.items`. Its cursor control is
-  limited to an already opened learner run history, not the gradebook summary.
+  limited to an already opened student run history, not the gradebook summary.
 - The active M5 integration record already identifies the first-page retained
   volume limit as a product-page limitation, not a report or selector
   workaround: [M5 shared integration](../workstreams/wp_m5_shared_integration.md).

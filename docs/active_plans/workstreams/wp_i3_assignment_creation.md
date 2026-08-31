@@ -14,7 +14,7 @@
 - The focused Node tests prove the default policy and the repository's exact
   create payload.
 - The production-component Playwright tests prove the manager-only visible
-  entry, its absence for learners, native Tab/Enter navigation into create
+  entry, its absence for students, native Tab/Enter navigation into create
   mode, public catalog selection, exact POST payload, and the resulting course
   assignment link.
 - Edit-mode regression coverage remains in the same production-component spec.

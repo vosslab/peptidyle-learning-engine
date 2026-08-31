@@ -4,7 +4,7 @@
 
 - WP-INST-S3 and WP-INST-S5 are accepted and closed; S4 consumes their current verdicts without
   rebuilding policy resolution or entitlement.
-- WP-INST-S4 is accepted on the final material tree. Migration 1805, learner projections, the central
+- WP-INST-S4 is accepted on the final material tree. Migration 1805, student projections, the central
   student route boundary, class-statistics privacy, and the visual/access evidence are complete.
 - Multiple prior cuts were rejected until resolved where competing authority paths remained; these were repaired to enforce single-truth ownership for policy, entitlement, and course membership.
 - This file preserves the start sequence as implementation history and records the completed closure.
@@ -45,7 +45,7 @@
 2) Scope freeze (next 10 min)
 
 - Write a one-line scope declaration before coding:
-  - In scope: disclosure and learner-projection behavior consumption only.
+  - In scope: disclosure and student-projection behavior consumption only.
   - Out of scope: S3/S5 resolver changes, entitlement authority rewrites, and migration packages not reserved by S4.
 - Reconfirm immutable owners from previous packages:
   - S3 = effective policy/resolution authority.
@@ -53,7 +53,7 @@
 
 3) Inventory pass (30-45 min)
 
-- Map all disclosure consumers (run list, run detail, summaries, grade-facing learner projections, any retention views).
+- Map all disclosure consumers (run list, run detail, summaries, grade-facing student projections, any retention views).
 - Ensure each path reads only through the accepted owners (S3/S5 + designated disclosure projection owners).
 - Remove/neutralize any direct legacy policy-timing authority reads; no compatibility fallback behavior.
 - Verify the centrally derived role boundary denies every instructor-only route before transport,

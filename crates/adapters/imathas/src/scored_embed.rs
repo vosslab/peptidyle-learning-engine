@@ -8,7 +8,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::{ActivityTimestamp, AttemptResult, VersionId};
+use question_model::{ActivityTimestamp, AttemptResult, QuestionVersionReference};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
@@ -210,14 +210,14 @@ impl ScoredEmbedLaunchLedger {
             return Err(ScoredEmbedFailure::InvalidLedger);
         }
         let binding_digest = launch_binding_digest(
-            binding,
+            &binding,
             &provider_question_id,
             &source_digest,
             normalize_provider_seed(binding.seed),
             &correlation,
         );
         Ok(Self {
-            binding,
+            binding: binding.clone(),
             provider_key: profile.provider_key.clone(),
             provider_question_id,
             source_digest,
@@ -242,7 +242,7 @@ impl ScoredEmbedLaunchLedger {
     /// The private cache key component: version plus normalized provider seed.
     pub fn cache_key(&self) -> ScoredEmbedRenderCacheKey {
         ScoredEmbedRenderCacheKey {
-            version: self.binding.version,
+            question_version: self.binding.question_version.clone(),
             provider_seed: self.provider_seed,
             profile: self.profile.clone(),
         }
@@ -267,7 +267,7 @@ impl ScoredEmbedLaunchLedger {
 
     pub(crate) fn storage_parts(&self) -> LaunchLedgerStorageParts {
         LaunchLedgerStorageParts {
-            binding: self.binding,
+            binding: self.binding.clone(),
             provider_key: self.provider_key.clone(),
             provider_question_id: self.provider_question_id.clone(),
             source_digest: self.source_digest.clone(),
@@ -297,7 +297,7 @@ impl ScoredEmbedLaunchLedger {
         }
         let correlation = ServerCorrelation(parts.correlation);
         let expected = launch_binding_digest(
-            parts.binding,
+            &parts.binding,
             &parts.provider_question_id,
             &parts.source_digest,
             parts.provider_seed,
@@ -403,7 +403,7 @@ impl std::fmt::Debug for ScoredEmbedLaunchClaims {
 /// Shared-content cache identity excludes attempt-bound grading identity.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ScoredEmbedRenderCacheKey {
-    version: VersionId,
+    question_version: QuestionVersionReference,
     provider_seed: u16,
     profile: String,
 }
@@ -412,7 +412,7 @@ impl std::fmt::Debug for ScoredEmbedRenderCacheKey {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ScoredEmbedRenderCacheKey")
-            .field("version", &self.version)
+            .field("question_version", &self.question_version)
             .field("provider_seed", &self.provider_seed)
             .field("profile", &self.profile)
             .finish()
@@ -508,7 +508,7 @@ impl ScoredEmbedResultVerifier {
                 points_earned: claims.score,
                 points_possible: 1.0,
             },
-            ledger.binding,
+            ledger.binding.clone(),
             &ledger.correlation,
         ))
     }
@@ -666,7 +666,7 @@ fn valid_nonce(value: &str) -> bool {
 }
 
 fn launch_binding_digest(
-    binding: GradeBinding,
+    binding: &GradeBinding,
     provider_question_id: &str,
     source_digest: &str,
     provider_seed: u16,
@@ -675,8 +675,8 @@ fn launch_binding_digest(
     let mut digest = Sha256::new();
     digest.update(b"ple:imathas:scored-embed-binding:v1");
     digest.update(binding.attempt.as_uuid().as_bytes());
-    digest.update(binding.problem.as_uuid().as_bytes());
-    digest.update(binding.version.as_uuid().as_bytes());
+    digest.update(binding.question_version.question_id.to_string().as_bytes());
+    digest.update(binding.question_version.version_number.get().to_be_bytes());
     digest.update(binding.seed.value().to_be_bytes());
     digest.update(provider_seed.to_be_bytes());
     digest.update(SCORED_EMBED_BROKER_PROFILE_ID.as_bytes());
@@ -689,21 +689,26 @@ fn launch_binding_digest(
 #[cfg(test)]
 mod tests {
     use hmac::{Hmac, KeyInit, Mac};
-    use question_model::{ProblemId, QuestionAttemptId, generation::Seed};
+    use question_model::{
+        QuestionAttemptId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
+        generation::Seed,
+    };
     use uuid::Uuid;
 
     use super::*;
     use crate::CorrelationIssuer;
 
     fn profile() -> ScoredEmbedProfileConfig {
-        ScoredEmbedProfileConfig::contracted_self_hosted("institution-imathas", true, true).unwrap()
+        ScoredEmbedProfileConfig::contracted_self_hosted("self-hosted-imathas", true, true).unwrap()
     }
 
     fn binding() -> GradeBinding {
         GradeBinding {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(2)),
-            problem: ProblemId::from_uuid(Uuid::from_u128(3)),
-            version: VersionId::from_uuid(Uuid::from_u128(4)),
+            question_version: QuestionVersionReference {
+                question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+                version_number: QuestionVersionNumber::new(4).expect("positive version"),
+            },
             seed: Seed::new(10_001),
         }
     }
@@ -716,8 +721,8 @@ mod tests {
     ) -> ScoredEmbedLaunchLedger {
         let correlation = CorrelationIssuer::from_server_secret([9; 32])
             .restore(
-                binding,
-                &CorrelationIssuer::from_server_secret([9; 32]).begin(binding),
+                binding.clone(),
+                &CorrelationIssuer::from_server_secret([9; 32]).begin(binding.clone()),
             )
             .unwrap();
         ScoredEmbedLaunchLedger::begin(
@@ -879,12 +884,15 @@ mod tests {
         let base = binding();
         for changed in [
             GradeBinding {
-                version: VersionId::from_uuid(Uuid::from_u128(44)),
-                ..base
+                question_version: QuestionVersionReference {
+                    question_id: base.question_version.question_id.clone(),
+                    version_number: QuestionVersionNumber::new(44).expect("positive version"),
+                },
+                ..base.clone()
             },
             GradeBinding {
                 seed: Seed::new(10_002),
-                ..base
+                ..base.clone()
             },
         ] {
             let mut other = ledger_with(changed, "a".repeat(64), [8; 32], 20_000);

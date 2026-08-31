@@ -7,14 +7,12 @@ CREATE TABLE ple_data.published_question (
     CONSTRAINT published_question_id_is_crockford_shape CHECK (question_id ~ '^[0-9A-HJKMNP-TV-Z]{3,12}-[0-9A-HJKMNP-TV-Z]{4,12}$')
 );
 CREATE TABLE ple_data.published_question_version (
-    problem_id uuid PRIMARY KEY,
-    version_id uuid NOT NULL UNIQUE,
     question_id text NOT NULL REFERENCES ple_data.published_question (question_id),
+    version_number integer NOT NULL CHECK (version_number > 0),
     backend text NOT NULL CHECK (backend IN ('native', 'webwork', 'qti', 'h5p', 'imathas')),
-    lifecycle text NOT NULL CHECK (lifecycle IN ('published', 'deprecated', 'archived')),
     published_at timestamp with time zone NOT NULL,
     public_metadata jsonb NOT NULL,
-    CONSTRAINT published_question_version_problem_version_is_unique UNIQUE (problem_id, version_id),
+    PRIMARY KEY (question_id, version_number),
     CONSTRAINT published_question_version_metadata_is_object CHECK (jsonb_typeof(public_metadata) = 'object')
 );
 CREATE FUNCTION ple_data.reject_published_question_version_change()
@@ -37,5 +35,5 @@ ALTER TABLE ple_data.published_question_version FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_data.published_question, ple_data.published_question_version FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_published_question_version_change() FROM PUBLIC;
 COMMENT ON TABLE ple_data.published_question IS 'Shared stable human-facing QuestionId lineage root; no private draft or answer data.';
-COMMENT ON TABLE ple_data.published_question_version IS 'Immutable answer-free published version metadata; grading/source payloads remain private.';
+COMMENT ON TABLE ple_data.published_question_version IS 'Immutable answer-free published version metadata; publication and current selection availability are separate event evidence.';
 RESET ROLE;

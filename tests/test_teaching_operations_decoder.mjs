@@ -4,10 +4,8 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeAssignmentPolicyPatchUpdateRequest,
-  decodeCourseGroupCreateRequest,
-  decodeCourseGroupDetailView,
-  decodeCoInstructorTargetSearchPage,
-  decodeCoInstructorTargetSearchRequest,
+  decodeCourseInvitationTargetSearchPage,
+  decodeCourseInvitationTargetSearchRequest,
   decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
   decodeRetentionReadView,
@@ -17,10 +15,6 @@ import {
   decodeTeachingPreviewView,
 } from "../src/api/decoders.ts";
 
-function group(reference, title, memberCount) {
-  return { reference, title, purpose: "lab", revision: "2", memberCount };
-}
-
 function membership(reference, display) {
   return { reference, display, role: "student", status: "active" };
 }
@@ -28,50 +22,6 @@ function membership(reference, display) {
 function baseSource() {
   return { kind: "base", label: "Course policy" };
 }
-
-test("course-group contracts preserve valid bounded route references", () => {
-  const response = {
-    group: group("G-7", "Thursday lab", 1),
-    members: [membership("M-9", "Ada Lovelace")],
-    nextCursor: null,
-  };
-  assert.deepEqual(decodeCourseGroupDetailView(response), response);
-  assert.deepEqual(
-    decodeCourseGroupCreateRequest({ title: "Thursday lab", purpose: "lab", members: ["M-9"] }),
-    { title: "Thursday lab", purpose: "lab", members: ["M-9"] },
-  );
-});
-
-test("group decoders reject extra fields, invalid references, and duplicate members", () => {
-  assert.throws(
-    () =>
-      decodeCourseGroupDetailView({
-        group: group("G-07", "Thursday lab", 0),
-        members: [],
-        nextCursor: null,
-      }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeCourseGroupCreateRequest({
-        title: "Thursday lab",
-        purpose: "lab",
-        members: ["M-1", "M-1"],
-      }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeCourseGroupDetailView({
-        group: group("G-7", "Thursday lab", 0),
-        members: [],
-        nextCursor: null,
-        email: "no",
-      }),
-    DecodeError,
-  );
-});
 
 test("allowed preview carries exact provenance while denied preview is sealed", () => {
   const source = baseSource();
@@ -147,8 +97,8 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
     students: [membership("M-9", "Ada Lovelace")],
     nextCursor: null,
   };
-  assert.deepEqual(decodeCoInstructorTargetSearchPage(targetPage), targetPage);
-  assert.deepEqual(decodeCoInstructorTargetSearchRequest({ query: "Ada", after: null, size: 20 }), {
+  assert.deepEqual(decodeCourseInvitationTargetSearchPage(targetPage), targetPage);
+  assert.deepEqual(decodeCourseInvitationTargetSearchRequest({ query: "Ada", after: null, size: 20 }), {
     query: "Ada",
     after: null,
     size: 20,
@@ -156,7 +106,7 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
   assert.deepEqual(decodeCourseStudentMembershipsPage(studentPage), studentPage);
   assert.throws(
     () =>
-      decodeCoInstructorTargetSearchPage({
+      decodeCourseInvitationTargetSearchPage({
         ...targetPage,
         targets: [
           {
@@ -168,7 +118,7 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
     DecodeError,
   );
   assert.throws(
-    () => decodeCoInstructorTargetSearchRequest({ query: "A", after: null, size: 20 }),
+    () => decodeCourseInvitationTargetSearchRequest({ query: "A", after: null, size: 20 }),
     DecodeError,
   );
   assert.throws(

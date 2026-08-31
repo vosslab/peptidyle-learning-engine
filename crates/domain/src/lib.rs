@@ -6,12 +6,11 @@
 //! and makes the seed-parity test meaningful.
 
 /// Attempt state machine (MOD-STATE).
-pub mod attempt;
 /// Completion derivation within a run (MOD-STATE).
 pub mod completion;
 /// Pure course-grade aggregation from selected assignment scores.
 pub mod course_grade;
-/// Pure evaluation of assignment-owned learner disclosure policy (WP-INST-S4).
+/// Pure evaluation of assignment-owned student disclosure policy (WP-INST-S4).
 pub mod disclosure_policy;
 /// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
 pub mod draft_preview;
@@ -46,9 +45,9 @@ pub use crate::course_grade::{
     calculate_course_grade,
 };
 pub use crate::teaching_authority::{
-    CoInstructorInvitationAcceptance, CoInstructorInvitationError, DirectInstructorMembership,
+    CourseInvitationAcceptance, CourseInvitationError, DirectInstructorMembership,
     InstructorAuthority, InstructorMembershipRemovalError, StudentCourseMembership,
-    accept_co_instructor_invitation, approved_instructor, current_course_instructor,
-    evaluate_course_instructor_authority, evaluate_multiple_membership, invitation_state,
+    accept_course_invitation, approved_instructor, current_course_instructor,
+    evaluate_course_instructor_authority, invitation_state,
     refuse_final_instructor_removal, student_owns_course_record, validate_instructor_approval,
 };

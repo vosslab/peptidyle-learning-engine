@@ -6,7 +6,7 @@ import "./instructor_data_tables.css";
 import "./course_roster_page.css";
 
 import type {
-  AllowedEmailDomain,
+  CourseInvitationEmailDomain,
   CourseInvitationEmailDelivery,
   CourseRosterPage,
   RosterImportDelivery,
@@ -77,12 +77,12 @@ function importReasonLabel(reason: RosterImportPreview["rows"][number]["reason"]
   }
 }
 
-function policyLines(rules: ReadonlyArray<AllowedEmailDomain>): string {
+function policyLines(rules: ReadonlyArray<CourseInvitationEmailDomain>): string {
   return rules.map((rule) => `${rule.includeSubdomains ? "*." : ""}${rule.domain}`).join("\n");
 }
 
-function parsePolicyLines(value: string): ReadonlyArray<AllowedEmailDomain> {
-  const rules: Array<AllowedEmailDomain> = [];
+function parsePolicyLines(value: string): ReadonlyArray<CourseInvitationEmailDomain> {
+	const rules: Array<CourseInvitationEmailDomain> = [];
   for (const line of value.split(/\r?\n/u)) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
@@ -120,9 +120,6 @@ export function CourseRosterPage(): JSX.Element {
   const [email, setEmail] = createSignal("");
   const [rosterId, setRosterId] = createSignal("");
   const [policyDomains, setPolicyDomains] = createSignal("");
-  const [signupPosture, setSignupPosture] = createSignal<"invitationOnly" | "permittedDomains">(
-    "invitationOnly",
-  );
   const [selectedFile, setSelectedFile] = createSignal<File | null>(null);
   const [preview, setPreview] = createSignal<RosterImportPreview | null>(null);
   const [lastBulkDelivery, setLastBulkDelivery] = createSignal<ReadonlyArray<RosterImportDelivery>>(
@@ -158,7 +155,6 @@ export function CourseRosterPage(): JSX.Element {
       const roster = await runtime.client.listCourseRoster(courseId);
       setState({ kind: "ready", roster });
       setPolicyDomains(policyLines(roster.allowedEmailDomains));
-      setSignupPosture(roster.signupPosture);
       setAnnouncement(
         `Roster loaded with ${roster.members.length} member${roster.members.length === 1 ? "" : "s"} and ${roster.pendingInvitations.length} pending invitation${roster.pendingInvitations.length === 1 ? "" : "s"}.`,
       );
@@ -290,20 +286,19 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const policy = await runtime.client.replaceCourseEnrollmentPolicy(
+      const policy = await runtime.client.replaceCourseInvitationEmailRule(
         courseId,
         {
           allowedEmailDomains: parsePolicyLines(policyDomains()),
-          signupPosture: signupPosture(),
         },
         current.roster.rosterRevision,
       );
       setPolicyDomains(policyLines(policy.allowedEmailDomains));
-      setAnnouncement("Enrollment policy saved.");
+      setAnnouncement("Course invitation email rule saved.");
       await load();
     } catch {
       setError(
-        "The enrollment policy was not saved. Use exact domains such as mail.roosevelt.edu or *.example.edu.",
+        "The course invitation email rule was not saved. Use exact domains such as mail.roosevelt.edu or *.example.edu.",
       );
     } finally {
       setBusy(false);
@@ -438,7 +433,7 @@ export function CourseRosterPage(): JSX.Element {
             <div class="roster-workflow-grid">
               <form class="auth-panel auth-form" onSubmit={(event) => void invite(event)}>
                 <h2>Invite one student</h2>
-                <label for="roster-email">Institutional email</label>
+                <label for="roster-email">Course roster email</label>
                 <input
                   id="roster-email"
                   type="email"
@@ -448,7 +443,7 @@ export function CourseRosterPage(): JSX.Element {
                   value={email()}
                   onInput={(event) => setEmail(event.currentTarget.value)}
                 />
-                <label for="roster-id">Institutional student ID</label>
+                <label for="roster-id">Course roster ID</label>
                 <input
                   id="roster-id"
                   inputmode="text"
@@ -471,22 +466,7 @@ export function CourseRosterPage(): JSX.Element {
               </form>
 
               <form class="auth-panel auth-form" onSubmit={(event) => void savePolicy(event)}>
-                <h2>Enrollment policy</h2>
-                <label for="signup-posture">How learners may join</label>
-                <select
-                  id="signup-posture"
-                  value={signupPosture()}
-                  onChange={(event) =>
-                    setSignupPosture(
-                      event.currentTarget.value === "permittedDomains"
-                        ? "permittedDomains"
-                        : "invitationOnly",
-                    )
-                  }
-                >
-                  <option value="invitationOnly">Invitation only</option>
-                  <option value="permittedDomains">Invitations and permitted domains</option>
-                </select>
+                <h2>Course invitation email rule</h2>
                 <label for="permitted-domains">Permitted email domains</label>
                 <textarea
                   id="permitted-domains"
@@ -499,7 +479,7 @@ export function CourseRosterPage(): JSX.Element {
                   One exact domain per line. Prefix with *. only when subdomains are intentional.
                 </p>
                 <button class="quiet-action" type="submit" disabled={busy()}>
-                  Save enrollment policy
+                  Save invitation email rule
                 </button>
               </form>
             </div>
@@ -537,7 +517,7 @@ export function CourseRosterPage(): JSX.Element {
                   </button>
                   <p id="created-invitation-help" class="field-help">
                     This bearer link is shown only in this page session. Copy it now, send it only
-                    to the intended learner, and cancel the pending invitation if it reaches the
+                    to the intended student, and cancel the pending invitation if it reaches the
                     wrong person.
                   </p>
                 </section>

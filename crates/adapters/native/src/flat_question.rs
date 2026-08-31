@@ -17,7 +17,7 @@ pub use grading::flat_question::{
     is_flat_question_family, validate_flat_question_question, validate_for_draft,
 };
 use question_model::envelope::ContentBlock;
-use question_model::run_policy::{AttemptPolicy, TimingPolicy};
+use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
     DraftQuestionDefinition, QuestionDefinition, WorkspaceId,
@@ -154,7 +154,7 @@ impl From<&FlatLicense> for License {
     }
 }
 
-/// One learner-visible choice and its optional private teaching feedback.
+/// One student-visible choice and its optional private teaching feedback.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FlatChoice {

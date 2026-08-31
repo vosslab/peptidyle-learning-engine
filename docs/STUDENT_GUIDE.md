@@ -25,7 +25,7 @@ discards them and recreates the same fictional baseline.
 ## Before you begin
 
 - Open the local stack's HTTPS URL and use the visible PLE account page.
-- The current live-demo build uses its visible seeded-persona selector to enter a fictional learner
+- The current live-demo build uses its visible seeded-persona selector to enter a fictional Student
   Account through the ordinary Authenticated Session. Email-code and passkey sign-in remain the
   required product paths and are being reconstructed on that same session foundation.
 - If you are not using the seeded selector, ask the instructor to create an invitation and share its
@@ -60,7 +60,7 @@ The student receives visible feedback, but answer keys and grading implementatio
 server. The browser displays the countdown; the server decides whether a response arrived on time.
 When scoring is recalculating or has failed, the page reports that neutral state and omits numeric
 scores; it never presents a missing score as zero. Draft, closed, or otherwise unavailable work does
-not expose instructor policy or provenance through the learner route.
+not expose instructor policy or provenance through the Student route.
 
 ## Practice again
 
@@ -68,7 +68,7 @@ The completed summary keeps **Start fresh practice** available. Activating it op
 **Practice run 2** screen with no response selected, proving that the student entered a new run rather
 than reopening the completed one. This demo assignment is untimed; timed assignments display a fresh
 server-authoritative deadline. The completed assignment remains recorded. Leaving an unsubmitted
-response and resuming the active run clears that response, so the learner returns to an intentional
+response and resuming the active run clears that response, so the Student returns to an intentional
 fresh choice.
 
 After a completed run, the instructor can verify the score summary and history described in

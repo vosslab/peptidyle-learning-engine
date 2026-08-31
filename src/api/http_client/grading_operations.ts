@@ -44,7 +44,7 @@ function listPath(
       "grading operations page size must be an integer from 1 through 100",
     );
   }
-  const checkedGroupBy = decodeStringEnum(groupBy, "groupBy", ["question", "learner"] as const);
+  const checkedGroupBy = decodeStringEnum(groupBy, "groupBy", ["question", "student"] as const);
   const query = new URLSearchParams({ groupBy: checkedGroupBy });
   if (cursor !== undefined) query.set("cursor", decodeCursor(cursor, "cursor"));
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));

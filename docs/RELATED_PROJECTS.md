@@ -30,7 +30,7 @@ current acceptance status remains in
 - Comparison evidence: PLE adopts the useful navigation shape in its
   [Instructor page map](INSTRUCTOR_PAGE_VISUALS.md): an assignment title opens an assignment-local
   Instructor home, Questions owns question and pool authoring, Policies (the PLE name for delivery
-  properties) owns delivery rules, and Student view exposes the current learner landing.
+  properties) owns delivery rules, and Student view exposes the current student landing.
 - Boundary and advantage: PLE's [live-demo specification](LIVE_DEMO_SPEC.md) exercises the ordinary
   live Student workflow, including real submissions, deterministic server grading, receipts, and
   gradebook evidence. PLE's [adapter contract](ADAPTER_DEVELOPMENT.md) keeps answer keys and grading
@@ -64,7 +64,7 @@ current acceptance status remains in
 - Evidence: the OpenWeBWorK organization identifies PG as its problem-rendering engine, and PLE's
   [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) documents PG behind the
   private renderer boundary.
-- Notes: PG supplies question-engine behavior; PLE retains course, learner, attempt, and gradebook
+- Notes: PG supplies question-engine behavior; PLE retains course, student, attempt, and gradebook
   ownership.
 
 ### WeBWorK Open Problem Library

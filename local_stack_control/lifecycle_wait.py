@@ -79,7 +79,7 @@ def poll_ready(
 def require_one_shot_completion(report: local_stack_control.models.StatusReport) -> None:
 	"""Reject missing, duplicate, running, or failed required one-shot services."""
 	for service in report.services:
-		if service.service not in local_stack_control.status.required_one_shots(report.with_smtp):
+		if service.service not in local_stack_control.status.required_one_shots():
 			continue
 		if not service.complete:
 			raise local_stack_control.models.ControllerError(

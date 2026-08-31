@@ -2,14 +2,14 @@
 
 ## Status and authority
 
-This document explains PLE's learner-facing assessment payload boundary, compares it with the local
+This document explains PLE's student-facing assessment payload boundary, compares it with the local
 LibreTexts ADAPT snapshot, and summarizes the accepted implementation direction. It distinguishes
 the current implementation from the target contract so contributors do not mistake planned wire
 changes for current behavior.
 
 The canonical browser path is the single production-shaped live-demo application. Payload examples
 and one-time wire fixtures in this document describe bounded codec evidence only; they are not a
-second browser application or a source of seeded learner records.
+second browser application or a source of seeded student records.
 
 The exact codec and cutover requirements are owned by this contract and its
 focused tests. The single-installation ownership and authorization target is
@@ -19,7 +19,7 @@ order. This durable guide explains why those decisions exist and how the boundar
 
 ## Design summary
 
-PLE should send a rich, answer-free render payload once and accept a much smaller learner response.
+PLE should send a rich, answer-free render payload once and accept a much smaller student response.
 The browser needs enough public information to draw the prompt, choices, input controls, accessible
 labels, and assets. It does not need database provenance, grading rules, answer keys, backend
 selection, renderer credentials, or the complete attempt record.
@@ -29,7 +29,7 @@ The target contract is:
 ```text
 Browser                                      PLE
    |                                          |
-   | GET /api/runs/{run}/screen               |
+   | GET /api/assignment-attempts/{assignmentAttempt}/screen |
    |----------------------------------------->|
    | minimal shell + attempt + public render  |
    |<-----------------------------------------|
@@ -42,12 +42,12 @@ Browser                                      PLE
    |<-----------------------------------------|
 ```
 
-The authenticated `QuestionAttemptId` in the route is the primary learner-response binding. The
-server resolves it to one exact `CourseId`, `StudentId`, `RunId`, and immutable
-`ProblemVersionRef` plus seed before reading or mutating anything. A presentation digest checks that
+The authenticated `QuestionAttemptId` in the route is the primary student-response binding. The
+server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and immutable
+`QuestionVersionReference` plus seed before reading or mutating anything. A presentation digest checks that
 the browser answered the same render state PLE issued. Compact
 CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, and hotspot
-surfaces within that presentation. Neither the digest nor CRC16 authenticates the learner or proves
+surfaces within that presentation. Neither the digest nor CRC16 authenticates the student or proves
 correctness.
 
 ### SD1 authorization binding
@@ -55,13 +55,13 @@ correctness.
 An issued attempt is an educational record with one closed server-side identity tuple:
 
 ```text
-(CourseId, StudentId, RunId, QuestionAttemptId,
- ProblemVersionRef { problem, version }, seed)
+(CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
+ QuestionVersionReference { question_id, version_number }, seed)
 ```
 
-`CourseId` and `StudentId` are checked against the authenticated account's exact course membership
-and Student ownership. `RunId` and `QuestionAttemptId` must resolve through that same relationship;
-the immutable `ProblemVersionRef` and seed must match the issued run item. A route parameter,
+`CourseId` and `StudentRecordId` are checked against the authenticated Account's exact Course Membership
+and Student ownership. `AssignmentAttemptId` and `QuestionAttemptId` must resolve through that same relationship;
+the immutable `QuestionVersionReference` and seed must match the Issued Question. A route parameter,
 browser field, cache key, provider identifier, or queue payload cannot widen or replace this tuple.
 The protected read or write performs the relationship check and data operation in one forced-RLS
 transaction.
@@ -84,7 +84,7 @@ answer-free. It currently contains:
 
 - immutable question `version`;
 - server-issued `seed`;
-- learner-facing `title`;
+- student-facing `title`;
 - ordered prompt blocks for text, math, images, code, and tables;
 - public asset IDs, SHA-256 checksums, and accessible descriptions; and
 - a tagged `ResponseDefinition` that selects the browser widget.
@@ -94,7 +94,7 @@ to draw radio buttons, checkboxes, text boxes, ordering controls, matching contr
 surface. Content-block `kind` values are similarly useful render discriminants.
 
 The current [ResponseDefinition](../crates/question_model/src/response.rs) is broader than the
-eventual learner schema. For example, it exposes numeric tolerance and short-text match mode even
+eventual student schema. For example, it exposes numeric tolerance and short-text match mode even
 though those values describe grading rather than rendering. The target projection retains public
 input constraints and displayed units while keeping tolerances, normalization rules, answer keys,
 weights, and rubrics server-only.
@@ -113,7 +113,7 @@ The current browser run screen receives a complete
 - adapter, renderer, generator, source-object, asset-object, grading, and rendered-hash provenance.
 
 Most of those fields are legitimate server evidence but unnecessary browser data. The active UI
-needs only the attempt ID, learner-visible deadline, presentation binding, and public envelope. It
+needs only the attempt ID, student-visible deadline, presentation binding, and public envelope. It
 does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
 implementation versions, or complete provenance.
 
@@ -121,7 +121,7 @@ The implemented `getRunScreen` client currently assembles a screen by loading th
 cursor-paged attempts, assignment, course, appearance, and issued question. In a one-time wire
 fixture,
 that required at least seven JSON responses across four dependent waves. A purpose-built server
-projection can perform those relationship checks once and return one bounded learner screen.
+projection can perform those relationship checks once and return one bounded student screen.
 
 ### Current response payload
 
@@ -147,10 +147,10 @@ the response against the checksummed issued public snapshot, and atomically reco
 accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
 matching server-only grading envelope, grades under server authority, and commits the completed
 aggregate. Neither path reproduces a mutable issued envelope. Therefore the submitted `kind` is
-redundant. The attempt already determines the expected Answer Format.
+redundant. The attempt already determines the expected response family.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
-and its issued public snapshot Answer Format, then select a closed, format-specific decoder for `answer`.
+and its issued public snapshot response schema, then select a closed, family-specific decoder for `answer`.
 Unknown fields and shapes must continue to fail closed. Rich tagged Rust and TypeScript draft types
 may remain internal even though the public answer wire is type-free.
 
@@ -163,7 +163,7 @@ only:
 - whether the submission was accepted;
 - the committed attempt ID;
 - policy-permitted correctness or points, if disclosure allows them;
-- sanitized learner feedback, if disclosure allows it; and
+- sanitized student feedback, if disclosure allows it; and
 - the minimal next-attempt descriptor, if one was promoted.
 
 The receipt never returns an answer key, expected value, private rubric, component weights, source,
@@ -175,16 +175,16 @@ renderer field names, credentials, or raw provider results.
 
 An issued attempt already binds the facts required to grade safely:
 
-- authenticated learner through exact CourseId and Student ownership;
+- authenticated student through exact CourseId and Student ownership;
 - course and assignment context;
-- exact immutable ProblemVersionRef and assignment position;
+- exact immutable QuestionVersionReference and assignment position;
 - generated seed and immutable provenance;
-- expected Answer Format and grading backend;
+- expected response family and grading backend;
 - issue time, effective deadline, and submission state; and
 - feedback, retry, grading, and continued-practice policies.
 
 The browser therefore does not need to resend a question ID, course ID, assignment ID, version,
-seed, backend, Answer Format, points, or grading mode. Treating browser copies of those values as
+seed, backend, response family, points, or grading mode. Treating browser copies of those values as
 authority would create disagreement cases without adding information.
 
 ### UUID cost
@@ -200,9 +200,9 @@ authoritative.
 
 ## Target network contract
 
-### Learner screen
+### Student screen
 
-The target `GET /api/runs/{run}/screen` response contains one navigation shell, one active attempt
+The target `GET /api/assignment-attempts/{assignmentAttempt}/screen` response contains one navigation shell, one active Assignment Attempt
 descriptor, and one public envelope:
 
 ```json
@@ -212,9 +212,8 @@ descriptor, and one public envelope:
     "assignment": "...",
     "theme": "grass"
   },
-  "run": {
-    "number": 4,
-    "mode": "practice"
+  "assignmentAttempt": {
+    "attemptNumber": 4
   },
   "attempt": {
     "id": "...",
@@ -235,9 +234,9 @@ descriptor, and one public envelope:
 }
 ```
 
-The run ID is already in the request path. The response omits complete enrollment, assignment,
-course, Student, attempt, and provenance records. The authenticated server resolves Student ownership
-from the exact course membership; the browser does not choose or receive a Student identifier. The
+The Assignment Attempt reference is already in the request path. The response omits complete Student Record, assignment,
+course, Student, Question Attempt, and provenance records. The authenticated server resolves Student ownership
+from the exact Course Membership; the browser does not choose or receive a Student identifier. The
 browser receives `version` and `seed` because they help identify and reproduce the public render, but
 it does not send either value back when answering.
 
@@ -259,14 +258,14 @@ the strict `answer` decoder from the attempt's issued response definition.
 | ----------------- | ------------------------------------------------------------ |
 | Single choice     | `{ "selected": "4ef3" }`                                     |
 | Multiple answer   | `{ "selected": ["4ef3", "91c2"] }`                           |
-| Fill in the blank | `{ "text": "learner text" }`                                 |
-| Multiple blanks   | `{ "blanks": [{ "slot": "4ef3", "text": "learner text" }] }` |
+| Fill in the blank | `{ "text": "student text" }`                                 |
+| Multiple blanks   | `{ "blanks": [{ "slot": "4ef3", "text": "student text" }] }` |
 | Numerical         | `{ "text": "1.25e-3" }`                                      |
 | Matching          | `{ "matches": [{ "prompt": "12a4", "choice": "ef32" }] }`    |
 | Ordering          | `{ "order": ["91c2", "bb28", "4ef3"] }`                      |
 | Hotspot           | `{ "surface": "4ef3", "points": [{ "x": 512, "y": 233 }] }`  |
 
-Numerical input remains lexical text on the wire. This preserves what the learner typed, permits
+Numerical input remains lexical text on the wire. This preserves what the student typed, permits
 strict server parsing, and avoids browser/server disagreement about floating-point serialization or
 accepted scientific notation.
 
@@ -296,7 +295,7 @@ The target result is a compact, policy-projected receipt, conceptually:
 `outcome` or parts of it may be absent when the feedback policy withholds correctness or score. The
 browser never calculates partial credit and never sends component scores, weights, maximum score, or
 claims of correctness. Native PLE grading or the private backend computes all component results and
-the server projects only what the learner may see.
+the server projects only what the student may see.
 
 ## Rendered-item IDs
 
@@ -351,14 +350,14 @@ item in the whole presentation:
 4. Retry with a fresh nonce, at most eight times.
 5. Fail closed rather than issue an ambiguous presentation.
 
-The learner never receives a presentation containing a duplicate. CRC16 is attractive here because
+The student never receives a presentation containing a duplicate. CRC16 is attractive here because
 it is compact and easy to inspect, not because it is collision-resistant or secret.
 
 ## Presentation consistency
 
 ### Whole-presentation digest
 
-Fine-grained IDs say which rendered objects the learner selected. A separate SHA-256 digest binds the
+Fine-grained IDs say which rendered objects the student selected. A separate SHA-256 digest binds the
 complete public presentation:
 
 - immutable version and seed;
@@ -377,9 +376,9 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 
 | Mechanism                         | Detects                                                                                                 | Does not prove                                                 |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, wrong hotspot surface | Learner identity or correctness                                |
+| Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, wrong hotspot surface | Student identity or correctness                                |
 | Presentation digest               | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce      | TLS, browser integrity, pixel display, or image decode success |
-| Authenticated attempt             | Learner ownership, course/run binding, lifecycle, timing, backend, and immutable version                | That the browser rendered every asset                          |
+| Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                | That the browser rendered every asset                          |
 | Idempotency record                | Exact retry versus changed replay                                                                       | Correctness of the answer                                      |
 
 An ordinary transport checksum is unnecessary because TLS and HTTP already detect transfer
@@ -395,10 +394,10 @@ answers, source, credentials, or provider state.
 The browser then:
 
 1. disables submission;
-2. preserves the learner's editable draft in memory under attempt ID plus digest;
+2. preserves the student's editable draft in memory under attempt ID plus digest;
 3. reloads the same attempt presentation;
 4. restores the draft only when the response schema and rendered IDs remain compatible;
-5. asks the learner to review the restored answer; and
+5. asks the student to review the restored answer; and
 6. submits again only after the current presentation validates.
 
 PLE must not silently issue a new seed, grade against the stale state, or discard typed work. A
@@ -432,7 +431,7 @@ source from server-only object storage and caches the safe render by problem, ve
 recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
 reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
 attempt-bound replay mapping is loaded separately from the protected record for the exact
-`CourseId`, `StudentId`, `RunId`, and `QuestionAttemptId`.
+`CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and `QuestionAttemptId`.
 
 PLE privately calls the external standalone `/render-api` form endpoint with source, file path,
 seed, fixed display controls, and signed renderer state. Those fields never cross the browser
@@ -447,7 +446,7 @@ server-only grading envelope, and frozen WeBWorK definition under the issued att
 validates those artifacts and performs only the private grade call; it never resolves a current
 catalog definition or rerenders to recover state. The official upstream endpoint is stateless, so
 PLE still sends immutable source provenance and signed server state on that private grade call. That
-repetition is an internal service cost, not learner payload.
+repetition is an internal service cost, not student payload.
 
 ### Implemented private replay slice and remaining target
 
@@ -491,13 +490,13 @@ The inspected evidence is in `routes/api.php`,
 ### Native ADAPT flow
 
 ADAPT's assignment question view returns rich question records containing IDs, technology, revision,
-seeded and learner-sanitized QTI JSON, prior response, points, timing/attempt state, media URLs, and
+seeded and student-sanitized QTI JSON, prior response, points, timing/attempt state, media URLs, and
 external iframe state. Its QTI formatter appropriately strips correct responses, private feedback,
 and solutions when release policy does not allow them.
 
 The native browser submits `assignment_id`, `question_id`, serialized `submission`, and a
 client-selected `technology`; current client code also constructs `max_score`. The server loads the
-stored question and infers `questionType`, so ADAPT already demonstrates that the learner does not
+stored question and infers `questionType`, so ADAPT already demonstrates that the student does not
 need to submit the native question family. It computes partial credit server-side.
 
 ADAPT's simple multiple-choice answer can be one choice identifier, but some families are more
@@ -517,10 +516,10 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 | Concern             | ADAPT observation                                    | PLE decision                                             |
 | ------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
 | Render sanitization | Strips correct responses and feedback by role/policy | Adopt and preserve                                       |
-| Determinism         | Stores a per-learner assignment/question seed        | Adopt the deterministic principle; bind it to an attempt |
+| Determinism         | Stores a per-student assignment/question seed        | Adopt the deterministic principle; bind it to an attempt |
 | Native type         | Server infers `questionType`                         | Remove submission `kind` in PLE v1                       |
 | Native identity     | Browser sends assignment and question IDs            | Use one attempt ID that already binds both               |
-| Native render scope | Rich assignment/question records                     | Return one minimal active learner screen                 |
+| Native render scope | Rich assignment/question records                     | Return one minimal active student screen                 |
 | Matching response   | Whole mutated objects                                | Send only rendered-ID relationships                      |
 | Backend selector    | Browser sends `technology`                           | Derive backend from the attempt                          |
 | Partial credit      | Server computes it                                   | Preserve server-only scoring                             |
@@ -553,7 +552,7 @@ One-time synthetic wire-fixture measurements from the accepted decision recorded
 These figures describe synthetic payload fixtures, not fictional live-demo records, production
 percentiles, or permanent limits. Real prompt HTML and media can be much larger. PLE permits a bounded
 PG source whose private base64 form can dwarf
-the learner's answer JSON.
+the student's answer JSON.
 
 ### Where latency matters
 
@@ -584,7 +583,7 @@ counts or arbitrary latency thresholds into permanent tests.
 
 ### Safe caching
 
-PLE may cache public render data by immutable `ProblemVersionRef`, seed, and the presentation binding.
+PLE may cache public render data by immutable `QuestionVersionReference`, seed, and the presentation binding.
 Cache entries may contain only the answer-free envelope, sanitized markup, public asset references, and
 renderer identity needed for provenance. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
@@ -595,11 +594,11 @@ assets report their documented readiness; the digest does not prove an image dec
 
 ### Safe prefetch
 
-PLE can prepare one next question while the learner works on the current question when policy allows
+PLE can prepare one next question while the student works on the current question when policy allows
 it. The server, not the browser:
 
 - chooses the next assignment position and fresh seed;
-- creates the CourseId/StudentId/run/predecessor-attempt-bound reservation;
+- creates the CourseId/StudentRecordId/Assignment Attempt/predecessor-attempt-bound reservation;
 - resolves source and backend;
 - renders and stores the public presentation binding; and
 - promotes the reservation atomically only after the predecessor commits.
@@ -617,7 +616,7 @@ The security boundary is:
 
 - TLS and same-origin browser transport;
 - authenticated HttpOnly session;
-- exact CourseId and StudentId ownership through forced RLS and run/attempt lookup;
+- exact CourseId and StudentRecordId ownership through forced RLS and Assignment Attempt lookup;
 - immutable version, seed, timing, and backend binding;
 - strict schema-selected answer decoding;
 - attempt lifecycle checks;
@@ -625,7 +624,7 @@ The security boundary is:
 - server-only grading data and provider credentials.
 
 CRC16 and the presentation digest add useful consistency evidence. They do not replace any item in
-that list. A malicious authenticated learner can see every public choice and can submit any valid
+that list. A malicious authenticated student can see every public choice and can submit any valid
 rendered ID; secrecy of distractor IDs is neither expected nor required. Correctness remains known
 only to the server-side grader.
 
@@ -637,7 +636,7 @@ easy to navigate without duplicating its exact migration and codec specification
 ### WP-P1: Contract codec
 
 - Owner: Rust implementation, independently reviewed for Wasm parity.
-- Files: question-model presentation and learner descriptors, response wire types, Wasm exports,
+- Files: question-model presentation and student descriptors, response wire types, Wasm exports,
   generated browser types, and fixed vectors.
 - Behavior: implement canonical descriptor bytes, SHA-256 digest, CRC16 item IDs, collision retry,
   and all eight minimal answer shapes.
@@ -664,11 +663,11 @@ easy to navigate without duplicating its exact migration and codec specification
 - Owner: server and native grading implementation.
 - Files: run-screen and submission projections, native backend validation, route tests, API fixtures,
   and generated client contracts.
-- Behavior: serve one minimal learner screen, decode type-free answers after attempt load, verify
+- Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
   digest and idempotency before grading, and return compact receipts.
-- Success: every Answer Format accepts its exact shape and rejects extras; exact replay returns the first
+- Success: every family accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
-  provenance crosses the active learner route.
+  provenance crosses the active student route.
 - Validation: focused Axum and security tests, family wire vectors, native regression, and independent
   server review.
 
@@ -689,7 +688,7 @@ easy to navigate without duplicating its exact migration and codec specification
 - Owner: SolidJS browser implementation with HCI review.
 - Files: API decoders/query owner, run page, attempt state, response widgets, Wasm bridge, and
   Playwright scenarios.
-- Behavior: consume the single learner screen, compute/verify through Wasm, gate required asset
+- Behavior: consume the single student screen, compute/verify through Wasm, gate required asset
   readiness, submit the compact body, and recover compatible drafts after same-attempt refresh.
 - Success: keyboard-only paths for all accepted families pass; a network trace contains no submission
   `kind`, private field, full attempt, or provider data.
@@ -715,12 +714,12 @@ Permanent tests protect stable behavior:
 - response `kind` absent from the public submission wire;
 - a missing authenticated session, another AccountId, another course, and a foreign attempt are concealed before protected
   payload access;
-- every issued and replayed record matches its exact CourseId, StudentId, RunId, QuestionAttemptId,
-  ProblemVersionRef, and seed;
+- every issued and replayed record matches its exact CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
+  QuestionVersionReference, and seed;
 - rendered-ID membership, role, collision retry, and fail-closed issuance;
 - presentation mismatch causes no grade or mutation;
 - exact idempotent replay and changed-replay conflict;
-- learner-screen and receipt allowlists;
+- student-screen and receipt allowlists;
 - target prefetch promotion and timed-content withholding;
 - normal one-call WeBWorK grading; and
 - browser traces exclude private material.
@@ -740,9 +739,9 @@ remove rebuild-only evidence once the maintained gate proves the final contract.
 
 ## Rollout decision
 
-The public contract changes atomically before WP-RC5 adds new native Question Types. Every active
-attempt uses one explicit contract version, so tagged responses and minimal answers have a closed
-version boundary.
+The public contract changes atomically before WP-RC5 adds new flat families. PLE must not maintain a
+long-lived mixed endpoint where some active attempts use tagged responses and others use type-free
+answers without an explicit contract version.
 
 The pre-production cutover:
 
@@ -761,13 +760,13 @@ boundary is specified separately in
 
 ## Final decisions
 
-- Keep `kind` in the render schema; remove it from the v1 learner answer.
+- Keep `kind` in the render schema; remove it from the v1 student answer.
 - Use one authenticated attempt ID as submission identity; do not resend question context.
 - Give every addressable rendered object a four-hex CRC16 ID unique within its presentation.
 - Keep durable internal IDs independent from browser-facing rendered IDs.
 - Use SHA-256 for whole-presentation consistency and CRC16 for compact item correspondence.
 - Keep all correctness, component scoring, and partial credit server-owned.
-- Return one minimal learner screen and one compact, policy-projected receipt.
+- Return one minimal student screen and one compact, policy-projected receipt.
 - Cache only answer-free public renders and immutable assets.
 - Use server-owned reservations for prefetch; add timed-content withholding at the target cutover.
 - Keep the official WeBWorK exchange private and reduce normal grading from two RPCs to one through

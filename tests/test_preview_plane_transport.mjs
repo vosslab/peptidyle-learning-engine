@@ -53,12 +53,11 @@ function allowedEvaluation() {
       assignment,
       revision,
       selectedMoment,
-      groups: [{ role: "labMember", purpose: "lab" }],
-      policy: schedule("groupAccommodation"),
+      policy: schedule("accommodation"),
       priorRunCount: 0,
     },
-    entitlement: "groupAudience",
-    schedule: schedule("groupAccommodation"),
+    entitlement: "activeStudentCourseMembership",
+    schedule: schedule("accommodation"),
     disclosure: [
       {
         kind: "available",
@@ -90,7 +89,7 @@ function allowedEvaluation() {
 function previewResponse() {
   return {
     evaluation: allowedEvaluation(),
-    accommodation: { before: schedule("base"), after: schedule("groupAccommodation") },
+    accommodation: { before: schedule("base"), after: schedule("accommodation") },
   };
 }
 
@@ -106,7 +105,7 @@ test("preview decoders accept the closed server projections", () => {
         kind: "granted",
         membership: "M-9",
         display: "Mary Student",
-        entitlement: "courseWide",
+        entitlement: "activeStudentCourseMembership",
         schedule: schedule(),
       },
       { kind: "denied", membership: "M-10", display: "Jack Student", reason: "notEntitled" },
@@ -119,7 +118,6 @@ test("preview decoders accept the closed server projections", () => {
     assignment,
     revision,
     selectedMoment,
-    groups: ["G-3"],
     modifiers: { mode: "extendOnly", patch: inheritPatch },
   };
   assert.deepEqual(decodeSyntheticPreviewSubjectRequest(syntheticRequest), syntheticRequest);
@@ -127,25 +125,6 @@ test("preview decoders accept the closed server projections", () => {
     decodeDerivedPreviewSubjectRequest({ assignment, revision, selectedMoment, membership: "M-9" }),
     { assignment, revision, selectedMoment, membership: "M-9" },
   );
-});
-
-test("preview group facts accept only closed role and purpose pairs", () => {
-  const pairs = [
-    ["sectionMember", "section"],
-    ["labMember", "lab"],
-    ["cohortMember", "cohort"],
-    ["accommodationRecipient", "accommodation"],
-    ["workGroupMember", "work"],
-  ];
-  for (const [role, purpose] of pairs) {
-    const response = previewResponse();
-    response.evaluation.subject.groups = [{ role, purpose }];
-    assert.deepEqual(decodePreviewPlaneResponse(response), response);
-  }
-
-  const mismatched = previewResponse();
-  mismatched.evaluation.subject.groups = [{ role: "sectionMember", purpose: "lab" }];
-  assert.throws(() => decodePreviewPlaneResponse(mismatched), DecodeError);
 });
 
 test("preview decoders reject unknown and protected fields at closed boundaries", () => {
@@ -218,7 +197,7 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
         assignment,
         revision,
         selectedMoment,
-        groups: ["G-3", "G-3"],
+        unexpectedGroups: ["G-3"],
         modifiers: { mode: "extendOnly", patch: inheritPatch },
       }),
     DecodeError,
@@ -239,7 +218,6 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
   await client.listPreviewSchedule(course, assignment, revision, "opaque +/", 25);
   await client.constructSyntheticPreview(course, assignment, revision, {
     selectedMoment,
-    groups: ["G-3"],
     modifiers: { mode: "extendOnly", patch: inheritPatch },
   });
   await client.constructDerivedPreview(course, assignment, revision, {
@@ -262,7 +240,6 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
   assert.equal(requests[1].init.headers["content-type"], "application/json");
   assert.deepEqual(JSON.parse(requests[1].init.body), {
     selectedMoment,
-    groups: ["G-3"],
     modifiers: { mode: "extendOnly", patch: inheritPatch },
   });
   assert.deepEqual(JSON.parse(requests[2].init.body), { selectedMoment, membership: "M-9" });

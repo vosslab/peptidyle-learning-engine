@@ -116,7 +116,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
         <h3>Question pool</h3>
         <p>
           Draw algorithm v1. The server selects from the candidate Question IDs and records each
-          learner&apos;s actual draw as immutable evidence.
+          student&apos;s actual draw as immutable evidence.
         </p>
       </div>
       <div class="assignment-editor-row-actions">
@@ -211,7 +211,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
               </For>
             </ol>
             <p class="assignment-editor-note">
-              This is an instructor-only sample. It does not create learner work or alter grades.
+              This is an instructor-only sample. It does not create student work or alter grades.
             </p>
           </section>
         )}

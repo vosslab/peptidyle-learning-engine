@@ -19,7 +19,7 @@ use question_model::definition::{GradingDefinition, QuestionMetadata, QuestionSo
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-use question_model::run_policy::{AttemptPolicy, TimingPolicy};
+use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use sha2::{Digest, Sha256};
 
 /// Version of the persisted H5P import record schema.
@@ -133,7 +133,7 @@ impl H5pSourceIdentity {
 pub struct H5pChoice {
     /// Stable source-local identifier for this option.
     pub id: String,
-    /// Restricted Markdown shown to the learner.
+    /// Restricted Markdown shown to the student.
     pub markdown: String,
 }
 
@@ -374,7 +374,7 @@ pub enum H5pImportError {
     EmptyChoiceId,
     /// Choice identifiers must be unique so a student response is unambiguous.
     DuplicateChoiceId(String),
-    /// A choice has no visible learner-facing text.
+    /// A choice has no visible student-facing text.
     EmptyChoiceBody(String),
 }
 
@@ -526,7 +526,7 @@ mod tests {
     use question_model::capability::Capability;
     use question_model::definition::{GradingDefinition, QuestionSource};
     use question_model::envelope::ContentBlock;
-    use question_model::run_policy::TimingPolicy;
+    use question_model::assignment_activity_rules::TimingPolicy;
     use question_model::taxonomy::License;
     use uuid::Uuid;
 

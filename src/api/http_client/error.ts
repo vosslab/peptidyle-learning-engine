@@ -49,7 +49,7 @@ export class AssignmentConflictError extends ApiRequestError {
   }
 }
 
-/** A 409 content-save refusal because immutable learner work has been issued. */
+/** A 409 content-save refusal because immutable Student work has been issued. */
 export class AssignmentIssuedWorkError extends ApiRequestError {
   declare public readonly status: 409;
 
@@ -61,7 +61,7 @@ export class AssignmentIssuedWorkError extends ApiRequestError {
 
 export type AssignmentContentSaveFailure =
   | { readonly kind: "staleRevision"; readonly message: string }
-  | { readonly kind: "issuedLearnerWork"; readonly message: string }
+  | { readonly kind: "issuedStudentWork"; readonly message: string }
   | { readonly kind: "retryable"; readonly message: string };
 
 /**
@@ -73,9 +73,9 @@ export type AssignmentContentSaveFailure =
 export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentContentSaveFailure {
   if (error instanceof AssignmentIssuedWorkError) {
     return {
-      kind: "issuedLearnerWork",
+      kind: "issuedStudentWork",
       message:
-        "Learner work has already been issued, so this assignment's question structure remains unchanged.",
+        "Student work has already been issued, so this assignment's question structure remains unchanged.",
     };
   }
   if (

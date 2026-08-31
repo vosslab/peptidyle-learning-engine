@@ -33,8 +33,6 @@ export function courseManagementSectionForRoute(
       return "students";
     case "teachingOperations":
       return "teachingOperations";
-    case "curriculumAdoption":
-      return "curriculumAdoption";
     case "gradebook":
     case "studentWorkInspection":
       return "gradebook";

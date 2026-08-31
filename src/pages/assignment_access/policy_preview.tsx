@@ -36,8 +36,8 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
       aria-labelledby="assignment-access-preview-heading"
       aria-busy={props.loading}
     >
-      <h2 id="assignment-access-preview-heading">Resolved learner preview</h2>
-      <Switch fallback={<p>Select a learner to request a server-derived preview.</p>}>
+      <h2 id="assignment-access-preview-heading">Resolved Student preview</h2>
+      <Switch fallback={<p>Select a Student to request a server-derived preview.</p>}>
         <Match when={props.loading}>
           <p role="status">Resolving access...</p>
         </Match>
@@ -47,7 +47,7 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
           </p>
         </Match>
         <Match when={props.preview?.entitlement === "denied"}>
-          <p role="status">This learner is not entitled to this assignment.</p>
+          <p role="status">This Student is not entitled to this assignment.</p>
         </Match>
         <Match when={allowed()}>
           <Show when={allowed()}>

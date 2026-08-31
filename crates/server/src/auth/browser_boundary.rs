@@ -101,7 +101,9 @@ pub(crate) async fn production_cookie_boundary(
     if is_write && !origin_matches(request.headers(), &boundary.origin) {
         return no_store((StatusCode::FORBIDDEN, "first-party origin required").into_response());
     }
-    if !one_header_value(request.headers(), HOST).is_some_and(|host| host == boundary.authority) {
+    if !one_header_value(request.headers(), HOST)
+        .is_some_and(|host| host == boundary.authority.as_ref())
+    {
         return no_store(
             (StatusCode::MISDIRECTED_REQUEST, "canonical host required").into_response(),
         );

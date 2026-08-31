@@ -235,7 +235,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         let mut fields = super::protocol::render_fields(RenderRequest {
             pg_source: request.pg_source,
             pg_path: request.pg_path,
-            version: request.version,
+            question_version: request.question_version,
             seed: request.seed,
         });
         match (request.response, request.replay) {
@@ -287,7 +287,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
                 RenderRequest {
                     pg_source: request.pg_source,
                     pg_path: request.pg_path,
-                    version: request.version,
+                    question_version: request.question_version,
                     seed: request.seed,
                 },
             ),
@@ -339,9 +339,6 @@ fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFai
             .any(|part| part.is_empty() || matches!(part, "." | ".."))
     {
         return Err(bad("WeBWorK source path is outside the supported contract"));
-    }
-    if uuid::Uuid::parse_str(request.version).is_err() {
-        return Err(bad("invalid immutable version"));
     }
     Ok(())
 }
@@ -421,10 +418,7 @@ fn project_single_radio(
     }
     Ok(ParsedRender {
         envelope: QuestionEnvelope {
-            version: question_model::VersionId::from_uuid(
-                uuid::Uuid::parse_str(request.version)
-                    .map_err(|_| bad("invalid immutable version"))?,
-            ),
+            question_version: request.question_version.clone(),
             seed: question_model::generation::Seed::new(request.seed),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text { markdown: prompt }],
@@ -480,10 +474,7 @@ fn project_matching(
     }
     Ok(ParsedRender {
         envelope: QuestionEnvelope {
-            version: question_model::VersionId::from_uuid(
-                uuid::Uuid::parse_str(request.version)
-                    .map_err(|_| bad("invalid immutable version"))?,
-            ),
+            question_version: request.question_version.clone(),
             seed: question_model::generation::Seed::new(request.seed),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text {

@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
+use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{DraftQuestionSource, GradingDefinition, QuestionMetadata, WorkspaceId};
 
@@ -73,8 +73,7 @@ impl ImathasProvider for RecordedProvider {
                 points_possible: 1.0,
             },
             request.attempt(),
-            request.problem(),
-            request.version(),
+            request.question_version().clone(),
             request.seed(),
             request.correlation(),
         );
@@ -82,8 +81,17 @@ impl ImathasProvider for RecordedProvider {
             Some(Mismatch::Attempt) => {
                 verdict.attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(99))
             }
-            Some(Mismatch::Problem) => verdict.problem = ProblemId::from_uuid(Uuid::from_u128(99)),
-            Some(Mismatch::Version) => verdict.version = VersionId::from_uuid(Uuid::from_u128(99)),
+            Some(Mismatch::Problem) => {
+                verdict.question_version = QuestionVersionReference {
+                    question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
+                        .expect("Question ID"),
+                    version_number: verdict.question_version.version_number,
+                }
+            }
+            Some(Mismatch::Version) => {
+                verdict.question_version.version_number =
+                    QuestionVersionNumber::new(99).expect("positive version")
+            }
             Some(Mismatch::Seed) => verdict.seed = Seed::new(99),
             Some(Mismatch::Correlation) => verdict.correlation = "wrong-server-correlation".into(),
             None => {}
@@ -107,8 +115,8 @@ fn provider() -> RecordedProvider {
 
 fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
     QuestionDefinition {
-        problem: ProblemId::from_uuid(Uuid::from_u128(1)),
-        version: VersionId::from_uuid(Uuid::from_u128(2)),
+        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        version_number: QuestionVersionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
         source: QuestionSource::Imathas {
             provider: "recorded-provider".into(),
@@ -135,15 +143,17 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
 
 async fn stored_source(
     store: &MemoryObjectStore,
-) -> (QuestionDefinition, ImathasSource, PublishedSourceArtifact) {
+) -> (QuestionDefinition, ImathasSource, SourceArtifact) {
     let snapshot = ObjectId::from_uuid(Uuid::from_u128(4));
     let digest = hex(Sha256::digest(b"{\"recorded\":true}").as_slice());
     let question = question(snapshot, digest);
     let object = store
         .put(PutObject {
-            key: ObjectKey::ProblemSource {
-                problem: question.problem,
-                version: question.version,
+            key: ObjectKey::QuestionSource {
+                question_version: QuestionVersionReference {
+                    question_id: question.question_id.clone(),
+                    version_number: question.version_number,
+                },
                 object: snapshot,
             },
             bytes: b"{\"recorded\":true}".to_vec(),
@@ -154,17 +164,21 @@ async fn stored_source(
         })
         .await
         .unwrap();
-    let artifact = PublishedSourceArtifact {
-        reference: question_model::ProblemVersionRef {
-            problem: question.problem,
-            version: question.version,
-        },
-        backend: question_model::QuestionBackend::Imathas,
-        object,
+    let artifact = SourceArtifact {
+        object: snapshot,
+        sha256: object.sha256.to_string(),
     };
-    let source = ImathasSource::resolve(store, &question, &artifact)
-        .await
-        .unwrap();
+    let source = ImathasSource {
+        question_version: QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        },
+        artifact: artifact.clone(),
+        provider: "recorded-provider".into(),
+        item_ref: "item-17".into(),
+        profile: "recorded-v1".into(),
+        bytes: b"{\"recorded\":true}".to_vec(),
+    };
     (question, source, artifact)
 }
 
@@ -294,7 +308,7 @@ async fn historical_invalid_metadata_title_is_refused_before_provider_or_cache()
 #[tokio::test]
 async fn snapshot_mutation_wrong_binding_and_outage_refuse_without_fabricating_incorrectness() {
     let store = MemoryObjectStore::default();
-    let (question, source, artifact) = stored_source(&store).await;
+    let (question, source, _) = stored_source(&store).await;
     let mut changed_source = question.clone();
     if let QuestionSource::Imathas {
         snapshot_sha256, ..
@@ -303,10 +317,8 @@ async fn snapshot_mutation_wrong_binding_and_outage_refuse_without_fabricating_i
         *snapshot_sha256 = "00".repeat(32);
     }
     assert_eq!(
-        ImathasSource::resolve(&store, &changed_source, &artifact)
-            .await
-            .unwrap_err(),
-        ImathasAdapterError::UntrustedSource
+        verify_binding(&changed_source, &source),
+        Err(ImathasAdapterError::SourceDoesNotMatchQuestion)
     );
     let wrong = ImathasAdapter::new(
         store.clone(),
@@ -384,14 +396,16 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let issuer = CorrelationIssuer::from_server_secret([8; 32]);
     let binding = GradeBinding {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-        problem: question.problem,
-        version: question.version,
+        question_version: QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        },
         seed: Seed::new(17),
     };
-    let persisted = issuer.begin(binding);
+    let persisted = issuer.begin(binding.clone());
     let stored_value = persisted.to_storage_value();
     let after_restart = PersistedCorrelation::from_storage_value(&stored_value).unwrap();
-    let restored = issuer.restore(binding, &after_restart).unwrap();
+    let restored = issuer.restore(binding.clone(), &after_restart).unwrap();
     let adapter = ImathasAdapter::new(store.clone(), provider(), [profile()]);
     assert!(
         adapter
@@ -405,9 +419,13 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     altered[0] = if altered[0] == b'f' { b'e' } else { b'f' };
     let altered = String::from_utf8(altered).unwrap();
     let altered = PersistedCorrelation::from_storage_value(&altered).unwrap();
-    assert!(issuer.restore(binding, &altered).is_err());
+    assert!(issuer.restore(binding.clone(), &altered).is_err());
     let wrong_issuer = CorrelationIssuer::from_server_secret([9; 32]);
-    assert!(wrong_issuer.restore(binding, &after_restart).is_err());
+    assert!(
+        wrong_issuer
+            .restore(binding.clone(), &after_restart)
+            .is_err()
+    );
     assert!(
         PersistedCorrelation::from_storage_value(&stored_value[..stored_value.len() - 1]).is_err()
     );
@@ -429,7 +447,13 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
 async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
     let store = MemoryObjectStore::default();
     let (question, source, _) = stored_source(&store).await;
-    let key = render_key(question.problem, question.version, Seed::new(31));
+    let key = render_key(
+        &QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        },
+        Seed::new(31),
+    );
     store
         .put(PutObject {
             key,
@@ -508,10 +532,12 @@ fn correlation(question: &QuestionDefinition, seed: Seed) -> ServerCorrelation {
     let issuer = CorrelationIssuer::from_server_secret([7; 32]);
     let binding = GradeBinding {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-        problem: question.problem,
-        version: question.version,
+        question_version: QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        },
         seed,
     };
-    let persisted = issuer.begin(binding);
+    let persisted = issuer.begin(binding.clone());
     issuer.restore(binding, &persisted).unwrap()
 }

@@ -5,8 +5,8 @@
 //! Authorized pauses arrive as one cumulative extension reconstructed from
 //! audit events; pause authorization and persistence belong to the server.
 
-use question_model::run_policy::TimingPolicy;
-use question_model::{ActivityTimestamp, AttemptTimerRecord};
+use question_model::assignment_activity_rules::TimingPolicy;
+use question_model::{ActivityTimestamp, QuestionAttemptTiming};
 use serde::{Deserialize, Serialize};
 
 /// Complete clock-free input to one timer evaluation.
@@ -16,7 +16,7 @@ pub struct TimerEvaluation {
     /// Authored timing and grace policy for the question or run.
     pub policy: TimingPolicy,
     /// Server-recorded issue, base-deadline, and submission timestamps.
-    pub timer: AttemptTimerRecord,
+    pub timer: QuestionAttemptTiming,
     /// Server time at which an unsubmitted timer is being evaluated.
     pub evaluated_at: ActivityTimestamp,
     /// Total authorized pause duration added to the base deadline.
@@ -190,7 +190,7 @@ mod tests {
     ) -> TimerEvaluation {
         TimerEvaluation {
             policy,
-            timer: AttemptTimerRecord {
+            timer: QuestionAttemptTiming {
                 issued_at: timestamp(1_000),
                 deadline: deadline.map(timestamp),
                 submitted_at: submitted_at.map(timestamp),
@@ -339,7 +339,7 @@ mod tests {
                 seconds: 1,
                 grace_seconds: 0,
             },
-            timer: AttemptTimerRecord {
+            timer: QuestionAttemptTiming {
                 issued_at: timestamp(i64::MAX - 1),
                 deadline: Some(timestamp(i64::MAX)),
                 submitted_at: None,

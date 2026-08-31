@@ -1,4 +1,4 @@
-// Connected learner delivery proof. Product state is created through the visible production UI.
+// Connected student delivery proof. Product state is created through the visible production UI.
 //
 // Selector contract:
 // - src/pages/course_assignments_page.tsx:324 owns the assignments surface and assignment links.
@@ -7,7 +7,7 @@
 // - src/pages/course_list_page.tsx, src/pages/assignment_workspace/, and
 //   src/pages/course_roster_page.tsx own course, assignment, and invitation controls.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
-//   learner claiming and assignment entry; data-route-surface is defined at
+//   student claiming and assignment entry; data-route-surface is defined at
 //   course_assignments_page.tsx:324.
 // - src/pages/gradebook_page.tsx:151 owns the calculated assignment cell and inspect link;
 //   src/pages/student_work_inspection_page.tsx:346 owns the audited detail and return focus route.
@@ -155,7 +155,7 @@ async function createPublishedQuestion(
   await page.getByRole("link", { name: "Workspace" }).click();
   await page.getByRole("button", { name: "Create flat question" }).click();
   await page.getByLabel("Question title").fill(title);
-  await page.getByLabel("Learner-facing prompt").fill(`Choose the supported statement: ${title}`);
+  await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
   await page
     .getByLabel("Choice text")
@@ -228,8 +228,8 @@ async function createPublishedCourseAssignment(
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Students" }).click();
-  await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill("BIO-MARY-002");
+  await page.getByLabel("Course roster email").fill(maryEmail);
+  await page.getByLabel("Course roster ID").fill("BIO-MARY-002");
   await page.getByRole("button", { name: "Create invitation" }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
@@ -399,7 +399,7 @@ async function observeInstructorOutcomesAndAccess(
   await page.getByRole("link", { name: "Gradebook" }).click();
   await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
   // ASVS 8.2.2 and 8.3.1: verify the server-authorized Instructor projection for the exact
-  // learner work created through Mary's separate authenticated session.
+  // student work created through Mary's separate authenticated session.
   const learnerScore = page
     .locator("tr.gradebook-row")
     .filter({ has: page.getByText("Mary Okafor", { exact: true }) });
@@ -445,11 +445,11 @@ async function observeInstructorOutcomesAndAccess(
   await page.getByRole("radio", { name: "Forest" }).check();
   const deterministicBannerPng = await createDeterministicBannerPng(page);
   await page.getByLabel(/Choose a banner image/u).setInputFiles({
-    name: "learner-delivery-banner.png",
+    name: "student-delivery-banner.png",
     mimeType: "image/png",
     buffer: deterministicBannerPng,
   });
-  await expect(page.getByText("Selected: learner-delivery-banner.png")).toBeVisible();
+  await expect(page.getByText("Selected: student-delivery-banner.png")).toBeVisible();
   await page.getByRole("button", { name: "Save appearance" }).click();
   const appearanceSaved = page.getByText("Course appearance saved.");
   await expect(appearanceSaved).toBeVisible();
@@ -480,12 +480,12 @@ async function observeInstructorOutcomesAndAccess(
   await expect(assignmentCard).toHaveCount(1);
   await assignmentCard.getByRole("link", { name: "Access and modifiers" }).click();
   await expect(page.locator("[data-route-surface=assignmentAccess]")).toBeVisible();
-  const learner = page.getByRole("combobox", { name: "Learner", exact: true });
-  await learner.selectOption({ label: "Mary Okafor" });
-  const allowedPreview = page.getByRole("region", { name: "Resolved learner preview" });
+  const student = page.getByRole("combobox", { name: "Student", exact: true });
+  await student.selectOption({ label: "Mary Okafor" });
+  const allowedPreview = page.getByRole("region", { name: "Resolved student preview" });
   await expect(allowedPreview).toBeVisible();
   await expect(allowedPreview).toContainText("Course time zone:");
-  await expect(page.getByText("This learner is not entitled to this assignment.")).toHaveCount(0);
+  await expect(page.getByText("This student is not entitled to this assignment.")).toHaveCount(0);
   await captureVisibleState(
     page,
     scenarioInput,
@@ -513,9 +513,9 @@ async function observeInstructorOutcomesAndAccess(
   await retiredCard.getByRole("link", { name: "Access and modifiers" }).click();
   await expect(page.locator("[data-route-surface=assignmentAccess]")).toBeVisible();
   await page
-    .getByRole("combobox", { name: "Learner", exact: true })
+    .getByRole("combobox", { name: "Student", exact: true })
     .selectOption({ label: "Mary Okafor" });
-  const deniedPreview = page.getByText("This learner is not entitled to this assignment.");
+  const deniedPreview = page.getByText("This student is not entitled to this assignment.");
   await expect(deniedPreview).toBeVisible();
   await captureVisibleState(
     page,
@@ -527,7 +527,7 @@ async function observeInstructorOutcomesAndAccess(
 
 test.describe.configure({ mode: "serial" });
 
-test("learner delivery: Mary completes and revisits an instructor-created assignment", async ({
+test("student delivery: Mary completes and revisits an instructor-created assignment", async ({
   browser,
 }) => {
   test.setTimeout(journeyTimeoutMs);

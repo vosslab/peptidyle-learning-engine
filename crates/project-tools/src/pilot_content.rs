@@ -10,7 +10,8 @@ use adapter_native::flat_question::{
 use anyhow::{Context, Result, bail};
 use question_model::response::{ChoiceId, MatchPair, StudentResponse};
 use question_model::{
-    ProblemId, QuestionDefinition, QuestionSource, VersionId, WorkspaceId, taxonomy::License,
+    QuestionDefinition, QuestionId, QuestionSource, QuestionVersionNumber, WorkspaceId,
+    taxonomy::License,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -39,7 +40,7 @@ struct SourceProject {
     repository: String,
     revision: String,
     author: String,
-    institution: String,
+    affiliation: String,
     content_license: String,
     pgml_code_license: String,
 }
@@ -189,7 +190,7 @@ fn validate_manifest_contract(manifest: &PilotManifest) -> Result<()> {
     for (name, value) in [
         ("repository", source.repository.as_str()),
         ("author", source.author.as_str()),
-        ("institution", source.institution.as_str()),
+        ("affiliation", source.affiliation.as_str()),
     ] {
         if value.trim().is_empty() {
             bail!("pilot source-project {name} must not be blank");
@@ -384,7 +385,7 @@ fn validate_answer_separation(draft: &question_model::DraftQuestionDefinition) -
         "\"answers\":",
     ] {
         if public.contains(private_key) {
-            bail!("compiled PLE flat learner definition exposes {private_key}");
+            bail!("compiled PLE flat student definition exposes {private_key}");
         }
     }
     Ok(())
@@ -409,8 +410,8 @@ fn validate_correct_and_wrong_grading(
     };
     let published = QuestionDefinition::from_draft(
         draft,
-        ProblemId::from_uuid(Uuid::from_u128(identity + 100)),
-        VersionId::from_uuid(Uuid::from_u128(identity + 200)),
+        QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        QuestionVersionNumber::new(1).expect("positive version"),
         QuestionSource::Native {
             family: source_family,
         },

@@ -1,19 +1,19 @@
-//! Attempt, timing, and run policies (WP-C1, WP-C3, MOD-RUN).
+//! Assignment Attempt, timing, and Assignment activity rules (WP-C1, WP-C3).
 //!
-//! The four run policies are independent enums that compose freely. Keeping
+//! The four Assignment activity rules are independent enums that compose freely. Keeping
 //! them independent is what lets an instructor express "mastery required,
 //! highest score kept, practice allowed after completion with fresh seeds",
 //! which is the behavior the owner observed students actually using. A single
 //! combined "mode" enum would offer a fixed menu instead.
 //!
 //! Question-level policies ([`AttemptPolicy`], [`TimingPolicy`]) are authored
-//! with the question. Run-level policies are chosen per assignment, so the same
+//! with the question. Assignment-level rules are chosen per Assignment, so the same
 //! published question serves a graded exam in one course and open practice in
 //! another.
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AssignmentId, AssignmentRun, AssignmentSelectionGroupId};
+use crate::{AssignmentAttempt, AssignmentId, AssignmentSelectionGroupId};
 
 /// The point in an assignment lifecycle when one Student-facing field may be
 /// disclosed.
@@ -40,7 +40,7 @@ pub enum StudentDisclosureTiming {
 ///
 /// These independently configured fields are evaluated server-side against
 /// the effective assignment policy. They are intentionally separate from
-/// [`RunPolicies`], whose run behavior remains stable while S4 migrates
+/// [`AssignmentActivityRules`], whose Assignment Attempt behavior remains stable while S4 migrates
 /// Student-facing projections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -113,7 +113,7 @@ pub enum TimingPolicy {
     },
 }
 
-/// What a student must achieve for a run to count as complete.
+/// What a Student must achieve for an Assignment Attempt to count as complete.
 ///
 /// `PartialEq` without `Eq`, because a threshold is a fraction and floating
 /// point has no total equality. Comparisons on thresholds go through the
@@ -125,28 +125,28 @@ pub enum TimingPolicy {
     rename_all_fields = "camelCase"
 )]
 pub enum CompletionRequirement {
-    /// Answering every question completes the run, whatever the score.
+    /// Answering every Question completes the Assignment Attempt, whatever the score.
     AnswerAll,
-    /// Every question must be answered correctly.
+    /// Every Question must be answered correctly.
     AllCorrect,
-    /// A score at or above a threshold completes the run.
+    /// A score at or above a threshold completes the Assignment Attempt.
     ScoreAtLeast {
         /// Threshold as a fraction, where 0.8 means eighty percent.
         fraction: f64,
     },
 }
 
-/// Which run's score reaches the gradebook.
+/// Which Assignment Attempt score reaches the Gradebook.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum GradePolicy {
-    /// The first run's score.
+    /// The first Assignment Attempt's score.
     First,
-    /// The most recent run's score.
+    /// The most recent Assignment Attempt's score.
     Latest,
-    /// The best run's score.
+    /// The best Assignment Attempt's score.
     Highest,
-    /// A run explicitly selected by the instructor.
+    /// An Assignment Attempt explicitly selected by the Instructor.
     InstructorSelected,
 }
 
@@ -158,24 +158,24 @@ pub enum GradePolicy {
     rename_all_fields = "camelCase"
 )]
 pub enum ContinuedPractice {
-    /// Any number of new runs may be started after completion.
+    /// Any number of new Assignment Attempts may be started after completion.
     Unlimited,
-    /// A bounded number of new runs may be started after completion.
+    /// A bounded number of new Assignment Attempts may be started after completion.
     Capped {
-        /// Runs allowed after the first completed run.
+        /// Assignment Attempts allowed after the first completed Assignment Attempt.
         max_additional_runs: u32,
     },
     /// The assignment closes once complete.
     Closed,
 }
 
-/// How much changes when a student starts another run.
+/// How much changes when a Student starts another Assignment Attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum VariationPolicy {
     /// Same questions, fresh seeds, so the numbers change.
     NewSeeds,
-    /// Instructor-selected problem variants are used for the next run.
+    /// Instructor-selected problem variants are used for the next Assignment Attempt.
     SelectedProblemVariants,
     /// Questions are redrawn from the pool as well as reseeded.
     FullRegeneration,
@@ -188,15 +188,15 @@ pub enum VariationPolicy {
 /// private server seed for every selected question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoolDrawBasis {
-    /// Repeat draws for one enrollment retain the same candidate selection.
-    StableEnrollment {
-        enrollment: crate::EnrollmentId,
+    /// Repeat draws for one Student Record retain the same candidate selection.
+    StableStudentRecord {
+        student_record: crate::StudentRecordId,
         assignment: AssignmentId,
         group: AssignmentSelectionGroupId,
     },
-    /// Each new run receives an independently derived candidate selection.
-    RegeneratedRun {
-        run: crate::RunId,
+    /// Each new Assignment Attempt receives an independently derived candidate selection.
+    RegeneratedAssignmentAttempt {
+        assignment_attempt: crate::AssignmentAttemptId,
         assignment: AssignmentId,
         group: AssignmentSelectionGroupId,
     },
@@ -249,17 +249,17 @@ impl VariationPolicy {
     pub fn pool_draw_basis(
         self,
         assignment: AssignmentId,
-        run: &AssignmentRun,
+        assignment_attempt: &AssignmentAttempt,
         group: AssignmentSelectionGroupId,
     ) -> Result<PoolDrawBasis, PoolDrawBasisError> {
         match self {
-            Self::NewSeeds => Ok(PoolDrawBasis::StableEnrollment {
-                enrollment: run.enrollment,
+            Self::NewSeeds => Ok(PoolDrawBasis::StableStudentRecord {
+                student_record: assignment_attempt.student_record,
                 assignment,
                 group,
             }),
-            Self::FullRegeneration => Ok(PoolDrawBasis::RegeneratedRun {
-                run: run.id,
+            Self::FullRegeneration => Ok(PoolDrawBasis::RegeneratedAssignmentAttempt {
+                assignment_attempt: assignment_attempt.id,
                 assignment,
                 group,
             }),
@@ -285,20 +285,20 @@ impl PoolDrawBasis {
     }
 }
 
-/// The four run policies an assignment chooses, gathered for convenience.
+/// The four explicit Assignment activity rules an Assignment chooses, gathered for convenience.
 ///
 /// A struct of independent enums rather than one combined enum: the four vary
 /// independently, and all combinations are meaningful.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RunPolicies {
+pub struct AssignmentActivityRules {
     /// What completion requires.
     pub completion: CompletionRequirement,
-    /// Which run's score is recorded.
+    /// Which Assignment Attempt score is recorded.
     pub grade: GradePolicy,
     /// Whether practice continues after completion.
     pub continued_practice: ContinuedPractice,
-    /// How much changes between runs.
+    /// How much changes between Assignment Attempts.
     pub variation: VariationPolicy,
 }
 
@@ -323,8 +323,8 @@ mod tests {
     }
 
     #[test]
-    fn the_four_run_policies_compose_freely() {
-        let mastery_with_practice = RunPolicies {
+    fn the_four_assignment_activity_rules_compose_freely() {
+        let mastery_with_practice = AssignmentActivityRules {
             completion: CompletionRequirement::AllCorrect,
             grade: GradePolicy::Highest,
             continued_practice: ContinuedPractice::Unlimited,
@@ -332,7 +332,7 @@ mod tests {
         };
         let json =
             serde_json::to_string(&mastery_with_practice).expect("serialization should succeed");
-        let restored: RunPolicies =
+        let restored: AssignmentActivityRules =
             serde_json::from_str(&json).expect("deserialization should succeed");
         assert_eq!(restored, mastery_with_practice);
     }

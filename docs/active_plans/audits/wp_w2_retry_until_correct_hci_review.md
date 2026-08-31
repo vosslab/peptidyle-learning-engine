@@ -17,7 +17,7 @@ cookie, storage, or browser history.
 This independent review covered WP-W2, the active walkthrough plan, the
 no-mouse contract, J1 and J2 specifications, the shared Tab helper, the fixed
 serial Python runner, and the public-only report boundary. It applies a
-keyboard cognitive walkthrough for a remote learner: sign in, open the exact
+keyboard cognitive walkthrough for a remote student: sign in, open the exact
 arranged Mastery activity, make the two visible selections, read authorized
 feedback, observe a visible retry, and observe completion.
 
@@ -40,7 +40,7 @@ feedback, observe a visible retry, and observe completion.
 
 ## HCI acceptance ledger
 
-| Learner step   | Need                                                          | Observable acceptance criterion                                                                               | Required live evidence                               |
+| Student step   | Need                                                          | Observable acceptance criterion                                                                               | Required live evidence                               |
 | -------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | Enter Mastery  | Reach the prepared activity without a pointer                 | Tab/Enter uses the exact current Mastery href; route focus returns to main                                    | Focused link and focused `#main-content`             |
 | Fresh practice | Start retry practice from visible server state when needed    | A direct visible radio proceeds; otherwise actual `Start another practice run` is focused and Space-activated | Visible radio, or focused button and new run surface |
@@ -99,7 +99,7 @@ Before accepting WP-W2, independently verify:
 ## Failure and repair re-review
 
 Two real-stack attempts exposed an honest stale-run problem: J2's original
-Start/resume path reached the completed summary from existing learner state, so
+Start/resume path reached the completed summary from existing student state, so
 the test correctly could not find a new response control. The repair does not
 clear state, inject a run, or infer an outcome. It requires the visible completed
 summary and then uses the ordinary keyboard-only `Start another practice run`

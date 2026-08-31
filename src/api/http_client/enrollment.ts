@@ -3,7 +3,7 @@
 import type { CourseRosterClient, RosterImportPreview } from "../enrollment";
 import {
   decodeClaimedCourseInvitation,
-  decodeCourseEnrollmentPolicyResult,
+  decodeCourseInvitationEmailRule,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
   decodeRosterImportCommitResult,
@@ -36,24 +36,6 @@ function verifyNumericEtag(response: Response, expected: number, path: string): 
   }
 }
 
-async function noContentRequest(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  path: string,
-): Promise<void> {
-  const response = await fetchImplementation(requestPath(basePath, path), {
-    method: "DELETE",
-    headers: { accept: "application/json" },
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  requireNoStore(response, path);
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  if (response.status !== 204) {
-    throw new ApiProtocolError(`API response ${path} must use status 204`);
-  }
-}
-
 async function rosterMutation<T>(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -83,7 +65,7 @@ async function rosterMutation<T>(
   return { body: decoder(await boundedResponseJson(response, path)), response };
 }
 
-export function createEnrollmentClient(
+export function createCourseRosterClient(
   fetchImplementation: ApiFetch,
   basePath: string,
 ): CourseRosterClient {
@@ -158,17 +140,17 @@ export function createEnrollmentClient(
       verifyNumericEtag(result.response, result.body.rosterRevision, path);
       return result.body;
     },
-    replaceCourseEnrollmentPolicy: async (
+    replaceCourseInvitationEmailRule: async (
       courseId,
       policy,
       rosterRevision,
-    ): ReturnType<CourseRosterClient["replaceCourseEnrollmentPolicy"]> => {
-      const path = `/api/courses/${encodedId(courseId)}/enrollment-policy`;
+    ): ReturnType<CourseRosterClient["replaceCourseInvitationEmailRule"]> => {
+      const path = `/api/courses/${encodedId(courseId)}/invitation-email-rule`;
       const result = await rosterMutation(
         fetchImplementation,
         basePath,
         path,
-        decodeCourseEnrollmentPolicyResult,
+        decodeCourseInvitationEmailRule,
         {
           method: "PUT",
           headers: { "if-match": positiveRevisionHeader(rosterRevision, "roster revision") },

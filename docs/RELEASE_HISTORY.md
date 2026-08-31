@@ -9,14 +9,14 @@ remains owned by the active release plan and `WP-RC12`.
 
 - Added the Instructor assignment workspace with Overview, Questions, Policies, and Student view
   surfaces backed by one course-authorized assignment load and shared management navigation.
-- Added an answer-free learner assignment presentation for ordinary learner and Instructor Student
+- Added an answer-free student assignment presentation for ordinary student and Instructor Student
   views, with identity-first layout, responsive Start/continue behavior, and stable-identity
   guidance.
 - Added curriculum-adoption workflows for preview-before-save adoption, rollover, term shifting,
   provenance receipts, controlled fast-forward, and divergence recovery.
 - Delivered the production-shaped live-demo path with real Rust API, PostgreSQL, MinIO, worker,
   HTTPS gateway, visible workflows, seeded teaching data, and exact disposable cleanup.
-- Advanced automated grading through G1-W7b: immutable accepted learner input, answer-free status
+- Advanced automated grading through G1-W7b: immutable accepted student input, answer-free status
   and retry behavior, generation-fenced recalculation, durable receipts, and Instructor exception
   handling.
 - Added the versioned flat-question, catalog, course, assignment, grading, QTI, WeBWorK, iMathAS,
@@ -24,7 +24,7 @@ remains owned by the active release plan and `WP-RC12`.
 
 ### Notable fixes
 
-- Reordered the learner presentation so assignment identity precedes instructions and progress,
+- Reordered the student presentation so assignment identity precedes instructions and progress,
   while the single primary action remains usable across widths and disappears when no action is
   supplied.
 - Preserved response secrecy across answer-free summaries, pending grading, score publication, and
@@ -50,7 +50,7 @@ remains owned by the active release plan and `WP-RC12`.
 
 ### Validation
 
-- Focused TypeScript, ESLint, Prettier, learner-presentation Node, Student-view contract, Rust,
+- Focused TypeScript, ESLint, Prettier, student-presentation Node, Student-view contract, Rust,
   migration, PostgreSQL, WebWork, replica-restart, source-policy, documentation, and cleanup gates
   are recorded as passing in the August changelog.
 - The connected production-shaped stack completed the registered browser scenarios and published

@@ -8,7 +8,7 @@ child; manager and independent seed-42 retained-stack `--build` runs passed
 the exact J11/J12/J13/J1/J2/J3/J4/J5/J8 sequence with canonical redacted
 mode-0700/0600 reports and no-volume cleanup. The authoritative baseline is
 `docs/active_plans/walked_journey_baseline_v2.json`. This addendum does not
-accept email/canonical onboarding, J6/J7, all-family, multi-learner, or release
+accept email/canonical onboarding, J6/J7, all-family, multi-student, or release
 work.
 
 ## Result
@@ -31,7 +31,7 @@ and retained-stack evidence remain owned by WP-E1.
   cross-bound input, restricts the seed to unsigned 32-bit range, and projects
   only journey, PASS, bounded elapsed time, closed codes, and empty diagnostics.
   It emits the one label-only `api-retry-corpus-publication` arrangement. No
-  public identifier, title, learner, score, run detail, email, problem ID, or
+  public identifier, title, student, score, run detail, email, problem ID, or
   version ID survives rendering.
 - The reader requires canonical single-line ASCII JSON no larger than 4096
   bytes. Canonical re-rendering rejects duplicate JSON members at every depth.

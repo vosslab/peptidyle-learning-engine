@@ -5,7 +5,7 @@
 The retained-stack full run and independent replay subsequently passed the
 corrected local no-email pilot on 2026-08-11. The two keyboard-only student
 runs now have integrated J5 visible-score and schema-v2 report evidence. This
-does not accept email/canonical onboarding, J6/J7, all-family, multi-learner,
+does not accept email/canonical onboarding, J6/J7, all-family, multi-student,
 or release work.
 
 ## Scope and verdict

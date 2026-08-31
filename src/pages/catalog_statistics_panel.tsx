@@ -66,7 +66,7 @@ function AvailableEvidence(props: { readonly evidence: AvailableCatalogEvidence 
     <section class="catalog-statistics-panel" aria-labelledby="learning-evidence-heading">
       <h2 id="learning-evidence-heading">Learning evidence</h2>
       <p class="catalog-statistics-introduction">
-        These anonymous measures use independent learner observations for this exact published
+        These anonymous measures use independent Student observations for this exact published
         question. They pool observations across courses and describe association, not a cause or a
         prediction for your class.
       </p>
@@ -76,7 +76,7 @@ function AvailableEvidence(props: { readonly evidence: AvailableCatalogEvidence 
           <dd>{wholeNumber.format(props.evidence.observedCourseCount)} courses</dd>
         </div>
         <div>
-          <dt>Independent learner observations</dt>
+          <dt>Independent Student observations</dt>
           <dd>
             {wholeNumber.format(props.evidence.independentLearnerObservationCount)} observations
           </dd>
@@ -111,11 +111,11 @@ export function CatalogUsagePanel(props: CatalogUsagePanelProps): JSX.Element {
   const summary = (): CatalogUsageDetail["summary"] => props.usage.summary;
   return (
     <section class="catalog-statistics-panel catalog-usage-panel" aria-labelledby="usage-heading">
-      <h2 id="usage-heading">Usage in your institution</h2>
+      <h2 id="usage-heading">Usage across PLE</h2>
       <p class="catalog-statistics-introduction">
         This exact published question appears in{" "}
-        {formatCount(summary().institutionCourseCount, "course")} and{" "}
-        {formatCount(summary().institutionAssignmentCount, "assignment")} at your institution.
+        {formatCount(summary().globalCourseCount, "course")} and{" "}
+        {formatCount(summary().globalAssignmentCount, "assignment")} across the Question Corpus.
         Course names below are limited to courses you can open.
       </p>
       <dl class="catalog-usage-counts">
@@ -156,7 +156,7 @@ export function CatalogUsagePanel(props: CatalogUsagePanelProps): JSX.Element {
       </Show>
       <p class="catalog-usage-next-step">
         Review these course uses before replacing the question. A future assignment can use a
-        replacement; issued learner work remains unchanged.
+        replacement; issued student work remains unchanged.
       </p>
     </section>
   );

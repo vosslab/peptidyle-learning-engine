@@ -119,53 +119,6 @@ def test_fixed_owner_outage_authority_follows_only_its_closed_profile(
 	assert local_stack_control.consumer.outage_service(webwork) == "webwork-renderer"
 
 
-def test_automated_grading_fault_profile_limits_worker_mutation_to_its_declared_services(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""The deterministic exception profile owns ordinary-worker stop and one fault worker."""
-	selected = disposable(
-		tmp_path, local_stack_control.models.LiveDemoProfile.AUTOMATED_GRADING_FAULT
-	)
-	assert local_stack_control.consumer.outage_service(selected) == "worker"
-	assert (
-		local_stack_control.consumer.evidence_log_service(
-			selected, "worker_completion"
-		)
-		== "worker"
-	)
-	argv, _environment = local_stack_control.consumer.automated_grading_fault_worker_command(selected)
-	assert argv[-4:] == ["up", "-d", "--no-deps", "fault-worker"]
-	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.consumer.automated_grading_fault_worker_command(
-			disposable(tmp_path, local_stack_control.models.LiveDemoProfile.BROWSER)
-		)
-
-
-#============================================
-def test_automated_grading_fault_worker_reports_its_policy_selected_service(
-	monkeypatch: pytest.MonkeyPatch,
-	tmp_path: pathlib.Path,
-) -> None:
-	"""A successful one-shot start reports the exact profile-owned service."""
-	selected = disposable(
-		tmp_path, local_stack_control.models.LiveDemoProfile.AUTOMATED_GRADING_FAULT
-	)
-	runner = RecordingRunner()
-	monkeypatch.setattr(
-		local_stack_control.consumer,
-		"require_current_resource_capability",
-		lambda unused_runner, unused_disposable: snapshot(()),
-	)
-
-	service = local_stack_control.consumer.run_automated_grading_fault_worker(
-		runner, selected
-	)
-
-	assert service == "fault-worker"
-	assert runner.streamed[0][-4:] == ("up", "-d", "--no-deps", "fault-worker")
-
-
-#============================================
 def test_gateway_outage_plan_is_closed_to_one_running_labelled_gateway(
 	tmp_path: pathlib.Path,
 ) -> None:

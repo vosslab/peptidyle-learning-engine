@@ -335,57 +335,6 @@ def outage_service(disposable: local_stack_control.models.DisposableComposeTarge
 
 
 #============================================
-def automated_grading_fault_worker_service(
-	disposable: local_stack_control.models.DisposableComposeTarget,
-) -> str:
-	"""Resolve the sole acceptance-only fault-worker service from profile policy.
-
-	ASVS 2.3.1: the selected profile, rather than a caller-supplied service or
-	command, authorizes this one-use deterministic exception boundary.
-	"""
-	policy = live_demo_profile_policy(disposable)
-	service = policy.fault_worker_service
-	if (
-		policy.profile is not local_stack_control.models.LiveDemoProfile.AUTOMATED_GRADING_FAULT
-		or service is None
-		or "automated_grading_fault_worker" not in policy.child_capabilities
-	):
-		raise local_stack_control.models.ControllerError(
-			"this disposable owner cannot run the automated-grading fault worker"
-		)
-	return service
-
-
-#============================================
-def automated_grading_fault_worker_command(
-	disposable: local_stack_control.models.DisposableComposeTarget,
-) -> tuple[list[str], dict[str, str]]:
-	"""Form the profile-authorized command that starts one fault worker."""
-	service = automated_grading_fault_worker_service(disposable)
-	argv = local_stack_control.compose.compose_argv(
-		disposable.target,
-		["up", "-d", "--no-deps", service],
-	)
-	return argv, compose_environment(disposable)
-
-
-#============================================
-def run_automated_grading_fault_worker(
-	runner: local_stack_control.process.CommandRunner,
-	disposable: local_stack_control.models.DisposableComposeTarget,
-) -> str:
-	"""Start the exact one-claim fault worker after a complete ownership proof."""
-	require_current_resource_capability(runner, disposable)
-	service = automated_grading_fault_worker_service(disposable)
-	argv, environment = automated_grading_fault_worker_command(disposable)
-	if runner.stream(argv, environment, disposable.target.repo_root) != 0:
-		raise local_stack_control.models.ControllerError(
-			"automated-grading fault worker command failed"
-		)
-	return service
-
-
-#============================================
 def outage_stop_command(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> tuple[list[str], dict[str, str]]:

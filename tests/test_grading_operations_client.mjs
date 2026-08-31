@@ -21,7 +21,7 @@ function page() {
           nextAction: "retry",
         },
         group: { kind: "question", questionId: "ABC-1234", title: "Protein folding" },
-        affectedLearnerCount: 2,
+        affectedStudentCount: 2,
         trustGeneration: { kind: "execution", generation: 4 },
       },
     ],
@@ -50,7 +50,7 @@ test("grading operation decoder accepts safe closed metadata and rejects additio
   assert.throws(() => decodeInstructorGradingOperationsPage(withOverflowReference), DecodeError);
 
   const withOverflowCount = page();
-  withOverflowCount.items[0].affectedLearnerCount = 4_294_967_296;
+  withOverflowCount.items[0].affectedStudentCount = 4_294_967_296;
   assert.throws(() => decodeInstructorGradingOperationsPage(withOverflowCount), DecodeError);
 });
 
@@ -86,13 +86,13 @@ test("grading operations client sends no-store list and empty guarded action req
   };
   const client = createGradingOperationsClient(fetchImplementation, "/live");
 
-  await client.listInstructorGradingOperations(COURSE_ID, ASSIGNMENT_ID, "learner", "next", 25);
+  await client.listInstructorGradingOperations(COURSE_ID, ASSIGNMENT_ID, "student", "next", 25);
   await client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"', ACTION_ID);
   await client.recalculateInstructorAssignment(COURSE_ID, ASSIGNMENT_ID, '"8"', ACTION_ID);
 
   assert.equal(
     calls[0].input,
-    `/live/api/courses/${COURSE_ID}/assignments/${ASSIGNMENT_ID}/grading-operations?groupBy=learner&cursor=next&pageSize=25`,
+    `/live/api/courses/${COURSE_ID}/assignments/${ASSIGNMENT_ID}/grading-operations?groupBy=student&cursor=next&pageSize=25`,
   );
   assert.equal(calls[0].init.cache, "no-store");
   assert.equal(calls[1].init.method, "POST");

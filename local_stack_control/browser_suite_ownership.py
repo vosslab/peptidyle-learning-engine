@@ -13,9 +13,8 @@ def require_live_demo_browser_ownership(
 	if snapshot.project != project:
 		raise local_stack_control.models.ControllerError(
 			"live-demo browser ownership has an invalid project"
-		)
+	)
 	allowed_services = set(local_stack_control.models.BASE_LONG_RUNNING_SERVICES)
-	allowed_services.add("fault-worker")
 	allowed_services.update(local_stack_control.models.BASE_ONE_SHOT_SERVICES)
 	allowed_services.update(local_stack_control.models.CLEANUP_ONLY_SERVICES)
 	allowed_volumes = {

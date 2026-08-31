@@ -55,7 +55,7 @@ details through storage, browser DTOs, and UI components.
 **Owner.** [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md),
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), and the adapter entries in
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
-**Planned closure.** The release plan owns full learner-runtime and authoring acceptance for the
+**Planned closure.** The release plan owns full student-runtime and authoring acceptance for the
 eight native Question Types, broader WeBWorK compatibility, and explicitly bounded export claims.
 
 ### Mastery is an assignment activity
@@ -83,9 +83,9 @@ continued-practice semantics through its owning release package.
 Fixed Question or Question Pool. Each **Assignment Attempt** binds one exact
 Student Record and Assignment. Its concrete, ordered selections are **Issued
 Questions**. A **Question Attempt** is one try at one of those selected
-questions, and a **Question Submission** accepts its **Student Answer**. An
+questions, and a **Question Submission** accepts its student **Response**. An
 optional **Assignment Submission** finalizes the whole Assignment Attempt while
-Question Submissions own the Student Answers.
+Question Submissions own the Responses.
 
 **Why.** An Instructor can clearly distinguish an attempt at a whole Assignment
 from an attempt at one Question and can distinguish per-question answer
@@ -266,7 +266,7 @@ MOD-API-CAT in
 Overview, Questions, Policies, and Student view are separate tasks over the same assignment record.
 Questions owns title and ordered fixed-or-pool content. Policies owns audience, disclosure, run
 policies, instructions, schedule, limits, late behavior, and lifecycle. Student view is a read-only
-answer-free presentation of the current assignment, not an alternate learner or preview record.
+answer-free presentation of the current assignment, not an alternate student or preview record.
 
 **Why.** Instructors choose a named teaching object before choosing a task. A single aggregate
 revision keeps separate pages from silently overwriting each other while focused ownership prevents
@@ -277,7 +277,7 @@ a policy save from changing content or a content save from changing delivery rul
 `.../student-view`, plus title-only Draft creation and focused `.../content` and `.../policies`
 mutations. Both mutations use the current `If-Match` revision, update their owned slice atomically,
 and return the complete authoritative assignment projection with one new revision. Structural
-content changes return a typed issued-learner-work conflict after immutable work exists; a stale
+content changes return a typed issued-student-work conflict after immutable work exists; a stale
 revision remains a retryable conflict. The browser preserves entered values and offers reload
 guidance for either case.
 
@@ -288,13 +288,12 @@ browser-only state or a combined write.
 
 The Student-view route retains the Instructor identity and exact course authority, returns
 `Cache-Control: no-store`, and creates no enrollment, run, attempt, submission, receipt, grade, or
-preview record. It reuses the shared answer-free learner landing presentation and course-wide base
-delivery facts. Only an ordinary enrolled Student entry creates learner work; that server-owned
+preview record. It reuses the shared answer-free student landing presentation and course-wide base
+delivery facts. Only an ordinary enrolled Student entry creates student work; that server-owned
 grading path remains the source of scores and Instructor gradebook evidence.
 **Owner.**
 [implementation_status.md](active_plans/implementation_status.md),
 [question workspace](../crates/question_model/src/assignment_workspace.rs),
-[server workspace](../crates/server/src/course/assignments/workspace.rs),
 and [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace).
 
 ### BlueprintCourse owns reusable course structure
@@ -316,7 +315,7 @@ preserves immutable question evidence, and lets every vetted Instructor benefit 
 accommodations, grades, or live delivery or FERPA state. Every `CourseInstance` has exactly one
 non-null immutable BlueprintCourse parent and records the applied Blueprint revision. Blank-course
 creation first creates a minimal BlueprintCourse, then creates its CourseInstance. A CourseInstance
-is private to its current equal co-Instructors and enrolled Students and owns enrollment, delivery,
+is private to its current equal Teaching Team Members and enrolled Students and owns enrollment, delivery,
 and FERPA state.
 
 Relative schedule values are reusable scheduling intent. They become live deadlines only when a
@@ -356,7 +355,7 @@ on 2026-08-15 after final Validation and independent review.
 programs
 migrate only in later dependency-ordered packages. A retained wrapper stays logic-free.
 
-## Grading and learner traffic
+## Grading and student traffic
 
 ### Grading stays on the server
 
@@ -364,7 +363,7 @@ migrate only in later dependency-ordered packages. A retained wrapper stays logi
 enter browser JSON, generated TypeScript, or the WebAssembly dependency closure.
 
 **Why.** A browser can be inspected and modified. Client-side grading would expose answer-bearing
-content and turn a learner-controlled device into an authority.
+content and turn a student-controlled device into an authority.
 
 **Consequence.** The browser performs presentation and format assistance only. It submits a
 response to a server-owned attempt; the native grader or private adapter calculates correctness,
@@ -394,7 +393,7 @@ status reads return the answer-free current projection rather than resubmitting 
 [crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs), and MOD-API-RUN
 in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
-**Current boundary.** The learner submission and submission-status routes return a flattened,
+**Current boundary.** The student submission and submission-status routes return a flattened,
 answer-free tagged union with `no-store`. A `202 Accepted` response clears the browser response
 buffer and exposes **Check grading status**; the worker owns later progress.
 
@@ -407,7 +406,7 @@ The ordinary worker retains the existing queue families; automated execution use
 store capability and process login, while Instructor operations receive metadata-only recovery
 commands.
 
-**Why.** A learner acknowledgement must remain recoverable when the request ends before grading,
+**Why.** A student acknowledgement must remain recoverable when the request ends before grading,
 and a second scheduler or a browser-held answer would create competing authority.
 
 **Consequence.** A deterministic exception produces one assignment-local operation. The visible
@@ -457,7 +456,7 @@ mutation detection, and explicit refusal against a nonempty receipt fixture.
 The connected G1 oracle must call the actual five-input V2 as `ple_app` with
 well-formed values and observe SQLSTATE `42501`; undefined-function failure is
 not authorization evidence. The production real-stack browser and service
-path must then prove answer-free learner and Instructor behavior, followed by
+path must then prove answer-free student and Instructor behavior, followed by
 `source source_me.sh && ./all_test.sh` on the exact final material tree.
 
 ### Render once, answer compactly
@@ -469,7 +468,7 @@ Assets travel by logical reference through cacheable asset routes, not as repeat
 trimming a few JSON characters. The split also keeps server evidence out of the browser.
 
 **Consequence.** The target response is an attempt-bound `presentationDigest` plus the minimal
-answer for the exact Answer Format. `kind` belongs in the render payload so a widget can be drawn, but the
+answer for the exact Response Schema. `kind` belongs in the render payload so a widget can be drawn, but the
 server derives its response decoder from the issued attempt.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#target-network-contract)
 and [OBJECT_STORAGE.md](OBJECT_STORAGE.md#delivery-grants).
@@ -482,7 +481,7 @@ and [OBJECT_STORAGE.md](OBJECT_STORAGE.md#delivery-grants).
 an error-detection and correspondence mechanism, never authentication or proof of correctness.
 
 **Why.** A visible label such as `B` is only a position. A rendered ID binds a choice, order item,
-matching side, blank, or hotspot surface to the exact public state the learner saw.
+matching side, blank, or hotspot surface to the exact public state the student saw.
 
 **Consequence.** PLE enforces uniqueness inside one presentation and maintains the authoritative
 mapping to durable semantic IDs server-side. A whole-presentation digest detects stale or
@@ -519,8 +518,10 @@ network boundaries, backups, and managed recovery controls.
 
 ### Enrollment is course-level
 
-**Decision.** One opaque PLE Account UUID names a Student's Account across courses. Course
-Enrollment creates a Student Course Membership episode and binds it to one durable Student Record.
+**Decision.** One opaque PLE Account UUID names a Student's Account across courses. A Student
+Record belongs to exactly one Student Account and Course Instance. Course Enrollment creates a
+Student Course Membership episode bound to that stable Student Record; re-enrollment creates a
+new membership episode bound to the existing record.
 An Assignment Attempt directly binds that Student Record to one Assignment. An Assignment Grade
 binds the same pair and selects its contributing Assignment Attempt. Assignment lists and empty
 activity states are derived from the Course Membership, Assignment audience, and access rules.
@@ -532,8 +533,9 @@ attribute, not the identity key; passkeys are optional convenience credentials f
 
 **Consequence.** An Instructor creates a pending invitation with protected course-scoped roster
 metadata, then shares its one-time copy link through an existing trusted LMS or uses configured
-SMTP. After the Student completes email authentication and claims the invitation, PLE creates the
-Course Membership and Student Record atomically. An authorized pre-activity Assignment read returns
+SMTP. After the Student completes email authentication and claims the invitation, PLE resolves or
+creates the Student Record and creates the exact Course Membership binding atomically. An authorized
+pre-activity Assignment read returns
 an empty activity projection. Starting an Assignment Attempt creates the direct Student
 Record-to-Assignment activity relationship transactionally; calculating a Grade creates its exact
 grade record. New Assignments add definitions, while Student rows appear with actual Student work.
@@ -553,7 +555,7 @@ closeout.
 **Decision.** Each PLE account has exactly one immutable current Student, Instructor, or Sysadmin
 role. A person needing multiple roles uses separate accounts; Dr. Voss may use separate Instructor
 and Sysadmin accounts. Instructor approval requires real-person validation, and teaching requires
-direct Instructor membership. A Sysadmin creates a course only for an explicitly assigned
+direct Instructor membership. A Sysadmin provisions a course only for an explicitly assigned
 approved Instructor account, which receives the initial membership; the Sysadmin receives none.
 Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
 Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the
@@ -566,14 +568,23 @@ credential into access to every student's educational record. A publisher
 human role also confuses author approval with the least-authority service that
 materializes immutable public bytes.
 
-**Consequence.** `AccountRole` is the closed Student/Instructor/Sysadmin set, and account/session
-storage carries one role, never a collection. Course membership is the smaller Student/Instructor
-relation and must match the account role. Sysadmin accounts cannot hold course membership. A course
-may have multiple current co-Instructor accounts with equal teaching authority. A support capability
+**Consequence.** Product Role is the closed Student/Instructor/Sysadmin set, currently represented
+by `AccountRole` in code, and Account/session storage carries one role, never a collection. Course
+Membership is the smaller Student/Instructor relation and must match Product Role. Sysadmin Accounts
+cannot hold Course Membership. A Course
+may have multiple current Teaching Team Member accounts with equal teaching authority. A support capability
 names the exact course and, when needed, Student; it expires on a recorded deadline and records
 the authenticated account, purpose, action, and time for every boundary crossing. All course-linked Student data
 receives the FERPA radioactive handling discipline. Implementation and acceptance evidence remain
 pending under SD1.
+
+**Session issuance rule.** The session-issuance broker accepts an existing Account identity
+and opaque session parameters, then derives Product Role from the immutable Account row in the same
+trusted transaction. A passwordless ceremony, browser request, or adapter never selects Product
+Role. The resulting Authenticated Session stores the derived role and remains bound to that Account
+for its lifetime. This keeps the fixed-role decision at the trusted service boundary (ASVS 2.2.1,
+7.2.1, and 8.3.1). The `2026082906` broker and `SessionStore` implement this derivation; the
+passwordless ceremony and full SD1 acceptance remain separate work.
 
 The authorization boundary remains capability-oriented so a later package can add bounded Grader,
 Course Observer, or Student Observer relationships without widening the current personas. A Course
@@ -588,18 +599,18 @@ the binding [implementation_status.md](active_plans/implementation_status.md).
 ### Course accountability is assigned and transferable
 
 **Decision.** Each CourseInstance records one accountable assigned Instructor from its current
-Instructor memberships. Every current co-Instructor keeps the same teaching and FERPA predicates.
+Instructor memberships. Every current Teaching Team Member keeps the same teaching and FERPA predicates.
 An audited atomic course-administration operation transfers the assignment only after the successor
 holds a current Instructor membership.
 
 **Why.** An accountable Instructor gives course creation, handoff, and support records one clear
-human responsibility without turning one ordinary co-Instructor into a broader authority class.
+human responsibility without turning one ordinary Teaching Team Member into a broader authority class.
 
 **Consequence.** The CourseInstance stores the assigned Instructor as a validated Instructor
 account reference. A deferred integrity check requires that account's current Instructor membership
 at transaction commit, including after revocation or transfer. Course creation inserts the assigned
 Instructor's first ordinary membership in the same transaction. Authorization continues to evaluate
-the same predicate for every current co-Instructor; only accountability and audit identify the
+the same predicate for every current Teaching Team Member; only accountability and audit identify the
 assigned Instructor.
 
 **Owner.** The binding
@@ -641,7 +652,7 @@ proves bytes exist.
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
 
 **Planned closure.** Inventory checks, orphan cleanup, and handling of missing referenced bytes
-remain a release package. Learner file responses remain fail-closed until their attempt-bound
+remain a release package. Student file responses remain fail-closed until their attempt-bound
 upload capability and inspection workflow are implemented.
 
 ### Privacy deletes records, not learning evidence
@@ -652,9 +663,9 @@ definitions normally remain; identity-free anonymous aggregates remain available
 shared library.
 
 **Why.** Students need privacy by default, while question quality improves only if non-identifying,
-non-retractable aggregate evidence survives a learner record's lifecycle.
+non-retractable aggregate evidence survives a student record's lifecycle.
 
-**Consequence.** Deletion removes the course-owned learner graph and its typed student-record
+**Consequence.** Deletion removes the course-owned student graph and its typed student-record
 objects, but never follows immutable assignment references into shared publication. Anonymous
 statistics have their own aggregation and k-anonymous disclosure boundary.
 
@@ -698,7 +709,7 @@ Enter-to-submit, and Escape are optional widget extensions.
 makes the normal sequence of understand, answer, submit, recover, and continue testable.
 
 **Consequence.** A visible platform-keyboard journey is required before shortcut tests. Drag-only,
-hover-only, coordinate-only, or time-critical required interactions are not eligible for a learner
+hover-only, coordinate-only, or time-critical required interactions are not eligible for a student
 question; hotspot questions need a pedagogically equivalent keyboard path.
 
 **Owner.** [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md) and the browser
@@ -711,12 +722,12 @@ does not wait for a generic final audit.
 
 ### External grading backends remain private adapters
 
-**Decision.** PLE, never a learner browser, contacts WeBWorK or a contracted external provider. PLE
+**Decision.** PLE, never a student browser, contacts WeBWorK or a contracted external provider. PLE
 owns published source, issued seed, response projection, credentials, timeout, sanitization, and
 result translation.
 
 **Why.** Upstream systems use their own fields, sessions, HTML, and credentials. Those are neither
-stable browser contracts nor safe learner authority.
+stable browser contracts nor safe student authority.
 
 **Consequence.** The accepted WeBWorK path is the four reviewed Chapter 1 PGML sources, comprising
 one radio and one matching question per chapter, via the private external standalone `/render-api`;
@@ -738,7 +749,7 @@ claims once and are recorded rather than retained as brittle routine tests.
 
 **Why.** A permanent test suite must stay trustworthy and fast enough to run often. Exact file
 layouts, tunable constants, mock wiring, and live infrastructure can create false confidence or
-maintenance burden without proving learner behavior.
+maintenance burden without proving student behavior.
 
 **Consequence.** Memory and mock backends support unit and conformance behavior. PostgreSQL RLS,
 MinIO, renderer, browser, recovery, and deployment claims use the named disposable oracle or human
@@ -769,7 +780,7 @@ rendered dimensions.
 ### The demo is ordinary product state
 
 **Decision.** The demo uses PostgreSQL, real migrations, RLS, persistent seeded teaching courses,
-ordinary memberships, and ordinary learner work through the production-shaped browser and server
+ordinary memberships, and ordinary student work through the production-shaped browser and server
 stack. Preview, acceptance, and production behavior share this one live product model.
 
 **Why.** A parallel mock product creates false assurance and cannot prove the real teaching path.
@@ -810,23 +821,27 @@ and accessibility needs.
 
 ### Exact owners bind authorization decisions
 
-**Decision.** The single-installation ownership map is the binding authorization
-contract for Account identity, catalog publication, course records, private
-authoring, workers, objects, exports, retention, observer relationships, and
-Sysadmin support. Each protected operation resolves its Account from the active
-session and checks the durable owner and exact predicate recorded in that map.
+**Decision.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) are the binding
+single-installation authorization contracts for Account identity, catalog
+publication, course records, private authoring, workers, objects, exports,
+retention, observer relationships, and Sysadmin support. Each protected
+operation resolves its Account from the active session and checks the durable
+owner and exact predicate those contracts define.
 
 **Why.** Every authorization decision needs an object that names its real scope.
 That keeps global catalog access, course records, private work, and worker leases
 independently reviewable without relying on an ambient installation boundary.
 
 **Consequence.** Baseline relations, Store contracts, brokers, and acceptance
-cases derive their parent identifiers and predicates from the map. Observer and
-support relations remain narrow recorded grants, workers keep immutable typed
-targets and leases, and object delivery verifies its actual catalog, workspace,
-course, enrollment, or lease parent.
+cases derive their parent identifiers and predicates from those contracts.
+Observer and support relations remain narrow recorded grants, workers keep
+immutable typed targets and leases, and object delivery verifies its actual
+catalog, workspace, Course Instance, Student Record, or lease parent.
 
-**Owner.** `docs/active_plans/audits/single_installation_ownership_map.md`.
+**Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) for
+PostgreSQL authorization and [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md)
+for product and service authorization.
 
 ### Locked job targets carry authorization ownership
 
@@ -852,7 +867,8 @@ The enqueue transaction resolves it from currently authorized records; a new
 generation creates new work rather than changing a claim's target. The
 acceptance suite proves rejection for foreign targets, stale generations,
 mismatched handler families, expired leases, and client-supplied scope values.
-**Owner.** `docs/active_plans/audits/single_installation_ownership_map.md`,
+**Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md),
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 `crates/learning-data-access/src/jobs.rs`, and the baseline job broker.
 
 ### Seed data represents ordinary teaching
@@ -952,143 +968,30 @@ generic unavailable outcomes with accessible guidance that does not disclose pro
 the EU ePrivacy Directive Article 5(3), Article 29 Working Party Opinion 04/2012, and current ICO
 strictly-necessary storage guidance.
 
+### Blueprint collaboration is revision-scoped and ends at publication
+
+**Decision.** A Blueprint Collaborator contributes only to one exact Draft
+Blueprint Revision through immutable grant and end events. An immutable Blueprint
+Publication Event makes that revision reusable and closes its collaboration path.
+
+**Why.** An Authoring Workspace and a Blueprint Course have different parents,
+privacy boundaries, and consequences. Revision-scoped collaboration prevents an
+unrelated private-workspace grant from becoming reusable-course or live-course
+authority, while publication preserves the exact review boundary.
+
+### Blueprint availability belongs to one published revision
+
+**Decision.** Available or Archived selection state is derived from immutable
+Blueprint Revision Availability Events. The Blueprint Course lineage has no
+aggregate archive timestamp.
+
+**Why.** Availability changes whether a particular published source revision is
+eligible for ordinary new selection. Historical Course Instance references must
+continue to resolve that exact source after it leaves ordinary selection.
+
 ## Repository and runtime policy
 
-### Dependency manifests permit current secure releases
+## Focused operational decisions
 
-**Decision.** Direct registry dependencies use `version = "*"` or an audited open minimum. Caret,
-exact, tilde, and upper-bound requirements require a documented repository-specific exception;
-lockfiles remain the reviewed exact resolution between deliberate refreshes.
-
-**Why.** The owner prioritizes current security fixes while an open reviewed minimum records the
-known-safe floor without blocking later corrective releases.
-
-### Local controller dependency is reproducible
-
-**Decision.** `pip_requirements.txt` pins the local-stack controller's PyYAML runtime dependency to
-the verified `PyYAML==6.0.3`. `pip_requirements-dev.txt` includes that runtime manifest and adds
-the repository developer tools. `devel/setup_python.sh` owns a fixed repo-local `.venv` created
-with Python 3.12 and refreshes it from a receipt over the interpreter identity and both manifests.
-
-**Why.** The live-demo front door needs a complete Python dependency boundary on a fresh clone,
-without requiring a global pip installation or an activated shell environment. The reviewed exact
-PyYAML release is a narrow exception to the repository's open-dependency default.
-
-**Consequence.** `run_live_demo.sh` invokes the setup owner before both start and stop, then execs
-the controller through `.venv/bin/python`. The wrapper help path remains side-effect-free. The
-receipt changes whenever the selected Python interpreter or either requirements manifest changes.
-Git, ESLint, Prettier, and repository hygiene discovery treat `.venv` as installed dependency state,
-so third-party package files never become repository source or validation inputs.
-
-**Owner.** [pip_requirements.txt](../pip_requirements.txt),
-[pip_requirements-dev.txt](../pip_requirements-dev.txt), and
-[`devel/setup_python.sh`](../devel/setup_python.sh).
-
-### Generated output has tracked authority
-
-**Decision.** Reproducible generated output lives under ignored `generated/` and is rebuilt from a
-tracked generator or authoritative source before validation. Small reviewed golden baselines may
-remain tracked when they define compatibility or durable cross-layer evidence.
-
-**Why.** Ignored output must not become an unverifiable input, while deliberate goldens serve a
-different purpose from disposable build products.
-
-### Local-stack replacement is scoped and inspectable
-
-**Decision.** The Python local-stack controller owns project-labelled lifecycle, readiness, and
-cleanup. Replacement removes exact-project containers and orphans, retains named data volumes until
-their acceptance target permits removal, and prunes only images unused by current containers.
-
-**Why.** The owner's Podman machine is dedicated to disposable project infrastructure, but typed
-target, label, and explicit-resource safeguards keep destructive cleanup bounded.
-
-### The Gradebook calculates once and Student-work inspection audits once
-
-**Decision.** The course Gradebook is one roster-first, cursor-paged server projection calculated
-only by `domain::course_grade::calculate_course_grade`. `CourseGradebookStore` derives each page
-from the active grade scheme and current assignment summaries. It serves browser-safe calculated
-rows separately from export-only PII rows. A cursor binds scheme/roster structural revision,
-normalized operation filter, named-Student selection result, and roster position; continuation
-keeps roster order while returning each later page's own scoring witness. A named Student-work
-inspection uses one dedicated Store and PostgreSQL broker that validates the complete public
-course/membership/assignment/run composite, same-origin Fetch Metadata, and immutable issued
-evidence; writes server-owned student-record access and metadata-only audit facts atomically; then
-returns solution-free `no-store` detail with the Student's submitted response and issued
-presentation. `question_model::presentation::project_rendered_response_for_inspection_v1` validates
-an accepted browser response against the reconstructed public issue and preserves its exact
-rendered identifiers. `project_durable_response_to_rendered_v1` remains the separate inverse
-projection for callers that possess the original server-private durable binding.
-
-The following migration notes record pre-SD1 implementation history. Nine focused G2 migrations
-close their own responsibilities: `1870` establishes the inspection
-owner and base ACL; `1871` introduces private immutable witness access; `1872` supplies the only
-app-executable, fixed-search-path inspection function with parameter-bound SQL and atomic audit
-writes; `1873` records the evidence-backed index decision; `1874` preserves the job's ownership
-when a
-claimed grading job records terminal failure; `1875` aligns the broker's transient PostgreSQL
-rowset names with its typed SQL result; and `1876` adds bounded server-owned Student and assignment
-labels to that same broker projection. `1877` closes exact host-only Base Course scoring
-convergence, and `1878` resolves public grading-operation navigation through the established
-Instructor broker without restoring direct application-table access. Generic secure failures write
-separate server-owned security telemetry and preserve the truthfulness of student-record access
-facts.
-
-**Why.** Course totals are derived state and stay trustworthy when they have one calculator and
-one current-summary source. An Instructor needs the exact Student record to teach and resolve
-grading work, while course navigation, operation receipts, cursors, logs, and screenshots remain
-answer-free. The explicit audited detail boundary supports both needs with traceable authority and
-without creating another grading authority or record model.
-
-### Inspected work names its Student and assignment
-
-**Decision.** `InspectedStudentWorkDetailV1` includes required server-owned
-`studentDisplayLabel` and `assignmentTitle` fields. The existing audited inspection broker resolves
-the active course roster profile's validated Student display label and the current course assignment
-title after the authorized composite is valid. The one response names the ready inspected detail
-through normal navigation, reload, and direct entry.
-
-**Why.** An Instructor needs the named Student and assignment in the response-bearing detail.
-Making those presentation facts part of its authorized projection gives every entry path the same
-complete context while retaining one inspection request and one authority boundary.
-
-**Consequence.** Migration `2026081876_student_work_inspection_safe_labels.sql` extends only the
-existing broker projection. Labels remain current presentation metadata, use bounded safe display
-contracts, and stay out of audit payloads, access logs, URLs, cursors, return context, and browser
-storage. PostgreSQL and Memory require the same valid, internally consistent values before
-returning detail.
-
-**Owner.** The [implementation status registry](active_plans/implementation_status.md),
-the [implementation status registry](active_plans/implementation_status.md), and
-`InspectedStudentWorkDetailV1` own this contract.
-
-### PLE-owned wire names use direct Serde DTOs
-
-**Decision.** PLE-owned serialized fields and portable discriminant values use readable
-`snake_case`. **Current pre-WN1 source still transports lower-camel fields.** The approved WN1
-target has pure `crates/browser-api-contract` own route-only DTOs alongside `crates/question_model`;
-`tsgen` emits one direct per-type `Foo` whose properties and portable values equal effective Serde.
-Feature decoders strictly validate that same direct DTO and continue to own semantic, relationship,
-disclosure, range, and opaque-ID validation.
-**Why.** One canonical PLE wire dialect aligns Rust, Python, PostgreSQL, durable artifacts, and
-cross-runtime values while retaining TypeScript's language and browser conventions inside the UI.
-The direct DTO makes one declared contract reviewable and keeps protocol acceptance closed.
-**Consequence.** HTTP bodies, PLE query parameters, Wasm JSON, and PLE-owned durable artifacts
-converge through their owning producer/consumer family. Current durable JSON, JSONB, canonical
-digest, and evidence producers receive a rebuild, named forward version/migration, or frozen
-historical disposition before change; each accepted transition owns coherence proof. DOM/framework,
-HTTP, WebAuthn, wasm-bindgen, and registered IMathAS, WeBWorK, QTI, H5P, LTI, and provider schemas
-retain spelling owned by their registered protocol at a narrow adapter boundary.
-**Owner.** [implementation_status.md](active_plans/implementation_status.md) and
-[implementation status registry](active_plans/implementation_status.md) own current execution and
-allocation; `NAMING_CONVENTIONS.md` owns the normative matrix.
-
-**Superseded target.** The earlier paired `Foo`/`FooWire` conversion model is historical decision
-evidence only. The direct Serde DTO is the active WN1 architecture.
-
-### Curriculum adoption authorization
-**Decision.** Course creation owns normal minimal-Blueprint creation; curriculum adoption
-stays a closed seven-operation model. P1 makes the resolved `SessionRecord` the sole authenticated-account source.
-**Why.** Preserves the closed product model and one explicit authorization source.
-**Consequence.** P1 is prerequisite to D1 but does not advance B1 acceptance.
-**Owner.** [implementation_status.md](active_plans/implementation_status.md) and [release completion
-plan](active_plans/active/release_completion_plan.md).
+The focused local-stack, Gradebook, wire-contract, and curriculum-adoption
+decisions are retained in `DESIGN_DECISIONS_OPERATIONS.md`.

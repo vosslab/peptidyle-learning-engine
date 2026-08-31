@@ -1,8 +1,8 @@
-//! Attempt-presentation contracts for the compact learner boundary.
+//! Attempt-presentation contracts for the compact student boundary.
 //!
 //! Durable source identifiers and grading parameters remain in the server
 //! model. This module projects only the public objects needed to render one
-//! issued question and route a learner response back to that exact
+//! issued question and route a student response back to that exact
 //! presentation.
 
 mod binding;

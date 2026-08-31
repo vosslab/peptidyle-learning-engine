@@ -22,7 +22,6 @@ import local_stack_control.live_demo_target
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.process
-import local_stack_control.worker_readiness
 
 
 CONTROL_NAME = "developer-control.json"
@@ -31,7 +30,7 @@ RESULT_NAME = "developer-result.json"
 SOCKET_NAME = "developer-control.sock"
 SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control"
 MAXIMUM_CONTROL_BYTES = 1024
-LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = local_stack_control.worker_readiness.WORKER_READINESS_TIMEOUT_SECONDS
+LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = 240.0
 DEVELOPER_STOP_WAIT_SECONDS = 20.0
 # The parent wait covers a clean host build before the child's separately
 # bounded service-readiness stages. This is an operator recovery ceiling, not
@@ -456,42 +455,14 @@ def _adapter_argv(action: str, manifest_path: pathlib.Path, arguments: tuple[str
 
 
 #============================================
-def _require_worker_ready(
-	runner: local_stack_control.process.CommandRunner,
-	manifest_path: pathlib.Path,
-	repository_root: pathlib.Path,
-) -> None:
-	"""Require the production worker readiness receipt before reporting ready."""
-	def read_evidence() -> tuple[bool, str]:
-		result = runner.run(
-			_adapter_argv(
-				"read-evidence-logs", manifest_path, ("--claim", "worker_completion")
-			),
-			cwd=repository_root,
-		)
-		return result.ok(), result.stdout + result.stderr
-
-	try:
-		local_stack_control.worker_readiness.wait_for_job_family(
-			read_evidence,
-			"GradeAcceptedSubmission",
-			LIFECYCLE_LAUNCH_TIMEOUT_SECONDS,
-		)
-	except local_stack_control.worker_readiness.WorkerReadinessError as error:
-		raise DeveloperBrowserSuiteError(
-			f"live-demo worker did not reach ready state ({error})"
-		) from error
-
-
-#============================================
 def default_operations() -> DeveloperOperations:
-	"""Use the same production manifest, gateway, auth, and worker path as Playwright."""
+	"""Use the same production manifest, gateway, and auth path as Playwright."""
 	def start_stack(
 		lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
 		root: pathlib.Path,
 		workspace: pathlib.Path,
 	) -> RunningDeveloperStack:
-		"""Start the production browser stack and wait for worker readiness."""
+		"""Start the production browser stack and wait for its declared readiness."""
 		runner = local_stack_control.process.SubprocessRunner()
 		selections = local_stack_control.env_file.canonical_stack_selections(root)
 		ports = local_stack_control.live_demo_target.random_ports()
@@ -515,7 +486,6 @@ def default_operations() -> DeveloperOperations:
 		)
 		if result.returncode != 0:
 			raise DeveloperBrowserSuiteError("developer browser stack launch failed")
-		_require_worker_ready(runner, target.manifest_path, root)
 		return RunningDeveloperStack(target.manifest_path, target.origin)
 
 	def stop_stack(running: RunningDeveloperStack, root: pathlib.Path) -> None:

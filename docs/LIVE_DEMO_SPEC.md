@@ -40,16 +40,16 @@ teaching-course topology; the established forward-only migration ledger applies 
 
 `BlueprintCourse` is course-level reusable content and structure. It is visible to all vetted (approved) Instructors,
 has no enrolled Students, and has no live deadlines, releases, accommodations, grades, or delivery settings.
-`CourseInstance` is created from exactly one Blueprint Course and is private to its current equal co-Instructors and
+`CourseInstance` is created from exactly one Blueprint Course and is private to its current equal Teaching Team Members and
 enrolled Students. Its parent identity is immutable. It owns deadlines, releases, accommodations, grades, and delivery
 settings for that teaching instance; delivery settings are never inherited as Blueprint authority.
 
 Creating a Course Instance through the UI selects an existing Blueprint Course or first creates a minimal new Blueprint
 Course. A referenced Blueprint Course archives instead of being hard-deleted. The Course Instance shows its applied
-Blueprint revision and any controlled-update state so co-Instructors can review propagation before release.
+Blueprint revision and any controlled-update state so Teaching Team Members can review propagation before release.
 
 When an Instructor adds an assignment to a Blueprint Course, the assignment propagates to each daughter Course
-Instance as unreleased. The current co-Instructors review and release it in the Course Instance before enrolled
+Instance as unreleased. The current Teaching Team Members review and release it in the Course Instance before enrolled
 Students can receive it. ADAPT's alpha course is comparison vocabulary only; it is not a PLE aggregate, route, or
 browser workflow.
 
@@ -106,7 +106,7 @@ and the identities of vetted Instructors who starred it. Watch is separate and p
 in-app subscription; changes appear in Watched activity because email delivery is not configured. Student and
 anonymous flows expose neither star identities nor watch state. Collections and saved searches remain separate
 features. The question detail shows the immutable published version represented by its Question ID and its visible
-fork lineage. The hidden exact `(ProblemId, VersionId)` remains server evidence and never becomes browser authority.
+fork lineage. The hidden exact `(QuestionId, QuestionVersionNumber)` remains server evidence and never becomes browser authority.
 
 The Instructor forks that publication into a private draft, validates it, and publishes the fork as a new immutable
 Question ID. The catalog then shows the visible source/fork lineage and a controlled-update impact item. The Instructor
@@ -134,7 +134,7 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
   and anonymous views expose neither star identities nor watch state; email delivery is not configured.
 - Create and revise a Blueprint Course's reusable content and structure. Confirm that every vetted Instructor can see
   it, that no Student is enrolled, and that it has no live deadline or delivery state.
-- Create a Course Instance from the Blueprint Course. Confirm that its current equal co-Instructors and enrolled
+- Create a Course Instance from the Blueprint Course. Confirm that its current equal Teaching Team Members and enrolled
   Students are the only people who can see its private teaching state, including deadlines, releases, accommodations,
   grades, and delivery settings.
 - Add a new assignment to the Blueprint Course, then open its daughter Course Instance and observe the propagated
@@ -160,19 +160,15 @@ connects Overview, Questions, Policies, Grading operations, and Student view, an
 creates no Student work. Entering as the ordinary demo Student does create a real run, submission, and grade through
 the normal workflow; the Instructor can see that graded work in the gradebook after a fresh read.
 
-### Automated grading recovery
+### Automated grading
 
-The connected recovery journey uses ordinary visible Student and Instructor actions. The Student submits one answer
-and sees **Response received** with a cleared answer buffer and **Check grading status**. The answer POST is not
+The connected grading journey uses ordinary visible Student and Instructor
+actions. The Student submits one answer and sees **Response received** with a
+cleared answer buffer and **Check grading status**. The answer POST is not
 replayed after acknowledgement; each status GET is answer-free and `no-store`.
-
-The acceptance-only fault profile then records one deterministic grader exception. The Student sees **Your response
-needs instructor attention**. Elena opens the assignment's **Grading operations** page, reviews the safe metadata row,
-and selects **Retry automated grading for [question]** exactly once. The ordinary worker claims the
-new execution generation and runs the accepted private response through the shared server handler. After completion
-and current-score publication, Elena
-opens the current Gradebook and observes Mary's resulting total. Student status, operation responses, and receipts do
-not contain the answer, feedback internals, grading source, or score values.
+The API retains grading and answer material on the server, and Student status,
+operation responses, and receipts do not contain answers, feedback internals,
+grading source, or score values.
 
 Instructors invite already-approved colleagues into their own teaching course. Sysadmins own global
 Instructor approval; an invitation grants only the accepted course membership.
@@ -186,7 +182,7 @@ mounted; they are not claimed by the current executable demo flow.
 The Blueprint Course workflow is a production-shaped, server-owned Instructor workflow. Elena creates and revises a
 Blueprint Course through labeled controls, then creates a Course Instance from its reusable content and structure (or
 selects an existing Blueprint Course). The Course Instance has exactly one immutable Blueprint Course parent.
-The Course Instance has its own private current co-Instructor and Student relationships and owns its deadlines,
+The Course Instance has its own private current Teaching Team Member and Student relationships and owns its deadlines,
 releases, accommodations, grades, and delivery settings. A new assignment added to the Blueprint Course appears in
 the daughter Course Instance as unreleased; Elena observes it there, reviews its answer-free preview, and explicitly
 releases it before a Student can receive it. The server derives authority and destination identity from the account
@@ -312,11 +308,8 @@ Regenerating the demo restores the seeded baseline and discards the passkey stat
 PLE generates and manages any internal demo credentials needed for process isolation, service startup, or reset.
 These credentials are disposable process-isolation capabilities for the current demo installation; they are not
 visitor secrets, role claims, or durable application credentials, and they stay out of public browser evidence.
-The accepted-submission API fast path and recovery worker receive separate generated
-credentials through `PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL` and
-`PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL`; the fast-path value stays API-only
-and the recovery value stays worker-only. The private baseline runtime carries both
-values without placing either in the browser or its evidence.
+The API receives its one bounded database credential through the private runtime
+manifest. The browser and its evidence receive no database credential.
 
 SOPS is reserved for a later deployment design that needs persistent or externally supplied credentials. The public
 live demo does not require SOPS to protect its disposable internal process-isolation credentials.

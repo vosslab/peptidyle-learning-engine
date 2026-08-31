@@ -40,8 +40,7 @@
 .curriculum-entry-section,
 .curriculum-module,
 .curriculum-inspection,
-.curriculum-create-dialog,
-.curriculum-alpha-fork {
+.curriculum-create-dialog {
   min-width: 0;
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
@@ -51,9 +50,7 @@
 
 .curriculum-card,
 .curriculum-definition-editor,
-.curriculum-alpha-editor,
 .curriculum-inspection,
-.curriculum-alpha-fork,
 .curriculum-create-dialog[open] {
   display: grid;
   gap: var(--ple-layout-gap);
@@ -140,7 +137,6 @@
 }
 
 .curriculum-form-grid label,
-.curriculum-alpha-editor > label,
 .curriculum-module > label,
 .curriculum-small-field {
   display: grid;
@@ -157,7 +153,6 @@
 .curriculum-form-grid input,
 .curriculum-form-grid select,
 .curriculum-form-grid textarea,
-.curriculum-alpha-editor input,
 .curriculum-module input {
   width: 100%;
 }
@@ -215,8 +210,7 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "heading"
-    "content"
-    "fork";
+    "content";
 }
 
 .curriculum-detail-reader > .curriculum-page-heading {
@@ -225,10 +219,6 @@
 
 .curriculum-detail-reader > .curriculum-editor-content {
   grid-area: content;
-}
-
-.curriculum-detail-reader > .curriculum-alpha-fork {
-  grid-area: fork;
 }
 
 .curriculum-editor-content {
@@ -244,10 +234,6 @@
   flex-direction: column;
 }
 
-.curriculum-alpha-editor {
-  margin-top: var(--ple-section-gap);
-}
-
 .curriculum-module {
   display: grid;
   gap: var(--ple-section-gap);
@@ -259,124 +245,6 @@
   padding: var(--ple-panel-padding);
   border-inline-start: 3px solid var(--ple-accent);
   background: color-mix(in srgb, var(--ple-page-background) 48%, transparent);
-}
-
-.curriculum-alpha-fork {
-  border-color: color-mix(in srgb, var(--ple-accent) 52%, var(--ple-border));
-}
-
-.curriculum-alpha-fork-heading,
-.curriculum-alpha-fork-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ple-layout-gap);
-  align-items: center;
-  justify-content: space-between;
-}
-
-.curriculum-alpha-fork-heading {
-  align-items: start;
-}
-
-.curriculum-alpha-fork-heading h2,
-.curriculum-alpha-fork-review h3,
-.curriculum-alpha-fork-recovery h3,
-.curriculum-alpha-fork-success h3 {
-  margin-block: 0.15rem;
-}
-
-.curriculum-alpha-fork-heading p,
-.curriculum-alpha-fork-status,
-.curriculum-alpha-fork-review p,
-.curriculum-alpha-fork-recovery p,
-.curriculum-alpha-fork-success p {
-  color: var(--ple-muted);
-}
-
-.curriculum-alpha-fork-status {
-  min-height: 1.5rem;
-  margin: 0;
-  font-weight: 650;
-}
-
-.curriculum-alpha-fork-status[role="alert"] {
-  color: var(--ple-danger, #a11d2f);
-}
-
-.curriculum-alpha-fork-review,
-.curriculum-alpha-fork-recovery,
-.curriculum-alpha-fork-success {
-  display: grid;
-  gap: var(--ple-layout-gap);
-  padding-top: var(--ple-layout-gap);
-  border-top: 1px solid var(--ple-border);
-}
-
-.curriculum-alpha-fork-review dl {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0;
-}
-
-.curriculum-alpha-fork-review dl > div {
-  display: grid;
-  grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr);
-  gap: 0.8rem;
-}
-
-.curriculum-alpha-fork-review dt {
-  color: var(--ple-muted);
-  font-weight: 700;
-}
-
-.curriculum-alpha-fork-review dd {
-  margin: 0;
-}
-
-.curriculum-alpha-fork-recovery {
-  border-color: color-mix(in srgb, var(--ple-warning, #a15c00) 55%, var(--ple-border));
-}
-
-.curriculum-alpha-fork-recovery fieldset {
-  display: grid;
-  gap: 0.65rem;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.curriculum-alpha-fork-recovery legend {
-  font-weight: 750;
-}
-
-.curriculum-alpha-fork-replacements {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.curriculum-alpha-fork-success {
-  border-color: color-mix(in srgb, var(--ple-success, #16734a) 55%, var(--ple-border));
-}
-
-@media (max-width: 44rem) {
-  .curriculum-alpha-fork-heading,
-  .curriculum-alpha-fork-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .curriculum-alpha-fork-heading button,
-  .curriculum-alpha-fork-actions button,
-  .curriculum-alpha-fork-actions a {
-    width: 100%;
-  }
-
-  .curriculum-alpha-fork-review dl > div {
-    grid-template-columns: 1fr;
-    gap: 0.15rem;
-  }
 }
 
 .curriculum-inspection article {

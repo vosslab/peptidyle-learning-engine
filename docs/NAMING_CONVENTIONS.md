@@ -13,7 +13,7 @@ no stronger boundary convention applies, prefer readable lowercase `snake_case`.
 Human-role names follow [USER_ROLES.md](USER_ROLES.md): **Student**, **Instructor**, and
 **Sysadmin**. PLE-owned identifiers use `student`, `instructor`, and `sysadmin` for those people and
 their role-bound work. `user` names a generic authenticated identity before course authority is
-known. `learning` remains valid for educational-system concepts; `learner` is not a role alias in
+known. `learning` remains valid for educational-system concepts; `student` is not a role alias in
 new PLE-owned names. Temporary Instructor-roadmap coordination keys use `WP-INST-*`. They exist only
 while the owning plan is active and can disappear when that plan closes. Product, API, evidence,
 and persistence identifiers use domain names instead.

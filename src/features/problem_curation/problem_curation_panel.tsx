@@ -1,12 +1,12 @@
-// problem_curation_panel.tsx - live collection, Favorites, and saved-search workspace.
+// problem_curation_panel.tsx - live private Question Collection and saved-search workspace.
 
 import { For, Show, createSignal, onMount, type Accessor, type JSX } from "solid-js";
 
-import type { ProblemCollectionMemberView } from "../../../generated/api/ProblemCollectionMemberView";
+import type { QuestionCollectionMemberView } from "../../../generated/api/QuestionCollectionMemberView";
 import { ProblemCurationConflictError } from "../../api/http_client";
-import type { ProblemCollectionSummaryView } from "../../../generated/api/ProblemCollectionSummaryView";
+import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
-import { MAX_PROBLEM_COLLECTION_MEMBERS } from "../../../generated/api/MAX_PROBLEM_COLLECTION_MEMBERS";
+import { MAX_QUESTION_COLLECTION_MEMBERS } from "../../../generated/api/MAX_QUESTION_COLLECTION_MEMBERS";
 import {
   ProblemPicker,
   type ProblemPickerSelection,
@@ -21,7 +21,7 @@ import {
   collectionDraftFrom,
   collectionDeletionFromObserved,
   libraryQueryFromSavedSearch,
-  mayEditOpenedProblemCollection,
+  mayEditOpenedQuestionCollection,
   moveCollectionQuestionId,
   problemCurationPickerSources,
   removeCollectionQuestionId,
@@ -39,7 +39,7 @@ export interface ProblemCurationPanelProps {
   readonly pickerRepository: ProblemPickerSourceRepository;
   readonly query: Accessor<CatalogBrowseQuery>;
   readonly applyQuery: (query: CatalogBrowseQuery) => void;
-  /** Instructor authority enables personal Favorites, collections, and saved searches. */
+  /** Instructor authority enables private collections and saved searches. */
   readonly mayMutatePersonalCuration: boolean;
 }
 
@@ -76,7 +76,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
   };
 
   const [collections, setCollections] = createSignal<
-    ProblemCurationPage<ProblemCollectionSummaryView>
+    ProblemCurationPage<QuestionCollectionSummaryView>
   >(pageWith([], null));
   const [savedSearches, setSavedSearches] = createSignal<
     ProblemCurationPage<SavedProblemSearchView>
@@ -88,14 +88,11 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
   const [showCollectionForm, setShowCollectionForm] = createSignal(false);
   const [showSavedSearchForm, setShowSavedSearchForm] = createSignal(false);
   const [canEditDraft, setCanEditDraft] = createSignal(true);
-  const [openedCollection, setOpenedCollection] = createSignal<ProblemCollectionSummaryView>();
+  const [openedCollection, setOpenedCollection] = createSignal<QuestionCollectionSummaryView>();
   const [openedMembers, setOpenedMembers] = createSignal<
-    ProblemCurationPage<ProblemCollectionMemberView>
+    ProblemCurationPage<QuestionCollectionMemberView>
   >(pageWith([], null));
   const [collectionTitle, setCollectionTitle] = createSignal("");
-  const [collectionVisibility, setCollectionVisibility] = createSignal<"private" | "institution">(
-    "private",
-  );
   const [savedSearchTitle, setSavedSearchTitle] = createSignal("");
   const [editingSavedSearch, setEditingSavedSearch] = createSignal<
     SavedProblemSearchView | undefined
@@ -106,9 +103,6 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
   let collectionsHeading: HTMLHeadingElement | undefined;
   let savedSearchesHeading: HTMLHeadingElement | undefined;
 
-  const favorite = (): ProblemCollectionSummaryView | undefined =>
-    collections().items.find((collection) => collection.kind === "favorites");
-
   async function loadCollections(cursor: string | null, append: boolean): Promise<boolean> {
     try {
       const page = await props.repository.listCollections(cursor);
@@ -118,23 +112,6 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
       return true;
     } catch (error: unknown) {
       setNotice(failureNotice(error, "Collections could not load. Try loading them again."));
-      return false;
-    }
-  }
-
-  async function ensureFavorites(): Promise<boolean> {
-    try {
-      const result = await props.repository.ensureFavorites();
-      const favorites = result.value;
-      setCollections((page) =>
-        pageWith(
-          [favorites, ...page.items.filter((item) => item.reference !== favorites.reference)],
-          page.nextCursor,
-        ),
-      );
-      return true;
-    } catch (error: unknown) {
-      setNotice(failureNotice(error, "Favorites could not load. Try loading the Library again."));
       return false;
     }
   }
@@ -163,9 +140,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
     setNotice({ kind: "working", text: "Reloading current curation." });
     const results = await Promise.all([
       loadCollections(null, false),
-      ...(props.mayMutatePersonalCuration
-        ? [ensureFavorites(), loadSavedSearches(null, false)]
-        : []),
+      ...(props.mayMutatePersonalCuration ? [loadSavedSearches(null, false)] : []),
     ]);
     if (results.some((loaded) => !loaded)) return;
 
@@ -175,7 +150,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
         const current = await props.repository.getCollection(opened.reference);
         setOpenedCollection(current.value);
         setDraft((local) =>
-          local.reference === opened.reference ? { ...local, revision: current.etag } : local,
+          local.reference === opened.reference ? { ...local, editNumber: current.etag } : local,
         );
         setNotice({
           kind: "success",
@@ -190,15 +165,12 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
     setNotice({ kind: "success", text: "Current curation is loaded." });
   }
 
-  async function loadCollection(collection: ProblemCollectionSummaryView): Promise<boolean> {
+  async function loadCollection(collection: QuestionCollectionSummaryView): Promise<boolean> {
     setNotice({ kind: "working", text: `Loading ${collection.title}.` });
     try {
       const current = await props.repository.getCollection(collection.reference);
       setOpenedCollection(current.value);
-      const mayEdit = mayEditOpenedProblemCollection(
-        props.mayMutatePersonalCuration,
-        current.value.access,
-      );
+      const mayEdit = mayEditOpenedQuestionCollection(props.mayMutatePersonalCuration);
       setCanEditDraft(mayEdit);
       if (!mayEdit) {
         const page = await props.repository.listCollectionMembers(collection.reference, null);
@@ -209,7 +181,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
         });
         return true;
       }
-      const loaded: ProblemCollectionMemberView[] = [];
+      const loaded: QuestionCollectionMemberView[] = [];
       let etag = current.etag;
       let cursor: string | null = null;
       do {
@@ -217,22 +189,19 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
         loaded.push(...page.items);
         etag = page.etag;
         cursor = page.nextCursor;
-      } while (cursor !== null && loaded.length < MAX_PROBLEM_COLLECTION_MEMBERS);
+      } while (cursor !== null && loaded.length < MAX_QUESTION_COLLECTION_MEMBERS);
       setDraft({
         ...collectionDraftFrom(current.value, loaded),
-        revision: etag,
+        editNumber: etag,
       });
       setCollectionTitle(current.value.title);
-      setCollectionVisibility(current.value.visibility);
       setCanEditDraft(mayEdit);
       setOpenedMembers(pageWith(loaded, null));
       setShowCollectionForm(true);
       setNotice({
         kind: "success",
         text:
-          current.value.access === "owner"
-            ? `${current.value.title} is ready to edit.`
-            : `${current.value.title} is available for question selection.`,
+          `${current.value.title} is ready to edit.`,
       });
       return true;
     } catch (error: unknown) {
@@ -269,19 +238,16 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
     try {
       const savedResult = await props.repository.replaceCollection({
         reference: current.reference,
-        kind: current.kind,
         title,
-        visibility: collectionVisibility(),
         questionIds: current.questionIds,
-        revision: current.revision,
+        editNumber: current.editNumber,
       });
       const saved = savedResult.value;
       setDraft({
         ...current,
         reference: saved.reference,
-        revision: savedResult.etag,
+        editNumber: savedResult.etag,
         title: saved.title,
-        visibility: saved.visibility,
       });
       setCollections((page) => {
         const existing = page.items.filter((item) => item.reference !== saved.reference);
@@ -304,7 +270,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
     setShowPicker(false);
     setNotice({
       kind: "success",
-      text: `${selection.questionIds.length} selected questions are ready. Choose Favorites or a collection destination.`,
+      text: `${selection.questionIds.length} selected questions are ready. Choose a collection destination.`,
     });
   }
 
@@ -312,14 +278,13 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
     setShowPicker(false);
   }
 
-  async function addStagedTo(collection: ProblemCollectionSummaryView): Promise<void> {
+  async function addStagedTo(collection: QuestionCollectionSummaryView): Promise<void> {
     if (!(await loadCollection(collection))) return;
     setDraft((current) => ({
       ...current,
       questionIds: appendCollectionQuestionIds(current.questionIds, stagedQuestionIds()),
     }));
     setCollectionTitle(collection.title);
-    setCollectionVisibility(collection.visibility);
     setShowCollectionForm(true);
     setNotice({
       kind: "success",
@@ -384,7 +349,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
     setNotice({ kind: "working", text: `Deleting ${deletion.title}.` });
     try {
       if (deletion.kind === "collection") {
-        await props.repository.deleteCollection(deletion.reference, deletion.revision);
+        await props.repository.deleteCollection(deletion.reference, deletion.editNumber);
         setCollections((page) =>
           pageWith(
             page.items.filter((item) => item.reference !== deletion.reference),
@@ -393,7 +358,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
         );
         if (draft().reference === deletion.reference) setDraft(EMPTY_COLLECTION_DRAFT);
       } else {
-        await props.repository.deleteSavedSearch(deletion.reference, deletion.revision);
+        await props.repository.deleteSavedSearch(deletion.reference, deletion.editNumber);
         setSavedSearches((page) =>
           pageWith(
             page.items.filter((item) => item.reference !== deletion.reference),
@@ -421,7 +386,6 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
   }
 
   onMount(() => {
-    if (props.mayMutatePersonalCuration) void ensureFavorites();
     void loadCollections(null, false);
     if (props.mayMutatePersonalCuration) void loadSavedSearches(null, false);
   });
@@ -465,7 +429,6 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
               setDraft(EMPTY_COLLECTION_DRAFT);
               setCanEditDraft(true);
               setCollectionTitle("");
-              setCollectionVisibility("private");
               setShowCollectionForm(true);
             }}
           >
@@ -479,25 +442,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
           <h3 id="staged-selection-heading">Selected questions ready to save</h3>
           <p>{stagedQuestionIds().length} questions will be appended in this order.</p>
           <div class="problem-curation-actions">
-            <Show when={favorite()}>
-              {(favorites) => (
-                <button
-                  class="primary-action"
-                  type="button"
-                  onClick={() => void addStagedTo(favorites())}
-                >
-                  Add to Favorites
-                </button>
-              )}
-            </Show>
-            <Show when={!favorite()}>
-              <p>Favorites is preparing your personal collection.</p>
-            </Show>
-            <For
-              each={collections().items.filter(
-                (collection) => collection.kind === "named" && collection.access === "owner",
-              )}
-            >
+            <For each={collections().items}>
               {(collection) => (
                 <button
                   class="quiet-action"
@@ -526,27 +471,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
               onInput={(event) => setCollectionTitle(event.currentTarget.value)}
             />
           </label>
-          <label>
-            Visibility
-            <select
-              value={collectionVisibility()}
-              disabled={!canEditDraft()}
-              onChange={(event) =>
-                setCollectionVisibility(
-                  event.currentTarget.value === "institution" ? "institution" : "private",
-                )
-              }
-            >
-              <option value="private">Private to me</option>
-              <option value="institution">Share with my institution</option>
-            </select>
-          </label>
           <p>{draft().questionIds.length} questions in this ordered collection.</p>
-          <Show when={!canEditDraft()}>
-            <p>
-              This institution collection is ready to browse and reuse. Its owner controls changes.
-            </p>
-          </Show>
           <ol class="problem-curation-members">
             <For each={draft().questionIds}>
               {(questionId, index) => (
@@ -614,17 +539,11 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
 
       <Show when={openedCollection() !== undefined && !canEditDraft()}>
         <section class="problem-curation-detail" aria-labelledby="collection-detail-heading">
-          <p class="eyebrow">Institution collection</p>
+          <p class="eyebrow">Private Question Collection</p>
           <h3 id="collection-detail-heading">{openedCollection()!.title}</h3>
+          <p>Private collection - edit number {openedCollection()!.editNumber}</p>
           <p>
-            {openedCollection()!.visibility === "institution"
-              ? "Shared with this institution"
-              : "Private collection"}{" "}
-            - revision {openedCollection()!.revision} - institution reader access
-          </p>
-          <p>
-            Browse these current published questions or reuse them through a question picker. The
-            collection owner controls its name, membership, order, and sharing.
+            Browse these current published questions or reuse them through a question picker.
           </p>
           <ol class="problem-curation-members">
             <For each={openedMembers().items}>
@@ -702,11 +621,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
                   <div>
                     <strong>{collection.title}</strong>
                     <span>
-                      {collection.kind === "favorites"
-                        ? "Favorites"
-                        : collection.visibility === "institution"
-                          ? "Institution collection"
-                          : "Private collection"}
+                      Private collection
                     </span>
                   </div>
                   <div class="problem-curation-actions">
@@ -717,21 +632,19 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
                     >
                       Open
                     </button>
-                    <Show when={collection.access === "owner" && collection.kind === "named"}>
-                      <button
-                        class="quiet-action"
-                        type="button"
-                        aria-label={`Delete collection ${collection.title}`}
-                        onClick={(event) =>
-                          requestDeletion(
-                            collectionDeletionFromObserved(collection),
-                            event.currentTarget,
-                          )
-                        }
-                      >
-                        Delete
-                      </button>
-                    </Show>
+                    <button
+                      class="quiet-action"
+                      type="button"
+                      aria-label={`Delete collection ${collection.title}`}
+                      onClick={(event) =>
+                        requestDeletion(
+                          collectionDeletionFromObserved(collection),
+                          event.currentTarget,
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
                   </div>
                 </li>
               )}
@@ -836,7 +749,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
             props.mayMutatePersonalCuration,
           )}
           mode={props.mayMutatePersonalCuration ? "many" : "none"}
-          maximumSelection={MAX_PROBLEM_COLLECTION_MEMBERS}
+          maximumSelection={MAX_QUESTION_COLLECTION_MEMBERS}
           trigger={pickerTrigger}
           title="Select published questions"
           confirmLabel={

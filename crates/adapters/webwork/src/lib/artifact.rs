@@ -1,15 +1,16 @@
 //! Trusted immutable PG-source resolution and binding checks.
 
 use objects::{ObjectKey, ObjectStore};
-use question_model::{ProblemId, QuestionDefinition, QuestionSource, SourceArtifact, VersionId};
+use question_model::{
+    QuestionDefinition, QuestionSource, QuestionVersionReference, SourceArtifact,
+};
 
 use super::WebworkAdapterError;
 
 /// Immutable PG source resolved from trusted object storage before adapter use.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebworkSource {
-    pub(super) problem: ProblemId,
-    pub(super) version: VersionId,
+    pub(super) question_version: QuestionVersionReference,
     pub(super) artifact: SourceArtifact,
     pub(super) pg_source: Vec<u8>,
 }
@@ -18,13 +19,11 @@ impl WebworkSource {
     /// Resolves PG source only from its exact immutable published object key.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        problem: ProblemId,
-        version: VersionId,
+        question_version: QuestionVersionReference,
         artifact: SourceArtifact,
     ) -> Result<Self, WebworkAdapterError> {
-        let expected_key = ObjectKey::ProblemSource {
-            problem,
-            version,
+        let expected_key = ObjectKey::QuestionSource {
+            question_version: question_version.clone(),
             object: artifact.object,
         };
         let stored = store
@@ -34,14 +33,13 @@ impl WebworkSource {
         if stored.record.key != expected_key
             || stored.record.id != artifact.object
             || stored.record.category != objects::ObjectCategory::Source
-            || stored.record.version != Some(version)
+            || stored.record.question_version != Some(question_version.clone())
             || stored.record.sha256.to_string() != artifact.sha256
         {
             return Err(WebworkAdapterError::UntrustedSource);
         }
         Ok(Self {
-            problem,
-            version,
+            question_version,
             artifact,
             pg_source: stored.bytes,
         })
@@ -55,9 +53,15 @@ impl WebworkSource {
 
 pub(super) fn webwork_identity(
     question: &QuestionDefinition,
-) -> Result<(ProblemId, &str), WebworkAdapterError> {
+) -> Result<(QuestionVersionReference, &str), WebworkAdapterError> {
     match &question.source {
-        QuestionSource::Webwork { pg_path } => Ok((question.problem, pg_path)),
+        QuestionSource::Webwork { pg_path } => Ok((
+            QuestionVersionReference {
+                question_id: question.question_id.clone(),
+                version_number: question.version_number,
+            },
+            pg_path,
+        )),
         _ => Err(WebworkAdapterError::UnsupportedSource),
     }
 }
@@ -73,10 +77,9 @@ pub(super) fn verify_source(source: &WebworkSource) -> Result<(), WebworkAdapter
 
 pub(super) fn verify_source_binding(
     source: &WebworkSource,
-    problem: ProblemId,
-    version: VersionId,
+    question_version: &QuestionVersionReference,
 ) -> Result<(), WebworkAdapterError> {
-    if source.problem == problem && source.version == version {
+    if &source.question_version == question_version {
         Ok(())
     } else {
         Err(WebworkAdapterError::SourceDoesNotMatchQuestion)

@@ -4,7 +4,7 @@ import type { AssignmentReference } from "../../generated/api/AssignmentReferenc
 import type { CourseReference } from "../../generated/api/CourseReference";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
-import type { RunReference } from "../../generated/api/RunReference";
+import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type {
   CalculatedGradebookQuery,
   InspectedStudentWorkReturnContext,
@@ -14,11 +14,11 @@ import {
   parseAssignmentReference,
   parseCourseMembershipReference,
   parseCourseReference,
-  parseRunReference,
+  parseAssignmentAttemptReference,
   type AssignmentRouteReference,
   type CourseMembershipRouteReference,
   type CourseRouteReference,
-  type RunRouteReference,
+  type AssignmentAttemptRouteReference,
 } from "../navigation/public_route";
 
 /** The one allowed Gradebook URL filter. */
@@ -162,8 +162,8 @@ function checkedMembership(value: CourseMembershipReference): CourseMembershipRo
   return result;
 }
 
-function checkedRun(value: RunReference): RunRouteReference {
-  const result = parseRunReference(value);
+function checkedRun(value: AssignmentAttemptReference): AssignmentAttemptRouteReference {
+  const result = parseAssignmentAttemptReference(value);
   if (result === null) throw new Error("invalid public run reference");
   return result;
 }
@@ -252,7 +252,7 @@ export function inspectedStudentWorkUrl(
   course: CourseReference,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  run: RunReference,
+  run: AssignmentAttemptReference,
   operation?: GradingOperationReference,
 ): string {
   const checkedCourseReference = checkedCourse(course);

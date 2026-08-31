@@ -1,25 +1,21 @@
-// reusable_curriculum_model.ts - immutable authoring operations for reusable curricula.
+// Immutable browser drafts for the one reusable Blueprint Course model.
 
-import type { AlphaCourseAccess } from "../../../generated/api/AlphaCourseAccess";
-import type { AlphaCourseDefinitionInput } from "../../../generated/api/AlphaCourseDefinitionInput";
-import type { AlphaCourseModuleInput } from "../../../generated/api/AlphaCourseModuleInput";
-import type { AlphaCourseView } from "../../../generated/api/AlphaCourseView";
-import type { BlueprintDefinitionInput } from "../../../generated/api/BlueprintDefinitionInput";
-import type { BlueprintView } from "../../../generated/api/BlueprintView";
+import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
+import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
+import type { ReusableAssignmentDefaults } from "../../../generated/api/ReusableAssignmentDefaults";
 import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
 import type { ReusableAssignmentDefinitionView } from "../../../generated/api/ReusableAssignmentDefinitionView";
 import type { ReusableAssignmentEntryInput } from "../../../generated/api/ReusableAssignmentEntryInput";
 import type { ReusableAssignmentEntryView } from "../../../generated/api/ReusableAssignmentEntryView";
-import type { ReusableAssignmentDefaults } from "../../../generated/api/ReusableAssignmentDefaults";
 import type { RelativeAssignmentSchedule } from "../../../generated/api/RelativeAssignmentSchedule";
 import type { RelativeScheduleMoment } from "../../../generated/api/RelativeScheduleMoment";
-import type { ProblemPickerSelection, ProblemPickerSource } from "../problem_picker";
+import type { ProblemPickerSelection } from "../problem_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
 export const MAX_POOL_CANDIDATES = 1024;
 export const MAX_REUSABLE_TITLE_LENGTH = 200;
 
-export type ReusableScheduleField = "availableAt" | "dueAt" | "closesAt";
+export type ReusableScheduleField = "available_at" | "due_at" | "closes_at";
 export type ReusableEntryDirection = -1 | 1;
 
 export interface CurriculumValidation {
@@ -27,50 +23,39 @@ export interface CurriculumValidation {
   readonly message: string | null;
 }
 
-export interface CurriculumActionPresentation {
-  readonly editable: boolean;
-  readonly primaryAction: string;
-  readonly guidance: string;
-}
-
-/** Shared curricula choose from the one global catalog. */
-export function alphaProblemPickerSources(): ReadonlyArray<ProblemPickerSource> {
-  return [{ kind: "sharedCatalog", label: "Shared catalog" }];
-}
-
 export interface CurriculumContinuationPresentation {
   readonly visible: boolean;
   readonly action: string | null;
 }
 
-/** Appends a live cursor page without duplicating an already visible curriculum record. */
-export function appendCurriculumPage<Record extends { readonly reference: string }>(
+/** Appends a cursor page without duplicating an already visible Blueprint Course. */
+export function appendBlueprintCoursePage<Record extends { readonly reference: string }>(
   current: ReadonlyArray<Record>,
   incoming: ReadonlyArray<Record>,
 ): ReadonlyArray<Record> {
   const known = new Set(current.map((record) => record.reference));
-  const appended = incoming.filter((record) => !known.has(record.reference));
-  return [...current, ...appended];
+  return [...current, ...incoming.filter((record) => !known.has(record.reference))];
 }
 
-/** Gives each visible cursor continuation an explicit next action. */
-export function curriculumContinuationPresentation(
-  kind: "blueprint" | "alpha",
+/** Gives every cursor continuation a precise Blueprint Course action. */
+export function blueprintCourseContinuationPresentation(
   hasMore: boolean,
   retry: boolean,
 ): CurriculumContinuationPresentation {
   if (!hasMore) return { visible: false, action: null };
-  const noun = kind === "blueprint" ? "blueprints" : "Alpha curricula";
-  return { visible: true, action: retry ? `Retry loading ${noun}` : `Load more ${noun}` };
+  return {
+    visible: true,
+    action: retry ? "Retry loading Blueprint Courses" : "Load more Blueprint Courses",
+  };
 }
 
 function defaultDefaults(): ReusableAssignmentDefaults {
   return {
-    timeLimitSeconds: null,
-    attemptLimit: null,
-    lateSubmission: "markLate",
-    deadlineBehavior: "autoSubmit",
-    runPolicies: {
+    time_limit_seconds: null,
+    attempt_limit: null,
+    late_submission: "markLate",
+    deadline_behavior: "autoSubmit",
+    activity_rules: {
       completion: { kind: "answerAll" },
       grade: "highest",
       continuedPractice: { kind: "unlimited" },
@@ -87,10 +72,10 @@ function defaultDefaults(): ReusableAssignmentDefaults {
 }
 
 function emptySchedule(): RelativeAssignmentSchedule {
-  return { availableAt: null, dueAt: null, closesAt: null };
+  return { available_at: null, due_at: null, closes_at: null };
 }
 
-/** Builds an editable starting definition with transparent, conservative teaching defaults. */
+/** Builds an editable assignment definition with visible teaching defaults. */
 export function emptyReusableDefinition(
   title = "Untitled reusable assignment",
 ): ReusableAssignmentDefinitionInput {
@@ -103,56 +88,55 @@ export function emptyReusableDefinition(
   };
 }
 
-export function emptyBlueprintDefinition(): BlueprintDefinitionInput {
-  return { definition: emptyReusableDefinition() };
-}
-
-export function emptyAlphaDefinition(): AlphaCourseDefinitionInput {
+/** Builds one complete local Blueprint Course draft with one labelled module. */
+export function emptyBlueprintCourseDefinition(): CreateBlueprintCourseDefinitionInput {
   return {
-    title: "Untitled Alpha curriculum",
+    title: "Untitled Blueprint Course",
     modules: [{ label: "Module 1", definitions: [emptyReusableDefinition()] }],
   };
 }
 
-function questionIdsFromSelection(selection: ProblemPickerSelection): ReadonlyArray<string> {
+function uniqueQuestionIds(selection: ProblemPickerSelection): ReadonlyArray<string> {
   return selection.questionIds.filter(
     (questionId, index, all) => all.indexOf(questionId) === index,
   );
 }
 
 function fixedEntry(questionId: string): ReusableAssignmentEntryInput {
-  return { kind: "fixed", questionId, pointsPossible: "1", scoringMode: "normal" };
+  return { kind: "fixed", question_id: questionId, points_possible: "1", scoring_mode: "normal" };
 }
 
 function poolEntry(questionIds: ReadonlyArray<string>): ReusableAssignmentEntryInput {
   return {
     kind: "pool",
     candidates: [...questionIds],
-    drawCount: 1,
-    pointsPerItem: "1",
+    draw_count: 1,
+    points_per_item: "1",
     ordering: "candidateOrder",
     algorithm: "v1",
   };
 }
 
-/** Appends each chosen question as its own fixed entry and retains picker order. */
+/** Appends chosen Questions as fixed entries while retaining picker order. */
 export function appendPickedFixedEntries(
   definition: ReusableAssignmentDefinitionInput,
   selection: ProblemPickerSelection,
 ): ReusableAssignmentDefinitionInput {
-  const entries = questionIdsFromSelection(selection).map(fixedEntry);
-  return { ...definition, entries: [...definition.entries, ...entries] };
+  return {
+    ...definition,
+    entries: [...definition.entries, ...uniqueQuestionIds(selection).map(fixedEntry)],
+  };
 }
 
-/** Appends one pool whose candidate order is the instructor's picker order. */
+/** Appends one Question Pool with candidate order selected by the Instructor. */
 export function appendPickedPool(
   definition: ReusableAssignmentDefinitionInput,
   selection: ProblemPickerSelection,
 ): ReusableAssignmentDefinitionInput {
-  const candidates = questionIdsFromSelection(selection);
-  if (candidates.length === 0) return definition;
-  const entry = poolEntry(candidates);
-  return { ...definition, entries: [...definition.entries, entry] };
+  const candidates = uniqueQuestionIds(selection);
+  return candidates.length === 0
+    ? definition
+    : { ...definition, entries: [...definition.entries, poolEntry(candidates)] };
 }
 
 export function moveReusableEntry(
@@ -190,7 +174,7 @@ export function updateReusablePoolDrawCount(
   const entry = definition.entries[index];
   if (entry === undefined || entry.kind !== "pool") return definition;
   const entries = [...definition.entries];
-  entries[index] = { ...entry, drawCount };
+  entries[index] = { ...entry, draw_count: drawCount };
   return { ...definition, entries };
 }
 
@@ -218,9 +202,8 @@ export function updateReusableText(
 
 function momentValue(moment: RelativeScheduleMoment | null): number | null {
   if (moment === null) return null;
-  const time = /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/.exec(moment.localTime);
-  if (time === null) return null;
-  const [hours, minutes, seconds, milliseconds] = moment.localTime.split(/[:.]/).map(Number);
+  if (!/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/.test(moment.local_time)) return null;
+  const [hours, minutes, seconds, milliseconds] = moment.local_time.split(/[:.]/).map(Number);
   if (
     hours === undefined ||
     minutes === undefined ||
@@ -230,7 +213,7 @@ function momentValue(moment: RelativeScheduleMoment | null): number | null {
     return null;
   }
   return (
-    moment.dayOffset * 86_400_000 +
+    moment.day_offset * 86_400_000 +
     hours * 3_600_000 +
     minutes * 60_000 +
     seconds * 1_000 +
@@ -239,11 +222,11 @@ function momentValue(moment: RelativeScheduleMoment | null): number | null {
 }
 
 function validateSchedule(schedule: RelativeAssignmentSchedule): CurriculumValidation {
-  const available = momentValue(schedule.availableAt);
-  const due = momentValue(schedule.dueAt);
-  const closes = momentValue(schedule.closesAt);
+  const available = momentValue(schedule.available_at);
+  const due = momentValue(schedule.due_at);
+  const closes = momentValue(schedule.closes_at);
   if (
-    [schedule.availableAt, schedule.dueAt, schedule.closesAt].some(
+    [schedule.available_at, schedule.due_at, schedule.closes_at].some(
       (moment) => moment !== null && momentValue(moment) === null,
     )
   ) {
@@ -262,33 +245,37 @@ function validateSchedule(schedule: RelativeAssignmentSchedule): CurriculumValid
   return { valid: true, message: null };
 }
 
-/** Client-side guidance mirrors durable meaning before the server performs authoritative validation. */
+/** Guides local drafting before the server performs authoritative validation. */
 export function validateReusableDefinition(
   definition: ReusableAssignmentDefinitionInput,
 ): CurriculumValidation {
-  const title = definition.title.trim();
-  if (title.length === 0 || title.length > MAX_REUSABLE_TITLE_LENGTH) {
+  if (definition.title.trim().length === 0 || definition.title.length > MAX_REUSABLE_TITLE_LENGTH) {
     return {
       valid: false,
       message: "Give this reusable assignment a title of up to 200 characters.",
     };
   }
   if (definition.entries.length === 0 || definition.entries.length > MAX_REUSABLE_ENTRIES) {
-    return { valid: false, message: "Add at least one fixed question or pool before saving." };
+    return {
+      valid: false,
+      message: "Add at least one fixed Question or Question Pool before saving.",
+    };
   }
   for (const entry of definition.entries) {
     if (entry.kind !== "pool") continue;
-    const unique = new Set(entry.candidates);
     if (entry.candidates.length === 0 || entry.candidates.length > MAX_POOL_CANDIDATES) {
-      return { valid: false, message: "Each pool needs from 1 through 1024 candidate questions." };
+      return {
+        valid: false,
+        message: "Each Question Pool needs from 1 through 1024 candidate Questions.",
+      };
     }
-    if (unique.size !== entry.candidates.length) {
-      return { valid: false, message: "Each pool candidate must appear only once." };
+    if (new Set(entry.candidates).size !== entry.candidates.length) {
+      return { valid: false, message: "Each Question Pool candidate must appear only once." };
     }
     if (
-      !Number.isSafeInteger(entry.drawCount) ||
-      entry.drawCount < 1 ||
-      entry.drawCount > entry.candidates.length
+      !Number.isSafeInteger(entry.draw_count) ||
+      entry.draw_count < 1 ||
+      entry.draw_count > entry.candidates.length
     ) {
       return {
         valid: false,
@@ -299,160 +286,35 @@ export function validateReusableDefinition(
   return validateSchedule(definition.schedule);
 }
 
-export function validateAlphaDefinition(
-  definition: AlphaCourseDefinitionInput,
+/** Validates the complete local Blueprint Course tree before its create request. */
+export function validateBlueprintCourseDefinition(
+  definition: CreateBlueprintCourseDefinitionInput,
 ): CurriculumValidation {
-  const title = definition.title.trim();
-  if (title.length === 0 || title.length > MAX_REUSABLE_TITLE_LENGTH) {
-    return { valid: false, message: "Give this Alpha curriculum a title of up to 200 characters." };
+  if (definition.title.trim().length === 0 || definition.title.length > MAX_REUSABLE_TITLE_LENGTH) {
+    return { valid: false, message: "Give this Blueprint Course a title of up to 200 characters." };
   }
   if (definition.modules.length === 0 || definition.modules.length > MAX_REUSABLE_ENTRIES) {
-    return { valid: false, message: "Add at least one labelled module before saving." };
+    return {
+      valid: false,
+      message: "Add at least one labelled module before creating the Blueprint Course.",
+    };
   }
   for (const module of definition.modules) {
     if (module.label.trim().length === 0 || module.label.length > MAX_REUSABLE_TITLE_LENGTH) {
-      return { valid: false, message: "Give each module a label of up to 200 characters." };
+      return {
+        valid: false,
+        message: "Give each Blueprint Course module a label of up to 200 characters.",
+      };
     }
     if (module.definitions.length === 0 || module.definitions.length > MAX_REUSABLE_ENTRIES) {
       return { valid: false, message: "Each module needs at least one reusable assignment." };
     }
-    for (const reusableDefinition of module.definitions) {
-      const validation = validateReusableDefinition(reusableDefinition);
+    for (const assignment of module.definitions) {
+      const validation = validateReusableDefinition(assignment);
       if (!validation.valid) return validation;
     }
   }
   return { valid: true, message: null };
-}
-
-/** Keeps access state visible and task-oriented for creators and approved readers. */
-export function alphaActionPresentation(access: AlphaCourseAccess): CurriculumActionPresentation {
-  if (access === "creator") {
-    return {
-      editable: true,
-      primaryAction: "Save curriculum",
-      guidance: "Edit modules and reusable assignments, then save the current curriculum.",
-    };
-  }
-  return {
-    editable: false,
-    primaryAction: "Inspect and reuse question set",
-    guidance:
-      "Review the answer-free modules, then choose published questions for your own course.",
-  };
-}
-
-export function appendAlphaModule(
-  definition: AlphaCourseDefinitionInput,
-): AlphaCourseDefinitionInput {
-  const module: AlphaCourseModuleInput = {
-    label: `Module ${definition.modules.length + 1}`,
-    definitions: [emptyReusableDefinition()],
-  };
-  return { ...definition, modules: [...definition.modules, module] };
-}
-
-export function moveAlphaModule(
-  definition: AlphaCourseDefinitionInput,
-  index: number,
-  direction: ReusableEntryDirection,
-): AlphaCourseDefinitionInput {
-  const destination = index + direction;
-  if (index < 0 || destination < 0 || destination >= definition.modules.length) return definition;
-  const modules = [...definition.modules];
-  const current = modules[index];
-  const adjacent = modules[destination];
-  if (current === undefined || adjacent === undefined) return definition;
-  modules[index] = adjacent;
-  modules[destination] = current;
-  return { ...definition, modules };
-}
-
-export function removeAlphaModule(
-  definition: AlphaCourseDefinitionInput,
-  index: number,
-): AlphaCourseDefinitionInput {
-  if (index < 0 || index >= definition.modules.length) return definition;
-  return {
-    ...definition,
-    modules: definition.modules.filter((_, moduleIndex) => moduleIndex !== index),
-  };
-}
-
-export function appendAlphaDefinition(
-  definition: AlphaCourseDefinitionInput,
-  moduleIndex: number,
-): AlphaCourseDefinitionInput {
-  const module = definition.modules[moduleIndex];
-  if (module === undefined) return definition;
-  const modules = [...definition.modules];
-  modules[moduleIndex] = {
-    ...module,
-    definitions: [...module.definitions, emptyReusableDefinition()],
-  };
-  return { ...definition, modules };
-}
-
-export function moveAlphaDefinition(
-  definition: AlphaCourseDefinitionInput,
-  moduleIndex: number,
-  definitionIndex: number,
-  direction: ReusableEntryDirection,
-): AlphaCourseDefinitionInput {
-  const module = definition.modules[moduleIndex];
-  const destination = definitionIndex + direction;
-  if (
-    module === undefined ||
-    definitionIndex < 0 ||
-    destination < 0 ||
-    destination >= module.definitions.length
-  ) {
-    return definition;
-  }
-  const definitions = [...module.definitions];
-  const current = definitions[definitionIndex];
-  const adjacent = definitions[destination];
-  if (current === undefined || adjacent === undefined) return definition;
-  definitions[definitionIndex] = adjacent;
-  definitions[destination] = current;
-  return updateAlphaModule(definition, moduleIndex, { definitions });
-}
-
-export function removeAlphaDefinition(
-  definition: AlphaCourseDefinitionInput,
-  moduleIndex: number,
-  definitionIndex: number,
-): AlphaCourseDefinitionInput {
-  const module = definition.modules[moduleIndex];
-  if (module === undefined || definitionIndex < 0 || definitionIndex >= module.definitions.length) {
-    return definition;
-  }
-  const definitions = module.definitions.filter((_, index) => index !== definitionIndex);
-  return updateAlphaModule(definition, moduleIndex, { definitions });
-}
-
-export function updateAlphaModule(
-  definition: AlphaCourseDefinitionInput,
-  moduleIndex: number,
-  change: Partial<AlphaCourseModuleInput>,
-): AlphaCourseDefinitionInput {
-  const module = definition.modules[moduleIndex];
-  if (module === undefined) return definition;
-  const modules = [...definition.modules];
-  modules[moduleIndex] = { ...module, ...change };
-  return { ...definition, modules };
-}
-
-export function updateAlphaDefinition(
-  definition: AlphaCourseDefinitionInput,
-  moduleIndex: number,
-  definitionIndex: number,
-  nextDefinition: ReusableAssignmentDefinitionInput,
-): AlphaCourseDefinitionInput {
-  const module = definition.modules[moduleIndex];
-  if (module === undefined || module.definitions[definitionIndex] === undefined) return definition;
-  const definitions = [...module.definitions];
-  definitions[definitionIndex] = nextDefinition;
-  return updateAlphaModule(definition, moduleIndex, { definitions });
 }
 
 function entryInputFromView(entry: ReusableAssignmentEntryView): ReusableAssignmentEntryInput {
@@ -460,17 +322,17 @@ function entryInputFromView(entry: ReusableAssignmentEntryView): ReusableAssignm
     return {
       kind: "pool",
       candidates: entry.candidates.map((candidate) => candidate.catalog.summary.questionId),
-      drawCount: entry.drawCount,
-      pointsPerItem: entry.pointsPerItem,
+      draw_count: entry.draw_count,
+      points_per_item: entry.points_per_item,
       ordering: entry.ordering,
       algorithm: entry.algorithm,
     };
   }
   return {
     kind: "fixed",
-    questionId: entry.question.catalog.summary.questionId,
-    pointsPossible: entry.points_possible,
-    scoringMode: entry.scoring_mode,
+    question_id: entry.question.catalog.summary.questionId,
+    points_possible: entry.points_possible,
+    scoring_mode: entry.scoring_mode,
   };
 }
 
@@ -486,16 +348,19 @@ export function reusableDefinitionInputFromView(
   };
 }
 
-export function blueprintInputFromView(view: BlueprintView): BlueprintDefinitionInput {
-  return { definition: reusableDefinitionInputFromView(view.definition) };
-}
-
-export function alphaInputFromView(view: AlphaCourseView): AlphaCourseDefinitionInput {
+/** Converts a current Blueprint Course projection to an editable complete-tree replacement. */
+export function replacementDefinitionFromBlueprintCourse(
+  view: BlueprintCourseView,
+): import("../../../generated/api/ReplaceBlueprintCourseDefinitionInput").ReplaceBlueprintCourseDefinitionInput {
   return {
     title: view.title,
     modules: view.modules.map((module) => ({
+      handle: { kind: "retained", module_id: module.module_id },
       label: module.label,
-      definitions: module.definitions.map(reusableDefinitionInputFromView),
+      definitions: module.definitions.map((assignment) => ({
+        handle: { kind: "retained", assignment_id: assignment.assignment_id },
+        definition: reusableDefinitionInputFromView(assignment.definition),
+      })),
     })),
   };
 }

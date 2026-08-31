@@ -10,7 +10,7 @@ use question_model::answer::SelectionCardinality;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{ChoiceId, ResponseDefinition, StudentResponse};
-use question_model::run_policy::{AttemptPolicy, TimingPolicy};
+use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::{
     AttemptResult, DraftQuestionDefinition, DraftQuestionSource, FeedbackContent,
     GradingDefinition, QuestionDefinition, QuestionMetadata, QuestionSource, QuestionTitleError,

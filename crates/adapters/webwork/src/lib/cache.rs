@@ -2,7 +2,7 @@
 
 use objects::ObjectKey;
 use question_model::generation::Seed;
-use question_model::{ObjectId, ProblemId, QuestionEnvelope, SourceArtifact, VersionId};
+use question_model::{ObjectId, QuestionEnvelope, QuestionVersionReference, SourceArtifact};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -27,19 +27,22 @@ pub(super) struct CachedWebworkRender {
     pub(super) rendered: SafeRenderedWebworkQuestion,
 }
 
-pub(super) fn render_key(problem: ProblemId, version: VersionId, seed: Seed) -> ObjectKey {
-    ObjectKey::ProblemRender {
-        problem,
-        version,
+pub(super) fn render_key(question_version: &QuestionVersionReference, seed: Seed) -> ObjectKey {
+    ObjectKey::QuestionRender {
+        question_version: question_version.clone(),
         seed,
-        object: deterministic_render_object_id(version, seed),
+        object: deterministic_render_object_id(question_version, seed),
     }
 }
 
-fn deterministic_render_object_id(version: VersionId, seed: Seed) -> ObjectId {
+fn deterministic_render_object_id(
+    question_version: &QuestionVersionReference,
+    seed: Seed,
+) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:webwork-render-cache:v1");
-    hash.update(version.as_uuid().as_bytes());
+    hash.update(question_version.question_id.to_string().as_bytes());
+    hash.update(question_version.version_number.get().to_be_bytes());
     hash.update(seed.value().to_be_bytes());
     let digest = hash.finalize();
     let mut bytes = [0_u8; 16];
@@ -54,7 +57,7 @@ pub(super) fn decode_render(bytes: &[u8]) -> Result<CachedWebworkRender, Webwork
 
 pub(super) fn validate_cached(
     cached: &CachedWebworkRender,
-    version: VersionId,
+    question_version: &QuestionVersionReference,
     seed: Seed,
     source: &WebworkSource,
     title: &str,
@@ -74,7 +77,7 @@ pub(super) fn validate_cached(
             "cache renderer identity does not match the configured renderer".to_string(),
         ));
     }
-    validate_envelope(&cached.rendered.envelope, version, seed)?;
+    validate_envelope(&cached.rendered.envelope, question_version, seed)?;
     if cached.rendered.envelope.title != title {
         return Err(WebworkAdapterError::InvalidCache(
             "cache title does not match immutable published metadata".to_string(),
@@ -85,10 +88,10 @@ pub(super) fn validate_cached(
 
 pub(super) fn validate_envelope(
     envelope: &QuestionEnvelope,
-    version: VersionId,
+    question_version: &QuestionVersionReference,
     seed: Seed,
 ) -> Result<(), WebworkAdapterError> {
-    if envelope.version != version {
+    if &envelope.question_version != question_version {
         return Err(WebworkAdapterError::InvalidRendererEnvelope(
             "renderer returned a different immutable version".to_string(),
         ));

@@ -25,10 +25,7 @@ LIVE_DEMO_REPLICA_APPLICATION_IMAGE = (
 	"localhost/peptidyle-learning-engine:ple-live-demo-browser"
 )
 DEFAULT_ENV_FILE = "containers/env.local"
-DEFAULT_BASE_COURSE_MANIFEST_FILE = ".runtime/base-course.json"
-DEFAULT_CHAPTER_ONE_MANIFEST_FILE = "containers/local-chapter-one-pilot.json"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
-SMTP_COMPOSE_FILE = "containers/compose.smtp.yaml"
 DISPOSABLE_COMPOSE_PROVIDER = "podman-compose"
 DISPOSABLE_PROVIDER_GLOBAL_ARGS = ("--in-pod", "false")
 
@@ -37,18 +34,15 @@ BASE_LONG_RUNNING_SERVICES = (
 	"minio",
 	"webwork-renderer",
 	"api",
-	"worker",
 	"gateway",
 )
-SMTP_LONG_RUNNING_SERVICES = ("invitation-delivery-worker",)
 BASE_ONE_SHOT_SERVICES = (
 	"local-data-volume-permissions",
 	"createbuckets",
 	"identity-secret-init",
 )
-SMTP_ONE_SHOT_SERVICES = ("smtp-secret-init",)
 CLEANUP_ONLY_SERVICES = ("postgres-major-guard",)
-RESTARTABLE_SERVICES = ("api", "worker", "gateway", "webwork-renderer")
+RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer")
 STOPPABLE_SERVICES = ("webwork-renderer",)
 
 
@@ -64,7 +58,6 @@ class LiveDemoProfile(enum.StrEnum):
 	REPLICA_RESTART = "replica_restart"
 	DATABASE_BASELINE = "database_baseline"
 	COURSE_APPEARANCE_CROSS_STORE = "course_appearance_cross_store"
-	AUTOMATED_GRADING_FAULT = "automated_grading_fault"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -80,7 +73,6 @@ class LiveDemoProfilePolicy:
 	diagnostic_services: tuple[str, ...] = ()
 	application_image: str | None = None
 	service_replica_counts: tuple[tuple[str, int], ...] = ()
-	fault_worker_service: str | None = None
 
 
 LIVE_DEMO_PROFILE_POLICIES = (
@@ -91,10 +83,7 @@ LIVE_DEMO_PROFILE_POLICIES = (
 			"tests/e2e/compose.live-demo-browser.yaml",
 		),
 		child_capabilities=("canonical_browser_lifecycle",),
-		evidence_log_services=(
-			("worker_completion", "worker"),
-			("renderer_delivery", "api"),
-		),
+		evidence_log_services=(("renderer_delivery", "api"),),
 		outage_service="gateway",
 	),
 	LiveDemoProfilePolicy(
@@ -123,18 +112,6 @@ LIVE_DEMO_PROFILE_POLICIES = (
 		diagnostic_services=("api", "gateway"),
 		application_image=LIVE_DEMO_REPLICA_APPLICATION_IMAGE,
 		service_replica_counts=(("api", 2),),
-	),
-	LiveDemoProfilePolicy(
-		profile=LiveDemoProfile.AUTOMATED_GRADING_FAULT,
-		compose_relative_paths=(
-			PRIMARY_COMPOSE_FILE,
-			"tests/e2e/compose.live-demo-browser.yaml",
-			"tests/e2e/compose.automated-grading-fault.yaml",
-		),
-		child_capabilities=("automated_grading_fault_worker",),
-		evidence_log_services=(("worker_completion", "worker"),),
-		outage_service="worker",
-		fault_worker_service="fault-worker",
 	),
 	LiveDemoProfilePolicy(
 		profile=LiveDemoProfile.DATABASE_BASELINE,
@@ -191,12 +168,9 @@ DECLARED_BASE_NETWORKS = (
 
 
 #============================================
-def restartable_services(with_smtp: bool) -> tuple[str, ...]:
+def restartable_services() -> tuple[str, ...]:
 	"""Return the stateless services authorized by the selected topology."""
-	services = RESTARTABLE_SERVICES
-	if with_smtp:
-		services += SMTP_LONG_RUNNING_SERVICES
-	return services
+	return RESTARTABLE_SERVICES
 
 
 @dataclasses.dataclass(frozen=True)

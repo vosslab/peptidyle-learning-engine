@@ -1,10 +1,10 @@
-// Production-stack item-pool journey: all teaching state and learner work use visible PLE UI.
+// Production-stack item-pool journey: all teaching state and student work use visible PLE UI.
 //
 // Selector contract:
 // - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
 // - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
 // - src/pages/assignment_workspace/assignment_workspace_policies_page.tsx owns publishing controls.
-// - src/pages/run_page.tsx:442 owns issued learner questions, feedback, and completion surfaces.
+// - src/pages/run_page.tsx:442 owns issued student questions, feedback, and completion surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -59,7 +59,7 @@ async function createPublishedQuestion(
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
   await page.getByRole("button", { name: "Create flat question", exact: true }).click();
   await page.getByLabel("Question title").fill(title);
-  await page.getByLabel("Learner-facing prompt").fill(`Choose the supported statement: ${title}`);
+  await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
   await page.getByLabel("Choice text").nth(1).fill(`Alternative statement for ${title}`);
   await page
@@ -179,8 +179,8 @@ async function createCourseWithMixedPool(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
-  await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill("BIO-MARY-003");
+  await page.getByLabel("Course roster email").fill(maryEmail);
+  await page.getByLabel("Course roster ID").fill("BIO-MARY-003");
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
@@ -296,9 +296,9 @@ async function inspectPostIssueEdits(
   await pool.getByLabel("Draw count").fill("1");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   const recovery = page.getByRole("alert");
-  await expect(recovery).toContainText("Learner work has already been issued");
+  await expect(recovery).toContainText("Student work has already been issued");
   await expect(recovery).toContainText("Your local question changes remain here");
-  await expect(recovery).toContainText("issued learner work remains unchanged");
+  await expect(recovery).toContainText("issued student work remains unchanged");
   await expect(recovery.getByRole("link", { name: "Create a new assignment" })).toBeVisible();
   await expect(pool.getByLabel("Points per drawn question")).toHaveValue("3");
   await expect(pool.getByLabel("Draw count")).toHaveValue("1");

@@ -47,7 +47,7 @@ pub enum CatalogResponseFamily {
     Ordering,
     /// Point selection on an image-backed surface.
     Hotspot,
-    /// A learner file upload.
+    /// A student file upload.
     FileUpload,
     /// A server-brokered external tool.
     ExternalTool,
@@ -225,9 +225,9 @@ pub enum CatalogEvidenceAvailability {
     /// Include results regardless of evidence availability.
     #[default]
     Any,
-    /// Include only publications with disclosed independent learner observations.
+    /// Include only publications with disclosed independent student observations.
     Available,
-    /// Include only publications without disclosed independent learner observations.
+    /// Include only publications without disclosed independent student observations.
     Unavailable,
 }
 
@@ -255,7 +255,7 @@ pub struct CatalogSearchQuery {
     pub capabilities: Vec<Capability>,
     /// Accepted license classes; any supplied value may match.
     pub licenses: Vec<CatalogLicenseValue>,
-    /// Whether disclosed independent learner observations must be available.
+    /// Whether disclosed independent student observations must be available.
     pub evidence: CatalogEvidenceAvailability,
     /// Whether a current Account-visible course use is required.
     ///
@@ -510,9 +510,9 @@ pub struct CatalogLicenseFacet {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogEvidenceFacet {
-    /// Publications with disclosed independent learner observations.
+    /// Publications with disclosed independent student observations.
     pub available: u64,
-    /// Publications without disclosed independent learner observations.
+    /// Publications without disclosed independent student observations.
     pub unavailable: u64,
 }
 

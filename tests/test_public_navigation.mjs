@@ -6,21 +6,20 @@ import test from "node:test";
 import {
   assignmentRouteReference,
   courseRouteReference,
-  parseCourseGroupReference,
   parseAssignmentReference,
   parseCourseReference,
   parseProblemRouteReference,
   parsePublicRouteReference,
-  parseRunReference,
+  parseAssignmentAttemptReference,
   parseWorkspaceReference,
   problemRouteReference,
-  runRouteReference,
+  assignmentAttemptRouteReference,
   workspaceRouteReference,
 } from "../src/navigation/public_route.ts";
 import {
   resolveAssignmentRoute,
   resolveCourseRoute,
-  resolveRunRoute,
+  resolveAssignmentAttemptRoute,
   resolveWorkspaceRoute,
 } from "../src/navigation/resolved_route.ts";
 import { isAssignmentReference, isCourseReference } from "./support/public_references.ts";
@@ -28,7 +27,7 @@ import { isAssignmentReference, isCourseReference } from "./support/public_refer
 test("human route references are compact, typed, and bounded", () => {
   assert.equal(courseRouteReference("C-1"), "C-1");
   assert.equal(assignmentRouteReference("A-2147483647"), "A-2147483647");
-  assert.equal(runRouteReference("R-30"), "R-30");
+  assert.equal(assignmentAttemptRouteReference("R-30"), "R-30");
   assert.equal(workspaceRouteReference("W-40"), "W-40");
   assert.equal(problemRouteReference("7K3-M9QP"), "7K3-M9QP");
   assert.equal(isCourseReference("C-1"), true);
@@ -42,9 +41,8 @@ test("human route references are compact, typed, and bounded", () => {
   for (const [parser, prefix] of [
     [parseCourseReference, "C"],
     [parseAssignmentReference, "A"],
-    [parseRunReference, "R"],
+    [parseAssignmentAttemptReference, "R"],
     [parseWorkspaceReference, "W"],
-    [parseCourseGroupReference, "G"],
   ]) {
     assert.equal(parser(`${prefix}-1`), `${prefix}-1`);
     for (const rejected of [
@@ -79,7 +77,7 @@ test("route resolution recovers protected API identities without weakening refer
           courseId: fixture.course.id,
           assignmentId: fixture.assignment.id,
         },
-        "R-1": { kind: "run", runId: fixture.run.id },
+        "R-1": { kind: "assignmentAttempt", assignmentAttemptId: fixture.run.id },
         "W-1": { kind: "workspace", workspaceId: fixture.workspace.id },
       };
       return values[reference];
@@ -92,7 +90,10 @@ test("route resolution recovers protected API identities without weakening refer
     courseId: fixture.course.id,
     assignmentId: fixture.assignment.id,
   });
-  assert.equal(await resolveRunRoute(client, fixture.run.reference), fixture.run.id);
+  assert.equal(
+    await resolveAssignmentAttemptRoute(client, fixture.run.reference),
+    fixture.run.id,
+  );
   assert.equal(
     await resolveWorkspaceRoute(client, fixture.workspace.reference),
     fixture.workspace.id,

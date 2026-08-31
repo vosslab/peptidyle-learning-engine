@@ -2,26 +2,27 @@
 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseReference } from "../../generated/api/CourseReference";
-import type { CourseGroupReference } from "../../generated/api/CourseGroupReference";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { RunReference } from "../../generated/api/RunReference";
+import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type { WorkspaceReference } from "../../generated/api/WorkspaceReference";
 import { normalizeQuestionIdSyntax } from "../question_id";
 
 declare const routeReferenceBrand: unique symbol;
 type BrandedRouteReference<Kind extends string> = string & { readonly [routeReferenceBrand]: Kind };
 export type CourseRouteReference = CourseReference & BrandedRouteReference<"course">;
-/** A parsed group reference has no navigation route until group-purpose work owns one. */
-export type CourseGroupRouteReference = CourseGroupReference & BrandedRouteReference<"courseGroup">;
 export type CourseMembershipRouteReference = CourseMembershipReference &
   BrandedRouteReference<"courseMembership">;
 export type AssignmentRouteReference = AssignmentReference & BrandedRouteReference<"assignment">;
-export type RunRouteReference = RunReference & BrandedRouteReference<"run">;
+export type AssignmentAttemptRouteReference = AssignmentAttemptReference &
+  BrandedRouteReference<"assignmentAttempt">;
 export type WorkspaceRouteReference = WorkspaceReference & BrandedRouteReference<"workspace">;
 export type ProblemRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
-  CourseRouteReference | AssignmentRouteReference | RunRouteReference | WorkspaceRouteReference;
+  | AssignmentAttemptRouteReference
+  | CourseRouteReference
+  | AssignmentRouteReference
+  | WorkspaceRouteReference;
 
 function parseExact<Kind extends string>(
   value: string,
@@ -36,9 +37,6 @@ function parseExact<Kind extends string>(
 export function parseCourseReference(value: string): CourseRouteReference | null {
   return parseExact<"course">(value, "C");
 }
-export function parseCourseGroupReference(value: string): CourseGroupRouteReference | null {
-  return parseExact<"courseGroup">(value, "G");
-}
 export function parseCourseMembershipReference(
   value: string,
 ): CourseMembershipRouteReference | null {
@@ -47,8 +45,10 @@ export function parseCourseMembershipReference(
 export function parseAssignmentReference(value: string): AssignmentRouteReference | null {
   return parseExact<"assignment">(value, "A");
 }
-export function parseRunReference(value: string): RunRouteReference | null {
-  return parseExact<"run">(value, "R");
+export function parseAssignmentAttemptReference(
+  value: string,
+): AssignmentAttemptRouteReference | null {
+  return parseExact<"assignmentAttempt">(value, "R");
 }
 export function parseWorkspaceReference(value: string): WorkspaceRouteReference | null {
   return parseExact<"workspace">(value, "W");
@@ -70,9 +70,11 @@ export function courseMembershipRouteReference(
   if (result === null) throw new Error("invalid course membership reference");
   return result;
 }
-export function runRouteReference(value: RunReference): RunRouteReference {
-  const result = parseRunReference(value);
-  if (result === null) throw new Error("invalid run reference");
+export function assignmentAttemptRouteReference(
+  value: AssignmentAttemptReference,
+): AssignmentAttemptRouteReference {
+  const result = parseAssignmentAttemptReference(value);
+  if (result === null) throw new Error("invalid Assignment Attempt reference");
   return result;
 }
 export function workspaceRouteReference(value: WorkspaceReference): WorkspaceRouteReference {
@@ -84,7 +86,7 @@ export function parsePublicRouteReference(value: string): PublicRouteReference |
   return (
     parseCourseReference(value) ??
     parseAssignmentReference(value) ??
-    parseRunReference(value) ??
+    parseAssignmentAttemptReference(value) ??
     parseWorkspaceReference(value)
   );
 }

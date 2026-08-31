@@ -1,7 +1,7 @@
 //! Browser-safe contracts for an Instructor's non-mutating item-pool sample.
 //!
 //! A preview describes a saved selection group.  It deliberately contains no
-//! candidate identity, seed, answer material, learner identity, or issued-work
+//! candidate identity, seed, answer material, student identity, or issued-work
 //! record.  The server owns the temporary draw nonce and discards it after the
 //! response is produced.
 

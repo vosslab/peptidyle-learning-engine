@@ -39,7 +39,7 @@ PortSwigger distinguishes vertical, horizontal, and state-dependent access contr
 unguessable identifier does not authorize its holder. See
 [access control and IDOR](https://portswigger.net/web-security/access-control).
 
-- **Preconditions:** A request names a course, learner, attempt, publication, object, or action;
+- **Preconditions:** A request names a course, student, attempt, publication, object, or action;
   two courses or roles can exercise the same route.
 - **Review questions:** Does every read and mutation derive the authenticated Account, exact course/Student or workspace relationship, and capability from a
   server credential? Is authorization repeated after an ID is resolved? Can an alternate HTTP
@@ -170,7 +170,7 @@ has crossed its intended trust boundary. See
   types sniffed and fully decoded? Can a wire payload choose a Rust trait object, filesystem path,
   object key, serializer type, or privileged enum variant?
 - **Evidence:** **Code evidence target:** QTI and raster corpus tests must reject hostile archives
-  and restrict raster decoding. The learner file-upload route must fail closed until capability
+  and restrict raster decoding. The student file-upload route must fail closed until capability
   binding exists. Retain corpus tests for malformed, duplicate-key, oversized, and polyglot inputs.
 - **Negative oracle:** A crafted archive/image/JSON payload cannot write outside staging, exhaust
   decompression resources, execute content, select another course's object, or create an untyped
@@ -259,7 +259,7 @@ confused-deputy and provenance boundaries. They should receive only the authorit
 for a single job.
 
 - **Preconditions:** A worker invokes an external engine, pulls an image, accepts a provider result,
-  installs a dependency, or passes user/learner material to a service.
+  installs a dependency, or passes user/student material to a service.
 - **Review questions:** What authenticated Account and typed job target call the service? What exact course, Student, or workspace scope binds the response? What
   secrets, network routes, database roles, object prefixes, and egress does it receive? Is image
   provenance pinned and verified? Is every reply size-bounded, schema-validated, correlated, timed

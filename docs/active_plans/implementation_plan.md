@@ -4,7 +4,7 @@
 
 **Binding single-installation architecture (2026-08-29).** PLE operates as one installation with
 global accounts, an Instructor-visible shared catalog for every published assignment question,
-private drafts, equal approved Instructors, multiple equal co-Instructors per course, and exact
+private drafts, equal approved Instructors, multiple equal Teaching Team Members per course, and exact
 course/Student authorization for educational records. The active SD1 registry owns the domain,
 schema, Store, service, browser, live-demo, and documentation correction before the remaining
 package sequence resumes. Its fresh pre-production migration epoch is the authority for database
@@ -39,14 +39,14 @@ Current browser evidence is tracked through the sole current-package handoff in
 remain separate release work.
 
 **Current live-demo capability.** [WP-INST-LD3](active/live_delivery_convergence_plan.md) established
-ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
+ordinary live assignments, student runs, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
 WP-INST-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-INST-D1 and
 WP-INST-D2, WP-INST-B1, and WP-INST-B2 are accepted. Reusable curricula now advance into ordinary
 teaching courses through explicit adoption, rollover, term shifting, provenance, and controlled
 updates. WP-INST-T6 is accepted: each assignment has a linked home, separate Questions and Policies
-pages, and a live answer-free Student view. WP-INST-G1 persists one immutable accepted learner
+pages, and a live answer-free Student view. WP-INST-G1 persists one immutable accepted student
 input before grading and adds assignment-local exception recovery,
 bounded retry, generation-fenced recalculation, and immutable receipts. `WP-INST-WN1` is the current
 repository-wide corrective prerequisite under the [wire naming contract migration plan](active/wire_naming_contract_migration_plan.md).
@@ -62,7 +62,7 @@ capability contracts and evidence boundaries.
 re-based for the SD1 cutover as one canonical reusable source model. `BlueprintCourse` is one
 answer-free, ordered, revisioned course-level aggregate: a vetted Instructor-visible published
 projection contains ordered modules and assignments, and every entry pins an exact published
-`ProblemVersionRef`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
+`QuestionVersionReference`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
 the separate exact-`CourseId` teaching aggregate created from that source; it owns copied assignment
 definitions, Students, releases, live deadlines, accommodations, grades, and delivery settings.
 It has exactly one immutable Blueprint parent and applied source revision. A blank CourseInstance is
@@ -458,7 +458,7 @@ Three weaknesses neither review named, each becoming a requirement here:
 | H5P grading            | Native H5P is ungraded practice; `serverGrading: false`                                                                            | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                    |
 | WASM contents          | Parameter generation, answer-format validation, timer display, state transitions                                                   | Non-secret work only, enforced by the dependency graph                                                                                                                                             |
 | Sharing boundary       | **Shared published content; private workspaces and exact course/Student records**                                                  | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships                      |
-| Activity model         | `assignment_enrollment` / `assignment_run` / `question_attempt`                                                                    | Owner-reported repeated-practice observation used for planning; completion is not terminal and practice continues with new variants                                                                |
+| Activity model         | `student_record` / `assignment_attempt` / `issued_question` / `question_attempt`                                                   | Owner-reported repeated-practice observation: completion is not terminal and practice continues through new Assignment Attempts with frozen Issued Questions                                    |
 | Grade computation      | Transactionally maintained summary rows; never scan attempt history                                                                | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                      |
 | Question identity      | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                              | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                      |
 | Partitioning           | Monthly range partitions on the four highest-volume append-only tables only                                                        | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                               |
@@ -543,11 +543,7 @@ hyphens; Rust import and module names use underscores:
 | ------------------------ | -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Learning data access     | `crates/learning-data-access`                | `learning_data_access`     | Typed persistence contracts, authorization-aware queries, PostgreSQL, migrations, and RLS                                                   |
 | In-memory data access    | `crates/learning-data-access/src/in_memory*` | `in_memory`                | Database-free implementation used by conformance and server behavior tests                                                                  |
-| Base Course installation | `crates/base-course-installation`            | `base_course_installation` | Focused product recipe, typed request/receipt, and deterministic Base Course orchestration; no HTTP or server-start hook                    |
-| Project tools            | `crates/project-tools`                       | Cargo-only binary          | Direct `base-course` CLI adapter plus repository-only generation, fixtures, database operations, and E2E seeding invoked with `cargo tools` |
-
-`base_course_installation` owns the installed Base Course recipe and deterministic lifecycle;
-`project-tools` is its direct CLI adapter.
+| Project tools            | `crates/project-tools`                       | Cargo-only binary          | Repository-only TypeScript generation, fixtures, database operations, and pilot-content validation invoked with `cargo tools` |
 
 ```text
 browser                     ALB          stateless replicas
@@ -619,7 +615,7 @@ The reusable-course model has one canonical source aggregate and one delivery ag
 ```text
 BlueprintCourse (workspace-owned, revisioned, answer-free)
   -> ordered BlueprintModule -> ordered BlueprintAssignment
-  -> exact published ProblemVersionRef pins and relative schedule intent
+  -> exact published QuestionVersionReference pins and relative schedule intent
 
 CourseInstance (exact CourseId, private teaching aggregate)
   -> copied definitions, resolved deadlines, releases, accommodations,
@@ -628,8 +624,8 @@ CourseInstance (exact CourseId, private teaching aggregate)
 
 Every CourseInstance has exactly one immutable Blueprint parent and applied source revision. Blank
 course creation uses a minimal Blueprint. A BlueprintCourse revision is the complete ordered tree;
-published revisions are visible and reusable by every vetted Instructor, while draft source remains
-owner/workspace-collaborator scoped. A BlueprintCourse has no Students, enrollments, releases, live
+published revisions are visible and reusable by every vetted Instructor, while a Draft Blueprint
+Revision remains scoped to its Blueprint Course Owner and exact Blueprint Collaborators. A BlueprintCourse has no Students, enrollments, releases, live
 deadlines, accommodations, grades, or activity. Relative schedule intent is resolved against the
 destination CourseInstance term and IANA zone and becomes CourseInstance-owned state. New upstream
 assignments arrive in daughter instances as unreleased; release and divergent delivery edits require
@@ -644,7 +640,7 @@ instantiation are distinct operations selected by destination, with no live sour
 
 Question stewardship remains a shared dependency of both aggregates. Stable human-facing
 `QuestionId` lineage carries immutable `QuestionVersion` history; every BlueprintCourse and
-CourseInstance entry pins an exact version. Presentation/metadata, learner-content, and grading-
+CourseInstance entry pins an exact version. Presentation/metadata, student-content, and grading-
 semantic changes use the closed semantic classes: the last class is a major change and mints a new
 QuestionId. Forks show lineage and remain creator-private drafts until complete publication
 validation. Active versions are ordinarily selectable; deprecated/archived versions remain
@@ -698,7 +694,6 @@ composition boundaries are permanent only where the architecture requires them, 
 | `crates/grading`                           | **Answer keys, checkers, correctness decisions**                                                                                | `question_model`, `domain`                                                      |
 | `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                         | `question_model`                                                                |
 | `crates/learning-data-access`              | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                          | `question_model`, `domain`, `objects`                                           |
-| `crates/base-course-installation`          | Typed Base Course request/receipt, ordinary recipe, deterministic orchestration; no SQL, lock, migration, HTTP, or server start | `adapter_native`, `domain`, `grading`, `learning-data-access`, `question_model` |
 | `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                             | `question_model`, `domain`, `grading`, `objects`                                |
 | `crates/export`                            | Print model, DOCX and PDF writers                                                                                               | `question_model`, `objects`                                                     |
 | `crates/wasm`                              | `wasm-bindgen` bridge, delegating every call to `domain`                                                                        | `question_model`, `domain`                                                      |
@@ -726,9 +721,9 @@ Three levels, per reviewer 3:
 
 | Entity                  | Holds                                                                             | Cardinality                               |
 | ----------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
-| `assignment_enrollment` | Completion status, first completion time, current and best grade pointers         | One per student per assignment            |
-| `assignment_run`        | Run number, started and completed times, score, mode, variation policy applied    | Many per enrollment; 30 or more is normal |
-| `question_attempt`      | Run ID, question version ID, seed, parameter hash, response, result, timer record | Several per question per run              |
+| `assignment_attempt` | Direct Student Record and Assignment parents, attempt number, started and completed times, score, activity, and variation policy | Many per Student Record and Assignment; 30 or more is normal |
+| `issued_question` | Source Assignment Entry, exact Question Version, issued order, scoring treatment, and selection evidence | One per delivered Question within an Assignment Attempt |
+| `question_attempt` | Issued Question ID, seed, parameter hash, timing, Student Response, and Grading Result | Several per Issued Question |
 
 Four policies, deliberately independent so an instructor can combine them freely:
 
@@ -736,7 +731,7 @@ Four policies, deliberately independent so an instructor can combine them freely
 | ---------------------- | ---------------------------------------------------------- |
 | Completion requirement | First time all required questions are correct              |
 | Grade policy           | First, latest, highest, or instructor-defined              |
-| Continued practice     | Unlimited new runs after completion, or capped             |
+| Continued practice     | Unlimited new Assignment Attempts after completion, or capped |
 | Variation policy       | New seeds, selected problem variants, or full regeneration |
 
 Two derivations that look contradictory and are not, so the distinction is stated once here:
@@ -969,7 +964,7 @@ metadata; publication binds the copied canonical source, answer-free model, and
 typed private payload in one catalog transition; and native runtime grading
 uses an independently injected grader-only capability. The completed instructor
 editor uses the protected author-only canonical-source route as its narrow
-answer-bearing browser exception; learner and public contracts remain
+answer-bearing browser exception; student and public contracts remain
 answer-free. The bounded Canvas and Blackboard QTI profile mappings, Q3 pure
 native flat bridge, Q4 provenance contract, Q5/WP-QTI-7 schema/RLS/object-
 binding implementation, WP-QTI-8 Memory/PostgreSQL conversion boundary, and WP-QTI-9 server routes
@@ -1193,7 +1188,7 @@ workload observation, the active configuration, and an architect-approved receip
 The student-facing surface is where the platform is judged, so it gets the same treatment as the
 domain. Two repo documents already govern it and are treated as requirements rather than suggestions:
 [PLAYFUL_TRAINING_GAME_STYLE.md](../PLAYFUL_TRAINING_GAME_STYLE.md)
-targets learners aged 15-30 building a real skill, which is exactly this audience, and
+targets students aged 15-30 building a real skill, which is exactly this audience, and
 [COLOR_CONTRAST_ACCESSIBILITY.md](../COLOR_CONTRAST_ACCESSIBILITY.md)
 governs palette contrast.
 
@@ -1219,7 +1214,7 @@ requests, but they do not appear in the address bar or user-copyable navigation 
 | `/instructor/courses/:courseRef/assignments/:assignmentRef`              | Instructor assignment home and local navigation      | `C-n` and `A-n`; summary and next actions                        |
 | `/instructor/courses/:courseRef/assignments/:assignmentRef/questions`    | Assignment questions, pools, and selection           | Focused revision-checked content mutation                        |
 | `/instructor/courses/:courseRef/assignments/:assignmentRef/policies`     | Assignment delivery and lifecycle policies           | Focused revision-checked policy mutation                         |
-| `/instructor/courses/:courseRef/assignments/:assignmentRef/student-view` | Current answer-free learner landing                  | Instructor identity stays active; graded work uses Student entry |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/student-view` | Current answer-free student landing                  | Instructor identity stays active; graded work uses Student entry |
 | `/instructor/courses/:courseRef/gradebook`                               | Gradebook                                            | `C-n`; reads summary rows only                                   |
 
 ### Reactivity contract
@@ -1268,14 +1263,14 @@ format-validator on input and shows a local, immediate hint when the shape is wr
 the browser gives a real-time answer-adjacent response, and it is safe because format validity carries
 no information about correctness.
 
-### Learner disclosure is assignment-owned
+### Student disclosure is assignment-owned
 
 `docs/PLAYFUL_TRAINING_GAME_STYLE.md` makes the wrong-answer screen the highest-value screen in the
-product and requires three parts in order: what the learner chose, the correct answer, and one sentence
+product and requires three parts in order: what the student chose, the correct answer, and one sentence
 of why. That is pedagogically right for mastery and practice, and wrong for a quiz or exam where
 revealing the answer defeats the assessment.
 
-Each assignment owns five independently timed learner fields: score, per-item correctness, feedback
+Each assignment owns five independently timed student fields: score, per-item correctness, feedback
 text, solution, and class statistics. Each field uses one closed timing: during attempt, after
 submit, after due, after close, or never. The server evaluates the current assignment policy only
 after current S5 entitlement, using the current S3-resolved effective-policy verdict/decision,
@@ -1283,7 +1278,7 @@ authoritative time, and the submission fact. When a due or close boundary is abs
 corresponding timing withholds the field; withheld fields are omitted from the response envelope.
 
 The browser receives neither policy nor clock inputs and therefore cannot infer a future disclosure.
-`feedback_release` is an immutable audit receipt of an instructor action, not a learner-result
+`feedback_release` is an immutable audit receipt of an instructor action, not a student-result
 transition or alternate authority. A client asking for more receives no more, which keeps the
 answer-secrecy guarantee independent of UI correctness.
 
@@ -1468,7 +1463,7 @@ controlled-update impact separately from publication.
 
 **Course appearance.** One focused Instructor surface selects a closed, measured three-color biome
 or habitat theme and optionally uploads one small centered banner. The theme is authoritative
-course-scoped state and applies through one route scope to every learner and Instructor page
+course-scoped state and applies through one route scope to every student and Instructor page
 inside that course; it never recolors global PLE pages, authored scientific content, or semantic
 success/danger/correctness states. The banner appears only on the course entry page. Theme and
 banner changes share one strong appearance revision so a stale instructor tab preserves its local
@@ -1479,7 +1474,7 @@ accessibility, and atomic work-package contracts are frozen in
 **Gradebook.** Reads summary rows only, showing best and latest scores, completed run count, and
 last activity. A student's run history is a drill-down that loads on demand, so the default view stays
 a summary query regardless of how many practice runs a class has accumulated. Rows show the
-learner's display name and never render a learner UUID.
+student's display name and never render a student UUID.
 
 ## Module catalog
 
@@ -1491,7 +1486,7 @@ substitution for a required production path.
 | ID               | Module                                                                   | Exposes                                                                           | Consumes                                                              | Reference/test implementation        | Independent verification                                                                                                                                                                                                               |
 | ---------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MOD-QM           | `question_model`                                                         | Types, capabilities, identity, taxonomy                                           | none                                                                  | n/a (root contract)                  | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                  |
-| MOD-ID           | Identity and lifecycle                                                   | Draft workspace identity, published `ProblemId`/`VersionId`, lifecycle            | MOD-QM                                                                | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                    |
+| MOD-ID           | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionVersionNumber`, lifecycle            | MOD-QM                                                                | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                    |
 | MOD-RUN          | Enrollment, run, attempt model and policies                              | Run lifecycle, four policy types                                                  | MOD-QM                                                                | n/a                                  | Representative repeat-practice history preserves issued runs and summary behavior across policy combinations                                                                                                                           |
 | MOD-STATE        | Attempt state machine                                                    | `apply(state, event)`, within-run completion                                      | MOD-QM, MOD-RUN                                                       | n/a                                  | Every legal transition plus a rejected illegal one                                                                                                                                                                                     |
 | MOD-TIME         | Timing rules                                                             | `timer_verdict(...)` pure fn                                                      | MOD-QM                                                                | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                     |
@@ -1522,7 +1517,7 @@ substitution for a required production path.
 | MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow     | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                                  |
 | MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                     | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                 |
 | MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives     | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Representative supported block kinds render; sanitized markup renders without script execution; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                             |
-| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, current learner-disclosure display, timer, prefetch, retry | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                                |
+| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, current student-disclosure display, timer, prefetch, retry | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                                |
 | MOD-UI-BROWSE    | Catalog browser                                                          | Virtualized cursor-paged list, facets, problem detail                             | MOD-CLIENT                                                            | Mock handlers                        | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                      |
 | MOD-UI-EDITOR    | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow     | MOD-UI-RENDER, MOD-WASM                                               | Mock handlers                        | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                       |
 | MOD-UI-GRADEBOOK | Gradebook                                                                | Summary-row views, run-history drill-down                                         | MOD-CLIENT                                                            | Mock handlers                        | Default view issues one summary query regardless of run count                                                                                                                                                                          |
@@ -1611,7 +1606,7 @@ widget exist to build against.
 - Depends on: M2 for live behavior; browser behavior uses the real stack, while browser-independent
   unit work may start after M1 with narrow test-local fakes.
 - Deliverables: app shell and routing; the response widget set; the question renderer; the attempt loop
-  with prefetch, timer, and server-projected learner disclosure; catalog browser; draft and assignment editors;
+  with prefetch, timer, and server-projected student disclosure; catalog browser; draft and assignment editors;
   gradebook; course appearance theme/banner capability and instructor settings; worker pool and jobs
   queue; print model with DOCX and PDF writers.
 - Lanes: (1) MOD-UI-SHELL, then MOD-UI-WIDGETS and MOD-UI-RENDER; (2) MOD-UI-ATTEMPT;
@@ -1671,9 +1666,9 @@ draft-identity refactor. It is a prerequisite for every adapter, not an iMathAS-
 adapter may consume an intermediate form:
 
 - MOD-QM defines a private workspace-owned `DraftQuestionDefinition` with workspace-only identity and no
-  `ProblemId` or `VersionId`; published-only definitions and references require both IDs.
+  `QuestionId` or `QuestionVersionNumber`; published-only definitions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
-  `ProblemVersionRef`, stable QuestionId lineage, and immutable QuestionVersion only after all
+  `QuestionVersionReference`, stable QuestionId lineage, and immutable QuestionVersion only after all
   publication validation succeeds. A validated moderate steward edit mints a successor version in
   its existing lineage; a validated full fork mints a new lineage with fork authorship, source
   attribution, and a source-compatible license. A failed publication mints neither published
@@ -1769,7 +1764,7 @@ permanent credentialed or network test.
 #### M6 connected-term journey
 
 M6 composes the already-gated capabilities in one smallest-useful live narrative. The journey uses
-Elena Instructor and the seeded Mary Student record for learner delivery and inspection. Elena
+Elena Instructor and the seeded Mary Student record for student delivery and inspection. Elena
 and Morgan passkey enrollment, sign-out, and sign-in remain independent suite-owned scenarios; this
 journey starts from their ordinary authenticated sessions. Assisted tagging participates only when
 `WP-INST-D3` has shipped; the core journey remains complete with human taxonomy and collection actions.
@@ -1782,33 +1777,33 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
    demonstrated path.
 3. **Reuse.** Elena creates or revises a reusable curriculum with one fixed question and one pool
    definition. The fixed member remains selected; the pool records its draw rule and delivery order
-   without becoming a learner assignment or grade.
+   without becoming a student assignment or grade.
 4. **Instantiate.** Elena instantiates that reusable definition into an ordinary Fall teaching term
    with its start date and IANA time zone. The destination receives teaching-owned definitions and no
-   learner records.
+   student records.
 5. **Preview and accommodate.** Elena previews resolved schedule dates, then grants the enrolled
    Mary an accommodation. The preview shows the effective window and its source before she saves
    the assignment.
-6. **Deliver.** Mary enters the published assignment through the ordinary learner workflow,
+6. **Deliver.** Mary enters the published assignment through the ordinary student workflow,
    receives fixed and policy-selected pool items bound to the issued run, submits, and receives the
    deterministic grade, immutable receipt, and permitted disclosure. Elena inspects the same audited
-   learner work through the Instructor surface.
+   student work through the Instructor surface.
 7. **Recover and recalculate.** A deterministic grader exception for one issued item routes to
    Elena's operation view. After the bounded correction, she requests the generation-fenced
    recalculation and observes the refreshed course total without changing the original receipt.
-8. **Analyze and improve.** Elena opens course-local item analysis, inspects the affected learner
+8. **Analyze and improve.** Elena opens course-local item analysis, inspects the affected student
    evidence and usage context, and publishes either a linked immutable successor or a validated fork
    according to the change class. She records the controlled-update decision; future teaching can use
    the selected improvement while the issued run remains pinned to its original evidence.
 9. **Rollover.** Elena previews and creates the next-term rollover. The manifest carries reusable
    teaching definitions and improvement notes while excluding roster membership, accommodations,
-   learner work, attempts, grades, and retention state.
+   student work, attempts, grades, and retention state.
 10. **Shift and improve.** Elena previews and applies the next term's date shift, resolves any
     daylight-saving correction, and reviews the linked replacement's improvement evidence alongside
     the source question. The receipt records the shifted schedule and the decision for later review.
 
 Each step asserts the semantic transition and its visible result; it does not require a fixed
-collection size, artifact total, screenshot match, or timing target. The named learner state is the
+collection size, artifact total, screenshot match, or timing target. The named student state is the
 smallest live state that demonstrates the transition, while aggregate/item-analysis evidence uses
 the configured privacy threshold and existing seeded contributions where required.
 
@@ -1850,9 +1845,9 @@ or implementer-authored specification is required.
 
 - Owner: `architect`. Module: MOD-ID. Depends on: WP-C1.
 - Touch points: `crates/question_model/src/identity.rs`, `docs/PROBLEM_IDENTITY.md`.
-- Acceptance criteria: `WorkspaceId`, `ProblemId`, and `VersionId` are distinct branded types that
+- Acceptance criteria: `WorkspaceId`, `QuestionId`, and `QuestionVersionNumber` are distinct branded types that
   cannot substitute for one another; the lifecycle is an enum with transitions through one fallible
-  function; `ProblemId` is constructible only on the publish transition; the document states the
+  function; `QuestionId` is constructible only on the publish transition; the document states the
   draft-versus-published rule in one sentence a maintainer can apply.
 - Next dependency: WP-C3 and WP-C4 consume this accepted package.
 
@@ -1967,7 +1962,7 @@ or implementer-authored specification is required.
   `docs/active_plans/decisions/course_appearance_plan.md`. Depends on: WP-QTI-12 plus the
   existing course, auth, object, Store, schema, client, and frontend contracts. WP-QTI-12 and
   WP-CA1 through WP-CA7/WP-RC1 are accepted. The current owner decision uses PLE flat JSON v2 for
-  native all-Question-Type source; external QTI-JSONL is a separate future adapter concern.
+  native all-family source; external QTI-JSONL is a separate future adapter concern.
 - Touch points: focused `course_appearance` modules in `question_model`, `learning-data-access`,
   `server_core`, and Solid; typed course-banner object/delivery owners; one forward migration; route,
   generated client, Playwright, and durable documentation owners.
@@ -1998,21 +1993,21 @@ or implementer-authored specification is required.
   architecture, file structure, contracts, frontend/route docs, retention/object docs, and changelog
   boundary.
 
-### M3 flat Question Type evolution package
+### M3 flat-question family evolution package
 
-#### Work package: WP-M3-FLAT-FAMILIES complete all native Question Types
+#### Work package: WP-M3-FLAT-FAMILIES complete all flat families
 
-- Owner: `architect` coordinates the Question Type closeout in
+- Owner: `architect` coordinates the family closeout in
   `docs/active_plans/active/flat_question_family_evolution_plan.md`.
-  Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure learner-payload package, and
+  Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure student-payload package, and
   the existing native flat, grading, object, Store, schema, server, client, and frontend contracts.
 - Touch points: closed PLE flat JSON v2 source/compiler; public/private
-  compilation; Answer Format and checker types; source-to-object bindings; persistence, author
-  editors, learner widgets, live evidence, and durable documentation.
+  compilation; family response/checker types; source-to-object bindings; persistence, author
+  editors, student widgets, live evidence, and durable documentation.
 - Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
   MATCH, ORDER, and HOTSPOT.
-- Acceptance criteria: keep answers and optional feedback protected; complete Question-Type-specific visual
-  authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/learner flows,
+- Acceptance criteria: keep answers and optional feedback protected; complete family-specific visual
+  authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/student flows,
   immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup, and no
   browser/Wasm answer association.
 - Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL/object-store oracles,
@@ -2076,7 +2071,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Risk                                                | Impact                                                                       | Trigger                                                                                                                      | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                            |
 | --------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | An answer or key reaches the browser                | Assessment integrity lost, silent until exploited                            | A new WASM export, or grading code moved into `domain`                                                                       | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                           |
-| RLS is bypassed, unset, or outlives membership      | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked learner uses stale identifiers | `expert_coder` | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate |
+| RLS is bypassed, unset, or outlives membership      | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked student uses stale identifiers | `expert_coder` | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate |
 | A frozen contract turns out incomplete              | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                                                               | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                     |
 | Native and wasm32 generation diverge                | Historical attempts not reproducible; render cache serves wrong content      | Parity mismatch                                                                                                              | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                  |
 | Attempt tables outgrow the design                   | Slow gradebook, painful migrations                                           | Observed workload approaches a configured storage or query budget                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                                |
@@ -2092,7 +2087,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Statistics lost when records are deleted            | The library stops learning, and deletion becomes something instructors avoid | Statistics computed on demand from attempt history                                                                           | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                       |
 | Retention deletes reusable content                  | Instructors lose authored work and stop trusting the system                  | A deletion path following assignment references into shared content                                                          | `expert_coder`   | Deletion is scoped to exact course/Student records by construction; the M5 deletion test asserts catalog content and private drafts survive                                                                                                                                                                                                                                                           |
 | Signed URL leakage                                  | Educational records exposed                                                  | A URL is shared, logged, or used after its configured expiry                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                       |
-| Draft problems leak into shared content             | The exact ADAPT failure this design exists to avoid                          | A code path minting `ProblemId` outside publish                                                                              | `architect`      | Keep the `ProblemId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                    |
+| Draft problems leak into shared content             | The exact ADAPT failure this design exists to avoid                          | A code path minting `QuestionId` outside publish                                                                              | `architect`      | Keep the `QuestionId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                    |
 | Parallel lanes collide on a shared artifact         | Merge conflicts and lost work                                                | Two lanes editing migrations or the seed table                                                                               | `integrator`     | One owning module per shared artifact, tabulated in the catalog                                                                                                                                                                                                                                                                                                                                       |
 | Scope creep toward ADAPT parity                     | Version 1 never ships                                                        | Requests for rubrics, learning trees, discussions                                                                            | `architect`      | Binary out-of-scope ledger in the release-completion plan                                                                                                                                                                                                                                                                                                                                             |
 | Plan drifts from implementation                     | Reviews check the wrong thing                                                | Package work outpacing the tracker                                                                                           | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                                |
@@ -2178,11 +2173,11 @@ The current implementation and scope decisions are expanded into dispatchable pa
 - The protected visual author editor now supports all eight version 2 families. MC, MA, FIB,
   MULTI-FIB, NUM, MATCH, and ORDER provide their complete keyboard-first form controls. HOTSPOT
   provides verified-image selection, immutable version-scoped publication, exact issue-time asset
-  binding, and the primary keyboard region-list workflow. Its integrated author-to-learner
+  binding, and the primary keyboard region-list workflow. Its integrated author-to-student
   object-lifecycle acceptance remains open in the flat-family plan.
 - New assignments default to `highest`; new practice runs use `newSeeds` while resumed attempts keep
   their issued seed.
-- Retention defaults are notify at 30 days, archive at 100 days, learner-record deletion at 365 days,
+- Retention defaults are notify at 30 days, archive at 100 days, student-record deletion at 365 days,
   and aggregate publication at k >= 5.
 - Course deletion retains assignment definitions by default.
 - Existing normalized-payload hard ceilings remain strict refusal boundaries; oversized archival and

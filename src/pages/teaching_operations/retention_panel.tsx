@@ -6,7 +6,7 @@ import type { RetentionDispositionView } from "../../../generated/api/RetentionD
 import type { RetentionReadView } from "../../../generated/api/RetentionReadView";
 import type { ApiRuntime } from "../../api/runtime";
 import { ApiRequestError } from "../../api/http_client";
-import { retentionStateCopy } from "./course_groups_panel_model";
+import { retentionStateCopy } from "./retention_state_copy";
 import {
   retentionActionAvailability,
   retentionFailureCopy,
@@ -206,7 +206,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
     <section class="teaching-operations-panel" aria-labelledby="retention-heading">
       <h2 id="retention-heading">Record retention</h2>
       <p class="teaching-operations-context">
-        Server-owned retention actions protect learner records.
+        Server-owned retention actions protect student records.
       </p>
       <p
         class="teaching-operations-status"
@@ -323,7 +323,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
             <p>
               {action === "delete"
                 ? "This permanently deletes student records. Type DELETE to confirm."
-                : "This archives student records from ordinary learner access. Type ARCHIVE to confirm."}
+                : "This archives Student records from ordinary Student access. Type ARCHIVE to confirm."}
             </p>
             <p
               class="teaching-operations-dialog-status"

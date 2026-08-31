@@ -34,7 +34,7 @@ export function FlatOrderingEditor(props: FlatOrderingEditorProps): JSX.Element 
       <legend>Correct order</legend>
       <p class="flat-question-authoring__help">
         This private list is the intended sequence. Move an item earlier or later to set the answer
-        learners must arrange.
+        students must arrange.
       </p>
       <Show when={errorFor(props, "response.items") !== undefined}>
         <p class="flat-question-authoring__error" role="alert">

@@ -1,10 +1,9 @@
-// reusable_curriculum_create_dialog.tsx - local draft gate before a live curriculum creation.
+// Local Blueprint Course draft gate before one live create request.
 
-import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
+import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
-import type { AlphaCourseDefinitionInput } from "../../../generated/api/AlphaCourseDefinitionInput";
-import type { BlueprintDefinitionInput } from "../../../generated/api/BlueprintDefinitionInput";
+import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
 import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
 import type { ReusableCurriculumClient } from "../../api/reusable_curriculum";
 import {
@@ -13,15 +12,10 @@ import {
   type ProblemPickerSource,
   type ProblemPickerSourceRepository,
 } from "../problem_picker";
-import { createAlphaWhenReady, createBlueprintWhenReady } from "./reusable_curriculum_creation";
-import {
-  alphaProblemPickerSources,
-  appendPickedFixedEntries,
-  emptyReusableDefinition,
-} from "./reusable_curriculum_model";
+import { createBlueprintCourseWhenReady } from "./reusable_curriculum_creation";
+import { appendPickedFixedEntries, emptyReusableDefinition } from "./reusable_curriculum_model";
 
 export interface CurriculumCreateDialogProps {
-  readonly kind: "blueprint" | "alpha";
   readonly client: ReusableCurriculumClient;
   readonly pickerRepository: ProblemPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<ProblemPickerSource>;
@@ -33,21 +27,18 @@ function detailPath(reference: string): string {
   return `/curriculum/${encodeURIComponent(reference)}`;
 }
 
-/** Keeps an incomplete create draft in the browser until it has meaningful reusable content. */
+/** Keeps an incomplete Blueprint Course draft in the browser until it has reusable content. */
 export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.Element {
   const navigate = useNavigate();
-  const initialDefinition = (): ReusableAssignmentDefinitionInput =>
-    emptyReusableDefinition(
-      props.kind === "blueprint" ? "Untitled reusable assignment" : "Untitled Alpha assignment",
-    );
-  const [title, setTitle] = createSignal(
-    props.kind === "blueprint" ? "Untitled reusable assignment" : "Untitled Alpha curriculum",
+  const [title, setTitle] = createSignal("Untitled Blueprint Course");
+  const [moduleLabel, setModuleLabel] = createSignal("Module 1");
+  const [definition, setDefinition] = createSignal<ReusableAssignmentDefinitionInput>(
+    emptyReusableDefinition("Module 1 assignment"),
   );
-  const [definition, setDefinition] = createSignal(initialDefinition());
   const [showPicker, setShowPicker] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal(
-    "Name this curriculum, then choose its first published question to make a complete reusable definition.",
+    "Name the Blueprint Course and choose its first published Question.",
   );
   let dialog!: HTMLDialogElement;
   let titleInput!: HTMLInputElement;
@@ -58,50 +49,42 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
     props.onClose();
   }
 
-  function pickerSources(): ReadonlyArray<ProblemPickerSource> {
-    return props.kind === "alpha" ? alphaProblemPickerSources() : props.pickerSources;
+  function draft(): CreateBlueprintCourseDefinitionInput {
+    return {
+      title: title(),
+      modules: [
+        {
+          label: moduleLabel(),
+          definitions: [
+            { ...definition(), title: definition().title.trim() || "Module 1 assignment" },
+          ],
+        },
+      ],
+    };
   }
 
   function chooseQuestions(selection: ProblemPickerSelection): void {
     setDefinition((current) => appendPickedFixedEntries(current, selection));
     setShowPicker(false);
     setMessage(
-      `Added ${selection.questionIds.length} selected question${selection.questionIds.length === 1 ? "" : "s"}. Review the draft, then create the live curriculum.`,
+      `Added ${selection.questionIds.length} selected Question${selection.questionIds.length === 1 ? "" : "s"}. Review the draft, then create the Blueprint Course.`,
     );
-  }
-
-  function blueprintDraft(): BlueprintDefinitionInput {
-    return { definition: { ...definition(), title: title() } };
-  }
-
-  function alphaDraft(): AlphaCourseDefinitionInput {
-    const reusableDefinition = { ...definition(), title: "Module 1 assignment" };
-    return { title: title(), modules: [{ label: "Module 1", definitions: [reusableDefinition] }] };
   }
 
   async function save(): Promise<void> {
     setBusy(true);
     try {
-      if (props.kind === "blueprint") {
-        const result = await createBlueprintWhenReady(props.client, blueprintDraft());
-        if (result.kind === "invalid") {
-          setMessage(result.message);
-          return;
-        }
-        navigate(detailPath(result.value.blueprint.reference));
-      } else {
-        const result = await createAlphaWhenReady(props.client, alphaDraft());
-        if (result.kind === "invalid") {
-          setMessage(result.message);
-          return;
-        }
-        navigate(detailPath(result.value.alpha.reference));
+      const result = await createBlueprintCourseWhenReady(props.client, draft());
+      if (result.kind === "invalid") {
+        setMessage(result.message);
+        return;
       }
+      navigate(detailPath(result.value.blueprintCourse.reference));
     } catch (error: unknown) {
       const text =
         error instanceof Error
           ? error.message
-          : "The curriculum could not be created. This local draft remains ready to retry.";
+          : "The Blueprint Course could not be created. This local draft remains ready to retry.";
       setMessage(text);
       props.onFailure(text);
     } finally {
@@ -134,14 +117,8 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
     >
       <div class="curriculum-section-heading">
         <div>
-          <h2 id="curriculum-create-heading">
-            Create {props.kind === "blueprint" ? "a blueprint" : "an Alpha curriculum"}
-          </h2>
-          <p>
-            {props.kind === "alpha"
-              ? "Public Alpha drafts use public-library questions so approved instructors can reuse every entry."
-              : "Drafts stay here until they include a reusable assignment with published questions."}
-          </p>
+          <h2 id="curriculum-create-heading">Create a Blueprint Course</h2>
+          <p>A Blueprint Course is reusable structure with no Students or delivery dates.</p>
         </div>
         <button type="button" class="quiet-action" disabled={busy()} onClick={closeDraft}>
           Close draft
@@ -151,25 +128,38 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
         {message()}
       </p>
       <label>
-        {props.kind === "blueprint" ? "Assignment title" : "Curriculum title"}
+        Blueprint Course title
         <input
           ref={(element) => {
             titleInput = element;
           }}
           value={title()}
           maxlength="200"
-          onInput={(event) => {
-            setTitle(event.currentTarget.value);
-            setMessage(
-              "Title updated. Choose published questions to complete this live curriculum.",
-            );
-          }}
+          onInput={(event) => setTitle(event.currentTarget.value)}
+        />
+      </label>
+      <label>
+        First module label
+        <input
+          value={moduleLabel()}
+          maxlength="200"
+          onInput={(event) => setModuleLabel(event.currentTarget.value)}
+        />
+      </label>
+      <label>
+        First assignment title
+        <input
+          value={definition().title}
+          maxlength="200"
+          onInput={(event) =>
+            setDefinition((current) => ({ ...current, title: event.currentTarget.value }))
+          }
         />
       </label>
       <p>
         {definition().entries.length === 0
-          ? "No questions selected yet."
-          : `${definition().entries.length} fixed question${definition().entries.length === 1 ? "" : "s"} selected in order.`}
+          ? "No Questions selected yet."
+          : `${definition().entries.length} fixed Question${definition().entries.length === 1 ? "" : "s"} selected in order.`}
       </p>
       <button
         type="button"
@@ -178,26 +168,26 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
           pickerTrigger = event.currentTarget;
           setShowPicker(true);
           setMessage(
-            "Choose published questions, confirm their order, then return to this create draft.",
+            "Choose published Questions, confirm their order, then return to this local draft.",
           );
         }}
       >
-        Choose published questions
+        Choose published Questions
       </button>
       <div class="curriculum-save-actions">
         <button type="button" disabled={busy()} onClick={() => void save()}>
-          {busy() ? "Creating..." : "Create live curriculum"}
+          {busy() ? "Creating..." : "Create Blueprint Course"}
         </button>
       </div>
       <Show when={showPicker()}>
         <ProblemPicker
           repository={props.pickerRepository}
-          sources={pickerSources()}
+          sources={props.pickerSources}
           mode="many"
           maximumSelection={1024}
           trigger={pickerTrigger}
-          title="Choose the first reusable questions"
-          confirmLabel="Use selected questions"
+          title="Choose the first reusable Questions"
+          confirmLabel="Use selected Questions"
           onConfirm={chooseQuestions}
           onCancel={() => setShowPicker(false)}
         />

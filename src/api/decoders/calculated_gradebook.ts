@@ -12,7 +12,7 @@ import type { GradingOperationReference } from "../../../generated/api/GradingOp
 import type { InspectedStudentResponseV1 } from "../../../generated/api/InspectedStudentResponseV1";
 import type { InspectedStudentScoreFeedbackV1 } from "../../../generated/api/InspectedStudentScoreFeedbackV1";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
-import type { RunReference } from "../../../generated/api/RunReference";
+import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
 import {
   DecodeError,
@@ -156,7 +156,7 @@ export interface InspectedStudentWorkDetail {
   readonly course: CourseReference;
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
-  readonly run: RunReference;
+  readonly run: AssignmentAttemptReference;
   /** Current roster presentation label; never immutable evidence or an audit fact. */
   readonly studentDisplayLabel: string;
   /** Current assignment presentation title; never immutable evidence or an audit fact. */

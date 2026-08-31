@@ -48,34 +48,12 @@ pub(super) struct ExpectedMembership {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum LoginContract {
     Production(ProductionLoginProfile),
-    /// Private arm used only by the sealed recovery-execution pool factories.
-    AcceptedSubmissionRecovery,
-    /// Private arm used only by the sealed exact-execution pool factories.
-    AcceptedSubmissionFastPath,
-    /// Host-only exact-execution identity used while installing the Base Course.
-    BaseCourseAcceptedSubmissionFastPath,
-    /// Private arm used exclusively by the dedicated application-pool factories.
-    BaseCourseApplication,
-    /// Private arm used exclusively by the opaque installer-pool factories.
-    BaseCourseInstaller,
-    Grader,
 }
 
 impl LoginContract {
     pub(super) fn expected_login(self) -> &'static str {
         match self {
             Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
-            Self::Production(ProductionLoginProfile::Worker) => "ple_worker_login",
-            Self::AcceptedSubmissionRecovery => "ple_accepted_submission_recovery_login",
-            Self::AcceptedSubmissionFastPath => "ple_accepted_submission_fast_path_login",
-            Self::BaseCourseAcceptedSubmissionFastPath => "ple_base_course_fast_path_login",
-            Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
-                "ple_invitation_delivery_worker_login"
-            }
-            Self::Production(ProductionLoginProfile::Publisher) => "ple_publisher_login",
-            Self::BaseCourseApplication => "ple_base_course_app_login",
-            Self::BaseCourseInstaller => "ple_base_course_installer_login",
-            Self::Grader => "ple_grading_reader",
         }
     }
 
@@ -91,42 +69,6 @@ impl LoginContract {
                     set_option: true,
                 },
             ],
-            Self::Production(ProductionLoginProfile::Worker) => &[ExpectedMembership {
-                role_name: "ple_app",
-                set_option: true,
-            }],
-            Self::AcceptedSubmissionRecovery => &[ExpectedMembership {
-                role_name: "ple_accepted_submission_execution",
-                set_option: true,
-            }],
-            Self::AcceptedSubmissionFastPath | Self::BaseCourseAcceptedSubmissionFastPath => {
-                &[ExpectedMembership {
-                    role_name: "ple_accepted_submission_execution_fast_path",
-                    set_option: true,
-                }]
-            }
-            Self::BaseCourseApplication => &[ExpectedMembership {
-                role_name: "ple_app",
-                set_option: true,
-            }],
-            Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
-                &[ExpectedMembership {
-                    role_name: "ple_invitation_delivery_worker",
-                    set_option: true,
-                }]
-            }
-            Self::Production(ProductionLoginProfile::Publisher) => &[ExpectedMembership {
-                role_name: "ple_public_asset_publisher",
-                set_option: true,
-            }],
-            Self::BaseCourseInstaller => &[ExpectedMembership {
-                role_name: "ple_base_course_installer",
-                set_option: true,
-            }],
-            Self::Grader => &[ExpectedMembership {
-                role_name: "ple_grader",
-                set_option: true,
-            }],
         }
     }
 
@@ -141,12 +83,8 @@ mod tests {
     use crate::postgres::ProductionLoginProfile;
 
     #[test]
-    fn process_logins_have_closed_distinct_capabilities() {
+    fn api_login_has_the_closed_session_capabilities() {
         let api = LoginContract::Production(ProductionLoginProfile::Api);
-        let worker = LoginContract::Production(ProductionLoginProfile::Worker);
-        let recovery = LoginContract::AcceptedSubmissionRecovery;
-        let fast_path = LoginContract::AcceptedSubmissionFastPath;
-        let base_course_fast_path = LoginContract::BaseCourseAcceptedSubmissionFastPath;
 
         assert_eq!(
             api.expected_memberships(),
@@ -160,35 +98,6 @@ mod tests {
                     set_option: true,
                 },
             ]
-        );
-        assert_eq!(
-            worker.expected_memberships(),
-            [ExpectedMembership {
-                role_name: "ple_app",
-                set_option: true,
-            }]
-        );
-        assert_eq!(
-            recovery.expected_memberships(),
-            [ExpectedMembership {
-                role_name: "ple_accepted_submission_execution",
-                set_option: true,
-            }]
-        );
-        assert_eq!(
-            fast_path.expected_memberships(),
-            [ExpectedMembership {
-                role_name: "ple_accepted_submission_execution_fast_path",
-                set_option: true,
-            }]
-        );
-        assert_eq!(
-            base_course_fast_path.expected_login(),
-            "ple_base_course_fast_path_login"
-        );
-        assert_eq!(
-            base_course_fast_path.expected_memberships(),
-            fast_path.expected_memberships()
         );
     }
 }

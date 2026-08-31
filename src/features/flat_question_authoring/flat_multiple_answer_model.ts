@@ -40,7 +40,7 @@ function nextChoiceId(choices: ReadonlyArray<FlatQuestionChoice>): string {
   return `choice_${suffix}`;
 }
 
-/** Edits text without changing the semantic identifier used by keys and learner responses. */
+/** Edits text without changing the semantic identifier used by keys and student responses. */
 export function setMultipleAnswerChoiceText(
   response: FlatQuestionMultipleAnswerResponse,
   choiceId: string,

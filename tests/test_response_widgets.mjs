@@ -87,7 +87,7 @@ test("blank numeric input stays invalid and never submits zero", async () => {
   assert.equal(controller.phase().kind, "invalid");
 });
 
-test("initial controlled responses are checked before a learner edits them", async () => {
+test("initial controlled responses are checked before a student edits them", async () => {
   const orderingDefinition = {
     kind: "ordering",
     items: [
@@ -154,7 +154,7 @@ test("initial controlled responses are checked before a learner edits them", asy
   assert.equal(invalidSubmitCalls, 0);
 });
 
-test("a fresh issued empty response stays neutral until the learner interacts", async () => {
+test("a fresh issued empty response stays neutral until the student interacts", async () => {
   let validationCalls = 0;
   const controller = createRoot(() =>
     createSubmissionController(

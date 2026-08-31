@@ -178,18 +178,17 @@ where
         .with_state(state)
 }
 
-/// Issues a session after a trusted provider has established the Account and role.
+/// Issues a session after a trusted provider has established an existing Account.
 pub async fn issue_session(
     sessions: &dyn SessionStore,
     account: AccountId,
-    role: AccountRole,
     config: SessionConfig,
 ) -> Result<IssuedSession, AuthError> {
     for _ in 0..TOKEN_GENERATION_ATTEMPTS {
         let token = SessionToken::generate().map_err(AuthError::Randomness)?;
         let token_hash = token.hash();
         match sessions
-            .create_session(token_hash, account, role, config.lifetime())
+            .create_session(token_hash, account, config.lifetime())
             .await
         {
             Ok(record) => {

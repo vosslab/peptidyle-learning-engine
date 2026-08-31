@@ -4,7 +4,7 @@
 //! retain Student identity, raw responses, answer choices, or object keys.
 
 use question_model::{
-    ActivityTimestamp, AssignmentId, AssignmentItemId, CourseId, ProblemVersionRef,
+    ActivityTimestamp, AssignmentId, AssignmentItemId, CourseId, QuestionVersionReference,
     ScoringGeneration,
 };
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ pub struct AssignmentItemAnalysis {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub assignment_item: AssignmentItemId,
-    pub reference: ProblemVersionRef,
+    pub reference: QuestionVersionReference,
     pub source_scoring_generation: ScoringGeneration,
     pub analyzed_at: ActivityTimestamp,
     pub graded_attempt_count: u32,
@@ -79,8 +79,8 @@ pub struct CourseItemAnalysisReport {
     pub assignment: AssignmentId,
     pub source_scoring_generation: ScoringGeneration,
     pub analyzed_at: ActivityTimestamp,
-    pub completed_run_count: u32,
-    pub in_progress_run_count: u32,
+    pub completed_assignment_attempt_count: u32,
+    pub in_progress_assignment_attempt_count: u32,
     /// A terminal submitted attempt lacks a coherent automated score.
     /// Score-derived assignment metrics remain suppressed while this is true.
     pub incomplete_scoring: bool,

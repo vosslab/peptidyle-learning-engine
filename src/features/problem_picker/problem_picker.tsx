@@ -487,15 +487,6 @@ export function ProblemPicker(props: ProblemPickerProps): JSX.Element {
                 class="quiet-action"
                 type="button"
                 onClick={() =>
-                  props.curationActions?.request({ kind: "favorite", selection: selection() })
-                }
-              >
-                Update Favorites
-              </button>
-              <button
-                class="quiet-action"
-                type="button"
-                onClick={() =>
                   props.curationActions?.request({
                     kind: "addToCollection",
                     selection: selection(),

@@ -5,19 +5,13 @@ import { For, Match, Show, Switch, createMemo, createSignal, onMount, type JSX }
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseGroupSummaryView } from "../../generated/api/CourseGroupSummaryView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
 import type { ApiClient } from "../api/client";
 import { ApiRequestError } from "../api/http_client/error";
 import type { AssignmentRouteReference, CourseRouteReference } from "../navigation/public_route";
 import { ModifierDialog } from "./assignment_access/modifier_dialog";
-import {
-  type ModifierMode,
-  type ModifierPatchDraft,
-  type ModifierScope,
-  type PreviewSubject,
-} from "./assignment_access/model";
+import { type ModifierMode, type ModifierPatchDraft, type PreviewSubject } from "./assignment_access/model";
 import { PolicyPreview } from "./assignment_access/policy_preview";
 import "./assignment_access/assignment_access.css";
 
@@ -37,12 +31,6 @@ export interface AssignmentAccessPageProps {
 type PageState = "loading" | "ready" | "error" | "permission" | "offline";
 type SubjectsState = "loading" | "ready" | "error";
 
-function scopeCopy(scope: ModifierScope): string {
-  if (scope === "scheduleOffset") return "Group schedule offsets";
-  if (scope === "groupAccommodation") return "Group accommodations";
-  return "Individual exceptions";
-}
-
 function failureState(error: unknown): PageState {
   if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403))
     return "permission";
@@ -50,21 +38,19 @@ function failureState(error: unknown): PageState {
   return "error";
 }
 
-function namedDeleteCopy(scope: ModifierScope, name: string): string {
-  return `Remove the ${scopeCopy(scope).toLowerCase()} modifier for ${name}?`;
+function namedDeleteCopy(name: string): string {
+  return `Remove the student accommodation for ${name}?`;
 }
 
 /**
- * This page deliberately takes a narrow preview-subject loader: ApiClient exposes group membership
- * but no course-wide membership list. The page never turns internal identifiers into learner labels.
+ * This page takes a narrow Student Membership preview-subject loader and never turns internal
+ * identifiers into student labels.
  */
 export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Element {
   const [state, setState] = createSignal<PageState>("loading");
-  const [groups, setGroups] = createSignal<ReadonlyArray<CourseGroupSummaryView>>([]);
   const [subjects, setSubjects] = createSignal<ReadonlyArray<PreviewSubject>>([]);
   const [subjectsState, setSubjectsState] = createSignal<SubjectsState>("loading");
   const [revision, setRevision] = createSignal(props.initialRevision);
-  const [scope, setScope] = createSignal<ModifierScope>("scheduleOffset");
   const [dialogOpen, setDialogOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
@@ -81,8 +67,6 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     setState("loading");
     setMessage("");
     try {
-      const groupPage = await props.client.listCourseGroups(props.courseId, undefined, 100);
-      setGroups(groupPage.groups);
       setState("ready");
       void loadSubjects();
     } catch (error: unknown) {
@@ -185,38 +169,14 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     }
   }
 
-  async function saveOffset(group: CourseGroupSummaryView, value: string): Promise<boolean> {
-    const offsetSeconds = Number(value);
-    return mutate(() =>
-      props.client.putGroupScheduleOffset(
-        props.courseId,
-        props.assignmentId,
-        group.reference,
-        { offsetSeconds },
-        revision(),
-      ),
-    );
-  }
-
   async function savePolicy(
-    kind: "groupAccommodation" | "individualException",
     target: string,
     mode: ModifierMode,
     draft: ModifierPatchDraft,
   ): Promise<boolean> {
     const request = (await import("./assignment_access/model")).policyRequest(mode, draft);
-    if (kind === "groupAccommodation")
-      return mutate(() =>
-        props.client.putGroupAccommodation(
-          props.courseId,
-          props.assignmentId,
-          target,
-          request,
-          revision(),
-        ),
-      );
     return mutate(() =>
-      props.client.putIndividualPolicyException(
+      props.client.putAccommodation(
         props.courseId,
         props.assignmentId,
         target,
@@ -227,31 +187,12 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
   }
 
   async function deleteModifier(
-    kind: ModifierScope,
     target: string,
     name: string,
   ): Promise<boolean> {
-    if (!window.confirm(namedDeleteCopy(kind, name))) return false;
-    if (kind === "scheduleOffset")
-      return mutate(() =>
-        props.client.deleteGroupScheduleOffset(
-          props.courseId,
-          props.assignmentId,
-          target,
-          revision(),
-        ),
-      );
-    else if (kind === "groupAccommodation")
-      return mutate(() =>
-        props.client.deleteGroupAccommodation(
-          props.courseId,
-          props.assignmentId,
-          target,
-          revision(),
-        ),
-      );
+    if (!window.confirm(namedDeleteCopy(name))) return false;
     return mutate(() =>
-      props.client.deleteIndividualPolicyException(
+      props.client.deleteAccommodation(
         props.courseId,
         props.assignmentId,
         target,
@@ -303,44 +244,29 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
               aria-labelledby="assignment-access-modifiers-heading"
             >
               <h2 id="assignment-access-modifiers-heading">Modifiers</h2>
-              <p>Choose the scope, then define an explicit schedule or policy modifier.</p>
-              <div class="assignment-access-scope-list" role="group" aria-label="Modifier scope">
-                <For
-                  each={["scheduleOffset", "groupAccommodation", "individualException"] as const}
-                >
-                  {(choice) => (
-                    <button
-                      type="button"
-                      aria-pressed={scope() === choice}
-                      onClick={() => setScope(choice)}
-                    >
-                      {scopeCopy(choice)}
-                    </button>
-                  )}
-                </For>
-              </div>
-              <Show when={scope() === "individualException" && !canPreview()}>
+              <p>Choose a Student Membership, then define its explicit accommodation.</p>
+              <Show when={!canPreview()}>
                 <p class="assignment-access-help">
                   {subjectsState() === "loading"
-                    ? "Loading authorized learner choices..."
-                    : "An authorized course-members loader is needed to select learners by safe display name. This route does not expose raw membership references."}
+                    ? "Loading authorized Student choices..."
+                    : "An authorized course-members loader is needed to select Students by safe display name. This route does not expose raw membership references."}
                 </p>
                 <Show when={subjectsState() === "error"}>
                   <button type="button" onClick={() => void loadSubjects()}>
-                    Retry learner choices
+                    Retry student choices
                   </button>
                 </Show>
               </Show>
               <div class="assignment-access-actions">
                 <button
                   type="button"
-                  disabled={busy() || (scope() === "individualException" && !canPreview())}
+                  disabled={busy() || !canPreview()}
                   onClick={(event) => {
                     dialogTrigger = event.currentTarget;
                     setDialogOpen(true);
                   }}
                 >
-                  Add or change {scopeCopy(scope()).toLowerCase()}
+                  Add or change student accommodation
                 </button>
               </div>
               <Show when={revisionConflict()}>
@@ -375,19 +301,19 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
               class="assignment-access-panel"
               aria-labelledby="assignment-access-subject-heading"
             >
-              <h2 id="assignment-access-subject-heading">Preview a learner</h2>
+              <h2 id="assignment-access-subject-heading">Preview a Student</h2>
               <Show
                 when={canPreview()}
                 fallback={
                   <p class="assignment-access-help">
                     {subjectsState() === "error"
-                      ? "Learner choices could not load. Retry without losing modifier work."
+                      ? "Student choices could not load. Retry without losing modifier work."
                       : "Preview selection awaits an authorized display-name loader from the route owner."}
                   </p>
                 }
               >
                 <label class="assignment-access-field">
-                  Learner
+                  Student
                   <select
                     onChange={(event) =>
                       void requestPreview(
@@ -397,7 +323,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
                       )
                     }
                   >
-                    <option value="">Choose a learner</option>
+                    <option value="">Choose a Student</option>
                     <For each={subjects()}>
                       {(subject) => <option value={subject.reference}>{subject.display}</option>}
                     </For>
@@ -406,7 +332,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
               </Show>
               <Show when={subjectsState() === "error"}>
                 <button type="button" onClick={() => void loadSubjects()}>
-                  Retry learner choices
+                  Retry student choices
                 </button>
               </Show>
               <PolicyPreview
@@ -420,8 +346,6 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
       </Switch>
       <Show when={dialogOpen()}>
         <ModifierDialog
-          scope={scope()}
-          groups={groups()}
           subjects={subjects()}
           revision={revision()}
           busy={busy()}
@@ -431,7 +355,6 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
             queueMicrotask(() => dialogTrigger?.focus());
           }}
           onReloadLatestRevision={() => void reloadLatestAssignmentRevision()}
-          onSaveOffset={saveOffset}
           onSavePolicy={savePolicy}
           onDelete={deleteModifier}
         />

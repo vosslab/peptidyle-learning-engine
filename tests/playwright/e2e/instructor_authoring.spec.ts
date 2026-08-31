@@ -89,7 +89,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await elena.getByRole("button", { name: "Create flat question" }).click();
       await expect(elena.getByLabel("Question title")).toBeVisible();
       await elena.getByLabel("Question title").fill(questionTitle);
-      await elena.getByLabel("Learner-facing prompt").fill(prompt);
+      await elena.getByLabel("Student-facing prompt").fill(prompt);
       await elena.getByLabel("Question format").selectOption("multipleAnswer");
       await elena.getByLabel("Choice text").nth(0).fill(correctChoice);
       await elena
@@ -239,8 +239,8 @@ test.describe("instructor authoring on the production PLE stack", () => {
       ).toBeVisible();
       await elena.getByRole("link", { name: "Assignments", exact: true }).click();
       await elena.getByRole("link", { name: "Students" }).click();
-      await elena.getByLabel("Institutional email").fill(maryEmail);
-      await elena.getByLabel("Institutional student ID").fill(rosterId);
+      await elena.getByLabel("Course roster email").fill(maryEmail);
+      await elena.getByLabel("Course roster ID").fill(rosterId);
       await elena.getByRole("button", { name: "Create invitation" }).click();
       const invitation = elena.getByLabel("Invitation link");
       await expect(invitation).toBeVisible();

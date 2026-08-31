@@ -21,7 +21,7 @@ J1 only; later journeys and release gates remain separate.
 This independent read-only review covered the active walkthrough plan, the
 no-mouse contract, M3 arrangement evidence, the J1 specification, the fixed
 Python runner/configuration, and the current route/component implementation.
-It uses a keyboard cognitive walkthrough for the remote learner's task: sign in,
+It uses a keyboard cognitive walkthrough for the remote student's task: sign in,
 open the arranged Mastery activity, submit visible responses, read authorized
 feedback, and observe completion. This is code and offline-test evidence, not a
 substitute for the required real-browser live walk.
@@ -46,7 +46,7 @@ substitute for the required real-browser live walk.
 
 ## HCI acceptance ledger
 
-| Learner step      | Need                                                           | Contract criterion                                                                 | Evidence required live                                            |
+| Student step      | Need                                                           | Contract criterion                                                                 | Evidence required live                                            |
 | ----------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Sign in           | Complete the same journey without a pointer                    | Tab reaches visible local sign-in button; native Enter or Space activates it       | Visible focused button and post-login course heading              |
 | Choose work       | Recognize and open the correct prepared activity               | Current visible course and assignment hrefs are unique and keyboard activated      | Focus, route-main focus, and visible Mastery title/action         |
@@ -76,7 +76,7 @@ Verify all of the following before accepting WP-W1:
   and the public IPv4 gateway origin is used.
 - After password-field fill, Tab reaches `Sign in locally`; a focused assertion
   precedes native Enter or Space. No platform `.click()` or `.focus()` occurs.
-- The learner uses only Tab/Shift+Tab, Space, and native Enter through current
+- The student uses only Tab/Shift+Tab, Space, and native Enter through current
   exact course and Mastery hrefs, Start, response, Submit, Feedback, Continue,
   and completion.
 - After the course route focuses main, the exact visible Mastery href is reached
@@ -91,7 +91,7 @@ practice run` button is the sole completion evidence. J1 must not retry or
   use a completion heading as an outcome proxy.
 - Focus visibly reaches `#main-content` after both route changes, Feedback is
   visibly announced/focused before Continue, and focus never returns after the
-  learner moves it.
+  student moves it.
 - The retry path bases each action only on rendered controls/status/feedback or
   completion, never answer order, feedback body, score, or a reconstructed
   grading result.
@@ -111,7 +111,7 @@ backward second-radio entry, visible fresh-practice completion, and no retry
 loop or completion-heading inference. Focused offline checks pass. A new live
 run is still required for this changed replay path. This review does not accept
 J2 retry-until-correct, later
-learner/instructor journeys, canonical onboarding, all-family coverage, or a
+student/instructor journeys, canonical onboarding, all-family coverage, or a
 release gate.
 
 ## Independent live re-review

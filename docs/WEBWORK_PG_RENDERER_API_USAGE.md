@@ -1,7 +1,7 @@
 # WeBWorK PG renderer contract
 
 This document defines PLE's server-only integration with the external
-`webwork-pg-renderer` service. PLE is the only renderer client. A learner
+`webwork-pg-renderer` service. PLE is the only renderer client. A student
 browser calls PLE and never contacts the renderer.
 
 ## Three different projects
@@ -53,7 +53,7 @@ The service:
 - has no persistent volume;
 - has no SQL connection or database service;
 - joins only `renderer_private` with the API;
-- receives no PLE database, object-store, session, or learner credential; and
+- receives no PLE database, object-store, session, or student credential; and
 - can be recreated without losing an educational record.
 
 The API base is:
@@ -95,7 +95,7 @@ The fixed render form contains:
 
 For grading, PLE reconstructs the same source and seed and adds only
 `submitAnswers=1` plus the server-held upstream field/value that corresponds to
-the learner's opaque PLE selection. The browser never submits an upstream field
+the student's opaque PLE selection. The browser never submits an upstream field
 name or value.
 
 ## Authentication and response identity
@@ -103,7 +103,7 @@ name or value.
 The renderer signs its problem, session, and answer state. Local development
 stores the problem and session JWT secrets in ignored mode-0600
 `containers/env.local`; deployed environments must provide independent secret
-values. These are API-to-renderer credentials, not learner credentials.
+values. These are API-to-renderer credentials, not student credentials.
 
 The expected response is a closed object with these protocol members:
 
@@ -112,7 +112,7 @@ JWT debug flags problem_result problem_state renderedHTML resources
 ```
 
 The adapter validates token shape and request binding, then discards private
-renderer tokens from the learner projection. `problem_result.score` is a finite
+renderer tokens from the student projection. `problem_result.score` is a finite
 normalized value between 0 and 1. The bounded all-or-nothing radio contract
 accepts 0 or 1 and maps it to the published PLE point value.
 
@@ -127,7 +127,7 @@ the same-origin renderer base/form metadata, and parses only recognized controls
 It converts visible labels to PLE response options and stores the upstream
 field/value mapping only in server-side replay state.
 
-The learner envelope may contain:
+The student envelope may contain:
 
 - sanitized prompt HTML;
 - the PLE question family and browser rendering metadata;
@@ -188,7 +188,7 @@ Live acceptance is intentionally separate:
 cargo test -p adapter_webwork --all-targets
 cargo clippy -p adapter_webwork --all-targets -- -D warnings
 source source_me.sh && .venv/bin/python local_stack.py validate
-tests/e2e/e2e_webwork_render_rpc.sh
+./run_playwright_tests.sh --build
 ```
 
 Exact Compose and lifecycle source inspection was useful during the renderer
@@ -198,7 +198,7 @@ exercise the maintained boundary without freezing configuration text.
 The original renderer E2E passed on 2026-08-10 for the licensed PGML `RadioButtons` pilot. The
 Chapter 1 release gate subsequently passed all four reviewed PGML sources, including both matching
 questions and matching partial credit, through the real renderer, PLE grading, and built-browser
-learner path on 2026-08-11.
+student path on 2026-08-11.
 
 That evidence supports this bounded path. It does not imply every Open Problem
 Library item or PG macro is compatible. New families require behavior-focused

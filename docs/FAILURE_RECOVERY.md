@@ -1,7 +1,7 @@
 # Failure and recovery contract
 
 PLE has intentionally small, stateless API replicas, but its correctness does not depend on a
-request reaching the same process twice. This document tells a learner, browser,
+request reaching the same process twice. This document tells a student, browser,
 or operator whether to retry, reload, stop, or require repair after an outcome
 is known or becomes uncertain. It deliberately does not repeat the transaction,
 compare-and-swap, lease, generation, object, or prefetch mechanics that make an
@@ -25,7 +25,7 @@ the current caller-visible outcomes described below.
 
 **Required for new work.** Each capability must classify failures as committed,
 rejected, retryable, or indeterminate; preserve enough durable evidence to
-resolve an indeterminate request; and define the safe learner/operator action.
+resolve an indeterminate request; and define the safe student/operator action.
 Its race-safety mechanism is specified separately in
 [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
 
@@ -51,10 +51,9 @@ best-effort data. PLE either reconstructs the exact durable state or fails close
 
 ## Error and HTTP boundary
 
-`StoreError` in
-[contracts/store.rs](../crates/learning-data-access/src/contracts/store.rs) is deliberately
-backend-neutral. It classifies a persistence result; it is not a browser error schema and does not
-authorize exposing its attached diagnostic text.
+`StoreError` is deliberately backend-neutral. It classifies a persistence
+result; it is not a browser error schema and does not authorize exposing its
+attached diagnostic text.
 
 | Store result                    | Durable meaning                                                         | Normal recovery                                                                                       |
 | ------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -68,8 +67,8 @@ authorize exposing its attached diagnostic text.
 | `Unavailable`                   | A bounded dependency is unavailable.                                    | Preserve input and retry the same logical operation after recovery.                                   |
 
 HTTP routes project this classification narrowly. For example,
-[run/support.rs](../crates/server/src/run/support.rs) maps a missing run record to `404`, a run
-conflict or expired attempt to `409`, malformed accepted input to `422`, and storage or backend
+The deferred run route maps a missing attempt record to `404`, a run conflict
+or expired attempt to `409`, malformed accepted input to `422`, and storage or backend
 unavailability to `503`. It sends `Cache-Control: no-store` error responses. Other routes may use
 different public wording or concealment. In particular, an owner-scoped run lookup returns not
 found for a nonowner rather than confirming that the attempt exists. A new route must copy the
@@ -82,13 +81,13 @@ state, source archives, answer keys, or raw backend errors.
 
 ## Submission and attempt recovery
 
-The durable attempt is the authority for learner, course, assignment, question version, seed,
+The durable attempt is the authority for student, course, assignment, question version, seed,
 timing, and grading backend. A replica reconstructs that state from PostgreSQL; the browser cannot
 recover an uncertain submission by issuing a different attempt.
 
-- A learner supplies one `Idempotency-Key` header for a submission. The validated key is bounded,
+- A student supplies one `Idempotency-Key` header for a submission. The validated key is bounded,
   visible ASCII and is stored with exact course/Student submission evidence in
-  [contracts/runs.rs](../crates/learning-data-access/src/contracts/runs.rs).
+  the deferred Store contract.
 - The Store first atomically persists the accepted response, immutable issued-work witness, pending
   evaluation, execution, and ready job. An exact retry returns the same durable acceptance rather
   than creating another grading operation. A changed response or incompatible replay conflicts.
@@ -100,7 +99,7 @@ recover an uncertain submission by issuing a different attempt.
   merely because the outcome was unknown.
 - If a deadline has elapsed, the Store refuses the response. The browser reloads the attempt or
   summary; client clocks never extend a deadline.
-- A returned conflict means the learner must reload the durable state. This is particularly
+- A returned conflict means the student must reload the durable state. This is particularly
   important after another tab, a timed auto-submit, or an instructor policy change changes the
   attempt lifecycle.
 
@@ -133,7 +132,7 @@ allow a surviving replica to resume an authorized attempt. The exact topology an
 
 ## Prefetch and cache recovery
 
-Prefetch is optional acceleration, never a learner attempt or an offline queue.
+Prefetch is optional acceleration, never a student attempt or an offline queue.
 On a prefetch failure, mismatch, or browser teardown, discard the in-memory
 candidate and reload the current server-issued attempt. A submitted answer is
 never recovered by promoting a browser cache entry. The atomic reservation and
@@ -154,9 +153,9 @@ or failure text. Operators use the authorized job boundary to investigate a
 dead job and choose a documented repair; they do not make a stale worker's
 output current.
 
-Workers log only `StoreError` categories and aggregate pass counts in
-[worker/runtime.rs](../crates/server/src/worker/runtime.rs). Diagnostics must not serialize a raw
-error object because it may contain identifiers or dependency-specific text.
+Workers log only `StoreError` categories and aggregate pass counts. Diagnostics
+must not serialize a raw error object because it may contain identifiers or
+dependency-specific text.
 
 ## Effectful external-tool dispatch
 
@@ -264,7 +263,7 @@ A new mutation, worker, cache, backend, or storage capability must state its rec
 before implementation:
 
 1. Specify which failures reject, retry, remain indeterminate, or fail closed.
-2. Define the public status, preserved learner input, and concealment rule separately from
+2. Define the public status, preserved student input, and concealment rule separately from
    internal errors.
 3. State how an indeterminate request finds its existing durable outcome; link the atomicity
    mechanism to [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).

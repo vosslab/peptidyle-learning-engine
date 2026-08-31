@@ -19,7 +19,7 @@ data use domain identifiers.
 ## Current handoff
 
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
-  ownership model, equal co-Instructor authority, open Instructor-visible published-question
+  ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
   catalog, stable `QuestionId` lineage with immutable `QuestionVersion`s and explicit forks,
   exact course/Student FERPA authorization, deterministic automated grading, Sysadmin-approved
   `ForcedQuestionCorrection` replacement evidence, the affected-owner register, and the fresh
@@ -33,20 +33,20 @@ data use domain identifiers.
   match it; Sysadmin Course Creation assigns an approved Instructor account without Sysadmin
   membership; and course help remains explicit audited support. No implementation or acceptance
   evidence is claimed by this clarification.
-  **SD1 terminology decision:** Human Guidance remains unchanged and authoritative. The terminology
-  contract now defines the positive domain vocabulary for identity, Question stewardship,
-  Blueprint reuse, Assignment structure and policy, Student work, grading, analysis, storage, and
-  evidence. Question Type names the learner interaction through the compact MC, MA, FIB,
-  MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT labels; Question Format names its representation; and
-  Question Backend names its server adapter. Answer Format names exact Student Answer validation,
-  and Answer Control names the browser interaction. Account Creation fixes Product Role;
-  Instructor Approval supplies revocable global eligibility; Course Enrollment and Instructor
-  Course Membership establish exact course relationships; and authentication opens a session for
-  an existing Account. Assignment Attempt binds Student Record and Assignment directly; Issued Question owns
-  the frozen per-attempt question selection; Question Submission accepts one Student Answer; Assignment
-  Submission optionally finalizes the whole Assignment Attempt; and Assignment Grade selects the
-  contributing attempt. This is design evidence. SD1-C/D and their dependent service/browser
-  packages own implementation and acceptance.
+  **Question Version identity cutover:** the Question Model now owns one exact
+  `QuestionVersionReference { question_id, version_number }`; the Question ID
+  is its stable lineage and the positive Question Version Number is its
+  immutable version within that lineage. The baseline schema and Question Model
+  tests are aligned. Object Storage and the Native and WeBWorK adapters now
+  carry the same exact pair; object keys, deterministic object addresses,
+  cache identities, and renderer boundaries bind both values. iMathAS now binds
+  render caches, provider-grade correlation, restored handles, and scored-embed
+  ledgers to the pair. The generated API and browser strict decoders now carry
+  the same pair and reject retired fields. The unmounted Base Course installer
+  and its unreachable command adapter are retired because they depended on an
+  absent publication module and obsolete Store interfaces. Service and the
+  mounted live-demo installation lifecycle remain explicit downstream cutover
+  work; no compatibility identity is retained.
   **SD1-C Memory curriculum-adoption progress:** the M2-M5 Memory slice is independently accepted.
   It provides stable Blueprint child identity and immutable revision history, the closed five-method
   and seven-variant Store boundary, one-lock account/key/digest replay and rollback, exact immutable
@@ -101,7 +101,7 @@ data use domain identifiers.
   relation presence only; authenticated-session resolution, approved-Instructor authorization, and idempotent
   persistence remain protected service/Store work. `WP-SD1-B3-B2` is independently accepted for
   the private-owner server-only `QuestionWatch` aggregate. Its closed `QuestionWatchTarget` is
-  exactly a published `QuestionId` lineage or an exact `ProblemVersionRef`, and its closed
+  exactly a published `QuestionId` lineage or an exact `QuestionVersionReference`, and its closed
   `QuestionWatchNoticeKind` has exactly `Version`, `Fork`, `ImprovementThread`, and `Impact`.
   Watch has no installation scope, institution, session, role, Student, delivery, notification-preference,
   browser, source, or answer data, has no Serde boundary, and remains non-authorizing; delivery
@@ -114,7 +114,7 @@ data use domain identifiers.
   recording the approved architecture and implementation evidence. `NamedQuestionCollection`
   owns a new opaque server identity, immutable global `AccountId` owner, canonical validated title,
   storage-safe strong revision/CAS behavior (explicit stale expected/actual conflict, equal-state
-  no-op, and checked exhaustion), and bounded ordered unique exact `ProblemVersionRef` pins. The
+  no-op, and checked exhaustion), and bounded ordered unique exact `QuestionVersionReference` pins. The
   child module is private and the selected API is crate-rooted; no browser, installation scope, institution,
   sharing, route, Serde, or authorization path enters this value contract. Eight focused
   deterministic behavioral tests pass. `WP-SD1-B3` remains incomplete pending saved searches,
@@ -163,7 +163,7 @@ data use domain identifiers.
   acceptance.
 - **SD1-B3-B6 preparatory selection receipt:** `WP-SD1-B3-B6` is a child execution package under
   existing `WP-SD1-B3`, not a new top-level roadmap package or migration allocation. Its durable
-  selected result remains `ProblemVersionRef`; exactly one `is_eligible_for_ordinary_new_selection`
+  selected result remains `QuestionVersionReference`; exactly one `is_eligible_for_ordinary_new_selection`
   predicate admits only Published versions for new references. Deprecated and Archived versions remain
   authorized exact-pin history. Current server and Memory consumers re-resolve at the destination;
   no selection aggregate or browser-trusted exact version exists. The manager repair requires a retained
@@ -242,7 +242,7 @@ data use domain identifiers.
 
 `SD1-A1` implementation is complete. Human Guidance, Design Decisions, User Roles, and the SD1
 authority documents now bind one installation with global accounts, equal approved Instructors and
-co-Instructors, exact course/Student ownership, shared published-question discovery, and the
+Teaching Team Members, exact course/Student ownership, shared published-question discovery, and the
 approved-Instructor predicate for course creation. Sysadmin status alone is insufficient; current
 Instructor approval is required.
 
@@ -252,30 +252,92 @@ in the SD1 scope register. The graph and inventories are one-time evidence; curr
 the authority.
 
 `SD1-A3` implementation is complete. The PostgreSQL table, key, policy, grant, broker, and typed
-scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082934`. Historical
+scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082935`. Historical
 `2026081881` and `2026081882` WN1-D work is retained as evidence/input absorbed by that fresh epoch,
 not as an active SD1 schema dependency.
 
 `SD1-A4` implementation is complete. Browser, local-stack, live-demo, and binding documentation
 consumers are assigned successors in the scope register; the canonical database authorization
-reference replaces the retired global-scope authority. Focused per-file ASCII and whitespace
-checks pass, while tracked-inventory Markdown-link failures remain open for untracked SD1 targets.
+reference replaces the retired global-scope authority. Focused per-file ASCII, whitespace, and the
+repository-wide Markdown-link gate pass; deferred target paths are named as target work rather than
+available interfaces.
 
 `SD1-A5` implementation is complete for the pre-acceptance documentation and authority-repair
 slice. The supplied independent architecture/privacy review remains `REVISE`, and the handoff
 review remains `BLOCKED`; no independent `ACCEPT` is recorded. Runtime, PostgreSQL/RLS, browser,
 and full-suite acceptance remain later SD1 gates.
 
-`WP-SD1-A` fixed-role account clarification is documented and remains pending implementation.
-Migration `2026082902` retains ownership of singular immutable account/session role storage;
-`2026082905` retains ownership of Instructor vetting and current approval predicates. Source,
-PostgreSQL/RLS, service, browser, migration, and human-acceptance evidence remain pending.
+`WP-SD1-A` fixed-role account clarification is documented. The `2026082906` protected session
+broker and `SessionStore` now derive the session Product Role from the immutable Account record;
+the staged PostgreSQL gate and focused Rust tests pass. Migration `2026082902` retains ownership
+of singular immutable account/session role storage; `2026082905` retains ownership of Instructor
+vetting and current approval predicates. Passwordless-ceremony, browser, broader PostgreSQL/RLS,
+and human-acceptance evidence remain pending.
+
+`WP-SD1-A` Student Record ownership repair is implemented. Migration `2026082915` now makes the
+protected Student Record unique for its exact Student Account and Course Instance, and each Student
+Course Membership binds that stable record. Domain authority checks and the PostgreSQL capability
+broker use the same relationship, so a re-enrollment receives a new membership episode while
+retaining its original Student Record. The staged PostgreSQL baseline, focused domain tests, and
+Markdown-link gate pass; broader WP-SD1 acceptance remains separately allocated.
+
+`WP-SD1-A` terminology repair now distinguishes the human **Grader** relationship from the
+server-only `ple_automated_grading` capability and its `ple_grading_reader` login. Active source,
+browser copy, tests, and durable documentation use Student terminology rather than the retired
+role label. Rust contracts, local runtime-manifest checks, and the staged PostgreSQL baseline
+pass; broader WP-SD1 acceptance remains separately allocated.
 
 `TERMINOLOGY_CONTRACT.md` now records the settled Instructor-facing assignment hierarchy:
-Assignment, Assignment Attempt, Question Attempt, Submission, and Response. This is a
-documentation decision under SD1-A only. The current `Run*` source/schema/API/route vocabulary
-remains implementation input for a later coordinated SD1 cutover; no implementation or acceptance
-evidence is claimed here.
+Assignment, Assignment Attempt, Question Attempt, Submission, and Response. The public
+`RunPolicies` contract has been cleanly replaced by `AssignmentActivityRules` in the Rust model,
+generated TypeScript surface, browser imports, and focused documentation. Remaining `Run*`
+source/schema/API/route vocabulary is implementation input for the later coordinated SD1 cutover;
+no broad implementation or acceptance evidence is claimed here.
+
+The public navigation seam is no longer part of that remaining route vocabulary:
+`NavigationResolution::AssignmentAttempt` carries `assignment_attempt_id`, and its generated
+`assignmentAttempt` wire variant is strictly decoded before browser route resolution.
+
+The scored-completion cutover is also complete at its immediate contract boundary:
+`CompletedAssignmentAttemptScore` and `AssignmentAttemptGradeSelection` carry explicit
+Assignment Attempt identities, the grade selector and recalculation Store use those terms,
+and terminal browser copy names an Assignment Attempt. Focused domain scoring tests,
+learning-data-access compilation, the completion-copy regression test, and the TypeScript
+check pass. Broader `Run*` filenames, CSS hooks, and route internals remain separately
+allocated mechanical input; they do not define the product or public data contract.
+
+The derived activity cutover is complete at its immediate contract boundary:
+the Student-facing `AssignmentProgress` generated contract is key-free, while
+`AssignmentProgressRecord` is the server-side projection carrying exact Student Record and
+Assignment references. It remains distinct from immutable Assignment Attempts and the selected
+`AssignmentGrade`. Question-model activity tests, domain continuation tests, the strict Student
+progress decoder regression, contract regeneration, Rust compilation, and TypeScript checking pass.
+
+The Assignment Attempt Completion cutover is complete at its immediate contract boundary:
+`AssignmentAttemptCompletion` is the derived `InProgress` or `Completed` value, and the receipt
+field is `assignmentAttemptCompletion`. Completion derivation, strict receipt decoding, the
+attempt-state machine, terminal presentation, generated contract, and focused fixtures use that
+term without treating availability of later Assignment Attempts as completion evidence.
+
+`AssignmentProgressScoreState` now names the no-activity, withheld, and available disclosure
+states within Assignment Progress. It is derived from retained activity and the Student Feedback
+release decision; it carries no scoring authority. The generated contract, Student-progress decoder,
+Question Model activity tests, focused browser tests, TypeScript check, and Markdown gate pass.
+
+The obsolete `domain::attempt` lifecycle model has been removed. It had no production consumer and
+collapsed Issued Question Progress, Question Attempt state, Question Submission, and Grading Result
+facts into one competing abstraction. Domain tests now exercise the retained authoritative models;
+the complete Domain library suite and the Markdown gate pass.
+
+The unreachable mixed `CompletedSubmissionReceipt` and submission-completion source have been
+removed. They were not declared by the active data-access crate and referenced a nonexistent
+`SubmissionRecord`, so they could not provide an executable persistence contract. A future Question
+Submission Receipt remains allocated only with its exact immutable evidence and active Store boundary.
+
+The SD1 baseline schema now stores every immutable Question Version as the canonical
+`(question_id, version_number)` pair. Composite foreign keys cover catalog lifecycle, stewardship,
+private grading, Issued Questions, analysis, corrections, Jobs, external-tool state, and object
+delivery. The fresh/no-op staged PostgreSQL acceptance and restricted principal probes pass.
 
 ## WN1-A review receipt
 
@@ -509,7 +571,7 @@ feature matrices, strict Clippy, workspace tests, doctests, and the browser Wasm
 codebase gate passes both TypeScript configurations, ESLint, Prettier, and all 387 Node tests.
 
 `WN1-SR2-student-assignment-projection` is accepted on 2026-08-29. The assignment projection graph
-now uses `StudentScoreState`, `StudentAssignmentProgress`, `StudentAssignmentLandingSummary`,
+now uses `AssignmentProgressScoreState`, `AssignmentProgress`, `StudentAssignmentLandingSummary`,
 `StudentLateStatus`, `StudentAssignmentDelivery`, `StudentAssignmentDetail`,
 `StudentAssignmentSummarySnapshot`, and `StudentNotActiveCourse`. The six public projection types
 use direct Serde-owned `snake_case` fields and discriminants; regenerated TypeScript and strict
@@ -567,8 +629,8 @@ SR6 and final filename disposition.
 
 `WN1-SR4A-student-authority-source` is accepted on 2026-08-29. Non-serialized Rust entitlement,
 materialization, assignment-visibility, Memory identity, feedback authorization, and Gradebook
-calculation vocabulary now distinguishes `student_account: AccountId` from `student: StudentId` and uses
-canonical Student names throughout the direct source graph. PostgreSQL-owned `learner_id` columns,
+calculation vocabulary now distinguishes `student_account: AccountId` from `student_record: StudentRecordId` and uses
+canonical Student names throughout the direct source graph. Obsolete PostgreSQL course-record columns,
 database error literals, and authority names remain isolated at the SQL decoder boundary for the
 registered SR5 migrations.
 
@@ -675,7 +737,7 @@ explicit clean-cluster baseline decision. After v1 ships, accepted files are imm
 an allocation before implementation. Non-schema packages do not receive an implicit allocation.
 
 The owner-confirmed single-installation correction keeps PLE in its pre-production clean-cluster
-state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082934`, split by focused
+state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082935`, split by focused
 capability as registered in its plan. Earlier allocations remain package-history evidence until
 SD1-C records the exact replacement ledger.
 
@@ -716,7 +778,7 @@ SD1-C records the exact replacement ledger.
 | `2026081824`              | `WP-INST-LD3`          | Accepted roster procedure ambiguity repair                                                                                                                                                          |
 | `2026081825`              | `WP-INST-LD3`          | Accepted inactive-Student materialization decision                                                                                                                                                  |
 | `2026081826`              | `WP-INST-T5`           | Accepted pre-issue assignment-definition replacement                                                                                                                                                |
-| `2026081827`              | `WP-INST-D1`           | Accepted discovery evidence and Question Type projection                                                                                                                                            |
+| `2026081827`              | `WP-INST-D1`           | Accepted discovery evidence and response-family projection                                                                                                                                          |
 | `2026081828`              | `WP-INST-D1`           | Accepted account usage snapshots and Library facets                                                                                                                                                 |
 | `2026081829`              | `WP-INST-LD3`          | Reserved Student-work broker capability                                                                                                                                                             |
 | `2026081830`              | `WP-INST-G1`           | Reserved assignment recalculation enqueue capability                                                                                                                                                |
@@ -725,7 +787,7 @@ SD1-C records the exact replacement ledger.
 | `2026081833`              | `WP-INST-T5`           | Reserved assignment-definition scratch isolation                                                                                                                                                    |
 | `2026081834`              | `WP-INST-LD3`          | Reserved course-group policy broker repair                                                                                                                                                          |
 | `2026081835`              | `WP-INST-LD1`          | Reserved catalog-derived Base Course freshness authority                                                                                                                                            |
-| `2026081836`              | `WP-INST-D2`           | Accepted problem curation capabilities                                                                                                                                                              |
+| `2026081836`              | `WP-INST-D2`           | Accepted question curation capabilities                                                                                                                                                              |
 | `2026081837`              | `WP-INST-B1`           | Accepted historical pre-SD1 reusable-course capabilities; SD1 target consolidates them into BlueprintCourse/CourseInstance                                                                          |
 | `2026081838`              | `WP-INST-B2`           | Accepted curriculum-adoption schema, lineage, schedule, provenance, receipt, integrity, and forced RLS foundation                                                                                   |
 | `2026081839`              | `WP-INST-B2`           | Accepted curriculum-adoption common broker authority, retention integration, and shared capability boundary                                                                                         |
@@ -785,16 +847,16 @@ SD1-C records the exact replacement ledger.
 | `2026082905`              | `WP-SD1-C`             | Instructor vetting, current approval predicates, and role predicates                                                                                                                                |
 | `2026082906`              | `WP-SD1-C`             | Authenticated-session resolver, installer, and session RLS broker                                                                                                                                   |
 | `2026082907`              | `WP-SD1-C`             | Shared catalog roots and immutable versions                                                                                                                                                         |
-| `2026082908`              | `WP-SD1-C`             | Publication lifecycle and catalog discovery evidence                                                                                                                                                |
+| `2026082908`              | `WP-SD1-C`             | Question Publication and Question Version Availability evidence                                                                                                                                      |
 | `2026082909`              | `WP-SD1-C`             | Catalog lineage, proposals, Stars, Watches, and improvement audit                                                                                                                                   |
-| `2026082910`              | `WP-SD1-C`             | Workspaces and private authoring roots                                                                                                                                                              |
+| `2026082910`              | `WP-SD1-C`             | Workspaces, immutable Workspace Collaborator Events, and private authoring roots                                                                                                                  |
 | `2026082911`              | `WP-SD1-C`             | BlueprintCourse tree, immutable revisions, question-version pins, and minimal-Blueprint construction                                                                                                |
 | `2026082912`              | `WP-SD1-C`             | Collections, saved searches, and authoring projections                                                                                                                                              |
 | `2026082913`              | `WP-SD1-C`             | CourseInstance roots, non-null immutable Blueprint binding, and immutable curriculum-adoption receipt/idempotency/evidence records                                                                  |
-| `2026082914`              | `WP-SD1-C`             | Memberships, invitations, and equal co-Instructor authority                                                                                                                                         |
+| `2026082914`              | `WP-SD1-C`             | Immutable Course Membership and Course Invitation Event ledgers with equal Teaching Team Member authority                                                                                                  |
 | `2026082915`              | `WP-SD1-C`             | Student enrollment, ownership, and future relationship roots                                                                                                                                        |
 | `2026082916`              | `WP-SD1-C`             | Relative schedules, propagation, release, and delivery divergence                                                                                                                                   |
-| `2026082917`              | `WP-SD1-C`             | Assignment delivery, runs, and attempts                                                                                                                                                             |
+| `2026082917`              | `WP-SD1-C`             | Assignment delivery, Assignment Attempts, and Issued Questions                                                                                                                                      |
 | `2026082918`              | `WP-SD1-C`             | Submissions, response artifacts, and Student feedback                                                                                                                                               |
 | `2026082919`              | `WP-SD1-C`             | Course artifacts and object metadata scopes                                                                                                                                                         |
 | `2026082920`              | `WP-SD1-C`             | Delivery indexes, partitions, and exact read projections                                                                                                                                            |
@@ -811,7 +873,8 @@ SD1-C records the exact replacement ledger.
 | `2026082931`              | `WP-SD1-C`             | Final table, sequence, type, and function ACL closure                                                                                                                                               |
 | `2026082932`              | `WP-SD1-C`             | Schema acceptance helpers and complete-ledger witness                                                                                                                                               |
 | `2026082933`              | `WP-SD1-C`             | Atomic email-challenge and validated-passkey completion brokers for existing Accounts                                                                                                               |
-| `2026082934`              | `WP-SD1-C`             | Sysadmin-only global Account Creation broker with immutable Product Role                                                                                                                            |
+| `2026082934`              | `WP-SD1-C`             | Sysadmin-only global Account Creation broker with immutable Product Role                                                                                                                           |
+| `2026082935`              | `WP-SD1-C`             | Exact Draft Blueprint Revision collaboration, publication, and availability evidence                                                                                                             |
 
 This registry is the complete, current number-to-capability ledger for `WP-SD1-C`; historical
 `2026081881` and `2026081882` remain immutable evidence/input.
@@ -863,7 +926,7 @@ The current handoff is:
    contracts.
 2. `SD1-B1-P0` is accepted preparatory identity-only work. Complete `SD1-B2` through `SD1-B4` as
    exact-scope contract roots, without claiming route conversion.
-3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082934`, then
+3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082935`, then
    implement SD1-D Store/RLS and direct protected-service support with its connected proof. The
    historical `2026081881` and `2026081882` work is evidence/input to C, not an active WN1 queue
    item.

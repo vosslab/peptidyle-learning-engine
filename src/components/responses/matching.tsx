@@ -60,7 +60,7 @@ export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JS
 
   /**
    * Each pairing is intentionally its own Tab stop. Native radio inputs collapse a same-name
-   * group to one stop, which prevents a learner from reaching every visible pairing by Tab.
+   * group to one stop, which prevents a student from reaching every visible pairing by Tab.
    * Arrow keys retain the familiar radio shortcut without being required for completion.
    */
   function moveWithArrow(

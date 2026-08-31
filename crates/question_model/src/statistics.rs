@@ -84,7 +84,7 @@ impl std::error::Error for StatisticsDisclosurePolicyError {}
 /// A positive k-anonymity threshold for anonymous question statistics.
 ///
 /// The threshold controls disclosure only. It must not cause the server to
-/// discard aggregate evidence or vary a shared result by requesting an institution.
+/// discard aggregate evidence or vary a shared result by a caller-supplied partition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StatisticsDisclosurePolicy {
     minimum_cohort_size: NonZeroU32,
@@ -93,7 +93,7 @@ pub struct StatisticsDisclosurePolicy {
 impl StatisticsDisclosurePolicy {
     /// Creates a disclosure threshold without permitting a privacy regression.
     ///
-    /// This is a deployment-wide shared-content policy, never an institution or
+    /// This is a deployment-wide shared-content policy, never a caller-selected
     /// request input. Deployment configuration may raise the threshold, but a
     /// value below the documented privacy floor is an explicit configuration
     /// error.
@@ -124,7 +124,7 @@ impl Default for StatisticsDisclosurePolicy {
 
 /// Browser-safe anonymous metrics for one immutable published question version.
 ///
-/// This projection intentionally carries no institution, student, enrollment,
+/// This projection intentionally carries no deployment, Student, enrollment,
 /// course, assignment, run, attempt, response, source, or feedback identity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

@@ -39,8 +39,8 @@ receives its own grader capability, verifies the public/private checksum
 binding, and evaluates feedback only on the server. PostgreSQL uses
 `PostgresGraderStore` with the dedicated `ple_grading_reader` login; its only
 private read is the constrained `SECURITY DEFINER` function owned by
-`ple_grader`. Forced RLS and direct table-grant denial remain in effect for
-application and learner roles.
+`ple_automated_grading`. Forced RLS and direct table-grant denial remain in effect for
+application and student roles.
 
 The focused source, data-access, PostgreSQL, route, and test owners are all
 below the repository's 1000-line limit. This worktree remains shared, dirty,

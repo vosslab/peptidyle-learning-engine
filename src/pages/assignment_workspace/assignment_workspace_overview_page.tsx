@@ -132,7 +132,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
           <h2 id="assignment-instructions-heading">Instructions and delivery</h2>
           <Show
             when={assignment().teachingSettings.instructions.length > 0}
-            fallback={<p>No learner instructions have been added.</p>}
+            fallback={<p>No Student instructions have been added.</p>}
           >
             <p class="plain-text-instructions">{assignment().teachingSettings.instructions}</p>
           </Show>

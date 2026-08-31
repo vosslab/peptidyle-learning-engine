@@ -8,7 +8,7 @@ The source fix is correct: `ensure_active_questions` now passes the committed
 predecessor into the retry issuance request. That lets either store write the
 immutable predecessor-to-successor receipt in the same issuance transaction.
 It addresses the observed `AllCorrect` retry break without changing grading,
-assignment policy, or the learner-visible public payload.
+assignment policy, or the student-visible public payload.
 
 The strengthened flat native route regression proves the grading order, issues
 an independently listed retry, and verifies that the returned receipt names
@@ -45,7 +45,7 @@ assert_eq!(
 ```
 
 This is the regression-specific proof that the repaired predecessor link is
-returned to the learner. The existing generic prefetch/replay tests cover
+returned to the student. The existing generic prefetch/replay tests cover
 reservation reuse, concurrent prefetch, replay immutability, and crash
 recovery.
 

@@ -114,7 +114,7 @@ pub(crate) async fn exercise_preview_plane_memory_contract(store: &MemoryStore) 
     let membership = match &first.rows[0] {
         question_model::InstructorPreviewScheduleRow::Granted { membership, .. } => *membership,
         question_model::InstructorPreviewScheduleRow::Denied { .. } => {
-            panic!("course-wide fixture grants the selected learner")
+            panic!("course-wide fixture grants the selected student")
         }
     };
     let no_audit_on_denial = store.preview_subject_audits().expect("audit seam");
@@ -208,7 +208,7 @@ pub(crate) async fn exercise_preview_plane_memory_contract(store: &MemoryStore) 
     assert_eq!(
         store.preview_subject_audits().expect("audit seam"),
         no_audit_on_denial,
-        "an entitled learner on a Draft assignment appends no audit"
+        "an entitled student on a Draft assignment appends no audit"
     );
     assert!(
         store
@@ -252,7 +252,7 @@ pub(crate) async fn exercise_preview_plane_memory_contract(store: &MemoryStore) 
         panic!("course-wide fixture permits derived preview");
     };
     let json = serde_json::to_string(&subject).expect("subject serialization");
-    for forbidden in ["M-", "U-", "CI-", "PV-", "Policy learner"] {
+    for forbidden in ["M-", "U-", "CI-", "PV-", "Policy student"] {
         assert!(
             !json.contains(forbidden),
             "subject must not serialize {forbidden}"

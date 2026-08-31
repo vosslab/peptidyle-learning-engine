@@ -96,7 +96,7 @@ The targeted repair gates passed:
 
 ```text
 52 passed, 9 subtests passed in 0.17s
-node --import tsx --test renamed learner-evidence and visible-report sources
+node --import tsx --test renamed student-evidence and visible-report sources
 23 passed, 0 failed
 npx tsc --noEmit
 npx eslint --max-warnings 0 renamed sources

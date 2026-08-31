@@ -100,7 +100,7 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
             }
           />
           <small class="flat-question-authoring__help">
-            This controls retries only. Assignment settings control what learners can see.
+            This controls retries only. Assignment settings control what students can see.
           </small>
         </label>
       </div>

@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn presentation_verification_uses_the_rust_descriptor_codec() {
         let envelope = r#"{
-            "version":"01923f4b-5c6d-7e8f-9012-3456789abcde",
+            "questionVersion":{"questionId":"ABC-DEFG","versionNumber":1},
             "seed":42,
             "presentationNonce":"11111111111111111111111111111111",
             "title":"Peptide bond",
@@ -201,7 +201,7 @@ mod tests {
         )
         .expect("descriptor");
         let digest = rebuilt.digest.public_token();
-        assert_eq!(digest.as_str(), "pd1_hL2BEeGIfzUHyaDMW5so6A");
+        assert_eq!(digest.as_str(), "pd1_q2fE1ezXCkT6_yd7zeqkCQ");
 
         assert!(verify_presentation_descriptor(envelope, "[]", digest.as_str()).unwrap());
         assert!(

@@ -11,13 +11,12 @@ scope, dependency order, contracts, validation, and acceptance:
 
 ## Evidence boundary
 
-The accepted pre-production reset established the six-file foundational baseline
-(`2026080801` through `2026080806`). The material source tree now contains 99 ordered SQL
-migrations through `2026081869`. The earlier 95-migration chain through `2026081865` is
-historical acceptance evidence. Accepted feature packages own later migrations; accepted
-migration files remain immutable.
-The status registry is the authority for package allocation and its recorded evidence, which
-can lag the current material tree until the named Validation gates are rerun.
+The current pre-production reset is the one 35-file SD1 baseline
+(`2026082901` through `2026082935`). A clean PostgreSQL 17 volume applies that exact
+domain-ordered baseline, accepts a second no-op run, and passes the restricted-login
+catalog probes. Earlier migration epochs are historical evidence only; they are not part of
+the material schema contract. The status registry is the authority for package allocation
+and its recorded evidence.
 
 `WP-INST-G1` is accepted. Its automated-grading operation boundary completed W5 through W7, its
 seven predecessor migrations and four-file `2026081866`-`2026081869` closeout sequence are present,
@@ -40,7 +39,7 @@ deployment, or release acceptance.
 - The real live-demo product boundary: ordinary Student, Instructor, and Sysadmin workflows,
   server-owned authorization, answer-free browser contracts, and deterministic automated grading
   as specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-- The G1 HCI closeout review, which accepted the current learner status, Instructor retry, and
+- The G1 HCI closeout review, which accepted the current student status, Instructor retry, and
   Gradebook workflow with no P0/P1/P2 findings.
 - Existing normalized operational models only where the active plans and current evidence mark
   their owning package accepted. This roadmap does not broaden those claims.

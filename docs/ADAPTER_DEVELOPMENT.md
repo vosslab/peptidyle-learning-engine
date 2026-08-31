@@ -2,7 +2,7 @@
 
 This guide explains how an external or first-party question engine joins Peptidyle without changing
 the shared attempt loop, gradebook, or browser trust boundary. It is for contributors adding an
-adapter, not for defining a new Question Type. The shared public contract is
+adapter, not for defining a new student response family. The shared public contract is
 [QUESTION_MODEL.md](QUESTION_MODEL.md); authoritative release scope and acceptance state are in
 [release_completion_plan.md](active_plans/active/release_completion_plan.md).
 
@@ -33,7 +33,7 @@ adapter, not for defining a new Question Type. The shared public contract is
 Every adapter returns `BackendCapabilities` from the closed `Capability` set in
 `crates/question_model/src/capability.rs`. The empty declaration is safe: an undeclared capability
 is unavailable. Assignment validation compares requested behavior with that declaration before
-publication, so an instructor sees every missing capability before a learner starts work.
+publication, so an instructor sees every missing capability before a student starts work.
 
 Declare only capabilities the adapter enforces for every source it accepts:
 
@@ -62,21 +62,20 @@ Use the following sequence for a question-agnostic adapter.
 3. Compile the source to a key-free `QuestionDefinition`. Keep an answer-bearing compilation product
    in private grading storage, or retain an immutable source that only server-side grading can read.
 4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
-   `QuestionEnvelope`, a parameter hash, and complete typed issue evidence.
+   `QuestionEnvelope`, a parameter hash, and complete `AttemptProvenance`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
    public rendered IDs through the protected grading envelope, and use retained immutable source
-   source evidence where a private grader needs it. A Question Backend that needs private first-grade material
+   provenance where a private grader needs it. A family that needs private first-grade material
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
-   current catalog definition, grader, or renderer. Derive score, correlation, source, seed, and
-   upstream response facts from server-held state, and use retained issue-time evidence for a
-   receipt-era attempt.
+   current catalog definition, grader, or renderer. Never trust browser-provided score,
+   correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
 6. Register the backend through the server run boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
 The native flat adapter is the small reference: it compiles answer-bearing PLE flat-question JSON v2
-into a public definition and separate private material. Its closed v2 `singleChoice` source maps to
-the MC Question Type and exact Answer Format. New semantics receive their own reviewed contract.
-See
+into a public definition and separate private material. Its closed v2 `singleChoice` family is one of
+the eight native response families; new semantics require their own reviewed contract rather than an
+ad hoc adapter widening. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
 [implementation_plan.md](active_plans/implementation_plan.md).
 
@@ -115,7 +114,7 @@ is needed, correlate and verify it with server-held attempt state before it beco
 
 | Adapter     | Implemented behavior                                                                                                                                       | Current boundary and status                                                                                                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight native Question Types                                                   | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and integrated all-Question-Type acceptance remain under WP-RC5.                                    |
+| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime families                                                          | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-family integrated acceptance remain under WP-RC5.                                           |
 | QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, native conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
 | H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-native conversion and the complete capability close-out. |
 | iMathAS     | Immutable server snapshot, profile-pinned safe render cache, server-brokered verified-result design, and contracted backend                                | Implemented contracted boundary. Generic hosted execution and browser-trusted launch/score flows are refused; live provider acceptance is not claimed.                                  |
@@ -140,7 +139,7 @@ An adapter change is complete only when each applicable layer passes.
 - Live tests run against the declared disposable or private service, prove authenticated semantic
   render and correct/incorrect grading, repeat/cache behavior, timeouts and outages, course
   isolation where relevant, and an answer-free PLE-only browser network trace.
-- Repository gates include formatting, strict Rust checks, focused browser tests where a learner
+- Repository gates include formatting, strict Rust checks, focused browser tests where a student
   path changes, and [E2E_TESTS.md](E2E_TESTS.md) expectations. Run the narrowest adapter command
   first, then the task gate named by the active plan.
 

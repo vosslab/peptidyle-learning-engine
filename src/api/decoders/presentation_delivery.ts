@@ -1,4 +1,4 @@
-// Strict learner-presentation decoding and key-free response-widget projection.
+// Strict student-presentation decoding and key-free response-widget projection.
 
 import type { AssetRef } from "../../../generated/api/AssetRef";
 import type { ChoiceOption } from "../../../generated/api/ChoiceOption";
@@ -25,6 +25,7 @@ import {
   decodeBoundedArray,
   decodeEnvelopeTitle,
   decodeIdentifier,
+  decodeQuestionVersionReference,
   decodeSha256,
   field,
   kind,
@@ -321,14 +322,14 @@ function responseForWidget(response: ResponseSchemaV1, path: string): ResponseDe
   }
 }
 
-/** Decode the immutable learner presentation and project only its public widget fields. */
+/** Decode the immutable student presentation and project only its public widget fields. */
 export function decodeIssuedPresentationEnvelope(
   value: unknown,
   path = "response",
 ): QuestionEnvelope {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "version",
+    "questionVersion",
     "seed",
     "presentationNonce",
     "title",
@@ -340,7 +341,11 @@ export function decodeIssuedPresentationEnvelope(
     throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
   }
   const presentation = {
-    version: decodeIdentifier(field(record, "version", path), `${path}.version`),
+    questionVersion: decodeQuestionVersionReference(
+      field(record, "questionVersion", path),
+      `${path}.questionVersion`,
+      true,
+    ),
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
     presentationNonce: nonce,
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
@@ -353,7 +358,7 @@ export function decodeIssuedPresentationEnvelope(
     response: responseSchema(field(record, "response", path), `${path}.response`),
   } satisfies PresentationEnvelopeV1;
   return {
-    version: presentation.version,
+    questionVersion: presentation.questionVersion,
     seed: presentation.seed,
     title: presentation.title,
     prompt: presentation.prompt,

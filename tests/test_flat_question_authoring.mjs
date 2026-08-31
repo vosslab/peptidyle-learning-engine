@@ -90,8 +90,7 @@ function publicationSummary(backend = "native") {
     capabilities: ["serverGrading"],
     metadata: publicDefinition().metadata,
     byline: { names: ["Fixture Instructor"] },
-    scope: "institution",
-    lifecycle: { state: "published" },
+    availability: { availability: "available" },
     publishedAt: 1786000000000,
   };
 }
@@ -557,7 +556,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
 
   const loaded = await client.load(workspace);
   const saved = await client.save(workspace, loaded.source, loaded.revision);
-  const publicationRequest = { scope: "institution", byline: { names: ["Fixture Instructor"] } };
+  const publicationRequest = { byline: { names: ["Fixture Instructor"] } };
   const published = await client.publish(workspace, publicationRequest, saved.revision);
   assert.deepEqual(published, publicationSummary());
 
@@ -580,7 +579,7 @@ test("publication rejects invalid reviewed bylines before it can make a request"
   });
   for (const names of [["Ada\u0007"], ["😀".repeat(121)], ["Ada Lovelace", "Ada Lovelace"]]) {
     await assert.rejects(
-      client.publish(workspace, { scope: "institution", byline: { names } }, '"1"'),
+      client.publish(workspace, { byline: { names } }, '"1"'),
       FlatQuestionProtocolError,
     );
   }
@@ -672,26 +671,31 @@ test("client rejects save DTOs and publication summaries that do not exactly con
   await assert.rejects(
     wrongPublication.publish(
       workspace,
-      { scope: "institution", byline: { names: ["Fixture Instructor"] } },
+      { byline: { names: ["Fixture Instructor"] } },
       '"1"',
     ),
-    /native published summary/u,
+    /available native catalog summary/u,
   );
 
-  for (const summary of [
-    { ...publicationSummary(), scope: "public" },
-    { ...publicationSummary(), lifecycle: { state: "deprecated", reason: "withdrawn" } },
-  ]) {
+  const staleScope = createFlatQuestionClient({
+    fetch: async () => jsonResponse({ ...publicationSummary(), scope: "public" }),
+  });
+  await assert.rejects(
+    staleScope.publish(workspace, { byline: { names: ["Fixture Instructor"] } }, '"1"'),
+    /scope must be a field allowed/u,
+  );
+
+  for (const summary of [{ ...publicationSummary(), availability: { availability: "archived", reason: "withdrawn" } }]) {
     const wrongLifecycleOrScope = createFlatQuestionClient({
       fetch: async () => jsonResponse(summary),
     });
     await assert.rejects(
       wrongLifecycleOrScope.publish(
         workspace,
-        { scope: "institution", byline: { names: ["Fixture Instructor"] } },
+        { byline: { names: ["Fixture Instructor"] } },
         '"1"',
       ),
-      /native published summary/u,
+      /available native catalog summary/u,
     );
   }
 });
@@ -741,7 +745,7 @@ test("repository does not regress a workspace revision when an older save finish
       observedRevisions.push(revision);
       return observedRevisions.length === 1 ? firstSave.promise : secondSave.promise;
     },
-    async publish(_workspace, _scope, revision) {
+  async publish(_workspace, _request, revision) {
       publishedRevision = revision;
       return publicationSummary();
     },
@@ -754,10 +758,7 @@ test("repository does not regress a workspace revision when an older save finish
   await newer;
   firstSave.resolve({ draft: publicDefinition(), revision: '"2"' });
   await older;
-  await repository.publish(workspace, {
-    scope: "institution",
-    byline: { names: ["Fixture Instructor"] },
-  });
+  await repository.publish(workspace, { byline: { names: ["Fixture Instructor"] } });
   assert.deepEqual(observedRevisions, ['"1"', '"1"']);
   assert.equal(publishedRevision, '"3"');
 });

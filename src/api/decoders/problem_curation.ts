@@ -1,16 +1,16 @@
-// Strict browser decoding for personal and institution problem-curation APIs.
+// Strict browser decoding for private Instructor Question Collection APIs.
 
 import { MAX_CATALOG_BYLINE_FILTERS } from "../../../generated/api/MAX_CATALOG_BYLINE_FILTERS";
 import { MAX_CATALOG_TAG_FILTERS } from "../../../generated/api/MAX_CATALOG_TAG_FILTERS";
-import { MAX_PROBLEM_COLLECTION_MEMBERS } from "../../../generated/api/MAX_PROBLEM_COLLECTION_MEMBERS";
+import { MAX_QUESTION_COLLECTION_MEMBERS } from "../../../generated/api/MAX_QUESTION_COLLECTION_MEMBERS";
 import { MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS";
 import type { CatalogSearchFilter } from "../../../generated/api/CatalogSearchFilter";
-import type { ProblemCollectionMemberView } from "../../../generated/api/ProblemCollectionMemberView";
-import type { ProblemCollectionReference } from "../../../generated/api/ProblemCollectionReference";
-import type { ProblemCollectionRevision } from "../../../generated/api/ProblemCollectionRevision";
-import type { ProblemCollectionSummaryView } from "../../../generated/api/ProblemCollectionSummaryView";
+import type { QuestionCollectionMemberView } from "../../../generated/api/QuestionCollectionMemberView";
+import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
+import type { QuestionCollectionEditNumber } from "../../../generated/api/QuestionCollectionEditNumber";
+import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
 import type { SavedProblemSearchReference } from "../../../generated/api/SavedProblemSearchReference";
-import type { SavedProblemSearchRevision } from "../../../generated/api/SavedProblemSearchRevision";
+import type { SavedProblemSearchEditNumber } from "../../../generated/api/SavedProblemSearchEditNumber";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { CursorPage } from "../contracts";
 import {
@@ -29,7 +29,7 @@ const MAX_CATALOG_TAXONOMY_FILTERS = 64;
 const MAX_CATALOG_FILTER_TEXT_UNICODE_SCALARS = 256;
 const MAX_CATALOG_TAXONOMY_PART_UNICODE_SCALARS = 128;
 const MAX_SAVED_PROBLEM_SEARCHES_PAGE_ITEMS = 100;
-const MAX_NAMED_PROBLEM_COLLECTIONS_PAGE_ITEMS = 100;
+const MAX_NAMED_QUESTION_COLLECTIONS_PAGE_ITEMS = 100;
 const QUESTION_ID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 
 function scalarLength(value: string): number {
@@ -56,12 +56,12 @@ function decodeReference(value: unknown, path: string, prefix: "PC" | "PS"): str
   return reference;
 }
 
-function decodeRevision(value: unknown, path: string): string {
-  const revision = decodeString(value, path);
-  if (!/^[1-9][0-9]*$/u.test(revision) || BigInt(revision) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(path, "a canonical positive PostgreSQL bigint revision");
+function decodeEditNumber(value: unknown, path: string): string {
+  const editNumber = decodeString(value, path);
+  if (!/^[1-9][0-9]*$/u.test(editNumber) || BigInt(editNumber) > 9_223_372_036_854_775_807n) {
+    throw new DecodeError(path, "a canonical positive PostgreSQL bigint edit number");
   }
-  return revision;
+  return editNumber;
 }
 
 function decodeFilterText(value: unknown, path: string, maximum: number): string {
@@ -197,36 +197,24 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
   return decoded;
 }
 
-function decodeProblemCollectionSummary(
+function decodeQuestionCollectionSummary(
   value: unknown,
   path: string,
-): ProblemCollectionSummaryView {
+): QuestionCollectionSummaryView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "reference",
-    "kind",
     "title",
-    "visibility",
-    "revision",
-    "access",
+    "editNumber",
   ]);
   return {
     reference: decodeReference(field(record, "reference", path), `${path}.reference`, "PC"),
-    kind: decodeStringEnum(field(record, "kind", path), `${path}.kind`, ["favorites", "named"]),
     title: decodeCurationTitle(field(record, "title", path), `${path}.title`),
-    visibility: decodeStringEnum(field(record, "visibility", path), `${path}.visibility`, [
-      "private",
-      "institution",
-    ]),
-    revision: decodeRevision(field(record, "revision", path), `${path}.revision`),
-    access: decodeStringEnum(field(record, "access", path), `${path}.access`, [
-      "owner",
-      "institutionReader",
-    ]),
+    editNumber: decodeEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
   };
 }
 
-function decodeProblemCollectionMember(value: unknown, path: string): ProblemCollectionMemberView {
+function decodeQuestionCollectionMember(value: unknown, path: string): QuestionCollectionMemberView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionId", "summary", "selectionAvailability"]);
   const summary = decodeCatalogProblemSummary(
@@ -251,12 +239,12 @@ function decodeProblemCollectionMember(value: unknown, path: string): ProblemCol
 
 function decodeSavedProblemSearch(value: unknown, path: string): SavedProblemSearchView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title", "filter", "revision"]);
+  requireOnlyFields(record, path, ["reference", "title", "filter", "editNumber"]);
   return {
     reference: decodeReference(field(record, "reference", path), `${path}.reference`, "PS"),
     title: decodeCurationTitle(field(record, "title", path), `${path}.title`),
     filter: decodeCatalogSearchFilter(field(record, "filter", path), `${path}.filter`),
-    revision: decodeRevision(field(record, "revision", path), `${path}.revision`),
+    editNumber: decodeEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
   };
 }
 
@@ -278,23 +266,23 @@ function decodePage<T>(
   };
 }
 
-export function decodeProblemCollectionPage(
+export function decodeQuestionCollectionPage(
   value: unknown,
   path = "response",
-): CursorPage<ProblemCollectionSummaryView> {
+): CursorPage<QuestionCollectionSummaryView> {
   return decodePage(
     value,
     path,
-    MAX_NAMED_PROBLEM_COLLECTIONS_PAGE_ITEMS,
-    decodeProblemCollectionSummary,
+    MAX_NAMED_QUESTION_COLLECTIONS_PAGE_ITEMS,
+    decodeQuestionCollectionSummary,
   );
 }
 
-export function decodeProblemCollectionMemberPage(
+export function decodeQuestionCollectionMemberPage(
   value: unknown,
   path = "response",
-): CursorPage<ProblemCollectionMemberView> {
-  return decodePage(value, path, MAX_PROBLEM_COLLECTION_MEMBERS, decodeProblemCollectionMember);
+): CursorPage<QuestionCollectionMemberView> {
+  return decodePage(value, path, MAX_QUESTION_COLLECTION_MEMBERS, decodeQuestionCollectionMember);
 }
 
 export function decodeSavedProblemSearchPage(
@@ -304,11 +292,11 @@ export function decodeSavedProblemSearchPage(
   return decodePage(value, path, MAX_SAVED_PROBLEM_SEARCHES_PAGE_ITEMS, decodeSavedProblemSearch);
 }
 
-export function decodeProblemCollectionSummaryView(
+export function decodeQuestionCollectionSummaryView(
   value: unknown,
   path = "response",
-): ProblemCollectionSummaryView {
-  return decodeProblemCollectionSummary(value, path);
+): QuestionCollectionSummaryView {
+  return decodeQuestionCollectionSummary(value, path);
 }
 
 export function decodeSavedProblemSearchView(
@@ -325,14 +313,14 @@ export function decodeSavedProblemSearchFilter(
   return decodeCatalogSearchFilter(value, path);
 }
 
-export function decodeProblemCollectionQuestionIds(
+export function decodeQuestionCollectionQuestionIds(
   value: unknown,
   path = "request",
 ): Array<string> {
   const questionIds = decodeBoundedArray(
     value,
     path,
-    MAX_PROBLEM_COLLECTION_MEMBERS,
+    MAX_QUESTION_COLLECTION_MEMBERS,
     (entry, entryPath) => {
       const questionId = decodeString(entry, entryPath);
       if (!QUESTION_ID_PATTERN.test(questionId)) {
@@ -351,10 +339,10 @@ export function decodeProblemCurationTitle(value: unknown, path = "request.title
   return decodeCurationTitle(value, path);
 }
 
-export function decodeProblemCollectionReference(
+export function decodeQuestionCollectionReference(
   value: unknown,
   path = "reference",
-): ProblemCollectionReference {
+): QuestionCollectionReference {
   return decodeReference(value, path, "PC");
 }
 
@@ -365,16 +353,16 @@ export function decodeSavedProblemSearchReference(
   return decodeReference(value, path, "PS");
 }
 
-export function decodeProblemCollectionRevision(
+export function decodeQuestionCollectionEditNumber(
   value: unknown,
-  path = "revision",
-): ProblemCollectionRevision {
-  return decodeRevision(value, path);
+  path = "editNumber",
+): QuestionCollectionEditNumber {
+  return decodeEditNumber(value, path);
 }
 
-export function decodeSavedProblemSearchRevision(
+export function decodeSavedProblemSearchEditNumber(
   value: unknown,
-  path = "revision",
-): SavedProblemSearchRevision {
-  return decodeRevision(value, path);
+  path = "editNumber",
+): SavedProblemSearchEditNumber {
+  return decodeEditNumber(value, path);
 }

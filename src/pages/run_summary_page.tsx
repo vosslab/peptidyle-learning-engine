@@ -1,49 +1,58 @@
-// run_summary_page.tsx - bounded, server-projected learner run history.
+// run_summary_page.tsx - bounded, server-projected Assignment Attempt history.
 
 import { useNavigate } from "@solidjs/router";
 import { createSignal, For, onMount, Show, type JSX } from "solid-js";
 
-import type { RunSummaryOutcome, RunSummaryResponse } from "../api/contracts";
+import type {
+  AssignmentAttemptSummaryOutcome,
+  AssignmentAttemptSummaryResponse,
+} from "../api/contracts";
 import { FeedbackPanel } from "../components/feedback_panel";
 import { useApiRuntime } from "../api/runtime";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
-import { runRouteReference } from "../navigation/public_route";
+import { assignmentAttemptRouteReference } from "../navigation/public_route";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export function RunSummaryPage(): JSX.Element {
   const runtime = useApiRuntime();
   const navigate = useNavigate();
   const scopedRoute = useCourseThemeRouteData();
-  const initialSummary = scopedRoute?.kind === "runSummary" ? scopedRoute.response : undefined;
-  const [summary, setSummary] = createSignal<RunSummaryResponse | undefined>(initialSummary);
-  const [rows, setRows] = createSignal<ReadonlyArray<RunSummaryOutcome>>(
+  const initialSummary =
+    scopedRoute?.kind === "assignmentAttemptSummary" ? scopedRoute.response : undefined;
+  const [summary, setSummary] = createSignal<AssignmentAttemptSummaryResponse | undefined>(
+    initialSummary,
+  );
+  const [rows, setRows] = createSignal<ReadonlyArray<AssignmentAttemptSummaryOutcome>>(
     initialSummary?.outcomes.items ?? [],
   );
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
-  const [assignmentId, setAssignmentId] = createSignal<string>();
-  const [practiceError, setPracticeError] = createSignal<string | null>(null);
   const seen = new Set<string>();
 
-  async function loadAssignment(next: RunSummaryResponse): Promise<void> {
-    const enrollment = await runtime.client.getEnrollment(next.run.enrollment);
-    setAssignmentId(enrollment.enrollment.assignment);
-  }
-
   async function load(cursor?: string): Promise<void> {
-    const runId = summary()?.run.id ?? initialSummary?.run.id;
-    if (runId === undefined || loading() || (cursor !== undefined && seen.has(cursor))) return;
+    const assignmentAttemptId =
+      summary()?.assignmentAttempt.id ?? initialSummary?.assignmentAttempt.id;
+    if (
+      assignmentAttemptId === undefined ||
+      loading() ||
+      (cursor !== undefined && seen.has(cursor))
+    ) {
+      return;
+    }
     if (cursor === undefined) seen.clear();
     setLoading(true);
     setError(null);
     try {
-      const next = await runtime.client.getRunSummary(runId, cursor, 30);
+      const next = await runtime.client.getAssignmentAttemptSummary(
+        assignmentAttemptId,
+        cursor,
+        30,
+      );
       if (next.outcomes.nextCursor !== null && seen.has(next.outcomes.nextCursor)) {
         throw new Error("Repeated summary cursor");
       }
       if (cursor !== undefined) seen.add(cursor);
       setSummary(next);
-      await loadAssignment(next);
       setRows((prior) => {
         const base = cursor === undefined ? [] : prior;
         const ids = new Set(base.map((row) => row.attempt));
@@ -61,58 +70,48 @@ export function RunSummaryPage(): JSX.Element {
       void load();
       return;
     }
-    void loadAssignment(initialSummary).catch(() => {
-      setError("Could not restore assignment actions. Your displayed summary is still available.");
-    });
+    return undefined;
   });
-  async function startPractice(): Promise<void> {
+  async function startAnotherAssignmentAttempt(): Promise<void> {
     const courseId = summary()?.course.summary.id;
-    const assignment = assignmentId();
+    const assignment = summary()?.assignmentAttempt.assignment;
     if (courseId === undefined || assignment === undefined) return;
-    setPracticeError(null);
     try {
-      const run = await runtime.client.startRun(courseId, assignment);
-      navigate(`/runs/${runRouteReference(run.reference)}`);
+      const assignmentAttempt = await runtime.client.startAssignmentAttempt(courseId, assignment);
+      navigate(
+        `/assignment-attempts/${assignmentAttemptRouteReference(assignmentAttempt.reference)}`,
+      );
     } catch {
-      setPracticeError("Could not start a fresh practice run. Your summary is still available.");
+      setError("Could not start another Assignment Attempt. Your summary is still available.");
     }
   }
   return (
-    <section class="page attempt-summary" data-route-surface="runSummary">
-      <p class="eyebrow">Completed practice run</p>
-      <h1>Run summary</h1>
+    <section class="page attempt-summary" data-route-surface="assignmentAttemptSummary">
+      <p class="eyebrow">Completed Assignment Attempt</p>
+      <h1>Assignment Attempt summary</h1>
       <Show
         when={summary()}
         fallback={<p class="loading-state">Loading your recorded responses...</p>}
       >
         {(current) => (
           <>
-            <p>Your completed run is recorded.</p>
-            <Show when={current().practiceAllowed}>
-              <p>You can start a fresh practice run from your assignment.</p>
-            </Show>
+            <p>Your completed Assignment Attempt is recorded.</p>
             <section aria-label="Assignment score">
               <h2>Assignment score</h2>
               <p>{studentProgressSummary(current().summary)}</p>
               <Show when={current().summary.score_state === "available"}>
-                <p>This run: {studentScoreValue(current().run.score)}</p>
+                <p>
+                  This Assignment Attempt: {studentScoreValue(current().assignmentAttempt.score)}
+                </p>
               </Show>
             </section>
-            <Show when={current().practiceAllowed && assignmentId() !== undefined}>
-              <button class="primary-action" type="button" onClick={() => void startPractice()}>
-                Start fresh practice
-              </button>
-            </Show>
-            <Show when={practiceError()}>
-              {(message) => (
-                <>
-                  <p class="inline-error">{message()}</p>
-                  <button class="quiet-action" type="button" onClick={() => void startPractice()}>
-                    Retry starting practice
-                  </button>
-                </>
-              )}
-            </Show>
+            <button
+              class="primary-action"
+              type="button"
+              onClick={() => void startAnotherAssignmentAttempt()}
+            >
+              Start another Assignment Attempt
+            </button>
             <For each={rows()}>
               {(outcome) => (
                 <FeedbackPanel

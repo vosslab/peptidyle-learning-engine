@@ -1,6 +1,6 @@
-# Test-only override for e2e_replica_restart.mjs.  It selects the API binary
-# whose compile-time observability feature is intentionally absent from the
-# normal image, then turns that feature on at runtime for this isolated stack.
+# Future two-API replica test override. It selects the API binary whose
+# compile-time observability feature is intentionally absent from the normal
+# image, then turns that feature on at runtime for its isolated stack.
 #
 # Invoke only through the fixed live-demo replica profile after the production
 # auth overlay. The lease-held owner supplies loopback ports and lifecycle;

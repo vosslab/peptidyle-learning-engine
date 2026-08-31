@@ -160,7 +160,7 @@ pub fn validate_response_format(
 ///
 /// This is the server-side authority for a presentation-bearing attempt: it
 /// lets a first submission reject malformed input without asking a mutable
-/// catalog or renderer to rebuild the learner's already-issued widget. It
+/// catalog or renderer to rebuild the student's already-issued widget. It
 /// checks only public shape, never answer material or correctness.
 pub fn validate_presentation_response_format(
     schema: &ResponseSchemaV1,

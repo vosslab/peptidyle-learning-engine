@@ -34,9 +34,6 @@ const PROJECT: &str = "ple-live-demo-browser";
 const DATABASE_BASELINE_PROFILE: &str = "database_baseline";
 const COURSE_APPEARANCE_CROSS_STORE_PROFILE: &str = "course_appearance_cross_store";
 const ADMIN_ROLE: &str = "ple_e2e_migrator";
-const GRADER_ROLE: &str = "ple_grading_reader";
-const FAST_PATH_ROLE: &str = "ple_accepted_submission_fast_path_login";
-const RECOVERY_ROLE: &str = "ple_accepted_submission_recovery_login";
 const DATABASE_NAME: &str = "ple_e2e_baseline";
 const PASSWORD_LENGTH: usize = 32;
 const MINIO_REGION: &str = "us-east-1";
@@ -98,9 +95,6 @@ impl fmt::Debug for PostgresUrl {
 #[derive(Debug)]
 pub struct AcceptanceRuntime {
     admin_url: PostgresUrl,
-    grader_url: PostgresUrl,
-    fast_path_url: PostgresUrl,
-    recovery_url: PostgresUrl,
 }
 
 /// Validated object-store inputs for the disposable course-appearance lane.
@@ -187,19 +181,6 @@ impl AcceptanceRuntime {
         &self.admin_url
     }
 
-    pub fn grader_url(&self) -> &PostgresUrl {
-        &self.grader_url
-    }
-
-    /// Returns the validated URL for the exact accepted-submission fast path.
-    pub fn fast_path_url(&self) -> &PostgresUrl {
-        &self.fast_path_url
-    }
-
-    /// Returns the validated URL for generic accepted-submission recovery.
-    pub fn recovery_url(&self) -> &PostgresUrl {
-        &self.recovery_url
-    }
 }
 
 #[cfg(all(test, unix))]
@@ -303,42 +284,12 @@ fn load_from_workspace_descriptor(
     if admin_password != admin_url_password {
         return Err(RuntimeError::SecretContent);
     }
-    let (grader_url, _) = parse_database_url(
-        read_private_file_at(
-            &secrets,
-            "postgres-grader.url",
-            MAX_URL_BYTES,
-            RuntimeError::SecretFile,
-        )?,
-        GRADER_ROLE,
-    )?;
-    let (fast_path_url, _) = parse_database_url(
-        read_private_file_at(
-            &secrets,
-            "postgres-fast-path.url",
-            MAX_URL_BYTES,
-            RuntimeError::SecretFile,
-        )?,
-        FAST_PATH_ROLE,
-    )?;
-    let (recovery_url, _) = parse_database_url(
-        read_private_file_at(
-            &secrets,
-            "postgres-recovery.url",
-            MAX_URL_BYTES,
-            RuntimeError::SecretFile,
-        )?,
-        RECOVERY_ROLE,
-    )?;
     let minio = matches!(profile, RuntimeProfile::CourseAppearanceCrossStore)
         .then(|| load_minio_runtime(&secrets))
         .transpose()?;
     Ok(LoadedRuntime {
         acceptance: AcceptanceRuntime {
             admin_url,
-            grader_url,
-            fast_path_url,
-            recovery_url,
         },
         minio,
     })
@@ -368,9 +319,6 @@ struct Secrets {
     cleanup_capability: String,
     postgres_admin_url: String,
     postgres_admin_password: String,
-    postgres_grader_url: String,
-    postgres_fast_path_url: String,
-    postgres_recovery_url: String,
     minio_endpoint: Option<String>,
     minio_region: Option<String>,
     minio_access_key_id: Option<String>,
@@ -402,10 +350,7 @@ fn validate_manifest(
     let shared_paths_are_exact = manifest.secrets.compose_environment == "secrets/compose.env"
         && manifest.secrets.cleanup_capability == "secrets/cleanup.capability"
         && manifest.secrets.postgres_admin_url == "secrets/postgres-admin.url"
-        && manifest.secrets.postgres_admin_password == "secrets/postgres-admin.password"
-        && manifest.secrets.postgres_grader_url == "secrets/postgres-grader.url"
-        && manifest.secrets.postgres_fast_path_url == "secrets/postgres-fast-path.url"
-        && manifest.secrets.postgres_recovery_url == "secrets/postgres-recovery.url";
+        && manifest.secrets.postgres_admin_password == "secrets/postgres-admin.password";
     let cross_store_paths_are_exact = manifest.secrets.minio_endpoint.as_deref()
         == Some("secrets/minio-endpoint.url")
         && manifest.secrets.minio_region.as_deref() == Some("secrets/minio-region")
@@ -712,7 +657,7 @@ mod tests {
         fs::set_permissions(path.join("secrets"), fs::Permissions::from_mode(0o700)).unwrap();
         fs::write(
             path.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n  postgres_fast_path_url: secrets/postgres-fast-path.url\n  postgres_recovery_url: secrets/postgres-recovery.url\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         fs::set_permissions(path.join("runtime.yaml"), fs::Permissions::from_mode(0o600)).unwrap();
@@ -721,9 +666,6 @@ mod tests {
             ("cleanup.capability", b"12345678901234567890123456789012".as_slice()),
             ("postgres-admin.url", b"postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
             ("postgres-admin.password", b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n".as_slice()),
-            ("postgres-grader.url", b"postgres://ple_grading_reader:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
-            ("postgres-fast-path.url", b"postgres://ple_accepted_submission_fast_path_login:cccccccccccccccccccccccccccccccc@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
-            ("postgres-recovery.url", b"postgres://ple_accepted_submission_recovery_login:dddddddddddddddddddddddddddddddd@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
         ] {
             fs::write(path.join("secrets").join(name), contents).unwrap();
             fs::set_permissions(
@@ -746,14 +688,6 @@ mod tests {
         assert_eq!(
             runtime.admin_url().expose(),
             "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
-        );
-        assert_eq!(
-            runtime.fast_path_url().expose(),
-            "postgres://ple_accepted_submission_fast_path_login:cccccccccccccccccccccccccccccccc@127.0.0.1:15432/ple_e2e_baseline"
-        );
-        assert_eq!(
-            runtime.recovery_url().expose(),
-            "postgres://ple_accepted_submission_recovery_login:dddddddddddddddddddddddddddddddd@127.0.0.1:15432/ple_e2e_baseline"
         );
         assert!(format!("{:?}", runtime.admin_url()).contains("REDACTED"));
         assert!(!format!("{:?}", runtime.admin_url()).contains("aaaaaaaa"));
@@ -812,7 +746,7 @@ mod tests {
         let workspace = temp_workspace();
         let secret = workspace.join("secrets/postgres-admin.url");
         fs::remove_file(&secret).unwrap();
-        symlink(workspace.join("secrets/postgres-grader.url"), &secret).unwrap();
+        symlink(workspace.join("secrets/postgres-admin.password"), &secret).unwrap();
         assert_eq!(
             load_from_workspace_unix(&workspace).unwrap_err(),
             RuntimeError::SecretFile
@@ -836,7 +770,7 @@ mod tests {
         );
         fs::write(
             workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n  postgres_fast_path_url: secrets/postgres-fast-path.url\n  postgres_recovery_url: secrets/postgres-recovery.url\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         assert_eq!(
@@ -851,7 +785,7 @@ mod tests {
         let workspace = temp_workspace();
         fs::write(
             workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity: &identity\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity: &identity\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         let error = load_from_workspace_unix(&workspace).unwrap_err();
@@ -859,7 +793,7 @@ mod tests {
         assert!(!error.to_string().contains("aaaaaaaa"));
         fs::write(
             workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n  postgres_fast_path_url: secrets/postgres-fast-path.url\n  postgres_recovery_url: secrets/postgres-recovery.url\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         fs::set_permissions(
@@ -869,7 +803,7 @@ mod tests {
         .unwrap();
         fs::write(
             workspace.join("secrets/postgres-admin.url"),
-            b"postgres://ple_grading_reader:synthetic-grader@127.0.0.1:15432/ple_e2e_baseline\n",
+            b"postgres://unexpected_login:synthetic-grader@127.0.0.1:15432/ple_e2e_baseline\n",
         )
         .unwrap();
         assert_eq!(
@@ -943,9 +877,9 @@ mod tests {
     fn rejects_unknown_and_duplicate_schema_keys() {
         let workspace = temp_workspace();
         for manifest in [
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\nextra: rejected\n".as_slice(),
-            b"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n".as_slice(),
-            b"schema_version: true\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n".as_slice(),
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\nextra: rejected\n".as_slice(),
+            b"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
+            b"schema_version: true\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
         ] {
             fs::write(workspace.join("runtime.yaml"), manifest).unwrap();
             assert_eq!(

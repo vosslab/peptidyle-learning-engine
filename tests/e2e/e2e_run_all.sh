@@ -49,13 +49,6 @@ run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 # PostgreSQL current-pointer state and MinIO object cleanup agree across the durable boundary.
 run_check course_appearance bash tests/e2e/e2e_course_appearance.sh
 
-# The isolated upstream WebWork renderer honors PLE's authenticated render-and-grade contract.
-run_check webwork_render_rpc bash tests/e2e/e2e_webwork_render_rpc.sh
-
-# A Student session and idempotent submission survive across two API replicas.
-# A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.
-run_check replica_restart node tests/e2e/e2e_replica_restart.mjs
-
 echo
 echo "Summary: $passed passed, $failed failed."
 if [ "$failed" -gt 0 ]; then

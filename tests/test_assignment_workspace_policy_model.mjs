@@ -7,12 +7,11 @@ import {
   assignmentPoliciesValidationFeedback,
   assignmentPolicyFeedbackRole,
   canonicalCourseLocalTime,
-  hasEmptyGroupAudience,
-  mergeSavedRunPolicyDraft,
+  mergeSavedActivityRuleDraft,
   nonnegativeIntegerDraft,
   numberDraft,
   optionalPositiveIntegerDraft,
-  runPolicyDraftFromPolicies,
+  activityRuleDraftFromRules,
   scoreFractionDraft,
 } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
 
@@ -44,26 +43,19 @@ const teachingSettings = {
   deadlineBehavior: "autoSubmit",
 };
 
-test("focused policy input preserves a selected group audience and delivery settings", () => {
+test("focused policy input preserves direct delivery settings", () => {
   const input = assignmentPoliciesInput(
-    { kind: "anyOfGroups", groups: ["HONORS-SECTION"] },
     disclosurePolicy,
     policies,
     teachingSettings,
   );
 
-  assert.deepEqual(input.audience, { kind: "anyOfGroups", groups: ["HONORS-SECTION"] });
   assert.equal(input.teachingSettings.instructions, "Use a clear structural drawing.");
 });
 
 test("policy local-time normalization accepts only explicit course wall-clock values", () => {
   assert.equal(canonicalCourseLocalTime("2026-09-01T17:00"), "2026-09-01T17:00:00.000");
   assert.equal(canonicalCourseLocalTime("2026/09/01 17:00"), null);
-});
-
-test("an empty group audience is held locally before a focused policy save", () => {
-  assert.equal(hasEmptyGroupAudience({ kind: "anyOfGroups", groups: [] }), true);
-  assert.equal(hasEmptyGroupAudience({ kind: "courseWide" }), false);
 });
 
 test("policy feedback makes save failures and conflicts actionable while successes stay quiet", () => {
@@ -91,7 +83,7 @@ test("numeric policy drafts preserve invalid text and provide no stale payload v
   assert.equal(numberDraft(null), "");
 });
 
-test("run-policy number drafts accept bounded values and retain invalid raw text", () => {
+test("Assignment activity-rule number drafts accept bounded values and retain invalid raw text", () => {
   assert.deepEqual(scoreFractionDraft("0.75"), { raw: "0.75", value: 0.75, valid: true });
   assert.deepEqual(scoreFractionDraft("1.1"), { raw: "1.1", value: null, valid: false });
   assert.deepEqual(scoreFractionDraft(""), { raw: "", value: null, valid: false });
@@ -99,7 +91,7 @@ test("run-policy number drafts accept bounded values and retain invalid raw text
   assert.deepEqual(nonnegativeIntegerDraft("3.5"), { raw: "3.5", value: null, valid: false });
 });
 
-test("inactive conditional run-policy drafts survive a successful unrelated policy save", () => {
+test("inactive conditional Assignment activity-rule drafts survive a successful unrelated policy save", () => {
   const original = { completionFraction: "0.65", additionalRuns: "7" };
   const saved = {
     ...policies,
@@ -107,11 +99,11 @@ test("inactive conditional run-policy drafts survive a successful unrelated poli
     continuedPractice: { kind: "unlimited" },
   };
 
-  assert.deepEqual(runPolicyDraftFromPolicies(saved), {
+  assert.deepEqual(activityRuleDraftFromRules(saved), {
     completionFraction: "0.8",
     additionalRuns: "3",
   });
-  assert.deepEqual(mergeSavedRunPolicyDraft(original, saved), original);
+  assert.deepEqual(mergeSavedActivityRuleDraft(original, saved), original);
 });
 
 test("server policy issues select the first repair while keeping concise safe details", () => {
@@ -122,14 +114,12 @@ test("server policy issues select the first repair while keeping concise safe de
       questionId: "7K3-M9QP",
       capability: "serverGrading",
     },
-    { kind: "audience", reason: "groupRequired" },
   ]);
 
   assert.equal(feedback.target, "questions");
   assert.equal(feedback.questionRepairRequired, true);
   assert.deepEqual(feedback.details, [
     "Peptide geometry needs server grading.",
-    "Choose one or more course groups for this audience.",
   ]);
   assert.equal(JSON.stringify(feedback).includes("7K3-M9QP"), false);
 });

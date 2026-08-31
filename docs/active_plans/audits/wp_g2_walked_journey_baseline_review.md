@@ -6,7 +6,7 @@ This review remains accepted evidence for the historical schema-v1 baseline.
 The corrected local no-email pilot was accepted on 2026-08-11 with the
 schema-v2 baseline at `docs/active_plans/walked_journey_baseline_v2.json`.
 Its nine PASS rows replace this record only for the corrected charter; no
-email/canonical onboarding, J6/J7, all-family, multi-learner, or release claim
+email/canonical onboarding, J6/J7, all-family, multi-student, or release claim
 is added.
 
 ## Verdict
@@ -30,11 +30,11 @@ journeys without importing live-run evidence.
 ## Confirmed boundaries
 
 - The committed record uses seed `42`, the five required arrangement labels,
-  and the exact ordered J1 through J10, all-family, and multi-learner rows.
+  and the exact ordered J1 through J10, all-family, and multi-student rows.
 - Only J1, J2, J3, J4, J5, and J8 are `PASS`. J6/J7 use the shared
   `RELEASE_READINESS_PREREQUISITE`; J9/J10 use
   `CANONICAL_ONBOARDING_PREREQUISITE`; all-family uses
-  `ALL_FAMILY_AND_SECURE_PAYLOAD_RELEASE_GATES`; multi-learner uses
+  `ALL_FAMILY_AND_SECURE_PAYLOAD_RELEASE_GATES`; multi-student uses
   `CANONICAL_ONBOARDING_AND_ALL_FAMILY_RELEASE_GATES`.
 - The manifest contains no IDs, titles, scores, identities, paths, secrets,
   selectors, raw errors, or timing. The workstream document states that it is

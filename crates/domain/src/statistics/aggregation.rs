@@ -1,7 +1,7 @@
 //! Pure, retention-safe anonymous question-statistics aggregation.
 //!
-//! These values are sufficient statistics only: they carry no institution or
-//! learner identity, answer material, feedback, source reference, or raw time
+//! These values are sufficient statistics only: they carry no deployment or
+//! Student identity, answer material, feedback, source reference, or raw time
 //! series. Store implementations derive one observation per exact published
 //! question version before course-owned activity records are deleted.
 

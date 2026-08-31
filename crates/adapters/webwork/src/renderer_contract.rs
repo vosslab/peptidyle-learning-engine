@@ -143,8 +143,8 @@ pub struct RenderRequest<'a> {
     pub pg_source: &'a [u8],
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
-    /// Immutable published version as a string.
-    pub version: &'a str,
+    /// Exact immutable Question Version selected by the server.
+    pub question_version: &'a question_model::QuestionVersionReference,
     /// Deterministic attempt seed.
     pub seed: u64,
 }
@@ -156,8 +156,8 @@ pub struct GradeRequest<'a> {
     pub pg_source: &'a [u8],
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
-    /// Immutable published version as a string.
-    pub version: &'a str,
+    /// Exact immutable Question Version selected by the server.
+    pub question_version: &'a question_model::QuestionVersionReference,
     /// Deterministic attempt seed.
     pub seed: u64,
     /// Browser-submitted response, never an answer key.

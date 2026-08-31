@@ -41,7 +41,7 @@ pub enum InstructorApprovalStateView {
 /// Account eligible as a co-instructor invitation target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CoInstructorTargetView {
+pub struct CourseInvitationTargetView {
     pub account: TeachingAccountView,
     pub approval: AccountApprovalView,
 }
@@ -51,16 +51,16 @@ pub struct CoInstructorTargetView {
 /// general account-search capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CoInstructorTargetSearchQuery(String);
+pub struct CourseInvitationTargetSearchQuery(String);
 
-impl CoInstructorTargetSearchQuery {
+impl CourseInvitationTargetSearchQuery {
     /// Returns the validated display-name fragment.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-impl TryFrom<String> for CoInstructorTargetSearchQuery {
+impl TryFrom<String> for CourseInvitationTargetSearchQuery {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -78,8 +78,8 @@ impl TryFrom<String> for CoInstructorTargetSearchQuery {
     }
 }
 
-impl From<CoInstructorTargetSearchQuery> for String {
-    fn from(value: CoInstructorTargetSearchQuery) -> Self {
+impl From<CourseInvitationTargetSearchQuery> for String {
+    fn from(value: CourseInvitationTargetSearchQuery) -> Self {
         value.0
     }
 }
@@ -87,8 +87,8 @@ impl From<CoInstructorTargetSearchQuery> for String {
 /// Strict bounded request for safe co-instructor target discovery.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CoInstructorTargetSearchRequest {
-    pub query: CoInstructorTargetSearchQuery,
+pub struct CourseInvitationTargetSearchRequest {
+    pub query: CourseInvitationTargetSearchQuery,
     /// Server-issued opaque continuation token, or `null` for the first page.
     pub after: Option<String>,
     pub size: TeachingPageSize,
@@ -97,15 +97,15 @@ pub struct CoInstructorTargetSearchRequest {
 /// Authorized bounded co-instructor target search result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CoInstructorTargetSearchPage {
-    pub targets: Vec<CoInstructorTargetView>,
+pub struct CourseInvitationTargetSearchPage {
+    pub targets: Vec<CourseInvitationTargetView>,
     pub next_cursor: Option<String>,
 }
 
 /// Sysadmin-only candidate for manual Instructor approval.
 ///
 /// The reference is an opaque locator.  The projection deliberately omits
-/// email, UUIDs, institution facts, and course relationships.
+/// email, UUIDs, external-affiliation facts, and course relationships.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SysadminInstructorCandidateView {
@@ -135,7 +135,7 @@ pub enum SysadminInstructorApprovalStateView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SysadminInstructorCandidateSearchRequest {
-    pub query: CoInstructorTargetSearchQuery,
+    pub query: CourseInvitationTargetSearchQuery,
     /// Server-issued opaque continuation token, or `null` for the first page.
     pub after: Option<String>,
     pub size: TeachingPageSize,

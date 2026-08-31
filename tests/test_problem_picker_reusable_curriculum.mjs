@@ -4,13 +4,12 @@ import test from "node:test";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { reusableCurriculumProblemPickerRepository } from "../src/features/problem_picker/problem_picker_model.ts";
 
+const { scope: _retiredPublicationScope, ...catalogProblem } =
+  publishedProblemFixture.catalogProblem;
+
 function catalog(questionId, title) {
   return {
-    summary: {
-      ...publishedProblemFixture.catalogProblem,
-      questionId,
-      metadata: { ...publishedProblemFixture.catalogProblem.metadata, title },
-    },
+    summary: { ...catalogProblem, questionId, metadata: { ...catalogProblem.metadata, title } },
     evidence: { state: "insufficientEvidence" },
   };
 }
@@ -31,84 +30,67 @@ function definition() {
   };
 }
 
-test("reusable picker sources preserve interleaved entry and candidate order", async () => {
-  const source = reusableCurriculumProblemPickerRepository({
-    getBlueprint: async () => ({ blueprint: { definition: definition() } }),
-    getAlphaCourse: async () => ({ alpha: { modules: [{ definitions: [definition()] }] } }),
-  });
-  const query = {
-    search: "",
-    byline: null,
-    backend: null,
-    tag: null,
-    responseFamily: null,
-    taxonomy: null,
-    capability: null,
-    license: null,
-    evidence: null,
-    usedInMyCourses: null,
-    authorship: "any",
+const query = {
+  search: "",
+  byline: null,
+  backend: null,
+  tag: null,
+  responseFamily: null,
+  taxonomy: null,
+  capability: null,
+  license: null,
+  evidence: null,
+  usedInMyCourses: null,
+  authorship: "any",
+};
+
+function course(revision = "2") {
+  return {
+    reference: "BP-7",
+    revision,
+    modules: [
+      {
+        module_id: "module-7",
+        definitions: [{ assignment_id: "assignment-7", definition: definition() }],
+      },
+    ],
   };
-  const personal = await source.search({
-    source: { kind: "personalBlueprint", blueprint: "BP-7", label: "My blueprint" },
-    query,
-    cursor: null,
+}
+
+test("reusable picker preserves fixed-entry and Question Pool candidate order", async () => {
+  const source = reusableCurriculumProblemPickerRepository({
+    getBlueprintCourse: async () => ({ blueprintCourse: course() }),
   });
-  assert.deepEqual(
-    personal.items.map((row) => row.displayId),
-    ["7K3-M9QP", "2R5-X7YA", "3S8-B4DZ", "4T9-C5EW"],
-  );
-  const alpha = await source.search({
+  const result = await source.search({
     source: {
-      kind: "alphaCurriculum",
-      alpha: "AC-3",
-      modulePosition: 1,
-      assignmentPosition: 1,
-      label: "Shared curriculum",
+      kind: "blueprintCourseAssignment",
+      source: { reference: "BP-7", revision: "2", assignment_id: "assignment-7" },
+      label: "Blueprint Course assignment",
     },
     query,
     cursor: null,
   });
+
   assert.deepEqual(
-    alpha.items.map((row) => row.displayId),
+    result.items.map((row) => row.displayId),
     ["7K3-M9QP", "2R5-X7YA", "3S8-B4DZ", "4T9-C5EW"],
   );
 });
 
-test("reusable picker rejects malformed human-facing Alpha positions before access", async () => {
-  let alphaReads = 0;
+test("reusable picker refuses a Blueprint Course revision that changed before access", async () => {
   const source = reusableCurriculumProblemPickerRepository({
-    getBlueprint: async () => ({ blueprint: { definition: definition() } }),
-    getAlphaCourse: async () => {
-      alphaReads += 1;
-      return { alpha: { modules: [{ definitions: [definition()] }] } };
-    },
+    getBlueprintCourse: async () => ({ blueprintCourse: course("3") }),
   });
-  const query = {
-    search: "",
-    byline: null,
-    backend: null,
-    tag: null,
-    responseFamily: null,
-    taxonomy: null,
-    capability: null,
-    license: null,
-    evidence: null,
-    usedInMyCourses: null,
-    authorship: "any",
-  };
   await assert.rejects(
     source.search({
       source: {
-        kind: "alphaCurriculum",
-        alpha: "AC-3",
-        modulePosition: 0,
-        assignmentPosition: 1,
-        label: "Broken",
+        kind: "blueprintCourseAssignment",
+        source: { reference: "BP-7", revision: "2", assignment_id: "assignment-7" },
+        label: "Stale Blueprint Course assignment",
       },
       query,
       cursor: null,
     }),
+    /changed/u,
   );
-  assert.equal(alphaReads, 0);
 });

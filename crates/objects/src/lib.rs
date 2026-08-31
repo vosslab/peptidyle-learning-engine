@@ -5,7 +5,7 @@
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
-use question_model::{ActivityTimestamp, ObjectId, VersionId};
+use question_model::{ActivityTimestamp, ObjectId, QuestionVersionReference};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
@@ -152,8 +152,8 @@ pub struct ObjectRecord {
     pub media_type: String,
     /// Semantic storage role.
     pub category: ObjectCategory,
-    /// Published version associated with content, when one exists.
-    pub version: Option<VersionId>,
+    /// Exact Question Version associated with content, when one exists.
+    pub question_version: Option<QuestionVersionReference>,
     /// License or educational-record handling label.
     pub license: String,
     /// Human-readable source or derivation record.
@@ -252,7 +252,7 @@ pub trait ObjectStore: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{ProblemId, VersionId};
+    use question_model::{QuestionId, QuestionVersionNumber, QuestionVersionReference};
     use uuid::Uuid;
 
     const DIGEST_BYTES: [u8; 32] = [
@@ -297,22 +297,25 @@ mod tests {
 
     #[test]
     fn object_record_json_shape_uses_canonical_hex_digest() {
-        let problem = ProblemId::from_uuid(Uuid::from_u128(1));
-        let version = VersionId::from_uuid(Uuid::from_u128(2));
+        let question_version = QuestionVersionReference {
+            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
+                .expect("canonical Question ID"),
+            version_number: QuestionVersionNumber::new(2)
+                .expect("positive Question Version Number"),
+        };
         let object = ObjectId::from_uuid(Uuid::from_u128(3));
         let record = ObjectRecord {
             id: object,
             bucket: Bucket::PrivateContent,
-            key: ObjectKey::ProblemSource {
-                problem,
-                version,
+            key: ObjectKey::QuestionSource {
+                question_version: question_version.clone(),
                 object,
             },
             sha256: Sha256Digest::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
             media_type: "application/zip".to_string(),
             category: ObjectCategory::Source,
-            version: Some(version),
+            question_version: Some(question_version),
             license: "private".to_string(),
             provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
@@ -324,16 +327,15 @@ mod tests {
             concat!(
                 "{\"id\":\"00000000-0000-0000-0000-000000000003\",",
                 "\"bucket\":\"private-content\",",
-                "\"key\":{\"kind\":\"problemSource\",",
-                "\"problem\":\"00000000-0000-0000-0000-000000000001\",",
-                "\"version\":\"00000000-0000-0000-0000-000000000002\",",
+                "\"key\":{\"kind\":\"questionSource\",",
+                "\"questionVersion\":{\"questionId\":\"ABC-DEFG\",\"versionNumber\":2},",
                 "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
                 "\"category\":\"source\",",
-                "\"version\":\"00000000-0000-0000-0000-000000000002\",",
+                "\"questionVersion\":{\"questionId\":\"ABC-DEFG\",\"versionNumber\":2},",
                 "\"license\":\"private\",",
                 "\"provenance\":\"fixture\",",
                 "\"createdAt\":1000}"

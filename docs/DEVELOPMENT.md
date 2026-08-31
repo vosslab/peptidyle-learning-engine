@@ -59,7 +59,6 @@ starting a service or acceptance lane:
 ```bash
 source source_me.sh && .venv/bin/python local_stack.py --help
 ./run_live_demo.sh --help
-./run_playwright_tests.sh --help
 ```
 
 The help commands do not start containers, open a browser, or mutate generated artifacts. Choose
@@ -129,9 +128,7 @@ active work package.
 | Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
 | Repository documentation and hygiene       | `source source_me.sh && .venv/bin/python -m pytest tests/` | Fast Python hygiene and repository-rule checks.                                           |
-| Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | A focused production `dist/` scenario through a fresh disposable HTTPS PLE stack.         |
-| Complete Playwright validation             | `source source_me.sh && .venv/bin/python local_stack.py acceptance` | One canonical real-stack browser lane plus browser-free service receipts. |
-| One browser scenario                       | `./run_playwright_tests.sh tests/playwright/e2e/<file>.spec.ts` | The selected catalog-owned production-browser scenario on a fresh disposable stack.         |
+| Connected current acceptance               | `source source_me.sh && .venv/bin/python local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && .venv/bin/python local_stack.py <command>` | The scoped controller contract.                                                           |
 
@@ -139,14 +136,9 @@ active work package.
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
-`./run_playwright_tests.sh` is the sole browser-suite entry point.
-
-`./capture_screenshots.sh` is the explicit visual-publication front door. Use it when the UI,
-screenshot corpus, or viewport contract changes; it runs the canonical production-browser owner
-with `--screenshots` and atomically publishes the declared corpus after its privacy and provenance
-checks. It is separate from `./all_test.sh`: the aggregate validates behavior and contracts but
-does not rewrite checked-in screenshot artifacts. Review the generated captures as visual evidence;
-artifact counts or hashes do not replace that review.
+The fresh Store-backed browser owner and visual-publication path return after the mounted
+course-delivery surface is rebuilt. The current aggregate validates the active code and service
+contracts without claiming browser or screenshot acceptance.
 
 ### Permanent and connected evidence
 
@@ -157,10 +149,8 @@ renderer, or a browser and do not prove those external boundaries.
 
 Connected and one-time evidence is opt-in and remains separate from the permanent fast lane:
 
-- `./run_playwright_tests.sh` proves the named production-browser scenario through the fixed local
-  stack.
 - `source source_me.sh && .venv/bin/python local_stack.py acceptance` runs the complete connected acceptance
-  lane and its distinct browser-free service oracles.
+  lane and its current browser-free service oracles.
 - Named `tests/e2e/` runners, migration probes, rendered captures, manual inspections, and load or
   query-plan observations prove only their stated disposable or one-time claim.
 
@@ -168,13 +158,11 @@ Do not promote a probe, inventory, screenshot, count, or live diagnostic to a pe
 it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
 [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
 
-### Playwright execution lanes
+### Future browser execution
 
-`./run_playwright_tests.sh --build` is the focused browser gate. It creates a fresh disposable
-stack, builds production `dist/`, and serves it through the HTTPS PLE gateway with real
-authentication, authorization, API, PostgreSQL, storage, worker, and renderer services. It must
-finish with no skipped tests. The scenario creates product state through visible PLE controls,
-using the seeded baseline only where its declared contract permits it.
+The fresh Store-backed browser owner will build production `dist/`, serve it through the HTTPS PLE
+gateway, and create product state through visible PLE controls. Until that owner and the mounted
+course-delivery routes exist together, browser evidence remains unclaimed.
 
 Run the complete Playwright Validation test suite explicitly when the active plan requires all
 browser claims:
@@ -215,8 +203,7 @@ Podman/browser execution separately as one-time evidence.
 For the first teaching corpus, run `cargo tools pilot-content` for the tracked
 source/compiler contract. Fixed seed/manifest and Rust behavior tests own its
 publication semantics; the canonical live-demo lifecycle installs that baseline.
-Browser scenarios are selected only through `./run_playwright_tests.sh`; it is
-the sole browser entry point.
+Browser scenarios remain staged source until the fresh browser owner is present.
 
 Chapter 1 replay is manifest-resume only. The answer-free host-only manifest records the assigned
 Question IDs and exact immutable internal references from the first publication; a replay resolves

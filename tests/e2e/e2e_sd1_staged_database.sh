@@ -137,6 +137,7 @@ DECLARE
 	owner_name text;
 	role_count integer;
 	membership_count integer;
+	unexpected_membership_detail text;
 	column_count integer;
 BEGIN
 	IF current_database() <> 'ple_e2e_baseline' THEN
@@ -155,8 +156,7 @@ BEGIN
 	END IF;
 	FOREACH role_name IN ARRAY ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-		'ple_grading_reader', 'ple_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
 	] LOOP
 		IF NOT EXISTS (
 			SELECT 1 FROM pg_roles WHERE rolname = role_name AND NOT rolcanlogin
@@ -171,10 +171,9 @@ BEGIN
 	FROM pg_roles
 	WHERE rolname = ANY (ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-		'ple_grading_reader', 'ple_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
 	]);
-	IF role_count <> 11 THEN
+	IF role_count <> 8 THEN
 		RAISE EXCEPTION 'reserved role set is incomplete or duplicated';
 	END IF;
 	SELECT count(*)::integer INTO membership_count
@@ -184,46 +183,66 @@ BEGIN
 	WHERE member.rolname = 'ple_migrator'
 	AND parent.rolname = ANY (ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-		'ple_grading_reader', 'ple_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
 	]);
-	IF membership_count <> 15 THEN
+	IF membership_count <> 12 THEN
 		RAISE EXCEPTION 'unexpected membership count: %', membership_count;
 	END IF;
-	IF EXISTS (
-		SELECT 1
-		FROM pg_auth_members membership
-		JOIN pg_roles member ON member.oid = membership.member
-		JOIN pg_roles parent ON parent.oid = membership.roleid
-		JOIN pg_roles grantor ON grantor.oid = membership.grantor
-		WHERE NOT (
-			member.rolname = 'ple_migrator'
-			AND parent.rolname = ANY (ARRAY[
-				'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-				'ple_grading_reader', 'ple_worker'
-			])
-			AND grantor.rolname = 'ple_e2e_migrator'
-			AND NOT membership.inherit_option
-			AND NOT membership.set_option AND membership.admin_option
-		)
-		AND NOT (
-			member.rolname = 'ple_migrator'
-			AND parent.rolname = 'ple_database_owner'
-			AND grantor.rolname = 'ple_e2e_migrator'
-			AND NOT membership.inherit_option AND membership.set_option AND NOT membership.admin_option
-		)
-		AND NOT (
-			member.rolname = 'ple_migrator'
-			AND parent.rolname = ANY (ARRAY[
-				'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-				'ple_api_owner'
-			])
-			AND grantor.rolname = 'ple_migrator'
-			AND NOT membership.inherit_option AND membership.set_option AND NOT membership.admin_option
-		)
-	) THEN
-		RAISE EXCEPTION 'membership graph has an unexpected edge, grantor, or option';
+	SELECT string_agg(
+		format(
+			'%s -> %s (grantor=%s, inherit=%s, set=%s, admin=%s)',
+			member.rolname,
+			parent.rolname,
+			grantor.rolname,
+			membership.inherit_option,
+			membership.set_option,
+			membership.admin_option
+		),
+		'; ' ORDER BY parent.rolname, member.rolname
+	) INTO unexpected_membership_detail
+	FROM pg_auth_members membership
+	JOIN pg_roles member ON member.oid = membership.member
+	JOIN pg_roles parent ON parent.oid = membership.roleid
+	JOIN pg_roles grantor ON grantor.oid = membership.grantor
+	WHERE (
+		member.rolname = ANY (ARRAY[
+			'ple_migrator', 'ple_database_owner', 'ple_data_owner',
+			'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app',
+			'ple_auth', 'ple_student'
+		])
+		OR parent.rolname = ANY (ARRAY[
+			'ple_migrator', 'ple_database_owner', 'ple_data_owner',
+			'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app',
+			'ple_auth', 'ple_student'
+		])
+	)
+	AND NOT (
+		member.rolname = 'ple_migrator'
+		AND parent.rolname = ANY (ARRAY[
+			'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
+			'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
+		])
+		AND grantor.rolname = 'ple_e2e_migrator'
+		AND NOT membership.inherit_option
+		AND NOT membership.set_option AND membership.admin_option
+	)
+	AND NOT (
+		member.rolname = 'ple_migrator'
+		AND parent.rolname = 'ple_database_owner'
+		AND grantor.rolname = 'ple_e2e_migrator'
+		AND NOT membership.inherit_option AND membership.set_option AND NOT membership.admin_option
+	)
+	AND NOT (
+		member.rolname = 'ple_migrator'
+		AND parent.rolname = ANY (ARRAY[
+			'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
+			'ple_api_owner'
+		])
+		AND grantor.rolname = 'ple_migrator'
+		AND NOT membership.inherit_option AND membership.set_option AND NOT membership.admin_option
+	);
+	IF unexpected_membership_detail IS NOT NULL THEN
+		RAISE EXCEPTION 'membership graph has an unexpected edge, grantor, or option: %', unexpected_membership_detail;
 	END IF;
 	FOREACH owner_name IN ARRAY ARRAY[
 		'ple_data', 'ple_private', 'ple_audit', 'ple_api'
@@ -313,12 +332,226 @@ BEGIN
 		OR NOT has_table_privilege('ple_app', 'ple_api.ple_migration_state', 'SELECT') THEN
 		RAISE EXCEPTION 'ple_app direct/projection privileges are not exact';
 	END IF;
+	SELECT count(*)::integer INTO column_count
+	FROM information_schema.columns
+	WHERE table_schema = 'ple_data' AND table_name = 'student_record';
+	IF column_count <> 4
+		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_data' AND table_name = 'student_record' AND column_name = 'student_record_id')
+		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_data' AND table_name = 'student_record' AND column_name = 'course_id')
+		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_data' AND table_name = 'student_record' AND column_name = 'student_account_id')
+		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_data' AND table_name = 'student_record' AND column_name = 'created_at')
+		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_data' AND table_name = 'student_record' AND column_name = 'membership_id')
+		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_data.student_record'::regclass AND conname = 'student_record_account_course_is_unique')
+		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_data.student_record'::regclass AND conname = 'student_record_course_reference_is_unique')
+		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_data.course_membership'::regclass AND conname = 'course_membership_student_record_presence')
+		OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'ple_data.course_membership'::regclass AND tgname = 'course_membership_binds_exact_student_record' AND NOT tgisinternal) THEN
+		RAISE EXCEPTION 'Student Record ownership is not exact and stable across membership episodes';
+	END IF;
 	IF NOT has_table_privilege('ple_api_owner', 'public._sqlx_migrations', 'SELECT') THEN
 		RAISE EXCEPTION 'ple_api_owner cannot read the migration ledger for its projection';
 	END IF;
+	IF NOT EXISTS (
+		SELECT 1 FROM pg_constraint
+		WHERE conrelid = 'ple_private.assignment_attempt'::regclass
+		AND conname = 'assignment_attempt_revision_belongs_to_assignment'
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = 'ple_data.assignment_revision'::regclass
+		AND tgname = 'assignment_revision_is_immutable' AND NOT tgisinternal
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = 'ple_private.question_submission'::regclass
+		AND tgname = 'question_submission_is_immutable' AND NOT tgisinternal
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = 'ple_private.assignment_submission'::regclass
+		AND tgname = 'assignment_submission_is_immutable' AND NOT tgisinternal
+	) THEN
+		RAISE EXCEPTION 'issued-work and accepted-submission evidence is not immutable and exactly pinned';
+	END IF;
+	IF NOT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = 'ple_private.assignment_grade_calculation'::regclass
+		AND tgname = 'assignment_grade_calculation_is_immutable' AND NOT tgisinternal
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_constraint
+		WHERE conrelid = 'ple_private.assignment_grade'::regclass
+		AND conname = 'assignment_grade_selected_calculation_matches'
+	) THEN
+		RAISE EXCEPTION 'Gradebook does not preserve immutable calculations and an exact selected grade';
+	END IF;
+	IF to_regclass('ple_data.question_publication_event') IS NULL
+		OR to_regclass('ple_data.question_version_availability_event') IS NULL
+		OR to_regclass('ple_data.published_question_lifecycle_event') IS NOT NULL
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'published_question_version'
+			AND column_name = 'lifecycle'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.question_publication_event'::regclass
+			AND conname = 'question_publication_event_version_is_unique'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.question_version_availability_event'::regclass
+			AND conname = 'question_version_availability_event_kind_is_unique'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.question_version_availability_event'::regclass
+			AND tgname = 'question_version_availability_event_has_valid_transition' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Question publication and availability evidence remains conflated';
+	END IF;
+	IF to_regclass('ple_private.account_state_event') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.account'::regclass
+			AND tgname = 'account_creation_records_active_state' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.account_state_event'::regclass
+			AND tgname = 'account_restriction_revokes_sessions' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Account State does not govern authenticated-session access';
+	END IF;
+	IF to_regclass('ple_private.instructor_approval_event') IS NULL
+		OR to_regclass('ple_private.instructor_approval') IS NOT NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.instructor_approval_event'::regclass
+			AND tgname = 'instructor_approval_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Instructor Approval does not retain immutable approval and revocation evidence';
+	END IF;
+	IF to_regclass('ple_data.course_membership_event') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.course_membership'::regclass
+			AND tgname = 'course_membership_creation_records_started_event' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.course_membership_event'::regclass
+			AND tgname = 'course_membership_event_is_immutable' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.course_membership_event'::regclass
+			AND tgname = 'course_membership_event_has_valid_transition' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Course Membership does not preserve immutable state history';
+	END IF;
+	IF to_regclass('ple_private.authoring_workspace_collaborator') IS NOT NULL
+		OR to_regclass('ple_private.authoring_workspace_collaborator_event') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.authoring_workspace_collaborator_event'::regclass
+			AND tgname = 'authoring_workspace_collaborator_event_has_valid_transition' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.authoring_workspace_collaborator_event'::regclass
+			AND tgname = 'authoring_workspace_collaborator_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Workspace Collaborator does not preserve immutable start and end evidence';
+	END IF;
+	IF to_regclass('ple_private.course_observer_relationship') IS NOT NULL
+		OR to_regclass('ple_private.course_observer_relationship_event') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.course_observer_relationship_event'::regclass
+			AND tgname = 'course_observer_relationship_event_has_valid_transition' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.course_observer_relationship_event'::regclass
+			AND tgname = 'course_observer_relationship_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Course Observer does not preserve immutable relationship evidence';
+	END IF;
+	IF to_regclass('ple_data.question_stewardship_event') IS NOT NULL
+		OR to_regclass('ple_data.question_change_proposal_revision') IS NULL
+		OR to_regclass('ple_data.question_change_event') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.question_change_proposal_revision'::regclass
+			AND tgname = 'question_change_proposal_revision_is_immutable' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.question_change_event'::regclass
+			AND tgname = 'question_change_event_has_valid_transition' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.question_change_event'::regclass
+			AND tgname = 'question_change_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Question Change Proposals do not preserve immutable revisions and lifecycle evidence';
+	END IF;
+	IF to_regclass('ple_private.course_invitation_event') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.course_invitation_event'::regclass
+			AND conname = 'course_invitation_event_invitation_id_key'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.course_invitation_event'::regclass
+			AND tgname = 'course_invitation_event_has_valid_transition' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.course_invitation_event'::regclass
+			AND tgname = 'course_invitation_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Course Invitation does not retain one valid immutable terminal Event';
+	END IF;
+	IF to_regclass('ple_data.blueprint_publication_event') IS NULL
+		OR to_regclass('ple_data.blueprint_collaborator_event') IS NULL
+		OR to_regclass('ple_data.blueprint_revision_availability_event') IS NULL
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'blueprint_course'
+			AND column_name = 'archived_at'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.blueprint_publication_event'::regclass
+			AND conname = 'blueprint_publication_event_revision_is_unique'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.blueprint_collaborator_event'::regclass
+			AND tgname = 'blueprint_collaborator_event_has_valid_transition' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.blueprint_collaborator_event'::regclass
+			AND tgname = 'blueprint_collaborator_event_is_immutable' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.blueprint_revision_availability_event'::regclass
+			AND tgname = 'blueprint_revision_availability_event_has_valid_transition' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.blueprint_revision_availability_event'::regclass
+			AND tgname = 'blueprint_revision_availability_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Blueprint publication, availability, and Draft Blueprint Revision collaboration evidence is incomplete';
+	END IF;
+	IF to_regclass('ple_data.course_origin') IS NULL
+		OR to_regclass('ple_data.course_instance_blueprint_adoption') IS NOT NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.course_origin'::regclass
+			AND tgname = 'course_origin_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Course Origin is not retained as immutable exact source evidence';
+	END IF;
+	IF to_regclass('ple_audit.assignment_grade_event') IS NULL
+		OR to_regclass('ple_audit.grade_control_event') IS NOT NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_audit.assignment_grade_event'::regclass
+			AND tgname = 'assignment_grade_event_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Assignment Grade Event is not immutable exact calculation evidence';
+	END IF;
 	IF EXISTS (
 		SELECT 1 FROM pg_roles capability
-		WHERE capability.rolname = ANY (ARRAY['ple_app', 'ple_auth', 'ple_student', 'ple_grader', 'ple_grading_reader', 'ple_worker'])
+		WHERE capability.rolname = ANY (ARRAY['ple_app', 'ple_auth', 'ple_student'])
 		AND (has_schema_privilege(capability.rolname, 'ple_data', 'USAGE')
 			OR has_schema_privilege(capability.rolname, 'ple_private', 'USAGE')
 			OR has_schema_privilege(capability.rolname, 'ple_audit', 'USAGE'))
@@ -357,8 +590,7 @@ BEGIN
 	END IF;
 	FOREACH role_name IN ARRAY ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-		'ple_grading_reader', 'ple_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
 	] LOOP
 		IF NOT EXISTS (
 			SELECT 1 FROM pg_roles WHERE rolname = role_name AND NOT rolcanlogin
@@ -373,14 +605,13 @@ BEGIN
 	FROM pg_roles
 	WHERE rolname = ANY (ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-		'ple_grading_reader', 'ple_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
 	]);
-	IF role_count <> 11 THEN
+	IF role_count <> 8 THEN
 		RAISE EXCEPTION 'reserved role set is incomplete or duplicated';
 	END IF;
 	SELECT count(*)::integer INTO membership_count FROM pg_auth_members;
-	IF membership_count <> 16 THEN
+	IF membership_count <> 12 THEN
 		RAISE EXCEPTION 'unexpected membership count: %', membership_count;
 	END IF;
 	IF EXISTS (
@@ -393,8 +624,7 @@ BEGIN
 			member.rolname = 'ple_migrator'
 			AND parent.rolname = ANY (ARRAY[
 				'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_grader',
-				'ple_grading_reader', 'ple_worker'
+				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
 			])
 			AND grantor.rolname = 'ple_e2e_migrator'
 			AND NOT membership.inherit_option AND NOT membership.set_option AND membership.admin_option
@@ -464,7 +694,7 @@ BEGIN
 	END IF;
 	IF EXISTS (
 		SELECT 1 FROM pg_roles capability
-		WHERE capability.rolname = ANY (ARRAY['ple_app', 'ple_auth', 'ple_student', 'ple_grader', 'ple_grading_reader', 'ple_worker'])
+		WHERE capability.rolname = ANY (ARRAY['ple_app', 'ple_auth', 'ple_student'])
 		AND (has_schema_privilege(capability.rolname, 'ple_data', 'USAGE')
 			OR has_schema_privilege(capability.rolname, 'ple_private', 'USAGE')
 			OR has_schema_privilege(capability.rolname, 'ple_audit', 'USAGE'))
@@ -481,15 +711,11 @@ assert_restricted_logins() {
 CREATE ROLE ple_sd1_app_probe LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE ple_sd1_auth_probe LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE ple_sd1_student_probe LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_sd1_grader_probe LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_sd1_reader_probe LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_sd1_worker_probe LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT ple_app TO ple_sd1_app_probe WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 GRANT ple_auth TO ple_sd1_auth_probe WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 GRANT ple_student TO ple_sd1_student_probe WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-GRANT ple_grader TO ple_sd1_grader_probe WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-GRANT ple_grading_reader TO ple_sd1_reader_probe WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-GRANT ple_worker TO ple_sd1_worker_probe WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+GRANT CONNECT ON DATABASE ple_e2e_baseline TO ple_sd1_app_probe, ple_sd1_auth_probe,
+    ple_sd1_student_probe;
 SQL
 	psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c \
 		'SET ROLE ple_app; SELECT version, success, checksum FROM ple_api.ple_migration_state LIMIT 1' >/dev/null
@@ -498,13 +724,10 @@ SQL
 	expect_denied "ple_app data-schema usage" psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c \
 		'SET ROLE ple_app; SELECT 1 FROM ple_data.sd1_probe'
 	local probe capability
-	for probe in ple_sd1_auth_probe ple_sd1_student_probe ple_sd1_grader_probe ple_sd1_reader_probe ple_sd1_worker_probe; do
+	for probe in ple_sd1_auth_probe ple_sd1_student_probe; do
 		case "$probe" in
 			ple_sd1_auth_probe) capability="ple_auth" ;;
 			ple_sd1_student_probe) capability="ple_student" ;;
-			ple_sd1_grader_probe) capability="ple_grader" ;;
-			ple_sd1_reader_probe) capability="ple_grading_reader" ;;
-			ple_sd1_worker_probe) capability="ple_worker" ;;
 			*) fail "unknown restricted SD1 probe $probe" ;;
 		esac
 		expect_denied "$probe API read" psql_in_container "$probe" -d "$DATABASE_NAME" -c \
@@ -564,7 +787,7 @@ SQL
 psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -c \
 	"REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $DATABASE_NAME FROM PUBLIC; GRANT CONNECT ON DATABASE $DATABASE_NAME TO ple_migrator"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c \
-	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator'
+	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
 
 echo "SD1 staged database E2E: staged status is pending before apply"
 initial_status="$(run_staged_tool sd1-staged-status)"

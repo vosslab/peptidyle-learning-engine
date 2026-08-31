@@ -301,7 +301,11 @@ fn rendered_id_input(
 ) -> Result<Vec<u8>, PresentationBuildError> {
     let mut bytes = b"ple:rendered-item:v1\0".to_vec();
     bytes.extend_from_slice(&nonce.as_bytes());
-    bytes.extend_from_slice(envelope.version.as_uuid().as_bytes());
+    push_bytes(
+        &mut bytes,
+        envelope.question_version.question_id.to_string().as_bytes(),
+    )?;
+    bytes.extend_from_slice(&envelope.question_version.version_number.get().to_be_bytes());
     bytes.extend_from_slice(&envelope.seed.value().to_be_bytes());
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
@@ -547,7 +551,7 @@ fn public_envelope(
         }
     };
     Ok(PresentationEnvelopeV1 {
-        version: source.version,
+        question_version: source.question_version.clone(),
         seed: source.seed,
         presentation_nonce: nonce,
         title: source.title.clone(),

@@ -13,7 +13,7 @@ use super::{
 };
 use crate::{
     AccountId, AssignmentReference, AssignmentRevision, CourseReference, CourseScheduleRevision,
-    CourseTerm, ProblemVersionRef, ResolvedRelativeAssignmentSchedule,
+    CourseTerm, QuestionVersionReference, ResolvedRelativeAssignmentSchedule,
 };
 
 use super::bounded::{
@@ -297,7 +297,7 @@ pub struct CourseInstanceScheduleCorrection {
 pub struct UnavailableCurriculumPinRecovery {
     pub source: AssignmentDefinitionSourceView,
     pub position: CurriculumPinPosition,
-    pub unavailable: ProblemVersionRef,
+    pub unavailable: QuestionVersionReference,
     pub choices: ReplacementQuestionChoices,
 }
 

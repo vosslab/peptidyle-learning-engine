@@ -54,8 +54,8 @@ export function FlatMultipleAnswerEditor(props: FlatMultipleAnswerEditorProps): 
     <fieldset class="flat-question-authoring__choices">
       <legend>Multiple-answer choices</legend>
       <p class="flat-question-authoring__help" id="flat-multiple-answer-help">
-        Mark every answer a learner must select. Each checkbox is private authoring information;
-        learners receive only the choice text.
+        Mark every answer a student must select. Each checkbox is private authoring information;
+        students receive only the choice text.
       </p>
       <Show when={choicesError() !== undefined}>
         <p class="flat-question-authoring__error" role="alert">

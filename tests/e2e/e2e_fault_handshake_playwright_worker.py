@@ -23,7 +23,7 @@ def request() -> e2e_browser_fault_orchestrator.FaultScenarioRequest:
 	return e2e_browser_fault_orchestrator.FaultScenarioRequest(
 		SCRIPT_ROOT,
 		SCRIPT_ROOT / "target",
-		SCRIPT_ROOT / "target" / "fault-worker.manifest",
+		SCRIPT_ROOT / "target" / "gateway-recovery.manifest",
 		"learner_gateway_recovery",
 		"bs1-0123456789ab-learner_gateway_recovery",
 		[],

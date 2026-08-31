@@ -3,7 +3,7 @@
 ## Status
 
 **ACCEPTED HISTORICAL BASELINE; SUPERSEDED FOR FINAL ACCEPTANCE.** This is a
-closed, deterministic description of the earlier schema-v1 learner slice, not
+closed, deterministic description of the earlier schema-v1 student slice, not
 a live runner report. It records the manager and independent M5 acceptance
 without copying live report identifiers or other ephemeral evidence. The
 owner's corrected charter requires a new schema-v2 baseline for visible
@@ -19,7 +19,7 @@ take/score/repeat.
   accepted M5 live evidence. The retained-pagination resolution records this
   result without making the baseline a copy of its report. See the
   [retained-pagination blocker review](../audits/m5_retained_pagination_blocker_review.md).
-- The J6/J7, J9/J10, all-family, and multi-learner blocker rows preserve the
+- The J6/J7, J9/J10, all-family, and multi-student blocker rows preserve the
   old charter's accepted static artifact only. They are not the corrected
   walkthrough's status vocabulary. The schema-v2 replacement will omit them;
   email and canonical onboarding are explicitly outside the walkthrough.

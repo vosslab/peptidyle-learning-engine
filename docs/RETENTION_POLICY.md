@@ -9,7 +9,7 @@ deadlines, releases, delivery settings, and the resulting educational records.
 
 Retention targets one exact `CourseInstance`. A published question, its immutable versions, the
 shared question corpus, and a `BlueprintCourse` remain outside that CourseInstance lifecycle. A
-published problem can remain in the shared catalog after every learner record for a CourseInstance
+published problem can remain in the shared catalog after every student record for a CourseInstance
 is gone. This is both the sharing model and the deletion boundary.
 
 This is the implemented application and database contract. It distinguishes completed code and
@@ -33,10 +33,10 @@ configuration; it is not an institution selector, account setting, installation 
 authorization boundary. When no explicit configuration is present, PLE uses these privacy-first
 defaults:
 
-| Time after course end | Persisted action | Learner-visible result |
+| Time after course end | Persisted action | Student-visible result |
 | --- | --- | --- |
 | 30 days | Create the in-app instructor notification. | Records remain available. |
-| 100 days | Archive student records. | Learner record aliases and StudentRecord deliveries are concealed. |
+| 100 days | Archive student records. | Student record aliases and StudentRecord deliveries are concealed. |
 | 365 days | Permanently delete student records. | The terminal `studentRecordsDeleted` lifecycle is recorded. |
 
 The fixed current notification says:
@@ -45,8 +45,8 @@ The fixed current notification says:
 > archive or delete the course now. Student records will be automatically removed after 100 days
 > unless the course is archived or the retention period is extended by a sysadmin.
 
-In that copy, "removed after 100 days" means archived from ordinary learner access. It is not a
-claim that the relational learner graph is permanently deleted at day 100; the delete stage remains
+In that copy, "removed after 100 days" means archived from ordinary student access. It is not a
+claim that the relational student graph is permanently deleted at day 100; the delete stage remains
 scheduled for day 365 by default.
 
 ## Authority and API contract
@@ -64,7 +64,7 @@ CourseInstance/Student relationship fail closed and are concealed. A request
 never supplies Account, course, Student, role, or support-capability authority.
 
 The retention API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
-revision ETag, and the fixed notification projection. It never exposes learner identities, policy
+revision ETag, and the fixed notification projection. It never exposes student identities, policy
 deadlines, object IDs, object keys, queue jobs, leases, or generations.
 
 - Archive and delete require `If-Match` with the current strong revision and create a durable
@@ -79,7 +79,7 @@ deadlines, object IDs, object keys, queue jobs, leases, or generations.
   bodies. Delete has an empty body. Request bodies cannot establish Account, course, Student, object, job,
   lease, stage, or generation.
 
-These routes return `Cache-Control: no-store`. Foreign, missing, archived, and deleted learner
+These routes return `Cache-Control: no-store`. Foreign, missing, archived, and deleted student
 records are concealed at the normal record boundary rather than revealing a retention distinction.
 
 ## Durable state machine
@@ -100,7 +100,7 @@ course end snapshots policy and generation
                 |
                 +-- archive: fence access, freeze manifest, remove typed objects, mark archived
                 |
-                +-- delete: freeze delete manifest, remove objects and learner graph, mark deleted
+                +-- delete: freeze delete manifest, remove objects and student graph, mark deleted
 ```
 
 Preparation and commit verify the current generation, exact stage, leased worker job, unexpired
@@ -108,7 +108,7 @@ lease token, and course-retention row. A stale generation, reclaimed lease, mism
 malformed payload cannot commit an old worker's result. The worker accepts only exact course-scoped typed
 `StudentRecord` keys; an already absent object is an idempotent success.
 
-The archive access predicate is reused by CourseInstance learner records, runs, summaries, feedback,
+The archive access predicate is reused by CourseInstance student records, runs, summaries, feedback,
 exports, external-tool paths, and protected StudentRecord assets. It also denies access as soon as
 the current archive/delete stage has started, preventing a cleanup race from leaking a record.
 BlueprintCourse reads never grant CourseInstance or Student access.
@@ -128,13 +128,13 @@ whole-course ID arrays in process memory, fence only the course being purged, an
 the terminal tombstone is written.
 
 After all delete-stage objects are absent, one PostgreSQL transaction removes the complete
-CourseInstance-owned learner graph in verified foreign-key order and then records
+CourseInstance-owned student graph in verified foreign-key order and then records
 `studentRecordsDeleted`. A partial object-store failure leaves the course archive-fenced and retries
 the same prepared delete manifest. It cannot report permanent deletion early.
 
-The deleted learner graph includes:
+The deleted student graph includes:
 
-- enrollments, learner course/group membership, assignment summaries, runs, attempts, submissions,
+- enrollments, student course membership, assignment summaries, runs, attempts, submissions,
   evaluations, grades, timers, feedback, and item-analysis rows;
 - prefetch, provider replay, idempotency, scoring, and per-student statistics receipts;
 - student-record audit events, exports, protected deliveries, and external-tool sessions and
@@ -159,14 +159,14 @@ is the only explicit choice that can change that treatment.
 
 ## Aggregate survival and disclosure
 
-Question statistics are aggregated while the corresponding learner records exist, then survive as
-identity-free shared-content aggregates. They contain neither Account nor learner identifiers, and
+Question statistics are aggregated while the corresponding student records exist, then survive as
+identity-free shared-content aggregates. They contain neither Account nor student identifiers, and
 the browser suppresses a statistic below the k-anonymity disclosure threshold of five observations.
 This means deletion removes the educational evidence that created an aggregate without removing the
 non-identifying signal used to improve a published question library.
 
 An aggregate is not a backup of attempt history. It cannot recreate an individual response,
-submission, score, or course membership after the learner graph is deleted.
+submission, score, or course membership after the student graph is deleted.
 
 ## Object and audit boundary
 
@@ -177,8 +177,8 @@ delete. The worker treats a missing exact object as success so a crash after obj
 before database commit remains safely replayable.
 
 The lifecycle retains only its coarse retention row and permitted replay/operational evidence long
-enough to prove a completed action. It deletes learner-facing audit and access evidence with the
-learner graph. Operational logs, backup copies, and object-store inventory are separate deployment
+enough to prove a completed action. It deletes student-facing audit and access evidence with the
+student graph. Operational logs, backup copies, and object-store inventory are separate deployment
 data classes; they must not become undeclared student-record archives.
 
 General bucket-to-database reconciliation remains planned in WP-RC7. Until it is accepted,
@@ -221,7 +221,7 @@ set an RPO/RTO, or prove object-store recovery.
 
 On 2026-08-09, a one-time isolated PostgreSQL and MinIO deletion exercise drove a populated permanent
 deletion request through the retention worker. The completed manifest matched the exact typed
-student-record object. The worker removed that object and the learner enrollment, run, attempt,
+student-record object. The worker removed that object and the student enrollment, run, attempt,
 submission, evaluation, score, feedback, receipt, delivery, access-log, audit, and course-analysis
 rows. It retained the assignment and instructor membership, published problem/version/source,
 workspace draft, and anonymous global statistics aggregate. Independent typed-object reads and

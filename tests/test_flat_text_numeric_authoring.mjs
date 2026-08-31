@@ -38,7 +38,7 @@ test("fill-in operations preserve authored text and refuse invalid saved-answer 
   assert.equal(
     validateFillInResponse({ ...changed, answers: ["answer longer than the limit"], maxLength: 4 })
       .issues["answers.0"],
-    "This answer is longer than the learner response limit.",
+    "This answer is longer than the student response limit.",
   );
 });
 

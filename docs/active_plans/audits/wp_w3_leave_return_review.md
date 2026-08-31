@@ -60,7 +60,7 @@ bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
 Accept the J3 portion only if all of the following are observed against the
 real IPv4 gateway:
 
-- The existing arranged learner signs in and opens exactly the current Mastery
+- The existing arranged student signs in and opens exactly the current Mastery
   assignment with visible keyboard controls.
 - Tab visibly reaches the rendered Return to assignment button; Space, not
   Escape, browser history, or direct navigation, leads to `assignmentOverview`.

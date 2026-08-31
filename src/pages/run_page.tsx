@@ -1,4 +1,4 @@
-// run_page.tsx - server-issued, key-free learner attempt loop.
+// run_page.tsx - server-issued, key-free student attempt loop.
 
 import { useNavigate } from "@solidjs/router";
 import {
@@ -19,9 +19,9 @@ import type {
   PrefetchedNextQuestion,
   PoolSelection,
   NextIssuedAttempt,
-  RunScreenData,
-  RunSummaryOutcome,
-  RunSummaryResponse,
+  AssignmentAttemptScreenData,
+  AssignmentAttemptSummaryOutcome,
+  AssignmentAttemptSummaryResponse,
 } from "../api/contracts";
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import { useApiRuntime } from "../api/runtime";
@@ -29,16 +29,16 @@ import { useCourseThemeRouteData } from "../features/course_appearance/course_th
 import {
   assignmentRouteReference,
   courseRouteReference,
-  runRouteReference,
+  assignmentAttemptRouteReference,
 } from "../navigation/public_route";
 import { QuestionRenderer } from "../components/question_renderer";
 import { FeedbackPanel, type FeedbackPresentation } from "../components/feedback_panel";
 import { ResponseWidget } from "../components/response_widget";
 import { resumeSessionAndRetry } from "./run_page_recovery";
 import {
-  runCompletionPresentation,
+  assignmentAttemptCompletionPresentation,
   submissionAdvanceLabel,
-  type RunCompletionPresentation,
+  type AssignmentAttemptCompletionPresentation,
 } from "./run_completion_presentation";
 import {
   createAttemptStateMachine,
@@ -53,13 +53,13 @@ import type { ResponseFormatReport } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
-function attemptContext(attempt: QuestionAttempt): AttemptContext {
+function attemptContext(assignmentAttemptId: string, attempt: QuestionAttempt): AttemptContext {
   return {
-    runId: attempt.run,
+    assignmentAttemptId,
     attemptId: attempt.id,
-    questionVersion: attempt.questionVersion,
+    issuedQuestionId: attempt.issuedQuestion,
     seed: attempt.seed,
-    deadline: attempt.timer.deadline,
+    deadline: attempt.timing.deadline,
   };
 }
 
@@ -104,11 +104,9 @@ function formatRemaining(milliseconds: number | null): string {
 function matchesIssuedSuccessor(attempt: QuestionAttempt, receipt: NextIssuedAttempt): boolean {
   return (
     attempt.id === receipt.id &&
-    attempt.run === receipt.run &&
-    attempt.assignmentPosition === receipt.assignmentPosition &&
-    attempt.questionVersion === receipt.questionVersion &&
+    attempt.issuedQuestion === receipt.issuedQuestion.id &&
     attempt.seed === receipt.seed &&
-    attempt.timer.deadline === receipt.deadline &&
+    attempt.timing.deadline === receipt.deadline &&
     attempt.provenance.renderedQuestionSha256 === receipt.renderedQuestionSha256
   );
 }
@@ -128,7 +126,9 @@ function assetIdsForEnvelope(envelope: QuestionEnvelope): ReadonlyArray<string> 
   ].slice(0, MAX_PREFETCH_ASSETS);
 }
 
-function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JSX.Element {
+function AttemptExperience(props: {
+  readonly initialScreen: AssignmentAttemptScreenData;
+}): JSX.Element {
   const runtime = useApiRuntime();
   const validator = useWasmFacade();
   const navigate = useNavigate();
@@ -136,8 +136,10 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   const [state, setState] = createSignal<AttemptState>();
   const [sessionRecovery, setSessionRecovery] = createSignal(false);
   const [summaryVisible, setSummaryVisible] = createSignal(false);
-  const [runSummary, setRunSummary] = createSignal<RunSummaryResponse>();
-  const [summaryOutcomes, setSummaryOutcomes] = createSignal<ReadonlyArray<RunSummaryOutcome>>([]);
+  const [runSummary, setRunSummary] = createSignal<AssignmentAttemptSummaryResponse>();
+  const [summaryOutcomes, setSummaryOutcomes] = createSignal<
+    ReadonlyArray<AssignmentAttemptSummaryOutcome>
+  >([]);
   const [summaryError, setSummaryError] = createSignal<string | null>(null);
   const [summaryLoading, setSummaryLoading] = createSignal(false);
   const seenSummaryCursors = new Set<string>();
@@ -148,10 +150,10 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   );
   let requestedPrefetchFor: string | null = null;
   let prefetchController: AbortController | null = null;
-  let recoveredSuccessorScreen: RunScreenData | null = null;
+  let recoveredSuccessorScreen: AssignmentAttemptScreenData | null = null;
 
   const machine = createAttemptStateMachine({
-    context: attemptContext(props.initialScreen.attempt),
+    context: attemptContext(props.initialScreen.assignmentAttempt.id, props.initialScreen.attempt),
     storage: attemptStorage(),
     clock: { now: () => Date.now() },
     network: { isOnline: () => navigator.onLine },
@@ -219,8 +221,8 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
           context: {
             ...current,
             attemptId: receiptNext.id,
-            runId: receiptNext.run,
-            questionVersion: receiptNext.questionVersion,
+            assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
+            issuedQuestionId: receiptNext.issuedQuestion.id,
             seed: receiptNext.seed,
             deadline: receiptNext.deadline,
           },
@@ -233,9 +235,12 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       return;
     }
     if (receiptNext === null) {
-      machine.finish(acknowledgement.runCompletionStatus);
-      if (acknowledgement.runCompletionStatus === "completed") {
-        navigate(`/runs/${runRouteReference(screen().run.reference)}/summary`, { replace: true });
+      machine.finish(acknowledgement.assignmentAttemptCompletion);
+      if (acknowledgement.assignmentAttemptCompletion === "completed") {
+        navigate(
+          `/assignment-attempts/${assignmentAttemptRouteReference(screen().assignmentAttempt.reference)}/summary`,
+          { replace: true },
+        );
         return;
       }
       setSummaryVisible(true);
@@ -268,15 +273,22 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       // Router data may still describe the submitted predecessor while the
       // server-owned successor becomes visible. Bind recovery to the predecessor
       // and, when supplied, the issued successor receipt.
-      const next = await runtime.client.getRunScreen(screen().run.id);
+      const next = await runtime.client.getAssignmentAttemptScreen(screen().assignmentAttempt.id);
       if (next.attempt.id === predecessor) {
-        throw new ApiProtocolError("Run screen still describes the submitted attempt");
+        throw new ApiProtocolError(
+          "Assignment Attempt screen still describes the submitted Question Attempt",
+        );
       }
       if (expected !== null && !matchesIssuedSuccessor(next.attempt, expected)) {
-        throw new ApiProtocolError("Run screen does not match the issued successor receipt");
+        throw new ApiProtocolError(
+          "Assignment Attempt screen does not match the issued successor receipt",
+        );
       }
       recoveredSuccessorScreen = next;
-      return { context: attemptContext(next.attempt), envelope: next.issuedQuestion };
+      return {
+        context: attemptContext(next.assignmentAttempt.id, next.attempt),
+        envelope: next.issuedQuestion,
+      };
     });
     applyRecoveredSuccessorScreen();
   }
@@ -301,8 +313,13 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       )
       .then((value) => {
         if (controller.signal.aborted || machine.state().context.attemptId !== attemptId) return;
-        if (value !== null && value.run !== machine.state().context.runId) {
-          throw new ApiProtocolError("Prefetched question run does not match the active run");
+        if (
+          value !== null &&
+          value.issuedQuestion.assignmentAttempt !== machine.state().context.assignmentAttemptId
+        ) {
+          throw new ApiProtocolError(
+            "Prefetched Issued Question does not match the active Assignment Attempt",
+          );
         }
         setPrefetched(value);
         if (value !== null) {
@@ -335,9 +352,13 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     setSummaryLoading(true);
     setSummaryError(null);
     try {
-      const page = await runtime.client.getRunSummary(screen().run.id, cursor, 30);
+      const page = await runtime.client.getAssignmentAttemptSummary(
+        screen().assignmentAttempt.id,
+        cursor,
+        30,
+      );
       if (page.outcomes.nextCursor !== null && seenSummaryCursors.has(page.outcomes.nextCursor)) {
-        throw new Error("Run summary repeated its cursor.");
+        throw new Error("Assignment Attempt summary repeated its cursor.");
       }
       if (cursor !== undefined) seenSummaryCursors.add(cursor);
       setRunSummary(page);
@@ -347,7 +368,9 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
         return [...prior, ...page.outcomes.items.filter((outcome) => !seen.has(outcome.attempt))];
       });
     } catch {
-      setSummaryError("Could not refresh this run summary. Your completed work remains recorded.");
+      setSummaryError(
+        "Could not refresh this Assignment Attempt summary. Your completed work remains recorded.",
+      );
     } finally {
       setSummaryLoading(false);
     }
@@ -356,11 +379,18 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   async function startAnotherPractice(): Promise<void> {
     setPracticeError(null);
     try {
-      const run = await runtime.client.startRun(screen().course.summary.id, screen().assignment.id);
-      navigate(`/runs/${runRouteReference(run.reference)}`);
+      const assignmentAttempt = await runtime.client.startAssignmentAttempt(
+        screen().course.summary.id,
+        screen().assignment.id,
+      );
+      navigate(
+        `/assignment-attempts/${assignmentAttemptRouteReference(assignmentAttempt.reference)}`,
+      );
     } catch (error: unknown) {
       setPracticeError(
-        error instanceof Error ? error.message : "Could not start another practice run.",
+        error instanceof Error
+          ? error.message
+          : "Could not start another practice Assignment Attempt.",
       );
     }
   }
@@ -431,15 +461,15 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     const candidate = state();
     return candidate?.phase === "terminal" ? candidate : undefined;
   };
-  const terminalPresentation = (): RunCompletionPresentation =>
-    runCompletionPresentation(
-      terminalState()?.runCompletionStatus ?? "inProgress",
-      runSummary()?.practiceAllowed,
+  const terminalPresentation = (): AssignmentAttemptCompletionPresentation =>
+    assignmentAttemptCompletionPresentation(
+      terminalState()?.assignmentAttemptCompletion ?? "inProgress",
+      true,
     );
   const currentEnvelope = (): QuestionEnvelope =>
     currentState()?.envelope ?? screen().issuedQuestion;
   // A cache-hit advance has a server-issued descriptor and envelope but not a
-  // complete RunScreenData record. Keep learner-response projection bound to
+  // complete AssignmentAttemptScreenData record. Keep student-response projection bound to
   // the attempt state, which is advanced atomically with that descriptor.
   const currentAttemptId = (): string => currentState()?.context.attemptId ?? screen().attempt.id;
 
@@ -452,12 +482,12 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     >
       <header class="run-header">
         <div>
-          <p class="eyebrow">Practice run {screen().run.runNumber}</p>
+          <p class="eyebrow">Assignment Attempt {screen().assignmentAttempt.attemptNumber}</p>
           <h1>{currentEnvelope().title}</h1>
         </div>
         <span class="calm-status" role="timer" aria-live="polite">
           {formatRemaining(
-            currentState()?.remainingMilliseconds ?? screen().attempt.timer.deadline,
+            currentState()?.remainingMilliseconds ?? screen().attempt.timing.deadline,
           )}
         </span>
       </header>
@@ -465,7 +495,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
         {(selection) => (
           <p class="run-pool-provenance" role="status">
             Server-selected pool item {selection().itemNumber} of {selection().itemCount} for this
-            run.
+            Assignment Attempt.
           </p>
         )}
       </Show>
@@ -482,7 +512,10 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                   <h3>Assignment score</h3>
                   <p>{studentProgressSummary(summary().summary)}</p>
                   <Show when={summary().summary.score_state === "available"}>
-                    <p>This run: {studentScoreValue(summary().run.score)}</p>
+                    <p>
+                      This Assignment Attempt:{" "}
+                      {studentScoreValue(summary().assignmentAttempt.score)}
+                    </p>
                   </Show>
                 </section>
                 <For each={summaryOutcomes()}>
@@ -535,11 +568,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
               </>
             )}
           </Show>
-          <Show
-            when={
-              terminalState()?.runCompletionStatus === "completed" && runSummary()?.practiceAllowed
-            }
-          >
+          <Show when={terminalState()?.assignmentAttemptCompletion === "completed"}>
             <button
               class="primary-action"
               type="button"
@@ -750,13 +779,13 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
 
 export function RunPage(): JSX.Element {
   const scopedRoute = useCourseThemeRouteData();
-  if (scopedRoute?.kind === "runAttempt") {
+  if (scopedRoute?.kind === "assignmentAttempt") {
     return <AttemptExperience initialScreen={scopedRoute.screen} />;
   }
   return (
     <section class="route-error" role="alert">
-      <h1>Practice run unavailable</h1>
-      <p>Return to the assignment and open the practice run again.</p>
+      <h1>Practice Assignment Attempt unavailable</h1>
+      <p>Return to the assignment and open the practice Assignment Attempt again.</p>
     </section>
   );
 }

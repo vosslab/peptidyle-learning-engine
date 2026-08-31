@@ -4,21 +4,21 @@ import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId
 import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
-import type { RunId } from "../../../generated/api/RunId";
-import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
+import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
+import type { IssuedQuestionId } from "../../../generated/api/IssuedQuestionId";
+import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import type { Seed } from "../../../generated/api/Seed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { VersionId } from "../../../generated/api/VersionId";
 import type { StudentSubmissionStatus, SubmissionReceipt } from "../../api/contracts";
 import type { FormatValidator } from "../../wasm/index";
 
 export type IdempotencyKey = string;
 
 export interface AttemptContext {
-  readonly runId: RunId;
+  readonly assignmentAttemptId: AssignmentAttemptId;
   readonly attemptId: QuestionAttemptId;
-  /** Immutable question identity issued with this attempt. */
-  readonly questionVersion: VersionId;
+  /** Immutable selection identity issued with this attempt. */
+  readonly issuedQuestionId: IssuedQuestionId;
   /** Exact generated variant issued with this attempt. */
   readonly seed: Seed;
   /** Unix milliseconds supplied by the server. A null deadline means untimed. */
@@ -55,14 +55,14 @@ export type Feedback =
   | { readonly kind: "released"; readonly feedback: DisclosedFeedback };
 
 /**
- * A transport acknowledgement deliberately separate from a grade result. The learner state owns
+ * A transport acknowledgement deliberately separate from a grade result. The student state owns
  * only the fact that a response was accepted; disclosed feedback is projected separately.
  */
 export interface SubmissionAcknowledgement {
   readonly accepted: true;
   readonly attemptId: QuestionAttemptId;
-  /** Authoritative run completion, never inferred from successor availability. */
-  readonly runCompletionStatus: SubmissionReceipt["runCompletionStatus"];
+  /** Authoritative Assignment Attempt Completion, never inferred from successor availability. */
+  readonly assignmentAttemptCompletion: SubmissionReceipt["assignmentAttemptCompletion"];
   /** Immutable server-selected successor, if the submission has one. */
   readonly nextIssued: SubmissionReceipt["nextIssued"];
   /** Receipt state that keeps feedback visible while successor issuance recovers. */
@@ -84,7 +84,7 @@ export interface PendingSubmissionAcknowledgement {
  *
  * A completed promise is not itself evidence that the server accepted an answer:
  * the controller must distinguish durable acceptance, recovery that still owns a
- * retained replay, and a request or receipt refusal the learner can correct.
+ * retained replay, and a request or receipt refusal the student can correct.
  * ASVS 2.3.1: a response advances only after its accepted receipt, while each
  * recovery path retains its explicit sequential action.
  */
@@ -138,7 +138,7 @@ export type AttemptState =
   | (StateBase & { readonly phase: "expired"; readonly reason: "missingOrInvalidResponse" })
   | (StateBase & {
       readonly phase: "terminal";
-      readonly runCompletionStatus: RunCompletionStatus;
+      readonly assignmentAttemptCompletion: AssignmentAttemptCompletion;
     });
 
 export interface AttemptStateMachine {
@@ -150,7 +150,7 @@ export interface AttemptStateMachine {
   readonly retry: () => Promise<SubmissionOutcome>;
   /** Call when connectivity returns to perform the documented automatic retry. */
   readonly retryWhenOnline: () => Promise<void>;
-  /** Reads the acknowledgement status only; it never repeats the learner's answer POST. */
+  /** Reads the acknowledgement status only; it never repeats the student's answer POST. */
   readonly checkGradingStatus: () => Promise<void>;
   /** Retries only loading a prefetched next envelope after a committed submission. */
   readonly retryAdvance: () => Promise<void>;
@@ -159,7 +159,7 @@ export interface AttemptStateMachine {
   readonly retryRenderer: () => void;
   readonly tick: () => void;
   readonly advance: (loadNext: () => Promise<NextAttempt>) => Promise<void>;
-  readonly finish: (runCompletionStatus: RunCompletionStatus) => void;
+  readonly finish: (assignmentAttemptCompletion: AssignmentAttemptCompletion) => void;
   readonly dispose: () => void;
 }
 
@@ -198,7 +198,7 @@ function emptyValidation(): ResponseValidation {
 }
 
 function bufferKey(context: AttemptContext): string {
-  return `ple:attempt:${context.runId}:${context.attemptId}`;
+  return `ple:attempt:${context.assignmentAttemptId}:${context.attemptId}`;
 }
 
 function remainingMilliseconds(context: AttemptContext, now: number): number | null {
@@ -368,7 +368,7 @@ function completedAcknowledgement(
   return {
     accepted: true,
     attemptId: status.attempt.id,
-    runCompletionStatus: status.runCompletionStatus,
+    assignmentAttemptCompletion: status.assignmentAttemptCompletion,
     nextIssued: status.nextIssued,
     nextPending: status.nextPending,
     scoringStatus: status.scoringStatus,
@@ -381,7 +381,7 @@ function messageFor(error: unknown): string {
 
 /**
  * Recovery copy follows the classified failure, so browser transport details never replace the
- * learner's durable next action while server and protocol failures retain their useful message.
+ * student's durable next action while server and protocol failures retain their useful message.
  */
 function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
   switch (reason) {
@@ -398,7 +398,7 @@ function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
 }
 
 function envelopeMatchesContext(envelope: QuestionEnvelope, context: AttemptContext): boolean {
-  return envelope.version === context.questionVersion && envelope.seed === context.seed;
+  return envelope.seed === context.seed;
 }
 
 /**
@@ -790,7 +790,7 @@ export function createAttemptStateMachine(
     if (remaining === 0 && context.deadline !== null) {
       if (deadlineAutomaticSubmissionStarted) return;
       // The deadline itself gets one automatic delivery attempt. Recovery can then retry the
-      // same buffered key only through an explicit learner or connectivity action.
+      // same buffered key only through an explicit student or connectivity action.
       deadlineAutomaticSubmissionStarted = true;
       void submitBuffered(true);
       return;
@@ -833,12 +833,12 @@ export function createAttemptStateMachine(
     }
   }
 
-  function finish(runCompletionStatus: RunCompletionStatus): void {
+  function finish(assignmentAttemptCompletion: AssignmentAttemptCompletion): void {
     clearBuffer();
     const state = {
       ...base({ response: null, feedback: { kind: "none" } }),
       phase: "terminal" as const,
-      runCompletionStatus,
+      assignmentAttemptCompletion,
     } satisfies AttemptState;
     publish(state);
   }

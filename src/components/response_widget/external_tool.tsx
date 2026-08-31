@@ -94,7 +94,7 @@ function externalToolFrameTitle(attemptId: string): string {
 }
 
 /**
- * Learner surface for a server-brokered external tool. The iframe receives a
+ * Student surface for a server-brokered external tool. The iframe receives a
  * protected same-origin broker path after explicit activation. Readiness is a
  * presentation signal only: it cannot supply a response, correctness, score,
  * provider identity, or any value used by grading.

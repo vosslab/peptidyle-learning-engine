@@ -1,22 +1,20 @@
-//! Continued-practice eligibility and shared run-model errors (MOD-RUN).
+//! Continued-practice eligibility and shared Assignment Activity errors.
 //!
 //! Every function is pure. A caller supplies question state, policy, and
 //! summary state; this module reads no clock and performs no storage. MOD-STATE
 //! and MOD-SCORE own completion and scoring, with compatibility re-exports here
-//! for the frozen WP-C3 contract.
+//! for Assignment Activity consumers.
 
-use question_model::{ContinuedPractice, StudentAssignmentSummary};
+use question_model::{AssignmentProgressRecord, ContinuedPractice};
 
-// Compatibility path for WP-C3 consumers. MOD-STATE owns the implementation.
-pub use crate::completion::{RequiredQuestionState, derive_within_run_completion};
-pub use question_model::RunCompletionStatus;
+pub use crate::completion::{RequiredQuestionState, derive_within_assignment_attempt_completion};
+pub use question_model::AssignmentAttemptCompletion;
 
-// Compatibility path for WP-C3 consumers. MOD-SCORE owns the implementation.
-pub use crate::scoring::{RunTransition, project_summary};
+pub use crate::scoring::{AssignmentActivityTransition, project_summary};
 
-/// A rejected run-model input.
+/// A rejected Assignment Activity model input.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum RunModelError {
+pub enum AssignmentActivityError {
     /// A completion threshold was non-finite or outside `0.0..=1.0`.
     InvalidCompletionThreshold {
         /// Rejected threshold.
@@ -33,13 +31,13 @@ pub enum RunModelError {
     SummaryCounterOverflow,
 }
 
-impl std::fmt::Display for RunModelError {
+impl std::fmt::Display for AssignmentActivityError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidCompletionThreshold { fraction } => {
                 write!(formatter, "invalid completion threshold: {fraction}")
             }
-            Self::InvalidScore { score } => write!(formatter, "invalid run score: {score}"),
+            Self::InvalidScore { score } => write!(formatter, "invalid Assignment Attempt score: {score}"),
             Self::InvalidQuestionPoints => {
                 write!(formatter, "question points cannot form a score fraction")
             }
@@ -48,17 +46,17 @@ impl std::fmt::Display for RunModelError {
     }
 }
 
-impl std::error::Error for RunModelError {}
+impl std::error::Error for AssignmentActivityError {}
 
-/// Whether policy permits starting another run from the current summary.
+/// Whether policy permits starting another Assignment Attempt from the current summary.
 ///
 /// Before the first completion, the continued-practice policy does not apply.
-/// A cap counts only runs after the first completed run.
-pub fn continued_practice_allows_run(
-    summary: &StudentAssignmentSummary,
+/// A cap counts only Assignment Attempts after the first completed Assignment Attempt.
+pub fn continued_practice_allows_assignment_attempt(
+    summary: &AssignmentProgressRecord,
     policy: ContinuedPractice,
 ) -> bool {
-    if summary.completed_run_count == 0 {
+    if summary.completed_assignment_attempt_count == 0 {
         return true;
     }
 
@@ -66,7 +64,7 @@ pub fn continued_practice_allows_run(
         ContinuedPractice::Unlimited => true,
         ContinuedPractice::Capped {
             max_additional_runs,
-        } => summary.completed_run_count.saturating_sub(1) < max_additional_runs,
+        } => summary.completed_assignment_attempt_count.saturating_sub(1) < max_additional_runs,
         ContinuedPractice::Closed => false,
     }
 }
@@ -83,19 +81,22 @@ pub(crate) fn validate_fraction(value: f64) -> Result<(), ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{EnrollmentId, StudentAssignmentSummary};
+    use question_model::{AssignmentProgressRecord, AssignmentId, StudentRecordId};
     use uuid::Uuid;
 
-    fn empty_summary() -> StudentAssignmentSummary {
-        StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)))
+    fn empty_summary() -> AssignmentProgressRecord {
+        AssignmentProgressRecord::empty(
+            StudentRecordId::from_uuid(Uuid::from_u128(2)),
+            AssignmentId::from_uuid(Uuid::from_u128(3)),
+        )
     }
 
     #[test]
-    fn a_practice_cap_counts_runs_after_first_completion() {
+    fn a_practice_cap_counts_assignment_attempts_after_first_completion() {
         let mut summary = empty_summary();
-        summary.completed_run_count = 3;
+        summary.completed_assignment_attempt_count = 3;
 
-        assert!(!continued_practice_allows_run(
+        assert!(!continued_practice_allows_assignment_attempt(
             &summary,
             ContinuedPractice::Capped {
                 max_additional_runs: 2,

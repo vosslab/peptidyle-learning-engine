@@ -1,4 +1,5 @@
 use serde_json::json;
+use std::sync::LazyLock;
 
 use super::*;
 
@@ -6,10 +7,17 @@ use super::*;
 mod current_matching;
 
 fn request() -> RenderRequest<'static> {
+    static QUESTION_VERSION: LazyLock<question_model::QuestionVersionReference> =
+        LazyLock::new(|| question_model::QuestionVersionReference {
+            question_id: question_model::QuestionId::from_canonical_parts("ABCDEF", 'G')
+                .expect("Question ID"),
+            version_number: question_model::QuestionVersionNumber::new(7)
+                .expect("positive version"),
+        });
     RenderRequest {
         pg_source: b"DOCUMENT();",
         pg_path: "Library/OPL/select-one.pg",
-        version: "00000000-0000-0000-0000-000000000007",
+        question_version: &QUESTION_VERSION,
         seed: 19,
     }
 }
@@ -720,7 +728,7 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
         .grade(GradeRequest {
             pg_source: request().pg_source,
             pg_path: request().pg_path,
-            version: request().version,
+            question_version: request().question_version,
             seed: request().seed,
             response: &student_response,
             replay: &radio_replay(),
@@ -798,7 +806,7 @@ async fn grade_refuses_fractional_upstream_score() {
             .grade(GradeRequest {
                 pg_source: request().pg_source,
                 pg_path: request().pg_path,
-                version: request().version,
+                question_version: request().question_version,
                 seed: request().seed,
                 response: &response,
                 replay: &radio_replay(),
@@ -851,7 +859,7 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
         .grade(GradeRequest {
             pg_source: request().pg_source,
             pg_path: request().pg_path,
-            version: request().version,
+            question_version: request().question_version,
             seed: request().seed,
             response: &response,
             replay: &radio_replay(),
@@ -925,7 +933,7 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
         .grade(GradeRequest {
             pg_source: request().pg_source,
             pg_path: request().pg_path,
-            version: request().version,
+            question_version: request().question_version,
             seed: request().seed,
             response: &response,
             replay: &parsed.replay,

@@ -1,8 +1,7 @@
 // problem_picker_model.ts - reusable, answer-free question selection contracts.
 
 import { normalizeQuestionIdSyntax } from "../../question_id";
-import type { AlphaCourseReference } from "../../../generated/api/AlphaCourseReference";
-import type { BlueprintReference } from "../../../generated/api/BlueprintReference";
+import type { AssignmentDefinitionSourceView } from "../../../generated/api/AssignmentDefinitionSourceView";
 import type { ReusableCurriculumClient } from "../../api/reusable_curriculum";
 import {
   EMPTY_CATALOG_QUERY,
@@ -18,7 +17,7 @@ import {
 export const MAX_PROBLEM_PICKER_SELECTION_CAP = 1024;
 
 /** A stable browser locator for a curation aggregate owned by a later server route. */
-export type ProblemCollectionReference = string;
+export type QuestionCollectionReference = string;
 
 /** A stable browser locator for one retained course definition. */
 export interface RetainedAssignmentReference {
@@ -33,11 +32,10 @@ export type ProblemPickerSource =
   | { readonly kind: "catalog"; readonly label: string }
   | { readonly kind: "sharedCatalog"; readonly label: string }
   | { readonly kind: "mine"; readonly label: string }
-  | { readonly kind: "favorites"; readonly label: string }
   | {
       readonly kind: "collection";
       readonly label: string;
-      readonly collection: ProblemCollectionReference;
+      readonly collection: QuestionCollectionReference;
     }
   | {
       readonly kind: "retainedAssignment";
@@ -45,15 +43,8 @@ export type ProblemPickerSource =
       readonly retainedAssignment: RetainedAssignmentReference;
     }
   | {
-      readonly kind: "personalBlueprint";
-      readonly blueprint: BlueprintReference;
-      readonly label: string;
-    }
-  | {
-      readonly kind: "alphaCurriculum";
-      readonly alpha: AlphaCourseReference;
-      readonly modulePosition: number;
-      readonly assignmentPosition: number;
+      readonly kind: "blueprintCourseAssignment";
+      readonly source: AssignmentDefinitionSourceView;
       readonly label: string;
     };
 
@@ -85,9 +76,10 @@ export interface ProblemPickerSourceRepository {
   readonly search: (request: ProblemPickerSearchRequest) => Promise<unknown>;
 }
 
-export type ProblemPickerCurationIntent =
-  | { readonly kind: "favorite"; readonly selection: ProblemPickerSelection }
-  | { readonly kind: "addToCollection"; readonly selection: ProblemPickerSelection };
+export type ProblemPickerCurationIntent = {
+  readonly kind: "addToCollection";
+  readonly selection: ProblemPickerSelection;
+};
 
 /** Parent composition owns persistence, permissions, and destination selection. */
 export interface ProblemPickerCurationActions {
@@ -298,36 +290,24 @@ function reusableCatalogRow(item: {
   };
 }
 
-function selectedDefinition(
-  source: Extract<ProblemPickerSource, { readonly kind: "alphaCurriculum" }>,
-  alpha: Awaited<ReturnType<ReusableCurriculumClient["getAlphaCourse"]>>["alpha"],
+function selectedBlueprintAssignment(
+  source: AssignmentDefinitionSourceView,
+  course: Awaited<ReturnType<ReusableCurriculumClient["getBlueprintCourse"]>>["blueprintCourse"],
 ): Awaited<
-  ReturnType<ReusableCurriculumClient["getAlphaCourse"]>
->["alpha"]["modules"][number]["definitions"][number] {
-  if (!Number.isSafeInteger(source.modulePosition) || source.modulePosition < 1) {
-    throw new Error("Choose an Alpha module position starting at 1.");
+  ReturnType<ReusableCurriculumClient["getBlueprintCourse"]>
+>["blueprintCourse"]["modules"][number]["definitions"][number] {
+  if (course.reference !== source.reference || course.revision !== source.revision) {
+    throw new Error("The selected Blueprint Course changed. Choose a current reusable assignment.");
   }
-  if (!Number.isSafeInteger(source.assignmentPosition) || source.assignmentPosition < 1) {
-    throw new Error("Choose an Alpha assignment position starting at 1.");
+  for (const module of course.modules) {
+    const definition = module.definitions.find(
+      (assignment) => assignment.assignment_id === source.assignment_id,
+    );
+    if (definition !== undefined) return definition;
   }
-  const module = alpha.modules[source.modulePosition - 1];
-  if (module === undefined) throw new Error("Choose an Alpha module that is currently available.");
-  const definition = module.definitions[source.assignmentPosition - 1];
-  if (definition === undefined) {
-    throw new Error("Choose an Alpha assignment that is currently available.");
-  }
-  return definition;
-}
-
-function validateAlphaPickerPositions(
-  source: Extract<ProblemPickerSource, { readonly kind: "alphaCurriculum" }>,
-): void {
-  if (!Number.isSafeInteger(source.modulePosition) || source.modulePosition < 1) {
-    throw new Error("Choose an Alpha module position starting at 1.");
-  }
-  if (!Number.isSafeInteger(source.assignmentPosition) || source.assignmentPosition < 1) {
-    throw new Error("Choose an Alpha assignment position starting at 1.");
-  }
+  throw new Error(
+    "The selected reusable assignment is no longer available in this Blueprint Course.",
+  );
 }
 
 function definitionRows(definition: {
@@ -369,13 +349,11 @@ export function reusableCurriculumProblemPickerRepository(
     async search(request: ProblemPickerSearchRequest): Promise<unknown> {
       const offset = pickerPageOffset(request.cursor);
       let rows: ReadonlyArray<CatalogBrowseRow>;
-      if (request.source.kind === "personalBlueprint") {
-        const observed = await client.getBlueprint(request.source.blueprint);
-        rows = definitionRows(observed.blueprint.definition);
-      } else if (request.source.kind === "alphaCurriculum") {
-        validateAlphaPickerPositions(request.source);
-        const observed = await client.getAlphaCourse(request.source.alpha);
-        rows = definitionRows(selectedDefinition(request.source, observed.alpha));
+      if (request.source.kind === "blueprintCourseAssignment") {
+        const observed = await client.getBlueprintCourse(request.source.source.reference);
+        rows = definitionRows(
+          selectedBlueprintAssignment(request.source.source, observed.blueprintCourse).definition,
+        );
       } else {
         throw new Error("Choose a reusable curriculum source for this picker composition.");
       }

@@ -15,7 +15,7 @@ complete inventory of every route-local signal.
 | Course-theme CSS variables           | JSX-derived token functions                   | `CourseThemeScope`       | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                                  |
 | Appearance settings                  | Independent signals plus pure model functions | `CourseAppearancePage`   | `current`, editable `draft`, selected `File`, preview URL, candidate receipt, phase, errors, and messages remain separate so a failure preserves local work.                                          |
 | Native flat-question draft           | Signals, memos, effects, and `<For>`          | `FlatQuestionEditorPage` | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                                      |
-| Learner-equivalent author preview    | Signal and answer-free projection             | `FlatQuestionPreview`    | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check.           |
+| Student-equivalent author preview    | Signal and answer-free projection             | `FlatQuestionPreview`    | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check.           |
 | QTI profile review and conversion    | Signals, memos, effects, and `<For>`          | `QtiProfileImportPage`   | The selected archive remains component memory. The UI displays only the server's answer-free report, preserves it across refresh failure, and locks the visible draft during replacement and refetch. |
 | External-tool launch                 | Signals, refs, effect, and lifecycle cleanup  | `ExternalToolResponse`   | The browser receives a same-origin broker path only after activation. Readiness is presentation state; it cannot provide a score, provider identity, or grading input.                                |
 | Route-local screens                  | Signals or router `createAsync` resources     | Owning route             | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                                       |
@@ -55,12 +55,12 @@ on disposal; a request counter rejects late launch results after a new attempt o
 ## Routing and async data
 
 `@solidjs/router` owns navigation. Links use `<A>`; imperative navigation is reserved for a state
-transition such as creating a workspace or entering a run. Route-backed reads use the router's
+transition such as creating a workspace or entering an Assignment Attempt. Route-backed reads use the router's
 `createAsync` queries where a shared route cache is useful, while the native workspace editor uses a
 keyed `createResource` for its private draft read.
 
 `CourseThemeScope` classifies only course-owned routes. It loads `courseScope(courseId)` for course
-and instructor-course routes, `runScreen(runId)` for an attempt, and `runSummary(runId)` for a
+and instructor-course routes, `assignmentAttemptScreen(assignmentAttemptId)` for an attempt, and `assignmentAttemptSummary(assignmentAttemptId)` for a
 summary. The context exposes the authorized course projection to the course entry identity, theme,
 and appearance settings; the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
@@ -72,9 +72,9 @@ does not discard the local file, theme, alternative text, or recovery message.
 
 The workspace route is an implemented authoring slice, not a hypothetical preview. It authorizes
 the instructor role, loads exactly the route-selected private draft, and mounts the native
-flat-question editor. The learner-equivalent preview uses the answer-free projection; the separate
+flat-question editor. The student-equivalent preview uses the answer-free projection; the separate
 instructor check is deliberately named and contained in the author surface. Private author source
-does not enter learner components, URLs, browser storage, or diagnostics.
+does not enter student components, URLs, browser storage, or diagnostics.
 
 QTI profile import is composed on the same workspace route above the native editor. A selected ZIP
 is uploaded for server-side review, then the browser receives queued, processing, failed,

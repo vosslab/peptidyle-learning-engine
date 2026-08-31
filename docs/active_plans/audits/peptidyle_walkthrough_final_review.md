@@ -14,7 +14,7 @@ gates now own final acceptance.
 The corrected M8-M11 charter is now accepted for the bounded local no-email
 pilot after two independent seed-42 retained-stack `--build` runs passed its
 schema-v2 sequence. That later acceptance does not alter the historical verdict
-below or accept email/canonical onboarding, J6/J7, all-family, multi-learner,
+below or accept email/canonical onboarding, J6/J7, all-family, multi-student,
 or release work.
 
 ## Verdict
@@ -70,7 +70,7 @@ blocks are still explicit. This independent re-review does not promote them.
 ## Documented blockers
 
 - Historical finding only: this review originally treated B1/J9/J10,
-  J6/J7, all-family, and multi-learner work as blockers. That classification
+  J6/J7, all-family, and multi-student work as blockers. That classification
   does not apply to the corrected walkthrough charter. Those packages retain
   their own historical evidence and release status independently.
 

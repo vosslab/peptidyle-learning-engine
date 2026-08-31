@@ -65,7 +65,7 @@ assets.
 | Surface | Role | Evidence purpose | Corpus area |
 | --- | --- | --- | --- |
 | Student assignment list | Student | Allowed course work | `docs/screenshots/student/` |
-| Student assignment or run | Student | Allowed learner task | `docs/screenshots/student/` |
+| Student assignment or run | Student | Allowed Student task | `docs/screenshots/student/` |
 | Student access denial | Student/access | Fail-closed instructor-route denial | `docs/screenshots/student/access/` |
 | Roster denial probe | Student/access | No instructor transport | `docs/screenshots/student/access/` |
 | Gradebook denial probe | Student/access | No instructor transport | `docs/screenshots/student/access/` |
@@ -92,7 +92,7 @@ alone do not establish current acceptance.
 ## Validation handoff
 
 The retained T1 evidence adds resolved instructions and delivery details to the already accepted S4
-student/access matrix. Behavior-named browser tests cover the allowed learner projection,
+student/access matrix. Behavior-named browser tests cover the allowed Student projection,
 fail-closed direct-route denial, and no instructor transport; the visual capture and native
 inspection gate follows those tests. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
 repository-wide Validation test suite and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) for the durable

@@ -9,8 +9,8 @@ import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDet
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { RunId } from "../../generated/api/RunId";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
+import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
 import type { CalculatedGradebookResult } from "./decoders/calculated_gradebook";
 import type {
@@ -19,8 +19,8 @@ import type {
   CourseRouteData,
   CourseSummary,
   CursorPage,
-  RunScreenData,
-  RunSummaryResponse,
+  AssignmentAttemptScreenData,
+  AssignmentAttemptSummaryResponse,
 } from "./contracts";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
@@ -38,10 +38,16 @@ export interface ApiRuntime<Client extends ApiClient = ApiClient> {
     readonly gradebook: QueryFunction<[CourseId], CalculatedGradebookResult>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
-    readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
+    readonly assignmentSummary: QueryFunction<[AssignmentId], AssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
-    readonly runScreen: QueryFunction<[RunId], RunScreenData>;
-    readonly runSummary: QueryFunction<[RunId], RunSummaryResponse>;
+    readonly assignmentAttemptScreen: QueryFunction<
+      [AssignmentAttemptId],
+      AssignmentAttemptScreenData
+    >;
+    readonly assignmentAttemptSummary: QueryFunction<
+      [AssignmentAttemptId],
+      AssignmentAttemptSummaryResponse
+    >;
   };
 }
 
@@ -85,10 +91,15 @@ export function createApiRuntime<Client extends ApiClient>(client: Client): ApiR
         }
         return { summary, appearance };
       }, "course-scope"),
-      runScreen: query((runId: RunId) => client.getRunScreen(runId), "run-screen"),
-      runSummary: query(
-        (runId: RunId) => client.getRunSummary(runId, undefined, 30),
-        "run-summary",
+      assignmentAttemptScreen: query(
+        (assignmentAttemptId: AssignmentAttemptId) =>
+          client.getAssignmentAttemptScreen(assignmentAttemptId),
+        "assignment-attempt-screen",
+      ),
+      assignmentAttemptSummary: query(
+        (assignmentAttemptId: AssignmentAttemptId) =>
+          client.getAssignmentAttemptSummary(assignmentAttemptId, undefined, 30),
+        "assignment-attempt-summary",
       ),
     },
   };

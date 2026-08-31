@@ -22,20 +22,26 @@ export function decodeNavigationResolution(
         courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
         assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
       };
-    case "run":
+    case "assignmentAttempt":
       requireOnlyFields(record, path, [
         "kind",
         "courseId",
         "assignmentId",
-        "enrollmentId",
-        "runId",
+        "studentRecordId",
+        "assignmentAttemptId",
       ]);
       return {
-        kind: "run",
+        kind: "assignmentAttempt",
         courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
         assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
-        enrollmentId: decodeIdentifier(field(record, "enrollmentId", path), `${path}.enrollmentId`),
-        runId: decodeIdentifier(field(record, "runId", path), `${path}.runId`),
+        studentRecordId: decodeIdentifier(
+          field(record, "studentRecordId", path),
+          `${path}.studentRecordId`,
+        ),
+        assignmentAttemptId: decodeIdentifier(
+          field(record, "assignmentAttemptId", path),
+          `${path}.assignmentAttemptId`,
+        ),
       };
     case "workspace":
       requireOnlyFields(record, path, ["kind", "workspaceId"]);
@@ -44,6 +50,9 @@ export function decodeNavigationResolution(
         workspaceId: decodeIdentifier(field(record, "workspaceId", path), `${path}.workspaceId`),
       };
     default:
-      throw new DecodeError(`${path}.kind`, "course, assignment, run, or workspace");
+      throw new DecodeError(
+        `${path}.kind`,
+        "course, assignment, assignmentAttempt, or workspace",
+      );
   }
 }

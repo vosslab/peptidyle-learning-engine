@@ -34,16 +34,6 @@ postgres = ["dep:sqlx"]
 # and server-boundary tests. Production compositions never enable this feature.
 test-support = ["question_model/generate"]
 
-[[test]]
-name = "conformance"
-path = "tests/conformance.rs"
-required-features = ["test-support"]
-
-[[test]]
-name = "course_creation_memory"
-path = "tests/course_creation_memory.rs"
-required-features = ["test-support"]
-
 [dev-dependencies]
 tokio.workspace = true
 uuid.workspace = true

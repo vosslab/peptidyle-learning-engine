@@ -25,7 +25,7 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
     () =>
       decodeDraftQuestionDefinition({
         ...draft,
-        source: { backend: "imathas", provider: "institution", itemRef: "42", token: "secret" },
+        source: { backend: "imathas", provider: "self-hosted", itemRef: "42", token: "secret" },
       }),
     DecodeError,
   );
@@ -115,20 +115,25 @@ test("prefetch is a body-free same-origin no-store request", async () => {
   assert.equal(await request.text(), "");
 });
 
-test("run start uses the explicit nested course and assignment route without a body", async () => {
+test("Assignment Attempt start uses the explicit nested course and assignment route without a body", async () => {
   const course = publishedProblemFixture.course;
   const assignment = publishedProblemFixture.assignment;
-  const run = publishedProblemFixture.runs[0];
-  assert.ok(run);
-  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(run));
+  const assignmentAttempt = publishedProblemFixture.runs[0];
+  assert.ok(assignmentAttempt);
+  const { recordingFetch, requests } = createRecordingFetch(async () =>
+    jsonResponse(assignmentAttempt),
+  );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  assert.deepEqual(await client.startRun(course.id, assignment.id), run);
+  assert.deepEqual(
+    await client.startAssignmentAttempt(course.id, assignment.id),
+    assignmentAttempt,
+  );
   const request = requests[0];
   assert.ok(request);
   assert.equal(
     request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/runs`,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/assignment-attempts`,
   );
   assert.equal(request.method, "POST");
   assert.equal(request.headers.get("content-type"), null);
@@ -141,7 +146,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
   const predecessor = publishedProblemFixture.attempts[0];
   assert.ok(predecessor);
   const envelope = {
-    version: predecessor.questionVersion,
+    version: publishedProblemFixture.publishedProblem.version,
     seed: predecessor.seed,
     presentationNonce: "a".repeat(32),
     title: publishedProblemFixture.publishedProblem.metadata.title,
@@ -152,9 +157,13 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
     fetch: async () =>
       jsonResponse({
         predecessor: predecessor.id,
-        run: predecessor.run,
-        assignmentPosition: predecessor.assignmentPosition + 1,
-        questionVersion: "0198e000-0000-7000-8000-000000000099",
+        issuedQuestion: {
+          ...publishedProblemFixture.issuedQuestions[1],
+          reference: {
+            ...publishedProblemFixture.issuedQuestions[1].reference,
+            version: "0198e000-0000-7000-8000-000000000099",
+          },
+        },
         seed: envelope.seed,
         renderedQuestionSha256: "a".repeat(64),
         poolSelection: null,
@@ -177,9 +186,7 @@ test("prefetch preserves safe pool provenance for the cache-hit successor", asyn
     fetch: async () =>
       jsonResponse({
         predecessor: predecessor.id,
-        run: predecessor.run,
-        assignmentPosition: predecessor.assignmentPosition + 1,
-        questionVersion: envelope.version,
+        issuedQuestion: publishedProblemFixture.issuedQuestions[1],
         seed: envelope.seed,
         renderedQuestionSha256: "b".repeat(64),
         poolSelection: { itemNumber: 1, itemCount: 2 },
@@ -251,7 +258,7 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
     attempt: { ...receiptAttempt, response, result: null },
     feedback: null,
     scoringStatus: "current",
-    runCompletionStatus: "inProgress",
+    assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
   };
@@ -310,7 +317,7 @@ test("external-tool submission sends only the marker with its caller idempotency
     attempt: { ...receiptAttempt, response: { kind: "externalTool" }, result: null },
     feedback: null,
     scoringStatus: "current",
-    runCompletionStatus: "inProgress",
+    assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
   };

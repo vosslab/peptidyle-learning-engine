@@ -48,7 +48,6 @@ container, or source-import path.
 | [crates/wasm/](../crates/wasm/) | The answer-free Rust-to-browser WebAssembly facade. |
 | [crates/export/](../crates/export/) | PDF/DOCX export models and writers. |
 | [crates/project-tools/](../crates/project-tools/) | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling. |
-| crates/base-course-installation/ | Base Course request, receipt, recipe, and deterministic installation orchestration. |
 | crates/acceptance-runtime/ | Disposable acceptance manifests and capability-specific database URL handoff. |
 
 Package directories use hyphens; Rust module imports use underscores.
@@ -74,7 +73,7 @@ crates/learning-data-access/src/
 
 BlueprintCourse is one ordered module/assignment tree with one aggregate
 revision. Its exact public question members resolve to immutable
-ProblemVersionRef pins. CourseInstance is not another source tree: the
+QuestionVersionReference pins. CourseInstance is not another source tree: the
 adoption boundary materializes it under an exact CourseId, records the
 immutable Blueprint parent and applied revision, and owns private delivery
 state. New upstream assignments appear in daughter instances as unreleased.
@@ -135,7 +134,7 @@ crates/server/src/
 
 Authentication and approved-Instructor or course-membership preflight precede
 reference, revision, query, and body decoding. CourseInstance routes require
-the exact destination course and current equal co-Instructor authority.
+the exact destination course and current equal Teaching Team Member authority.
 
 ## Browser application
 

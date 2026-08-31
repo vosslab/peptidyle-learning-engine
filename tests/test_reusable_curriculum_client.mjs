@@ -1,93 +1,112 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
-import {
-  decodeBlueprintView,
-  decodeAlphaCourseView,
-} from "../src/api/decoders/reusable_curriculum.ts";
+import { decodeBlueprintCourseView } from "../src/api/decoders/reusable_curriculum.ts";
 import {
   ApiProtocolError,
   ReusableCurriculumConflictError,
   createHttpApiClient,
 } from "../src/api/http_client.ts";
+import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+
+const { scope: _retiredPublicationScope, ...catalogProblem } =
+  publishedProblemFixture.catalogProblem;
 
 function definitionInput() {
   return {
-    definition: {
-      title: "Peptide fundamentals",
-      instructions: "Use your course notes to explain each choice.",
-      entries: [
-        {
-          kind: "fixed",
-          questionId: publishedProblemFixture.catalogProblem.questionId,
-          pointsPossible: "2",
-          scoringMode: "normal",
-        },
-      ],
-      defaults: {
-        timeLimitSeconds: null,
-        attemptLimit: 2,
-        lateSubmission: "accept",
-        deadlineBehavior: "autoSubmit",
-        runPolicies: {
-          completion: { kind: "answerAll" },
-          grade: "highest",
-          continuedPractice: { kind: "unlimited" },
-          variation: "newSeeds",
-        },
-        student_disclosure: {
-          score: "after_submit",
-          per_item_correctness: "after_submit",
-          feedback_text: "after_submit",
-          solution: "never",
-          class_statistics: "never",
-        },
-      },
-      schedule: { availableAt: null, dueAt: null, closesAt: null },
-    },
-  };
-}
-
-function definitionView() {
-  const input = definitionInput().definition;
-  return {
-    ...input,
+    title: "Peptide fundamentals",
+    instructions: "Use your course notes to explain each choice.",
     entries: [
       {
         kind: "fixed",
-        question: {
-          catalog: {
-            summary: publishedProblemFixture.catalogProblem,
-            evidence: { state: "insufficientEvidence" },
-          },
-          selectionAvailability: "available",
-        },
+        question_id: catalogProblem.questionId,
         points_possible: "2",
         scoring_mode: "normal",
       },
     ],
+    defaults: {
+      time_limit_seconds: null,
+      attempt_limit: 2,
+      late_submission: "accept",
+      deadline_behavior: "autoSubmit",
+      activity_rules: {
+        completion: { kind: "answerAll" },
+        grade: "highest",
+        continuedPractice: { kind: "unlimited" },
+        variation: "newSeeds",
+      },
+      student_disclosure: {
+        score: "after_submit",
+        per_item_correctness: "after_submit",
+        feedback_text: "after_submit",
+        solution: "never",
+        class_statistics: "never",
+      },
+    },
+    schedule: { available_at: null, due_at: null, closes_at: null },
   };
 }
 
 function blueprint(revision = "7") {
   return {
     reference: "BP-7",
+    title: "Biochemistry sequence",
     revision,
     access: "owner",
-    definition: definitionView(),
+    modules: [
+      {
+        module_id: "module-7",
+        label: "Week one",
+        definitions: [
+          {
+            assignment_id: "assignment-7",
+            definition: {
+              ...definitionInput(),
+              entries: [
+                {
+                  kind: "fixed",
+                  question: {
+                    catalog: {
+                      summary: catalogProblem,
+                      evidence: { state: "insufficientEvidence" },
+                    },
+                    selection_availability: "available",
+                  },
+                  points_possible: "2",
+                  scoring_mode: "normal",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
   };
 }
 
-function alpha(revision = "3") {
+function creationInput() {
   return {
-    reference: "AC-3",
     title: "Biochemistry sequence",
-    revision,
-    creatorByline: { names: ["Fixture Instructor"] },
-    access: "creator",
-    modules: [{ label: "Week one", definitions: [definitionView()] }],
+    modules: [{ label: "Week one", definitions: [definitionInput()] }],
+  };
+}
+
+function replacementInput() {
+  return {
+    title: "Biochemistry sequence",
+    modules: [
+      {
+        handle: { kind: "retained", module_id: "module-7" },
+        label: "Week one",
+        definitions: [
+          {
+            handle: { kind: "retained", assignment_id: "assignment-7" },
+            definition: definitionInput(),
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -102,18 +121,14 @@ function noStoreJson(value, etag, status = 200) {
   });
 }
 
-test("B1 curriculum decoders keep views answer-free and reject hostile fields", () => {
-  assert.equal(decodeBlueprintView(blueprint()).reference, "BP-7");
-  assert.equal(decodeAlphaCourseView(alpha()).reference, "AC-3");
+test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fields", () => {
+  assert.equal(decodeBlueprintCourseView(blueprint()).reference, "BP-7");
   const hostile = structuredClone(blueprint());
-  hostile.definition.entries[0].question.answerKey = "secret";
-  assert.throws(() => decodeBlueprintView(hostile), DecodeError);
-  const badByline = structuredClone(alpha());
-  badByline.creatorByline.account = "private account";
-  assert.throws(() => decodeAlphaCourseView(badByline), DecodeError);
+  hostile.modules[0].definitions[0].definition.entries[0].question.answerKey = "secret";
+  assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);
 });
 
-test("B1 client uses closed local commands, matching ETags, and same-origin no-store transport", async () => {
+test("B1 client uses canonical Blueprint Course commands and matching ETags", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -121,43 +136,17 @@ test("B1 client uses closed local commands, matching ETags, and same-origin no-s
       requests.push(request.clone());
       const path = new URL(request.url).pathname;
       if (request.method === "GET" && path.endsWith("BP-7")) return noStoreJson(blueprint(), '"7"');
-      if (request.method === "POST" && path.endsWith("course-blueprints"))
-        return noStoreJson(blueprint(), '"7"', 201);
-      if (request.method === "PUT" && path.endsWith("BP-7"))
-        return noStoreJson(blueprint("8"), '"8"');
-      if (request.method === "GET" && path.endsWith("AC-3")) return noStoreJson(alpha(), '"3"');
-      if (request.method === "POST" && path.endsWith("alpha-courses"))
-        return noStoreJson(alpha(), '"3"', 201);
-      if (request.method === "PUT" && path.endsWith("AC-3")) return noStoreJson(alpha("4"), '"4"');
+      if (request.method === "POST") return noStoreJson(blueprint(), '"7"', 201);
+      if (request.method === "PUT") return noStoreJson(blueprint("8"), '"8"');
       if (request.method === "DELETE")
         return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
       return noStoreJson({ items: [], nextCursor: null });
     },
   });
-
-  const currentBlueprint = await client.getBlueprint("BP-7");
-  assert.equal(currentBlueprint.etag, '"7"');
-  await client.createBlueprint(definitionInput());
-  const revisedBlueprint = await client.replaceBlueprint(
-    "BP-7",
-    definitionInput(),
-    currentBlueprint.etag,
-  );
-  assert.equal(revisedBlueprint.etag, '"8"');
-  const currentAlpha = await client.getAlphaCourse("AC-3");
-  await client.createAlphaCourse({
-    title: "Biochemistry sequence",
-    modules: [{ label: "Week one", definitions: [definitionInput().definition] }],
-  });
-  await client.replaceAlphaCourse(
-    "AC-3",
-    {
-      title: "Biochemistry sequence",
-      modules: [{ label: "Week one", definitions: [definitionInput().definition] }],
-    },
-    currentAlpha.etag,
-  );
-  await client.deleteBlueprint("BP-7", revisedBlueprint.etag);
+  const current = await client.getBlueprintCourse("BP-7");
+  await client.createBlueprintCourse(creationInput());
+  const revised = await client.replaceBlueprintCourse("BP-7", replacementInput(), current.etag);
+  await client.deleteBlueprintCourse("BP-7", revised.etag);
   const update = requests.find(
     (request) => request.method === "PUT" && request.url.endsWith("BP-7"),
   );
@@ -165,16 +154,16 @@ test("B1 client uses closed local commands, matching ETags, and same-origin no-s
   assert.equal(update.cache, "no-store");
   assert.equal(update.credentials, "same-origin");
   await assert.rejects(
-    client.replaceBlueprint("BP-7", definitionInput(), '"07"'),
+    client.replaceBlueprintCourse("BP-7", replacementInput(), '"07"'),
     ApiProtocolError,
   );
   await assert.rejects(
-    client.createBlueprint({ ...definitionInput(), creatorByline: { names: ["forged"] } }),
+    client.createBlueprintCourse({ ...creationInput(), creator_byline: { names: ["forged"] } }),
     DecodeError,
   );
 });
 
-test("B1 client gives a typed conflict for a 412 and validates local positions and references", async () => {
+test("B1 client gives a typed conflict for a current Blueprint Course replacement", async () => {
   const conflict = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
@@ -182,15 +171,8 @@ test("B1 client gives a typed conflict for a 412 and validates local positions a
       ),
   });
   await assert.rejects(
-    conflict.replaceAlphaCourse(
-      "AC-3",
-      {
-        title: "Biochemistry sequence",
-        modules: [{ label: "Week one", definitions: [definitionInput().definition] }],
-      },
-      '"3"',
-    ),
+    conflict.replaceBlueprintCourse("BP-7", replacementInput(), '"7"'),
     ReusableCurriculumConflictError,
   );
-  await assert.rejects(conflict.getBlueprint("BP-00"), DecodeError);
+  await assert.rejects(conflict.getBlueprintCourse("BP-00"), DecodeError);
 });

@@ -24,7 +24,7 @@ pub struct DraftPreviewRequest {
     pub workspace: WorkspaceId,
     /// Draft adapter locator.
     pub source: DraftQuestionSource,
-    /// Learner-facing draft title.
+    /// Student-facing draft title.
     pub title: String,
     /// Authored prompt blocks.
     pub prompt: Vec<ContentBlock>,
@@ -42,7 +42,7 @@ pub struct DraftQuestionPreview {
     pub workspace: WorkspaceId,
     /// Selected deterministic variant.
     pub seed: Seed,
-    /// Learner-facing title.
+    /// Student-facing title.
     pub title: String,
     /// Fully materialized prompt.
     pub prompt: Vec<ContentBlock>,

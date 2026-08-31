@@ -2,7 +2,7 @@
 //
 // Selector contract:
 // - src/features/problem_curation/problem_curation_panel.tsx owns the reuse workspace,
-//   its recovery text, and the owner/institution-reader collection presentations.
+//   its recovery text, and the owner/private-owner collection presentations.
 // - src/features/problem_picker/problem_picker.tsx owns the accessible shared picker dialog.
 // - src/pages/assignment_workspace/ owns focused assignment Questions and Policies reuse.
 // - src/pages/account_security_page.tsx owns ordinary passkey enrollment and reauthentication.
@@ -28,11 +28,9 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 600_000;
-const sysadminCourseTitle = "Genetics Practice Course";
 const nativeQuestionTitle = "Peptide bond resonance and planarity";
-const favoritesQuestionTitle = "Biochemistry Chapter 1: Charged functional groups";
 const privateCollectionQuestionTitle = "Biochemistry Chapter 1: Functional group matching";
-const institutionCollectionQuestionTitle = "Genetics Chapter 1: Phenylalanine metabolism";
+const concurrentCollectionQuestionTitle = "Genetics Chapter 1: Phenylalanine metabolism";
 
 const workspaceArtifacts = [
   { artifactId: "problem_curation_workspace_laptop", viewport: "laptop" },
@@ -42,9 +40,6 @@ const recoveryArtifacts = [
 ] as const;
 const pickerArtifacts = [
   { artifactId: "problem_curation_assignment_picker_laptop", viewport: "laptop" },
-] as const;
-const institutionArtifacts = [
-  { artifactId: "problem_curation_institution_projection_laptop", viewport: "laptop" },
 ] as const;
 
 interface CurationWireValue {
@@ -111,7 +106,7 @@ async function captureLaptop(
 
 function curationPath(url: string): string | null {
   const path = new URL(url).pathname;
-  return path.startsWith("/api/problem-collections") ||
+  return path.startsWith("/api/question-collections") ||
     path.startsWith("/api/saved-problem-searches")
     ? path
     : null;
@@ -143,15 +138,10 @@ async function enterSeededCourse(page: Page, name: RegExp, course: string): Prom
   await selectVisibleCourse(page, course);
 }
 
-async function openLibrary(page: Page, personalCuration = true): Promise<Locator> {
+async function openLibrary(page: Page): Promise<Locator> {
   await page.getByRole("link", { name: "Library", exact: true }).click();
   const panel = curationPanel(page);
   await expect(panel).toBeVisible();
-  if (personalCuration) {
-    const favorites = collectionItem(panel, "Favorites");
-    await expect(favorites).toBeVisible();
-    await expect(favorites.getByRole("button", { name: "Open", exact: true })).toBeVisible();
-  }
   return panel;
 }
 
@@ -200,14 +190,12 @@ async function stageCurrentLibraryQuestion(
 async function createNamedCollection(
   panel: Locator,
   title: string,
-  visibility: "private" | "institution",
 ): Promise<void> {
   await panel.getByRole("button", { name: "Create collection", exact: true }).click();
   const editor = panel
     .getByRole("heading", { name: "Create collection", exact: true })
     .locator("..");
   await editor.getByLabel("Collection name").fill(title);
-  await editor.getByLabel("Visibility").selectOption(visibility);
   await editor.getByRole("button", { name: "Save collection", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText(
     `${title} now contains 0 ordered questions.`,
@@ -240,21 +228,21 @@ async function createCourseAndInvitation(page: Page, title: string): Promise<str
   await course.getByRole("link", { name: "Open course", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
-  await page.getByLabel("Institutional email").fill("mary.okafor@live-demo.ple.example");
-  await page.getByLabel("Institutional student ID").fill("BIO-MARY-004");
+  await page.getByLabel("Course roster email").fill("mary.okafor@live-demo.ple.example");
+  await page.getByLabel("Course roster ID").fill("BIO-MARY-004");
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
   return await invitation.inputValue();
 }
 
-test.describe("problem curation on the production PLE stack", () => {
+test.describe("question curation on the production PLE stack", () => {
   test.skip(
     configuredLiveDemoInputs === undefined,
     "the disposable production browser-suite owner supplies this scenario input",
   );
 
-  test("Instructor curates public questions into reusable work while Sysadmin browses the institution collection", async ({
+  test("Instructor curates public questions into reusable work while Sysadmin browses the private collection", async ({
     browser,
   }) => {
     test.setTimeout(scenarioTimeoutMs);
@@ -267,7 +255,6 @@ test.describe("problem curation on the production PLE stack", () => {
       elena: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
       concurrent_elena: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
       mary: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
-      morgan: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
     };
     const curationWire: CurationWireValue[] = [];
     const pendingCurationResponses: Promise<void>[] = [];
@@ -277,13 +264,11 @@ test.describe("problem curation on the production PLE stack", () => {
       const elenaContext = await browser.newContext(options);
       const concurrentElenaContext = await browser.newContext(options);
       const maryContext = await browser.newContext(options);
-      const morganContext = await browser.newContext(options);
-      contexts.push(elenaContext, concurrentElenaContext, maryContext, morganContext);
+      contexts.push(elenaContext, concurrentElenaContext, maryContext);
       for (const [name, context] of Object.entries({
         elena: elenaContext,
         concurrent_elena: concurrentElenaContext,
         mary: maryContext,
-        morgan: morganContext,
       })) {
         observeContextOrigins(context, origins[name]!.pageOrigins, origins[name]!.requestOrigins);
         observeCurationWire(context, curationWire, pendingCurationResponses);
@@ -291,19 +276,17 @@ test.describe("problem curation on the production PLE stack", () => {
       const elena = await elenaContext.newPage();
       const concurrentElena = await concurrentElenaContext.newPage();
       const mary = await maryContext.newPage();
-      const morgan = await morganContext.newPage();
       for (const [context, page] of [
         [elenaContext, elena],
         [concurrentElenaContext, concurrentElena],
         [maryContext, mary],
-        [morganContext, morgan],
       ] as const) {
         configureContextAndPage(context, page, actionTimeoutMs);
       }
 
-      const privateTitle = "Peptide Bond Favorites";
-      const institutionTitle = "Biochemistry Core Question Set";
-      const remoteInstitutionTitle = `${institutionTitle} Updated`;
+      const privateTitle = "Peptide Bond Study Set";
+      const concurrentTitle = "Biochemistry Core Question Set";
+      const remoteConcurrentTitle = `${concurrentTitle} Updated`;
       const savedSearchTitle = "Peptide Bond Questions";
       const courseTitle = "Biochemistry: Question Reuse Workshop";
       const assignmentTitle = "Peptide Bond Reuse Practice";
@@ -314,21 +297,14 @@ test.describe("problem curation on the production PLE stack", () => {
           elena.getByRole("link", { name: "Teaching operations", exact: true }),
         ).toBeVisible();
         const panel = await openLibrary(elena);
-        await stageCurrentLibraryQuestion(elena, panel, favoritesQuestionTitle);
-        await panel.getByRole("button", { name: "Add to Favorites", exact: true }).click();
-        await panel.getByRole("button", { name: "Save collection", exact: true }).click();
-        await expect(panel.getByRole("status")).toContainText(
-          "Favorites now contains 1 ordered questions.",
-        );
-
-        await createNamedCollection(panel, privateTitle, "private");
+        await createNamedCollection(panel, privateTitle);
         await stageCurrentLibraryQuestion(elena, panel, privateCollectionQuestionTitle);
         await appendStagedQuestion(panel, privateTitle);
-        await createNamedCollection(panel, institutionTitle, "institution");
-        await stageCurrentLibraryQuestion(elena, panel, institutionCollectionQuestionTitle);
-        await appendStagedQuestion(panel, institutionTitle);
-        await expect(collectionItem(panel, institutionTitle)).toContainText(
-          "Institution collection",
+        await createNamedCollection(panel, concurrentTitle);
+        await stageCurrentLibraryQuestion(elena, panel, concurrentCollectionQuestionTitle);
+        await appendStagedQuestion(panel, concurrentTitle);
+        await expect(collectionItem(panel, concurrentTitle)).toContainText(
+          "Private collection",
         );
         await captureLaptop(elena, scenarioInput, panel, workspaceArtifacts);
 
@@ -371,28 +347,28 @@ test.describe("problem curation on the production PLE stack", () => {
 
       await test.step("Two ordinary Elena contexts make the revision recovery visible without losing her selected list", async () => {
         const panel = curationPanel(elena);
-        await collectionItem(panel, institutionTitle)
+        await collectionItem(panel, concurrentTitle)
           .getByRole("button", { name: "Open", exact: true })
           .click();
         const localEditor = panel
           .getByRole("heading", { name: "Update collection", exact: true })
           .locator("..");
-        await localEditor.getByLabel("Collection name").fill(`${institutionTitle} local revision`);
+        await localEditor.getByLabel("Collection name").fill(`${concurrentTitle} local revision`);
         await expect(localEditor).toContainText("1 questions in this ordered collection.");
 
         await chooseSeededIdentity(concurrentElena, /Elena Rivera/u);
         await selectVisibleCourse(concurrentElena, BIOCHEMISTRY_COURSE_TITLE);
         const concurrentPanel = await openLibrary(concurrentElena);
-        await collectionItem(concurrentPanel, institutionTitle)
+        await collectionItem(concurrentPanel, concurrentTitle)
           .getByRole("button", { name: "Open", exact: true })
           .click();
         const remoteEditor = concurrentPanel
           .getByRole("heading", { name: "Update collection", exact: true })
           .locator("..");
-        await remoteEditor.getByLabel("Collection name").fill(remoteInstitutionTitle);
+        await remoteEditor.getByLabel("Collection name").fill(remoteConcurrentTitle);
         await remoteEditor.getByRole("button", { name: "Save collection", exact: true }).click();
         await expect(concurrentPanel.getByRole("status")).toContainText(
-          `${remoteInstitutionTitle} now contains 1 ordered questions.`,
+          `${remoteConcurrentTitle} now contains 1 ordered questions.`,
         );
 
         await localEditor.getByRole("button", { name: "Save collection", exact: true }).click();
@@ -400,16 +376,16 @@ test.describe("problem curation on the production PLE stack", () => {
           "Someone saved a newer version first.",
         );
         await expect(localEditor.getByLabel("Collection name")).toHaveValue(
-          `${institutionTitle} local revision`,
+          `${concurrentTitle} local revision`,
         );
         await expect(localEditor).toContainText("1 questions in this ordered collection.");
         await captureLaptop(elena, scenarioInput, panel, recoveryArtifacts);
         await panel.getByRole("button", { name: "Reload curation", exact: true }).click();
-        await expect(collectionItem(panel, remoteInstitutionTitle)).toBeVisible();
+        await expect(collectionItem(panel, remoteConcurrentTitle)).toBeVisible();
       });
 
       let invitationUrl = "";
-      await test.step("The shared assignment picker reuses Favorites, a named collection, and My published questions", async () => {
+      await test.step("The shared assignment picker reuses private collections and My published questions", async () => {
         invitationUrl = await createCourseAndInvitation(elena, courseTitle);
         await elena.getByRole("link", { name: "Assignments", exact: true }).click();
         await elena.getByRole("link", { name: "Create the first assignment", exact: true }).click();
@@ -423,17 +399,6 @@ test.describe("problem curation on the production PLE stack", () => {
         await expect(
           workspace.getByRole("heading", { name: "Questions", exact: true }),
         ).toBeVisible();
-
-        await workspace
-          .getByRole("button", { name: "Search question library", exact: true })
-          .click();
-        await selectQuestionInPicker(
-          elena,
-          "Favorites",
-          favoritesQuestionTitle,
-          "Add selected questions",
-        );
-        await expect(workspace).toContainText(favoritesQuestionTitle);
 
         await workspace.getByRole("button", { name: "Add question pool", exact: true }).click();
         const firstPool = workspace
@@ -485,7 +450,7 @@ test.describe("problem curation on the production PLE stack", () => {
         ).toBeVisible();
       });
 
-      await test.step("Mary claims the ordinary invitation and sees the saved reusable assignment as learner work", async () => {
+      await test.step("Mary claims the ordinary invitation and sees the saved reusable assignment as student work", async () => {
         expect(invitationUrl).not.toBe("");
         await chooseSeededIdentity(mary, /Mary Okafor/u);
         await mary.goto(invitationUrl);
@@ -500,29 +465,6 @@ test.describe("problem curation on the production PLE stack", () => {
         await expect(
           mary.getByRole("heading", { name: assignmentTitle, exact: true }),
         ).toBeVisible();
-      });
-
-      await test.step("Morgan uses the seeded Sysadmin session to browse and reuse an institution collection", async () => {
-        await enterSeededCourse(morgan, /Morgan Reyes/u, sysadminCourseTitle);
-        const panel = await openLibrary(morgan, false);
-        const institutionItem = collectionItem(panel, remoteInstitutionTitle);
-        await expect(institutionItem).toContainText("Institution collection");
-        await expect(
-          institutionItem.getByRole("button", { name: "Delete", exact: true }),
-        ).toHaveCount(0);
-        await institutionItem.getByRole("button", { name: "Open", exact: true }).click();
-        const projection = panel.getByRole("region", {
-          name: remoteInstitutionTitle,
-          exact: true,
-        });
-        await expect(projection).toContainText("Ready to reuse");
-        await expect(projection).toContainText("collection owner controls its name");
-        await expect(projection.getByLabel("Collection name")).toHaveCount(0);
-        await expect(projection.getByLabel("Visibility")).toHaveCount(0);
-        await expect(
-          projection.getByRole("button", { name: "Save collection", exact: true }),
-        ).toHaveCount(0);
-        await captureLaptop(morgan, scenarioInput, panel, institutionArtifacts);
       });
 
       await Promise.all(pendingCurationResponses);

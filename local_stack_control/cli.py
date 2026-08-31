@@ -24,7 +24,6 @@ def add_target_options(parser: argparse.ArgumentParser) -> None:
 		default=local_stack_control.models.DEFAULT_ENV_FILE,
 		help="Compose env file; default: containers/env.local",
 	)
-	parser.add_argument("--with-smtp", action="store_true", help="include SMTP overlay")
 
 
 #============================================
@@ -79,7 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
 	stop = subparsers.add_parser("stop", help="clean up the fixed production-browser developer session")
 	stop.set_defaults(handler=local_stack_control.commands.stop)
 
-	restart = subparsers.add_parser("restart", help="restart api, worker, gateway, or webwork-renderer")
+	restart = subparsers.add_parser("restart", help="restart api, gateway, or webwork-renderer")
 	add_target_options(restart)
 	restart.add_argument("service")
 	restart.set_defaults(handler=local_stack_control.commands.restart)

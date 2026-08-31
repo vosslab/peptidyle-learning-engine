@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
-use crate::{AssignmentId, CourseId, EnrollmentId, RunId, WorkspaceId};
+use crate::{AssignmentAttemptId, AssignmentId, CourseId, StudentRecordId, WorkspaceId};
 
 /// Largest route number that remains compact and lossless in every product layer.
 pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
@@ -83,13 +83,10 @@ pub struct CourseReference(NonZeroU32);
 pub struct AssignmentReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct RunReference(NonZeroU32);
+pub struct AssignmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct WorkspaceReference(NonZeroU32);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseGroupReference(NonZeroU32);
 /// An authorized locator for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -101,11 +98,11 @@ pub struct CourseMembershipReference(NonZeroU32);
 /// An authorized locator for one target-bound co-instructor invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CoInstructorInvitationReference(NonZeroU32);
-/// An authorized locator for one personal or institution-visible problem collection.
+pub struct CourseInvitationReference(NonZeroU32);
+/// An authorized locator for one private Question Collection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct ProblemCollectionReference(NonZeroU32);
+pub struct QuestionCollectionReference(NonZeroU32);
 /// An authorized locator for one personal saved catalog search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -121,9 +118,12 @@ pub struct GradingOperationReference(NonZeroU32);
 
 impl_reference!(CourseReference, "C", "course reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
-impl_reference!(RunReference, "R", "run reference");
+impl_reference!(
+    AssignmentAttemptReference,
+    "R",
+    "Assignment Attempt reference"
+);
 impl_reference!(WorkspaceReference, "W", "workspace reference");
-impl_reference!(CourseGroupReference, "G", "course-group reference");
 impl_reference!(AccountReference, "U", "account reference");
 impl_reference!(
     CourseMembershipReference,
@@ -131,12 +131,12 @@ impl_reference!(
     "course-membership reference"
 );
 impl_reference!(
-    CoInstructorInvitationReference,
+    CourseInvitationReference,
     "CI",
     "co-instructor invitation reference"
 );
 impl_reference!(
-    ProblemCollectionReference,
+    QuestionCollectionReference,
     "PC",
     "problem-collection reference"
 );
@@ -167,11 +167,11 @@ pub enum NavigationResolution {
         course_id: CourseId,
         assignment_id: AssignmentId,
     },
-    Run {
+    AssignmentAttempt {
         course_id: CourseId,
         assignment_id: AssignmentId,
-        enrollment_id: EnrollmentId,
-        run_id: RunId,
+        student_record_id: StudentRecordId,
+        assignment_attempt_id: AssignmentAttemptId,
     },
     Workspace {
         workspace_id: WorkspaceId,
@@ -221,7 +221,7 @@ mod tests {
             "A-2147483648"
         );
         assert_reference_wire!(
-            RunReference,
+            AssignmentAttemptReference,
             "R-125",
             "C-125",
             "R-0",
@@ -235,14 +235,6 @@ mod tests {
             "W-0",
             "W-01",
             "W-2147483648"
-        );
-        assert_reference_wire!(
-            CourseGroupReference,
-            "G-127",
-            "C-127",
-            "G-0",
-            "G-01",
-            "G-2147483648"
         );
         assert_reference_wire!(
             AccountReference,
@@ -261,7 +253,7 @@ mod tests {
             "M-2147483648"
         );
         assert_reference_wire!(
-            CoInstructorInvitationReference,
+            CourseInvitationReference,
             "CI-130",
             "C-130",
             "CI-0",
@@ -269,7 +261,7 @@ mod tests {
             "CI-2147483648"
         );
         assert_reference_wire!(
-            ProblemCollectionReference,
+            QuestionCollectionReference,
             "PC-131",
             "PS-131",
             "PC-0",

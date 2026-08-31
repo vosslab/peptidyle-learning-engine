@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeStudentAssignmentProgress } from "../src/api/decoders.ts";
+import { decodeAssignmentProgress } from "../src/api/decoders.ts";
 import { studentProgressSummary, studentScoreValue } from "../src/student_progress.ts";
 
 const available = {
@@ -13,7 +13,7 @@ const available = {
   current_score: 0.75,
   best_score: 0.9,
   latest_score: 0.8,
-  completed_run_count: 2,
+  completed_assignment_attempt_count: 2,
   total_question_attempts: 5,
   last_activity_at: 1786000000000,
 };
@@ -33,23 +33,23 @@ const classStatisticsAvailable = {
 };
 
 test("Student progress is exact, key-free, and never accepts withheld totals", () => {
-  assert.deepEqual(decodeStudentAssignmentProgress(available), available);
+  assert.deepEqual(decodeAssignmentProgress(available), available);
   for (const forbidden of ["private_scope", "enrollment", "policy", "evaluated_at"]) {
     assert.throws(
-      () => decodeStudentAssignmentProgress({ ...available, [forbidden]: "private" }),
+      () => decodeAssignmentProgress({ ...available, [forbidden]: "private" }),
       DecodeError,
     );
   }
   assert.throws(
-    () => decodeStudentAssignmentProgress({ ...available, score_state: "withheld" }),
+    () => decodeAssignmentProgress({ ...available, score_state: "withheld" }),
     DecodeError,
   );
 });
 
 test("Student class statistics are an exact, optional safe union", () => {
-  assert.deepEqual(decodeStudentAssignmentProgress(insufficientEvidence), insufficientEvidence);
+  assert.deepEqual(decodeAssignmentProgress(insufficientEvidence), insufficientEvidence);
   assert.deepEqual(
-    decodeStudentAssignmentProgress(classStatisticsAvailable),
+    decodeAssignmentProgress(classStatisticsAvailable),
     classStatisticsAvailable,
   );
 
@@ -64,7 +64,7 @@ test("Student class statistics are an exact, optional safe union", () => {
     { state: "unknown" },
   ]) {
     assert.throws(
-      () => decodeStudentAssignmentProgress({ ...available, class_statistics: malformed }),
+      () => decodeAssignmentProgress({ ...available, class_statistics: malformed }),
       DecodeError,
     );
   }
@@ -77,9 +77,9 @@ test("Student score copy distinguishes no activity, withheld, and available null
     current_score: null,
     best_score: null,
     latest_score: null,
-    completed_run_count: 0,
+    completed_assignment_attempt_count: 0,
     total_question_attempts: 0,
-    // Starting a run records activity time, but no score activity exists until submission.
+    // Starting an Assignment Attempt records activity time, but no score activity exists until submission.
     last_activity_at: 1786000000000,
   };
   const withheld = {
@@ -88,16 +88,16 @@ test("Student score copy distinguishes no activity, withheld, and available null
     total_question_attempts: 1,
     last_activity_at: 1786000000000,
   };
-  assert.match(studentProgressSummary(decodeStudentAssignmentProgress(noActivity)), /No score yet/);
+  assert.match(studentProgressSummary(decodeAssignmentProgress(noActivity)), /No score yet/);
   assert.match(
-    studentProgressSummary(decodeStudentAssignmentProgress(withheld)),
+    studentProgressSummary(decodeAssignmentProgress(withheld)),
     /Score is currently unavailable/,
   );
   assert.equal(studentScoreValue(null), "No score yet");
-  assert.match(studentProgressSummary(decodeStudentAssignmentProgress(available)), /75%/);
+  assert.match(studentProgressSummary(decodeAssignmentProgress(available)), /75%/);
   assert.match(
     studentProgressSummary(
-      decodeStudentAssignmentProgress({
+      decodeAssignmentProgress({
         ...available,
         scoring_status: "recalculating",
         current_score: null,

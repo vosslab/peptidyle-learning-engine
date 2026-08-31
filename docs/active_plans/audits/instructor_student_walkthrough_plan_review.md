@@ -40,12 +40,12 @@ contract and the companion evidence has one stale arrangement statement.
   charter excludes. The plan requires a truthful local-development source, so
   neither current value is semantically valid. The existing domain roster
   projection also does not expose a source enum, and the local identity file has
-  no configured learner alias field.
+  no configured student alias field.
 - **Fix:** Make this an explicit WP-I2 deliverable rather than an open choice:
   add a forward migration admitting `local_development`, a narrow Store command
   and Memory/PostgreSQL conformance implementation that persists it, and an
   internal source type or equivalent closed representation. Add an exact,
-  unique server-side local learner alias to the local identity configuration;
+  unique server-side local student alias to the local identity configuration;
   the browser request may supply only that alias, never an ID, credential,
   installation scope, display name, or role. Preserve `legacy` for legacy reconciliation
   rather than reusing it for the new path.
@@ -99,7 +99,7 @@ production email and canonical-onboarding acceptance.
   `2026080913_local_development_roster.sql` migration, a closed
   `local_development` source, the corresponding narrow Store command, and
   Memory/PostgreSQL conformance. Its exact bounded unique server-side ASCII
-  alias contract permits browser input of only the configured learner alias;
+  alias contract permits browser input of only the configured student alias;
   installation scope, user, display name, and roles remain server-derived. The migration
   policy preserves existing `legacy` and `invitation` behavior and permits the
   local source's null email/roster-ID shape. `DATABASE_STRUCTURE`, the release

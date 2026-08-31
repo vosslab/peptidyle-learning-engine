@@ -1,4 +1,4 @@
-// flat_question_preview.tsx - answer-free local preview through the learner response runtime.
+// flat_question_preview.tsx - answer-free local preview through the student response runtime.
 
 import { For, Show, type JSX } from "solid-js";
 
@@ -43,7 +43,7 @@ export type FlatQuestionInstructorAnswerCheck =
     };
 
 export interface FlatQuestionPreviewProps {
-  /** This projection contains no correct answer and is safe for the learner-equivalent preview. */
+  /** This projection contains no correct answer and is safe for the student-equivalent preview. */
   readonly preview: FlatQuestionPublicPreview;
   readonly validator: Pick<WasmFacade, "validateResponseFormat">;
   /** The page exposes this only after the author explicitly asks to inspect answer material. */
@@ -170,7 +170,7 @@ function PrivateAnswerList(props: {
   );
 }
 
-/** Uses the same ResponseWidget as a learner while retaining answer checks in an explicit private panel. */
+/** Uses the same ResponseWidget as a student while retaining answer checks in an explicit private panel. */
 export function FlatQuestionPreview(props: FlatQuestionPreviewProps): JSX.Element {
   return (
     <section
@@ -179,7 +179,7 @@ export function FlatQuestionPreview(props: FlatQuestionPreviewProps): JSX.Elemen
     >
       <h3 id="flat-student-preview-heading">Student preview</h3>
       <p class="flat-question-authoring__help">
-        This is answer-free. It uses the learner response control but does not grade, save, or send
+        This is answer-free. It uses the student response control but does not grade, save, or send
         a request.
       </p>
       <article aria-labelledby="flat-preview-title">

@@ -1,11 +1,11 @@
 // student_progress.ts - server-derived Student score copy with no policy inference.
 
-import type { StudentAssignmentProgress } from "../generated/api/StudentAssignmentProgress";
+import type { AssignmentProgress } from "../generated/api/AssignmentProgress";
 
 import { formatPercentScore } from "./score_format";
 
 /** Human-readable aggregate progress from the server's key-free projection. */
-export function studentProgressSummary(progress: StudentAssignmentProgress): string {
+export function studentProgressSummary(progress: AssignmentProgress): string {
   if (progress.scoring_status === "recalculating")
     return "Scores are recalculating. Recorded work is safe.";
   if (progress.scoring_status === "failed")
@@ -14,8 +14,8 @@ export function studentProgressSummary(progress: StudentAssignmentProgress): str
     case "no_activity":
       return "No score yet. Submit a response to record scored progress.";
     case "withheld":
-      return `Score is currently unavailable. ${progress.completed_run_count} completed ${
-        progress.completed_run_count === 1 ? "run" : "runs"
+      return `Score is currently unavailable. ${progress.completed_assignment_attempt_count} completed ${
+        progress.completed_assignment_attempt_count === 1 ? "Assignment Attempt" : "Assignment Attempts"
       } recorded.`;
     case "available": {
       const scores = [

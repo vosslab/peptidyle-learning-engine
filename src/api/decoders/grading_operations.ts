@@ -28,7 +28,7 @@ import {
 
 const MAX_U32 = 4_294_967_295;
 const MAX_ROUTE_REFERENCE = MAX_U32;
-const MAX_AFFECTED_LEARNERS = MAX_U32;
+const MAX_AFFECTED_STUDENTS = MAX_U32;
 const MAX_SERVER_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 const REASONS = [
   "grader_contract_failure",
@@ -49,7 +49,7 @@ const STATES = [
 ] as const satisfies ReadonlyArray<GradingOperationState>;
 const ACTIONS = ["retry", "recalculate"] as const satisfies ReadonlyArray<GradingOperationAction>;
 
-export type GradingOperationGroupBy = "question" | "learner";
+export type GradingOperationGroupBy = "question" | "student";
 export type GradingOperationStrongEtag = string;
 export type GradingOperationActionId = string;
 
@@ -64,7 +64,7 @@ export interface InstructorGradingOperation {
 export type GradingOperationGroup =
   | { readonly kind: "question"; readonly questionId: QuestionId; readonly title: string }
   | {
-      readonly kind: "learner";
+      readonly kind: "student";
       readonly membership: CourseMembershipReference;
       readonly displayName: string;
     }
@@ -77,7 +77,7 @@ export type GradingOperationTrustGeneration =
 export interface InstructorGradingOperationRow {
   readonly operation: InstructorGradingOperation;
   readonly group: GradingOperationGroup;
-  readonly affectedLearnerCount: number;
+  readonly affectedStudentCount: number;
   readonly trustGeneration: GradingOperationTrustGeneration;
 }
 
@@ -174,7 +174,7 @@ function decodeGroup(value: unknown, path: string): GradingOperationGroup {
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
         title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
       };
-    case "learner":
+    case "student":
       requireOnlyFields(record, path, ["kind", "membership", "displayName"]);
       return {
         kind: groupKind,
@@ -210,20 +210,20 @@ function decodeRow(value: unknown, path: string): InstructorGradingOperationRow 
   const record = closed(value, path, [
     "operation",
     "group",
-    "affectedLearnerCount",
+    "affectedStudentCount",
     "trustGeneration",
   ]);
-  const affectedLearnerCount = decodeSafeInteger(
-    field(record, "affectedLearnerCount", path),
-    `${path}.affectedLearnerCount`,
+  const affectedStudentCount = decodeSafeInteger(
+    field(record, "affectedStudentCount", path),
+    `${path}.affectedStudentCount`,
   );
-  if (affectedLearnerCount < 0 || affectedLearnerCount > MAX_AFFECTED_LEARNERS) {
-    throw new DecodeError(`${path}.affectedLearnerCount`, "a bounded affected learner count");
+  if (affectedStudentCount < 0 || affectedStudentCount > MAX_AFFECTED_STUDENTS) {
+    throw new DecodeError(`${path}.affectedStudentCount`, "a bounded affected Student count");
   }
   return {
     operation: decodeOperation(field(record, "operation", path), `${path}.operation`),
     group: decodeGroup(field(record, "group", path), `${path}.group`),
-    affectedLearnerCount,
+    affectedStudentCount,
     trustGeneration: decodeTrustGeneration(
       field(record, "trustGeneration", path),
       `${path}.trustGeneration`,

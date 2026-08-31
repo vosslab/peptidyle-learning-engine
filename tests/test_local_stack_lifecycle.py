@@ -114,7 +114,7 @@ def readiness_container(
 	running = healthy and not one_shot
 	state = "exited" if one_shot else "running"
 	health: str | None = "healthy"
-	if service == "worker" or one_shot:
+	if one_shot:
 		health = None
 	if not healthy:
 		state = "exited"
@@ -360,27 +360,8 @@ def test_start_orders_required_effects_before_semantic_readiness(
 		"provision",
 		lambda target, runner, values, environment: mark("process-logins"),
 	)
-	monkeypatch.setattr(
-		local_stack_control.base_course_logins,
-		"provision",
-		lambda target, runner, values, environment: mark("base-course-logins")
-		or ("postgres://installer", "postgres://app"),
-	)
-	monkeypatch.setattr(
-		local_stack_control.lifecycle,
-		"prepare_installed_base_course",
-		lambda runner, root, target, values, environment, database_urls: mark("prepared"),
-	)
-	monkeypatch.setattr(
-		local_stack_control.lifecycle,
-		"finalize_installed_base_course",
-		lambda runner, root, target, values, environment, preparation, database_urls:
-			mark("seeded"),
-	)
-	monkeypatch.setattr(local_stack_control.lifecycle, "provision_grading_role", lambda target, runner, values: mark("grading-role"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda target, runner, options, identity: mark("renderer-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda target, runner, root, values, identity: mark("renderer-probed"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "publish_chapter_one", lambda runner, root, target, values, environment: mark("chapter-one"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_api_initializers", lambda target, runner, options: mark("api-initializers"))
 	def mark_ready(
 		selected_target: local_stack_control.models.ComposeTarget
@@ -404,19 +385,15 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	assert (
 		events.index("migrated")
 		< events.index("process-logins")
-		< events.index("base-course-logins")
-		< events.index("prepared")
 		< events.index("storage")
 	)
-	assert events.index("prepared") < events.index("storage-ready")
-	assert events.index("storage-ready") < events.index("seeded")
+	assert events.index("storage") < events.index("storage-ready")
 	assert events.index("renderer-ready") < events.index("renderer-probed")
 	assert events.index("build") < events.index("renderer-image") < events.index("maintenance")
+	assert events.index("renderer-probed") < events.index("api-initializers")
 	if teaching_profile:
-		assert events.index("renderer-probed") < events.index("chapter-one") < events.index("api-initializers")
 		assert "image-prune" not in events
 	else:
-		assert events.index("renderer-probed") < events.index("api-initializers")
 		assert events.index("ready") < events.index("image-prune")
 	assert events.index("api-initializers") < events.index("api") < events.index("ready")
 	assert readiness_targets == [target]
@@ -454,7 +431,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	if replica_profile:
 		assert application_start == [
 			"up", "-d", "--force-recreate", "--no-deps",
-			"--scale", "api=2", "api", "worker", "gateway",
+			"--scale", "api=2", "api", "gateway",
 		]
 	else:
 		assert "--scale" not in application_start
@@ -564,39 +541,6 @@ def test_restart_rejects_storage_service_without_a_process(tmp_path: pathlib.Pat
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.lifecycle.restart_lifecycle(target, UnexpectedRunner(), tmp_path, "postgres", options)
 	assert not target.env_file.exists()
-
-
-#============================================
-def test_smtp_delivery_restart_refreshes_credential_copy_before_recreate(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-) -> None:
-	"""A delivery-worker restart sees a completed fresh SMTP credential copy."""
-	target = dataclasses.replace(lifecycle_target(tmp_path, "containers", "containers/env.local"), with_smtp=True)
-	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
-	events: list[str] = []
-	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
-
-	monkeypatch.setattr(local_stack_control.env_file, "require_mutation_env_file", lambda path: None)
-	monkeypatch.setattr(local_stack_control.lifecycle, "validate_static", lambda target: values)
-	monkeypatch.setattr(local_stack_control.lifecycle_validation, "require_mutation_engine", lambda *args: None)
-	monkeypatch.setattr(local_stack_control.lifecycle, "require_restart_baseline", lambda *args: None)
-	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda target: {})
-	monkeypatch.setattr(local_stack_control.renderer, "inspect_renderer_oci_id", lambda *args: "sha256:" + "a" * 64)
-	monkeypatch.setattr(local_stack_control.lifecycle, "require_attested_running_renderer", lambda *args: None)
-	monkeypatch.setattr(local_stack_control.lifecycle, "run_smtp_initializer", lambda *args: events.append("smtp-copy"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", lambda target, runner, arguments: events.append("delivery-recreated"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", lambda *args: events.append("ready") or "http://127.0.0.1:8080/")
-
-	local_stack_control.lifecycle.restart_lifecycle(
-		target,
-		UnexpectedRunner(),
-		tmp_path,
-		"invitation-delivery-worker",
-		options,
-	)
-
-	assert events.index("smtp-copy") < events.index("delivery-recreated") < events.index("ready")
 
 
 #============================================
@@ -800,7 +744,7 @@ def test_restart_baseline_allows_selected_renderer_recovery() -> None:
 def test_restart_baseline_refuses_an_unrelated_unhealthy_service() -> None:
 	"""Renderer recovery does not conceal a separate required-service failure."""
 	statuses = list(complete_restart_statuses("webwork-renderer", selected_healthy=False))
-	statuses[-2] = restart_status("worker", healthy=False)
+	statuses[-2] = restart_status("api", healthy=False)
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.lifecycle.require_restart_report(
 			restart_report(*statuses), "webwork-renderer"

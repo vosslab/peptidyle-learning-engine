@@ -3,7 +3,7 @@ source_project:
   repository: https://github.com/vosslab/biology-problems-website
   revision: 11f9ff635bd20d8fa334c360a8cba86bb0ab6527
   author: Neil R. Voss
-  institution: Roosevelt University
+  affiliation: Roosevelt University
   content_license: CC-BY-4.0
   pgml_code_license: LGPL-3.0-or-later
 

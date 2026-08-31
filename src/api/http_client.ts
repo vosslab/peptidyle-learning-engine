@@ -2,7 +2,7 @@
 
 import type { OrdinaryBrowserApiClient } from "./client";
 import { createAuthClient } from "./http_client/auth";
-import { createEnrollmentClient } from "./http_client/enrollment";
+import { createCourseRosterClient } from "./http_client/enrollment";
 import { createLiveDemoClient } from "./http_client/live_demo";
 import {
   browserFetch,
@@ -54,7 +54,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
   Object.assign(
     client,
     createAuthClient(fetchImplementation, basePath),
-    createEnrollmentClient(fetchImplementation, basePath),
+    createCourseRosterClient(fetchImplementation, basePath),
     createLiveDemoClient(fetchImplementation, basePath),
     createTeachingOperationsClient(fetchImplementation, basePath),
     createPreviewPlaneClient(fetchImplementation, basePath),

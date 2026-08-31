@@ -35,7 +35,7 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
   return reference;
 }
 import type { PointValue } from "../../../generated/api/PointValue";
-import type { RunPolicies } from "../../../generated/api/RunPolicies";
+import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { SelectionOrdering } from "../../../generated/api/SelectionOrdering";
 import type {
   AssignmentContentInput,
@@ -67,7 +67,7 @@ import {
   decodeAssignmentTitle,
   decodeBackendCapabilities,
   decodeBoundedArray,
-  decodeCatalogLifecycle,
+  decodeQuestionVersionAvailability,
   decodeCursor,
   decodeEnvelopeTitle,
   decodeIdentifier,
@@ -106,8 +106,7 @@ export function decodeCatalogProblemSummary(
       "responseFamily",
       "capabilities",
       "metadata",
-      "scope",
-      "lifecycle",
+      "availability",
       "publishedAt",
       "byline",
     ]);
@@ -142,13 +141,9 @@ export function decodeCatalogProblemSummary(
     ),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, strict),
     byline: decodePublicByline(field(record, "byline", path), `${path}.byline`),
-    scope: decodeStringEnum(field(record, "scope", path), `${path}.scope`, [
-      "institution",
-      "public",
-    ]),
-    lifecycle: decodeCatalogLifecycle(
-      field(record, "lifecycle", path),
-      `${path}.lifecycle`,
+    availability: decodeQuestionVersionAvailability(
+      field(record, "availability", path),
+      `${path}.availability`,
       strict,
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
@@ -160,16 +155,14 @@ export function decodeCatalogProblemSummary(
  * Verifies the exact browser-safe success projection for a native publication.
  *
  * Decoding establishes the DTO's shape; callers of a publication command must
- * additionally bind that DTO to their requested scope and the published state.
+ * additionally bind that DTO to the published state.
  */
-export function isPublishedNativeCatalogProblemSummary(
+export function isAvailableNativeCatalogProblemSummary(
   summary: CatalogProblemSummary,
-  scope: CatalogProblemSummary["scope"],
 ): boolean {
   return (
     summary.backend === "native" &&
-    summary.scope === scope &&
-    summary.lifecycle.state === "published"
+    summary.availability.availability === "available"
   );
 }
 
@@ -294,18 +287,18 @@ function decodeCatalogDiscoveryItem(value: unknown, path: string): CatalogDiscov
 function decodeCatalogUsageSummary(value: unknown, path: string): CatalogUsageSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "institutionCourseCount",
-    "institutionAssignmentCount",
+    "globalCourseCount",
+    "globalAssignmentCount",
     "ownCourseCount",
     "ownAssignmentCount",
   ]);
-  const institutionCourseCount = decodeNonnegativeInteger(
-    field(record, "institutionCourseCount", path),
-    `${path}.institutionCourseCount`,
+  const globalCourseCount = decodeNonnegativeInteger(
+    field(record, "globalCourseCount", path),
+    `${path}.globalCourseCount`,
   );
-  const institutionAssignmentCount = decodeNonnegativeInteger(
-    field(record, "institutionAssignmentCount", path),
-    `${path}.institutionAssignmentCount`,
+  const globalAssignmentCount = decodeNonnegativeInteger(
+    field(record, "globalAssignmentCount", path),
+    `${path}.globalAssignmentCount`,
   );
   const ownCourseCount = decodeNonnegativeInteger(
     field(record, "ownCourseCount", path),
@@ -315,15 +308,15 @@ function decodeCatalogUsageSummary(value: unknown, path: string): CatalogUsageSu
     field(record, "ownAssignmentCount", path),
     `${path}.ownAssignmentCount`,
   );
-  if (ownCourseCount > institutionCourseCount || ownAssignmentCount > institutionAssignmentCount) {
-    throw new DecodeError(path, "usage counts within their institution-wide totals");
+  if (ownCourseCount > globalCourseCount || ownAssignmentCount > globalAssignmentCount) {
+    throw new DecodeError(path, "usage counts within their installation-wide totals");
   }
-  if (institutionAssignmentCount < institutionCourseCount || ownAssignmentCount < ownCourseCount) {
+  if (globalAssignmentCount < globalCourseCount || ownAssignmentCount < ownCourseCount) {
     throw new DecodeError(path, "assignment counts at least as large as their course counts");
   }
   return {
-    institutionCourseCount,
-    institutionAssignmentCount,
+    globalCourseCount,
+    globalAssignmentCount,
     ownCourseCount,
     ownAssignmentCount,
   };
@@ -487,7 +480,7 @@ function decodeContinuedPractice(value: unknown, path: string, strict = false): 
   }
 }
 
-function decodeRunPolicies(value: unknown, path: string, strict = false): RunPolicies {
+function decodeAssignmentActivityRules(value: unknown, path: string, strict = false): AssignmentActivityRules {
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, ["completion", "grade", "continuedPractice", "variation"]);
@@ -514,7 +507,7 @@ function decodeRunPolicies(value: unknown, path: string, strict = false): RunPol
       "selectedProblemVariants",
       "fullRegeneration",
     ]),
-  } satisfies RunPolicies;
+  } satisfies AssignmentActivityRules;
   return decoded;
 }
 
@@ -828,12 +821,12 @@ export function decodeAssignmentSummary(
       field(record, "disclosurePolicy", path),
       `${path}.disclosurePolicy`,
     ),
-    policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`),
+    policies: decodeAssignmentActivityRules(field(record, "policies", path), `${path}.policies`),
   } satisfies AssignmentSummary;
   return decoded;
 }
 
-/** Decode the learner transport, which deliberately excludes authority inputs. */
+/** Decode the student transport, which deliberately excludes authority inputs. */
 export {
   decodeAssignmentTeachingSettingsValidationFailure,
   decodeInstructorAssignmentTeachingSettingsLocal,

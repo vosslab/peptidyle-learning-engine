@@ -2,13 +2,13 @@
 
 use serde::Serialize;
 
-use super::CourseGroupMemberView;
+use super::StudentMembershipView;
 
 /// Bounded authorized course-student membership page for access controls.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseStudentMembershipsPage {
-    pub students: Vec<CourseGroupMemberView>,
+    pub students: Vec<StudentMembershipView>,
     pub next_cursor: Option<String>,
 }
 
@@ -22,7 +22,7 @@ mod tests {
     #[test]
     fn page_is_safe_and_exact() {
         let page = CourseStudentMembershipsPage {
-            students: vec![CourseGroupMemberView {
+            students: vec![StudentMembershipView {
                 reference: "M-1".parse().expect("membership reference"),
                 display: TeachingDisplayLabel::try_from("Student Example".to_owned())
                     .expect("safe display"),

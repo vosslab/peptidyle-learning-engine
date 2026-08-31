@@ -66,7 +66,7 @@ assignment's Instructor home and its assignment-local navigation:
   operations.
 - **Grading operations** - append `/grading-operations`; review safe automatic-grading operation
   metadata, retry an eligible operation, or request an assignment recalculation.
-- **Student view** - append `/student-view`; inspect the current live, answer-free learner landing
+- **Student view** - append `/student-view`; inspect the current live, answer-free student landing
   while retaining the Instructor session.
 
 The visible title link is the supported entry into this workspace; `courseRef` and `assignmentRef`
@@ -74,7 +74,7 @@ are public route references, not authority. For graded work, sign out, choose a 
 authorized course, open the assignment title on the Student course page, and choose **Start
 assignment**. Submit through visible response controls. When **Response received** appears, use
 **Check grading status** until the live worker returns feedback or instructor attention. The
-resulting learner run, submission, receipt, grade, and instructor gradebook history are ordinary live
+resulting student run, submission, receipt, grade, and instructor gradebook history are ordinary live
 records.
 
 When an accepted submission needs recovery, the Student sees **Response received**, a cleared answer
@@ -96,7 +96,7 @@ POST /api/courses/{course}/assignments/{assignment}/grading-operations/recalcula
 All three routes return `Cache-Control: no-store`. Action requests have an empty body and require
 `If-Match` plus `Idempotency-Key`; the server derives Instructor authority from the session and
 rechecks it in the Store transaction. Responses contain operation state, safe reason, bounded
-grouping, revisions, and action receipts, never learner responses, answer keys, feedback internals,
+grouping, revisions, and action receipts, never student responses, answer keys, feedback internals,
 or score values.
 
 ## Build and validation commands
@@ -120,9 +120,8 @@ owner. For the complete final-material Validation suite, run:
 source source_me.sh && ./all_test.sh
 ```
 
-Use `./run_playwright_tests.sh --build` for one selected production-browser suite after installing
-the browsers with `./devel/setup_playwright.sh`. It owns a fresh disposable HTTPS stack and cleanup,
-and creates scenario state through visible PLE workflows.
+The production-browser suite returns with the fresh Store-backed course-delivery surface. Current
+connected acceptance uses `local_stack.py acceptance` for the available database/object lanes.
 
 ## Controller diagnostics
 
@@ -149,7 +148,7 @@ Logs can contain private local diagnostic data. For deeper operator recovery, se
   provide the clean-volume receipt preflight, receipt writers, commit-v2 authority, and retry V2
   retirement boundary. Final material-tree Validation passed with the affected 99-migration live
   database, RLS, worker, browser, WebWork, and replica evidence. `WP-INST-G2` now owns audited
-  learner-work inspection and grade-scheme-aware calculated Gradebook work. `WP-RC12` release
+  student-work inspection and grade-scheme-aware calculated Gradebook work. `WP-RC12` release
   acceptance remains open; a successful local demo does not itself establish release readiness.
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

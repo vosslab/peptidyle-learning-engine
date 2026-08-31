@@ -48,4 +48,4 @@ schema-v1 state/report modules remain intact for later WP-E1 migration work.
 
 The integrated full command completed the later visible gradebook and schema-v2
 report gates. This workstream still does not accept email onboarding,
-production identity, J6/J7, all-family, multi-learner, or release work.
+production identity, J6/J7, all-family, multi-student, or release work.

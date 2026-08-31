@@ -18,6 +18,12 @@ BEGIN
             MESSAGE = 'migration 2026082901 must run as ple_migrator';
     END IF;
 
+    IF NOT pg_catalog.has_schema_privilege('ple_migrator', 'pg_catalog', 'USAGE') THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '55000',
+            MESSAGE = 'ple_migrator must have PostgreSQL system catalog usage before the SD1 baseline runs';
+    END IF;
+
     SELECT roles.*
       INTO migrator
       FROM pg_catalog.pg_roles AS roles
@@ -96,10 +102,7 @@ BEGIN
              'ple_api_owner',
              'ple_app',
              'ple_auth',
-             'ple_student',
-             'ple_grader',
-             'ple_grading_reader',
-             'ple_worker'
+             'ple_student'
          )
     ) THEN
         RAISE EXCEPTION USING
@@ -266,15 +269,15 @@ CREATE ROLE ple_auth
 CREATE ROLE ple_student
     NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
     NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_grader
-    NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_grading_reader
-    NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_worker
-    NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOREPLICATION NOBYPASSRLS;
+
+-- Every fixed SD1 principal resolves PostgreSQL built-ins and operators through
+-- the server-owned catalog. This is not a capability to PLE data or private
+-- records; PLE schemas remain explicitly default-deny below.
+-- ASVS 8.2.1, 8.2.2: application-object access is granted only by the
+-- owning PLE schema and remains separate from system-name resolution.
+GRANT USAGE ON SCHEMA pg_catalog TO ple_database_owner, ple_data_owner,
+    ple_private_owner, ple_audit_owner, ple_api_owner, ple_app, ple_auth,
+    ple_student;
 
 GRANT ple_data_owner TO ple_migrator
     WITH ADMIN FALSE, INHERIT FALSE, SET TRUE
@@ -326,8 +329,11 @@ GRANT USAGE ON SCHEMA public TO ple_migrator, ple_api_owner;
 
 RESET ROLE;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE ple_migrator
-    REVOKE ALL PRIVILEGES ON SCHEMAS FROM PUBLIC;
+-- PostgreSQL's system catalogs are part of the server trust boundary, not PLE
+-- application namespaces. Preserve their ordinary catalog visibility while
+-- each PLE-owned schema below establishes explicit default-deny privileges.
+-- ASVS 8.2.1, 8.2.2: only PLE application objects receive explicit runtime
+-- capabilities; removing catalog visibility cannot strengthen that boundary.
 ALTER DEFAULT PRIVILEGES FOR ROLE ple_migrator
     REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE ple_migrator
@@ -449,12 +455,6 @@ COMMENT ON ROLE ple_auth IS
     'Invokes authentication and session-resolution operations.';
 COMMENT ON ROLE ple_student IS
     'Invokes Student-safe session-authorized projections.';
-COMMENT ON ROLE ple_grader IS
-    'Invokes deterministic automated-grading execution and commit operations.';
-COMMENT ON ROLE ple_grading_reader IS
-    'Invokes server-private grading-material reads.';
-COMMENT ON ROLE ple_worker IS
-    'Invokes locked typed-job claim and commit operations.';
 
 DO $$
 DECLARE
@@ -481,6 +481,19 @@ BEGIN
             MESSAGE = 'PostgreSQL bootstrap superuser could not be resolved';
     END IF;
 
+    IF NOT pg_catalog.has_schema_privilege('pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_data_owner', 'pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_private_owner', 'pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_audit_owner', 'pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_api_owner', 'pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_app', 'pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_auth', 'pg_catalog', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('ple_student', 'pg_catalog', 'USAGE') THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '55000',
+            MESSAGE = 'PostgreSQL system catalog visibility must remain available to SD1 principals';
+    END IF;
+
     IF (
         SELECT pg_catalog.count(*)
           FROM pg_catalog.pg_roles AS roles
@@ -492,10 +505,7 @@ BEGIN
              'ple_api_owner',
              'ple_app',
              'ple_auth',
-             'ple_student',
-             'ple_grader',
-             'ple_grading_reader',
-             'ple_worker'
+             'ple_student'
          )
            AND NOT roles.rolcanlogin
            AND NOT roles.rolinherit
@@ -505,7 +515,7 @@ BEGIN
            AND NOT roles.rolreplication
            AND NOT roles.rolbypassrls
            AND roles.rolconnlimit = -1
-    ) <> 11 THEN
+    ) <> 8 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'reserved role attributes do not match the SD1 baseline';
@@ -528,10 +538,7 @@ BEGIN
              'ple_api_owner',
              'ple_app',
              'ple_auth',
-             'ple_student',
-             'ple_grader',
-             'ple_grading_reader',
-             'ple_worker'
+             'ple_student'
          )
            AND members.rolname = 'ple_migrator'
            AND grantors.oid = bootstrap_superuser_oid
@@ -539,7 +546,7 @@ BEGIN
            AND memberships.admin_option
            AND NOT memberships.inherit_option
            AND NOT memberships.set_option
-    ) <> 10 THEN
+    ) <> 7 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'automatic creator memberships do not match PostgreSQL 17';
@@ -608,10 +615,7 @@ BEGIN
               'ple_api_owner',
               'ple_app',
               'ple_auth',
-              'ple_student',
-              'ple_grader',
-              'ple_grading_reader',
-              'ple_worker'
+              'ple_student'
           )
      )
         OR memberships.member IN (
@@ -626,14 +630,11 @@ BEGIN
               'ple_api_owner',
               'ple_app',
               'ple_auth',
-              'ple_student',
-              'ple_grader',
-              'ple_grading_reader',
-              'ple_worker'
+              'ple_student'
           )
      );
 
-    IF reserved_membership_rows <> 15 THEN
+    IF reserved_membership_rows <> 12 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'unexpected membership involving a reserved SD1 role';

@@ -3,12 +3,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentId,
-    AssignmentInstructions, AssignmentItemId, AssignmentReference, AssignmentScoringMode,
-    AssignmentSelectionGroupId, BackendCapabilities, CourseId, CourseReference, EnrollmentId,
-    IanaTimeZone, LateSubmissionPolicy, PointValue, QuestionBackend, QuestionId, RunPolicies,
-    ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentDisclosurePolicy, StudentId,
-    VariationPolicy,
+    ActivityTimestamp, AssignmentProgressRecord, AssignmentDeadlineBehavior,
+    AssignmentDeliveryState, AssignmentId, AssignmentInstructions, AssignmentItemId,
+    AssignmentReference, AssignmentScoringMode, AssignmentSelectionGroupId, BackendCapabilities,
+    CourseId, CourseReference, IanaTimeZone, LateSubmissionPolicy, PointValue, QuestionBackend,
+    QuestionId, AssignmentActivityRules, ScoringStatus, SelectionOrdering, StudentDisclosurePolicy,
+    StudentRecordId, VariationPolicy,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -120,32 +120,32 @@ pub struct AssignmentSummary {
     pub items: Vec<AssignmentItemSummary>,
     /// Current random-selection groups with pinned immutable candidates.
     pub selection_groups: Vec<AssignmentSelectionGroupSummary>,
-    /// Assignment-owned learner-facing disclosure schedule.
+    /// Assignment-owned student-facing disclosure schedule.
     pub disclosure_policy: StudentDisclosurePolicy,
     /// Four independent run policies.
-    pub policies: RunPolicies,
+    pub policies: AssignmentActivityRules,
 }
 
 /// Canonical answer-free facts shown at the start of an assignment.
 ///
-/// The ordinary learner detail and an Instructor's stable-identity Student
+/// The ordinary student detail and an Instructor's stable-identity Student
 /// view use distinct envelopes, but they describe the same landing material.
 /// Routes build this projection once from the authoritative definition and
 /// then use their role-appropriate envelope constructors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentLandingPresentation {
-    /// Learner-facing assignment title.
+    /// Student-facing assignment title.
     pub title: String,
-    /// Learner-facing instructions.
+    /// Student-facing instructions.
     pub instructions: AssignmentInstructions,
     /// Course scheduling zone used to present delivery facts.
     pub time_zone: IanaTimeZone,
-    /// Number of active questions a learner receives in one run.
+    /// Number of active questions a student receives in one run.
     pub questions_per_run: u32,
-    /// Learner-visible variation policy.
+    /// Student-visible variation policy.
     pub variation: VariationPolicy,
-    /// Learner-visible disclosure schedule.
+    /// Student-visible disclosure schedule.
     pub disclosure_policy: StudentDisclosurePolicy,
 }
 
@@ -259,20 +259,18 @@ impl StudentAssignmentDetail {
     }
 }
 
-/// One compact gradebook row for a course assignment enrollment.
+/// One compact gradebook row for a Student Record and Assignment.
 ///
-/// The row comes only from the course-owned assignment, enrollment, and
-/// `StudentAssignmentSummary` projection. It carries no run or attempt
+/// The row comes only from the course-owned assignment, Student Record, and
+/// `AssignmentProgressRecord` projection. It carries no Assignment Attempt
 /// history, so continued practice cannot make the default gradebook slower.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct GradebookSummaryRow {
     /// Course whose instructor requested this bounded page.
     pub course_id: CourseId,
-    /// Course-owned enrollment represented by this row.
-    pub enrollment_id: EnrollmentId,
-    /// Stable Student identity used by course records.
-    pub student_id: StudentId,
+    /// Course-owned Student Record represented by this row.
+    pub student_record_id: StudentRecordId,
     /// Human-facing Student name from the protected course roster.
     pub student_name: String,
     /// Assignment whose grade policy selected the current score.
@@ -280,7 +278,7 @@ pub struct GradebookSummaryRow {
     /// Human-facing assignment title from the assignment record.
     pub assignment_title: String,
     /// Transactionally maintained compact activity and score projection.
-    pub summary: StudentAssignmentSummary,
+    pub summary: AssignmentProgressRecord,
     /// Current visibility and freshness of assignment scores.
     pub scoring_status: ScoringStatus,
 }
@@ -311,7 +309,7 @@ mod tests {
             }],
             selection_groups: Vec::new(),
             disclosure_policy: StudentDisclosurePolicy::default(),
-            policies: RunPolicies {
+            policies: AssignmentActivityRules {
                 completion: CompletionRequirement::AllCorrect,
                 grade: GradePolicy::Highest,
                 continued_practice: ContinuedPractice::Unlimited,
@@ -336,7 +334,7 @@ mod tests {
             items: Vec::new(),
             selection_groups: Vec::new(),
             disclosure_policy: StudentDisclosurePolicy::default(),
-            policies: RunPolicies {
+            policies: AssignmentActivityRules {
                 completion: CompletionRequirement::AllCorrect,
                 grade: GradePolicy::Highest,
                 continued_practice: ContinuedPractice::Unlimited,
@@ -358,7 +356,7 @@ mod tests {
             items: Vec::new(),
             selection_groups: Vec::new(),
             disclosure_policy: StudentDisclosurePolicy::default(),
-            policies: RunPolicies {
+            policies: AssignmentActivityRules {
                 completion: CompletionRequirement::AllCorrect,
                 grade: GradePolicy::Highest,
                 continued_practice: ContinuedPractice::Unlimited,
@@ -411,12 +409,14 @@ mod tests {
     fn gradebook_summary_row_keeps_the_projection_nested() {
         let row = GradebookSummaryRow {
             course_id: CourseId::from_uuid(Uuid::from_u128(2)),
-            enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(3)),
-            student_id: StudentId::from_uuid(Uuid::from_u128(4)),
+            student_record_id: StudentRecordId::from_uuid(Uuid::from_u128(3)),
             student_name: "Ada Student".to_string(),
             assignment_id: AssignmentId::from_uuid(Uuid::from_u128(5)),
             assignment_title: "Peptide bonds".to_string(),
-            summary: StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(3))),
+            summary: AssignmentProgressRecord::empty(
+                StudentRecordId::from_uuid(Uuid::from_u128(3)),
+                AssignmentId::from_uuid(Uuid::from_u128(5)),
+            ),
             scoring_status: crate::ScoringStatus::Current,
         };
 

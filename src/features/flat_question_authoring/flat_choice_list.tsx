@@ -33,7 +33,7 @@ export function FlatChoiceList(props: FlatChoiceListProps): JSX.Element {
     <fieldset class="flat-question-authoring__choices">
       <legend>Answer choices</legend>
       <p class="flat-question-authoring__help" id={`${groupId}-help`}>
-        Choose one correct answer. Learners see choice text only; teaching feedback stays in the
+        Choose one correct answer. Students see choice text only; teaching feedback stays in the
         authoring workflow.
       </p>
       <Show when={errorFor(props, "choices") !== undefined}>

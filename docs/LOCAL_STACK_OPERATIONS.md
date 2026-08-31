@@ -24,13 +24,13 @@ is only a lookup/input value; it cannot establish authority.
 | Data | Exact owner | Local enforcement |
 | --- | --- | --- |
 | Account, session, and passkey | Global `AccountId` | Server session and PostgreSQL |
-| Published question | Global immutable `ProblemId`/`VersionId` | Approved-Instructor catalog |
+| Published question | Global immutable `QuestionId`/`QuestionVersionNumber` | Approved-Instructor catalog |
 | Draft or curriculum | `WorkspaceId` plus owner/collaborators | Workspace relationship |
 | Course and assignment | `CourseId` and child records | Current direct Instructor membership |
 | Student work and grades | Exact course plus Student owner | Student self or current course Instructor |
 | Jobs and objects | Typed target from the locked lease | Store/PostgreSQL capability boundary |
 
-Current co-Instructors are equal. Course creation inserts the creator's first
+Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students
 see only their own work in enrolled courses. Published questions remain in one
 shared Instructor catalog across `active`, `deprecated`, and `archived`
@@ -49,17 +49,16 @@ always authoritative.
 | --- | --- | --- |
 | `gateway` | Serves read-only `dist/` and forwards same-origin `/api` and `/health` | One loopback host port |
 | `api` | Auth, course operations, attempts, grading, and delivery | Private network; no host port |
-| `worker` | Claims and completes typed PostgreSQL jobs | No HTTP endpoint |
 | `postgres` | Relational authority, queue, RLS, audit, and records | Loopback `5432` |
 | `minio` | S3-compatible object storage | Loopback `9000` and console `9001` |
 | `createbuckets` | Idempotently creates four storage buckets | One-shot, no host port |
 | `identity-secret-init` | Copies two host capabilities into an API-only volume | Networkless, one-shot |
 | `webwork-renderer` | Private stateless PG/PGML render and grade engine | No host port |
 
-All published ports bind to `127.0.0.1`. API and worker containers run from
-the same application image but have separate commands and runtime database
-capabilities. The renderer has no SQL database, course, roster, volume, or
-browser path; PLE remains the educational-record authority.
+All published ports bind to `127.0.0.1`. The API is the sole PLE application
+process in the supported local topology. The renderer has no SQL database,
+course, roster, volume, or browser path; PLE remains the educational-record
+authority.
 
 The four buckets are `public-assets`, `private-content`, `student-records`,
 and `temp-processing`. Their distinct policies are part of the contract:
@@ -69,13 +68,13 @@ temporary processing is never served.
 
 ## Containment
 
-PostgreSQL, MinIO, API, worker, gateway, and renderer use read-only container
-roots, dropped capabilities, `no-new-privileges`, bounded resources, and
-non-executable temporary filesystems. PostgreSQL runs as UID 999 and MinIO as
-UID 10001. The networkless `local-data-volume-permissions` helper runs as root
-inside the rootless Podman user namespace with only `CAP_CHOWN`, fixes retained
-volume ownership, and exits before daemons start. It does not change database
-or object content.
+PostgreSQL, MinIO, API, gateway, and renderer use read-only container roots,
+dropped capabilities, `no-new-privileges`, bounded resources, and non-executable
+temporary filesystems. PostgreSQL runs as UID 999 and MinIO as UID 10001. The
+networkless `local-data-volume-permissions` helper runs as root inside the
+rootless Podman user namespace with only `CAP_CHOWN`, fixes retained volume
+ownership, and exits before daemons start. It does not change database or object
+content.
 
 `ple_pgdata` and `ple_miniodata` are named volumes. A normal container stop or
 rebuild retains them. The read-only `postgres-major-guard` accepts an empty
@@ -148,18 +147,16 @@ renderer provenance before mutating the selected target. It then:
 1. removes the prior fixed project while retaining no stale owner resources;
 2. runs `postgres-major-guard`, starts PostgreSQL, and waits for readiness;
 3. applies the migration set and provisions bounded runtime logins;
-4. prepares or resumes the installed Base Course and its immutable receipt;
-5. starts MinIO and idempotently creates all four buckets;
-6. starts, probes, and attests the private renderer;
-7. publishes the seeded Chapter 1 records, starts API initializers, builds API
-   and gateway images, and starts API, worker, and gateway; and
-8. waits for API semantic health and the worker's capability-bearing readiness
-   receipt before reporting the HTTPS origin.
+4. starts MinIO and idempotently creates its declared buckets;
+5. starts, probes, and attests the private renderer;
+6. starts API initializers, builds API and gateway images, and starts API and
+   gateway; and
+7. waits for API semantic health before reporting the HTTPS origin.
 
-The API and worker receive separate runtime database URLs. Migration and seed
-children receive administrator authority only for their bounded startup calls.
-Raw passwords and invitation/Question ID capabilities remain in mode-0600
-private files or runtime volumes; the browser never receives them.
+The API receives its one bounded runtime database URL. Migration children receive
+administrator authority only for their bounded startup calls. Raw passwords and
+Question ID capabilities remain in mode-0600 private files or runtime volumes;
+the browser never receives them.
 
 ## Renderer boundary
 
@@ -175,35 +172,6 @@ configuration, answer material, source bytes, and upstream identifiers remain
 server-side. Provider fields in records are metadata/provenance and do not
 authorize a course, Student, or object.
 
-## Worker lease recovery
-
-Each worker claim locks one PostgreSQL queue row and receives an opaque
-`JobLeaseToken`. The immutable job manifest and current lease determine the
-exact course, workspace, catalog, object, export, retention, or system target.
-The handler family, target type, broker capability, lease token, and generation
-fence must agree before any read, write, provider dispatch, or finalization.
-
-The queue payload and retry input cannot widen the target. A foreign-course
-object, foreign job target, stale generation, wrong handler family, expired
-lease, stale token, or forged provider completion fails closed before effect.
-Preparation creates only replay-safe private output. A server-owned committer
-makes the effect visible and completes the same claim atomically.
-
-After crash or dependency loss, the lease expires and a later worker can
-reclaim the job under bounded retry/backoff. A late completion returns
-claim-no-longer-active and cannot publish a duplicate result. An external call
-whose effect is indeterminate remains closed to automatic relaunch until its
-own recovery policy resolves it. Defaults are:
-
-```text
-PLE_WORKER_LEASE_SECONDS=120
-PLE_WORKER_PREPARATION_TIMEOUT_SECONDS=90
-PLE_WORKER_POLL_MILLIS=500
-```
-
-These settings bound work; they do not grant authority. Add worker processes
-for concurrency rather than making one process an unbounded batch.
-
 ## Health and inspection
 
 `/health` is readiness, not liveness. It returns 200 only when the API verifies
@@ -217,7 +185,7 @@ Inspect through the controller:
 ```bash
 source source_me.sh && .venv/bin/python local_stack.py doctor
 source source_me.sh && .venv/bin/python local_stack.py status
-source source_me.sh && .venv/bin/python local_stack.py logs api worker
+source source_me.sh && .venv/bin/python local_stack.py logs api gateway
 source source_me.sh && .venv/bin/python local_stack.py validate
 ```
 
@@ -228,9 +196,9 @@ podman compose -f containers/compose.yaml \
   --env-file containers/env.local ps
 ```
 
-Do not direct browser traffic to an API container or worker, and do not publish
-the private renderer. The fixed HTTPS origin printed by the lifecycle is the
-only browser entry point.
+Do not direct browser traffic to an API container or publish the private
+renderer. The fixed HTTPS origin printed by the lifecycle is the only browser
+entry point.
 
 ## Stop and cleanup
 
@@ -273,18 +241,12 @@ source source_me.sh && .venv/bin/python local_stack.py acceptance
 ```
 
 It refuses an existing default or fixed live-demo stack, runs the canonical
-real-stack browser lane and distinct browser-free service oracles, and cleans
-each disposable owner exactly. The only two-API service oracle is:
-
-```bash
-node tests/e2e/e2e_replica_restart.mjs
-```
-
-That profile uses one PostgreSQL and one MinIO, stops the API that issued the
-question, and proves exact replay and idempotent submission through its peer.
-Renderer, database, object-store, and worker checks are service evidence, not
-substitute browser journeys. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
-defines the required evidence classes and final gate order.
+real-stack browser lane and current database/object service oracles, and cleans
+each disposable owner exactly. The future two-API profile returns with the
+fresh mounted course-delivery Store contract. Renderer, database, object-store,
+and worker checks are service evidence, not substitute browser journeys.
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) defines the required evidence
+classes and final gate order.
 
 ## Production boundary
 

@@ -24,7 +24,7 @@ The source material came from `vosslab/biology-problems-website` revision
 for the four static questions, the selected Blackboard source-item code and compiled PLE flat JSON
 checksum.
 
-Neil R. Voss is the named author and Roosevelt University is the named institution. Educational
+Neil R. Voss is the named author and Roosevelt University is the named affiliation. Educational
 content is CC BY 4.0. PGML code portions retain LGPL-3.0-or-later. The two Biochemistry PGML copies
 are marked as adaptations in the manifest. The review corrected `Hydroxl` to `Hydroxyl`, clarified
 the positive-charge and protein-cross-link descriptions, corrected source-description grammar, and
@@ -56,7 +56,7 @@ pilot evidence used `P-...-v1` references, but current instructor-facing IDs use
 canonical `AAA-BBBB` Crockford Question IDs while immutable snapshots stay
 internal for grading and provenance.
 
-Browser learner behavior is selected only through the canonical wrapper:
+Browser student behavior is selected only through the canonical wrapper:
 
 ```bash
 ./run_playwright_tests.sh --build

@@ -150,7 +150,7 @@ export function FlatNumericEditor(props: FlatNumericEditorProps): JSX.Element {
           }
         />
         <span class="flat-question-authoring__help">
-          This tells learners what unit to report; it does not convert the accepted value.
+          This tells students what unit to report; it does not convert the accepted value.
         </span>
       </label>
       <Show when={errorFor("unit") !== undefined}>

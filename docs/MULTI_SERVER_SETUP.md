@@ -20,14 +20,15 @@ not a new authorization claim.
 | Record or capability | Exact owner or scope | Authorization |
 | --- | --- | --- |
 | Account, email, passkey, session | Global `AccountId` and Authenticated Session | Account/session contract |
-| Published question and presentation asset | Global immutable `ProblemId` and `VersionId` | Every approved Instructor |
-| Draft, Blueprint, or private curriculum | `WorkspaceId` and owner/collaborator relationship | Workspace relationship |
+| Published question and presentation asset | Global immutable `QuestionId` and `QuestionVersionNumber` | Every approved Instructor |
+| Draft Question or private curriculum workspace | `WorkspaceId` and Authoring Workspace relationship | Authoring Workspace Owner or Workspace Collaborator |
+| Draft Blueprint Revision | Exact Blueprint Course and revision | Blueprint Course Owner or Blueprint Collaborator |
 | Course, roster, assignment, schedule | Exact `CourseId` and child identity | Current direct Instructor membership |
 | Student run, attempt, response, grade, artifact | Exact `CourseId` plus Student owner | Student self or current course Instructor |
-| Collection, favorite, or saved search | User-owned reference to global published content | Account and explicit sharing |
+| Question Collection, Star, or saved search | Account-owned reference to global published content | Exact Account relationship; Question Collection Shares are explicit |
 | Job, export, object, or provider state | Typed course, workspace, catalog, or system target | Locked lease and durable target |
 
-Every current course Instructor, including a co-Instructor, has the same
+Every current course Instructor, including a Teaching Team Member, has the same
 teaching and FERPA-read authority. Course creation creates the first ordinary
 Instructor membership; it does not create a privileged owner row. A Student
 can read only that Student's records in an enrolled course. A private workspace
@@ -217,20 +218,14 @@ fixed owner authenticates stop over its private control socket and then proves
 cleanup. See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the
 default-stack reset contract and PostgreSQL/MinIO inspection details.
 
-## Exact replica evidence
+## Future replica evidence
 
-The two-replica service oracle is:
-
-```bash
-node tests/e2e/e2e_replica_restart.mjs
-```
-
-Its owner selects the fixed `replica_restart` profile, starts two API
-replicas against one PostgreSQL and one MinIO, issues a question, stops the
-issuing replica, and verifies exact envelope replay plus durable idempotent
-submission through the surviving replica. It uses an observability header
-only in that dedicated test image; normal production builds do not expose
-replica identity.
+The `replica_restart` profile remains a typed disposable-stack configuration
+for the future mounted course-delivery service. Its browser-free oracle returns
+when the fresh Store and route contracts can issue and replay Student work.
+That successor will start two API replicas against one PostgreSQL and one
+MinIO, prove durable replay and idempotent submission through the peer, and
+keep observability headers within its dedicated test image.
 
 ## Production baseline
 

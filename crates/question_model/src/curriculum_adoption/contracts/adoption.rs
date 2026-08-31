@@ -452,7 +452,7 @@ mod tests {
     use crate::{
         AccountId, BlueprintAssignmentId, BlueprintReference, BlueprintRevision,
         CourseInstanceApplicationBinding, CourseScheduleRevision, CurriculumAdoptionRequestBinding,
-        ProblemId, ProblemVersionRef, QuestionId, VersionId,
+        QuestionId, QuestionVersionNumber, QuestionVersionReference,
     };
     use uuid::Uuid;
 
@@ -504,9 +504,9 @@ mod tests {
         UnavailableCurriculumPinRecovery {
             source: AssignmentDefinitionSourceView::new(source(), assignment_id()),
             position: super::super::CurriculumPinPosition::new(None, 0, 0, None).expect("position"),
-            unavailable: ProblemVersionRef {
-                problem: ProblemId::from_uuid(Uuid::from_u128(2)),
-                version: VersionId::from_uuid(Uuid::from_u128(3)),
+            unavailable: QuestionVersionReference {
+                question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),
+                version_number: QuestionVersionNumber::new(1).expect("positive version"),
             },
             choices: super::super::ReplacementQuestionChoices::new(vec![
                 QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),

@@ -20,7 +20,7 @@ const REVIEWED_PARTIAL_CREDIT_MATCHING_SOURCES: [(&str, &str); 2] = [
 /// Exact Chapter 1 sources whose reviewed renderer path can return the
 /// minimal correct/incorrect signal used by immediate-correctness feedback.
 /// `Capability::Hints` is the question-model admission capability for that
-/// learner-facing signal; this allowlist does not claim arbitrary PG hints.
+/// student-facing signal; this allowlist does not claim arbitrary PG hints.
 const REVIEWED_IMMEDIATE_CORRECTNESS_SOURCES: [(&str, &str); 4] = [
     (
         "content/pilot/sources/genetics/genetic_disorders-which_one.pgml",

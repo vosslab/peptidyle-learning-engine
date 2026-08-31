@@ -1,15 +1,14 @@
-// assignment_workspace_presentation_model.ts - learner-accessible state language for policies.
+// assignment_workspace_presentation_model.ts - Student-accessible state language for policies.
 
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
-import type { RunPolicies } from "../../../generated/api/RunPolicies";
-import type { AssignmentPoliciesInput } from "../../api/contracts";
+import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
   nonnegativeIntegerDraft,
   optionalPositiveIntegerDraft,
   scoreFractionDraft,
-  type RunPolicyDraft,
+  type AssignmentActivityRuleDraft,
 } from "./assignment_workspace_policy_model";
 
 export type AssignmentPolicySummaryKey =
@@ -21,7 +20,6 @@ export type AssignmentPolicySummaryKey =
   | "disclosure"
   | "lifecycle"
   | "scheduleLimits"
-  | "audience";
 
 export interface AssignmentPolicySummaryItem {
   readonly key: AssignmentPolicySummaryKey;
@@ -32,21 +30,19 @@ export interface AssignmentPolicySummaryItem {
 export interface AssignmentPolicyDraftSummaryInput {
   readonly savedLifecycle: InstructorAssignmentTeachingSettingsLocal["lifecycle"];
   readonly savedCurrentState: InstructorAssignmentCurrentState;
-  readonly policies: RunPolicies;
-  readonly runPolicyDraft: RunPolicyDraft;
+  readonly policies: AssignmentActivityRules;
+  readonly activityRuleDraft: AssignmentActivityRuleDraft;
   readonly disclosurePolicy: StudentDisclosurePolicy;
   readonly teachingSettings: InstructorAssignmentTeachingSettingsLocal;
   readonly timeLimitSecondsDraft: string;
   readonly attemptLimitDraft: string;
-  readonly audience: AssignmentPoliciesInput["audience"];
-  readonly courseGroups: ReadonlyArray<{ readonly reference: string; readonly title: string }>;
 }
 
 function displayCourseLocalTime(value: string): string {
   return `${value.slice(0, 10)} ${value.slice(11, 16)}`;
 }
 
-/** Explains the current learner-access state without exposing an implementation detail. */
+/** Explains the current student-access state without exposing an implementation detail. */
 export function assignmentCurrentStateCopy(
   lifecycle: InstructorAssignmentTeachingSettingsLocal["lifecycle"],
   current: InstructorAssignmentCurrentState,
@@ -67,7 +63,7 @@ export function assignmentCurrentStateCopy(
 function completionSummary(input: AssignmentPolicyDraftSummaryInput): string {
   if (input.policies.completion.kind === "allCorrect") return "All questions correct";
   if (input.policies.completion.kind === "answerAll") return "Answer every question";
-  const threshold = scoreFractionDraft(input.runPolicyDraft.completionFraction);
+  const threshold = scoreFractionDraft(input.activityRuleDraft.completionFraction);
   if (!threshold.valid || threshold.value === null) return "Score threshold needs correction";
   return `Score at least ${threshold.value * 100}%`;
 }
@@ -75,11 +71,11 @@ function completionSummary(input: AssignmentPolicyDraftSummaryInput): string {
 function continuedPracticeSummary(input: AssignmentPolicyDraftSummaryInput): string {
   if (input.policies.continuedPractice.kind === "unlimited") return "Unlimited after completion";
   if (input.policies.continuedPractice.kind === "closed") return "Closed after completion";
-  const additionalRuns = nonnegativeIntegerDraft(input.runPolicyDraft.additionalRuns);
+  const additionalRuns = nonnegativeIntegerDraft(input.activityRuleDraft.additionalRuns);
   if (!additionalRuns.valid || additionalRuns.value === null) {
-    return "Additional-run limit needs correction";
+    return "Additional Assignment Attempt limit needs correction";
   }
-  return `${additionalRuns.value} additional run${additionalRuns.value === 1 ? "" : "s"}`;
+  return `${additionalRuns.value} additional Assignment Attempt${additionalRuns.value === 1 ? "" : "s"}`;
 }
 
 function disclosureSummary(policy: StudentDisclosurePolicy): string {
@@ -131,29 +127,15 @@ function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string
   ].join("; ");
 }
 
-function audienceSummary(input: AssignmentPolicyDraftSummaryInput): string {
-  if (input.audience.kind === "courseWide") return "Every enrolled learner";
-  if (input.audience.groups.length === 0) return "No course groups selected";
-  const titles = new Map(input.courseGroups.map((group) => [group.reference, group.title]));
-  const selectedTitles = input.audience.groups.flatMap((reference) => {
-    const title = titles.get(reference);
-    return title === undefined ? [] : [title];
-  });
-  if (selectedTitles.length !== input.audience.groups.length) {
-    return `${input.audience.groups.length} selected course group${input.audience.groups.length === 1 ? "" : "s"}`;
-  }
-  return selectedTitles.join(", ");
-}
-
-/** Builds concise, learner-safe copy from the current unsaved Policies draft. */
+/** Builds concise, student-safe copy from the current unsaved Policies draft. */
 export function assignmentPolicyDraftSummary(
   input: AssignmentPolicyDraftSummaryInput,
 ): ReadonlyArray<AssignmentPolicySummaryItem> {
   const grade = {
-    highest: "Highest run score",
-    latest: "Latest run score",
-    first: "First run score",
-    instructorSelected: "Instructor-selected run",
+    highest: "Highest Assignment Attempt score",
+    latest: "Latest Assignment Attempt score",
+    first: "First Assignment Attempt score",
+    instructorSelected: "Instructor-selected Assignment Attempt",
   } as const;
   const variation = {
     newSeeds: "Use new seeds",
@@ -186,19 +168,18 @@ export function assignmentPolicyDraftSummary(
     { key: "variation", label: "Variation", value: variation[input.policies.variation] },
     {
       key: "disclosure",
-      label: "Learner disclosure",
+      label: "Student disclosure",
       value: disclosureSummary(input.disclosurePolicy),
     },
     {
       key: "lifecycle",
       label: "Draft lifecycle",
-      value: `${lifecycle[input.teachingSettings.lifecycle]}; ${input.teachingSettings.instructions.trim() === "" ? "no learner instructions" : "learner instructions included"}`,
+      value: `${lifecycle[input.teachingSettings.lifecycle]}; ${input.teachingSettings.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
     },
     {
       key: "scheduleLimits",
       label: "Draft schedule and limits",
       value: scheduleLimitsSummary(input),
     },
-    { key: "audience", label: "Audience", value: audienceSummary(input) },
   ];
 }

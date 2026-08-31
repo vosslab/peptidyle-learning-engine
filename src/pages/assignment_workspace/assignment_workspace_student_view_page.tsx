@@ -40,8 +40,8 @@ function StudentViewFailure(props: {
       <h1 id="student-view-heading">Student view unavailable</h1>
       <p>
         {unavailable
-          ? "The answer-free learner landing is not available for this assignment."
-          : "The answer-free learner landing could not load. Try again without leaving this workspace."}
+          ? "The answer-free Student view is not available for this assignment."
+          : "The answer-free Student view could not load. Try again without leaving this workspace."}
       </p>
       <button
         class="quiet-action"
@@ -146,8 +146,8 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
                   </A>
                 </div>
                 <p>
-                  This answer-free inspection creates no learner work. Use ordinary Student entry to
-                  submit graded work in a live assignment run.
+                  This answer-free inspection creates no Student work. Use ordinary Student entry to
+                  submit graded work in a live Assignment Attempt.
                 </p>
               </div>
             }

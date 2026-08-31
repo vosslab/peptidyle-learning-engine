@@ -27,15 +27,15 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 - Current approval grants the same global Instructor capabilities as every
   other approved Instructor.
 - Current approval plus direct course membership grants teaching authority for that course.
-- A course may have multiple equal co-Instructors. Approval withdrawal closes global and
+- A course may have multiple equal Teaching Team Members. Approval withdrawal closes global and
   course-Instructor capabilities; membership revocation closes that course's authority.
 
 ### Sysadmin
 
-- A Sysadmin account is manually created as a platform operator account.
+- A Sysadmin creates a platform operator Account through Account Creation.
 - A Sysadmin operates the platform, bootstraps CourseInstances through the closed pre-course
-  Course Creation authority, and completes support work through an exact-course capability.
-- The pending SD1 Course Creation command binds the exact Blueprint source, approved assigned
+  Course Instance Creation authority, and completes support work through an exact-course capability.
+- The pending SD1 Course Instance Creation command binds the exact Blueprint source, approved assigned
   Instructor account, and server-reserved CourseInstance identity. One transaction creates the
   CourseInstance, that Instructor's initial direct membership, and an append-only audit event;
   the Sysadmin account receives no course membership.
@@ -56,7 +56,7 @@ course:
 - `Student` means the person may use only their own active Student paths.
 - `Instructor` means the person may teach and administer that exact course.
 
-A course may have multiple current Instructor members. They are equal co-Instructors for that
+A course may have multiple current Instructor members. They are equal Teaching Team Members for that
 course; course creation only establishes the first membership and does not create a privileged
 course-owner role.
 
@@ -82,7 +82,7 @@ Support uses the closed `SysadminSupportCapability` registry in
 becoming ambient access to grades, responses, attempts, or other Student data.
 
 PLE uses one installation. Pending SD1 initial course bootstrap uses the closed
-Sysadmin platform Course Creation authority; after it creates the direct course
+Sysadmin Course Instance Creation authority; after it creates the direct course
 relationship, ordinary account flows derive authority from the authenticated
 account and current course membership.
 
@@ -90,7 +90,7 @@ The pending SD1 passwordless target, owned by migrations `2026082902` through
 `2026082905` and `2026082933`, issues one immutable account and session role. It confirms that
 every selected Student or Instructor membership matches that role, and a
 Sysadmin account cannot select a course membership. The operator assigns the
-role at Account Creation; the application does not change it.
+Product Role at Account Creation; the application does not change it.
 
 ## FERPA and student data
 
@@ -121,10 +121,11 @@ how the label follows query results, backups, replicas, and restores.
 
 ## Service identities are not users
 
-The public-asset publisher, API, worker, grader, renderer, database roles, and
+The public-asset publisher, API, worker, automated-grading service, renderer, database roles, and
 cloud task roles are service identities. The word `publisher` may describe the
 dedicated publication service or the act of publishing, but it is never a
-human `AccountRole`. An Instructor publishes reviewed content through the
+human Product Role. The current `AccountRole` enum is the implementation name
+for that classification. An Instructor publishes reviewed content through the
 application; the dedicated publisher service materializes immutable public
 asset bytes after the committed outbox decision.
 
@@ -167,7 +168,7 @@ Manager, but never a PLE human role.
 Use **Student** in PLE-owned type, module, route, field, and table names whenever the subject is a
 person with the Student role or that person's course work. Use **User** before a course role is
 known. Use **learning** only for educational-system concepts, such as learning data or learning
-outcomes. `learner` is not a fourth role or an alias for Student in new PLE-owned names.
+outcomes. `student` is not a fourth role or an alias for Student in new PLE-owned names.
 
 Active Instructor-roadmap work packages use the temporary `WP-INST-*` namespace. These planning
 keys exist only while their owning plans remain active; completed planning can retire the labels.
@@ -176,7 +177,7 @@ Current titles, prose, code, APIs, and schemas use **Instructor** directly.
 ## Enforcement owners
 
 - [question-model auth](../crates/question_model/src/auth.rs) owns the closed
-  human `AccountRole` enum.
+  human Product Role enum, currently named `AccountRole` in Rust.
 - [question-model course](../crates/question_model/src/course.rs) owns the one
   closed `CourseMembershipRole` relationship enum; it does not define more
   human roles.

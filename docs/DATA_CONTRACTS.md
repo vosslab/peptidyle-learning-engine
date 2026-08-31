@@ -51,7 +51,7 @@ formats, database relations, and recovery procedures.
 | Published question | Publication transition and immutable version | Answer-free render only | Catalog/version records and immutable source assets | Refuse missing version, unsupported public shape, or altered provenance | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
 | Assignment Attempt and timing | Issuance service and stored Assignment Attempt state | Question Attempt ID plus permitted state summary | Exact course/Student Assignment Attempt, Question Attempt, timer, Submission receipt, and provenance rows | Conceal or refuse foreign state; reject completed or expired transitions | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Render presentation | Trusted backend reproducing version and seed | Prompt, public assets, response shape, presentation binding | Attempt provenance and private replay state | Refuse inconsistent reproduction or unsupported render | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
-| Learner response | Learner, only within an issued attempt | Request body supplied by learner | Append-only submission evidence and idempotency receipt | Structural/membership failure receives no grade | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
+| Student response | Student, only within an issued attempt | Request body supplied by student | Append-only submission evidence and idempotency receipt | Structural/membership failure receives no grade | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 | Grade and feedback | Server-only adapter, grader, and disclosure policy | Only policy-permitted result and feedback | Result, protected feedback, score, and summary rows | Do not disclose private material; failed grading does not invent a result | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Answer-bearing material | Private question definition, adapter, or grader | Never | Protected database/object/provider state | Refuse if unavailable, malformed, or not authorized for the backend | [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) |
 | Account, session, and relationship records | Global session resolver, exact membership/ownership records, PostgreSQL forced RLS | Authorized projections only | Global accounts plus course, Student, workspace, and capability relationships | A resolved Account and required relationship authorize access | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#authority-relationships) |
@@ -66,7 +66,7 @@ The following rules apply across every table row:
 
 - Browser-safe data is a read projection, not an instruction to trust a later
   browser request.
-- Answer-bearing data never enters a learner render payload, public asset,
+- Answer-bearing data never enters a student render payload, public asset,
   browser cache, analytics event, or generic worker payload.
 - An Account, course, Student, or workspace ID in a path, header, JSON body, or
   cache key does not establish authority; authenticated server context and the
@@ -80,14 +80,14 @@ The following rules apply across every table row:
 
 ## Assessment boundary
 
-The learner-facing assessment exchange has two different payload sizes and
+The student-facing assessment exchange has two different payload sizes and
 trust levels:
 
 | Exchange | Current status | Browser receives or sends | Server derives or retains | Owner |
 | --- | --- | --- | --- | --- |
 | Render | **Implemented** foundation | Answer-free prompt, public assets, widget shape, and safe presentation metadata | Key, rubric, backend provenance, private replay mapping, and policy authority | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
-| Submit | **Current compatibility contract** | Question Attempt route, idempotency key, and tagged `StudentResponse` | Account, Student, exact course/Assignment Attempt, version, seed, backend, policy, and expected Answer Format | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
-| Compact submit | **Reserved** cutover | Attempt route, idempotency key, presentation digest, and minimal answer | The Answer Format and all attempt-owned context | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
+| Submit | **Current compatibility contract** | Question Attempt route, idempotency key, and tagged `StudentResponse` | Account, Student, exact course/Assignment Attempt, version, seed, backend, policy, and expected family | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
+| Compact submit | **Reserved** cutover | Attempt route, idempotency key, presentation digest, and family-minimal answer | The response family and all attempt-owned context | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) |
 
 `kind` is needed in the current render payload so the browser can select the
 correct widget. It remains on the current compatibility submission wire. The
@@ -98,7 +98,7 @@ Presentation binding is a consistency check, not authorization. The current
 foundation uses a server-stored nonce and full digest, plus compact rendered
 item IDs that are unique within one presentation. CRC16 can detect accidental
 stale or mismatched visible state after uniqueness is enforced; it cannot
-authenticate a learner or defend against a malicious client. See
+authenticate a student or defend against a malicious client. See
 [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) for identifier roles and
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for the payload
 strategy.

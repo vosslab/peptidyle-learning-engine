@@ -1,46 +1,28 @@
-// reusable_curriculum_creation.ts - guarded live creation commands for locally authored drafts.
+// Guarded Blueprint Course creation from a complete local draft.
 
-import type { AlphaCourseDefinitionInput } from "../../../generated/api/AlphaCourseDefinitionInput";
-import type { BlueprintDefinitionInput } from "../../../generated/api/BlueprintDefinitionInput";
+import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
 import type { ReusableCurriculumClient } from "../../api/reusable_curriculum";
-import { validateAlphaDefinition, validateReusableDefinition } from "./reusable_curriculum_model";
+import { validateBlueprintCourseDefinition } from "./reusable_curriculum_model";
 
-export type CurriculumCreationResult<Created> =
+export type BlueprintCourseCreationResult<Created> =
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "created"; readonly value: Created };
 
-/** Validates a browser-local blueprint before making its one live mutation request. */
-export async function createBlueprintWhenReady(
+/** Validates a complete Blueprint Course draft before its one live create request. */
+export async function createBlueprintCourseWhenReady(
   client: ReusableCurriculumClient,
-  definition: BlueprintDefinitionInput,
+  definition: CreateBlueprintCourseDefinitionInput,
 ): Promise<
-  CurriculumCreationResult<Awaited<ReturnType<ReusableCurriculumClient["createBlueprint"]>>>
+  BlueprintCourseCreationResult<
+    Awaited<ReturnType<ReusableCurriculumClient["createBlueprintCourse"]>>
+  >
 > {
-  const validation = validateReusableDefinition(definition.definition);
+  const validation = validateBlueprintCourseDefinition(definition);
   if (!validation.valid) {
     return {
       kind: "invalid",
-      message: validation.message ?? "Complete the blueprint before creating it.",
+      message: validation.message ?? "Complete the Blueprint Course before creating it.",
     };
   }
-  const value = await client.createBlueprint(definition);
-  return { kind: "created", value };
-}
-
-/** Validates a browser-local Alpha aggregate before making its one live mutation request. */
-export async function createAlphaWhenReady(
-  client: ReusableCurriculumClient,
-  definition: AlphaCourseDefinitionInput,
-): Promise<
-  CurriculumCreationResult<Awaited<ReturnType<ReusableCurriculumClient["createAlphaCourse"]>>>
-> {
-  const validation = validateAlphaDefinition(definition);
-  if (!validation.valid) {
-    return {
-      kind: "invalid",
-      message: validation.message ?? "Complete the Alpha curriculum before creating it.",
-    };
-  }
-  const value = await client.createAlphaCourse(definition);
-  return { kind: "created", value };
+  return { kind: "created", value: await client.createBlueprintCourse(definition) };
 }

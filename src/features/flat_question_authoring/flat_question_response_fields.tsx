@@ -101,8 +101,8 @@ export function FlatQuestionResponseFields(props: {
           <option value="hotspot">Image hotspot</option>
         </select>
         <span class="flat-question-authoring__help">
-          Choose the learner task first. Changing the format starts a valid private draft for that
-          format. Image hotspot starts with a verified image and learner-facing description.
+          Choose the student task first. Changing the format starts a valid private draft for that
+          format. Image hotspot starts with a verified image and student-facing description.
         </span>
       </label>
       <Show when={responseKind() === "singleChoice"}>

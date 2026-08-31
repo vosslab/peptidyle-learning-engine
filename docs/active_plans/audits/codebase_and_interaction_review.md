@@ -66,11 +66,11 @@ Ranked by consequence rather than by how wrong they are.
    current behavior contradicts a settled owner requirement.
 2. **The published evidence misrepresents the product (EVD-3, EVD-5, EVD-6).** All five `README.md`
    images come from the older capture set; one displays the `P-2-v1` identity scheme the project
-   replaced, and a sibling image shows a raw learner-UUID column. A design review cites one of these
+   replaced, and a sibling image shows a raw student-UUID column. A design review cites one of these
    images as proof of a layout the current code implements differently. The public front page of the
    project currently advertises a version of the interface that no longer exists.
-3. **The product's central promise is now observable for learners (STU-2).** Assignment
-   overview now includes learner-visible mastery outcome fields from `student_assignment_summary`
+3. **The product's central promise is now observable for students (STU-2).** Assignment
+   overview now includes student-visible mastery outcome fields from `student_assignment_summary`
    before practice starts.
 4. **Timing is shown before a timed run starts (STU-1).** The student now sees the assignment time limit on
    the overview screen before starting practice.
@@ -102,15 +102,15 @@ role requirement on the route contract rather than per page. The server is the a
 link alone would not change what a session can fetch. Decide deliberately whether a student may
 resolve a single assigned question, which is a different route than browse and search.
 
-**2. Learner-facing teaching loop.** Show the run time limit before the student commits; project the
-existing summary fields into a learner-visible mastery view; replace seed and attempt vocabulary
+**2. Student-facing teaching loop.** Show the run time limit before the student commits; project the
+existing summary fields into a student-visible mastery view; replace seed and attempt vocabulary
 with teacher language; settle on one verb for entering practice across the three surfaces and the
 keyboard contract. These are small and they address the gap between what the product promises and
-what the learner can see.
+what the student can see.
 
 **3. Instructor observation.** The item-analysis capability is complete server-side with no
 interface, and the gradebook is a flat cross-product list where the instructor's mental model is a
-matrix. ADAPT's gradebook demonstrates the matrix with sticky learner columns and export; PLE's
+matrix. ADAPT's gradebook demonstrates the matrix with sticky student columns and export; PLE's
 mastery cell content is richer and worth carrying into that shape rather than adopting ADAPT's
 single-score cell.
 

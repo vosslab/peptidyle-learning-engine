@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
-GRANT REFERENCES ON TABLE ple_data.course_instance_assignment_delivery,
+GRANT REFERENCES ON TABLE ple_data.assignment,
     ple_data.published_question_version TO ple_private_owner;
 RESET ROLE;
 
@@ -21,11 +21,11 @@ CREATE TABLE ple_private.external_tool_launch_session (
     launch_session_id uuid PRIMARY KEY,
     course_id uuid NOT NULL,
     assignment_id uuid NOT NULL,
-    attempt_id uuid NOT NULL REFERENCES ple_private.question_attempt (attempt_id),
+    attempt_id uuid NOT NULL REFERENCES ple_private.question_attempt (question_attempt_id),
     account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     provider_key text NOT NULL CHECK (provider_key ~ '^[A-Za-z0-9._-]{1,160}$'),
-    problem_id uuid NOT NULL,
-    version_id uuid NOT NULL,
+    question_id text NOT NULL,
+    version_number integer NOT NULL,
     source_object_id uuid NOT NULL,
     source_sha256 bytea NOT NULL CHECK (pg_catalog.octet_length(source_sha256) = 32),
     integration_profile text NOT NULL CHECK (integration_profile ~ '^[A-Za-z0-9._-]{1,160}$'),
@@ -38,9 +38,9 @@ CREATE TABLE ple_private.external_tool_launch_session (
     activity_lease_token_sha256 bytea CHECK (pg_catalog.octet_length(activity_lease_token_sha256) = 32),
     activity_lease_expires_at timestamp with time zone,
     CONSTRAINT external_tool_launch_assignment_matches FOREIGN KEY (course_id, assignment_id)
-        REFERENCES ple_data.course_instance_assignment_delivery (course_id, assignment_id),
-    CONSTRAINT external_tool_launch_version_matches FOREIGN KEY (problem_id, version_id)
-        REFERENCES ple_data.published_question_version (problem_id, version_id),
+        REFERENCES ple_data.assignment (course_id, assignment_id),
+    CONSTRAINT external_tool_launch_version_matches FOREIGN KEY (question_id, version_number)
+        REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT external_tool_launch_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= issued_at),
     CONSTRAINT external_tool_launch_activity_lease_matches CHECK (
         (activity_lease_token_sha256 IS NULL AND activity_lease_expires_at IS NULL)
@@ -48,13 +48,13 @@ CREATE TABLE ple_private.external_tool_launch_session (
     )
 );
 CREATE TABLE ple_private.external_tool_exchange (
-    attempt_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt (attempt_id),
+    attempt_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt (question_attempt_id),
     course_id uuid NOT NULL,
     assignment_id uuid NOT NULL,
     account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     provider_key text NOT NULL CHECK (provider_key ~ '^[A-Za-z0-9._-]{1,160}$'),
-    problem_id uuid NOT NULL,
-    version_id uuid NOT NULL,
+    question_id text NOT NULL,
+    version_number integer NOT NULL,
     source_object_id uuid NOT NULL,
     source_sha256 bytea NOT NULL CHECK (pg_catalog.octet_length(source_sha256) = 32),
     integration_profile text NOT NULL CHECK (integration_profile ~ '^[A-Za-z0-9._-]{1,160}$'),
@@ -70,9 +70,9 @@ CREATE TABLE ple_private.external_tool_exchange (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
     CONSTRAINT external_tool_exchange_assignment_matches FOREIGN KEY (course_id, assignment_id)
-        REFERENCES ple_data.course_instance_assignment_delivery (course_id, assignment_id),
-    CONSTRAINT external_tool_exchange_version_matches FOREIGN KEY (problem_id, version_id)
-        REFERENCES ple_data.published_question_version (problem_id, version_id),
+        REFERENCES ple_data.assignment (course_id, assignment_id),
+    CONSTRAINT external_tool_exchange_version_matches FOREIGN KEY (question_id, version_number)
+        REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT external_tool_exchange_lease_matches CHECK (
         (state = 'verifying' AND lease_token_sha256 IS NOT NULL AND lease_expires_at IS NOT NULL
             AND verification_token_sha256 IS NULL AND result_payload IS NULL AND result_sha256 IS NULL)

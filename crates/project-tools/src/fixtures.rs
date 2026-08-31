@@ -14,6 +14,10 @@ use adapter_native::{AssetObjectBinding, NativeAdapter};
 use anyhow::{Context, Result, bail};
 use grading::GradeOutcome;
 use question_model::answer::SelectionCardinality;
+use question_model::assignment_activity_rules::{
+    AssignmentActivityRules, AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy,
+    TimingPolicy, VariationPolicy,
+};
 use question_model::definition::{
     DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionDefinition,
     QuestionMetadata, QuestionSource,
@@ -22,20 +26,17 @@ use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{
     GeneratorReference, ParameterSpec, RandomizationDefinition, Seed,
 };
-use question_model::identity::{AssetId, ObjectId, ProblemId, VersionId, WorkspaceId};
+use question_model::identity::{AssetId, ObjectId, WorkspaceId};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition, StudentResponse};
-use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
-    TimingPolicy, VariationPolicy,
-};
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    AccountId, ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
-    AssignmentItemId, AssignmentItemSummary, AssignmentRun, AssignmentScoringMode,
-    AssignmentSummary, AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary,
-    CatalogResponseFamily, CourseId, CourseMembershipRole, CourseSummary, EnrollmentId,
-    GradebookSummaryRow, PointValue, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId,
+    ActivityTimestamp, AssignmentAttempt, AssignmentAttemptId, AssignmentDeliveryState,
+    AssignmentId, AssignmentItemId, AssignmentItemSummary, AssignmentProgressRecord,
+    AssignmentScoringMode, AssignmentSummary, CatalogProblemSummary,
+    CatalogResponseFamily, CourseId, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
+    IssuedQuestion, IssuedQuestionId, PointValue, QuestionAttempt, QuestionAttemptId,
+    QuestionAttemptTiming, QuestionBackend, QuestionId, QuestionVersionNumber,
+    QuestionVersionAvailability, QuestionVersionReference, StudentRecordId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -116,10 +117,11 @@ struct FixtureCorpus {
     assets: Vec<FixtureAsset>,
     course: CourseSummary,
     assignment: AssignmentSummary,
-    enrollment: AssignmentEnrollment,
-    runs: Vec<AssignmentRun>,
+    student_record: StudentRecordId,
+    runs: Vec<AssignmentAttempt>,
+    issued_questions: Vec<IssuedQuestion>,
     attempts: Vec<QuestionAttempt>,
-    summary: StudentAssignmentSummary,
+    summary: AssignmentProgressRecord,
     gradebook: Vec<GradebookSummaryRow>,
 }
 
@@ -153,12 +155,11 @@ pub fn run(fixture_dir: &Path, mode: Mode) -> Result<Report> {
 
 fn build_corpus() -> Result<FixtureCorpus> {
     let workspace = workspace_id("0198e000-0000-7000-8000-000000000002");
-    let problem = problem_id("0198e000-0000-7000-8000-000000000003");
-    let version = version_id("0198e000-0000-7000-8000-000000000004");
+    let question_id =
+        QuestionId::from_canonical_parts("7K3M9Q", 'P').expect("fixture Question ID is canonical");
+    let version_number = QuestionVersionNumber::new(1).expect("fixture version is positive");
     let assignment_id = assignment_id("0198e000-0000-7000-8000-000000000006");
-    let enrollment_id = enrollment_id("0198e000-0000-7000-8000-000000000007");
-    let student = student_id("0198e000-0000-7000-8000-000000000008");
-    let account = AccountId::from_uuid(parsed_uuid("0198e000-0000-7000-8000-000000000016"));
+    let student_record = student_record_id("0198e000-0000-7000-8000-000000000007");
     let asset_specs = [
         (
             asset_id("0198e000-0000-7000-8000-000000000010"),
@@ -186,8 +187,8 @@ fn build_corpus() -> Result<FixtureCorpus> {
 
     let published_problem = QuestionDefinition::from_draft(
         draft_question(workspace, &assets),
-        problem,
-        version,
+        question_id.clone(),
+        version_number,
         QuestionSource::Native {
             family: "peptide_bond_geometry".to_string(),
         },
@@ -204,8 +205,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         byline: question_model::PublicByline::new(vec![question_model::PublicAuthorName::new(
             "Fixture Instructor".to_string(),
         )?])?,
-        scope: PublicationScope::Public,
-        lifecycle: CatalogLifecycle::Published,
+        availability: QuestionVersionAvailability::Available,
         published_at: timestamp(1_786_000_000_000),
     };
     let mut draft = draft_question(workspace, &assets);
@@ -218,7 +218,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         run_id("0198e000-0000-7000-8000-000000000022"),
         run_id("0198e000-0000-7000-8000-000000000023"),
     ];
-    let policies = RunPolicies {
+    let policies = AssignmentActivityRules {
         completion: CompletionRequirement::AllCorrect,
         grade: GradePolicy::Highest,
         continued_practice: ContinuedPractice::Unlimited,
@@ -234,43 +234,72 @@ fn build_corpus() -> Result<FixtureCorpus> {
     let runs = run_ids
         .iter()
         .enumerate()
-        .map(|(index, id)| AssignmentRun {
+        .map(|(index, id)| AssignmentAttempt {
             id: *id,
-            reference: question_model::RunReference::new(
+            reference: question_model::AssignmentAttemptReference::new(
                 u64::try_from(index + 1).expect("four fixture runs fit u64"),
             )
             .expect("four fixture public run IDs are valid"),
-            enrollment: enrollment_id,
-            run_number: u32::try_from(index + 1).expect("four fixture runs fit u32"),
+            student_record,
+            assignment: assignment_id,
+            attempt_number: u32::try_from(index + 1).expect("four fixture attempts fit u32"),
             started_at: timestamp(
                 1_786_000_001_000 + i64::try_from(index).expect("index fits") * 1_000,
             ),
             completed_at: completion_times[index].map(timestamp),
             score: scores[index],
-            mode: if index == 0 {
-                RunMode::Assigned
-            } else {
-                RunMode::Practice
-            },
             variation: VariationPolicy::NewSeeds,
         })
         .collect();
 
-    let attempts = run_ids
+    let assignment_item = assignment_item_id("0198e000-0000-7000-8000-000000000017");
+    let issued_questions = run_ids
         .iter()
         .enumerate()
-        .map(|(index, run)| {
+        .map(|(index, assignment_attempt)| IssuedQuestion {
+            id: issued_question_id(match index {
+                0 => "0198e000-0000-7000-8000-000000000040",
+                1 => "0198e000-0000-7000-8000-000000000041",
+                2 => "0198e000-0000-7000-8000-000000000042",
+                _ => "0198e000-0000-7000-8000-000000000043",
+            }),
+            assignment_attempt: *assignment_attempt,
+            assignment_item,
+            source_position: 0,
+            issued_position: 0,
+            reference: QuestionVersionReference {
+                question_id: question_id.clone(),
+                version_number,
+            },
+            statistics_eligible: true,
+            selection_group: None,
+            selection_seed: None,
+        })
+        .collect::<Vec<_>>();
+
+    let attempts = issued_questions
+        .iter()
+        .enumerate()
+        .map(|(index, issued_question)| {
             let seed = 1_001 + u64::try_from(index).expect("fixture index fits u64");
-            question_attempt(&adapter, index, *run, &published_problem, seed, &assets)
+            question_attempt(
+                &adapter,
+                index,
+                issued_question.id,
+                &published_problem,
+                seed,
+                &assets,
+            )
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let summary = StudentAssignmentSummary {
-        enrollment: enrollment_id,
+    let summary = AssignmentProgressRecord {
+        student_record,
+        assignment: assignment_id,
         current_score: Some(1.0),
         best_score: Some(1.0),
         latest_score: Some(0.0),
-        completed_run_count: 3,
+        completed_assignment_attempt_count: 3,
         total_question_attempts: 4,
         last_activity_at: Some(timestamp(1_786_000_004_100)),
     };
@@ -315,21 +344,13 @@ fn build_corpus() -> Result<FixtureCorpus> {
             selection_groups: Vec::new(),
             policies,
         },
-        enrollment: AssignmentEnrollment {
-            id: enrollment_id,
-            assignment: assignment_id,
-            user: account,
-            student,
-            first_completed_at: Some(timestamp(1_786_000_001_300)),
-            current_grade_run: Some(run_ids[1]),
-            best_grade_run: Some(run_ids[1]),
-        },
+        student_record,
         runs,
+        issued_questions,
         attempts,
         gradebook: vec![GradebookSummaryRow {
             course_id,
-            enrollment_id,
-            student_id: student,
+            student_record_id: student_record,
             student_name: "Jordan Student".to_string(),
             assignment_id,
             assignment_title: "Peptide bond mastery".to_string(),
@@ -432,7 +453,7 @@ fn choice(id: &str, markdown: &str) -> ChoiceOption {
 fn question_attempt(
     adapter: &NativeAdapter,
     index: usize,
-    run: RunId,
+    issued_question: IssuedQuestionId,
     question: &QuestionDefinition,
     seed: u64,
     assets: &[FixtureAsset],
@@ -468,10 +489,7 @@ fn question_attempt(
             2 => "0198e000-0000-7000-8000-000000000032",
             _ => "0198e000-0000-7000-8000-000000000033",
         }),
-        run,
-        problem: question.problem,
-        question_version: question.version,
-        assignment_position: 0,
+        issued_question,
         seed,
         parameter_hash: issued.parameter_hash,
         response,
@@ -481,7 +499,7 @@ fn question_attempt(
             question_model::AttemptStatus::InProgress
         },
         result,
-        timer: AttemptTimerRecord {
+        timing: QuestionAttemptTiming {
             issued_at: timestamp(issued_at),
             deadline: None,
             submitted_at: completed.then(|| timestamp(issued_at + 100)),
@@ -564,13 +582,11 @@ id_constructor!(asset_id, AssetId);
 id_constructor!(assignment_id, AssignmentId);
 id_constructor!(assignment_item_id, AssignmentItemId);
 id_constructor!(course_id, CourseId);
-id_constructor!(enrollment_id, EnrollmentId);
+id_constructor!(issued_question_id, IssuedQuestionId);
 id_constructor!(object_id, ObjectId);
-id_constructor!(problem_id, ProblemId);
 id_constructor!(question_attempt_id, QuestionAttemptId);
-id_constructor!(run_id, RunId);
-id_constructor!(student_id, StudentId);
-id_constructor!(version_id, VersionId);
+id_constructor!(run_id, AssignmentAttemptId);
+id_constructor!(student_record_id, StudentRecordId);
 id_constructor!(workspace_id, WorkspaceId);
 
 #[cfg(test)]
@@ -594,8 +610,14 @@ mod tests {
         assert_eq!(corpus.assignment.items.len(), 1);
         assert_eq!(completed, 3);
         assert_eq!(corpus.runs.len() - completed, 1);
+        assert_eq!(corpus.issued_questions.len(), corpus.attempts.len());
+        assert!(corpus.attempts.iter().all(|attempt| {
+            corpus
+                .issued_questions
+                .iter()
+                .any(|issued_question| issued_question.id == attempt.issued_question)
+        }));
         assert_eq!(seeds.len(), corpus.attempts.len());
-        assert!(corpus.enrollment.first_completed_at.is_some());
         assert!(corpus.attempts.iter().all(|attempt| {
             attempt.provenance.generator.is_some()
                 && attempt.provenance.source_artifact.is_none()
@@ -629,7 +651,13 @@ mod tests {
                     &asset_bindings,
                 )
                 .expect("committed attempt should reproduce without an answer key");
-            assert_eq!(envelope.version, corpus.published_problem.version);
+            assert_eq!(
+                envelope.question_version,
+                QuestionVersionReference {
+                    question_id: corpus.published_problem.question_id.clone(),
+                    version_number: corpus.published_problem.version_number,
+                }
+            );
 
             match (&attempt.response, &attempt.result) {
                 (Some(response), Some(recorded_result)) => {

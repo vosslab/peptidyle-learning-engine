@@ -8,7 +8,7 @@ import {
   decodeDisclosedFeedback,
   decodeStudentQuestionAttempt,
   decodeQuestionAttempt,
-  decodeRunSummaryResponse,
+  decodeAssignmentAttemptSummaryResponse,
   decodeSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
@@ -19,7 +19,7 @@ const studentProgress = {
   current_score: 0,
   best_score: 1,
   latest_score: 0,
-  completed_run_count: 2,
+  completed_assignment_attempt_count: 2,
   total_question_attempts: 4,
   last_activity_at: 1786000000000,
 };
@@ -61,10 +61,10 @@ test("Student attempts require score freshness and redact stale numeric results"
   );
 });
 
-test("attempt decoder rejects the retired manual attempt status", () => {
+test("attempt decoder rejects an unrecognized retired attempt status", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   assert.throws(
-    () => decodeStudentQuestionAttempt({ ...attempt, status: "needs_manual_grading" }),
+    () => decodeStudentQuestionAttempt({ ...attempt, status: "retired_attempt_status" }),
     DecodeError,
   );
 });
@@ -92,21 +92,20 @@ test("Student pool provenance exposes only a valid server-selected ordinal", () 
   );
 });
 
-test("run summary decoder accepts only its compact redacted wire shape", () => {
-  const run = publishedProblemFixture.runs[0];
+test("Assignment Attempt summary decoder accepts only its compact redacted wire shape", () => {
+  const assignmentAttempt = publishedProblemFixture.runs[0];
   const summary = {
     course: {
       summary: publishedProblemFixture.course,
       appearance: { theme: "grass", revision: "1", banner: null },
     },
-    run,
+    assignmentAttempt,
     summary: studentProgress,
-    practiceAllowed: true,
     outcomes: {
       items: [
         {
           attempt: publishedProblemFixture.attempts[0].id,
-          assignmentPosition: 0,
+          issuedQuestion: publishedProblemFixture.issuedQuestions[0],
           submittedAt: 1,
           response: null,
           feedback: null,
@@ -116,11 +115,14 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
       nextCursor: null,
     },
   };
-  assert.deepEqual(decodeRunSummaryResponse(summary), summary);
-  assert.throws(() => decodeRunSummaryResponse({ ...summary, policy: "onRelease" }), DecodeError);
+  assert.deepEqual(decodeAssignmentAttemptSummaryResponse(summary), summary);
+  assert.throws(
+    () => decodeAssignmentAttemptSummaryResponse({ ...summary, policy: "onRelease" }),
+    DecodeError,
+  );
   assert.throws(
     () =>
-      decodeRunSummaryResponse({
+      decodeAssignmentAttemptSummaryResponse({
         ...summary,
         summary: { ...summary.summary, privateScope: "0198e000-0000-7000-8000-000000000099" },
       }),
@@ -128,7 +130,7 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
   );
   assert.throws(
     () =>
-      decodeRunSummaryResponse({
+      decodeAssignmentAttemptSummaryResponse({
         ...summary,
         outcomes: {
           ...summary.outcomes,
@@ -146,7 +148,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     attempt,
     feedback: { correctness: true },
     scoringStatus: "current",
-    runCompletionStatus: "inProgress",
+    assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
   };
@@ -173,11 +175,14 @@ test("submission receipts require an exact feedback field and reject hostile nes
   }
   const { scoringStatus: _scoringStatus, ...withoutScoringStatus } = receipt;
   assert.throws(() => decodeSubmissionReceipt(withoutScoringStatus), DecodeError);
-  const { runCompletionStatus: _runCompletionStatus, ...withoutRunCompletionStatus } = receipt;
-  assert.throws(() => decodeSubmissionReceipt(withoutRunCompletionStatus), DecodeError);
+  const {
+    assignmentAttemptCompletion: _assignmentAttemptCompletion,
+    ...withoutAssignmentAttemptCompletion
+  } = receipt;
+  assert.throws(() => decodeSubmissionReceipt(withoutAssignmentAttemptCompletion), DecodeError);
   for (const [path, forbidden] of [
     ["answerKey", "answerKey"],
-    ["timer.key", "key"],
+    ["timing.key", "key"],
     ["provenance.adapter.provider", "provider"],
     ["provenance.sourceArtifact.source", "source"],
     ["result.checker", "checker"],
@@ -209,11 +214,9 @@ test("submission receipts require an exact feedback field and reject hostile nes
         ...receipt,
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
-          run: receipt.attempt.run,
-          questionVersion: receipt.attempt.questionVersion,
+          issuedQuestion: publishedProblemFixture.issuedQuestions[1],
           seed: receipt.attempt.seed,
           deadline: null,
-          assignmentPosition: receipt.attempt.assignmentPosition + 1,
           renderedQuestionSha256: "b".repeat(64),
         },
         nextPending: true,
@@ -224,14 +227,12 @@ test("submission receipts require an exact feedback field and reject hostile nes
     () =>
       decodeSubmissionReceipt({
         ...receipt,
-        runCompletionStatus: "completed",
+        assignmentAttemptCompletion: "completed",
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
-          run: receipt.attempt.run,
-          questionVersion: receipt.attempt.questionVersion,
+          issuedQuestion: publishedProblemFixture.issuedQuestions[1],
           seed: receipt.attempt.seed,
           deadline: null,
-          assignmentPosition: receipt.attempt.assignmentPosition + 1,
           renderedQuestionSha256: "b".repeat(64),
         },
       }),
@@ -241,7 +242,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     () =>
       decodeSubmissionReceipt({
         ...receipt,
-        runCompletionStatus: "completed",
+        assignmentAttemptCompletion: "completed",
         nextPending: true,
       }),
     DecodeError,

@@ -11,7 +11,7 @@ Date: 2026-08-09
 The instructor flat-question editor is complete. It is a focused feature under
 `src/features/flat_question_authoring/`, rather than an addition to the large
 generic editor page or decoder. Small modules own the exact version-1 source,
-strict codec, defaults, answer-free learner projection, protected client,
+strict codec, defaults, answer-free student projection, protected client,
 revision repository, reducer, compact field components, styles, and page
 composition. The existing generic editor remains available for non-flat drafts.
 
@@ -24,8 +24,8 @@ GET/PUT /api/workspaces/{workspace}/flat-question
 
 It has `Cache-Control: no-store`, a strong ETag, no signed source URL, and no
 checksum or object metadata. It is not a general browser source capability.
-Ordinary browser contracts, local learner/student preview, Wasm, public draft
-and publication DTOs, and learner routes remain answer-free. The protected
+Ordinary browser contracts, local student/student preview, Wasm, public draft
+and publication DTOs, and student routes remain answer-free. The protected
 workspace route falls back to the legacy generic editor only when this source
 route returns 404; any other protected-load failure is shown as an error.
 

@@ -112,23 +112,12 @@ the renderer identity, and the available engine without mutating the stack.
   correcting the labelled renderer. Do not substitute an image or project at
   the command line.
 
-## Browser and screenshot failures
+## Future browser and screenshot evidence
 
-- **The browser suite fails before a scenario starts:** rerun the same
-  selection through `./run_playwright_tests.sh`; use `--build` when the
-  failure names `dist/`, and use `--screenshots` only when the screenshot
-  publication is the intended gate. The suite owner creates a fresh stack and
-  performs exact cleanup for each selection.
-- **Screenshot publication reports an incomplete bundle, changed `dist/`, or
-  invalid private staging:** keep the private receipt and rerun
-  `./run_playwright_tests.sh --screenshots`. Do not copy staging files into
-  `docs/screenshots/` by hand. Publication validates PNG, privacy, provenance,
-  one origin, and the production `dist/` digest in
-  [e2e_browser_screenshot_publisher.py](../tests/e2e/e2e_browser_screenshot_publisher.py#L116-L143).
-- **A focused browser run leaves resources behind:** let the owner finish its
-  final cleanup, then inspect `status` and `projects`. If the owner protocol is
-  unavailable, retry the same root command so the fixed lease can reconcile
-  the labelled project; do not start another project.
+The fresh Store-backed browser owner will publish the current browser and
+screenshot troubleshooting steps together with its executable route surface.
+Current diagnosis uses the typed local-stack controller and its available
+database/object acceptance lanes.
 
 ## Browser and cleanup permission failures
 

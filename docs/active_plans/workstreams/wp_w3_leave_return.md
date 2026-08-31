@@ -14,7 +14,7 @@ rendered recovery path. See the [J3 review](../audits/wp_w3_leave_return_review.
 - The exact Mastery href must exist once and be visible. From the route-focused main landmark, the
   spec reaches that existing rendered link through bounded backward Shift+Tab before native Enter.
   This guards retained assignment lists without selecting a stale duplicate.
-- The learner reaches the rendered `Return to assignment (Esc)` control by Tab, confirms focus,
+- The student reaches the rendered `Return to assignment (Esc)` control by Tab, confirms focus,
   and activates it with Space. The spec never sends Escape, uses browser history, or navigates
   directly after entering the run.
 - J3 gives the rendered route surfaces bounded waits: after visible Return to assignment, the

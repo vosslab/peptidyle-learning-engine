@@ -12,8 +12,8 @@ import {
 } from "../src/pages/assignment_workspace/assignment_workspace_operations_model.ts";
 
 test("grading-operation grouping starts with no cursor", () => {
-  assert.deepEqual(gradingOperationsPositionForGroup("learner"), {
-    groupBy: "learner",
+  assert.deepEqual(gradingOperationsPositionForGroup("student"), {
+    groupBy: "student",
     cursor: undefined,
   });
 });

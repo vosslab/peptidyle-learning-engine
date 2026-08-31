@@ -1,6 +1,5 @@
 //! PostgreSQL pool construction and portable error classification.
 
-use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -18,9 +17,6 @@ const ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
 const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const MAX_LIFETIME: Duration = Duration::from_secs(30 * 60);
 const STANDARD_POOL_MAX_CONNECTIONS: u32 = 8;
-const BASE_COURSE_POOL_MAX_CONNECTIONS: u32 = 1;
-const GRADER_POOL_MAX_CONNECTIONS: u32 = 4;
-const TRANSACTION_ATTEMPTS: u8 = 3;
 
 /// Fixed least-privilege identities accepted by production process pools.
 ///
@@ -30,35 +26,7 @@ const TRANSACTION_ATTEMPTS: u8 = 3;
 pub enum ProductionLoginProfile {
     /// Browser/API process: course data plus passwordless account sessions.
     Api,
-    /// Background worker: course data only; never account authentication.
-    Worker,
-    /// Invitation delivery dispatcher: only the function-only outbox capability.
-    InvitationDeliveryWorker,
-    /// Public asset publisher: no course/application tables, only its queue capability.
-    Publisher,
 }
-
-/// An attested pool reserved for the short-lived Base Course installer.
-///
-/// The inner pool remains private so callers cannot accidentally pass an API,
-/// migration, or ordinary application pool to the installer facade.
-#[derive(Clone)]
-pub struct BaseCourseInstallerPool(PgPool);
-
-impl BaseCourseInstallerPool {
-    pub(super) fn acquire_pool(&self) -> &PgPool {
-        &self.0
-    }
-}
-
-#[path = "connection_execution_pools.rs"]
-mod execution_pools;
-pub use execution_pools::{
-    AcceptedSubmissionFastPathPool, AcceptedSubmissionRecoveryPool,
-    accepted_submission_fast_path_pool, accepted_submission_recovery_pool,
-    base_course_accepted_submission_fast_path_pool, local_accepted_submission_fast_path_pool,
-    local_accepted_submission_recovery_pool, local_base_course_accepted_submission_fast_path_pool,
-};
 
 fn pool_options(max_connections: u32) -> PgPoolOptions {
     PgPoolOptions::new()
@@ -107,58 +75,6 @@ pub fn local_development_pool(
     ))
 }
 
-/// Builds the only production installer pool accepted by the Base Course
-/// installer facade.
-pub fn base_course_installer_pool(
-    database_url: &str,
-) -> Result<BaseCourseInstallerPool, sqlx::Error> {
-    let contract = LoginContract::BaseCourseInstaller;
-    let options = verified_connect_options(database_url, contract)?;
-    Ok(BaseCourseInstallerPool(attested_pool(
-        options,
-        contract,
-        BASE_COURSE_POOL_MAX_CONNECTIONS,
-    )))
-}
-
-/// Builds the only disposable-stack installer pool accepted by the Base Course
-/// installer facade while retaining the exact installer-login attestation.
-pub fn local_base_course_installer_pool(
-    database_url: &str,
-) -> Result<BaseCourseInstallerPool, sqlx::Error> {
-    let contract = LoginContract::BaseCourseInstaller;
-    let options = local_connect_options(database_url, contract)?;
-    Ok(BaseCourseInstallerPool(attested_pool(
-        options,
-        contract,
-        BASE_COURSE_POOL_MAX_CONNECTIONS,
-    )))
-}
-
-/// Builds the dedicated one-connection production application pool used only
-/// by Base Course convergence.
-pub fn base_course_application_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let contract = LoginContract::BaseCourseApplication;
-    let options = verified_connect_options(database_url, contract)?;
-    Ok(attested_pool(
-        options,
-        contract,
-        BASE_COURSE_POOL_MAX_CONNECTIONS,
-    ))
-}
-
-/// Builds the dedicated one-connection disposable-stack application pool used
-/// only by Base Course convergence.
-pub fn local_base_course_application_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let contract = LoginContract::BaseCourseApplication;
-    let options = local_connect_options(database_url, contract)?;
-    Ok(attested_pool(
-        options,
-        contract,
-        BASE_COURSE_POOL_MAX_CONNECTIONS,
-    ))
-}
-
 fn attested_pool(
     options: PgConnectOptions,
     contract: LoginContract,
@@ -171,43 +87,6 @@ fn attested_pool_options(contract: LoginContract, max_connections: u32) -> PgPoo
     pool_options(max_connections).after_connect(move |connection, _metadata| {
         Box::pin(async move { verify_login_authority(connection, contract).await })
     })
-}
-
-/// Connects a bounded pool only after its first connection passes the login
-/// and capability-role authority attestation.
-async fn connect_attested_pool(
-    options: PgConnectOptions,
-    contract: LoginContract,
-    max_connections: u32,
-) -> Result<PgPool, sqlx::Error> {
-    attested_pool_options(contract, max_connections)
-        .connect_with(options)
-        .await
-}
-
-/// Connects the bounded dedicated QTI grader pool.
-pub(super) async fn connect_grader_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let contract = LoginContract::Grader;
-    let options = verified_connect_options(database_url, contract)?;
-    pool_options(GRADER_POOL_MAX_CONNECTIONS)
-        .after_connect(move |connection, _metadata| {
-            Box::pin(async move { verify_login_authority(connection, contract).await })
-        })
-        .connect_with(options)
-        .await
-}
-
-/// Connects the local-development grader pool without requiring TLS while
-/// retaining the exact grader login and authority contract.
-pub(super) async fn connect_local_grader_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let contract = LoginContract::Grader;
-    let options = local_connect_options(database_url, contract)?;
-    pool_options(GRADER_POOL_MAX_CONNECTIONS)
-        .after_connect(move |connection, _metadata| {
-            Box::pin(async move { verify_login_authority(connection, contract).await })
-        })
-        .connect_with(options)
-        .await
 }
 
 fn local_connect_options(
@@ -474,26 +353,6 @@ fn map_database_error(code: Option<&str>, constraint: Option<&str>) -> Option<St
     }
 }
 
-/// Replays a complete operation only after PostgreSQL aborts its transaction.
-///
-/// The operation must begin and finish its transaction inside the returned
-/// future. Retrying a statement on an already-aborted transaction is invalid,
-/// and retrying connection failures could duplicate an ambiguously committed
-/// operation, so neither is permitted here.
-pub(super) async fn retry_transaction<T, F, Fut>(mut operation: F) -> Result<T, StoreError>
-where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = Result<T, StoreError>>,
-{
-    for attempt in 1..=TRANSACTION_ATTEMPTS {
-        match operation().await {
-            Err(StoreError::RetryableTransaction) if attempt < TRANSACTION_ATTEMPTS => continue,
-            result => return result,
-        }
-    }
-    unreachable!("the bounded transaction retry loop always returns")
-}
-
 fn constraint_message(constraint: Option<&str>, kind: &str) -> String {
     match constraint {
         Some(name) => format!("database {kind} constraint {name} was violated"),
@@ -503,8 +362,6 @@ fn constraint_message(constraint: Option<&str>, kind: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicBool, Ordering};
-
     use super::*;
 
     #[test]
@@ -559,52 +416,12 @@ mod tests {
             ProductionLoginProfile::Api,
         )
         .unwrap();
-        let local = local_development_pool(
-            "postgres://ple_worker_login:secret@db.example/ple",
-            ProductionLoginProfile::Worker,
-        )
-        .unwrap();
-        for pool in [production, local] {
+        for pool in [production] {
             assert_eq!(
                 pool.options().get_max_connections(),
                 STANDARD_POOL_MAX_CONNECTIONS
             );
         }
-
-        assert_eq!(execution_pools::execution_pool_max_connections(), 4);
-
-        let production_installer = base_course_installer_pool(
-            "postgres://ple_base_course_installer_login:secret@db.example/ple?sslmode=verify-full",
-        )
-        .unwrap();
-        let local_installer = local_base_course_installer_pool(
-            "postgres://ple_base_course_installer_login:secret@db.example/ple",
-        )
-        .unwrap();
-        let production_application = base_course_application_pool(
-            "postgres://ple_base_course_app_login:secret@db.example/ple?sslmode=verify-full",
-        )
-        .unwrap();
-        let local_application = local_base_course_application_pool(
-            "postgres://ple_base_course_app_login:secret@db.example/ple",
-        )
-        .unwrap();
-        for pool in [
-            production_installer.0,
-            local_installer.0,
-            production_application,
-            local_application,
-        ] {
-            assert_eq!(
-                pool.options().get_max_connections(),
-                BASE_COURSE_POOL_MAX_CONNECTIONS
-            );
-        }
-
-        assert_eq!(
-            pool_options(GRADER_POOL_MAX_CONNECTIONS).get_max_connections(),
-            GRADER_POOL_MAX_CONNECTIONS
-        );
     }
 
     fn authority(contract: LoginContract) -> LoginAuthority {
@@ -629,16 +446,6 @@ mod tests {
                 })
                 .collect(),
         }
-    }
-
-    #[test]
-    fn grader_contract_attests_only_its_settable_capability_role() {
-        let expected = [ExpectedMembership {
-            role_name: "ple_grader",
-            set_option: true,
-        }];
-        assert_eq!(LoginContract::Grader.expected_memberships(), expected);
-        assert_eq!(LoginContract::Grader.expected_capabilities(), expected);
     }
 
     fn capability_authority(role_name: &str) -> CapabilityAuthority {
@@ -675,99 +482,12 @@ mod tests {
                 "accepted {url}"
             );
         }
-        let publisher = LoginContract::Production(ProductionLoginProfile::Publisher);
-        assert!(
-            verified_connect_options(
-                "postgres://ple_publisher_login:secret@db.example/ple?sslmode=verify-full",
-                publisher,
-            )
-            .is_ok()
-        );
-        assert!(
-            verified_connect_options(
-                "postgres://ple_worker_login:secret@db.example/ple?sslmode=verify-full",
-                publisher,
-            )
-            .is_err()
-        );
-        let delivery_worker =
-            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker);
-        assert!(
-            verified_connect_options(
-                "postgres://ple_invitation_delivery_worker_login:secret@db.example/ple?sslmode=verify-full",
-                delivery_worker,
-            )
-            .is_ok()
-        );
-        let base_course_application = LoginContract::BaseCourseApplication;
-        assert!(
-            verified_connect_options(
-                "postgres://ple_base_course_app_login:secret@db.example/ple?sslmode=verify-full",
-                base_course_application,
-            )
-            .is_ok()
-        );
-        let recovery = LoginContract::AcceptedSubmissionRecovery;
-        assert!(
-            verified_connect_options(
-                "postgres://ple_accepted_submission_recovery_login:secret@db.example/ple?sslmode=verify-full",
-                recovery,
-            )
-            .is_ok()
-        );
-        let fast_path = LoginContract::AcceptedSubmissionFastPath;
-        assert!(
-            verified_connect_options(
-                "postgres://ple_accepted_submission_fast_path_login:secret@db.example/ple?sslmode=verify-full",
-                fast_path,
-            )
-            .is_ok()
-        );
-        let base_course_fast_path = LoginContract::BaseCourseAcceptedSubmissionFastPath;
-        assert!(
-            verified_connect_options(
-                "postgres://ple_base_course_fast_path_login:secret@db.example/ple?sslmode=verify-full",
-                base_course_fast_path,
-            )
-            .is_ok()
-        );
-        assert!(
-            verified_connect_options(
-                "postgres://ple_worker_login:secret@db.example/ple?sslmode=verify-full",
-                recovery,
-            )
-            .is_err()
-        );
-        let base_course_installer = LoginContract::BaseCourseInstaller;
-        assert!(
-            verified_connect_options(
-                "postgres://ple_base_course_installer_login:secret@db.example/ple?sslmode=verify-full",
-                base_course_installer,
-            )
-            .is_ok()
-        );
-        assert!(
-            verified_connect_options(
-                "postgres://ple_base_course_app_login:secret@db.example/ple?sslmode=verify-full",
-                base_course_installer,
-            )
-            .is_err()
-        );
     }
 
     #[test]
     fn process_authority_contract_rejects_each_privilege_widening() {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
-            LoginContract::Production(ProductionLoginProfile::Worker),
-            LoginContract::AcceptedSubmissionRecovery,
-            LoginContract::AcceptedSubmissionFastPath,
-            LoginContract::BaseCourseAcceptedSubmissionFastPath,
-            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
-            LoginContract::Production(ProductionLoginProfile::Publisher),
-            LoginContract::BaseCourseApplication,
-            LoginContract::BaseCourseInstaller,
-            LoginContract::Grader,
         ] {
             assert!(login_authority_matches(&authority(contract), contract));
 
@@ -785,7 +505,7 @@ mod tests {
 
             let mut widened = authority(contract);
             widened.direct_memberships.push(DirectMembership {
-                role_name: "ple_grader".to_string(),
+				role_name: "ple_unexpected_capability".to_string(),
                 admin_option: false,
                 inherit_option: false,
                 set_option: true,
@@ -798,15 +518,6 @@ mod tests {
     fn process_authority_contract_rejects_delegable_or_unscoped_memberships() {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
-            LoginContract::Production(ProductionLoginProfile::Worker),
-            LoginContract::AcceptedSubmissionRecovery,
-            LoginContract::AcceptedSubmissionFastPath,
-            LoginContract::BaseCourseAcceptedSubmissionFastPath,
-            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
-            LoginContract::Production(ProductionLoginProfile::Publisher),
-            LoginContract::BaseCourseApplication,
-            LoginContract::BaseCourseInstaller,
-            LoginContract::Grader,
         ] {
             let mut missing = authority(contract);
             missing.direct_memberships.clear();
@@ -862,7 +573,7 @@ mod tests {
 
     #[test]
     fn process_authority_rejects_duplicate_membership_rows() {
-        let contract = LoginContract::Production(ProductionLoginProfile::Worker);
+        let contract = LoginContract::Production(ProductionLoginProfile::Api);
         let mut duplicated = authority(contract);
         duplicated
             .direct_memberships
@@ -875,15 +586,6 @@ mod tests {
     fn effective_capability_roles_have_closed_exact_authority() {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
-            LoginContract::Production(ProductionLoginProfile::Worker),
-            LoginContract::AcceptedSubmissionRecovery,
-            LoginContract::AcceptedSubmissionFastPath,
-            LoginContract::BaseCourseAcceptedSubmissionFastPath,
-            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
-            LoginContract::Production(ProductionLoginProfile::Publisher),
-            LoginContract::BaseCourseApplication,
-            LoginContract::BaseCourseInstaller,
-            LoginContract::Grader,
         ] {
             for expected in contract.expected_capabilities() {
                 assert!(capability_authority_matches(
@@ -892,25 +594,12 @@ mod tests {
                 ));
             }
         }
-        assert!(login_authority_matches(
-            &authority(LoginContract::Grader),
-            LoginContract::Grader
-        ));
     }
 
     #[test]
     fn effective_capability_roles_reject_privilege_and_nested_role_widening() {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
-            LoginContract::Production(ProductionLoginProfile::Worker),
-            LoginContract::AcceptedSubmissionRecovery,
-            LoginContract::AcceptedSubmissionFastPath,
-            LoginContract::BaseCourseAcceptedSubmissionFastPath,
-            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
-            LoginContract::Production(ProductionLoginProfile::Publisher),
-            LoginContract::BaseCourseApplication,
-            LoginContract::BaseCourseInstaller,
-            LoginContract::Grader,
         ] {
             for expected in contract.expected_capabilities() {
                 let mut widened = capability_authority(expected.role_name);
@@ -947,40 +636,4 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn permanently_aborted_transaction_returns_without_success_effects() {
-        let committed = AtomicBool::new(false);
-        let post_commit_effect = AtomicBool::new(false);
-        let result = retry_transaction(|| {
-            let committed = &committed;
-            let post_commit_effect = &post_commit_effect;
-            committed.store(false, Ordering::Relaxed);
-            post_commit_effect.store(false, Ordering::Relaxed);
-            std::future::ready(Err::<(), _>(StoreError::RetryableTransaction))
-        })
-        .await;
-        assert_eq!(result, Err(StoreError::RetryableTransaction));
-        assert!(!committed.load(Ordering::Relaxed));
-        assert!(!post_commit_effect.load(Ordering::Relaxed));
-    }
-
-    #[tokio::test]
-    async fn transient_transaction_abort_restarts_a_fresh_operation() {
-        let first_attempt = AtomicBool::new(true);
-        let committed = AtomicBool::new(false);
-        let result = retry_transaction(|| {
-            if first_attempt.swap(false, Ordering::Relaxed) {
-                return std::future::ready(Err(StoreError::RetryableTransaction));
-            }
-            committed.store(true, Ordering::Relaxed);
-            std::future::ready(Ok(()))
-        })
-        .await;
-        assert_eq!(result, Ok(()));
-        assert!(committed.load(Ordering::Relaxed));
-    }
 }
-
-#[cfg(test)]
-#[path = "connection/transaction_retry_live.rs"]
-mod transaction_retry_live;

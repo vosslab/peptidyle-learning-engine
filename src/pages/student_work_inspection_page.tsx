@@ -31,7 +31,7 @@ import {
 import {
   parseAssignmentReference,
   parseCourseMembershipReference,
-  parseRunReference,
+  parseAssignmentAttemptReference,
 } from "../navigation/public_route";
 import {
   inspectedStudentWorkReturnUrl,
@@ -278,7 +278,7 @@ function StudentWorkCoursePage(props: {
   const route = createMemo(() => ({
     membership: parseCourseMembershipReference(params.membershipRef),
     assignment: parseAssignmentReference(params.assignmentRef),
-    run: parseRunReference(params.runRef),
+    run: parseAssignmentAttemptReference(params.runRef),
     operation: parseInspectedStudentWorkRouteSearch(location.search),
   }));
 

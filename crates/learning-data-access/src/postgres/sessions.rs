@@ -5,7 +5,8 @@ use question_model::{AccountId, AccountRole, ActivityTimestamp};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
-use super::{Pool, map_sqlx_error};
+use super::Pool;
+use super::connection::map_sqlx_error;
 use crate::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
 };
@@ -50,7 +51,6 @@ impl SessionStore for PostgresSessionStore {
         &self,
         token_hash: SessionTokenHash,
         account: AccountId,
-        role: AccountRole,
         lifetime: SessionLifetime,
     ) -> Result<SessionRecord, StoreError> {
         let mut transaction = self.begin_session(token_hash).await?;
@@ -59,13 +59,12 @@ impl SessionStore for PostgresSessionStore {
             "SELECT session_id, encode(token_hash, 'hex') AS session_hash, account_id, role, \
                     floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                     floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis \
-             FROM ple_private.create_authenticated_session(\
-                $1, $2, $3, decode($4, 'hex'), $5\
+             FROM ple_api.create_authenticated_session(\
+                $1, $2, decode($3, 'hex'), $4\
              )",
         )
         .bind(session_id.as_uuid())
         .bind(account.as_uuid())
-        .bind(role_name(role))
         .bind(token_hash.to_string())
         .bind(i64::from(lifetime.as_seconds()))
         .fetch_one(&mut *transaction)
@@ -98,7 +97,7 @@ impl SessionStore for PostgresSessionStore {
 
     async fn revoke_session(&self, token_hash: SessionTokenHash) -> Result<(), StoreError> {
         let mut transaction = self.begin_session(token_hash).await?;
-        sqlx::query("SELECT ple_private.revoke_authenticated_session(decode($1, 'hex'))")
+        sqlx::query("SELECT ple_api.revoke_authenticated_session(decode($1, 'hex'))")
             .bind(token_hash.to_string())
             .execute(&mut *transaction)
             .await
@@ -125,14 +124,6 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
         created_at: ActivityTimestamp::from_unix_millis(created_at_millis),
         expires_at: ActivityTimestamp::from_unix_millis(expires_at_millis),
     })
-}
-
-fn role_name(role: AccountRole) -> &'static str {
-    match role {
-        AccountRole::Student => "student",
-        AccountRole::Instructor => "instructor",
-        AccountRole::Sysadmin => "sysadmin",
-    }
 }
 
 fn decode_role(value: &str) -> Result<AccountRole, StoreError> {

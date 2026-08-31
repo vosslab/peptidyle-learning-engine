@@ -1,8 +1,8 @@
 //! Tags, taxonomy, and licensing (WP-C1).
 //!
-//! Shared content with no institution identifier: one published problem carries one
-//! set of tags for every institution using it. That is what lets a single
-//! published problem serve thousands of instructors without copying.
+//! Shared content carries no deployment partition: one published Question carries
+//! one set of tags for every approved Instructor. That is what lets a single
+//! published Question serve thousands of instructors without copying.
 //!
 //! Licensing travels with the content because imported material (Open Problem
 //! Library questions, QTI packages) arrives with terms attached that a later

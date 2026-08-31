@@ -14,12 +14,20 @@ use objects::{
     Sha256Digest, published_import_archive_object_id,
 };
 use question_model::{
-    ActivityTimestamp, ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
+    ActivityTimestamp, ObjectId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
+    WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
+}
+
+fn question_version(version_number: u32) -> QuestionVersionReference {
+    QuestionVersionReference {
+        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        version_number: QuestionVersionNumber::new(version_number).expect("positive version"),
+    }
 }
 
 /// The complete `AlreadyExists` acceptance comparison from the locked WP-QTI protocol.
@@ -41,8 +49,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let store = MemoryObjectStore::default();
     let workspace = WorkspaceId::from_uuid(id(2));
     let import = WorkspaceImportId::from_uuid(id(3));
-    let problem = ProblemId::from_uuid(id(4));
-    let version = VersionId::from_uuid(id(5));
+    let question_version = question_version(5);
     let archive_bytes = b"verified QTI archive bytes".to_vec();
     let workspace_key = ObjectKey::WorkspaceSource {
         workspace,
@@ -71,15 +78,13 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     assert_eq!(verified_workspace_archive.bytes, archive_bytes);
 
     let archive_object = published_import_archive_object_id(
-        problem,
-        version,
+        &question_version,
         import,
         verified_workspace_archive.record.sha256,
     );
     let candidate = PutObject {
         key: ObjectKey::PublishedImportArchive {
-            problem,
-            version,
+            question_version: question_version.clone(),
             import,
             object: archive_object,
         },
@@ -97,7 +102,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         .expect("first immutable archive candidate should be stored");
     assert_eq!(
         first_record.id,
-        published_import_archive_object_id(problem, version, import, first_record.sha256),
+        published_import_archive_object_id(&question_version, import, first_record.sha256),
         "the candidate object identity must be derived from its complete typed identity"
     );
     assert_eq!(first_record.bucket, Bucket::PrivateContent);

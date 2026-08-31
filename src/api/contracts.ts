@@ -1,7 +1,7 @@
 // contracts.ts - browser-safe DTOs at the transport boundary (MOD-CLIENT).
 
-import type { AssignmentEnrollment } from "../../generated/api/AssignmentEnrollment";
-import type { AssignmentRun } from "../../generated/api/AssignmentRun";
+import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
+import type { IssuedQuestion } from "../../generated/api/IssuedQuestion";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
@@ -11,14 +11,13 @@ import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { ScoringStatus } from "../../generated/api/ScoringStatus";
-import type { RunCompletionStatus } from "../../generated/api/RunCompletionStatus";
-import type { RunId } from "../../generated/api/RunId";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
+import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
+import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
 import type { Capability } from "../../generated/api/Capability";
-import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { License } from "../../generated/api/License";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
@@ -27,8 +26,6 @@ import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { AccountRole } from "../../generated/api/AccountRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
-import type { Seed } from "../../generated/api/Seed";
-import type { VersionId } from "../../generated/api/VersionId";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { InstructorAssignmentCurrentState } from "../../generated/api/InstructorAssignmentCurrentState";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
@@ -39,7 +36,6 @@ import type { AssignmentPublicationReadiness } from "../../generated/api/Assignm
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { CreateAssignmentDraftRequest } from "../../generated/api/CreateAssignmentDraftRequest";
 import type { ReplaceAssignmentPoliciesRequest } from "../../generated/api/ReplaceAssignmentPoliciesRequest";
-import type { AssignmentAudienceRequest } from "../../generated/api/AssignmentAudienceRequest";
 import type { ReplaceAssignmentFixedItemRequest } from "../../generated/api/ReplaceAssignmentFixedItemRequest";
 
 export type {
@@ -72,7 +68,7 @@ export interface CourseRouteData {
  *
  * This intentionally carries immutable published references rather than
  * question definitions: authoring an assignment never transfers question
- * source, capability declarations, keys, grading, or learner-feedback policy
+ * source, capability declarations, keys, grading, or student-feedback policy
  * into the editor transport.
  */
 export interface AssignmentEditorDetail extends AssignmentSummary {
@@ -82,8 +78,6 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
   readonly currentState: InstructorAssignmentCurrentState;
   /** Closed, server-derived publication blockers for the current definition. */
   readonly publicationReadiness: AssignmentPublicationReadiness;
-  /** Browser-safe course audience locator; it never contains group UUIDs. */
-  readonly audience: AssignmentAudienceRequest;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
@@ -102,7 +96,7 @@ export interface PoolDrawPreviewRequest {
   readonly groupPosition: number;
 }
 
-/** A no-store Instructor sample of one saved pool; it is never learner activity or evidence. */
+/** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface PoolDrawPreview {
   readonly assignment: AssignmentReference;
   readonly revision: string;
@@ -170,13 +164,6 @@ export interface SignedOutResponse {
   readonly authenticated: false;
 }
 
-/** Enrollment and its transactionally maintained student summary. */
-export interface EnrollmentView {
-  readonly enrollment: AssignmentEnrollment;
-  /** Key-free current learner projection; score totals are omitted while withheld. */
-  readonly summary: StudentAssignmentProgress;
-}
-
 /** Student attempt projection with the current server-owned score freshness gate. */
 export interface StudentQuestionAttempt extends QuestionAttempt {
   readonly scoringStatus: ScoringStatus;
@@ -195,7 +182,7 @@ export interface SubmissionReceipt {
   readonly attempt: QuestionAttempt;
   readonly scoringStatus: ScoringStatus;
   /** Persisted completion state; successor absence alone is not completion evidence. */
-  readonly runCompletionStatus: RunCompletionStatus;
+  readonly assignmentAttemptCompletion: AssignmentAttemptCompletion;
   /** Server-redacted teaching material, or an explicit policy withholding it. */
   readonly feedback: DisclosedFeedback | null;
   readonly nextIssued: NextIssuedAttempt | null;
@@ -227,31 +214,27 @@ export type StudentSubmissionStatus =
 /** Safe binding for a newly active next attempt; no provenance or source leaks. */
 export interface NextIssuedAttempt {
   readonly id: QuestionAttemptId;
-  readonly run: RunId;
-  readonly questionVersion: VersionId;
-  readonly seed: Seed;
+  readonly issuedQuestion: IssuedQuestion;
+  readonly seed: number;
   readonly deadline: number | null;
-  readonly assignmentPosition: number;
   readonly renderedQuestionSha256: string;
 }
 
 /** Key-free envelope cached only behind its owned predecessor attempt. */
 export interface PrefetchedNextQuestion {
   readonly predecessor: QuestionAttemptId;
-  readonly run: RunId;
-  readonly assignmentPosition: number;
-  readonly questionVersion: VersionId;
-  readonly seed: Seed;
+  readonly issuedQuestion: IssuedQuestion;
+  readonly seed: number;
   readonly renderedQuestionSha256: string;
   /** Same safe ordinal provenance used when this cached successor becomes current. */
   readonly poolSelection: PoolSelection | null;
   readonly envelope: QuestionEnvelope;
 }
 
-/** Server-redacted one-question outcome in a bounded run summary. */
-export interface RunSummaryOutcome {
+/** Server-redacted one-question outcome in a bounded Assignment Attempt summary. */
+export interface AssignmentAttemptSummaryOutcome {
   readonly attempt: QuestionAttemptId;
-  readonly assignmentPosition: number;
+  readonly issuedQuestion: IssuedQuestion;
   readonly submittedAt: number | null;
   readonly response: StudentResponse | null;
   readonly feedback: DisclosedFeedback | null;
@@ -259,13 +242,12 @@ export interface RunSummaryOutcome {
 }
 
 /** Current server projection; it never includes a question key, result, or release policy. */
-export interface RunSummaryResponse {
+export interface AssignmentAttemptSummaryResponse {
   readonly course: CourseRouteData;
-  readonly run: AssignmentRun;
-  /** Server-derived learner progress, never a policy, clock, or enrollment identifier. */
-  readonly summary: StudentAssignmentProgress;
-  readonly practiceAllowed: boolean;
-  readonly outcomes: CursorPage<RunSummaryOutcome>;
+  readonly assignmentAttempt: AssignmentAttempt;
+  /** Server-derived student progress, never a policy, clock, or Student Record identifier. */
+  readonly summary: AssignmentProgress;
+  readonly outcomes: CursorPage<AssignmentAttemptSummaryOutcome>;
 }
 
 export interface FeedbackReleaseResponse {
@@ -359,7 +341,6 @@ export interface PublicationResult {
 }
 
 export interface PublicationRequest {
-  readonly scope: PublicationScope;
   readonly byline: CatalogProblemSummary["byline"];
 }
 
@@ -373,16 +354,16 @@ export interface ExternalToolLaunch {
   readonly launchUrl: string;
 }
 
-/** Everything the reference run screen needs from one cached query. */
-export interface RunScreenData {
+/** Everything the reference Assignment Attempt screen needs from one cached query. */
+export interface AssignmentAttemptScreenData {
   readonly course: CourseRouteData;
-  /** Learner-safe assignment projection; no policy or ownership inputs. */
+  /** Student-safe assignment projection; no policy or ownership inputs. */
   readonly assignment: StudentAssignmentLandingSummary;
-  readonly run: AssignmentRun;
+  readonly assignmentAttempt: AssignmentAttempt;
   readonly attempt: StudentQuestionAttempt;
   /** Server-regenerated, key-free variant bound to this issued attempt. */
   readonly issuedQuestion: QuestionEnvelope;
 }
 
-/** Run identity alias used where a return value is clearer than a full DTO. */
-export type StartedRunId = RunId;
+/** Assignment Attempt identity alias used where a return value is clearer than a full DTO. */
+export type StartedAssignmentAttemptId = AssignmentAttemptId;

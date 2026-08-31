@@ -6,7 +6,6 @@ members = [
     "crates/grading",
     "crates/objects",
     "crates/learning-data-access",
-    "crates/base-course-installation",
     "crates/adapters/native",
     "crates/adapters/webwork",
     "crates/adapters/qti",
@@ -88,10 +87,10 @@ syn = { version = "*", features = ["full", "extra-traits"] }
 # No `v7` feature here on purpose. `v7` pulls a random number generator, and on
 # wasm32 that fails to build without an explicit browser randomness source.
 # That build error is telling the truth: the browser does not mint identifiers.
-# A ProblemId is constructed on the publish transition, server-side. Generation
+# A Question ID is constructed on the publish transition, server-side. Generation
 # is therefore gated behind `question_model/generate`, which the server enables
 # and the WASM bridge does not.
-uuid = { version = "*", default-features = false, features = ["serde", "std"] }
+uuid = { version = "*", default-features = false, features = ["serde", "std", "v5"] }
 
 # `chrono` is deliberately clock-free: `default-features = false` drops the
 # `clock` and `now` features, so no member can read the wall clock. Time enters
@@ -124,7 +123,6 @@ domain = { path = "./crates/domain" }
 grading = { path = "./crates/grading" }
 objects = { path = "./crates/objects" }
 learning-data-access = { path = "./crates/learning-data-access" }
-base_course_installation = { package = "base-course-installation", path = "./crates/base-course-installation" }
 adapter_native = { path = "./crates/adapters/native" }
 adapter_webwork = { path = "./crates/adapters/webwork" }
 adapter_qti = { path = "./crates/adapters/qti" }

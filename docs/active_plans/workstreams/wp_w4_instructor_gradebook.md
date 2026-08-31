@@ -15,7 +15,7 @@ See the retained historical Gradebook review,
   run history control by keyboard. The spec asserts one matching link before Tab, focus, and native
   Enter activation.
 - The browser assertion observes only the gradebook surface, the button's `aria-expanded=true`,
-  and a named run-history region. It neither reads score, date, or learner-identity text nor uses
+  and a named run-history region. It neither reads score, date, or student-identity text nor uses
   API contexts, session injection, saved browser state, cookie operations, or database access.
 - `instructor_gradebook_j5.ts` owns a narrow public-only J5 fragment with exact course and
   assignment identifiers and the two visible outcome codes. The M5 report-integration owner must

@@ -21,7 +21,10 @@ import {
 import {
   decodeEnvelopeTitle,
   decodeIdentifier,
+  decodePositiveQuestionVersionNumber,
+  decodeQuestionId,
   decodeQuestionMetadata,
+  decodeQuestionVersionReference,
   field,
   kind,
   requireOnlyFields,
@@ -47,7 +50,7 @@ function decodeNormalizedCoordinate(value: unknown, path: string): number {
 function decodeQuestionContent(
   record: Record<string, unknown>,
   path: string,
-): Omit<QuestionDefinition, "problem" | "version"> {
+): Omit<QuestionDefinition, "questionId" | "versionNumber"> {
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
     source: decodeQuestionSource(field(record, "source", path), `${path}.source`),
@@ -72,7 +75,7 @@ function decodeQuestionContent(
     ),
     grading: decodeGradingDefinition(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
-  } satisfies Omit<QuestionDefinition, "problem" | "version">;
+  } satisfies Omit<QuestionDefinition, "questionId" | "versionNumber">;
 }
 
 function decodeDraftQuestionContent(
@@ -109,8 +112,8 @@ function decodeDraftQuestionContent(
 export function decodeQuestionDefinition(value: unknown, path = "response"): QuestionDefinition {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "problem",
-    "version",
+    "questionId",
+    "versionNumber",
     "workspace",
     "source",
     "prompt",
@@ -122,8 +125,11 @@ export function decodeQuestionDefinition(value: unknown, path = "response"): Que
     "metadata",
   ]);
   const decoded = {
-    problem: decodeIdentifier(field(record, "problem", path), `${path}.problem`),
-    version: decodeIdentifier(field(record, "version", path), `${path}.version`),
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    versionNumber: decodePositiveQuestionVersionNumber(
+      field(record, "versionNumber", path),
+      `${path}.versionNumber`,
+    ),
     ...decodeQuestionContent(record, path),
   } satisfies QuestionDefinition;
   return decoded;
@@ -156,9 +162,13 @@ export function decodePublicationResult(value: unknown, path = "response"): Publ
 /** Strictly decodes the key-free rendered variant delivered for an attempt. */
 export function decodeQuestionEnvelope(value: unknown, path = "response"): QuestionEnvelope {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["version", "seed", "title", "prompt", "response"]);
+  requireOnlyFields(record, path, ["questionVersion", "seed", "title", "prompt", "response"]);
   const decoded = {
-    version: decodeIdentifier(field(record, "version", path), `${path}.version`),
+    questionVersion: decodeQuestionVersionReference(
+      field(record, "questionVersion", path),
+      `${path}.questionVersion`,
+      true,
+    ),
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>

@@ -44,18 +44,18 @@ composition, not WP-RC8 package acceptance`. Keep the separate operator
 - **Evidence:** `launch_local_stack.sh` creates `containers/local-demo.json`
   after `cargo tools e2e-seed`. The native seed creates one course with the
   local instructor and student as members, one mastery assignment, and that
-  student's enrollment. A new course would not carry that seeded learner
-  membership; the stated "one seeded learner" rule would then fail without the
+  student's enrollment. A new course would not carry that seeded student
+  membership; the stated "one seeded student" rule would then fail without the
   prohibited enrollment fixture.
 - **Fix:** Rename WP-A2 to reuse the launcher's seeded course and mastery
   assignment by reading the local demo manifest. It may arrange only later
   corpus and an exam-contrast assignment inside that seeded course through the
-  supported API, and must verify the existing learner receives access through
+  supported API, and must verify the existing student receives access through
   the product's assignment-creation enrollment behavior. Do not create a
   course, membership, account, or enrollment. Update M3 deliverables and
   arrangement-report wording accordingly.
 - **Retest:** Start the ordinary launcher, read the generated manifest, and
-  prove the seeded learner opens the reused mastery assignment and any later
+  prove the seeded student opens the reused mastery assignment and any later
   arranged contrast assignment through the browser without SQL or a manually
   created enrollment.
 
@@ -196,7 +196,7 @@ the product or weakening the browser-evidence boundary.
 - WP-A2 resolves the seeded course from manifest `assignmentId` through a
   supported authenticated read, then arranges distinct Mastery
   (`AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`) and Exam assignments only
-  within that course. The existing seeded learner receives those assignments
+  within that course. The existing seeded student receives those assignments
   through product assignment-creation enrollment behavior; the simulator does
   not create enrollment.
 - M3, WP-W1, and WP-W2 now consume the newly arranged retry-capable Mastery

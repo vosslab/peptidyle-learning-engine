@@ -16,7 +16,7 @@ import e2e_browser_scenario_webwork_delivery as webwork_delivery
 
 #============================================
 def test_catalog_baseline_receipt_accepts_only_public_question_location() -> None:
-	"""The host hand-off contains only the reviewed Question ID and learner title."""
+	"""The host hand-off contains only the reviewed Question ID and student title."""
 	baseline = webwork_delivery.decode_catalog_baseline_receipt(
 		'{"questionId":"ABC-1234","title":"Biochemistry: Identify hydrophobic compounds from formulas"}'
 	)

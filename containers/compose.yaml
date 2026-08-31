@@ -246,10 +246,6 @@ services:
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
       DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
-      PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL:-postgres://ple_accepted_submission_fast_path_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
-      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
-      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
-      PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
       PLE_PUBLIC_ASSETS_BUCKET: public-assets
@@ -305,58 +301,6 @@ services:
       # API-only outbound access is needed only for reviewed providers such as
       # SMTP and iMathAS. Storage and renderer traffic remain private.
       - api_outbound
-
-  worker:
-    labels: *ple-disposable-capability-label
-    # Keep the worker's runtime configuration separate while consuming the
-    # single application image built by the `api` service.
-    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--worker"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
-      webwork-renderer:
-        condition: service_healthy
-    environment:
-      PLE_WORKER_DATABASE_URL: ${PLE_WORKER_DATABASE_URL:-postgres://ple_worker_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
-      PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL:-postgres://ple_accepted_submission_recovery_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
-      PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
-      PLE_S3_ENDPOINT: http://minio:9000
-      PLE_S3_REGION: us-east-1
-      PLE_PUBLIC_ASSETS_BUCKET: public-assets
-      PLE_PRIVATE_CONTENT_BUCKET: private-content
-      PLE_STUDENT_RECORDS_BUCKET: student-records
-      PLE_TEMP_PROCESSING_BUCKET: temp-processing
-      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
-      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
-      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
-      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
-      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
-      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
-      PLE_WORKER_POLL_MILLIS: ${PLE_WORKER_POLL_MILLIS:-500}
-    restart: on-failure
-    stop_grace_period: 100s
-    healthcheck:
-      disable: true
-    user: "10001:10001"
-    read_only: true
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
-    cpus: "1.0"
-    mem_limit: 512m
-    pids_limit: 128
-    networks:
-      - default
-      - renderer_private
 
   gateway:
     labels: *ple-disposable-capability-label

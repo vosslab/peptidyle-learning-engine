@@ -5,10 +5,10 @@ import {
   appendCollectionQuestionIds,
   catalogSearchFilterFromLibraryQuery,
   collectionDeletionFromObserved,
-  curationEtagFromObservedRevision,
+  curationEtagFromObservedEditNumber,
   libraryQueryFromSavedSearch,
   mayMutatePersonalCuration,
-  mayEditOpenedProblemCollection,
+  mayEditOpenedQuestionCollection,
   moveCollectionQuestionId,
   problemCurationPickerSources,
   removeCollectionQuestionId,
@@ -51,7 +51,7 @@ test("running a saved search starts with its current-catalog filters", () => {
   const query = libraryQueryFromSavedSearch({
     reference: "PS-7",
     title: "Molecular genetics",
-    revision: "3",
+    editNumber: "3",
     filter: {
       text: "genetics",
       bylines: ["Lab team"],
@@ -99,29 +99,18 @@ test("only an authenticated Instructor mode enables personal curation", () => {
   );
 });
 
-test("Sysadmin institution-reader collection detail stays browse and reuse only", () => {
-  assert.equal(mayEditOpenedProblemCollection(false, "institutionReader"), false);
-  assert.equal(mayEditOpenedProblemCollection(true, "owner"), true);
+test("private collection editing follows the authenticated Instructor capability", () => {
+  assert.equal(mayEditOpenedQuestionCollection(false), false);
+  assert.equal(mayEditOpenedQuestionCollection(true), true);
 });
 
-test("picker maps only named collections beside one dedicated Favorites source", () => {
+test("picker maps named private collections beside the current Library and authored catalog", () => {
   const sources = problemCurationPickerSources(
     [
       {
-        reference: "PC-1",
-        kind: "favorites",
-        title: "Favorites",
-        visibility: "private",
-        revision: "4",
-        access: "owner",
-      },
-      {
         reference: "PC-2",
-        kind: "named",
         title: "Exam candidates",
-        visibility: "institution",
-        revision: "7",
-        access: "owner",
+        editNumber: "7",
       },
     ],
     true,
@@ -132,17 +121,16 @@ test("picker maps only named collections beside one dedicated Favorites source",
     [
       ["catalog", "Current library"],
       ["mine", "My published questions"],
-      ["favorites", "Favorites"],
       ["collection", "Exam candidates"],
     ],
   );
 });
 
-test("saved-search replacement sends the revision already observed with retained filter meaning", () => {
+test("saved-search replacement sends the edit number already observed with retained filter meaning", () => {
   const search = {
     reference: "PS-3",
     title: "Peptide candidates",
-    revision: "3",
+    editNumber: "3",
     filter: catalogSearchFilterFromLibraryQuery({
       ...EMPTY_CATALOG_QUERY,
       search: "peptide",
@@ -158,26 +146,23 @@ test("saved-search replacement sends the revision already observed with retained
   assert.deepEqual(
     {
       reference: replacement.reference,
-      revision: replacement.revision,
+      editNumber: replacement.editNumber,
       filter: replacement.filter,
     },
-    { reference: "PS-3", revision: '"3"', filter: search.filter },
+    { reference: "PS-3", editNumber: '"3"', filter: search.filter },
   );
 });
 
-test("named deletion confirmations carry visible names, consequences, and observed revisions", () => {
+test("named deletion confirmations carry visible names, consequences, and observed edit numbers", () => {
   const collectionDeletion = collectionDeletionFromObserved({
     reference: "PC-7",
-    kind: "named",
     title: "Exam candidates",
-    visibility: "private",
-    revision: "7",
-    access: "owner",
+    editNumber: "7",
   });
   const savedDeletion = savedSearchDeletionFromObserved({
     reference: "PS-3",
     title: "Peptide candidates",
-    revision: "3",
+    editNumber: "3",
     filter: catalogSearchFilterFromLibraryQuery(EMPTY_CATALOG_QUERY),
   });
 
@@ -185,7 +170,7 @@ test("named deletion confirmations carry visible names, consequences, and observ
     [collectionDeletion, savedDeletion].map((deletion) => ({
       heading: deletion.heading,
       consequence: deletion.consequence,
-      revision: deletion.revision,
+      editNumber: deletion.editNumber,
       confirmLabel: deletion.confirmLabel,
     })),
     [
@@ -193,21 +178,21 @@ test("named deletion confirmations carry visible names, consequences, and observ
         heading: 'Delete collection "Exam candidates"?',
         consequence:
           "Deleting this collection removes its saved ordered question list. Published questions remain available in the Library.",
-        revision: '"7"',
+        editNumber: '"7"',
         confirmLabel: "Delete collection",
       },
       {
         heading: 'Delete saved search "Peptide candidates"?',
         consequence:
           "Deleting this saved search removes the shortcut. Current Library questions and filters remain available.",
-        revision: '"3"',
+        editNumber: '"3"',
         confirmLabel: "Delete saved search",
       },
     ],
   );
 });
 
-test("curation ETags accept only strong positive observed revisions", () => {
-  assert.equal(curationEtagFromObservedRevision("12"), '"12"');
-  assert.throws(() => curationEtagFromObservedRevision("012"), /current positive/u);
+test("curation ETags accept only strong positive observed edit numbers", () => {
+  assert.equal(curationEtagFromObservedEditNumber("12"), '"12"');
+  assert.throws(() => curationEtagFromObservedEditNumber("012"), /current positive/u);
 });

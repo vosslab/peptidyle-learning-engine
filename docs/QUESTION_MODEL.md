@@ -36,8 +36,9 @@ Everything in the right column decides correctness and remains server-only.
 
 ### Identity
 
-`WorkspaceId`, `ProblemId`, `VersionId`, `AssetId`, `CourseId`, and the activity
-identifiers are distinct newtypes over `Uuid`. They cannot substitute for one
+`WorkspaceId`, `AssetId`, `CourseId`, and the activity identifiers are distinct
+newtypes over `Uuid`. `QuestionId` is a validated stable text identity and
+`QuestionVersionNumber` is a validated positive integer. They cannot substitute for one
 another, so passing a draft identifier where published content is expected or
 an assignment identifier where a course is required fails to compile.
 
@@ -50,22 +51,28 @@ behind the `generate` feature, which the server enables and the WebAssembly
 bridge leaves off, because identifiers are created server-side on the publish
 transition.
 
+`IssuedQuestionId` is the one idempotent exception: the server derives it as a
+UUIDv5 from an opaque Assignment Attempt identity and the frozen selection. A
+resume therefore resolves the same Issued Question without selecting again.
+The value remains a durable server record identity, not browser authority.
+
 UUIDs name durable records; they are not credentials, authorization evidence,
 or browser-facing choice codes. A submission places its `QuestionAttemptId`
 once in the route. The server resolves Student, assignment, version, seed,
 backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
-The draft rule is carried by the type rather than a flag:
-`QuestionDefinition::problem` is `Option<ProblemId>`, and `is_draft()` reads
-that option. There is no separate boolean to fall out of sync with it.
+The draft rule is carried by separate types rather than a flag:
+`DraftQuestionDefinition` has no Question identity, while `QuestionDefinition`
+requires both a Question ID and Question Version Number. There is no separate
+boolean to fall out of sync with that boundary.
 
 `QuestionId` is stable across one question lineage. Each publication in that
-lineage has a fresh immutable `VersionId`, and `ProblemVersionRef` keeps the
-exact `(ProblemId, VersionId)` evidence only in trusted delivery, grading,
+lineage has a fresh immutable `QuestionVersionNumber`, and `QuestionVersionReference` keeps the
+exact `(QuestionId, QuestionVersionNumber)` evidence only in trusted delivery, grading,
 replay, audit, assignment pins, and optional non-operative provenance records.
 An allowed original-lineage correction may retain the `QuestionId` while
-archiving the replaced version. A major objective, task, or Question Type
+archiving the replaced version. A major objective, task, or response-family
 change is a fork: its creator edits a private draft and publication gives it a
 new `QuestionId`, a new version, and exact source ancestry. Every successful
 publication enters one installation-wide shared catalog for approved
@@ -95,7 +102,7 @@ The original creator or an authorized lineage steward may publish only an
 allowed same-lineage correction or compatible improvement under the existing
 Question ID. A grading-semantic correction records an impact and starts a
 controlled recalculation operation; it never silently rewrites issued evidence.
-Major objective, task, or Question Type changes require a fork and new
+Major objective, task, or response-family changes require a fork and new
 identity. Any approved Instructor may create a fork draft, but that draft is
 private to its creator until validation succeeds. The published fork is global,
 records exact Question ID and version ancestry, and preserves the improvement
@@ -116,7 +123,7 @@ separate Sysadmin-only emergency replacement operation. The user-facing action
 is **Suggest an improvement**. A GitHub analogy is documentation-only and
 does not define the domain or authorization contract.
 
-Existing assignments pin their exact Question ID and `ProblemVersionRef`.
+Existing assignments pin their exact Question ID and `QuestionVersionReference`.
 Future availability changes only through an explicit, revision-checked
 assignment update; publication, correction, lifecycle work, and recalculation
 never advance an assignment automatically. Star is one vetted-Instructor-visible
@@ -137,12 +144,12 @@ published content.
 may be stored on a direct membership. There is no second effective-course-role
 enum.
 
-`CatalogLifecycle` has three published states: `Published` (the active state),
-`Deprecated`, and `Archived`. The shared Instructor catalog includes every
-published state and labels the state and any deprecation reason. The ordinary
-new-assignment selector accepts only `Published`; Deprecated and Archived
-questions remain available for exact resolution, evidence, provenance, and
-retained assignments.
+Every Question Catalog Entry is already published, with its immutable Question
+Publication Event retained separately from its current Question Version
+Availability. The ordinary new-assignment selector accepts only `Available`
+versions. `Archived` versions remain discoverable and resolvable for exact
+references, evidence, provenance, and retained assignments, with their stated
+reason.
 
 Catalog evidence is version-specific and excludes previews and the Instructor
 Student view. After the configured privacy threshold, the safe aggregate may
@@ -182,7 +189,7 @@ replace direct Instructor membership for general FERPA access or view the
 Question ID star identity list or any private watch state. `CourseSummary`
 and `AssignmentSummary` are Rust-owned browser projections. Their item and
 selection-candidate summaries carry Question IDs and safe display metadata,
-never an opaque `ProblemVersionRef` or question payload.
+never an opaque `QuestionVersionReference` or question payload.
 
 ### Capabilities
 
@@ -228,8 +235,8 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 | Field           | Type                      | Purpose                                   |
 | --------------- | ------------------------- | ----------------------------------------- |
-| `version`       | `VersionId`               | Opaque half of the immutable pair         |
-| `problem`       | `Option<ProblemId>`       | Other opaque half, present once published |
+| `questionId`    | `QuestionId`              | Stable Question lineage                   |
+| `versionNumber` | `QuestionVersionNumber`   | Exact immutable version within the lineage |
 | `workspace`     | `WorkspaceId`             | Authoring workspace                       |
 | `source`        | `QuestionSource`          | Which engine, and where to find it there  |
 | `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order              |
@@ -281,7 +288,7 @@ attempt and provides a consistency binding for that presentation.
 
 `PresentationEnvelopeV1` contains the immutable version, issued seed,
 server-minted nonce, title, prompt, and an answer-free `ResponseSchemaV1`.
-The schema currently covers the eight native Question Types:
+The schema currently covers the eight native flat families:
 
 | `ResponseSchemaV1` | Shared response definition  |
 | ------------------ | --------------------------- |
@@ -324,7 +331,7 @@ generic run route has already completed its payload cutover. The current route
 still issues `QuestionEnvelope` and accepts a tagged `StudentResponse` in
 `{ "response": ... }`; its `kind` is therefore part of today's wire shape.
 The planned compact response uses the attempt route identity, presentation
-digest, and rendered IDs, then resolves the Answer Format and durable IDs
+digest, and rendered IDs, then resolves the response family and durable IDs
 server-side. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
 own that transition and its acceptance gates.
@@ -347,11 +354,11 @@ Question-level policies are authored with the question: `AttemptPolicy`
 each with a grace period for network delay). Student disclosure is not a
 question policy: the assignment owns its five-field `StudentDisclosurePolicy`
 and the server evaluates it for current Student projections.
-For timed work, `AttemptTimerRecord.deadline` is the server-issued base
+For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.
 
-The four run policies are chosen per assignment and are independent enums:
+The four explicit Assignment activity rules are chosen per Assignment and are independent enums:
 `CompletionRequirement`, `GradePolicy`, `ContinuedPractice`, and
 `VariationPolicy`. They stay independent so an instructor can express "mastery
 required, highest score kept, practice allowed after completion with fresh

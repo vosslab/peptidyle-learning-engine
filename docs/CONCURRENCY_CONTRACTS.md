@@ -10,7 +10,7 @@ dies, or a client retries. It complements
 [CONTRACTS.md](CONTRACTS.md).
 
 This is an implementation contract, not a claim that production deployment or
-every operational recovery workflow is complete. Learner and operator actions
+every operational recovery workflow is complete. Student and operator actions
 after a failure belong in [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md). Status in
 this document means:
 
@@ -23,10 +23,10 @@ this document means:
 
 ## Authority status
 
-**Current authority.** PostgreSQL transactions, server-derived `AuthenticatedSession`,
-revision checks, attempt receipts, job leases, and generation checks decide
-whether concurrent work becomes durable. The specific implemented owners are
-listed below.
+**Current authority.** The applied SD1 schema and mounted Authenticated Session
+boundary establish database and Account facts. Store-backed course, authoring,
+activity, worker, and object operations remain deferred; this document
+specifies the concurrency rules they must satisfy when composed.
 
 **Required for new work.** A mutation must name its transaction boundary,
 idempotency or compare-and-swap rule, and lock order before it can expose a
@@ -49,11 +49,11 @@ operation final.
 | State or decision                      | Authoritative owner                                         | Status          | Main implementation owner                                                                                                                              |
 | -------------------------------------- | ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Account identity and row access       | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
-| Mutable authoring and assignment state | Revisioned PostgreSQL rows                                  | Implemented     | [catalog.rs](../crates/learning-data-access/src/postgres/catalog.rs), [course_policy.rs](../crates/learning-data-access/src/postgres/course_policy.rs) |
-| Learner submission outcome             | Attempt-scoped idempotency and append-only evidence         | Implemented     | [runs.rs](../crates/learning-data-access/src/postgres/runs.rs)                                                                                         |
-| Background work ownership              | PostgreSQL job row plus opaque lease token                  | Implemented     | [jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs)                                                                                         |
-| Current analytic projection            | Assignment/timing generation plus an active lease           | Implemented     | [jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs), [item_analysis.rs](../crates/learning-data-access/src/postgres/item_analysis.rs)       |
-| Published catalog version              | Immutable version rows created from an exact draft revision | Implemented     | [catalog.rs](../crates/learning-data-access/src/postgres/catalog.rs)                                                                                   |
+| Mutable authoring and assignment state | Revisioned PostgreSQL rows                                  | Deferred SD1-C/D | Store-backed authoring and course composition |
+| Student submission outcome             | Attempt-scoped idempotency and append-only evidence         | Deferred SD1-C/D | Store-backed Student delivery composition |
+| Background work ownership              | PostgreSQL job row plus opaque lease token                  | Deferred SD1-C/D | Store-backed job composition |
+| Current analytic projection            | Assignment/timing generation plus an active lease           | Deferred SD1-C/D | Store-backed scoring and analysis composition |
+| Published catalog version              | Immutable version rows created from an exact draft revision | Deferred SD1-C/D | Store-backed catalog composition |
 | Cross-system object inventory repair   | Database/object-store reconciliation job                    | Planned, WP-RC7 | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                           |
 
 ## Account-scoped transactions and retries
@@ -106,13 +106,9 @@ the planned generalization.
 
 Mutable instructor resources use positive revisions. The browser receives a
 strong ETag and returns it in `If-Match`; it does not send a revision in a JSON
-body. The server parses exactly one strong revision, checks it against the
-stored row, and returns a conflict for a stale edit. Current examples are
-workspace publication in
-[publication.rs](../crates/server/src/catalog/publication.rs), assignment
-policy in [course_policy.rs](../crates/learning-data-access/src/postgres/course_policy.rs),
-and course appearance in
-[course_appearance.rs](../crates/learning-data-access/src/postgres/course_appearance.rs).
+body. The future Store-backed authoring, Course Instance, and Course Appearance
+operations parse exactly one strong revision, check it against the stored row,
+and return a conflict for a stale edit.
 
 Required behavior:
 
@@ -161,9 +157,9 @@ submission or grading attempt.
 
 | Situation                                                  | Required result                                                                                   | Implemented owner                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Client times out after submission reaches PLE              | Retry with the same key; return the stored receipt/outcome                                        | [runs.rs](../crates/learning-data-access/src/postgres/runs.rs)             |
-| Two replicas receive the same submission                   | One durable receipt wins; the other converges on the same receipt or conflicts on differing input | [runs.rs](../crates/learning-data-access/src/postgres/runs.rs)             |
-| Same attempt, different request/key/fingerprint            | Conflict; never overwrite response evidence                                                       | [runs.rs](../crates/learning-data-access/src/postgres/runs.rs)             |
+| Client times out after submission reaches PLE              | Retry with the same key; return the stored receipt/outcome                                        | Deferred Student delivery Store |
+| Two replicas receive the same submission                   | One durable receipt wins; the other converges on the same receipt or conflicts on differing input | Deferred Student delivery Store |
+| Same attempt, different request/key/fingerprint            | Conflict; never overwrite response evidence                                                       | Deferred Student delivery Store |
 | Retry after a server-side failure before a receipt commits | No final submission exists; ordinary retry rules apply                                            | [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
 
 ### Predecessor and successor receipt
@@ -175,13 +171,13 @@ predecessor attempt. The receipt contains either the exact successor attempt or
 an explicit `None` result. `ON CONFLICT DO NOTHING` lets concurrent finalizers
 race safely; a losing finalizer must accept only the exact same stored result.
 
-`question_prefetch` is similarly bound to the exact course/Student run, predecessor, and
+`question_prefetch` is similarly bound to the exact Course Instance/Student
+Record attempt, predecessor, and
 assignment position. It is valid only before the predecessor is submitted and
 only when its full issued tuple-capability, binding, public snapshot, and
 server-only grading envelope-agrees with its protected columns. A later
-attempt cannot reuse an old prefetch as a new attempt. The implementation is
-[runs.rs](../crates/learning-data-access/src/postgres/runs.rs), with matching
-Memory behavior in [runs.rs](../crates/learning-data-access/src/in_memory/runs.rs).
+attempt cannot reuse an old prefetch as a new attempt. The future PostgreSQL
+and in-memory Stores must implement the same receipt rule.
 
 ## Leases and generation fences
 
@@ -212,9 +208,8 @@ superseded rather than overwriting a newer projection.
 
 This dual fence prevents an old calculation from becoming current after an
 assignment-definition change, accepted-submission completion, authorized
-attempt support, or a timer adjustment. The concrete scoring and auto-submit checks are in
-[jobs.rs](../crates/learning-data-access/src/postgres/jobs.rs) and
-[item_analysis.rs](../crates/learning-data-access/src/postgres/item_analysis.rs).
+attempt support, or a timer adjustment. The future scoring and auto-submit
+Stores must enforce the same generation check.
 
 ### External-tool sessions and exchanges
 
@@ -234,10 +229,8 @@ the provider did or did not act. A valid verified outcome clears the marker
 only in the same final persistence transition. Grade retrieval is a
 structurally safe GET-only operation, never a fall-through provider action.
 Only the holder of the active lease can move it from `verifying` to
-`verified_pending`; a verified token then binds the final commit. The PostgreSQL owner is
-[external_tool.rs](../crates/learning-data-access/src/postgres/external_tool.rs),
-and the server integration owner is
-[imathas_backend.rs](../crates/server/src/imathas_backend.rs).
+`verified_pending`; a verified token then binds the final commit. This is a
+deferred external-tool Store and adapter requirement.
 
 ## Cross-system commit boundaries
 
@@ -247,17 +240,16 @@ caller/operator outcome and repair actions are in
 [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and the storage identity contract
 is [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
 
-### Implemented candidate promotion
+### Required candidate promotion
 
-Course-banner candidate upload writes normalized, checksummed bytes under a
+Course-banner candidate promotion writes normalized, checksummed bytes under a
 temporary non-signable identity first. Promotion records a server-owned future
 object identity and uses a revision-checked mutation only after the source is
 available. The durable row remembers whether it was consumed and whether its
 temporary object was deleted. Bounded cleanup claims the candidate before
 deleting bytes, so competing cleaners do not delete another course's object or
-undo a current pointer. See
-[course_appearance.rs](../crates/learning-data-access/src/postgres/course_appearance.rs)
-and [OBJECT_STORAGE.md](OBJECT_STORAGE.md).
+undo a current pointer. [OBJECT_STORAGE.md](OBJECT_STORAGE.md) records the
+durable storage boundary.
 
 ### Planned reconciliation fence
 

@@ -1,104 +1,17 @@
-//! API server core.
+//! PLE server core for the clean single-installation baseline.
 //!
-//! Route groups own browser-facing behavior while the small composition root
-//! supplies their production dependencies and security boundaries.
+//! The current executable surface is deliberately small: one global Account
+//! session boundary plus the deployment-gated seeded Live Demo entry. Course,
+//! catalog, and delivery routes return only after their fresh Store contracts
+//! and PostgreSQL capabilities are reconstructed on this foundation.
 
-/// Shared accepted-submission service for HTTP delivery and host-only seeds.
-pub mod accepted_submission_service;
-/// Private common handler for lease-bound accepted automated submissions.
-///
-/// Lane C2 wires this reusable entry point into the fast and background paths.
-#[cfg_attr(not(test), allow(dead_code))]
-pub mod accepted_submission_worker;
-/// Public-CDN and authorized short-lived asset delivery.
-pub mod asset;
-/// Authentication, sessions, and the middleware stack.
+/// Authentication, sessions, and the first-party browser boundary.
 pub mod auth;
-/// Protected instructor answer presentation for private workspace drafts.
-pub mod author_preview;
-/// Catalog, publication, taxonomy, and content-lifecycle routes.
-pub mod catalog;
-/// Server-side dispatch across installed trusted question backends.
-pub mod composite_backend;
-/// Production dependency construction shared by the API and future worker entry points.
+/// Production database/session composition.
 pub mod composition;
-/// Course records, course-local membership, and assignment routes.
-pub mod course;
-pub mod course_appearance;
-/// Revision-bound reusable-curriculum adoption into ordinary teaching courses.
-pub mod curriculum_adoption;
-/// Instructor-authorized asynchronous assignment export requests.
-pub mod export;
-/// Frozen assignment export preparation and atomic four-artifact finalization.
-pub mod export_worker;
-/// Author-only registration of immutable native flat-question image assets.
-pub mod flat_question_assets;
-/// Dedicated authoring and immutable publication routes for PLE flat questions.
-pub mod flat_question_publication;
-/// Readiness reporting for the container health check.
+/// Readiness probe support for the executable process.
 pub mod health;
-/// Server-owned verification of original instructional images used by native hotspots.
-pub(crate) mod hotspot_image;
-/// Move-only preservation of constructed HTTP refusals at handler boundaries.
-pub(crate) mod http_refusal;
-/// Uniform non-cacheable API response and browser hardening headers.
+/// Uniform dynamic-response security headers.
 pub(crate) mod http_security;
-/// Server-only durable iMathAS broker bridge.  It is intentionally not wired
-/// into the production backend registry until its same-origin launch profile
-/// is configured.
-pub mod imathas_backend;
-/// Instructor-only course-local aggregate item-analysis report.
-pub mod item_analysis;
-/// Private staged and generation-fenced course item-analysis worker.
-pub mod item_analysis_worker;
-/// Server composition bridge for first-party native question families.
-pub mod native_backend;
-pub mod navigation;
-/// Instructor-owned Favorites, collections, and saved catalog-search definitions.
-pub mod problem_curation;
-/// Post-commit materialization of immutable CDN-readable catalog assets.
-pub(crate) mod public_asset_publication_worker;
-/// Immutable published-QTI replay and server-side grading bridge.
-pub mod qti_backend;
-mod qti_dispatch;
-/// Private QTI archive staging worker and claim-bound committer.
-pub mod qti_import;
-/// Author-only conversion of recognized QTI profile items into native flat drafts.
-pub mod qti_profile_conversion;
-/// Pure server-only bridge from validated QTI profiles to native flat questions.
-pub(crate) mod qti_profile_flat_bridge;
-/// Author-only QTI archive upload and answer-free profile reports.
-pub mod qti_profile_import;
-#[cfg(test)]
-mod qti_profile_postgres_live;
-/// Server-only QTI publication preparation; generic publication stays closed.
-pub mod qti_publication;
-/// Process-owned request correlation and bounded shutdown behavior.  This is
-/// deliberately outside individual route groups so future routes cannot opt
-/// out by convention.
+/// Process-wide safe request lifecycle handling.
 pub mod request_lifecycle;
-/// Instructor-facing retention policy control and status APIs.
-pub mod retention;
-/// Private worker handler for staged retention notification and exact cleanup.
-pub mod retention_worker;
-/// Instructor-owned reusable Blueprints and shared public Alpha curricula.
-pub mod reusable_curriculum;
-/// Typed security contract for every public route's HTTP method.
-pub(crate) mod route_policy;
-/// Student runs, question attempts, submissions, and grading summaries.
-pub mod run;
-/// Current-score worker with private staging and generation-fenced publication.
-pub mod scoring_worker;
-#[cfg(test)]
-pub(crate) mod test_acceptance_runtime;
-#[cfg(test)]
-/// Server-owned, generation-fenced deadline finalization.
-pub mod timing_worker;
-/// Authenticated, key-free fallbacks for browser-safe pure validation.
-pub mod validation;
-/// Persisted-source bridge for the isolated WeBWorK renderer.
-pub mod webwork_backend;
-/// Bounded server-side execution of durable, target-bound worker jobs.
-pub mod worker;
-/// Author-only private unversioned workspace draft routes.
-pub mod workspace;

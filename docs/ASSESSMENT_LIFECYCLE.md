@@ -8,9 +8,9 @@ plan remains the source of truth for package status and acceptance evidence.
 ## Status and scope
 
 The ownership, publication, activity, grading, and retention semantics below
-are the durable platform design. The precise minimal learner payload described
+are the durable platform design. The precise minimal student payload described
 in "Submit, grade, and project" is the accepted WP-P1 through WP-P6 target
-contract, not a claim that the current broader learner DTO has already been
+contract, not a claim that the current broader student DTO has already been
 replaced. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) labels
 the current boundary separately from the target cutover. Consult the active
 release plan before treating a backend or payload package as accepted.
@@ -46,13 +46,13 @@ PLE keeps four related but different things separate:
 | Thing | Owner and lifetime | Important identity |
 | --- | --- | --- |
 | Draft | Instructor workspace; private and mutable | `WorkspaceId` |
-| Published question | Shared immutable catalog content | `ProblemId` and `VersionId` |
+| Published question | Shared immutable catalog content | `QuestionId` and `QuestionVersionNumber` |
 | Assignment activity | One course's teaching configuration | Course and assignment IDs |
-| Learner activity | Course-owned educational record | Enrollment, Assignment Attempt, and Question Attempt IDs |
+| Student activity | Course-owned educational record | Enrollment, Assignment Attempt, and Question Attempt IDs |
 
 Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
-`(ProblemId, VersionId)` pair; optional one-way provenance may identify its
+`(QuestionId, QuestionVersionNumber)` pair; optional one-way provenance may identify its
 source. An Assignment, Assignment Attempt, or Question Attempt retains its exact
 pinned pair and does not copy prompt, assets, source, or answer material into the
 course. An Assignment Attempt is one pass through an Assignment, and a Question
@@ -90,7 +90,7 @@ repeats it before writing a durable transition.
 ### 3. Commit an immutable publication
 
 The server resolves the workspace-owned draft, validates it, mints a fresh Question
-ID and hidden `(ProblemId, VersionId)` pair only after success, and commits
+ID and hidden `(QuestionId, QuestionVersionNumber)` pair only after success, and commits
 immutable metadata, public payload, private grader material or source binding,
 visibility grant, and draft removal as one transaction. A publication never
 mutates an existing published question. Every content change publishes a new
@@ -122,7 +122,7 @@ their explicit policy values.
 The assignment belongs to one course. Enrolling a student creates a
 course-owned educational relationship, not a copy of shared question content.
 The authenticated session supplies the user identity; the server verifies that
-the enrollment owns that Account rather than assuming `AccountId` and `StudentId` are
+the Student Record belongs to that Account and Course Instance rather than assuming `AccountId` and `StudentRecordId` are
 interchangeable.
 
 ### 5. Create or resume a run
@@ -130,14 +130,14 @@ interchangeable.
 The server starts the initial run or resumes the one active run that belongs to
 the enrollment only after current S5 entitlement and S3 resolution. Stored
 Published lifecycle is the sole open G1 state; Draft, Closed, and Archived do
-not start learner work. It assigns server timestamps, one-based run number, and
+not start student work. It assigns server timestamps, one-based run number, and
 the variation policy actually used. Completion is derived from attempt states;
 it is not a mutable Boolean that can disagree with the attempt history. Attempt
 limits count completed runs, so the final allowed active run remains resumable
 instead of denying itself.
 
 Completion is a milestone, not a lockout. When the policy permits continued
-practice, the learner can start another run with fresh variation. For a typical
+practice, the student can start another run with fresh variation. For a typical
 mastery assignment this means all-correct completion, highest-score selection,
 unlimited later runs, new seeds, and five assignment disclosure fields set to
 `AfterSubmit`. The exact composition remains an assignment decision, described in
@@ -148,7 +148,7 @@ unlimited later runs, new seeds, and five assignment disclosure fields set to
 ### 6. Issue exactly one active attempt
 
 The run service issues at most one unresolved attempt at a time. The attempt
-binds the authenticated learner and course through its enrollment and run, the
+binds the authenticated student and course through its enrollment and run, the
 assignment position, immutable version, seed, policy, timing state, grader
 backend, and provenance. Resume returns the stored attempt and stored seed; it
 does not generate a different problem mid-attempt.
@@ -161,7 +161,7 @@ display and submission aid, never the timing authority.
 
 ### 7. Render an answer-free screen
 
-The learner receives a public render envelope and the smallest state needed to
+The student receives a public render envelope and the smallest state needed to
 use it. Rich render data includes prompt blocks, sanitized markup, accessible
 asset references, response schema, item order, and public constraints. It may
 also include seed and version to identify the public render. It excludes correct
@@ -177,8 +177,8 @@ and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_D
 
 ### 8. Reserve one next question safely
 
-When policy allows it, PLE may prepare one next question while the learner is
-working. A prefetch reservation is course-, learner-, run-, predecessor-, and
+When policy allows it, PLE may prepare one next question while the student is
+working. A prefetch reservation is course-, student-, run-, predecessor-, and
 position-bound. It has no attempt ID, response, grade, or started timer.
 
 At the secure-payload target boundary, an untimed-practice browser may hold the
@@ -195,15 +195,15 @@ advance a run.
 ### 9. Submit the minimal response
 
 At the secure-payload target boundary, the route identifies the attempt once.
-The request supplies only the presentation digest and a minimal answer;
+The request supplies only the presentation digest and a family-minimal answer;
 a bounded idempotency key is in the request header. The server loads the
 authoritative attempt and therefore derives response shape, question version,
-seed, assignment, backend, deadline, and learner ownership rather than
+seed, assignment, backend, deadline, and student ownership rather than
 accepting browser copies.
 
 The server rejects a digest mismatch before grading and keeps the attempt
 unchanged. The browser reloads the same attempt, retains compatible unsent work
-in memory, and asks the learner to review it. Repeating the same idempotency
+in memory, and asks the student to review it. Repeating the same idempotency
 key and same response returns the first committed receipt. Reusing a key or
 attempt with a changed response conflicts before a second grade or state
 transition occurs.
@@ -220,7 +220,7 @@ expected family from the issued attempt; it is not submission authority.
 
 Acceptance first commits the validated response, immutable issued-work witness,
 pending evaluation, execution record, and ready grading job as one transaction.
-The learner receives `202 Accepted` and may read the route-bound submission
+The student receives `202 Accepted` and may read the route-bound submission
 status while the sealed worker owns grading. A successful worker transaction
 then commits the grading result, score event, attempt transition, run completion,
 enrollment pointers, summary projection, successor receipt, and immutable
@@ -231,11 +231,11 @@ never a newer catalog/backend render, and never re-grade an answer.
 
 ### 11. Return a policy-projected receipt
 
-While grading is pending, the learner receives only accepted status and the
+While grading is pending, the student receives only accepted status and the
 committed attempt identity, with an accessible action to check grading status.
-After completion, the learner receives policy-permitted correctness and points,
+After completion, the student receives policy-permitted correctness and points,
 sanitized feedback, and either an immutable `nextIssued` descriptor or
-`nextPending`. The Store evaluates learner
+`nextPending`. The Store evaluates student
 disclosure at projection time only after S5 entitlement, from the current
 S3-resolved effective-policy verdict, assignment-owned policy, authoritative
 time, and the submitted fact; the request cannot choose it. The historical S3
@@ -246,9 +246,9 @@ replay never resubmits or consults changed catalog/backend state. Withheld
 feedback remains withheld even though the result is persisted. An instructor or
 gradebook view reads the summary projection and lazily paged history rather
 than recomputing a grade by scanning all attempts. A separate scoring freshness
-state can mark the maintained summary Recalculating or Failed; learner routes
+state can mark the maintained summary Recalculating or Failed; student routes
 then omit aggregate and run scores, attempt results, and disclosed point values
-until it is Current, without changing the learner's semantic
+until it is Current, without changing the student's semantic
 activity/disclosure state.
 
 The attempt state machine, feedback policy, timer rule, and summary projection
@@ -287,7 +287,7 @@ bounded RC3 contract and its release scope are in
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
 External-tool questions remain deliberately sparse in the generic model. The
-provider is not allowed to widen an ordinary learner response into a token or
+provider is not allowed to widen an ordinary student response into a token or
 raw payload. Broker sessions and transcripts are course-owned student records
 with their own authorization and retention handling.
 
@@ -313,9 +313,9 @@ and [CONTRACTS.md](CONTRACTS.md).
 
 ## Retain records, keep learning
 
-Learner records are course-owned and privacy-sensitive. Course policy first
-notifies, then archives and fences learner access, then permanently deletes the
-complete learner graph and typed student-record objects. The deletion path uses
+Student records are course-owned and privacy-sensitive. Course policy first
+notifies, then archives and fences student access, then permanently deletes the
+complete student graph and typed student-record objects. The deletion path uses
 a frozen manifest, idempotent object deletion, lease and generation fencing,
 and one verified relational purge transaction. It never follows an assignment
 reference into shared published content.
@@ -324,7 +324,7 @@ Published problems, immutable versions, instructor drafts, and anonymous
 question statistics have different retention rules. A first completed
 assignment can contribute an identity-free aggregate exactly once. That
 aggregate supports future library improvement but is not a course-local
-gradebook or a route back to a learner record. The retention defaults, backup
+gradebook or a route back to a student record. The retention defaults, backup
 boundary, and permanent-versus-one-time verification policy are in
 [RETENTION_POLICY.md](RETENTION_POLICY.md).
 
@@ -336,7 +336,7 @@ Use this lifecycle document to find the right detailed contract:
   response shapes, generation, and browser-safe type boundary.
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
   timing, idempotency, completion, and summary projection.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): learner render,
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): student render,
   rendered IDs, presentation digest, minimal response, receipt, and prefetch.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
   publication, run, asset, and retention security boundaries.

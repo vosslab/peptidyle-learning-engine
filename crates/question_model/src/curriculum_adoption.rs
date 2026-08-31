@@ -13,7 +13,7 @@ use crate::{
     AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError, BaseAssignmentPolicy,
     CourseLocalDateTime, CourseTerm, IanaTimeZone, LocalTimeOfDay,
     MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, ProblemVersionRef,
+    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, QuestionVersionReference,
     RelativeAssignmentSchedule, RelativeScheduleMoment, ReusableAssignmentDefaults,
     ReusableCurriculumValidationError, SelectionOrdering, validate_reusable_curriculum_title,
 };
@@ -128,7 +128,7 @@ impl CurriculumSemanticAssignment {
     pub fn title(&self) -> &str {
         &self.title
     }
-    /// Returns the learner-facing reusable instructions.
+    /// Returns the student-facing reusable instructions.
     pub fn instructions(&self) -> &AssignmentInstructions {
         &self.instructions
     }
@@ -210,7 +210,7 @@ pub enum CurriculumSemanticAssignmentEntry {
     /// One fixed immutable publication and its reusable scoring meaning.
     Fixed {
         /// Exact immutable publication pin authorized for the destination.
-        reference: ProblemVersionRef,
+        reference: QuestionVersionReference,
         /// Exact points copied into the destination assignment.
         points_possible: PointValue,
         /// Scoring treatment copied into the destination assignment.
@@ -222,7 +222,7 @@ pub enum CurriculumSemanticAssignmentEntry {
 /// One validated ordered pool of exact immutable publication pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CurriculumSemanticPool {
-    candidates: Vec<ProblemVersionRef>,
+    candidates: Vec<QuestionVersionReference>,
     draw_count: u32,
     points_per_item: PointValue,
     ordering: SelectionOrdering,
@@ -231,7 +231,7 @@ pub struct CurriculumSemanticPool {
 impl CurriculumSemanticPool {
     /// Validates pool cardinality, uniqueness, and draw bounds.
     pub fn new(
-        candidates: Vec<ProblemVersionRef>,
+        candidates: Vec<QuestionVersionReference>,
         draw_count: u32,
         points_per_item: PointValue,
         ordering: SelectionOrdering,
@@ -256,7 +256,7 @@ impl CurriculumSemanticPool {
         })
     }
     /// Returns candidate pins in meaningful authored order.
-    pub fn candidates(&self) -> &[ProblemVersionRef] {
+    pub fn candidates(&self) -> &[QuestionVersionReference] {
         &self.candidates
     }
     /// Returns the number of candidates selected for one run.
@@ -375,12 +375,12 @@ struct CanonicalAssignment<'a> {
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum CanonicalEntry<'a> {
     Fixed {
-        reference: &'a ProblemVersionRef,
+        reference: &'a QuestionVersionReference,
         points_possible: PointValue,
         scoring_mode: AssignmentScoringMode,
     },
     Pool {
-        candidates: &'a [ProblemVersionRef],
+        candidates: &'a [QuestionVersionReference],
         draw_count: u32,
         points_per_item: PointValue,
         ordering: SelectionOrdering,
@@ -530,7 +530,7 @@ pub struct ResolvedRelativeScheduleMoment {
 pub struct ResolvedRelativeAssignmentSchedule {
     /// Authoritative target-course IANA zone for every local value.
     pub time_zone: IanaTimeZone,
-    /// Resolved first learner-availability moment when configured.
+    /// Resolved first student-availability moment when configured.
     pub available_at: Option<ResolvedRelativeScheduleMoment>,
     /// Resolved ordinary due moment when configured.
     pub due_at: Option<ResolvedRelativeScheduleMoment>,

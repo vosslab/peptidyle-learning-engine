@@ -1,6 +1,6 @@
 {
   "profile": "imathas_scored_embed_broker_v1",
-  "provider": "institution-imathas",
+  "provider": "self-hosted-imathas",
   "snapshot": {
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "objectId": "redacted",

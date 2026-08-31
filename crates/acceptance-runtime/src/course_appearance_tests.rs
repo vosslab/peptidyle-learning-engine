@@ -6,7 +6,7 @@ fn course_appearance_workspace() -> std::path::PathBuf {
     let workspace = super::tests::temp_workspace();
     fs::write(
         workspace.join(MANIFEST_NAME),
-        b"schema_version: 1\nkind: ple.disposable_postgres_minio_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: course_appearance_cross_store\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n  postgres_fast_path_url: secrets/postgres-fast-path.url\n  postgres_recovery_url: secrets/postgres-recovery.url\n  minio_endpoint: secrets/minio-endpoint.url\n  minio_region: secrets/minio-region\n  minio_access_key_id: secrets/minio-access-key-id\n  minio_secret_access_key: secrets/minio-secret-access-key\n",
+        b"schema_version: 1\nkind: ple.disposable_postgres_minio_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: course_appearance_cross_store\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  minio_endpoint: secrets/minio-endpoint.url\n  minio_region: secrets/minio-region\n  minio_access_key_id: secrets/minio-access-key-id\n  minio_secret_access_key: secrets/minio-secret-access-key\n",
     )
     .unwrap();
     for (name, contents) in [
@@ -92,8 +92,8 @@ fn cross_store_profile_closes_manifest_shape_and_object_store_values() {
     fs::write(
         baseline.join(MANIFEST_NAME),
         baseline_manifest.replace(
-            "  postgres_recovery_url: secrets/postgres-recovery.url\n",
-            "  postgres_recovery_url: secrets/postgres-recovery.url\n  minio_endpoint: secrets/minio-endpoint.url\n",
+            "  postgres_admin_password: secrets/postgres-admin.password\n",
+            "  postgres_admin_password: secrets/postgres-admin.password\n  minio_endpoint: secrets/minio-endpoint.url\n",
         ),
     )
     .unwrap();

@@ -567,9 +567,8 @@ pub(super) fn opaque_item_id(
 ) -> Result<ChoiceId, RendererFailure> {
     let mut hash = Sha256::new();
     hash.update(b"ple:webwork:choice:v1\0");
-    let version =
-        uuid::Uuid::parse_str(request.version).map_err(|_| bad("invalid immutable version"))?;
-    hash.update(version.as_bytes());
+    hash.update(request.question_version.question_id.to_string().as_bytes());
+    hash.update(request.question_version.version_number.get().to_be_bytes());
     hash.update(request.seed.to_be_bytes());
     hash.update(role.to_be_bytes());
     hash.update((ordinal as u32).to_be_bytes());

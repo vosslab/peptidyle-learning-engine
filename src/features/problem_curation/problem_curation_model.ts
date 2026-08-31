@@ -1,9 +1,8 @@
 // problem_curation_model.ts - browser state rules for live question curation.
 
-import type { ProblemCollectionMemberView } from "../../../generated/api/ProblemCollectionMemberView";
-import type { ProblemCollectionReference } from "../../../generated/api/ProblemCollectionReference";
-import type { ProblemCollectionSummaryView } from "../../../generated/api/ProblemCollectionSummaryView";
-import type { ProblemCollectionVisibility } from "../../../generated/api/ProblemCollectionVisibility";
+import type { QuestionCollectionMemberView } from "../../../generated/api/QuestionCollectionMemberView";
+import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
+import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
 import type { SavedProblemSearchReference } from "../../../generated/api/SavedProblemSearchReference";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { CatalogSearchFilter } from "../../../generated/api/CatalogSearchFilter";
@@ -28,33 +27,31 @@ export interface RevisionedCurationValue<T> {
   readonly etag: ProblemCurationEtag;
 }
 
-/** A complete, revision-checked collection replacement. */
-export interface ProblemCollectionReplacement {
-  readonly reference: ProblemCollectionReference | null;
-  readonly kind: "favorites" | "named";
+/** A complete edit-number-checked collection replacement. */
+export interface QuestionCollectionReplacement {
+  readonly reference: QuestionCollectionReference | null;
   readonly title: string;
-  readonly visibility: ProblemCollectionVisibility;
   readonly questionIds: ReadonlyArray<string>;
-  readonly revision: string | null;
+  readonly editNumber: string | null;
 }
 
-/** A complete, revision-checked saved-search replacement. */
+/** A complete edit-number-checked saved-search replacement. */
 export interface SavedProblemSearchReplacement {
   readonly reference: SavedProblemSearchReference | null;
   readonly title: string;
   readonly query: CatalogBrowseQuery;
   /** Existing searches retain their exact D1 filter while a title changes. */
   readonly filter: CatalogSearchFilter | null;
-  readonly revision: string | null;
+  readonly editNumber: string | null;
 }
 
-/** One destructive intent paired with the exact revision already visible in the UI. */
+/** One destructive intent paired with the exact edit number already visible in the UI. */
 export type ProblemCurationDeletion =
   | {
       readonly kind: "collection";
-      readonly reference: ProblemCollectionReference;
+      readonly reference: QuestionCollectionReference;
       readonly title: string;
-      readonly revision: ProblemCurationEtag;
+      readonly editNumber: ProblemCurationEtag;
       readonly heading: string;
       readonly consequence: string;
       readonly confirmLabel: "Delete collection";
@@ -63,7 +60,7 @@ export type ProblemCurationDeletion =
       readonly kind: "savedSearch";
       readonly reference: SavedProblemSearchReference;
       readonly title: string;
-      readonly revision: ProblemCurationEtag;
+      readonly editNumber: ProblemCurationEtag;
       readonly heading: string;
       readonly consequence: string;
       readonly confirmLabel: "Delete saved search";
@@ -80,27 +77,26 @@ export interface ProblemCurationConfirmationPresentation {
   ];
 }
 
-/** Browser route boundary for personal and institution curation. */
+/** Browser route boundary for private Instructor Question Collections. */
 export interface ProblemCurationRepository {
-  readonly ensureFavorites: () => Promise<RevisionedCurationValue<ProblemCollectionSummaryView>>;
   readonly getCollection: (
-    reference: ProblemCollectionReference,
-  ) => Promise<RevisionedCurationValue<ProblemCollectionSummaryView>>;
+    reference: QuestionCollectionReference,
+  ) => Promise<RevisionedCurationValue<QuestionCollectionSummaryView>>;
   readonly listCollections: (
     cursor: string | null,
-  ) => Promise<ProblemCurationPage<ProblemCollectionSummaryView>>;
+  ) => Promise<ProblemCurationPage<QuestionCollectionSummaryView>>;
   readonly listCollectionMembers: (
-    reference: ProblemCollectionReference,
+    reference: QuestionCollectionReference,
     cursor: string | null,
   ) => Promise<
-    ProblemCurationPage<ProblemCollectionMemberView> & { readonly etag: ProblemCurationEtag }
+    ProblemCurationPage<QuestionCollectionMemberView> & { readonly etag: ProblemCurationEtag }
   >;
   readonly replaceCollection: (
-    replacement: ProblemCollectionReplacement,
-  ) => Promise<RevisionedCurationValue<ProblemCollectionSummaryView>>;
+    replacement: QuestionCollectionReplacement,
+  ) => Promise<RevisionedCurationValue<QuestionCollectionSummaryView>>;
   readonly deleteCollection: (
-    reference: ProblemCollectionReference,
-    revision: string,
+    reference: QuestionCollectionReference,
+    editNumber: string,
   ) => Promise<void>;
   readonly listSavedSearches: (
     cursor: string | null,
@@ -113,7 +109,7 @@ export interface ProblemCurationRepository {
   ) => Promise<RevisionedCurationValue<SavedProblemSearchView>>;
   readonly deleteSavedSearch: (
     reference: SavedProblemSearchReference,
-    revision: string,
+    editNumber: string,
   ) => Promise<void>;
 }
 
@@ -124,47 +120,37 @@ export type CurationNotice =
   | { readonly kind: "error"; readonly text: string };
 
 export interface CollectionDraft {
-  readonly reference: ProblemCollectionReference | null;
-  readonly kind: "favorites" | "named";
+  readonly reference: QuestionCollectionReference | null;
   readonly title: string;
-  readonly visibility: ProblemCollectionVisibility;
   /** Exact strong ETag observed with the current complete collection projection. */
-  readonly revision: string | null;
+  readonly editNumber: string | null;
   readonly questionIds: ReadonlyArray<string>;
 }
 
 export const EMPTY_COLLECTION_DRAFT: CollectionDraft = {
   reference: null,
-  kind: "named",
   title: "",
-  visibility: "private",
-  revision: null,
+  editNumber: null,
   questionIds: [],
 };
 
-/** Converts one decoded revision into the strong validator sent back as If-Match. */
-export function curationEtagFromObservedRevision(revision: string): ProblemCurationEtag {
-  if (!/^[1-9][0-9]*$/u.test(revision) || BigInt(revision) > 9_223_372_036_854_775_807n) {
-    throw new Error("Use the current positive curation revision before changing this item.");
+/** Converts one decoded edit number into the strong validator sent back as If-Match. */
+export function curationEtagFromObservedEditNumber(editNumber: string): ProblemCurationEtag {
+  if (!/^[1-9][0-9]*$/u.test(editNumber) || BigInt(editNumber) > 9_223_372_036_854_775_807n) {
+    throw new Error("Use the current positive curation edit number before changing this item.");
   }
-  return `"${revision}"`;
+  return `"${editNumber}"`;
 }
 
-/** Builds the shared picker sources without duplicating the dedicated Favorites source. */
+/** Builds the shared picker sources from private named collections. */
 export function problemCurationPickerSources(
-  collections: ReadonlyArray<ProblemCollectionSummaryView>,
+  collections: ReadonlyArray<QuestionCollectionSummaryView>,
   mayMutatePersonalCuration: boolean,
 ): ReadonlyArray<ProblemPickerSource> {
   return [
     { kind: "catalog", label: "Current library" },
-    ...(mayMutatePersonalCuration
-      ? ([
-          { kind: "mine", label: "My published questions" },
-          { kind: "favorites", label: "Favorites" },
-        ] as const)
-      : []),
+    ...(mayMutatePersonalCuration ? ([{ kind: "mine", label: "My published questions" }] as const) : []),
     ...collections
-      .filter((collection) => collection.kind === "named")
       .map((collection) => ({
         kind: "collection" as const,
         label: collection.title,
@@ -173,7 +159,7 @@ export function problemCurationPickerSources(
   ];
 }
 
-/** Retains a saved search's observed revision and exact filter meaning for replacement. */
+/** Retains a saved search's observed edit number and exact filter meaning for replacement. */
 export function savedSearchReplacementFromObserved(
   search: SavedProblemSearchView | undefined,
   title: string,
@@ -184,22 +170,19 @@ export function savedSearchReplacementFromObserved(
     title,
     query: savedSearchQuery(query),
     filter: search?.filter ?? null,
-    revision: search === undefined ? null : curationEtagFromObservedRevision(search.revision),
+    editNumber: search === undefined ? null : curationEtagFromObservedEditNumber(search.editNumber),
   };
 }
 
 /** Names the collection and durable consequence before an owner confirms deletion. */
 export function collectionDeletionFromObserved(
-  collection: ProblemCollectionSummaryView,
+  collection: QuestionCollectionSummaryView,
 ): ProblemCurationDeletion {
-  if (collection.kind !== "named" || collection.access !== "owner") {
-    throw new Error("Choose one of your named collections before deleting it.");
-  }
   return {
     kind: "collection",
     reference: collection.reference,
     title: collection.title,
-    revision: curationEtagFromObservedRevision(collection.revision),
+    editNumber: curationEtagFromObservedEditNumber(collection.editNumber),
     heading: `Delete collection "${collection.title}"?`,
     consequence:
       "Deleting this collection removes its saved ordered question list. Published questions remain available in the Library.",
@@ -215,7 +198,7 @@ export function savedSearchDeletionFromObserved(
     kind: "savedSearch",
     reference: search.reference,
     title: search.title,
-    revision: curationEtagFromObservedRevision(search.revision),
+    editNumber: curationEtagFromObservedEditNumber(search.editNumber),
     heading: `Delete saved search "${search.title}"?`,
     consequence:
       "Deleting this saved search removes the shortcut. Current Library questions and filters remain available.",
@@ -244,25 +227,21 @@ export function mayMutatePersonalCuration(session: AuthenticatedSession | undefi
   return session?.account.role === "instructor";
 }
 
-/** Institution-reader access is deliberately a browse/reuse projection. */
-export function mayEditOpenedProblemCollection(
+export function mayEditOpenedQuestionCollection(
   mayMutatePersonalCuration: boolean,
-  access: ProblemCollectionSummaryView["access"],
 ): boolean {
-  return mayMutatePersonalCuration && access === "owner";
+  return mayMutatePersonalCuration;
 }
 
 /** Builds a whole-list edit from the currently authorized immutable members. */
 export function collectionDraftFrom(
-  collection: ProblemCollectionSummaryView,
-  members: ReadonlyArray<ProblemCollectionMemberView>,
+  collection: QuestionCollectionSummaryView,
+  members: ReadonlyArray<QuestionCollectionMemberView>,
 ): CollectionDraft {
   return {
     reference: collection.reference,
-    kind: collection.kind,
     title: collection.title,
-    visibility: collection.visibility,
-    revision: collection.revision,
+    editNumber: collection.editNumber,
     questionIds: canonicalQuestionIds(members.map((member) => member.questionId)),
   };
 }

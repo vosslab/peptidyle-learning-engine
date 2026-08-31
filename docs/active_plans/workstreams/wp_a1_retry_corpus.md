@@ -21,7 +21,7 @@
   ambiguous outcome.
 - A safe catalog-detail GET by canonical Question ID is inspected for answer-bearing fields. The
   returned retry-corpus result has only that Question ID, its public catalog title, and arrangement
-  label; it never includes a credential, cookie, source, answer key, ProblemId, or VersionId.
+  label; it never includes a credential, cookie, source, answer key, QuestionId, or QuestionVersionNumber.
 - This package creates no account, enrollment, course, membership, SQL fixture, or cleanup action.
 
 ## Evidence

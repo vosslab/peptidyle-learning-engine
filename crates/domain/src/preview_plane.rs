@@ -26,10 +26,8 @@ use crate::{
 pub fn preview_source_layer(source: &PolicySource) -> PreviewPolicySourceLayer {
     match source {
         PolicySource::Base => PreviewPolicySourceLayer::Base,
-        PolicySource::GroupScheduleOffsets(_) => PreviewPolicySourceLayer::GroupSchedule,
-        PolicySource::GroupAccommodations(_) => PreviewPolicySourceLayer::GroupAccommodation,
-        PolicySource::IndividualException(_) | PolicySource::HypotheticalIndividualException => {
-            PreviewPolicySourceLayer::IndividualException
+        PolicySource::Accommodation(_) | PolicySource::HypotheticalAccommodation => {
+            PreviewPolicySourceLayer::Accommodation
         }
     }
 }
@@ -127,17 +125,8 @@ pub fn project_preview_schedule(
 /// Maps S5 result to the transport-safe entitlement outcome.
 pub fn project_preview_entitlement(decision: &EntitlementDecision) -> PreviewEntitlementOutcome {
     match decision {
-        EntitlementDecision::Granted(grant) => match grant.basis() {
-            question_model::MaterializationBasis::CourseWide => {
-                PreviewEntitlementOutcome::Granted {
-                    reason: PreviewEntitlementGrantReason::CourseWide,
-                }
-            }
-            question_model::MaterializationBasis::GroupAudience { .. } => {
-                PreviewEntitlementOutcome::Granted {
-                    reason: PreviewEntitlementGrantReason::GroupAudience,
-                }
-            }
+        EntitlementDecision::Granted(_) => PreviewEntitlementOutcome::Granted {
+            reason: PreviewEntitlementGrantReason::ActiveStudentCourseMembership,
         },
         EntitlementDecision::Denied(_) => PreviewEntitlementOutcome::Denied {
             reason: PreviewEntitlementDenialReason::NotEntitled,
@@ -220,9 +209,9 @@ mod tests {
     };
     use chrono::TimeZone;
     use question_model::{
-        AssignmentAudience, AssignmentDeadlineBehavior, AssignmentId, CourseGroupId,
-        CourseGroupPurpose, CourseId, CourseMembershipId, CourseTerm, LateSubmissionPolicy,
-        AccountId, StudentDisclosureTiming, StudentId,
+        AccountId, AssignmentDeadlineBehavior, AssignmentId, CourseId, CourseMembershipId,
+        CourseTerm, LateSubmissionPolicy,
+        StudentDisclosureTiming, StudentRecordId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -231,17 +220,14 @@ mod tests {
         Uuid::from_u128(value)
     }
     fn allowed() -> (EntitlementDecision, EffectivePolicyDecision) {
-        let group = CourseGroupId::from_uuid(id(7));
         let facts = EntitlementFacts {
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
             student_account: AccountId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
-                student: StudentId::from_uuid(id(6)),
+                student_record: StudentRecordId::from_uuid(id(6)),
             }),
-            audience: AssignmentAudience::any_of_groups(vec![group]).unwrap(),
-            current_groups: vec![(group, CourseGroupPurpose::Lab)],
         };
         let entitlement = evaluate_assignment_entitlement(facts);
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
@@ -259,9 +245,7 @@ mod tests {
                 late_submission: LateSubmissionPolicy::Accept,
                 deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
             },
-            group_schedule_offsets: vec![],
-            group_accommodations: vec![],
-            individual_exception: None,
+            accommodation: None,
         })
         .unwrap();
         (entitlement, effective)
@@ -317,7 +301,7 @@ mod tests {
             preview_denial_for(&entitlement, false),
             Some(PreviewDenialReason::StaleRevision)
         );
-        let denied = EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent);
+        let denied = EntitlementDecision::Denied(EntitlementDenial::StudentNotActiveCourse);
         assert_eq!(
             preview_denial_for(&denied, true),
             Some(PreviewDenialReason::NotEntitled)
@@ -330,22 +314,20 @@ mod tests {
 
     #[test]
     fn actual_and_hypothetical_individual_sources_share_the_safe_layer() {
-        let student = StudentId::from_uuid(id(9));
+        let student = StudentRecordId::from_uuid(id(9));
         assert_eq!(
-            preview_source_layer(&PolicySource::IndividualException(student)),
-            PreviewPolicySourceLayer::IndividualException
+            preview_source_layer(&PolicySource::Accommodation(student)),
+            PreviewPolicySourceLayer::Accommodation
         );
         assert_eq!(
-            preview_source_layer(&PolicySource::HypotheticalIndividualException),
-            PreviewPolicySourceLayer::IndividualException
+            preview_source_layer(&PolicySource::HypotheticalAccommodation),
+            PreviewPolicySourceLayer::Accommodation
         );
     }
 
     #[test]
     fn project_preview_policy_and_schedule_project_course_local_values_and_all_sources() {
-        let schedule_group = CourseGroupId::from_uuid(id(7));
-        let accommodation_group = CourseGroupId::from_uuid(id(8));
-        let student = StudentId::from_uuid(id(9));
+        let student = StudentRecordId::from_uuid(id(9));
         let at = |hour| {
             ActivityTimestamp::from_unix_millis(
                 chrono::Utc
@@ -361,15 +343,15 @@ mod tests {
             },
             due_at: ResolvedField {
                 value: Some(at(15)),
-                source: PolicySource::GroupScheduleOffsets(vec![schedule_group]),
+                source: PolicySource::Accommodation(student),
             },
             closes_at: ResolvedField {
                 value: Some(at(16)),
-                source: PolicySource::GroupAccommodations(vec![accommodation_group]),
+                source: PolicySource::Accommodation(student),
             },
             time_limit_seconds: ResolvedField {
                 value: NonZeroU32::new(1_200),
-                source: PolicySource::IndividualException(student),
+                source: PolicySource::Accommodation(student),
             },
             attempt_limit: ResolvedField {
                 value: NonZeroU32::new(3),
@@ -406,15 +388,15 @@ mod tests {
         );
         assert_eq!(
             projected.due_at().source,
-            PreviewPolicySourceLayer::GroupSchedule
+            PreviewPolicySourceLayer::Accommodation
         );
         assert_eq!(
             projected.closes_at().source,
-            PreviewPolicySourceLayer::GroupAccommodation
+            PreviewPolicySourceLayer::Accommodation
         );
         assert_eq!(
             projected.time_limit_seconds().source,
-            PreviewPolicySourceLayer::IndividualException
+            PreviewPolicySourceLayer::Accommodation
         );
         assert_eq!(projected.time_limit_seconds().value, Some(1_200));
         assert_eq!(projected.attempt_limit().value, Some(3));
@@ -449,7 +431,7 @@ mod tests {
 
     #[test]
     fn denied_s5_s3_s4_never_produces_preview_data() {
-        let entitlement = EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesStudent);
+        let entitlement = EntitlementDecision::Denied(EntitlementDenial::StudentNotActiveCourse);
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
             lifecycle: AssignmentLifecycleGate::Open,
             authorization: AuthorizationGate::Authorized,
@@ -465,9 +447,7 @@ mod tests {
                 late_submission: LateSubmissionPolicy::Accept,
                 deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
             },
-            group_schedule_offsets: vec![],
-            group_accommodations: vec![],
-            individual_exception: None,
+            accommodation: None,
         })
         .unwrap();
 

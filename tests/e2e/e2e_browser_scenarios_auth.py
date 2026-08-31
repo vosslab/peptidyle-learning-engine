@@ -25,13 +25,12 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"morgan_sysadmin",
 			),
 			baseline_reads=("base_course", "genetics_practice_course"),
-			ui_creates=("passkey", "course_group", "teaching_invitation"),
+			ui_creates=("passkey", "teaching_invitation"),
 			visible_observation=(
 				"instructor_passkey_reauthentication_and_seeded_sessions_avery_approval_and_course_boundaries"
 			),
 			seed_state_transitions=("avery_instructor_approval",),
 			screenshot_states=(
-				"teaching_operations_groups",
 				"teaching_team_invited",
 				"teaching_operations_retention",
 				"pending_teaching_invitation",

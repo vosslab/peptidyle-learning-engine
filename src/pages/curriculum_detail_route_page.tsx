@@ -14,7 +14,7 @@ import {
 
 export type CurriculumDetailRoutePageProps = CurriculumDetailWorkspaceProps;
 
-/** Integrators pass the BP-* or AC-* route parameter after ordinary route decoding. */
+/** Integrators pass the BP-* route parameter after ordinary route decoding. */
 export function CurriculumDetailRoutePage(props: CurriculumDetailRoutePageProps): JSX.Element {
   return <CurriculumDetailWorkspace {...props} />;
 }

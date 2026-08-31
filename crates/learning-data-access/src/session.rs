@@ -133,7 +133,6 @@ pub trait SessionStore: Send + Sync {
         &self,
         token_hash: SessionTokenHash,
         account: AccountId,
-        role: AccountRole,
         lifetime: SessionLifetime,
     ) -> Result<SessionRecord, StoreError>;
 

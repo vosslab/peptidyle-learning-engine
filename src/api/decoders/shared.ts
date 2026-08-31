@@ -3,9 +3,9 @@
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
 import type { BackendCapabilities } from "../../../generated/api/BackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
-import type { CatalogLifecycle } from "../../../generated/api/CatalogLifecycle";
+import type { QuestionVersionAvailability } from "../../../generated/api/QuestionVersionAvailability";
 import type { License } from "../../../generated/api/License";
-import type { ProblemVersionRef } from "../../../generated/api/ProblemVersionRef";
+import type { QuestionVersionReference } from "../../../generated/api/QuestionVersionReference";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
@@ -178,6 +178,15 @@ export function decodeQuestionId(value: unknown, path: string): QuestionId {
   return questionId;
 }
 
+/** Decodes the positive version number within one published Question lineage. */
+export function decodePositiveQuestionVersionNumber(value: unknown, path: string): number {
+  const versionNumber = decodeSafeInteger(value, path);
+  if (versionNumber < 1) {
+    throw new DecodeError(path, "a positive Question Version Number");
+  }
+  return versionNumber;
+}
+
 /** Decodes a compact positive database identity that is safe to show to people. */
 export function decodePublicRouteNumber(value: unknown, path: string): number {
   const decoded = decodeSafeInteger(value, path);
@@ -203,17 +212,20 @@ export function decodeBackendCapabilities(value: unknown, path: string): Backend
   return decodeArray(value, path, decodeCapability);
 }
 
-export function decodeProblemVersionRef(
+export function decodeQuestionVersionReference(
   value: unknown,
   path: string,
   strict = false,
-): ProblemVersionRef {
+): QuestionVersionReference {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["problem", "version"]);
+  if (strict) requireOnlyFields(record, path, ["questionId", "versionNumber"]);
   const decoded = {
-    problem: decodeIdentifier(field(record, "problem", path), `${path}.problem`),
-    version: decodeIdentifier(field(record, "version", path), `${path}.version`),
-  } satisfies ProblemVersionRef;
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    versionNumber: decodePositiveQuestionVersionNumber(
+      field(record, "versionNumber", path),
+      `${path}.versionNumber`,
+    ),
+  } satisfies QuestionVersionReference;
   return decoded;
 }
 
@@ -279,31 +291,34 @@ export function decodeQuestionMetadata(
   return decoded;
 }
 
-export function decodeCatalogLifecycle(
+export function decodeQuestionVersionAvailability(
   value: unknown,
   path: string,
   strict = false,
-): CatalogLifecycle {
-  const record = decodeRecord(value, path);
-  const lifecycle = state(record, path);
-  switch (lifecycle) {
-    case "published":
+): QuestionVersionAvailability {
+    const record = decodeRecord(value, path);
+  const availability = decodeStringEnum(
+    field(record, "availability", path),
+    `${path}.availability`,
+    ["available", "archived"],
+  );
+  switch (availability) {
+    case "available":
       if (strict) {
-        requireOnlyFields(record, path, ["state"]);
+        requireOnlyFields(record, path, ["availability"]);
       }
-      return { state: lifecycle };
-    case "deprecated":
+      return { availability };
     case "archived": {
       if (strict) {
-        requireOnlyFields(record, path, ["state", "reason"]);
+        requireOnlyFields(record, path, ["availability", "reason"]);
       }
       const decoded = {
-        state: lifecycle,
+        availability,
         reason: decodeNonemptyString(field(record, "reason", path), `${path}.reason`),
-      } satisfies CatalogLifecycle;
+      } satisfies QuestionVersionAvailability;
       return decoded;
     }
     default:
-      throw new DecodeError(`${path}.state`, "a known catalog lifecycle");
+      throw new DecodeError(`${path}.availability`, "a known Question Version Availability");
   }
 }

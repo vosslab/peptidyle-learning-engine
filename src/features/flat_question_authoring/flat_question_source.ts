@@ -1,7 +1,7 @@
 /**
  * The answer-bearing PLE flat-question v2 authoring contract.
  *
- * This type stays inside the authoring feature.  Learner-facing code uses the
+ * This type stays inside the authoring feature.  Student-facing code uses the
  * answer-free projection from flat_question_public_preview.ts instead.
  */
 
@@ -68,7 +68,7 @@ export type FlatQuestionItem = {
   readonly text: string;
 };
 
-/** This private pair map is deliberately absent from the learner preview projection. */
+/** This private pair map is deliberately absent from the student preview projection. */
 export type FlatQuestionMatch = {
   readonly prompt: string;
   readonly choice: string;

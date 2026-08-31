@@ -4,15 +4,15 @@ use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_nat
 use domain::generator::GeneratedVariant;
 use grading::{AnswerKey, GradingError};
 use question_model::answer::{NumericTolerance, SelectionCardinality};
+use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{ParameterSpec, RandomizationDefinition};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ProblemId,
-    QuestionMetadata, QuestionSource, StudentResponse, VersionId, WorkspaceId,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionId,
+    QuestionMetadata, QuestionSource, QuestionVersionNumber, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -41,6 +41,14 @@ const FLAT_FAVORITE_COLOR: &str = r#"{
   "language": "en-US"
 }"#;
 
+fn question_id() -> QuestionId {
+    QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID")
+}
+
+fn version_number(value: u32) -> QuestionVersionNumber {
+    QuestionVersionNumber::new(value).expect("positive Question Version Number")
+}
+
 fn flat_question() -> QuestionDefinition {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let document =
@@ -53,8 +61,8 @@ fn flat_question() -> QuestionDefinition {
         .0;
     QuestionDefinition::from_draft(
         draft,
-        ProblemId::from_uuid(Uuid::from_u128(2)),
-        VersionId::from_uuid(Uuid::from_u128(3)),
+        question_id(),
+        version_number(1),
         QuestionSource::Native {
             family: crate::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY.to_string(),
         },
@@ -93,8 +101,8 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
         },
     );
     QuestionDefinition {
-        version: VersionId::from_uuid(Uuid::from_u128(1)),
-        problem: ProblemId::from_uuid(Uuid::from_u128(10)),
+        question_id: question_id(),
+        version_number: version_number(1),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
         source: QuestionSource::Native {
             family: peptide_bond_geometry::FAMILY_ID.to_string(),
@@ -273,7 +281,7 @@ fn flat_family_capabilities_are_installed_and_reproducible_without_answer_keys()
 
     assert_eq!(issue.envelope, replay);
     let public = serde_json::to_string(&issue.envelope)
-        .expect("issued envelope should serialize for learner");
+        .expect("issued envelope should serialize for student");
     assert!(!public.contains("correctChoice"));
     assert!(!public.contains("publicSha256"));
 }
@@ -589,7 +597,7 @@ fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
         .expect("fixed vector should issue");
     assert_eq!(
         issued.provenance.rendered_question_sha256,
-        "7300981097ff06e8237a30336738efcba49eb5236219d8002934666c01334a86"
+        "8bf39c4707f5465422abd3f8256f1a95692d91492616cdb545b9034f9cd033dd"
     );
 }
 
@@ -658,8 +666,8 @@ fn a_second_family_plugs_into_the_registry_without_engine_changes() {
         .register_family(NumericReferenceFamily)
         .expect("new family identifier should register");
     let question = QuestionDefinition {
-        version: VersionId::from_uuid(Uuid::from_u128(3)),
-        problem: ProblemId::from_uuid(Uuid::from_u128(11)),
+        question_id: question_id(),
+        version_number: version_number(3),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
         source: QuestionSource::Native {
             family: "numeric-reference".to_string(),
@@ -743,8 +751,8 @@ impl NativeQuestionFamily for VersionedNumericFamily {
 
 fn versioned_numeric_question(version: &str) -> QuestionDefinition {
     QuestionDefinition {
-        version: VersionId::from_uuid(Uuid::from_u128(if version == "1" { 5 } else { 6 })),
-        problem: ProblemId::from_uuid(Uuid::from_u128(12)),
+        question_id: question_id(),
+        version_number: version_number(if version == "1" { 5 } else { 6 }),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
         source: QuestionSource::Native {
             family: "versioned-numeric".to_string(),

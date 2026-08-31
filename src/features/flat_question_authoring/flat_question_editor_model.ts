@@ -599,7 +599,7 @@ function validationMessage(field: string): string {
   if (field.startsWith("response.choices"))
     return "Check the choices and select one correct answer.";
   if (field.startsWith("title")) return "Add a short question title.";
-  if (field.startsWith("prompt")) return "Add the learner-facing question prompt.";
+  if (field.startsWith("prompt")) return "Add the Student-facing question prompt.";
   if (field.startsWith("points")) return "Points must be a nonnegative number.";
   if (field.startsWith("timingPolicy")) return "Check the timing policy values.";
   return "Check the question details before saving.";

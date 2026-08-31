@@ -11,7 +11,7 @@ use axum::{
     extract::State,
     http::{HeaderValue, StatusCode, header::SET_COOKIE},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::get,
 };
 use question_model::{AccountId, AccountRole};
 use serde::{Deserialize, Serialize};
@@ -130,11 +130,20 @@ impl SeededDemoConfig {
     }
 }
 
-#[derive(Clone)]
 struct LiveDemoState<S> {
     sessions: Arc<S>,
     config: SeededDemoConfig,
     session_config: SessionConfig,
+}
+
+impl<S> Clone for LiveDemoState<S> {
+    fn clone(&self) -> Self {
+        Self {
+            sessions: Arc::clone(&self.sessions),
+            config: self.config.clone(),
+            session_config: self.session_config,
+        }
+    }
 }
 
 /// Adds the deployment-gated direct-entry routes to a normal session router.
@@ -214,7 +223,6 @@ where
     let issued = match issue_session(
         state.sessions.as_ref(),
         selected.account,
-        selected.persona.required_role(),
         state.session_config,
     )
     .await
@@ -229,6 +237,11 @@ where
             return no_store((StatusCode::UNAUTHORIZED, "demo entry unavailable").into_response());
         }
     };
+    if issued.record.role != selected.persona.required_role() {
+        return no_store(
+            (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
+        );
+    }
     let mut response = Json(SelectedSeededDemoAccountResponse {
         authenticated: true,
     })

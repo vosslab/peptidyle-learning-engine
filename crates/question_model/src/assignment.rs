@@ -20,7 +20,7 @@ pub use teaching_settings_local::{
     derive_instructor_assignment_current_state,
 };
 
-use crate::{ActivityTimestamp, AssignmentItemId, AssignmentSelectionGroupId, ProblemVersionRef};
+use crate::{ActivityTimestamp, AssignmentItemId, AssignmentSelectionGroupId, QuestionVersionReference};
 
 const POINT_SCALE: i64 = 10_000;
 const MAX_WHOLE_POINTS: i64 = 1_000_000_000;
@@ -45,11 +45,11 @@ pub enum AssignmentLifecycle {
     /// The assignment remains private to instructors.
     #[default]
     Draft,
-    /// The assignment is eligible for learner access, subject to all other gates.
+    /// The assignment is eligible for student access, subject to all other gates.
     Published,
-    /// The assignment is no longer open to new learner work.
+    /// The assignment is no longer open to new student work.
     Closed,
-    /// The assignment is permanently retired from learner access.
+    /// The assignment is permanently retired from student access.
     Archived,
 }
 
@@ -223,7 +223,7 @@ impl Default for BaseAssignmentPolicy {
 pub struct AssignmentTeachingSettings {
     /// Instructor-controlled assignment lifecycle intent.
     pub lifecycle: AssignmentLifecycle,
-    /// Validated learner-facing plain-text instructions.
+    /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// Base policy supplied to the effective-policy resolver.
     pub base_policy: BaseAssignmentPolicy,
@@ -390,7 +390,7 @@ pub struct AssignmentItem {
     /// Stable identity preserved across point and order changes.
     pub id: AssignmentItemId,
     /// Exact immutable catalog content pinned by this item.
-    pub reference: ProblemVersionRef,
+    pub reference: QuestionVersionReference,
     /// Zero-based position used for future runs.
     pub position: u32,
     /// Current assignment-authored points.
@@ -450,7 +450,7 @@ pub struct AssignmentSelectionCandidate {
     /// Zero-based authored order within this selection group.
     pub position: u32,
     /// Exact immutable catalog version eligible for selection.
-    pub reference: ProblemVersionRef,
+    pub reference: QuestionVersionReference,
     /// Whether future runs may select this candidate.
     pub delivery_state: AssignmentDeliveryState,
 }

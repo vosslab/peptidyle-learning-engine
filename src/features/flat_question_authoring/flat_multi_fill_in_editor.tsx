@@ -157,7 +157,7 @@ export function FlatMultiFillInEditor(props: FlatMultiFillInEditorProps): JSX.El
                 <section aria-labelledby={`${blankId}-answers-heading`}>
                   <h4 id={`${blankId}-answers-heading`}>Accepted answers</h4>
                   <p class="flat-question-authoring__help">
-                    Add acceptable equivalents for this specific blank. Learners never see this
+                    Add acceptable equivalents for this specific blank. Students never see this
                     list.
                   </p>
                   <Show when={answerError() !== undefined}>

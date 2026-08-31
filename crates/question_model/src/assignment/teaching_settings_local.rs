@@ -186,9 +186,9 @@ pub struct InstructorAssignmentTeachingSettingsLocal {
     pub time_zone: IanaTimeZone,
     /// Instructor-controlled assignment lifecycle intent.
     pub lifecycle: AssignmentLifecycle,
-    /// Validated learner-facing plain-text instructions.
+    /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
-    /// First local course time at which learners may open the assignment.
+    /// First local course time at which students may open the assignment.
     pub available_at: Option<CourseLocalDateTime>,
     /// Ordinary local course due time.
     pub due_at: Option<CourseLocalDateTime>,

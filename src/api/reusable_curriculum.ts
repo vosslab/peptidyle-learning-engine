@@ -1,56 +1,39 @@
-// Browser capability contract for reusable blueprints and shared Alpha curricula.
+// Browser capability contract for reusable Blueprint Courses.
 
-import type { AlphaCourseDefinitionInput } from "../../generated/api/AlphaCourseDefinitionInput";
-import type { AlphaCourseReference } from "../../generated/api/AlphaCourseReference";
-import type { AlphaCourseSummaryView } from "../../generated/api/AlphaCourseSummaryView";
-import type { AlphaCourseView } from "../../generated/api/AlphaCourseView";
-import type { BlueprintDefinitionInput } from "../../generated/api/BlueprintDefinitionInput";
 import type { BlueprintReference } from "../../generated/api/BlueprintReference";
-import type { BlueprintSummaryView } from "../../generated/api/BlueprintSummaryView";
-import type { BlueprintView } from "../../generated/api/BlueprintView";
+import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
+import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
+import type { CreateBlueprintCourseDefinitionInput } from "../../generated/api/CreateBlueprintCourseDefinitionInput";
+import type { ReplaceBlueprintCourseDefinitionInput } from "../../generated/api/ReplaceBlueprintCourseDefinitionInput";
 import type { CursorPage } from "./contracts";
 
 /** Strong server ETag retained unchanged for a subsequent curriculum mutation. */
 export type ReusableCurriculumEtag = string;
 
-export interface RevisionedBlueprint {
-  readonly blueprint: BlueprintView;
+export interface RevisionedBlueprintCourse {
+  readonly blueprintCourse: BlueprintCourseView;
   readonly etag: ReusableCurriculumEtag;
 }
 
-export interface RevisionedAlphaCourse {
-  readonly alpha: AlphaCourseView;
-  readonly etag: ReusableCurriculumEtag;
-}
-
-/** Browser capability for instructor-owned blueprints and approved shared Alpha curricula. */
+/** Browser capability for Instructor-owned reusable Blueprint Courses. */
 export interface ReusableCurriculumClient {
-  readonly listBlueprints: (
+  readonly listBlueprintCourses: (
     cursor?: string,
     pageSize?: number,
-  ) => Promise<CursorPage<BlueprintSummaryView>>;
-  readonly getBlueprint: (reference: BlueprintReference) => Promise<RevisionedBlueprint>;
-  readonly createBlueprint: (definition: BlueprintDefinitionInput) => Promise<RevisionedBlueprint>;
-  readonly replaceBlueprint: (
+  ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
+  readonly getBlueprintCourse: (
     reference: BlueprintReference,
-    definition: BlueprintDefinitionInput,
+  ) => Promise<RevisionedBlueprintCourse>;
+  readonly createBlueprintCourse: (
+    definition: CreateBlueprintCourseDefinitionInput,
+  ) => Promise<RevisionedBlueprintCourse>;
+  readonly replaceBlueprintCourse: (
+    reference: BlueprintReference,
+    definition: ReplaceBlueprintCourseDefinitionInput,
     etag: ReusableCurriculumEtag,
-  ) => Promise<RevisionedBlueprint>;
-  readonly deleteBlueprint: (
+  ) => Promise<RevisionedBlueprintCourse>;
+  readonly deleteBlueprintCourse: (
     reference: BlueprintReference,
     etag: ReusableCurriculumEtag,
   ) => Promise<void>;
-  readonly listAlphaCourses: (
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<CursorPage<AlphaCourseSummaryView>>;
-  readonly getAlphaCourse: (reference: AlphaCourseReference) => Promise<RevisionedAlphaCourse>;
-  readonly createAlphaCourse: (
-    definition: AlphaCourseDefinitionInput,
-  ) => Promise<RevisionedAlphaCourse>;
-  readonly replaceAlphaCourse: (
-    reference: AlphaCourseReference,
-    definition: AlphaCourseDefinitionInput,
-    etag: ReusableCurriculumEtag,
-  ) => Promise<RevisionedAlphaCourse>;
 }

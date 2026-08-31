@@ -10,7 +10,6 @@ import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { WorkspaceReference } from "../../generated/api/WorkspaceReference";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
-import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { PublicByline } from "../../generated/api/PublicByline";
 import type { InstructorPreviewResult } from "./editor_instructor_preview";
 
@@ -108,7 +107,7 @@ export interface EditorRepository {
   /** Publishes only the exact revision represented by a previously reviewed server diff. */
   readonly publish: (
     draft: EditorDraft,
-    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+    request: { readonly byline: PublicByline },
     reviewedRevision: string,
   ) => Promise<PublishOutcome>;
   /** Only completed server contracts are enabled by a live repository. */

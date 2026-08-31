@@ -24,8 +24,8 @@
 # is owned by the shell script.
 #
 # Build is not part of this gate. Run ./build_github_pages.sh for that
-# (npm run build mirrors it). Playwright is not part of this gate either;
-# run ./run_playwright_tests.sh (which handles build + run internally).
+# (npm run build mirrors it). The fresh Store-backed browser owner will add
+# its separate real-stack gate when the mounted course-delivery surface exists.
 #
 # Flags:
 #   -h, --help          Print usage and exit 0.

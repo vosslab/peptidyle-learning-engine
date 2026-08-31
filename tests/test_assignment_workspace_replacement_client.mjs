@@ -42,7 +42,6 @@ function replacementEditorDetail() {
     },
     currentState: { state: "draft" },
     publicationReadiness: { blockingIssues: [] },
-    audience: { kind: "courseWide" },
   };
   return replacement;
 }

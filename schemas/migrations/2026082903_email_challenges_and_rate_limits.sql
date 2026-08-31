@@ -66,7 +66,7 @@ CREATE TABLE ple_private.authentication_rate_limit (
 );
 
 -- Email is private ceremony state, never a catalog, course, or browser DTO.
--- Every challenge authenticates one existing Account. Account provisioning is
+-- Every challenge authenticates one existing Account. Account Creation is
 -- a distinct Sysadmin-owned workflow. A completed challenge remains as a
 -- minimal single-use receipt until the future retention owner deletes it;
 -- neither raw code nor password is stored.

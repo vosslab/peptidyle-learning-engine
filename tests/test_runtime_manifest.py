@@ -70,8 +70,6 @@ def test_generated_runtime_has_closed_identity_private_files_and_no_url_in_yaml(
 	assert "ple.disposable_postgres_acceptance" in manifest
 	assert "postgres://" not in manifest
 	assert "postgres_admin_url: secrets/postgres-admin.url" in manifest
-	assert "postgres_fast_path_url: secrets/postgres-fast-path.url" in manifest
-	assert "postgres_recovery_url: secrets/postgres-recovery.url" in manifest
 	assert runtime.compose_environment_path.parent == tmp_path / "secrets"
 	assert len(runtime.cleanup_capability_path.read_bytes()) == 32
 	assert runtime.admin_url_path.read_text(encoding="ascii").startswith("postgres://")
@@ -86,9 +84,9 @@ def test_generated_runtime_has_closed_identity_private_files_and_no_url_in_yaml(
 	"replacement",
 	(
 	"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity: &identity\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets: *identity\n",
-	"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n",
-	"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\n",
-	"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  postgres_grader_url: secrets/postgres-grader.url\nextra: rejected\n",
+	"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
+	"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
+	"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\nextra: rejected\n",
 	),
 )
 def test_manifest_schema_refuses_yaml_extensions_duplicates_and_path_escape(
@@ -111,10 +109,6 @@ def test_runtime_refuses_symlinked_or_wrong_mode_secret_files(tmp_path: pathlib.
 	with pytest.raises(local_stack_control.models.ControllerError, match="postgres admin URL"):
 		local_stack_control.runtime_manifest.load_database_baseline_runtime(tmp_path)
 	runtime.admin_url_path.chmod(0o600)
-	runtime.grader_url_path.unlink()
-	os.symlink(runtime.admin_url_path.name, runtime.grader_url_path)
-	with pytest.raises(local_stack_control.models.ControllerError, match="postgres grader URL"):
-		local_stack_control.runtime_manifest.load_database_baseline_runtime(tmp_path)
 
 
 #============================================
@@ -132,8 +126,7 @@ def test_runtime_refuses_symlinked_or_wrong_mode_secret_files(tmp_path: pathlib.
 			"  compose_environment: secrets/compose.env\n"
 			"  cleanup_capability: secrets/cleanup.capability\n"
 			"  postgres_admin_url: secrets/postgres-admin.url\n"
-			"  postgres_admin_password: secrets/postgres-admin.password\n"
-			"  postgres_grader_url: secrets/postgres-grader.url\n",
+			"  postgres_admin_password: secrets/postgres-admin.password\n",
 			"runtime.yaml",
 		),
 		(
@@ -195,7 +188,7 @@ def test_revalidation_refuses_a_replaced_admin_password_without_disclosing_it(
 	assert replacement not in str(raised.value)
 	with pytest.raises(SystemExit, match="2"):
 		local_stack_control.runtime_manifest.main(
-			["--emit-grader-login-provisioning", str(tmp_path)]
+			["--emit-automated-grading-login-provisioning", str(tmp_path)]
 		)
 	captured = capsys.readouterr()
 	assert captured.out == ""
@@ -233,62 +226,6 @@ def test_compose_command_revalidates_its_admin_password_source(tmp_path: pathlib
 	runtime.admin_password_path.chmod(0o600)
 	with pytest.raises(local_stack_control.models.ControllerError, match="postgres admin password"):
 		local_stack_control.consumer.compose_command(disposable, ["up", "-d", "postgres"])
-
-
-#============================================
-def test_grader_login_helper_emits_only_the_migration_owned_login(
-	tmp_path: pathlib.Path,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	"""The early baseline phase only provisions the established grader login."""
-	generated_runtime(tmp_path)
-	local_stack_control.runtime_manifest.emit_grader_login_provisioning(tmp_path)
-	output = capsys.readouterr().out
-	assert output.startswith("BEGIN;\nDO $$\nBEGIN\n")
-	assert output.endswith("COMMIT;\n")
-	assert "ALTER ROLE ple_grading_reader" in output
-	assert "ALTER ROLE ple_accepted_submission_fast_path_login" not in output
-	assert "ALTER ROLE ple_accepted_submission_recovery_login" not in output
-	assert (
-		"GRANT ple_grader TO ple_grading_reader "
-		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
-	) in output
-	grader_sql = output.split("ALTER ROLE ple_grading_reader", 1)[1].split(
-		"DO $$", 1
-	)[0]
-	assert "REVOKE ALL PRIVILEGES" not in grader_sql
-
-
-#============================================
-def test_accepted_submission_login_helper_emits_only_neutral_profiles(
-	tmp_path: pathlib.Path,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	"""The G1 phase provisions both neutral accepted-submission logins."""
-	generated_runtime(tmp_path)
-	local_stack_control.runtime_manifest.emit_accepted_submission_login_provisioning(tmp_path)
-	output = capsys.readouterr().out
-	assert "ALTER ROLE ple_grading_reader" not in output
-	assert "ALTER ROLE ple_accepted_submission_fast_path_login" in output
-	assert "ALTER ROLE ple_accepted_submission_recovery_login" in output
-	assert (
-		"REVOKE ALL PRIVILEGES ON SCHEMA public FROM "
-		"ple_accepted_submission_fast_path_login;"
-	) in output
-	assert (
-		"REVOKE ALL PRIVILEGES ON SCHEMA public FROM "
-		"ple_accepted_submission_recovery_login;"
-	) in output
-	assert (
-		"GRANT ple_accepted_submission_execution_fast_path TO "
-		"ple_accepted_submission_fast_path_login "
-		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
-	) in output
-	assert (
-		"GRANT ple_accepted_submission_execution TO "
-		"ple_accepted_submission_recovery_login "
-		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
-	) in output
 
 
 #============================================

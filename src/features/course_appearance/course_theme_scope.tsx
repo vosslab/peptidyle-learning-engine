@@ -18,10 +18,10 @@ import {
 import { courseThemeRouteRequest, type CourseThemeRouteRequest } from "./course_theme_route";
 import { COURSE_THEME_SCOPE_STYLES } from "./course_theme_scope_styles";
 import { courseThemeStyle, courseThemeTokens, type CourseThemeTokens } from "./theme_catalog";
-import { resolveCourseRoute, resolveRunRoute } from "../../navigation/resolved_route";
+import { resolveAssignmentAttemptRoute, resolveCourseRoute } from "../../navigation/resolved_route";
 import { courseRouteReference } from "../../navigation/public_route";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { RunId } from "../../../generated/api/RunId";
+import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import { routeContractForPathname, type RouteContract } from "../../route_contract";
 
 export interface CourseThemeScopeProps {
@@ -31,8 +31,11 @@ export interface CourseThemeScopeProps {
 
 type ResolvedThemeReference =
   | { readonly kind: "course"; readonly courseId: CourseId }
-  | { readonly kind: "runAttempt"; readonly runId: RunId }
-  | { readonly kind: "runSummary"; readonly runId: RunId };
+  | { readonly kind: "assignmentAttempt"; readonly assignmentAttemptId: AssignmentAttemptId }
+  | {
+      readonly kind: "assignmentAttemptSummary";
+      readonly assignmentAttemptId: AssignmentAttemptId;
+    };
 
 type ScopedThemeRequest = Exclude<CourseThemeRouteRequest, { readonly kind: "global" }>;
 
@@ -52,15 +55,21 @@ function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Ele
           kind: "course",
           courseId: await resolveCourseRoute(runtime.client, props.request.courseReference),
         };
-      case "runAttempt":
+      case "assignmentAttempt":
         return {
-          kind: "runAttempt",
-          runId: await resolveRunRoute(runtime.client, props.request.runReference),
+          kind: "assignmentAttempt",
+          assignmentAttemptId: await resolveAssignmentAttemptRoute(
+            runtime.client,
+            props.request.assignmentAttemptReference,
+          ),
         };
-      case "runSummary":
+      case "assignmentAttemptSummary":
         return {
-          kind: "runSummary",
-          runId: await resolveRunRoute(runtime.client, props.request.runReference),
+          kind: "assignmentAttemptSummary",
+          assignmentAttemptId: await resolveAssignmentAttemptRoute(
+            runtime.client,
+            props.request.assignmentAttemptReference,
+          ),
         };
     }
   });
@@ -74,10 +83,16 @@ function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Ele
     switch (resolved.kind) {
       case "course":
         return { kind: "course", course: await runtime.queries.courseScope(resolved.courseId) };
-      case "runAttempt":
-        return { kind: "runAttempt", screen: await runtime.queries.runScreen(resolved.runId) };
-      case "runSummary":
-        return { kind: "runSummary", response: await runtime.queries.runSummary(resolved.runId) };
+      case "assignmentAttempt":
+        return {
+          kind: "assignmentAttempt",
+          screen: await runtime.queries.assignmentAttemptScreen(resolved.assignmentAttemptId),
+        };
+      case "assignmentAttemptSummary":
+        return {
+          kind: "assignmentAttemptSummary",
+          response: await runtime.queries.assignmentAttemptSummary(resolved.assignmentAttemptId),
+        };
     }
   });
 

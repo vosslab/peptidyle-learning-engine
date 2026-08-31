@@ -23,7 +23,7 @@ export interface FlatMatchingEditorProps {
   readonly fieldErrors?: Readonly<Record<string, string | undefined>>;
 }
 
-/** Keeps the author task in reading order: prompt, learner choices, then an explicit private pairing. */
+/** Keeps the author task in reading order: prompt, student choices, then an explicit private pairing. */
 export function FlatMatchingEditor(props: FlatMatchingEditorProps): JSX.Element {
   function matchedChoice(prompt: string): string {
     return props.matches.find((pair) => pair.prompt === prompt)?.choice ?? "";
@@ -35,7 +35,7 @@ export function FlatMatchingEditor(props: FlatMatchingEditorProps): JSX.Element 
     <fieldset class="flat-question-authoring__matching">
       <legend>Matching pairs</legend>
       <p class="flat-question-authoring__help">
-        Give each side a clear learner label, then pair every prompt with one different choice.
+        Give each side a clear student label, then pair every prompt with one different choice.
       </p>
       <Show when={props.fieldErrors?.["response.matches"] !== undefined}>
         <p class="flat-question-authoring__error" role="alert">

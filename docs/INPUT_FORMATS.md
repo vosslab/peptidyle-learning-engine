@@ -33,8 +33,8 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 | Format | Surface and media type | Implemented boundary | Owner |
 | --- | --- | --- | --- |
 | PLE flat-question JSON v2 | Private flat-question source route; `application/vnd.peptidyle.flat-question+json` | One answer-bearing document in the closed eight-family set: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB | [crates/adapters/native/src/flat_question.rs](../crates/adapters/native/src/flat_question.rs), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
-| Canvas QTI 1.2 ZIP | Private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and provenance stay private | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs), [crates/server/src/qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) |
-| Blackboard QTI 2.1 ZIP | Private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs), [crates/server/src/qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) |
+| Canvas QTI 1.2 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and provenance stay private | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs) |
+| Blackboard QTI 2.1 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs) |
 | H5P `.h5p` package | Trusted private adapter/object-store boundary, not a browser upload route | `H5P.MultiChoice` converts to an unpublished, key-free practice question with `clientRendering` only. It cannot be used as a server-graded assignment | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md) |
 
 QTI conversion produces an answer-free draft handoff for the authoring UI. The worker separately
@@ -71,8 +71,8 @@ student@example.edu,900123456
   and idempotency. Raw CSV bytes are not retained after normalized staging.
 - `roster_id` is course-scoped matching data, not an account key or authentication credential.
 
-The route and ownership rules are in [crates/server/src/course/roster/import.rs](../crates/server/src/course/roster/import.rs)
-and [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
+The deferred route follows the ownership rules in
+[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
 ## Implemented CSV exports
 

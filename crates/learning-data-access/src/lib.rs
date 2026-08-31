@@ -3,7 +3,7 @@
 //! Product adapters are added only with an exact account, course-membership,
 //! Student-ownership, workspace, observer-grant, or worker-lease contract.
 
-use domain::run::RunModelError;
+use domain::run::AssignmentActivityError;
 
 mod authentication_ceremony;
 mod authentication_email;

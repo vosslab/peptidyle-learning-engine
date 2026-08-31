@@ -20,7 +20,7 @@ use tracing::Instrument;
 /// indefinitely. Submission handlers are already idempotency-fenced; the API
 /// intentionally has no blanket per-request cancellation timeout because a
 /// timeout after a durable commit would make a completed submission look
-/// ambiguous to a learner.
+/// ambiguous to a student.
 pub const API_DRAIN_TIMEOUT: Duration = Duration::from_secs(30);
 
 const REQUEST_ID_HEADER: &str = "x-request-id";

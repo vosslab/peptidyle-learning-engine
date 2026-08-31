@@ -5,7 +5,6 @@ import pathlib
 import os
 import collections.abc
 
-import local_stack_control.base_course_logins
 import local_stack_control.compose
 import local_stack_control.consumer
 import local_stack_control.discovery
@@ -23,8 +22,6 @@ import local_stack_control.process
 import local_stack_control.process_logins
 import local_stack_control.renderer
 import local_stack_control.status
-import local_stack_control.chapter_one
-import local_stack_control.base_course_lifecycle
 import local_stack_control.live_demo_gateway
 
 
@@ -56,7 +53,6 @@ StatusRead = collections.abc.Callable[[], local_stack_control.models.StatusRepor
 ReadinessPoll = collections.abc.Callable[[StatusRead, float], local_stack_control.models.StatusReport]
 
 
-BaseCourseLifecycleReceipt = local_stack_control.base_course_lifecycle.Receipt
 LifecycleTarget = (
 	local_stack_control.models.ComposeTarget
 	| local_stack_control.models.DisposableComposeTarget
@@ -124,7 +120,7 @@ def configure_default_environment(
 	defaults = {
 		"POSTGRES_PASSWORD": os.urandom(24).hex(),
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
-		"PLE_LOCAL_GRADER_PASSWORD": os.urandom(24).hex(),
+		"PLE_LOCAL_AUTOMATED_GRADING_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
 		"PLE_WEBWORK_PROVENANCE_FILE": str(secret_directory / "webwork-renderer.provenance"),
@@ -226,7 +222,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	values = local_stack_control.lifecycle_validation.validate_request(request)
 	required = (
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
-		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_GRADER_PASSWORD",
+		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_AUTOMATED_GRADING_PASSWORD",
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
@@ -247,8 +243,6 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE"):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
-	if target.with_smtp:
-		validate_smtp(values, target.repo_root)
 	return values
 
 
@@ -278,26 +272,6 @@ def absolute_value_path(repo_root: pathlib.Path, value: str) -> pathlib.Path:
 	path = pathlib.Path(value)
 	result = path if path.is_absolute() else repo_root / path
 	return result
-
-
-#============================================
-def validate_smtp(values: dict[str, str], repo_root: pathlib.Path) -> None:
-	"""Validate optional SMTP settings and the bounded private password file."""
-	require_values(values, (
-		"PLE_SMTP_RELAY", "PLE_SMTP_PORT", "PLE_SMTP_TLS_MODE", "PLE_SMTP_USERNAME",
-		"PLE_SMTP_PASSWORD_HOST_FILE", "PLE_SMTP_FROM", "PLE_PUBLIC_APP_BASE_URL",
-	))
-	try:
-		port = int(values["PLE_SMTP_PORT"])
-	except ValueError as error:
-		raise local_stack_control.models.ControllerError("selected SMTP port is invalid") from error
-	if port < 1 or port > 65535 or values["PLE_SMTP_TLS_MODE"] not in ("starttls", "implicit-tls"):
-		raise local_stack_control.models.ControllerError("selected SMTP settings are invalid")
-	if "://" in values["PLE_SMTP_RELAY"] or not values["PLE_PUBLIC_APP_BASE_URL"].startswith("https://"):
-		raise local_stack_control.models.ControllerError("selected SMTP endpoint settings are invalid")
-	local_stack_control.private_files.read_current_user_private_file(
-		absolute_value_path(repo_root, values["PLE_SMTP_PASSWORD_HOST_FILE"]), 4096
-	)
 
 
 #============================================
@@ -353,29 +327,14 @@ def start_lifecycle(
 	run_migrations(runner, repo_root, values, environment)
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		local_stack_control.process_logins.provision(selected, runner, values, child_environment(selected))
-	base_course_database_urls = None
-	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
-		base_course_database_urls = local_stack_control.base_course_logins.provision(selected, runner, values, child_environment(selected))
-	base_course = prepare_installed_base_course(
-		runner, repo_root, target, values, environment, base_course_database_urls
-	)
-	provision_grading_role(selected, runner, values)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
-	finalize_installed_base_course(
-		runner, repo_root, target, values, environment, base_course, base_course_database_urls
-	)
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
-	if local_stack_control.lifecycle_profiles.is_teaching_profile(target):
-		publish_chapter_one(runner, repo_root, target, values, environment)
 	run_api_initializers(selected, runner, options)
 	compose_run(selected, runner, ["build", "api", "gateway"])
-	application_services = ["api", "worker"]
-	if selected.with_smtp:
-		application_services.append("invitation-delivery-worker")
-	application_services.append("gateway")
+	application_services = ["api", "gateway"]
 	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
 		target, tuple(application_services)
 	)
@@ -411,7 +370,7 @@ def restart_lifecycle(
 	selected = target_of(target)
 	require_lifecycle_inputs(selected, repo_root, options)
 	require_disposable_ownership(target)
-	if service not in local_stack_control.models.restartable_services(selected.with_smtp):
+	if service not in local_stack_control.models.restartable_services():
 		raise local_stack_control.models.ControllerError("restart is limited to stateless services")
 	if options.build or options.release or options.open_browser:
 		raise local_stack_control.models.ControllerError("restart accepts no build, release, or browser-open intent")
@@ -430,8 +389,6 @@ def restart_lifecycle(
 			probe_renderer(selected, runner, repo_root, oci_id)
 	if service == "api":
 		run_api_initializers(selected, runner, options)
-	if service == "invitation-delivery-worker":
-		run_smtp_initializer(selected, runner, options)
 	arguments = local_stack_control.lifecycle_profiles.recreate_arguments(target, service)
 	compose_run(selected, runner, arguments)
 	if service == "webwork-renderer":
@@ -620,140 +577,6 @@ def run_migrations(runner: local_stack_control.process.CommandRunner, repo_root:
 	)
 
 
-#============================================
-def prepare_installed_base_course(
-	runner: local_stack_control.process.CommandRunner,
-	repo_root: pathlib.Path,
-	target: local_stack_control.models.ComposeTarget
-	| local_stack_control.models.DisposableComposeTarget,
-	values: dict[str, str],
-	environment: dict[str, str],
-	base_course_database_urls: tuple[str, str, str] | None,
-) -> BaseCourseLifecycleReceipt | None:
-	"""Classify the migrated Base Course state before starting object storage."""
-	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
-		return None
-	installer_database_url, app_database_url, fast_path_database_url = local_stack_control.base_course_logins.require_urls(
-		base_course_database_urls
-	)
-	child = local_stack_control.base_course_logins.child_environment(
-		environment, values, installer_database_url, app_database_url, fast_path_database_url
-	)
-	result = run_base_course_phase(
-		runner,
-		repo_root,
-		child,
-		"prepare",
-		private_values=(installer_database_url, app_database_url, fast_path_database_url),
-	)
-	return result
-
-
-#============================================
-def finalize_installed_base_course(
-	runner: local_stack_control.process.CommandRunner,
-	repo_root: pathlib.Path,
-	target: local_stack_control.models.ComposeTarget
-	| local_stack_control.models.DisposableComposeTarget,
-	values: dict[str, str],
-	environment: dict[str, str],
-	preparation: BaseCourseLifecycleReceipt | None,
-	base_course_database_urls: tuple[str, str, str] | None,
-) -> None:
-	"""Finish an installing baseline after ordinary object-storage readiness."""
-	if preparation is None:
-		return
-	selected = target_of(target)
-	if preparation.install_state == "complete":
-		write_base_course_diagnostic(selected, preparation.raw_output)
-		return
-	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
-		selected, runner, preparation, child_environment(selected)
-	)
-	installer_database_url, app_database_url, fast_path_database_url = local_stack_control.base_course_logins.require_urls(
-		base_course_database_urls
-	)
-	child = local_stack_control.base_course_logins.child_environment(
-		environment, values, installer_database_url, app_database_url, fast_path_database_url
-	)
-	completed = run_base_course_phase(
-		runner,
-		repo_root,
-		child,
-		"install",
-		preparation.storage_receipt_json,
-		private_values=(installer_database_url, app_database_url, fast_path_database_url),
-	)
-	if completed.install_state != "complete":
-		raise local_stack_control.models.ControllerError(
-			"installed Base Course install did not complete"
-		)
-	write_base_course_diagnostic(selected, completed.raw_output)
-
-
-#============================================
-def run_base_course_phase(
-	runner: local_stack_control.process.CommandRunner,
-	repo_root: pathlib.Path,
-	child: dict[str, str],
-	phase: str,
-	storage_receipt: str | None = None,
-	*,
-	private_values: tuple[str, ...] = (),
-) -> BaseCourseLifecycleReceipt:
-	"""Invoke one closed lifecycle phase and decode its authoritative response."""
-	argv = [
-		"cargo",
-		"tools",
-		"base-course",
-        "--instructor",
-		LOCAL_INSTRUCTOR_ID,
-		"--mary",
-		LOCAL_MARY_ID,
-		"--jack",
-		LOCAL_JACK_ID,
-		"--approval-candidate",
-		LOCAL_APPROVAL_CANDIDATE_ID,
-		"--sysadmin",
-		LOCAL_SYSADMIN_ID,
-		"--lifecycle-phase",
-		phase,
-	]
-	if storage_receipt is not None:
-		argv.extend(["--storage-receipt", storage_receipt])
-	result = runner.run(argv, child, repo_root)
-	require_command(result, f"installed Base Course {phase}", private_values)
-	return local_stack_control.base_course_lifecycle.decode(result.stdout, phase)
-
-
-#============================================
-def write_base_course_diagnostic(
-	target: local_stack_control.models.ComposeTarget,
-	output: str,
-) -> None:
-	"""Write host-only diagnostics only after a complete Rust-owned lifecycle result."""
-	manifest = target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
-	local_stack_control.private_files.write_atomic_file(
-		manifest,
-		output.encode("utf-8"),
-		0o600,
-	)
-
-
-#============================================
-def provision_grading_role(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, values: dict[str, str]) -> None:
-	"""Set the restricted grading role password through a minimum child environment."""
-	environment = child_environment(target)
-	environment["PGPASSWORD"] = values["POSTGRES_PASSWORD"]
-	environment["PLE_LOCAL_GRADER_PASSWORD"] = values["PLE_LOCAL_GRADER_PASSWORD"]
-	argv = local_stack_control.compose.compose_argv(target, ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"]])
-	sql = postgres_role_sql("ple_grading_reader", values["PLE_LOCAL_GRADER_PASSWORD"])
-	private_values = local_stack_control.consumer.private_environment_values(target.env_file)
-	require_command(
-		runner.run(argv, environment, target.repo_root, sql),
-		"grading role provisioning",
-		private_values,
-	)
 
 
 #============================================
@@ -830,43 +653,12 @@ def require_renderer_restart_provenance(target: local_stack_control.models.Compo
 
 
 #============================================
-def publish_chapter_one(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget, values: dict[str, str], environment: dict[str, str]) -> None:
-	"""Run the default-only canonical publisher with private capabilities off argv."""
-	selected = target_of(target)
-	manifest = selected.env_file.parent / "local-chapter-one-pilot.json"
-	existing_manifest = manifest if manifest.exists() or manifest.is_symlink() else None
-	request = local_stack_control.chapter_one.ChapterOneSeedRequest(
-		repo_root=repo_root,
-		database_url=database_url(values),
-        instructor_id=LOCAL_INSTRUCTOR_ID,
-		student_id=LOCAL_MARY_ID,
-		s3_endpoint="http://127.0.0.1:" + values.get("PLE_MINIO_API_HOST_PORT", "9000"),
-		aws_access_key_id=values["MINIO_ROOT_USER"],
-		aws_secret_access_key=values["MINIO_ROOT_PASSWORD"],
-		question_id_secret_file=absolute_value_path(repo_root, values["PLE_QUESTION_ID_SECRET_HOST_FILE"]),
-		manifest_path=manifest,
-		existing_manifest_path=existing_manifest,
-	)
-	local_stack_control.chapter_one.publish_with_runner(request, runner)
-
-
 #============================================
 def run_api_initializers(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, options: LifecycleOptions) -> None:
 	"""Refresh API-owned initializers before recreating API-owned stateless services."""
-	if target.with_smtp:
-		run_smtp_initializer(target, runner, options)
 	for service in ("identity-secret-init",):
 		compose_run(target, runner, ["up", "-d", "--force-recreate", "--no-deps", service])
 		wait_for_one_shot(target, runner, options, service)
-
-
-#============================================
-def run_smtp_initializer(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, options: LifecycleOptions) -> None:
-	"""Refresh the SMTP credential copy before one SMTP-consuming service starts."""
-	if not target.with_smtp:
-		raise local_stack_control.models.ControllerError("SMTP initializer requires the SMTP topology")
-	compose_run(target, runner, ["up", "-d", "--force-recreate", "--no-deps", "smtp-secret-init"])
-	wait_for_one_shot(target, runner, options, "smtp-secret-init")
 
 
 #============================================

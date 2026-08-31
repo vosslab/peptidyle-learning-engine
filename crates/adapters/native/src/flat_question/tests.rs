@@ -3,7 +3,7 @@ use grading::GradeOutcome;
 use question_model::response::{
     ChoiceId, HotspotPoint, MatchPair, StudentResponse, TextEntryAnswer,
 };
-use question_model::{DraftQuestionSource, ProblemId, QuestionSource, VersionId};
+use question_model::{DraftQuestionSource, QuestionId, QuestionSource, QuestionVersionNumber};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -41,8 +41,8 @@ fn published(draft: DraftQuestionDefinition) -> QuestionDefinition {
     let family = family.clone();
     QuestionDefinition::from_draft(
         draft,
-        ProblemId::from_uuid(Uuid::from_u128(2)),
-        VersionId::from_uuid(Uuid::from_u128(3)),
+        QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        QuestionVersionNumber::new(1).expect("positive version"),
         QuestionSource::Native { family },
     )
 }

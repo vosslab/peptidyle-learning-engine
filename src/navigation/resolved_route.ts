@@ -2,7 +2,7 @@
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { RunId } from "../../generated/api/RunId";
+import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { ApiClient } from "../api/client";
 import { parsePublicRouteReference, type PublicRouteReference } from "./public_route";
@@ -40,10 +40,15 @@ export async function resolveAssignmentRoute(
   return resolved;
 }
 
-export async function resolveRunRoute(client: ApiClient, raw: string | undefined): Promise<RunId> {
-  const resolved = await client.resolveNavigation(publicReference(raw, "R", "Run"));
-  if (resolved.kind !== "run") throw new Error("Run reference resolved to another resource");
-  return resolved.runId;
+export async function resolveAssignmentAttemptRoute(
+  client: ApiClient,
+  raw: string | undefined,
+): Promise<AssignmentAttemptId> {
+  const resolved = await client.resolveNavigation(publicReference(raw, "R", "Assignment Attempt"));
+  if (resolved.kind !== "assignmentAttempt") {
+    throw new Error("Assignment Attempt reference resolved to another resource");
+  }
+  return resolved.assignmentAttemptId;
 }
 
 export async function resolveWorkspaceRoute(

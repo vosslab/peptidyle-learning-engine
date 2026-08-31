@@ -127,7 +127,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     if (!hasUnsavedContent() && !needsReload() && !issuedWorkRecovery()) return false;
     if (issuedWorkRecovery()) {
       setMessage(
-        "Reload the latest assignment before replacing a question. The saved structural changes cannot be applied after learner work has been issued.",
+        "Reload the latest assignment before replacing a question. The saved structural changes cannot be applied after Student work has been issued.",
       );
     } else if (needsReload()) {
       setMessage(
@@ -218,7 +218,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setDirectQuestionId("");
       setDirectMessage("");
       setMessage(
-        `${row.title} now replaces ${current.title} for future runs. Issued learner work remains unchanged.`,
+        `${row.title} now replaces ${current.title} for future runs. Issued Student work remains unchanged.`,
       );
       focusReplacedRow(row.questionId);
     } catch (error: unknown) {
@@ -310,7 +310,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
     if (issuedWorkRecovery()) {
       setMessage(
-        "Create a new assignment to use these structural question changes. This assignment's issued learner work remains unchanged.",
+        "Create a new assignment to use these structural question changes. This assignment's issued Student work remains unchanged.",
       );
       return false;
     }
@@ -350,7 +350,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       if (failure.kind === "staleRevision") {
         setNeedsReload(true);
         setMessage(failure.message);
-      } else if (failure.kind === "issuedLearnerWork") {
+      } else if (failure.kind === "issuedStudentWork") {
         setIssuedWorkRecovery(true);
         setMessage(failure.message);
       } else {
@@ -417,7 +417,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         groupPosition,
       );
       setPoolPreview(preview);
-      setMessage(`${preview.groupLabel} server sample is ready. It does not create learner work.`);
+      setMessage(`${preview.groupLabel} server sample is ready. It does not create Student work.`);
     } catch (_error: unknown) {
       setMessage("The pool sample could not be generated. The saved questions remain available.");
     } finally {
@@ -489,8 +489,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       <Show when={issuedWorkRecovery()}>
         <section class="inline-error" role="alert">
           <p>
-            Learner work has already been issued for this assignment. Your local question changes
-            remain here, and the issued learner work remains unchanged.
+            Student work has already been issued for this assignment. Your local question changes
+            remain here, and the issued Student work remains unchanged.
           </p>
           <p>
             <A class="primary-link" href={assignmentWorkspaceCreatePath(workspace.courseReference)}>

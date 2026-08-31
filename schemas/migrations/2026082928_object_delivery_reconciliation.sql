@@ -12,25 +12,25 @@ CREATE TABLE ple_data.object_delivery_record (
     object_id uuid NOT NULL,
     delivery_kind text NOT NULL CHECK (delivery_kind IN ('catalog_asset', 'course_banner', 'course_record')),
     course_id uuid,
-    problem_id uuid,
-    version_id uuid,
+    question_id text,
+    version_number integer,
     asset_id uuid,
     sha256 bytea NOT NULL CHECK (pg_catalog.octet_length(sha256) = 32),
     media_type text NOT NULL CHECK (char_length(btrim(media_type)) BETWEEN 1 AND 200),
     byte_length bigint NOT NULL CHECK (byte_length >= 0),
     publication_state text NOT NULL CHECK (publication_state IN ('pending', 'active', 'retired')),
     registered_at timestamp with time zone NOT NULL,
-    CONSTRAINT object_delivery_catalog_parent_matches FOREIGN KEY (problem_id, version_id)
-        REFERENCES ple_data.published_question_version (problem_id, version_id),
+    CONSTRAINT object_delivery_catalog_parent_matches FOREIGN KEY (question_id, version_number)
+        REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT object_delivery_course_parent_matches FOREIGN KEY (object_id, course_id)
         REFERENCES ple_private.course_object_metadata (object_id, course_id),
     CONSTRAINT object_delivery_parent_shape_is_exact CHECK (
-        (delivery_kind = 'catalog_asset' AND problem_id IS NOT NULL AND version_id IS NOT NULL
+        (delivery_kind = 'catalog_asset' AND question_id IS NOT NULL AND version_number IS NOT NULL
             AND asset_id IS NOT NULL AND course_id IS NULL)
-        OR (delivery_kind = 'course_banner' AND course_id IS NOT NULL AND problem_id IS NULL
-            AND version_id IS NULL AND asset_id IS NULL)
-        OR (delivery_kind = 'course_record' AND course_id IS NOT NULL AND problem_id IS NULL
-            AND version_id IS NULL AND asset_id IS NULL)
+        OR (delivery_kind = 'course_banner' AND course_id IS NOT NULL AND question_id IS NULL
+            AND version_number IS NULL AND asset_id IS NULL)
+        OR (delivery_kind = 'course_record' AND course_id IS NOT NULL AND question_id IS NULL
+            AND version_number IS NULL AND asset_id IS NULL)
     )
 );
 CREATE FUNCTION ple_data.reject_object_delivery_parent_change()
@@ -39,8 +39,8 @@ BEGIN
     IF NEW.object_id IS DISTINCT FROM OLD.object_id
         OR NEW.delivery_kind IS DISTINCT FROM OLD.delivery_kind
         OR NEW.course_id IS DISTINCT FROM OLD.course_id
-        OR NEW.problem_id IS DISTINCT FROM OLD.problem_id
-        OR NEW.version_id IS DISTINCT FROM OLD.version_id
+        OR NEW.question_id IS DISTINCT FROM OLD.question_id
+        OR NEW.version_number IS DISTINCT FROM OLD.version_number
         OR NEW.asset_id IS DISTINCT FROM OLD.asset_id
         OR NEW.sha256 IS DISTINCT FROM OLD.sha256
         OR NEW.media_type IS DISTINCT FROM OLD.media_type

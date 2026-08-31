@@ -25,9 +25,6 @@ SECRETS_DIRECTORY = "secrets"
 COMPOSE_ENVIRONMENT = "secrets/compose.env"
 CLEANUP_CAPABILITY = "secrets/cleanup.capability"
 POSTGRES_ADMIN_URL = "secrets/postgres-admin.url"
-POSTGRES_GRADER_URL = "secrets/postgres-grader.url"
-POSTGRES_FAST_PATH_URL = "secrets/postgres-fast-path.url"
-POSTGRES_RECOVERY_URL = "secrets/postgres-recovery.url"
 POSTGRES_ADMIN_PASSWORD = "secrets/postgres-admin.password"
 MINIO_ENDPOINT = "secrets/minio-endpoint.url"
 MINIO_REGION = "secrets/minio-region"
@@ -40,39 +37,6 @@ SD1_RUNTIME_PROFILE = "sd1_staged_database"
 SD1_MIGRATOR_ROLE = "ple_migrator"
 SD1_MIGRATOR_URL = "secrets/postgres-migrator.url"
 POSTGRES_USER = "ple_e2e_migrator"
-GRADER_USER = "ple_grading_reader"
-FAST_PATH_USER = "ple_accepted_submission_fast_path_login"
-RECOVERY_USER = "ple_accepted_submission_recovery_login"
-
-
-@dataclasses.dataclass(frozen=True)
-class _ServiceLoginProfile:
-	"""Describe one baseline login and whether its object ACLs are migration-owned."""
-
-	login: str
-	roles: tuple[str, ...]
-	revoke_object_privileges: bool
-
-
-SERVICE_LOGIN_PROFILES = (
-	_ServiceLoginProfile(
-		GRADER_USER,
-		("ple_grader",),
-		False,
-	),
-	_ServiceLoginProfile(
-		FAST_PATH_USER,
-		("ple_accepted_submission_execution_fast_path",),
-		True,
-	),
-	_ServiceLoginProfile(
-		RECOVERY_USER,
-		("ple_accepted_submission_execution",),
-		True,
-	),
-)
-GRADER_LOGIN_PROFILES = SERVICE_LOGIN_PROFILES[:1]
-NEUTRAL_LOGIN_PROFILES = SERVICE_LOGIN_PROFILES[1:]
 
 
 MAX_MANIFEST_BYTES = 4_096
@@ -93,9 +57,6 @@ class DatabaseBaselineRuntime:
 	compose_environment_path: pathlib.Path
 	cleanup_capability_path: pathlib.Path
 	admin_url_path: pathlib.Path
-	grader_url_path: pathlib.Path
-	fast_path_url_path: pathlib.Path
-	recovery_url_path: pathlib.Path
 	admin_password_path: pathlib.Path
 
 
@@ -108,9 +69,6 @@ class CourseAppearanceCrossStoreRuntime:
 	compose_environment_path: pathlib.Path
 	cleanup_capability_path: pathlib.Path
 	admin_url_path: pathlib.Path
-	grader_url_path: pathlib.Path
-	fast_path_url_path: pathlib.Path
-	recovery_url_path: pathlib.Path
 	admin_password_path: pathlib.Path
 	minio_endpoint_path: pathlib.Path
 	minio_region_path: pathlib.Path
@@ -454,9 +412,6 @@ def _load_course_appearance_cross_store_runtime(
 		"compose_environment": COMPOSE_ENVIRONMENT,
 		"cleanup_capability": CLEANUP_CAPABILITY,
 		"postgres_admin_url": POSTGRES_ADMIN_URL,
-		"postgres_grader_url": POSTGRES_GRADER_URL,
-		"postgres_fast_path_url": POSTGRES_FAST_PATH_URL,
-		"postgres_recovery_url": POSTGRES_RECOVERY_URL,
 		"postgres_admin_password": POSTGRES_ADMIN_PASSWORD,
 		"minio_endpoint": MINIO_ENDPOINT,
 		"minio_region": MINIO_REGION,
@@ -475,9 +430,6 @@ def _load_course_appearance_cross_store_runtime(
 			raise _error("acceptance runtime cleanup capability is invalid")
 		admin_password = _url_secret(secrets_descriptor, "postgres-admin.url", POSTGRES_USER, "postgres admin URL")
 		_admin_password_secret(secrets_descriptor, admin_password)
-		_url_secret(secrets_descriptor, "postgres-grader.url", GRADER_USER, "postgres grader URL")
-		_url_secret(secrets_descriptor, "postgres-fast-path.url", FAST_PATH_USER, "postgres fast-path URL")
-		_url_secret(secrets_descriptor, "postgres-recovery.url", RECOVERY_USER, "postgres recovery URL")
 		_minio_endpoint_secret(secrets_descriptor)
 		_minio_text_secret(secrets_descriptor, "minio-region", "us-east-1", "minio region")
 		_minio_text_secret(secrets_descriptor, "minio-access-key-id", None, "minio access key")
@@ -490,9 +442,6 @@ def _load_course_appearance_cross_store_runtime(
 		compose_environment_path=workspace / COMPOSE_ENVIRONMENT,
 		cleanup_capability_path=workspace / CLEANUP_CAPABILITY,
 		admin_url_path=workspace / POSTGRES_ADMIN_URL,
-		grader_url_path=workspace / POSTGRES_GRADER_URL,
-		fast_path_url_path=workspace / POSTGRES_FAST_PATH_URL,
-		recovery_url_path=workspace / POSTGRES_RECOVERY_URL,
 		admin_password_path=workspace / POSTGRES_ADMIN_PASSWORD,
 		minio_endpoint_path=workspace / MINIO_ENDPOINT,
 		minio_region_path=workspace / MINIO_REGION,
@@ -587,9 +536,6 @@ def _validated_runtime_and_service_passwords(
 			"compose_environment",
 			"cleanup_capability",
 			"postgres_admin_url",
-			"postgres_grader_url",
-			"postgres_fast_path_url",
-			"postgres_recovery_url",
 			"postgres_admin_password",
 		),
 		"secrets",
@@ -598,9 +544,6 @@ def _validated_runtime_and_service_passwords(
 		"compose_environment": COMPOSE_ENVIRONMENT,
 		"cleanup_capability": CLEANUP_CAPABILITY,
 		"postgres_admin_url": POSTGRES_ADMIN_URL,
-		"postgres_grader_url": POSTGRES_GRADER_URL,
-		"postgres_fast_path_url": POSTGRES_FAST_PATH_URL,
-		"postgres_recovery_url": POSTGRES_RECOVERY_URL,
 		"postgres_admin_password": POSTGRES_ADMIN_PASSWORD,
 	}
 	if secret_values != expected:
@@ -632,24 +575,6 @@ def _validated_runtime_and_service_passwords(
 			"postgres admin URL",
 		)
 		_admin_password_secret(secrets_descriptor, admin_password)
-		grader_password = _url_secret(
-			secrets_descriptor,
-			"postgres-grader.url",
-			GRADER_USER,
-			"postgres grader URL",
-		)
-		fast_path_password = _url_secret(
-			secrets_descriptor,
-			"postgres-fast-path.url",
-			FAST_PATH_USER,
-			"postgres fast-path URL",
-		)
-		recovery_password = _url_secret(
-			secrets_descriptor,
-			"postgres-recovery.url",
-			RECOVERY_USER,
-			"postgres recovery URL",
-		)
 	finally:
 		os.close(secrets_descriptor)
 	runtime = DatabaseBaselineRuntime(
@@ -658,132 +583,19 @@ def _validated_runtime_and_service_passwords(
 		compose_environment_path=workspace / COMPOSE_ENVIRONMENT,
 		cleanup_capability_path=workspace / CLEANUP_CAPABILITY,
 		admin_url_path=workspace / POSTGRES_ADMIN_URL,
-		grader_url_path=workspace / POSTGRES_GRADER_URL,
-		fast_path_url_path=workspace / POSTGRES_FAST_PATH_URL,
-		recovery_url_path=workspace / POSTGRES_RECOVERY_URL,
 		admin_password_path=workspace / POSTGRES_ADMIN_PASSWORD,
 	)
-	return runtime, (grader_password, fast_path_password, recovery_password)
-
-
-#============================================
-def _emit_service_login_profiles(
-	workspace: pathlib.Path,
-	profiles: tuple[_ServiceLoginProfile, ...],
-) -> None:
-	"""Write one fixed transaction for the selected closed login profiles."""
-	_require_private_platform()
-	workspace = workspace.absolute()
-	workspace_descriptor = _open_private_workspace(workspace)
-	try:
-		manifest = _parse_yaml(
-			_read_private_file_at(
-				workspace_descriptor,
-				MANIFEST_NAME,
-				MAX_MANIFEST_BYTES,
-				"manifest",
-			)
-		)
-		_runtime, passwords = _validated_runtime_and_service_passwords(
-			workspace,
-			workspace_descriptor,
-			manifest,
-		)
-	finally:
-		os.close(workspace_descriptor)
-	passwords_by_profile = dict(zip(SERVICE_LOGIN_PROFILES, passwords, strict=True))
-	statements = ["BEGIN;"]
-	for profile in profiles:
-		statements.extend(_service_login_sql(profile, passwords_by_profile[profile]))
-	statements.append("COMMIT;")
-	print("\n".join(statements))
-
-
-#============================================
-def emit_grader_login_provisioning(workspace: pathlib.Path) -> None:
-	"""Write validated SQL for the migration-owned grader capability login."""
-	_emit_service_login_profiles(workspace, GRADER_LOGIN_PROFILES)
-
-
-#============================================
-def emit_accepted_submission_login_provisioning(workspace: pathlib.Path) -> None:
-	"""Write validated SQL for the neutral accepted-submission capability logins."""
-	_emit_service_login_profiles(workspace, NEUTRAL_LOGIN_PROFILES)
-
-
-#============================================
-def _service_login_sql(profile: _ServiceLoginProfile, password: str) -> list[str]:
-	"""Build fixed SQL for one allowlisted baseline service-login profile."""
-	if profile not in SERVICE_LOGIN_PROFILES or PASSWORD_PATTERN.fullmatch(password) is None:
-		raise _error("acceptance runtime service-login profile is invalid")
-	login = profile.login
-	statements = [
-		"DO $$",
-		"BEGIN",
-		f"\tIF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{login}') THEN",
-		f"\t\tCREATE ROLE {login} LOGIN;",
-		"\tEND IF;",
-		"END",
-		"$$;",
-		"DO $$",
-		"DECLARE membership record;",
-		"BEGIN",
-		"\tFOR membership IN",
-		"\t\tSELECT parent.rolname AS parent_name, member.rolname AS member_name",
-		"\t\tFROM pg_auth_members AS grant_map",
-		"\t\tJOIN pg_roles AS parent ON parent.oid = grant_map.roleid",
-		"\t\tJOIN pg_roles AS member ON member.oid = grant_map.member",
-		f"\t\tWHERE member.rolname = '{login}'",
-		"\tLOOP",
-		"\t\tEXECUTE format('REVOKE %I FROM %I', membership.parent_name, membership.member_name);",
-		"\tEND LOOP;",
-		"END",
-		"$$;",
-		f"ALTER ROLE {login}",
-		"\tLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT",
-		f"\tNOREPLICATION NOBYPASSRLS CONNECTION LIMIT 8 PASSWORD '{password}';",
-	]
-	if profile.revoke_object_privileges:
-		statements.extend(
-			[
-				"DO $$",
-				"BEGIN",
-				f"\tEXECUTE format('REVOKE ALL PRIVILEGES ON DATABASE %I FROM {login}', current_database());",
-				"END",
-				"$$;",
-				f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {login};",
-				f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {login};",
-				f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {login};",
-				f"REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {login};",
-			]
-		)
-	statements.extend(
-		f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
-		for role in profile.roles
-	)
-	return statements
+	return runtime, ()
 
 
 #============================================
 def main(argv: list[str] | None = None) -> None:
-	"""Provide explicit pipe-only helpers for closed service-login provisioning phases."""
+	"""Provide the closed SD1 staged-database bootstrap helper."""
 	arguments = sys.argv[1:] if argv is None else argv
 	commands = {
-		"--emit-grader-login-provisioning": emit_grader_login_provisioning,
-		"--emit-accepted-submission-login-provisioning": emit_accepted_submission_login_provisioning,
 		"--emit-sd1-staged-bootstrap": emit_sd1_staged_bootstrap,
 	}
 	if len(arguments) != 2 or arguments[0] not in commands:
-		print(
-			"usage: python3 -m local_stack_control.runtime_manifest "
-			"--emit-grader-login-provisioning WORKSPACE",
-			file=sys.stderr,
-		)
-		print(
-			"   or: python3 -m local_stack_control.runtime_manifest "
-			"--emit-accepted-submission-login-provisioning WORKSPACE",
-			file=sys.stderr,
-		)
 		print(
 			"   or: python3 -m local_stack_control.runtime_manifest "
 			"--emit-sd1-staged-bootstrap WORKSPACE",
@@ -793,7 +605,7 @@ def main(argv: list[str] | None = None) -> None:
 	try:
 		commands[arguments[0]](pathlib.Path(arguments[1]))
 	except local_stack_control.models.ControllerError:
-		print("acceptance runtime service-login provisioning is unavailable", file=sys.stderr)
+		print("acceptance runtime staged bootstrap is unavailable", file=sys.stderr)
 		raise SystemExit(2) from None
 
 
@@ -845,27 +657,12 @@ def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> Datab
 		)
 		try:
 			postgres_password = secrets.token_urlsafe(24)
-			grader_password = secrets.token_urlsafe(24)
-			fast_path_password = secrets.token_urlsafe(24)
-			recovery_password = secrets.token_urlsafe(24)
 			capability = secrets.token_bytes(32)
 			capability_digest = hashlib.sha256(capability).hexdigest()
 			endpoint = f"@127.0.0.1:{port}/{DATABASE_NAME}\n"
 			base = (
 				f"postgres://{POSTGRES_USER}:"
 				f"{urllib.parse.quote(postgres_password, safe='')}{endpoint}"
-			)
-			grader = (
-				f"postgres://{GRADER_USER}:"
-				f"{urllib.parse.quote(grader_password, safe='')}{endpoint}"
-			)
-			fast_path = (
-				f"postgres://{FAST_PATH_USER}:"
-				f"{urllib.parse.quote(fast_path_password, safe='')}{endpoint}"
-			)
-			recovery = (
-				f"postgres://{RECOVERY_USER}:"
-				f"{urllib.parse.quote(recovery_password, safe='')}{endpoint}"
 			)
 			password_path = workspace / POSTGRES_ADMIN_PASSWORD
 			compose_environment = (
@@ -888,17 +685,11 @@ def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> Datab
 				f"  compose_environment: {COMPOSE_ENVIRONMENT}\n"
 				f"  cleanup_capability: {CLEANUP_CAPABILITY}\n"
 				f"  postgres_admin_url: {POSTGRES_ADMIN_URL}\n"
-				f"  postgres_grader_url: {POSTGRES_GRADER_URL}\n"
-				f"  postgres_fast_path_url: {POSTGRES_FAST_PATH_URL}\n"
-				f"  postgres_recovery_url: {POSTGRES_RECOVERY_URL}\n"
 				f"  postgres_admin_password: {POSTGRES_ADMIN_PASSWORD}\n"
 			).encode("ascii")
 			_write_private_file_at(secrets_descriptor, "compose.env", compose_environment)
 			_write_private_file_at(secrets_descriptor, "cleanup.capability", capability)
 			_write_private_file_at(secrets_descriptor, "postgres-admin.url", base.encode("ascii"))
-			_write_private_file_at(secrets_descriptor, "postgres-grader.url", grader.encode("ascii"))
-			_write_private_file_at(secrets_descriptor, "postgres-fast-path.url", fast_path.encode("ascii"))
-			_write_private_file_at(secrets_descriptor, "postgres-recovery.url", recovery.encode("ascii"))
 			_write_private_file_at(
 				secrets_descriptor,
 				"postgres-admin.password",
@@ -1026,9 +817,6 @@ def write_course_appearance_cross_store_runtime(
 		secrets_descriptor = _open_private_directory_at(workspace_descriptor, SECRETS_DIRECTORY, "secrets directory")
 		try:
 			postgres_password = secrets.token_urlsafe(24)
-			grader_password = secrets.token_urlsafe(24)
-			fast_path_password = secrets.token_urlsafe(24)
-			recovery_password = secrets.token_urlsafe(24)
 			# Hex remains opaque data through the shell and MinIO CLI boundary.
 			minio_access_key_id = secrets.token_hex(16)
 			minio_secret_access_key = secrets.token_hex(16)
@@ -1062,9 +850,6 @@ def write_course_appearance_cross_store_runtime(
 				f"  compose_environment: {COMPOSE_ENVIRONMENT}\n"
 				f"  cleanup_capability: {CLEANUP_CAPABILITY}\n"
 				f"  postgres_admin_url: {POSTGRES_ADMIN_URL}\n"
-				f"  postgres_grader_url: {POSTGRES_GRADER_URL}\n"
-				f"  postgres_fast_path_url: {POSTGRES_FAST_PATH_URL}\n"
-				f"  postgres_recovery_url: {POSTGRES_RECOVERY_URL}\n"
 				f"  postgres_admin_password: {POSTGRES_ADMIN_PASSWORD}\n"
 				f"  minio_endpoint: {MINIO_ENDPOINT}\n"
 				f"  minio_region: {MINIO_REGION}\n"
@@ -1074,9 +859,6 @@ def write_course_appearance_cross_store_runtime(
 			_write_private_file_at(secrets_descriptor, "compose.env", compose_environment)
 			_write_private_file_at(secrets_descriptor, "cleanup.capability", capability)
 			_write_private_file_at(secrets_descriptor, "postgres-admin.url", database_url(POSTGRES_USER, postgres_password))
-			_write_private_file_at(secrets_descriptor, "postgres-grader.url", database_url(GRADER_USER, grader_password))
-			_write_private_file_at(secrets_descriptor, "postgres-fast-path.url", database_url(FAST_PATH_USER, fast_path_password))
-			_write_private_file_at(secrets_descriptor, "postgres-recovery.url", database_url(RECOVERY_USER, recovery_password))
 			_write_private_file_at(secrets_descriptor, "postgres-admin.password", postgres_password.encode("ascii") + b"\n")
 			_write_private_file_at(secrets_descriptor, "minio-endpoint.url", f"http://127.0.0.1:{minio_port}\n".encode("ascii"))
 			_write_private_file_at(secrets_descriptor, "minio-region", b"us-east-1\n")

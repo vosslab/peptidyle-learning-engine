@@ -8,8 +8,7 @@ SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.blueprint_course (
     blueprint_id uuid PRIMARY KEY,
     owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    created_at timestamp with time zone NOT NULL,
-    archived_at timestamp with time zone
+    created_at timestamp with time zone NOT NULL
 );
 CREATE TABLE ple_data.blueprint_course_revision (
     blueprint_revision_id uuid PRIMARY KEY,

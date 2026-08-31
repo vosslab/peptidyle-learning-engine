@@ -79,7 +79,7 @@ The corresponding confidentiality and history controls are:
 | Parser safety for images | Strict still-image type/container/dimension/full-decode validation |
 
 Published-content immutability remains intentional. Every content change, including a correction,
-publishes a new immutable question with a fresh Question ID and fresh hidden `(ProblemId, VersionId)`
+publishes a new immutable question with a fresh Question ID and fresh hidden `(QuestionId, QuestionVersionNumber)`
 evidence instead of changing object bytes referenced by an existing assignment, run, or attempt.
 Optional one-way provenance may identify the source publication without changing it.
 
@@ -89,7 +89,7 @@ Student-record retention freezes a typed manifest scoped to one exact course, st
 generation, then processes only that manifest under a leased job. Manifest entries identify exact
 typed object records; they are never a bucket prefix or a caller-selected path. Object deletion and
 relational deletion do not claim completion until the required manifest checks succeed. Shared
-published content, private authoring, and anonymous aggregates are outside a learner-record purge.
+published content, private authoring, and anonymous aggregates are outside a student-record purge.
 
 The current pre-SD1 retention source still carries legacy scope fields in its worker command and manifest
 storage. SD1-C owns the source/schema replacement with the exact course/stage/generation scope above;

@@ -2,7 +2,7 @@
 
 PLE is a SolidJS single-page application backed by one Rust API and one
 answer-free Rust WebAssembly facade. The browser presents server-owned course,
-assignment, and learner projections. It never decides correctness, timing,
+assignment, and Student projections. It never decides correctness, timing,
 authorization, publication, or release.
 
 This document applies [SOLID_MODEL.md](SOLID_MODEL.md),
@@ -27,7 +27,7 @@ authenticated course context
 BlueprintCourse is the reusable source surface. A published BlueprintCourse
 projection is visible and reusable to every vetted Instructor; a draft is
 visible only to its owner and authorized workspace collaborators. CourseInstance
-pages are private to current equal co-Instructors and enrolled Students. Each
+pages are private to current equal Teaching Team Members and enrolled Students. Each
 CourseInstance route and response carries the exact destination CourseId; its
 immutable Blueprint parent and applied revision are server-owned.
 
@@ -42,7 +42,7 @@ immutable Blueprint parent and applied revision are server-owned.
 | `/assignment-attempts/:assignmentAttemptId` (target)                   | Student Assignment Attempt                         | Issued Assignment Attempt and Student entitlement   |
 | `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed server projection                         |
 | /library                                                               | Shared question catalog                            | Vetted Instructor catalog authority                 |
-| /curriculum                                                            | BlueprintCourse workspace                          | Owner/collaborator drafts and published projections |
+| /curriculum                                                            | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
 | /curriculum/:blueprintRef                                              | BlueprintCourse detail/editor                      | Blueprint reference plus active session             |
 | /workspace                                                             | Private question workspace                         | Workspace relationship                              |
 | /workspace/:workspaceRef                                               | Draft editor and preview                           | Workspace relationship                              |
@@ -55,9 +55,9 @@ immutable Blueprint parent and applied revision are server-owned.
 | /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                           |
 | /instructor/courses/:courseRef/curriculum                              | Adoption and imports                               | CourseInstance destination authority                |
 
-The current source still exposes legacy `/runs/:runId` routes. They are pending
-replacement by the target routes above; new routes and documentation must use
-the canonical Assignment Attempt terms in [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
+Assignment Attempt screens use `/assignment-attempts/:assignmentAttemptRef` and
+the canonical Assignment Attempt terms in
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 src/routes.ts is the executable route map. Route preflight and response
 decoding remain server/API responsibilities; a URL reference never grants
@@ -129,7 +129,7 @@ destination operation:
 | Fork BlueprintCourse          | Independent AccountId-owned BlueprintCourse with source lineage   |
 | Instantiate assignment        | Selected nested assignment in an exact existing CourseInstance    |
 | Instantiate BlueprintCourse   | New CourseInstance with one immutable Blueprint parent/revision   |
-| Rollover CourseInstance       | New teaching instance without learner or issued state             |
+| Rollover CourseInstance       | New teaching instance without Student or issued state             |
 | Shift CourseInstance term     | Atomic date resolution when no issued work makes it ineligible    |
 | Fast-forward or selected copy | Update untouched import or create a new assignment when divergent |
 
@@ -162,7 +162,7 @@ derivative of Rust contract roots through
 crates/project-tools/src/tsgen.rs. Authored TypeScript owns only transport
 adapters, strict decoding, and presentation models.
 
-## Learner and delivery boundary
+## Student and delivery boundary
 
 The run page keeps one editable response and one idempotency key for the
 current run/attempt. It may use answer-free Wasm for format hints and timing
@@ -175,7 +175,7 @@ Feedback, score, item correctness, solution, class statistics, late status,
 and release are redacted or exposed only by the server's current policy.
 
 CourseInstance pages use exact CourseId and Student relationship context.
-Instructor Student view is informational and creates no learner work. Gradebook,
+Instructor Student view is informational and creates no Student work. Gradebook,
 inspection, roster, and assignment data never come from a public
 BlueprintCourse projection.
 

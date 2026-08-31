@@ -12,21 +12,22 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
 use crate::envelope::ContentBlock;
 use crate::generation::RandomizationDefinition;
-use crate::identity::{ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId};
+use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
 use crate::response::ResponseDefinition;
-use crate::run_policy::{AttemptPolicy, TimingPolicy};
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
+use crate::{QuestionId, QuestionVersionNumber};
 
-/// Maximum Unicode scalar values permitted in a learner-facing question title.
+/// Maximum Unicode scalar values permitted in a student-facing question title.
 ///
 /// Browser decoders use `Array.from(title).length`, which has the same count
 /// for valid UTF-8 JSON strings. Titles are never silently trimmed or
 /// normalized at either boundary.
 pub const MAX_QUESTION_TITLE_UNICODE_SCALARS: usize = 512;
 
-/// Why a learner-facing question title cannot be safely delivered.
+/// Why a student-facing question title cannot be safely delivered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionTitleError {
     /// The trimmed title contains no visible content.
@@ -49,7 +50,7 @@ impl std::fmt::Display for QuestionTitleError {
 
 impl std::error::Error for QuestionTitleError {}
 
-/// Validates the durable learner-facing title without mutating it.
+/// Validates the durable student-facing title without mutating it.
 ///
 /// Whitespace-only titles are refused after trimming for the emptiness check;
 /// leading and trailing whitespace are otherwise preserved exactly rather than
@@ -265,7 +266,7 @@ pub struct QuestionMetadata {
 }
 
 impl QuestionMetadata {
-    /// Validates the one piece of metadata delivered in every learner envelope.
+    /// Validates the one piece of metadata delivered in every student envelope.
     pub fn validate_title(&self) -> Result<(), QuestionTitleError> {
         validate_question_title(&self.title)
     }
@@ -273,7 +274,7 @@ impl QuestionMetadata {
 
 /// Editable workspace content before publication.
 ///
-/// A draft deliberately has neither a [`ProblemId`] nor a [`VersionId`].
+/// A draft deliberately has neither a [`QuestionId`] nor a [`QuestionVersionNumber`].
 /// Publication is the one boundary that mints both durable identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -302,7 +303,7 @@ pub struct DraftQuestionDefinition {
 ///
 /// The full source locator, prompt, response definition, grading policy, and
 /// asset references remain on the detail record.  In particular, this list
-/// projection deliberately has no published `ProblemId` or `VersionId`.
+/// projection deliberately has no published Question ID or Question Version Number.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceDraftSummary {
@@ -335,10 +336,10 @@ impl DraftQuestionDefinition {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionDefinition {
-    /// Stable published problem.
-    pub problem: ProblemId,
-    /// Exact immutable published version.
-    pub version: VersionId,
+    /// Stable Question lineage established at publication.
+    pub question_id: QuestionId,
+    /// Exact immutable version within the Question lineage.
+    pub version_number: QuestionVersionNumber,
     /// The workspace that authored it.
     pub workspace: WorkspaceId,
     /// Which engine it came from.
@@ -363,13 +364,13 @@ impl QuestionDefinition {
     /// Attaches the IDs minted at successful publication to draft content.
     pub fn from_draft(
         draft: DraftQuestionDefinition,
-        problem: ProblemId,
-        version: VersionId,
+        question_id: QuestionId,
+        version_number: QuestionVersionNumber,
         source: QuestionSource,
     ) -> Self {
         Self {
-            problem,
-            version,
+            question_id,
+            version_number,
             workspace: draft.workspace,
             source,
             prompt: draft.prompt,
@@ -420,21 +421,21 @@ mod tests {
     #[test]
     fn a_draft_serializes_without_published_identifiers() {
         let json = serde_json::to_value(sample_draft()).expect("draft serializes");
-        assert!(json.get("problem").is_none());
-        assert!(json.get("version").is_none());
+        assert!(json.get("questionId").is_none());
+        assert!(json.get("versionNumber").is_none());
     }
 
     #[test]
-    fn a_published_question_carries_a_problem_id() {
+    fn a_published_question_carries_its_question_version_reference() {
         let published = QuestionDefinition::from_draft(
             sample_draft(),
-            ProblemId::from_uuid(Uuid::from_u128(9)),
-            VersionId::from_uuid(Uuid::from_u128(10)),
+            "123-4567".parse().expect("valid Question ID"),
+            QuestionVersionNumber::new(1).expect("positive version"),
             QuestionSource::Native {
                 family: "molar_mass".to_string(),
             },
         );
-        assert_eq!(published.problem, ProblemId::from_uuid(Uuid::from_u128(9)));
+        assert_eq!(published.question_id.to_string(), "123-4567");
     }
 
     #[test]

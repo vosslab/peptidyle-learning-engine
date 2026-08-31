@@ -1,12 +1,9 @@
 // Strict browser decoder for the Instructor assignment workspace projection.
 
-import type { AssignmentAudienceRequest } from "../../../generated/api/AssignmentAudienceRequest";
 import type { AssignmentContentIssuedWorkConflict } from "../../../generated/api/AssignmentContentIssuedWorkConflict";
 import type { AssignmentPublicationReadiness } from "../../../generated/api/AssignmentPublicationReadiness";
-import type { CourseGroupReference } from "../../../generated/api/CourseGroupReference";
-import { parseCourseGroupReference } from "../../navigation/public_route";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../contracts";
-import { DecodeError, decodeArray, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
+import { DecodeError, decodeArray, decodeRecord, decodeStringEnum } from "../decoder";
 import {
   decodeInstructorAssignmentCurrentState,
   decodeInstructorAssignmentTeachingSettingsLocal,
@@ -41,7 +38,6 @@ export function decodeAssignmentEditorDetail(
     "teachingSettings",
     "currentState",
     "publicationReadiness",
-    "audience",
   ]);
   const summary = decodeAssignmentSummary(record, path, false);
   const teachingSettings = decodeInstructorAssignmentTeachingSettingsLocal(
@@ -56,10 +52,6 @@ export function decodeAssignmentEditorDetail(
     field(record, "publicationReadiness", path),
     `${path}.publicationReadiness`,
   );
-  const audience = decodeAssignmentAudienceRequest(
-    field(record, "audience", path),
-    `${path}.audience`,
-  );
   assertCurrentStateMatchesLifecycle(teachingSettings.lifecycle, currentState, path);
   const decoded = {
     id: summary.id,
@@ -73,12 +65,11 @@ export function decodeAssignmentEditorDetail(
     teachingSettings,
     currentState,
     publicationReadiness,
-    audience,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }
 
-/** Decodes the exact 409 body that says issued learner work blocks content save. */
+/** Decodes the exact 409 body that says issued Student work blocks content save. */
 export function decodeAssignmentContentIssuedWorkConflict(
   value: unknown,
   path = "response",
@@ -87,7 +78,7 @@ export function decodeAssignmentContentIssuedWorkConflict(
   requireOnlyFields(record, path, ["kind"]);
   const decoded = {
     kind: decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-      "issuedLearnerWork",
+      "issuedStudentWork",
     ] as const),
   } satisfies AssignmentContentIssuedWorkConflict;
   return decoded;
@@ -112,34 +103,6 @@ function assertCurrentStateMatchesLifecycle(
       "a server-derived state consistent with the stored lifecycle intent",
     );
   }
-}
-
-function decodeAssignmentAudienceRequest(value: unknown, path: string): AssignmentAudienceRequest {
-  const record = decodeRecord(value, path);
-  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "courseWide",
-    "anyOfGroups",
-  ] as const);
-  if (kind === "courseWide") {
-    requireOnlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  requireOnlyFields(record, path, ["kind", "groups"]);
-  return {
-    kind,
-    groups: decodeArray(
-      field(record, "groups", path),
-      `${path}.groups`,
-      decodeCourseGroupReference,
-    ),
-  };
-}
-
-function decodeCourseGroupReference(value: unknown, path: string): CourseGroupReference {
-  const reference = decodeString(value, path);
-  const parsed = parseCourseGroupReference(reference);
-  if (parsed === null) throw new DecodeError(path, "a public course-group reference");
-  return parsed;
 }
 
 function decodeAssignmentPublicationReadiness(

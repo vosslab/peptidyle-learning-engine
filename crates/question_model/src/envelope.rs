@@ -11,8 +11,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::QuestionVersionReference;
 use crate::generation::Seed;
-use crate::identity::{AssetId, VersionId};
+use crate::identity::AssetId;
 use crate::response::ResponseDefinition;
 
 /// A reference to a stored asset.
@@ -82,19 +83,19 @@ pub enum ContentBlock {
 /// One generated variant of a question, ready to render.
 ///
 /// This is the unit the render cache stores and the reproducibility record
-/// describes. It is keyed by `(version, seed)`: the same pair produces the same
+/// describes. It is keyed by `(Question Version Reference, seed)`: the same pair produces the same
 /// envelope on every machine, which is what lets a repeat request be served
 /// from cache and lets a grade be re-derived years later.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionEnvelope {
-    /// Which immutable version produced this envelope.
-    pub version: VersionId,
+    /// Exact immutable Question Version that produced this envelope.
+    pub question_version: QuestionVersionReference,
     /// The seed that produced this variant.
     pub seed: Seed,
-    /// A bounded learner-facing title from published metadata or a safe imported
+    /// A bounded student-facing title from published metadata or a safe imported
     /// provider label. This deliberately excludes authored source and grading
-    /// material while letting the learner identify the issued question.
+    /// material while letting the student identify the issued question.
     pub title: String,
     /// The prompt, in render order.
     pub prompt: Vec<ContentBlock>,

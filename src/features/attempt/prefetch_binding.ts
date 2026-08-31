@@ -5,12 +5,7 @@ import type { NextIssuedAttempt, PrefetchedNextQuestion } from "../../api/contra
 
 type PrefetchBinding = Pick<
   PrefetchedNextQuestion,
-  | "predecessor"
-  | "run"
-  | "assignmentPosition"
-  | "questionVersion"
-  | "seed"
-  | "renderedQuestionSha256"
+  "predecessor" | "issuedQuestion" | "seed" | "renderedQuestionSha256"
 >;
 
 /**
@@ -24,9 +19,7 @@ export function prefetchMatchesIssuedSuccessor(
 ): boolean {
   return (
     cached.predecessor === predecessor &&
-    cached.run === issued.run &&
-    cached.assignmentPosition === issued.assignmentPosition &&
-    cached.questionVersion === issued.questionVersion &&
+    cached.issuedQuestion.id === issued.issuedQuestion.id &&
     cached.seed === issued.seed &&
     cached.renderedQuestionSha256 === issued.renderedQuestionSha256
   );

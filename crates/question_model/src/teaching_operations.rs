@@ -1,7 +1,7 @@
 //! Strict browser/server contracts for the WP-INST-T2 teaching operations.
 //!
 //! The types here use only human route references and display labels.  They
-//! deliberately exclude institution IDs, UUIDs, email, policy inputs, jobs, object
+//! deliberately exclude external-affiliation IDs, UUIDs, email, policy inputs, jobs, object
 //! keys, recipient lists, answer material, and clock authority.  A server maps
 //! its authorized Store/domain result into these values after resolving S5/S3.
 
@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccountReference, ActivityTimestamp, AssignmentDeadlineBehavior,
-    CoInstructorInvitationReference, CourseGroupPurpose, CourseGroupReference, CourseLocalDateTime,
+    CourseInvitationReference, CourseLocalDateTime,
     CourseMembershipReference, IanaTimeZone, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MultipleMembershipDisposition, MultipleMembershipPolicy,
+    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
 };
 
 mod local_time;
@@ -26,28 +26,22 @@ mod target_search;
 pub use local_time::{project_teaching_preview_time_field, resolve_teaching_local_time};
 pub use modifier_revision_response::TeachingOperationRevisionResponse;
 pub use preview_provenance::{
-    TeachingPreviewFieldSource, TeachingPreviewGroupSource, TeachingPreviewGroupSources,
+    TeachingPreviewFieldSource,
 };
 pub use student_memberships::CourseStudentMembershipsPage;
 pub use target_search::{
-    AccountApprovalView, CoInstructorTargetSearchPage, CoInstructorTargetSearchQuery,
-    CoInstructorTargetSearchRequest, CoInstructorTargetView, InstructorApprovalStateView,
+    AccountApprovalView, CourseInvitationTargetSearchPage, CourseInvitationTargetSearchQuery,
+    CourseInvitationTargetSearchRequest, CourseInvitationTargetView, InstructorApprovalStateView,
     MAX_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
     MIN_CO_INSTRUCTOR_TARGET_SEARCH_QUERY_UNICODE_SCALARS, SysadminInstructorApprovalStateView,
     SysadminInstructorApprovalView, SysadminInstructorCandidateSearchPage,
     SysadminInstructorCandidateSearchRequest, SysadminInstructorCandidateView, TeachingAccountView,
 };
 
-/// Maximum Unicode scalar count for a course-group title.
-pub const MAX_COURSE_GROUP_TITLE_UNICODE_SCALARS: usize = 200;
 /// Maximum Unicode scalar count for an authorized account or membership label.
 pub const MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS: usize = 200;
 /// Maximum rows in one browser teaching-operations page.
 pub const MAX_TEACHING_PAGE_SIZE: u32 = 100;
-/// A group replacement fits in one bounded teaching-operations request/page.
-pub const MAX_COURSE_GROUP_MEMBERS: usize = MAX_TEACHING_PAGE_SIZE as usize;
-/// The maximum absolute group schedule shift: one ordinary year in seconds.
-pub const MAX_GROUP_SCHEDULE_OFFSET_SECONDS: i32 = 31_536_000;
 /// Largest browser-requestable retention extension in whole days.
 pub const MAX_RETENTION_EXTENSION_DAYS: u32 = 36_500;
 
@@ -137,38 +131,6 @@ impl From<TeachingOperationRevision> for String {
     }
 }
 
-/// Validated, nonblank course-group title.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseGroupTitle(String);
-
-impl CourseGroupTitle {
-    /// Returns title text after validation.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for CourseGroupTitle {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.trim().is_empty()
-            || value.trim() != value
-            || value.chars().count() > MAX_COURSE_GROUP_TITLE_UNICODE_SCALARS
-        {
-            return Err("course group title must be trimmed, nonblank, and at most 200 characters");
-        }
-        Ok(Self(value))
-    }
-}
-
-impl From<CourseGroupTitle> for String {
-    fn from(value: CourseGroupTitle) -> Self {
-        value.0
-    }
-}
-
 /// Validated, nonblank browser display label with no email semantics.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -211,45 +173,10 @@ pub struct MembershipPageRequest {
     pub size: TeachingPageSize,
 }
 
-/// Canonical unique bounded membership collection for group replacement.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    try_from = "Vec<CourseMembershipReference>",
-    into = "Vec<CourseMembershipReference>"
-)]
-pub struct CourseGroupMembers(Vec<CourseMembershipReference>);
-
-impl CourseGroupMembers {
-    pub fn as_slice(&self) -> &[CourseMembershipReference] {
-        &self.0
-    }
-}
-
-impl TryFrom<Vec<CourseMembershipReference>> for CourseGroupMembers {
-    type Error = &'static str;
-
-    fn try_from(mut members: Vec<CourseMembershipReference>) -> Result<Self, Self::Error> {
-        if members.len() > MAX_COURSE_GROUP_MEMBERS {
-            return Err("course group may contain at most 100 members");
-        }
-        members.sort_unstable();
-        if members.windows(2).any(|pair| pair[0] == pair[1]) {
-            return Err("course group members must be unique");
-        }
-        Ok(Self(members))
-    }
-}
-
-impl From<CourseGroupMembers> for Vec<CourseMembershipReference> {
-    fn from(value: CourseGroupMembers) -> Self {
-        value.0
-    }
-}
-
 /// Browser projection of one course membership; email and UUID are absent by type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupMemberView {
+pub struct StudentMembershipView {
     /// Course-local membership locator.
     pub reference: CourseMembershipReference,
     /// Authorized display label.
@@ -274,112 +201,6 @@ pub enum TeachingMembershipRole {
 pub enum TeachingMembershipStatus {
     Active,
     Revoked,
-}
-
-/// Compact group row for a course group list.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupSummaryView {
-    pub reference: CourseGroupReference,
-    pub title: CourseGroupTitle,
-    pub purpose: CourseGroupPurpose,
-    pub revision: TeachingOperationRevision,
-    pub member_count: u32,
-}
-
-/// Bounded course-group list response.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupListPage {
-    pub groups: Vec<CourseGroupSummaryView>,
-    pub next_cursor: Option<String>,
-}
-
-/// Full course-group projection with membership page only where authorized.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupDetailView {
-    pub group: CourseGroupSummaryView,
-    pub members: Vec<CourseGroupMemberView>,
-    pub next_cursor: Option<String>,
-}
-
-/// Strict create request using only membership references.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupCreateRequest {
-    pub title: CourseGroupTitle,
-    pub purpose: CourseGroupPurpose,
-    pub members: CourseGroupMembers,
-}
-
-/// Strict revision-checked replacement for a current course group.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupUpdateRequest {
-    pub title: CourseGroupTitle,
-    pub purpose: CourseGroupPurpose,
-    pub members: CourseGroupMembers,
-}
-
-/// Current policy for one closed group purpose.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupPurposePolicyView {
-    pub purpose: CourseGroupPurpose,
-    pub multiple_membership: MultipleMembershipPolicy,
-    pub revision: TeachingOperationRevision,
-}
-
-/// Strict replacement of one purpose's non-blocking multiple-membership policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupPurposePolicyUpdateRequest {
-    pub multiple_membership: MultipleMembershipPolicy,
-}
-
-/// Informational result of a preserved group membership write.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseGroupMembershipWarningView {
-    pub disposition: MultipleMembershipDisposition,
-    pub warning_count: u32,
-}
-
-/// Strict M2 group schedule-offset update.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct GroupScheduleOffsetUpdateRequest {
-    pub offset_seconds: GroupScheduleOffsetSeconds,
-}
-
-/// Validated signed nonzero group schedule shift accepted by the Store.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "i32", into = "i32")]
-pub struct GroupScheduleOffsetSeconds(i32);
-
-impl GroupScheduleOffsetSeconds {
-    pub fn get(self) -> i32 {
-        self.0
-    }
-}
-
-impl TryFrom<i32> for GroupScheduleOffsetSeconds {
-    type Error = &'static str;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        (value != 0
-            && (-MAX_GROUP_SCHEDULE_OFFSET_SECONDS..=MAX_GROUP_SCHEDULE_OFFSET_SECONDS)
-                .contains(&value))
-        .then_some(Self(value))
-        .ok_or("schedule offset must be nonzero and within one year in seconds")
-    }
-}
-
-impl From<GroupScheduleOffsetSeconds> for i32 {
-    fn from(value: GroupScheduleOffsetSeconds) -> Self {
-        value.get()
-    }
 }
 
 /// Closed M3/M4 modification behavior.
@@ -472,7 +293,7 @@ pub struct PolicyPatchView {
     pub attempt_limit: TeachingAttemptLimitFieldPatch,
 }
 
-/// Strict group accommodation update; the group reference selects M3 scope.
+/// Complete Assignment policy patch replacement used by a synthetic preview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentPolicyPatchUpdateRequest {
@@ -480,10 +301,10 @@ pub struct AssignmentPolicyPatchUpdateRequest {
     pub patch: PolicyPatchView,
 }
 
-/// Strict individual-exception update; the membership reference selects M4 scope.
+/// Strict direct Student Accommodation update; the membership reference selects its scope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct IndividualPolicyPatchUpdateRequest {
+pub struct AccommodationPatchUpdateRequest {
     pub mode: PolicyModificationModeView,
     pub patch: PolicyPatchView,
 }
@@ -577,17 +398,17 @@ pub enum TeachingPreviewView {
 /// Strict course invitation creation request for one approved existing account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CoInstructorInvitationCreateRequest {
+pub struct CourseInvitationCreateRequest {
     pub target: AccountReference,
 }
 
 /// Course-authorized co-instructor invitation row with no email or raw identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseCoInstructorInvitationView {
-    pub reference: CoInstructorInvitationReference,
-    pub target: CoInstructorTargetView,
-    pub state: CoInstructorInvitationStateView,
+pub struct CourseCourseInvitationView {
+    pub reference: CourseInvitationReference,
+    pub target: CourseInvitationTargetView,
+    pub state: CourseInvitationStateView,
     pub created_at: ActivityTimestamp,
     pub expires_at: ActivityTimestamp,
     pub revision: TeachingOperationRevision,
@@ -596,18 +417,18 @@ pub struct CourseCoInstructorInvitationView {
 /// Bounded exact-course co-instructor invitation page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseCoInstructorInvitationsPage {
-    pub invitations: Vec<CourseCoInstructorInvitationView>,
+pub struct CourseCourseInvitationsPage {
+    pub invitations: Vec<CourseCourseInvitationView>,
     pub next_cursor: Option<String>,
 }
 
 /// Pending account-owned invitation row. It intentionally contains no email.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PendingCoInstructorInvitationView {
-    pub reference: CoInstructorInvitationReference,
+pub struct PendingCourseInvitationView {
+    pub reference: CourseInvitationReference,
     pub course_label: TeachingDisplayLabel,
-    pub state: CoInstructorInvitationStateView,
+    pub state: CourseInvitationStateView,
     pub expires_at: ActivityTimestamp,
     pub revision: TeachingOperationRevision,
 }
@@ -615,7 +436,7 @@ pub struct PendingCoInstructorInvitationView {
 /// Closed pending-invitation lifecycle state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum CoInstructorInvitationStateView {
+pub enum CourseInvitationStateView {
     Pending,
     Expired,
     Accepted,
@@ -626,15 +447,15 @@ pub enum CoInstructorInvitationStateView {
 /// Bounded pending invitation page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PendingCoInstructorInvitationsPage {
-    pub invitations: Vec<PendingCoInstructorInvitationView>,
+pub struct PendingCourseInvitationsPage {
+    pub invitations: Vec<PendingCourseInvitationView>,
     pub next_cursor: Option<String>,
 }
 
 /// Closed terminal action for the authenticated invitation target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum CoInstructorInvitationTerminalAction {
+pub enum CourseInvitationTerminalAction {
     Accept,
     Decline,
 }
@@ -642,8 +463,8 @@ pub enum CoInstructorInvitationTerminalAction {
 /// Strict terminal pending-invitation action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CoInstructorInvitationTerminalActionRequest {
-    pub action: CoInstructorInvitationTerminalAction,
+pub struct CourseInvitationTerminalActionRequest {
+    pub action: CourseInvitationTerminalAction,
 }
 
 /// Direct Instructor course membership row.
@@ -791,32 +612,16 @@ mod tests {
             "42".parse::<TeachingOperationRevision>().unwrap().value(),
             42
         );
-        assert!(CourseGroupTitle::try_from(" group ".to_owned()).is_err());
         assert!(TeachingDisplayLabel::try_from(" ".to_owned()).is_err());
     }
 
     #[test]
     fn mutation_bodies_are_value_only_and_revisions_are_absent() {
-        let group = serde_json::to_value(CourseGroupUpdateRequest {
-            title: CourseGroupTitle::try_from("Lab section".to_owned()).unwrap(),
-            purpose: CourseGroupPurpose::Lab,
-            members: vec!["M-2".parse().unwrap()].try_into().unwrap(),
-        })
-        .unwrap();
-        assert_eq!(
-            group,
-            serde_json::json!({"title":"Lab section","purpose":"lab","members":["M-2"]})
-        );
-        let action = serde_json::to_value(CoInstructorInvitationTerminalActionRequest {
-            action: CoInstructorInvitationTerminalAction::Accept,
+        let action = serde_json::to_value(CourseInvitationTerminalActionRequest {
+            action: CourseInvitationTerminalAction::Accept,
         })
         .unwrap();
         assert_eq!(action, serde_json::json!({"action":"accept"}));
-        let policy = serde_json::to_value(CourseGroupPurposePolicyUpdateRequest {
-            multiple_membership: MultipleMembershipPolicy::Warn,
-        })
-        .unwrap();
-        assert_eq!(policy, serde_json::json!({"multipleMembership":"warn"}));
         assert_eq!(
             serde_json::to_value(InstructorMembershipRemovalRequest {}).unwrap(),
             serde_json::json!({})
@@ -829,30 +634,20 @@ mod tests {
             serde_json::from_str::<MembershipPageRequest>(r#"{"after":null,"size":101}"#).is_err()
         );
         assert!(
-            serde_json::from_str::<CoInstructorTargetSearchRequest>(
+            serde_json::from_str::<CourseInvitationTargetSearchRequest>(
                 r#"{"query":"t","after":null,"size":10}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_str::<CoInstructorTargetSearchRequest>(
+            serde_json::from_str::<CourseInvitationTargetSearchRequest>(
                 r#"{"query":"  target","after":null,"size":10}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_str::<CoInstructorTargetSearchRequest>(
+            serde_json::from_str::<CourseInvitationTargetSearchRequest>(
                 r#"{"query":"target","after":null,"size":10,"email":"x@example.edu"}"#
-            )
-            .is_err()
-        );
-        assert!(
-            serde_json::from_str::<GroupScheduleOffsetUpdateRequest>(r#"{"offsetSeconds":0}"#)
-                .is_err()
-        );
-        assert!(
-            serde_json::from_str::<CourseGroupCreateRequest>(
-                r#"{"title":"Lab","purpose":"schedule","members":["M-1","M-1"]}"#
             )
             .is_err()
         );
@@ -887,33 +682,6 @@ mod tests {
         ] {
             assert!(denied.get(key).is_none());
         }
-    }
-
-    #[test]
-    fn preview_provenance_keeps_ordered_schedule_offset_groups() {
-        let groups = vec![
-            TeachingPreviewGroupSource {
-                group: "G-3".parse().unwrap(),
-                label: TeachingDisplayLabel::try_from("Thursday lab".to_owned()).unwrap(),
-            },
-            TeachingPreviewGroupSource {
-                group: "G-4".parse().unwrap(),
-                label: TeachingDisplayLabel::try_from("Friday lab".to_owned()).unwrap(),
-            },
-        ]
-        .try_into()
-        .unwrap();
-        let source = TeachingPreviewFieldSource::GroupScheduleOffsets { groups };
-        assert_eq!(
-            serde_json::to_value(source).unwrap(),
-            serde_json::json!({
-                "kind":"groupScheduleOffsets",
-                "groups":[
-                    {"group":"G-3","label":"Thursday lab"},
-                    {"group":"G-4","label":"Friday lab"}
-                ]
-            })
-        );
     }
 
     #[test]
@@ -953,10 +721,10 @@ mod tests {
 
     #[test]
     fn pending_invitation_serializes_server_owned_expiry_without_inviter() {
-        let row = PendingCoInstructorInvitationView {
+        let row = PendingCourseInvitationView {
             reference: "CI-4".parse().unwrap(),
             course_label: TeachingDisplayLabel::try_from("Biochemistry".to_owned()).unwrap(),
-            state: CoInstructorInvitationStateView::Pending,
+            state: CourseInvitationStateView::Pending,
             expires_at: ActivityTimestamp::from_unix_millis(2_592_000_000),
             revision: "3".parse().unwrap(),
         };

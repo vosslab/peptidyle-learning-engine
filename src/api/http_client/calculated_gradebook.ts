@@ -4,7 +4,7 @@ import type { AssignmentReference } from "../../../generated/api/AssignmentRefer
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
 import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
-import type { RunReference } from "../../../generated/api/RunReference";
+import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { ApiClient } from "../client";
 import {
   decodeCalculatedGradebookResult,
@@ -27,7 +27,7 @@ import { decodeCursor, decodeIdentifier } from "../decoders/shared";
 import {
   parseAssignmentReference,
   parseCourseMembershipReference,
-  parseRunReference,
+  parseAssignmentAttemptReference,
 } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
@@ -138,7 +138,7 @@ function inspectionPath(
   courseId: CourseId,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  run: RunReference,
+  run: AssignmentAttemptReference,
   operationRef: GradingOperationReference | undefined,
 ): string {
   const course = decodeIdentifier(courseId, "course");
@@ -148,7 +148,7 @@ function inspectionPath(
     parseCourseMembershipReference,
   );
   const checkedAssignment = canonicalReference(assignment, "assignment", parseAssignmentReference);
-  const checkedRun = canonicalReference(run, "run", parseRunReference);
+  const checkedRun = canonicalReference(run, "Assignment Attempt", parseAssignmentAttemptReference);
   const query =
     operationRef === undefined
       ? ""
@@ -192,7 +192,7 @@ function verifyInspectionIdentity(
   detail: InspectedStudentWorkDetail,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  run: RunReference,
+  run: AssignmentAttemptReference,
   operationRef: GradingOperationReference | undefined,
 ): InspectedStudentWorkDetail {
   if (detail.membership !== membership || detail.assignment !== assignment || detail.run !== run) {

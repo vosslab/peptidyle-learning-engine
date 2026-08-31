@@ -1,5 +1,5 @@
 // Real-stack WP-INST-D1 discovery journey. The installed native question is reused through
-// visible course and learner workflows so published evidence reflects ordinary completed work.
+// visible course and student workflows so published evidence reflects ordinary completed work.
 //
 // Selector contract:
 // - src/pages/library_page.tsx owns search, metadata filters, and the Library result region.
@@ -7,7 +7,7 @@
 // - src/pages/course_assignments_page.tsx, assignment_workspace/, and course_roster_page.tsx own
 //   title-first draft creation, Questions, Policies, publishing, and visible invitation links.
 // - src/pages/course_invitation_page.tsx, assignment_overview_page.tsx, and run_page.tsx own
-//   learner claim, start, submission, feedback, and completion.
+//   student claim, start, submission, feedback, and completion.
 
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
@@ -75,7 +75,7 @@ async function openLibraryDetail(page: Page): Promise<void> {
 
 async function expectUsageOnlyInCourse(page: Page, allowedCourse: string): Promise<void> {
   const usage = page
-    .getByRole("heading", { name: "Usage in your institution", exact: true })
+    .getByRole("heading", { name: "Usage across PLE", exact: true })
     .locator("..");
   await expect(usage).toBeVisible();
   await expect(
@@ -126,8 +126,8 @@ async function createPublishedGeneticsAssignment(
 async function createInvitation(page: Page, email: string, rosterId: string): Promise<string> {
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await expect(page.locator("[data-route-surface=courseRoster]")).toBeVisible();
-  await page.getByLabel("Institutional email").fill(email);
-  await page.getByLabel("Institutional student ID").fill(rosterId);
+  await page.getByLabel("Course roster email").fill(email);
+  await page.getByLabel("Course roster ID").fill(rosterId);
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
@@ -203,7 +203,7 @@ async function assertFiveLearnerEvidence(page: Page): Promise<void> {
             .locator("dd")
             .innerText(),
           observations: await evidence
-            .getByText("Independent learner observations", { exact: true })
+            .getByText("Independent student observations", { exact: true })
             .locator("..")
             .locator("dd")
             .innerText(),
@@ -292,7 +292,7 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
     "the disposable production browser-suite owner supplies this scenario input",
   );
 
-  test("five independent learner observations disclose evidence after visible course work", async ({
+  test("five independent Student observations disclose evidence after visible course work", async ({
     browser,
   }) => {
     test.setTimeout(scenarioTimeoutMs);
@@ -403,12 +403,12 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         await completeAssignment(avery, geneticsAssignmentTitle);
       });
 
-      await test.step("Elena claims Genetics as a learner and completes its published assignment", async () => {
+      await test.step("Elena claims Genetics as a student and completes its published assignment", async () => {
         await claimInvitation(elena, /Elena Rivera/u, elenaGeneticsInvitation, geneticsCourseTitle);
         await completeAssignment(elena, geneticsAssignmentTitle);
       });
 
-      await test.step("Library filters expose the five-learner, two-course evidence", async () => {
+      await test.step("Library filters expose the five-student, two-course evidence", async () => {
         await signOutVisible(elena);
         await chooseSeededIdentity(elena, /Elena Rivera/u);
         await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
@@ -426,7 +426,7 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
           elena,
           scenarioInput,
           elena
-            .getByRole("heading", { name: "Usage in your institution", exact: true })
+            .getByRole("heading", { name: "Usage across PLE", exact: true })
             .locator(".."),
           usageArtifacts,
         );

@@ -24,7 +24,7 @@ they establish only their exact membership, workspace, course, or worker authori
 
 `approved_instructor(account_id, now)` is the one current, manually approved Instructor predicate. It
 authorizes global Instructor capabilities: course creation, publication, shared-catalog discovery,
-collections, favorites, saved searches, reuse, and improvement. Approval withdrawal closes each of
+Question Collections, Stars, saved searches, reuse, and improvement. Approval withdrawal closes each of
 those capabilities in the protected transaction.
 
 The `sysadmin` platform role does not satisfy `approved_instructor`. A Sysadmin
@@ -35,12 +35,13 @@ Instructor membership; Sysadmin status does not add creator authority.
 `current_course_instructor(account_id, course_id, now)` requires both current `approved_instructor`
 and a current direct Instructor membership for that exact course. Course creation atomically creates
 the first ordinary Instructor membership. It does not create a creator, owner, or privileged
-course-authority row. Every current co-Instructor receives the same teaching mutation and FERPA-read
+course-authority row. Every current Teaching Team Member receives the same teaching mutation and FERPA-read
 decision for equivalent state; audit rows identify the authenticated account without changing authority.
 
 Student work requires the exact course relationship and Student ownership of the durable child
-record. A private draft, curriculum, or authoring input requires its current workspace owner or
-collaborator relationship. A published question has exactly one Instructor-visible shared-catalog
+record. A private authoring input requires its current Authoring Workspace owner or Workspace
+Collaborator relationship; a Draft Blueprint Revision requires its own Blueprint Collaborator
+relationship. A published question has exactly one Instructor-visible shared-catalog
 state: every approved Instructor can discover and reuse its safe projection while its visible
 lifecycle is `active`, `deprecated`, or `archived`. Selection eligibility is separate: only `active`
 questions are eligible for ordinary new selection; deprecated and archived questions remain available
@@ -54,7 +55,8 @@ only through a narrow, audited support capability or an ordinary current Instruc
 | --------------------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
 | Account, session, passkey               | Exact global account/session                   | Credentials and authentication evidence               |
 | Published catalog question              | `approved_instructor`                          | Answer keys, private grading, source, and credentials |
-| Draft or curriculum workspace           | Workspace owner/collaborator                   | Unshared source and author preview                    |
+| Draft Question authoring                | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                    |
+| Draft Blueprint Revision contribution   | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
 | Course, roster, assignment              | `current_course_instructor`                    | Other courses and former memberships                  |
 | Run, attempt, response, grade, artifact | Student ownership or current course Instructor | Other Students, courses, and inactive records         |
 | Job, export, object, provider state     | Locked typed lease and durable target          | Caller-supplied scope and foreign targets             |
@@ -67,17 +69,16 @@ resolution and retained assignment references may resolve `deprecated` or
 
 ## Course relationships
 
-Current live `course_member` rows represent only Student and Instructor membership. Invitation
-acceptance verifies the target's current Instructor approval, invitation state, and roster revision
-in one transaction. Revocation serializes with protected reads and writes, so it takes effect
-immediately. Approval withdrawal likewise closes course-Instructor operations immediately.
+Current Course Membership episodes represent only Student and Instructor participation. Their
+Active or Ended state derives from immutable Course Membership Events. Course Invitation acceptance
+verifies the target's current Instructor Approval, exact Invitation state, and membership transition
+in one transaction. A revoked approval or ended membership closes course-Instructor operations
+immediately in the protected transaction.
 
-Future Grader, Course Observer, and Student Observer access uses a distinct
-`course_relationship` plus `course_capability_grant`. Each grant records a subject `AccountId`, exact
-`CourseId`, relationship kind, bounded capability set, issuer, lifecycle/revocation state, revision,
-audit identity, and required consent or disclosure policy. It is not a `course_member` row and does
-not satisfy current Student-owner, Instructor, roster, Gradebook, response, export, artifact,
-assignment-write, or worker predicates.
+Course Observer access uses the distinct Course Observer Relationship. It binds an Approved
+Instructor Account to one exact Course Instance for its closed answer-free read scope and never
+satisfies Student-owner, Teaching Team, Gradebook, response, export, Assignment-write, or worker
+predicates. Student Observer and Grader relationships remain separate future product designs.
 
 - A Grader receives only the bounded grading work in its completed relationship package.
 - A Course Observer receives a separately typed anonymous aggregate projection with disclosure
@@ -134,13 +135,13 @@ restores inherit the highest label of their inputs.
 
 | Family                                | Radioactive relations                                                                                                                                                                                                                                                          |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Roster and policy                     | `course_roster_member`, `course_invitation`, `course_roster_import_row`, `enrollment`, `assignment_policy_exception`                                                                                                                                                           |
-| Learner work and current results      | `student_assignment_summary`, `submission`, `submission_idempotency`, `submission_receipt_snapshot`, `submission_evaluation`, `attempt_feedback`, `attempt_score_current`                                                                                                      |
-| Scoring and course analysis           | `assignment_attempt_score_staging`, `assignment_summary_staging`, `course_item_analysis_current`, `course_item_analysis_staging`                                                                                                                                               |
-| Student exports                       | `student_export_request`, `student_export_artifact`, `course_grade_export_audit`                                                                                                                                                                                               |
-| Course and attempt linkage            | `course_member`, `course_group_member`, `course_roster_state`, `course_roster_import`, `assignment_run`, `assignment_run_item`, `question_attempt`, `question_prefetch`, `attempt_timing_current`, `feedback_release`, `submission_next_attempt`, `webwork_grade_replay_state` |
-| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `question_statistics_contribution_receipt`, `asset_delivery`, `record_access_log`, `audit_event`, `worker_job`                                                                                                       |
-| Retention evidence                    | `course_retention_cleanup_manifest_object`, `course_retention_purge_attempt`, `course_retention_purge_export`, `course_retention_purge_run`                                                                                                                                    |
+| Roster and invitation                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                               |
+| Student work and Gradebook evidence   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                     |
+| Course analysis                       | `course_assignment_analysis`, `assignment_item_analysis`, `course_analysis_evidence`                                                                                                                                                                                            |
+| Student exports                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                                                                                                       |
+| Course and attempt linkage            | `course_instance`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records                                                                              |
+| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery_record`, `object_delivery_access_event`, `worker_job`                                                                                                                                               |
+| Retention evidence                    | `course_retention_plan`, `retention_lifecycle_event`                                                                                                                                                                                                                            |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.
 Private source and answer-bearing grading material are highly restricted for assessment integrity,
@@ -152,7 +153,7 @@ Retention keeps shared published catalog content and private drafts outside cour
 Course Student records move through `active -> archived -> deleted`. The database centrally fences
 Student-facing records, exports, external-tool records, and course-record assets as archive or
 deletion starts. Authorized current Instructors may retain course and assignment definitions without
-restoring learner records. A retention broker uses the exact course/stage/generation manifest and a
+restoring student records. A retention broker uses the exact course/stage/generation manifest and a
 renewed lease, so stale work cannot commit after a newer retention generation.
 
 ## Fresh migration epoch
@@ -167,11 +168,11 @@ number in these ranges:
 | `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation |
 | `2026082907`-`2026082909` | Global immutable catalog, publication, discovery, and stewardship     |
 | `2026082910`-`2026082912` | Private authoring, Blueprints, collections, and saved searches         |
-| `2026082913`-`2026082916` | Courses, equal co-Instructors, Students, invitations, curricula       |
-| `2026082917`-`2026082920` | Assignments, schedules, runs, attempts, submissions, artifacts        |
+| `2026082913`-`2026082916` | Courses, equal Teaching Team Members, Students, invitations, curricula       |
+| `2026082917`-`2026082920` | Assignment Attempts, schedules, Issued Questions, submissions, artifacts |
 | `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, improvement threads           |
 | `2026082925`-`2026082928` | Typed jobs, exports, objects, retention, external-tool state          |
-| `2026082929`-`2026082934` | Capability brokers, forced RLS, grants, schema acceptance helpers, and Account Creation |
+| `2026082929`-`2026082935` | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, and Draft Blueprint Revision evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,
@@ -181,16 +182,16 @@ lease, and immutable-content identities rather than a legacy scope key.
 
 Permanent offline tests prove domain authorization, Store conformance, strict browser contracts,
 immutable evidence, grading, idempotency, revocation, and concealment. A data-driven operation
-matrix proves identical creator/co-Instructor allow and deny decisions in Memory and Store
+matrix proves identical creator/Teaching Team Member allow and deny decisions in Memory and Store
 conformance.
 
 Recurring service acceptance proves fresh migration convergence; RLS refusal without a resolved Account; Student
-self versus other-Student and other-course denial; co-Instructor mutation and Gradebook read;
+self versus other-Student and other-course denial; Teaching Team Member mutation and Gradebook read;
 immediate membership revocation and approval-withdrawal denial; narrow audited Sysadmin support;
 observer non-escalation; typed worker confused-deputy refusal; object delivery; external adapter;
 export; retention; cleanup; and migration idempotency/checksum status.
 
-Production-browser acceptance proves shared-catalog discovery/reuse, equal co-Instructor behavior,
+Production-browser acceptance proves shared-catalog discovery/reuse, equal Teaching Team Member behavior,
 immediate revocation, Student submission-to-Gradebook convergence, answer-free catalog responses,
 accessible interaction, and role-appropriate screenshots on the canonical real stack.
 

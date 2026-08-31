@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
-GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.course_instance_assignment_delivery
+GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.assignment
     TO ple_private_owner;
 RESET ROLE;
 
@@ -16,7 +16,7 @@ CREATE TABLE ple_private.assignment_export_request (
     requested_at timestamp with time zone NOT NULL,
     state text NOT NULL CHECK (state IN ('queued', 'ready', 'failed', 'cancelled')),
     CONSTRAINT assignment_export_request_assignment_matches FOREIGN KEY (course_id, assignment_id)
-        REFERENCES ple_data.course_instance_assignment_delivery (course_id, assignment_id),
+        REFERENCES ple_data.assignment (course_id, assignment_id),
     CONSTRAINT assignment_export_request_manifest_matches FOREIGN KEY (manifest_object_id, course_id)
         REFERENCES ple_private.course_object_metadata (object_id, course_id)
 );

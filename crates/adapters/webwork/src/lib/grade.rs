@@ -16,9 +16,9 @@ pub(super) async fn grade<R: WebworkRenderer>(
     response: &StudentResponse,
     replay: &WebworkReplayMappingV1,
 ) -> Result<GradeOutcome, WebworkAdapterError> {
-    let (problem, pg_path) = crate::artifact::webwork_identity(question)?;
+    let (question_version, pg_path) = crate::artifact::webwork_identity(question)?;
     crate::artifact::verify_source(source)?;
-    crate::artifact::verify_source_binding(source, problem, question.version)?;
+    crate::artifact::verify_source_binding(source, &question_version)?;
     let (points_possible, partial_credit) = match question.grading {
         question_model::GradingDefinition::AllOrNothing { points }
             if points.is_finite() && points >= 0.0 =>
@@ -48,12 +48,11 @@ pub(super) async fn grade<R: WebworkRenderer>(
             ));
         }
     };
-    let version = question.version.to_string();
     renderer
         .grade(GradeRequest {
             pg_source: &source.pg_source,
             pg_path,
-            version: &version,
+            question_version: &question_version,
             seed: seed.value(),
             response,
             replay,

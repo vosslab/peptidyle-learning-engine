@@ -25,7 +25,7 @@ impl ObjectStore for MemoryObjectStore {
         let record = ObjectRecord {
             id: request.key.object_id(),
             bucket: request.key.bucket(),
-            version: request.key.version_id(),
+            question_version: request.key.question_version().cloned(),
             sha256: Sha256Digest::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,

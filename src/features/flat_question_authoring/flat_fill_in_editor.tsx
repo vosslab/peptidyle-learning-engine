@@ -13,9 +13,9 @@ import {
 import type { FlatQuestionFillInResponse, FlatQuestionTextMatchMode } from "./flat_question_source";
 
 const MATCH_MODE_HELP: Readonly<Record<FlatQuestionTextMatchMode, string>> = {
-  exact: "Learners must use the same capitalization and spacing.",
-  caseInsensitive: "Learners may vary capitalization; spelling and spacing still need to match.",
-  normalized: "Learners may vary capitalization and ordinary spacing.",
+  exact: "Students must use the same capitalization and spacing.",
+  caseInsensitive: "Students may vary capitalization; spelling and spacing still need to match.",
+  normalized: "Students may vary capitalization and ordinary spacing.",
 };
 
 function isTextMatchMode(value: string): value is FlatQuestionTextMatchMode {
@@ -41,7 +41,7 @@ export function FlatFillInEditor(props: FlatFillInEditorProps): JSX.Element {
     <fieldset class="flat-question-authoring__fill-in">
       <legend>Accepted text answers</legend>
       <p class="flat-question-authoring__help">
-        Add the answer wording you will accept. Learners see the prompt and response limit, not this
+        Add the answer wording you will accept. Students see the prompt and response limit, not this
         list.
       </p>
       <Index each={props.response().answers}>
@@ -92,7 +92,7 @@ export function FlatFillInEditor(props: FlatFillInEditorProps): JSX.Element {
         </button>
       </div>
       <label class="flat-question-authoring__field">
-        <span>How should learner text match?</span>
+        <span>How should Student text match?</span>
         <select
           value={props.response().matchMode}
           disabled={props.disabled}
@@ -112,7 +112,7 @@ export function FlatFillInEditor(props: FlatFillInEditorProps): JSX.Element {
         </span>
       </label>
       <label class="flat-question-authoring__field">
-        <span>Maximum learner response length</span>
+        <span>Maximum Student response length</span>
         <input
           type="number"
           min="1"

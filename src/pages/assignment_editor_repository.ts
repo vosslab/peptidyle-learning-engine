@@ -2,8 +2,7 @@
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { AlphaCourseSummaryView } from "../../generated/api/AlphaCourseSummaryView";
-import type { BlueprintSummaryView } from "../../generated/api/BlueprintSummaryView";
+import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { ApiClient } from "../api/client";
 import { createCatalogRepository } from "../api/catalog_repository";
 import type { CatalogBrowsePage, CatalogBrowseQuery, CatalogBrowseRow } from "./library_page_model";
@@ -72,10 +71,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
   const reusableCurriculum = reusableCurriculumProblemPickerRepository(client);
   const problemPickerRepository: ProblemPickerSourceRepository = {
     async search(request: ProblemPickerSearchRequest): Promise<unknown> {
-      if (
-        request.source.kind === "personalBlueprint" ||
-        request.source.kind === "alphaCurriculum"
-      ) {
+      if (request.source.kind === "blueprintCourseAssignment") {
         return await reusableCurriculum.search(request);
       }
       if (request.source.kind !== "retainedAssignment")
@@ -123,17 +119,14 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       course,
       exclude,
     ): Promise<ReadonlyArray<ProblemPickerSource>> => {
-      const collections = await client.listProblemCollections();
+      const collections = await client.listQuestionCollections();
       const reusable = await listReusableAssignments(client, course, exclude);
-      const blueprints = await listAllBlueprints(client);
-      const alphaCourses = await listAllAlphaCourses(client);
-      const alphaDefinitions = await listAlphaDefinitionSources(client, alphaCourses);
+      const blueprintCourses = await listAllBlueprintCourses(client);
+      const blueprintAssignments = await listBlueprintAssignmentSources(client, blueprintCourses);
       return [
         { kind: "catalog", label: "Library" },
         { kind: "mine", label: "My published questions" },
-        { kind: "favorites", label: "Favorites" },
         ...collections.items
-          .filter((collection) => collection.kind === "named")
           .map((collection) => ({
             kind: "collection" as const,
             label: collection.title,
@@ -144,12 +137,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
           label: `Assignment: ${assignment.title}`,
           retainedAssignment: { course, assignment: assignment.assignmentId },
         })),
-        ...blueprints.map((blueprint) => ({
-          kind: "personalBlueprint" as const,
-          label: `Blueprint: ${blueprint.title}`,
-          blueprint: blueprint.reference,
-        })),
-        ...alphaDefinitions,
+        ...blueprintAssignments,
       ];
     },
     listReusableAssignments: async (course, exclude): Promise<ReadonlyArray<ReusableAssignment>> =>
@@ -193,53 +181,42 @@ async function listReusableAssignments(
   }));
 }
 
-async function listAllBlueprints(client: ApiClient): Promise<ReadonlyArray<BlueprintSummaryView>> {
-  const items: BlueprintSummaryView[] = [];
+async function listAllBlueprintCourses(
+  client: ApiClient,
+): Promise<ReadonlyArray<BlueprintCourseSummaryView>> {
+  const items: BlueprintCourseSummaryView[] = [];
   let cursor: string | undefined;
   const seenCursors = new Set<string>();
   while (true) {
-    const page = await client.listBlueprints(cursor);
+    const page = await client.listBlueprintCourses(cursor);
     items.push(...page.items);
     if (page.nextCursor === null) return items;
     if (seenCursors.has(page.nextCursor))
-      throw new Error("Blueprint pagination repeated a cursor.");
+      throw new Error("Blueprint Course pagination repeated a cursor.");
     seenCursors.add(page.nextCursor);
     cursor = page.nextCursor;
   }
 }
 
-async function listAllAlphaCourses(
+async function listBlueprintAssignmentSources(
   client: ApiClient,
-): Promise<ReadonlyArray<AlphaCourseSummaryView>> {
-  const items: AlphaCourseSummaryView[] = [];
-  let cursor: string | undefined;
-  const seenCursors = new Set<string>();
-  while (true) {
-    const page = await client.listAlphaCourses(cursor);
-    items.push(...page.items);
-    if (page.nextCursor === null) return items;
-    if (seenCursors.has(page.nextCursor))
-      throw new Error("Alpha curriculum pagination repeated a cursor.");
-    seenCursors.add(page.nextCursor);
-    cursor = page.nextCursor;
-  }
-}
-
-async function listAlphaDefinitionSources(
-  client: ApiClient,
-  alphaCourses: Awaited<ReturnType<ApiClient["listAlphaCourses"]>>["items"],
-): Promise<ReadonlyArray<Extract<ProblemPickerSource, { readonly kind: "alphaCurriculum" }>>> {
+  courses: Awaited<ReturnType<ApiClient["listBlueprintCourses"]>>["items"],
+): Promise<
+  ReadonlyArray<Extract<ProblemPickerSource, { readonly kind: "blueprintCourseAssignment" }>>
+> {
   const currentCourses = await Promise.all(
-    alphaCourses.map(async (alpha) => await client.getAlphaCourse(alpha.reference)),
+    courses.map(async (course) => await client.getBlueprintCourse(course.reference)),
   );
-  return currentCourses.flatMap(({ alpha }) =>
-    alpha.modules.flatMap((module, moduleIndex) =>
-      module.definitions.map((definition, assignmentIndex) => ({
-        kind: "alphaCurriculum" as const,
-        alpha: alpha.reference,
-        modulePosition: moduleIndex + 1,
-        assignmentPosition: assignmentIndex + 1,
-        label: `Alpha: ${alpha.title} - ${module.label} - ${definition.title}`,
+  return currentCourses.flatMap(({ blueprintCourse }) =>
+    blueprintCourse.modules.flatMap((module) =>
+      module.definitions.map((definition) => ({
+        kind: "blueprintCourseAssignment" as const,
+        source: {
+          reference: blueprintCourse.reference,
+          revision: blueprintCourse.revision,
+          assignment_id: definition.assignment_id,
+        },
+        label: `Blueprint Course: ${blueprintCourse.title} - ${module.label} - ${definition.definition.title}`,
       })),
     ),
   );

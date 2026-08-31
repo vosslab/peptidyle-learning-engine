@@ -86,10 +86,6 @@ def require_declared_topology_resources(
 	# leave a labelled container that the normal Compose down operation owns.
 	allowed_services.update(local_stack_control.models.CLEANUP_ONLY_SERVICES)
 	allowed_volumes = set(local_stack_control.models.DECLARED_BASE_VOLUMES)
-	if target.with_smtp:
-		allowed_services.update(local_stack_control.models.SMTP_ONE_SHOT_SERVICES)
-		allowed_services.update(local_stack_control.models.SMTP_LONG_RUNNING_SERVICES)
-		allowed_volumes.update(local_stack_control.models.DECLARED_SMTP_VOLUMES)
 	unknown_services = sorted(
 		{
 			container.service
@@ -162,18 +158,12 @@ def reset_plan(
 		target,
 		["down", "--volumes", "--remove-orphans"],
 	)
-	base_course_manifest = (
-		target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
-	)
-	chapter_manifest = (
-		target.repo_root / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
-	)
 	plan = local_stack_control.models.CleanupPlan(
 		project=target.project,
 		snapshot=snapshot,
 		argv=tuple(argv),
 		removes_volumes=True,
-		host_paths_to_remove=(base_course_manifest, chapter_manifest),
+		host_paths_to_remove=(),
 	)
 	return plan
 

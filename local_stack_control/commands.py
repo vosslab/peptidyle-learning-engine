@@ -30,9 +30,7 @@ def authorize_start_target(target: local_stack_control.models.ComposeTarget) -> 
 		local_stack_control.compose.require_default_mutation_target(target)
 		return
 	expected_env_file = (target.repo_root / local_stack_control.models.DEFAULT_ENV_FILE).absolute()
-	expected_compose_files = local_stack_control.compose.compose_files(
-		target.repo_root, target.with_smtp
-	)
+	expected_compose_files = local_stack_control.compose.compose_files(target.repo_root)
 	if (
 		target.project != local_stack_control.models.DEFAULT_PROJECT
 		or target.env_file != expected_env_file
@@ -103,7 +101,6 @@ def target_from_args(
 		runner,
 		repo_root,
 		args.env_file,
-		args.with_smtp,
 		project,
 		allow_missing_env,
 	)
@@ -387,12 +384,9 @@ def logs(
 	target = target_from_args(args, runner, repo_root)
 	allowed = set(local_stack_control.models.BASE_LONG_RUNNING_SERVICES)
 	allowed.update(local_stack_control.models.BASE_ONE_SHOT_SERVICES)
-	if target.with_smtp:
-		allowed.update(local_stack_control.models.SMTP_ONE_SHOT_SERVICES)
-		allowed.update(local_stack_control.models.SMTP_LONG_RUNNING_SERVICES)
 	services = list(args.services)
 	if len(services) == 0:
-		services = ["gateway", "api", "worker"]
+		services = ["gateway", "api"]
 	unknown = sorted(set(services) - allowed)
 	if len(unknown) > 0:
 		raise local_stack_control.models.ControllerError(
@@ -502,7 +496,7 @@ def restart(
 ) -> int:
 	"""Restart one allowed stateless service through the lifecycle owner."""
 	target = target_from_args(args, runner, repo_root)
-	if args.service not in local_stack_control.models.restartable_services(target.with_smtp):
+	if args.service not in local_stack_control.models.restartable_services():
 		raise local_stack_control.models.ControllerError(
 			"restart is limited to stateless services in the selected topology"
 		)

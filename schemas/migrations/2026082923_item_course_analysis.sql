@@ -17,11 +17,11 @@ CREATE TABLE ple_data.course_assignment_analysis (
 CREATE TABLE ple_data.assignment_item_analysis (
     item_analysis_id uuid PRIMARY KEY,
     analysis_id uuid NOT NULL REFERENCES ple_data.course_assignment_analysis (analysis_id) ON DELETE CASCADE,
-    problem_id uuid NOT NULL,
-    version_id uuid NOT NULL,
+    question_id text NOT NULL,
+    version_number integer NOT NULL,
     graded_attempt_count integer NOT NULL CHECK (graded_attempt_count >= 0),
     aggregate jsonb NOT NULL CHECK (jsonb_typeof(aggregate) = 'object'),
-    CONSTRAINT assignment_item_analysis_version_is_unique UNIQUE (analysis_id, problem_id, version_id)
+    CONSTRAINT assignment_item_analysis_version_is_unique UNIQUE (analysis_id, question_id, version_number)
 );
 GRANT USAGE ON SCHEMA ple_data TO ple_audit_owner;
 GRANT REFERENCES ON TABLE ple_data.course_assignment_analysis TO ple_audit_owner;

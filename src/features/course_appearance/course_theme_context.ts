@@ -3,12 +3,19 @@
 import { createContext, useContext } from "solid-js";
 
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
-import type { CourseRouteData, RunScreenData, RunSummaryResponse } from "../../api/contracts";
+import type {
+  AssignmentAttemptScreenData,
+  AssignmentAttemptSummaryResponse,
+  CourseRouteData,
+} from "../../api/contracts";
 
 export type CourseThemeRouteData =
   | { readonly kind: "course"; readonly course: CourseRouteData }
-  | { readonly kind: "runAttempt"; readonly screen: RunScreenData }
-  | { readonly kind: "runSummary"; readonly response: RunSummaryResponse };
+  | { readonly kind: "assignmentAttempt"; readonly screen: AssignmentAttemptScreenData }
+  | {
+      readonly kind: "assignmentAttemptSummary";
+      readonly response: AssignmentAttemptSummaryResponse;
+    };
 
 export const CourseThemeRouteContext = createContext<CourseThemeRouteData>();
 export const CourseThemePresentationContext =
@@ -19,9 +26,9 @@ export function courseRouteData(data: CourseThemeRouteData): CourseRouteData {
   switch (data.kind) {
     case "course":
       return data.course;
-    case "runAttempt":
+    case "assignmentAttempt":
       return data.screen.course;
-    case "runSummary":
+    case "assignmentAttemptSummary":
       return data.response.course;
   }
 }

@@ -20,8 +20,7 @@ import { parseCourseReference } from "../navigation/public_route";
 
 export type CourseRosterRole = "student";
 export type CourseRosterMemberStatus = "active" | "revoked";
-export type CourseInvitationStatus = "pending" | "claimed" | "revoked" | "expired";
-export type CourseSignupPosture = "invitationOnly" | "permittedDomains";
+export type CourseInvitationState = "pending" | "accepted" | "revoked" | "expired";
 /** Coarse delivery state; never evidence that a recipient mailbox received mail. */
 export type CourseInvitationEmailDelivery =
   "queued" | "sentToProvider" | "needsAttention" | "cancelled";
@@ -37,7 +36,8 @@ export interface ClaimedCourseInvitation {
   readonly membershipStatus: "active";
 }
 
-export interface AllowedEmailDomain {
+/** One normalized domain condition within a Course Invitation Email Rule. */
+export interface CourseInvitationEmailDomain {
   readonly domain: string;
   readonly includeSubdomains: boolean;
 }
@@ -55,7 +55,7 @@ export interface PendingCourseInvitation {
   readonly invitationId: string;
   readonly email: string;
   readonly rosterId: string;
-  readonly status: CourseInvitationStatus;
+  readonly status: CourseInvitationState;
   readonly expiresAt: number;
 }
 
@@ -65,15 +65,14 @@ interface CourseRosterPageBase {
   readonly rosterRevision: number;
 }
 
-/** Email enrollment is available only from a configured email-capable composition. */
-export interface EmailEnrollmentRosterPage extends CourseRosterPageBase {
-  readonly rosterMode: "emailEnrollment";
+/** Course invitations are available only from a configured email-capable composition. */
+export interface CourseInvitationRosterPage extends CourseRosterPageBase {
+  readonly rosterMode: "courseInvitations";
   readonly pendingInvitations: ReadonlyArray<PendingCourseInvitation>;
-  readonly allowedEmailDomains: ReadonlyArray<AllowedEmailDomain>;
-  readonly signupPosture: CourseSignupPosture;
+  readonly allowedEmailDomains: ReadonlyArray<CourseInvitationEmailDomain>;
 }
 
-export type CourseRosterPage = EmailEnrollmentRosterPage;
+export type CourseRosterPage = CourseInvitationRosterPage;
 
 export interface CourseInvitationAccepted {
   readonly invitation: PendingCourseInvitation;
@@ -81,9 +80,8 @@ export interface CourseInvitationAccepted {
   readonly emailDelivery: CourseInvitationEmailDelivery;
 }
 
-export interface CourseEnrollmentPolicyResult {
-  readonly allowedEmailDomains: ReadonlyArray<AllowedEmailDomain>;
-  readonly signupPosture: CourseSignupPosture;
+export interface CourseInvitationEmailRule {
+  readonly allowedEmailDomains: ReadonlyArray<CourseInvitationEmailDomain>;
   readonly rosterRevision: number;
 }
 
@@ -141,11 +139,11 @@ export interface CourseRosterClient {
     memberId: string,
     rosterRevision: number,
   ) => Promise<RosterRevisionResult>;
-  readonly replaceCourseEnrollmentPolicy: (
+  readonly replaceCourseInvitationEmailRule: (
     courseId: CourseId,
-    policy: Omit<CourseEnrollmentPolicyResult, "rosterRevision">,
+    rule: Omit<CourseInvitationEmailRule, "rosterRevision">,
     rosterRevision: number,
-  ) => Promise<CourseEnrollmentPolicyResult>;
+  ) => Promise<CourseInvitationEmailRule>;
   readonly previewRosterImport: (
     courseId: CourseId,
     csv: Blob,
@@ -170,12 +168,6 @@ function positiveRevision(value: unknown, path: string): number {
   return revision;
 }
 
-function decodeTrueField(record: Record<string, unknown>, key: string, path: string): true {
-  const value = decodeBoolean(field(record, key, path), `${path}.${key}`);
-  if (!value) throw new DecodeError(`${path}.${key}`, "true");
-  return true;
-}
-
 export function decodeClaimedCourseInvitation(
   value: unknown,
   path = "response",
@@ -198,7 +190,10 @@ export function decodeClaimedCourseInvitation(
   };
 }
 
-function decodeAllowedDomain(value: unknown, path: string): AllowedEmailDomain {
+function decodeCourseInvitationEmailDomain(
+  value: unknown,
+  path: string,
+): CourseInvitationEmailDomain {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["domain", "includeSubdomains"]);
   return {
@@ -250,7 +245,7 @@ function decodeInvitation(value: unknown, path: string): PendingCourseInvitation
     rosterId: decodeNonemptyString(field(record, "rosterId", path), `${path}.rosterId`),
     status: decodeStringEnum(field(record, "status", path), `${path}.status`, [
       "pending",
-      "claimed",
+      "accepted",
       "revoked",
       "expired",
     ]),
@@ -271,10 +266,9 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     "rosterRevision",
     "pendingInvitations",
     "allowedEmailDomains",
-    "signupPosture",
   ]);
   const rosterMode = decodeStringEnum(field(record, "rosterMode", path), `${path}.rosterMode`, [
-    "emailEnrollment",
+    "courseInvitations",
   ]);
   const members = decodeArray(
     field(record, "members", path),
@@ -307,12 +301,8 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     allowedEmailDomains: decodeArray(
       field(record, "allowedEmailDomains", path),
       `${path}.allowedEmailDomains`,
-      decodeAllowedDomain,
+      decodeCourseInvitationEmailDomain,
     ),
-    signupPosture: decodeStringEnum(field(record, "signupPosture", path), `${path}.signupPosture`, [
-      "invitationOnly",
-      "permittedDomains",
-    ]),
   };
 }
 
@@ -341,22 +331,18 @@ export function decodeCourseInvitationAccepted(
   };
 }
 
-export function decodeCourseEnrollmentPolicyResult(
+export function decodeCourseInvitationEmailRule(
   value: unknown,
   path = "response",
-): CourseEnrollmentPolicyResult {
+): CourseInvitationEmailRule {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["allowedEmailDomains", "signupPosture", "rosterRevision"]);
+  requireOnlyFields(record, path, ["allowedEmailDomains", "rosterRevision"]);
   return {
     allowedEmailDomains: decodeArray(
       field(record, "allowedEmailDomains", path),
       `${path}.allowedEmailDomains`,
-      decodeAllowedDomain,
+      decodeCourseInvitationEmailDomain,
     ),
-    signupPosture: decodeStringEnum(field(record, "signupPosture", path), `${path}.signupPosture`, [
-      "invitationOnly",
-      "permittedDomains",
-    ]),
     rosterRevision: decodeRosterRevision(
       field(record, "rosterRevision", path),
       `${path}.rosterRevision`,

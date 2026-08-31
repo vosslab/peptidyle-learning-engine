@@ -1,18 +1,18 @@
-// assignment_workspace_policy_panel.tsx - workspace-owned run-policy controls.
+// assignment_workspace_policy_panel.tsx - workspace-owned Assignment activity-rule controls.
 
 import { Show, type JSX } from "solid-js";
 
 import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
 import type { StudentDisclosureTiming } from "../../../generated/api/StudentDisclosureTiming";
-import type { RunPolicies } from "../../../generated/api/RunPolicies";
+import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 
 import type {
   PolicyFocusTarget,
-  RunPolicyDraft,
-  RunPolicyDraftField,
+  AssignmentActivityRuleDraft,
+  AssignmentActivityRuleDraftField,
 } from "./assignment_workspace_policy_model";
 
-function gradePolicy(value: string): RunPolicies["grade"] {
+function gradePolicy(value: string): AssignmentActivityRules["grade"] {
   if (
     value === "first" ||
     value === "latest" ||
@@ -24,7 +24,7 @@ function gradePolicy(value: string): RunPolicies["grade"] {
   throw new Error("Grade policy selection is invalid");
 }
 
-function variationPolicy(value: string): RunPolicies["variation"] {
+function variationPolicy(value: string): AssignmentActivityRules["variation"] {
   if (value === "newSeeds" || value === "selectedProblemVariants" || value === "fullRegeneration") {
     return value;
   }
@@ -53,25 +53,25 @@ const disclosureTimingOptions: ReadonlyArray<readonly [StudentDisclosureTiming, 
 ];
 
 interface AssignmentWorkspacePolicyPanelProps {
-  readonly policies: () => RunPolicies;
+  readonly policies: () => AssignmentActivityRules;
   readonly disclosurePolicy: () => StudentDisclosurePolicy;
-  readonly runPolicyDraft: () => RunPolicyDraft;
-  readonly runPolicyFieldError: (field: RunPolicyDraftField) => string | undefined;
+  readonly activityRuleDraft: () => AssignmentActivityRuleDraft;
+  readonly activityRuleFieldError: (field: AssignmentActivityRuleDraftField) => string | undefined;
   readonly variationPolicyError: () => string | undefined;
-  readonly onPoliciesChange: (policies: RunPolicies) => void;
-  readonly onVariationChange: (policies: RunPolicies) => void;
+  readonly onPoliciesChange: (policies: AssignmentActivityRules) => void;
+  readonly onVariationChange: (policies: AssignmentActivityRules) => void;
   readonly onDisclosurePolicyChange: (policy: StudentDisclosurePolicy) => void;
-  readonly onRunPolicyDraftChange: (field: RunPolicyDraftField, raw: string) => void;
-  readonly onCompletionKindChange: (kind: RunPolicies["completion"]["kind"]) => void;
-  readonly onContinuedPracticeKindChange: (kind: RunPolicies["continuedPractice"]["kind"]) => void;
-  readonly onRegisterRunPolicyControl: (
-    field: RunPolicyDraftField,
+  readonly onActivityRuleDraftChange: (field: AssignmentActivityRuleDraftField, raw: string) => void;
+  readonly onCompletionKindChange: (kind: AssignmentActivityRules["completion"]["kind"]) => void;
+  readonly onContinuedPracticeKindChange: (kind: AssignmentActivityRules["continuedPractice"]["kind"]) => void;
+  readonly onRegisterActivityRuleControl: (
+    field: AssignmentActivityRuleDraftField,
     element: HTMLInputElement,
   ) => void;
   readonly onRegisterPolicyControl: (field: PolicyFocusTarget, element: HTMLElement) => void;
 }
 
-/** The workspace page owns the aggregate save; this panel only owns visible run-policy controls. */
+/** The workspace page owns the aggregate save; this panel only owns visible Assignment activity-rule controls. */
 export function AssignmentWorkspacePolicyPanel(
   props: AssignmentWorkspacePolicyPanelProps,
 ): JSX.Element {
@@ -85,9 +85,9 @@ export function AssignmentWorkspacePolicyPanel(
   return (
     <section
       class="assignment-editor-policy-panel assignment-editor-policy-panel--run"
-      aria-labelledby="assignment-run-policies-heading"
+      aria-labelledby="assignment-rules-heading"
     >
-      <h2 id="assignment-run-policies-heading">Run policies</h2>
+      <h2 id="assignment-rules-heading">Assignment rules</h2>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--completion">
         <legend>Completion requirement</legend>
         <label class="assignment-editor-field">
@@ -112,24 +112,24 @@ export function AssignmentWorkspacePolicyPanel(
             Required score fraction
             <input
               type="number"
-              ref={(element) => props.onRegisterRunPolicyControl("completionFraction", element)}
+              ref={(element) => props.onRegisterActivityRuleControl("completionFraction", element)}
               min="0"
               max="1"
               step="0.05"
-              value={props.runPolicyDraft().completionFraction}
-              aria-invalid={props.runPolicyFieldError("completionFraction") !== undefined}
+              value={props.activityRuleDraft().completionFraction}
+              aria-invalid={props.activityRuleFieldError("completionFraction") !== undefined}
               aria-describedby={
-                props.runPolicyFieldError("completionFraction") === undefined
+                props.activityRuleFieldError("completionFraction") === undefined
                   ? undefined
                   : "assignment-policies-completionFraction-error"
               }
               onInput={(event) =>
-                props.onRunPolicyDraftChange("completionFraction", event.currentTarget.value)
+                props.onActivityRuleDraftChange("completionFraction", event.currentTarget.value)
               }
             />
             <FieldError
               id="assignment-policies-completionFraction-error"
-              message={props.runPolicyFieldError("completionFraction")}
+              message={props.activityRuleFieldError("completionFraction")}
             />
           </label>
         </Show>
@@ -148,10 +148,10 @@ export function AssignmentWorkspacePolicyPanel(
               })
             }
           >
-            <option value="highest">Highest run score</option>
-            <option value="latest">Latest run score</option>
-            <option value="first">First run score</option>
-            <option value="instructorSelected">Instructor-selected run</option>
+            <option value="highest">Highest Assignment Attempt score</option>
+            <option value="latest">Latest Assignment Attempt score</option>
+            <option value="first">First Assignment Attempt score</option>
+            <option value="instructorSelected">Instructor-selected Assignment Attempt</option>
           </select>
         </label>
       </fieldset>
@@ -170,32 +170,32 @@ export function AssignmentWorkspacePolicyPanel(
             }}
           >
             <option value="unlimited">Allow unlimited practice</option>
-            <option value="capped">Limit additional runs</option>
+            <option value="capped">Limit additional Assignment Attempts</option>
             <option value="closed">Close after completion</option>
           </select>
         </label>
         <Show when={props.policies().continuedPractice.kind === "capped"}>
           <label class="assignment-editor-field">
-            Additional runs
+            Additional Assignment Attempts
             <input
               type="number"
-              ref={(element) => props.onRegisterRunPolicyControl("additionalRuns", element)}
+              ref={(element) => props.onRegisterActivityRuleControl("additionalRuns", element)}
               min="0"
               step="1"
-              value={props.runPolicyDraft().additionalRuns}
-              aria-invalid={props.runPolicyFieldError("additionalRuns") !== undefined}
+              value={props.activityRuleDraft().additionalRuns}
+              aria-invalid={props.activityRuleFieldError("additionalRuns") !== undefined}
               aria-describedby={
-                props.runPolicyFieldError("additionalRuns") === undefined
+                props.activityRuleFieldError("additionalRuns") === undefined
                   ? undefined
                   : "assignment-policies-additionalRuns-error"
               }
               onInput={(event) =>
-                props.onRunPolicyDraftChange("additionalRuns", event.currentTarget.value)
+                props.onActivityRuleDraftChange("additionalRuns", event.currentTarget.value)
               }
             />
             <FieldError
               id="assignment-policies-additionalRuns-error"
-              message={props.runPolicyFieldError("additionalRuns")}
+              message={props.activityRuleFieldError("additionalRuns")}
             />
           </label>
         </Show>
@@ -203,7 +203,7 @@ export function AssignmentWorkspacePolicyPanel(
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--variation">
         <legend>Variation policy</legend>
         <label class="assignment-editor-field">
-          Next practice run
+          Next practice Assignment Attempt
           <select
             aria-label="Variation policy"
             ref={(element) => props.onRegisterPolicyControl("variation", element)}

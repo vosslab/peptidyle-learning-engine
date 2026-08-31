@@ -1,4 +1,4 @@
-// Visible automated-grading helpers for connected learner journeys.
+// Visible automated-grading helpers for connected student journeys.
 //
 // Selector contract:
 // - src/pages/run_page.tsx:441 owns the run-attempt identity surface.

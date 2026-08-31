@@ -56,7 +56,7 @@ test("session expiry, reauthentication, and page retry submit one saved response
         },
         feedback: null,
         scoringStatus: "current",
-        runCompletionStatus: "inProgress",
+        assignmentAttemptCompletion: "inProgress",
         nextIssued: null,
         nextPending: false,
       };
@@ -144,7 +144,7 @@ test("the response controller exposes 422 and receipt failures for correction be
           },
           feedback: null,
           scoringStatus: "current",
-          runCompletionStatus: "inProgress",
+          assignmentAttemptCompletion: "inProgress",
           nextIssued: null,
           nextPending: false,
         };

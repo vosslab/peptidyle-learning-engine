@@ -71,7 +71,7 @@ For an instructor, **Courses is the home workspace**: it lists recognizable cour
 one. Library owns published-question discovery, Workspace owns drafts, and Account owns personal
 settings. Do not add a generic Dashboard dropdown that merely duplicates those destinations or hides
 them behind another navigation step. Once an instructor opens a course, its local navigation owns
-assignments, learners, gradebook, and appearance. Add a future dashboard only when it answers a
+assignments, students, gradebook, and appearance. Add a future dashboard only when it answers a
 distinct cross-course monitoring task that these object-centered workspaces cannot answer directly.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,

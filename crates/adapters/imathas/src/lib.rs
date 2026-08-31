@@ -50,8 +50,6 @@ mod tests;
 #[cfg(test)]
 use async_trait::async_trait;
 #[cfg(test)]
-use learning_data_access::PublishedSourceArtifact;
-#[cfg(test)]
 use objects::{ObjectKey, ObjectStore, PutObject};
 #[cfg(test)]
 use question_model::envelope::ContentBlock;
@@ -59,8 +57,8 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::Seed;
 #[cfg(test)]
 use question_model::{
-    ActivityTimestamp, AttemptResult, ObjectId, ProblemId, QuestionAttemptId, QuestionDefinition,
-    QuestionSource, VersionId,
+    ActivityTimestamp, AttemptResult, ObjectId, QuestionAttemptId, QuestionDefinition, QuestionId,
+    QuestionSource, QuestionVersionNumber, QuestionVersionReference, SourceArtifact,
 };
 #[cfg(test)]
 use sha2::{Digest, Sha256};

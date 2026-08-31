@@ -3,7 +3,7 @@
 import type { ChoiceId } from "../../generated/api/ChoiceId";
 import type { AssetBindingV1 } from "../../generated/api/AssetBindingV1";
 import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
-import type { AttemptTimerRecord } from "../../generated/api/AttemptTimerRecord";
+import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
 import type { BackendCapabilities } from "../../generated/api/BackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
 import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
@@ -17,7 +17,8 @@ import type { RandomizationDefinition } from "../../generated/api/RandomizationD
 import type { SelectionCardinality } from "../../generated/api/SelectionCardinality";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
-import type { VersionId } from "../../generated/api/VersionId";
+import type { QuestionVersionReference } from "../../generated/api/QuestionVersionReference";
+import { decodeQuestionVersionReference } from "../api/decoders/shared";
 import { decodeKeyFreeDraftPreview } from "../api/decoders/question_model";
 
 export type ResponseFormatViolation =
@@ -55,7 +56,7 @@ export type FormatValidator = (
 
 export interface TimerEvaluation {
   readonly policy: TimingPolicy;
-  readonly timer: AttemptTimerRecord;
+  readonly timing: QuestionAttemptTiming;
   readonly evaluatedAt: ActivityTimestamp;
   readonly pauseExtensionMillis: number;
 }
@@ -76,7 +77,7 @@ export interface AssignmentConfig {
 }
 
 export interface CapabilityViolation {
-  readonly question: VersionId;
+  readonly question: QuestionVersionReference;
   readonly capability: Capability;
 }
 
@@ -347,7 +348,11 @@ function parseCapabilityViolations(json: string): ReadonlyArray<CapabilityViolat
       throw new Error("WASM capability violation must be an object");
     }
     return {
-      question: requiredString(entry, "question"),
+      question: decodeQuestionVersionReference(
+        entry["question"],
+        "capabilityViolation.question",
+        true,
+      ),
       capability: parseCapability(entry["capability"]),
     };
   });

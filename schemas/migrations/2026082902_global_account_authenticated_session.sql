@@ -42,7 +42,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.account (
     account_id uuid PRIMARY KEY,
     role text NOT NULL,
-    provisioned_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone NOT NULL,
     CONSTRAINT account_role_is_closed CHECK (
         role IN ('student', 'instructor', 'sysadmin')
     ),
@@ -59,7 +59,7 @@ AS $$
 BEGIN
     IF NEW.account_id IS DISTINCT FROM OLD.account_id
        OR NEW.role IS DISTINCT FROM OLD.role
-       OR NEW.provisioned_at IS DISTINCT FROM OLD.provisioned_at THEN
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION USING
             ERRCODE = '23514',
             MESSAGE = 'an account identity and role are immutable';
@@ -72,6 +72,30 @@ CREATE TRIGGER account_identity_is_immutable
 BEFORE UPDATE ON ple_private.account
 FOR EACH ROW
 EXECUTE FUNCTION ple_private.reject_account_identity_change();
+
+-- ASVS 8.2.2 and 8.3.1: Account State is append-only and independently
+-- governs authentication; it never rewrites the immutable Product Role.
+CREATE TABLE ple_private.account_state_event (
+    event_id uuid PRIMARY KEY,
+    account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    state text NOT NULL CHECK (state IN ('active', 'suspended', 'closed')),
+    occurred_at timestamp with time zone NOT NULL,
+    reason text,
+    CONSTRAINT account_state_event_reason_is_present_for_restriction CHECK (
+        state = 'active' OR char_length(btrim(reason)) BETWEEN 1 AND 1000
+    )
+);
+CREATE FUNCTION ple_private.record_initial_account_state()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
+BEGIN
+    INSERT INTO ple_private.account_state_event (event_id, account_id, state, occurred_at)
+    VALUES (NEW.account_id, NEW.account_id, 'active', NEW.created_at);
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER account_creation_records_active_state
+AFTER INSERT ON ple_private.account
+FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_state();
 
 -- The opaque browser credential is never stored or selected.  Its fixed-size
 -- digest and the composite foreign key bind every session to the account's
@@ -138,6 +162,21 @@ CREATE TRIGGER authenticated_session_identity_is_immutable
 BEFORE UPDATE ON ple_private.authenticated_session
 FOR EACH ROW
 EXECUTE FUNCTION ple_private.reject_authenticated_session_identity_change();
+
+CREATE FUNCTION ple_private.revoke_sessions_after_account_restriction()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
+BEGIN
+    IF NEW.state IN ('suspended', 'closed') THEN
+        UPDATE ple_private.authenticated_session
+           SET revoked_at = NEW.occurred_at
+         WHERE account_id = NEW.account_id AND revoked_at IS NULL;
+    END IF;
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER account_restriction_revokes_sessions
+AFTER INSERT ON ple_private.account_state_event
+FOR EACH ROW EXECUTE FUNCTION ple_private.revoke_sessions_after_account_restriction();
 
 ALTER TABLE ple_private.account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.account FORCE ROW LEVEL SECURITY;

@@ -8,16 +8,6 @@ const PHASES = {
     child: ["response_selected", "network_recovery_visible", "completed"],
     owner: ["gateway_stopped", "gateway_recovered"],
   },
-  deterministic_grader_exception: {
-    child: [
-      "submission_ready",
-      "accepted_pending_visible",
-      "fault_worker_exception_visible",
-      "instructor_retry_visible",
-      "completed",
-    ],
-    owner: ["ordinary_worker_stopped", "fault_worker_started", "ordinary_worker_recovered"],
-  },
 } as const;
 const MAXIMUM_MESSAGE_BYTES = 256;
 const MAXIMUM_SOCKET_PATH_BYTES = 100;

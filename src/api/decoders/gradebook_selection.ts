@@ -4,7 +4,7 @@ import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/a
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
 import type { GradingOperationReference } from "../../../generated/api/GradingOperationReference";
-import type { RunReference } from "../../../generated/api/RunReference";
+import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import {
   DecodeError,
   decodeBoolean,
@@ -28,7 +28,7 @@ export type AssignmentInspectionChoice =
   | {
       readonly kind: "selectedRun";
       readonly basis: (typeof RUN_SELECTION_BASES)[number];
-      readonly run: RunReference;
+      readonly run: AssignmentAttemptReference;
       readonly submittedAt: number;
     }
   | { readonly kind: "chooseRun"; readonly completedRunCount: number }
@@ -65,7 +65,7 @@ export type GradebookSelectionResult =
     };
 
 export interface SubmittedRunChoice {
-  readonly run: RunReference;
+  readonly run: AssignmentAttemptReference;
   readonly submittedAt: number;
   readonly scoreSelected: boolean;
 }

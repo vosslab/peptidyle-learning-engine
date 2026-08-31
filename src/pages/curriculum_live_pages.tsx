@@ -4,7 +4,6 @@ import { useParams } from "@solidjs/router";
 import { createSignal, onMount, type JSX } from "solid-js";
 
 import { createCatalogRepository } from "../api/catalog_repository";
-import type { CurriculumAdoptionClient } from "../api/curriculum_adoption";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
 import {
@@ -17,7 +16,6 @@ import { CurriculumRoutePage } from "./curriculum_route_page";
 
 interface CurriculumRouteComposition {
   readonly client: ReturnType<typeof useApiRuntime>["client"];
-  readonly adoptionClient: CurriculumAdoptionClient;
   readonly pickerRepository: ReturnType<typeof createProblemCurationRepository>["picker"];
   readonly pickerSources: () => ReturnType<typeof problemCurationPickerSources>;
 }
@@ -30,7 +28,7 @@ function useCurriculumRouteComposition(): CurriculumRouteComposition {
   const curation = createProblemCurationRepository(runtime.client, catalog);
   const [collections, setCollections] = createSignal<
     ReadonlyArray<
-      import("../../generated/api/ProblemCollectionSummaryView").ProblemCollectionSummaryView
+      import("../../generated/api/QuestionCollectionSummaryView").QuestionCollectionSummaryView
     >
   >([]);
 
@@ -43,7 +41,6 @@ function useCurriculumRouteComposition(): CurriculumRouteComposition {
 
   return {
     client: runtime.client,
-    adoptionClient: runtime.client,
     pickerRepository: curation.picker,
     pickerSources: (): ReturnType<typeof problemCurationPickerSources> => {
       const sessionState = session.state();
@@ -57,7 +54,7 @@ function useCurriculumRouteComposition(): CurriculumRouteComposition {
   };
 }
 
-/** `/curriculum`: live reusable-blueprint and Alpha-curriculum workspace. */
+/** `/curriculum`: live Blueprint Course workspace. */
 export function CurriculumLivePage(): JSX.Element {
   const composition = useCurriculumRouteComposition();
   return (
@@ -76,7 +73,6 @@ export function CurriculumDetailLivePage(): JSX.Element {
   return (
     <CurriculumDetailRoutePage
       client={composition.client}
-      adoptionClient={composition.adoptionClient}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources()}
       curriculumRef={params["curriculumRef"] ?? ""}

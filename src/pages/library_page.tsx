@@ -72,7 +72,7 @@ function CatalogEvidencePreview(props: { readonly row: CatalogBrowseRow }): JSX.
             discrimination === undefined
               ? ""
               : `; discrimination ${decimalNumber.format(discrimination)}`;
-          return `${wholeNumber.format(available().observedCourseCount)} observed courses; ${wholeNumber.format(available().independentLearnerObservationCount)} independent learner observations; mean score ${percentage.format(available().difficultyIndex)}${discriminationText}.`;
+          return `${wholeNumber.format(available().observedCourseCount)} observed courses; ${wholeNumber.format(available().independentLearnerObservationCount)} independent Student observations; mean score ${percentage.format(available().difficultyIndex)}${discriminationText}.`;
         }}
       </Show>
     </p>

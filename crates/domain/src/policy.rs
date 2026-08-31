@@ -7,11 +7,11 @@
 
 use std::collections::BTreeSet;
 
+use question_model::assignment_activity_rules::TimingPolicy;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::TimingPolicy;
 use question_model::{
     BackendCapabilities, Capability, DraftQuestionDefinition, GradingDefinition,
-    QuestionDefinition, VersionId,
+    QuestionDefinition, QuestionVersionReference,
 };
 use serde::{Deserialize, Serialize};
 
@@ -40,11 +40,11 @@ pub struct AssignmentConfig {
 }
 
 /// One unsupported question/backend capability pair.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Violation {
     /// Immutable question version whose backend lacks support.
-    pub question: VersionId,
+    pub question: QuestionVersionReference,
     /// Capability required by the assignment but absent from the backend.
     pub capability: Capability,
 }
@@ -80,7 +80,10 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
             if required.contains(&capability) && !selected.backend_capabilities.supports(capability)
             {
                 violations.push(Violation {
-                    question: selected.question.version,
+                    question: QuestionVersionReference {
+                        question_id: selected.question.question_id.clone(),
+                        version_number: selected.question.version_number,
+                    },
                     capability,
                 });
             }
@@ -172,12 +175,15 @@ mod tests {
 
     use super::*;
     use question_model::answer::{NumericTolerance, TextMatchMode};
+    use question_model::assignment_activity_rules::AttemptPolicy;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec};
     use question_model::response::ResponseDefinition;
-    use question_model::run_policy::AttemptPolicy;
     use question_model::taxonomy::{License, Tag};
-    use question_model::{ProblemId, QuestionMetadata, QuestionSource, WorkspaceId};
+    use question_model::{
+        QuestionId, QuestionMetadata, QuestionSource, QuestionVersionNumber,
+        QuestionVersionReference, WorkspaceId,
+    };
     use uuid::Uuid;
 
     #[derive(Debug, Deserialize)]
@@ -199,10 +205,18 @@ mod tests {
         PerQuestionTiming,
     }
 
-    fn base_question(version: VersionId) -> QuestionDefinition {
+    fn question_version(version_number: u32) -> QuestionVersionReference {
+        QuestionVersionReference {
+            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+            version_number: QuestionVersionNumber::new(version_number)
+                .expect("positive version number"),
+        }
+    }
+
+    fn base_question(question_version: QuestionVersionReference) -> QuestionDefinition {
         QuestionDefinition {
-            version,
-            problem: ProblemId::from_uuid(Uuid::from_u128(99)),
+            question_id: question_version.question_id,
+            version_number: question_version.version_number,
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
             source: QuestionSource::Native {
                 family: "capability-fixture".to_string(),
@@ -271,10 +285,9 @@ mod tests {
         let mut covered = BTreeSet::new();
 
         for (index, case) in cases.into_iter().enumerate() {
-            let version = VersionId::from_uuid(Uuid::from_u128(
-                u128::try_from(index + 1).expect("fixture index fits u128"),
-            ));
-            let mut question = base_question(version);
+            let question_version =
+                question_version(u32::try_from(index + 1).expect("fixture index fits u32"));
+            let mut question = base_question(question_version.clone());
             for feature in case.features {
                 apply_feature(&mut question, feature);
             }
@@ -291,7 +304,7 @@ mod tests {
                 .iter()
                 .copied()
                 .map(|capability| Violation {
-                    question: version,
+                    question: question_version.clone(),
                     capability,
                 })
                 .collect();
@@ -305,14 +318,12 @@ mod tests {
 
     #[test]
     fn violations_preserve_question_order_and_deduplicate_requirements() {
-        let versions = [
-            VersionId::from_uuid(Uuid::from_u128(1)),
-            VersionId::from_uuid(Uuid::from_u128(2)),
-        ];
-        let questions = versions
-            .into_iter()
-            .map(|version| AssignmentQuestionConfig {
-                question: base_question(version),
+        let question_versions = [question_version(1), question_version(2)];
+        let questions = question_versions
+            .iter()
+            .cloned()
+            .map(|question_version| AssignmentQuestionConfig {
+                question: base_question(question_version),
                 backend_capabilities: BackendCapabilities::none(),
             })
             .collect();
@@ -325,11 +336,11 @@ mod tests {
             validate_assignment_config(&config),
             vec![
                 Violation {
-                    question: versions[0],
+                    question: question_versions[0].clone(),
                     capability: Capability::PrintExport,
                 },
                 Violation {
-                    question: versions[1],
+                    question: question_versions[1].clone(),
                     capability: Capability::PrintExport,
                 },
             ]
@@ -339,12 +350,15 @@ mod tests {
     #[test]
     fn violation_json_uses_the_lower_camel_wire_contract() {
         let violation = Violation {
-            question: VersionId::from_uuid(Uuid::from_u128(1)),
+            question: question_version(1),
             capability: Capability::PerQuestionTiming,
         };
         let json = serde_json::to_string(&violation).expect("violation should serialize");
 
-        assert!(json.contains(r#""question":"00000000-0000-0000-0000-000000000001""#));
+        assert_eq!(
+            json,
+            r#"{"question":{"questionId":"ABC-DEFG","versionNumber":1},"capability":"perQuestionTiming"}"#
+        );
         assert!(json.contains(r#""capability":"perQuestionTiming""#));
     }
 }

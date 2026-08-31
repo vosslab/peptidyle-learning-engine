@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACCEPTED SOURCE/TEST PREREQUISITE.** The source-of-truth learner completion wording is corrected
+**ACCEPTED SOURCE/TEST PREREQUISITE.** The source-of-truth student completion wording is corrected
 and focused production-`RunPage` tests cover the allowed, closed, and unresolved summary states.
 The [WP-W6 copy review](../audits/wp_w6_exam_copy_fix_review.md) accepts this prerequisite only.
 The paired live Mastery-versus-Exam keyboard journey, simulator report row, and independent browser

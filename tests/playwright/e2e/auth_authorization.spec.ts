@@ -2,9 +2,7 @@
 //
 // Selector contract:
 // - src/pages/sign_in_page.tsx owns seeded-demo entry and course-choice headings.
-// - src/pages/teaching_operations_page.tsx:95 and
-//   src/pages/teaching_operations/course_groups_panel.tsx:340 own teaching-team, approval, and
-//   group controls.
+// - src/pages/teaching_operations_page.tsx owns teaching-team and approval controls.
 // - src/pages/account_pending_invitations_page.tsx owns current invitation acceptance.
 // - src/pages/course_list_page.tsx:330 owns the course heading and return-to-courses controls.
 
@@ -89,19 +87,9 @@ test("authentication and authorization: sessions, approval, and course boundarie
       await expect(morgan.getByText(/Avery Singh.*approved/u)).toBeVisible();
     });
 
-    await test.step("Elena creates a course group and invites approved Avery through the teaching UI", async () => {
+    await test.step("Elena invites approved Avery through the teaching UI", async () => {
       await elena.getByRole("link", { name: "Teaching operations" }).click();
       await expect(elena.getByRole("heading", { name: "Teaching team" })).toBeVisible();
-      const groupTitle = "Section A learners";
-      const groups = elena.getByRole("region", { name: "Groups and sections" });
-      await expect(groups).toBeVisible();
-      await expect(groups.getByLabel("Group name")).toBeVisible();
-      await groups.getByLabel("Group name").fill(groupTitle);
-      await groups.getByRole("button", { name: "Create group" }).click();
-      await expect(groups.getByRole("button", { name: groupTitle, exact: true })).toBeVisible();
-      await restoreViewportOrigin(elena);
-      await captureRealStackScreenshot(elena, scenarioInput, "auth_teaching_operations_groups");
-
       const teachingTeam = elena.getByRole("region", { name: "Teaching team" });
       await teachingTeam.getByLabel("Find an approved colleague").fill("Avery");
       await teachingTeam.getByRole("button", { name: "Search eligible people" }).click();

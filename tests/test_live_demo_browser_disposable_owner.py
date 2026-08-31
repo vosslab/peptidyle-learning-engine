@@ -218,7 +218,7 @@ def test_live_demo_browser_policy_accepts_only_the_canonical_project(
 def test_live_demo_browser_owns_only_typed_tls_launch_and_evidence_receipts(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""TLS behavior and bounded worker evidence follow the closed owner identity."""
+	"""TLS behavior and bounded renderer evidence follow the closed owner identity."""
 	selected = disposable(tmp_path)
 	options = local_stack_control.consumer.lifecycle_options(selected, 240)
 	assert options.build and not options.open_browser
@@ -226,11 +226,9 @@ def test_live_demo_browser_owns_only_typed_tls_launch_and_evidence_receipts(
 		"localhost/ple-live-demo-browser_gateway:latest",
 	)
 	profile = local_stack_control.consumer.live_demo_profile_policy(selected)
-	assert profile.evidence_log_services == (
-		("worker_completion", "worker"), ("renderer_delivery", "api"),
-	)
+	assert profile.evidence_log_services == (("renderer_delivery", "api"),)
 	argv, environment = local_stack_control.consumer.evidence_log_command(
-		selected, "worker_completion", evidence_snapshot(selected, "worker")
+		selected, "renderer_delivery", evidence_snapshot(selected, "api")
 	)
 	assert argv[-1] == "a" * 64
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"

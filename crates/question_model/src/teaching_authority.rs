@@ -8,20 +8,28 @@ use uuid::Uuid;
 
 use crate::{AccountId, ActivityTimestamp, CourseId, CourseMembershipId};
 
-/// Operator-owned global eligibility for Instructor invitations.
+/// One immutable Sysadmin-authorized global Instructor eligibility transition.
 ///
-/// This record is intentionally separate from both `AccountRole` and direct
-/// course membership. Possessing it grants no course authority.
+/// The latest event derives current approval. The event remains separate from
+/// both Product Role and direct Course Membership, so it grants no course
+/// authority by itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InstructorApproval {
-    /// Existing user approved by a platform operator.
+pub struct InstructorApprovalEvent {
+    /// Existing Instructor Account whose eligibility changes.
     pub account: AccountId,
-    /// Operator account that recorded this approval.
-    pub approved_by: AccountId,
-    /// Authoritative operator time of approval.
-    pub approved_at: ActivityTimestamp,
-    /// Authoritative revocation time when eligibility is no longer active.
-    pub revoked_at: Option<ActivityTimestamp>,
+    /// Sysadmin Account that authorized the transition.
+    pub authorized_by: AccountId,
+    /// Closed eligibility transition.
+    pub kind: InstructorApprovalEventKind,
+    /// Authoritative event time.
+    pub occurred_at: ActivityTimestamp,
+}
+
+/// Closed transitions in an Instructor Approval history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstructorApprovalEventKind {
+    Approved,
+    Revoked,
 }
 
 /// Stable internal identifier for a target-bound co-instructor invitation.
@@ -29,9 +37,9 @@ pub struct InstructorApproval {
 /// It has no display implementation because it is never a user-facing
 /// locator. Later HTTP contracts should use a course-scoped opaque action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CoInstructorInvitationId(Uuid);
+pub struct CourseInvitationId(Uuid);
 
-impl CoInstructorInvitationId {
+impl CourseInvitationId {
     /// Wraps an internal identifier read from storage.
     pub fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -45,9 +53,30 @@ impl CoInstructorInvitationId {
 
 /// Closed lifecycle state of a target-bound co-instructor invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoInstructorInvitationState {
+pub enum CourseInvitationState {
     Pending,
     Expired,
+    Accepted,
+    Declined,
+    Revoked,
+}
+
+/// One immutable terminal transition for an exact Course Invitation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CourseInvitationEvent {
+    /// Exact invitation whose state changes.
+    pub invitation: CourseInvitationId,
+    /// Closed terminal transition selected once for the invitation.
+    pub kind: CourseInvitationEventKind,
+    /// Account that performed the transition.
+    pub performed_by: AccountId,
+    /// Authoritative transition time.
+    pub occurred_at: ActivityTimestamp,
+}
+
+/// Closed terminal transitions for a Course Invitation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CourseInvitationEventKind {
     Accepted,
     Declined,
     Revoked,
@@ -59,9 +88,9 @@ pub enum CoInstructorInvitationState {
 /// account. The 30-day expiry is validated by pure domain code with a supplied
 /// authoritative time.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CoInstructorInvitation {
+pub struct CourseInvitation {
     /// Internal storage identity, never a visible reference.
-    pub id: CoInstructorInvitationId,
+    pub id: CourseInvitationId,
     /// Exact course that can receive one ordinary direct membership.
     pub course: CourseId,
     /// Exact direct Instructor membership episode that initiated the invitation.
@@ -72,10 +101,9 @@ pub struct CoInstructorInvitation {
     pub created_at: ActivityTimestamp,
     /// Required authoritative expiry, exactly 30 days after creation.
     pub expires_at: ActivityTimestamp,
-    /// Authoritative acceptance time, if accepted.
-    pub accepted_at: Option<ActivityTimestamp>,
-    /// Authoritative target-decline time, if the target declined.
-    pub declined_at: Option<ActivityTimestamp>,
-    /// Authoritative revocation time, if revoked.
-    pub revoked_at: Option<ActivityTimestamp>,
+    /// The one persisted terminal event, if a transition occurred.
+    ///
+    /// Its absence derives Pending or Expired from `expires_at`; it is not a
+    /// mutable invitation-state field.
+    pub terminal_event: Option<CourseInvitationEvent>,
 }

@@ -68,7 +68,7 @@ authorizes global catalog discovery, collections, Stars, saved searches,
 course creation, publication, reuse, and improvement. Every approved
 Instructor has the same global product capabilities.
 
-Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin creates
+Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin provisions
 a course only for an explicitly assigned approved Instructor account; it receives no
 course membership. A person who needs teaching authority uses an approved Instructor
 account.
@@ -97,26 +97,26 @@ active authority.
 
 ## Course authority matrix
 
-The course creator and every accepted co-Instructor have equal authority. They
+The course creator and every accepted Teaching Team Member have equal authority. They
 receive identical allow/deny results for the same current course state; audit
 entries retain the acting `AccountId` and distinguish who performed the action.
 
-| Course operation                                                | Creator                                   | Current accepted co-Instructor            | Student                                        | Sysadmin without membership                                 |
+| Course operation                                                | Creator                                   | Current accepted Teaching Team Member            | Student                                        | Sysadmin without membership                                 |
 | --------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
 | Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student projection in own course | No general course authority                                 |
 | Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                      | No general FERPA authority                                  |
-| Invite or revoke a co-Instructor                                | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
+| Invite or revoke a Teaching Team Member                                | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
 | Create or publish a question                                    | Allow if `approved_instructor`            | Allow if `approved_instructor`            | No                                             | Platform operation only when separately authorized          |
 
-Co-Instructor invitation, acceptance, update, and revocation are atomic,
+Course Invitation, acceptance, update, and revocation are atomic,
 audited course-membership operations. Invitation acceptance verifies the target
 Instructor account's matching role and current `approved_instructor` status.
-Approval withdrawal closes a co-Instructor's course authority without changing
+Approval withdrawal closes a Teaching Team Member's course authority without changing
 the durable membership history. A Sysadmin receives course-record access only
 through a separately defined, narrow audited support
 operation; platform status is not ambient FERPA authority.
 
-## Course Instance Creation authority
+## Course-instance provisioning authority
 
 Pending SD1 implementation defines `CourseInstanceProvisioningAuthority` as a
 closed Sysadmin platform authority that exists before a CourseInstance. Its
@@ -141,7 +141,7 @@ general course authority.
 `SysadminSupportCapability` is the one closed authority registry for a
 Sysadmin acting on a CourseInstance. A durable capability record contains an
 opaque `capability_id`, exact `course_id`, acting `sysadmin_user_id`,
-`purpose`, `issuer`, registered `operation_family`, `minimum_projection`,
+`purpose`, `issuer`, registered `operation_kind`, `minimum_projection`,
 `issued_at`, `expires_at`, `revoked_at`, and an append-only audit-event
 reference. The server derives this record after session authentication; a
 browser cannot create, widen, renew, or select it.
@@ -150,14 +150,14 @@ An active capability has one exact CourseId, one closed operation family, and
 one stated support purpose. It is issued by a current CourseInstance Instructor
 for support requested by that course. The platform retention scheduler is the
 registered issuer for its payload-free lifecycle operation. The capability
-registry begins after Course Creation has committed an exact CourseInstance and
+registry begins after provisioning has committed an exact CourseInstance and
 its first direct Instructor membership.
 
 ### Registered operation families
 
 #### `course_roster_support`
 
-- Supports course roster, invitation, enrollment-policy, revocation, and import actions approved for
+- Supports course roster, invitation, invitation-email-rule, revocation, and import actions approved for
   the exact course.
 - Projects only the targeted roster and invitation records required for that command.
 - Appends `sysadmin_support.roster`.
@@ -213,7 +213,7 @@ membership/owner, and its child identity. A Student may list and work only the
 assignments available to that Student in that course and may read only the
 answer-free projection of that Student's own records.
 
-Each learner-scoped Store operation rechecks current Student membership and
+Each student-scoped Store operation rechecks current Student membership and
 owner binding inside its transaction. This makes roster revocation immediate:
 an inactive or removed Student cannot retain read, write, submission, asset,
 or replay access. Course Instructors may use only their Instructor projections;
@@ -244,7 +244,7 @@ QuestionVersions, visible to every approved Instructor through exactly one share
 catalog state. A publication mints a new Question ID only for a new lineage,
 after the private workspace material validates. A same-lineage semantic change
 publishes a new immutable QuestionVersion under the existing Question ID. An
-incompatible objective, task, Question Type, or educational-purpose change is
+incompatible objective, task, response-family, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
 Question ID and visible source ancestry. Existing assignments and issued runs
 retain their exact reference until a current course Instructor performs an
@@ -274,9 +274,9 @@ assignments, but are excluded from ordinary new selection.
 
 Same-lineage publication is limited to the closed semantic classes: presentation,
 accessibility, or metadata work that preserves grading meaning; compatible
-learner-content improvement that preserves the objective, task, and Question
-Type; and a grading-semantic correction with an impact and recalculation record.
-An incompatible objective, task, Question Type, or educational-purpose change
+student-content improvement that preserves the objective, task, and response
+family; and a grading-semantic correction with an impact and recalculation record.
+An incompatible objective, task, response-family, or educational-purpose change
 is a fork. `ModerateEdit` is available only to the question owner or original
 lineage steward; it publishes a new immutable QuestionVersion in the same
 Question ID lineage, preserves original authorship, and retains the existing CC
@@ -296,7 +296,7 @@ credit and proposal ancestry. It never moves assignment or evidence pins. A
 stale base requires rebase and resubmission.
 
 Each assignment item records its visible Question ID and hidden exact
-`ProblemVersionRef { problem, version }` pin. Issued runs, attempts, grading
+`QuestionVersionReference { question_id, version_number }` pin. Issued runs, attempts, grading
 evidence, and audit records retain the same exact pair, seed, and required
 provenance. A publication, lifecycle transition, correction, or worker never
 advances an assignment implicitly; a future version requires an explicit,
@@ -389,10 +389,10 @@ privacy/disclosure rules, and denial tests before activation.
 
 ## Deterministic grading boundary
 
-An issued attempt is the sole learner grading authority. It binds the exact
+An issued attempt is the sole student grading authority. It binds the exact
 Student owner, course assignment, immutable question version, seed, timing
 state, and grading backend. The server checks that binding, current Student
-authority, timing, idempotency, Answer Format, presentation consistency, and
+authority, timing, idempotency, response family, presentation consistency, and
 lifecycle before it loads answer-bearing material through a separately injected
 restricted grader capability. Correctness, partial credit, feedback, and score
 persistence are deterministic server decisions.
@@ -435,4 +435,4 @@ and multi-replica exercises remain named disposable acceptance evidence under
 - [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) explains the shared publication and relationship model.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) defines session, answer-secrecy, provider, and asset safeguards.
 - [CONTRACTS.md](CONTRACTS.md) maps implemented owners and module boundaries.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines learner render, response, and grading payloads.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines student render, response, and grading payloads.

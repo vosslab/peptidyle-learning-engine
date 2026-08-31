@@ -122,7 +122,7 @@ export async function waitForRouteDataSurface(
 }
 
 /**
- * Enter the current assignment's authoritative learner run.
+ * Enter the current assignment's authoritative student run.
  *
  * Locator readiness uses the scenario-owned page timeout. Playwright assertions
  * have a separate five-second default, which is not the live-stack operation

@@ -142,6 +142,7 @@ def _tracked_cargo_manifests() -> list[pathlib.Path]:
 		REPO_ROOT / relative_path
 		for relative_path in file_utils.list_tracked_files(REPO_ROOT)
 		if pathlib.PurePosixPath(relative_path).name == "Cargo.toml"
+		and (REPO_ROOT / relative_path).is_file()
 	]
 
 
@@ -204,17 +205,6 @@ def _workspace_closure(root_package: str) -> set[str]:
 			_local_dependencies(members[package], members, workspace_aliases) - closure
 		)
 	return closure
-
-
-#============================================
-def test_base_course_installer_stays_out_of_server_and_wasm_layers() -> None:
-	"""Keep the installer out of server, browser, and tool composition layers."""
-	closure = _workspace_closure("base-course-installation")
-	assert closure.isdisjoint({
-		"project-tools",
-		"server_core",
-		"wasm_bridge",
-	})
 
 
 #============================================

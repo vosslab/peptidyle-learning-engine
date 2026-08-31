@@ -80,7 +80,14 @@ pub fn descriptor_bytes_v1(
     let mut encoder = Encoder::new();
     encoder.raw(PRESENTATION_DOMAIN);
     encoder.u8(DESCRIPTOR_VERSION_V1);
-    encoder.raw(presentation.envelope.version.as_uuid().as_bytes());
+    encoder.string(
+        &presentation
+            .envelope
+            .question_version
+            .question_id
+            .to_string(),
+    )?;
+    encoder.u32(presentation.envelope.question_version.version_number.get());
     encoder.u64(presentation.envelope.seed.value());
     encoder.raw(&presentation.envelope.presentation_nonce.as_bytes());
     encoder.string(&presentation.envelope.title)?;

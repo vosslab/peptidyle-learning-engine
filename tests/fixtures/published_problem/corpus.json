@@ -14,7 +14,10 @@
     ],
     "metadata": {
       "title": "Peptide bond resonance and planarity",
-      "tags": ["biochemistry", "protein-structure"],
+      "tags": [
+        "biochemistry",
+        "protein-structure"
+      ],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -28,17 +31,18 @@
       "language": "en-US"
     },
     "byline": {
-      "names": ["Fixture Instructor"]
+      "names": [
+        "Fixture Instructor"
+      ]
     },
-    "scope": "public",
     "lifecycle": {
       "state": "published"
     },
     "publishedAt": 1786000000000
   },
   "publishedProblem": {
-    "problem": "0198e000-0000-7000-8000-000000000003",
-    "version": "0198e000-0000-7000-8000-000000000004",
+    "questionId": "7K3-M9QP",
+    "versionNumber": 1,
     "workspace": "0198e000-0000-7000-8000-000000000002",
     "source": {
       "backend": "native",
@@ -116,7 +120,11 @@
       "parameters": {
         "residue": {
           "kind": "choice",
-          "options": ["glycine", "alanine", "proline"]
+          "options": [
+            "glycine",
+            "alanine",
+            "proline"
+          ]
         }
       }
     },
@@ -126,7 +134,10 @@
     },
     "metadata": {
       "title": "Peptide bond resonance and planarity",
-      "tags": ["biochemistry", "protein-structure"],
+      "tags": [
+        "biochemistry",
+        "protein-structure"
+      ],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -218,7 +229,11 @@
       "parameters": {
         "residue": {
           "kind": "choice",
-          "options": ["glycine", "alanine", "proline"]
+          "options": [
+            "glycine",
+            "alanine",
+            "proline"
+          ]
         }
       }
     },
@@ -228,7 +243,10 @@
     },
     "metadata": {
       "title": "Draft: peptide resonance wording revision",
-      "tags": ["biochemistry", "protein-structure"],
+      "tags": [
+        "biochemistry",
+        "protein-structure"
+      ],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -312,73 +330,122 @@
       "variation": "newSeeds"
     }
   },
-  "enrollment": {
-    "id": "0198e000-0000-7000-8000-000000000007",
-    "assignment": "0198e000-0000-7000-8000-000000000006",
-    "user": "0198e000-0000-7000-8000-000000000016",
-    "student": "0198e000-0000-7000-8000-000000000008",
-    "firstCompletedAt": 1786000001300,
-    "currentGradeRun": "0198e000-0000-7000-8000-000000000021",
-    "bestGradeRun": "0198e000-0000-7000-8000-000000000021"
-  },
+  "studentRecord": "0198e000-0000-7000-8000-000000000007",
   "runs": [
     {
       "id": "0198e000-0000-7000-8000-000000000020",
       "reference": "R-1",
-      "enrollment": "0198e000-0000-7000-8000-000000000007",
-      "runNumber": 1,
+      "studentRecord": "0198e000-0000-7000-8000-000000000007",
+      "assignment": "0198e000-0000-7000-8000-000000000006",
+      "attemptNumber": 1,
       "startedAt": 1786000001000,
       "completedAt": 1786000001300,
       "score": 0.0,
-      "mode": "assigned",
       "variation": "newSeeds"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
       "reference": "R-2",
-      "enrollment": "0198e000-0000-7000-8000-000000000007",
-      "runNumber": 2,
+      "studentRecord": "0198e000-0000-7000-8000-000000000007",
+      "assignment": "0198e000-0000-7000-8000-000000000006",
+      "attemptNumber": 2,
       "startedAt": 1786000002000,
       "completedAt": 1786000002300,
       "score": 1.0,
-      "mode": "practice",
       "variation": "newSeeds"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
       "reference": "R-3",
-      "enrollment": "0198e000-0000-7000-8000-000000000007",
-      "runNumber": 3,
+      "studentRecord": "0198e000-0000-7000-8000-000000000007",
+      "assignment": "0198e000-0000-7000-8000-000000000006",
+      "attemptNumber": 3,
       "startedAt": 1786000003000,
       "completedAt": 1786000003300,
       "score": 0.0,
-      "mode": "practice",
       "variation": "newSeeds"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
       "reference": "R-4",
-      "enrollment": "0198e000-0000-7000-8000-000000000007",
-      "runNumber": 4,
+      "studentRecord": "0198e000-0000-7000-8000-000000000007",
+      "assignment": "0198e000-0000-7000-8000-000000000006",
+      "attemptNumber": 4,
       "startedAt": 1786000004000,
       "completedAt": null,
       "score": null,
-      "mode": "practice",
       "variation": "newSeeds"
+    }
+  ],
+  "issuedQuestions": [
+    {
+      "id": "0198e000-0000-7000-8000-000000000040",
+      "assignmentAttempt": "0198e000-0000-7000-8000-000000000020",
+      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
+      "sourcePosition": 0,
+      "issuedPosition": 0,
+      "reference": {
+        "questionId": "7K3-M9QP",
+        "versionNumber": 1
+      },
+      "statisticsEligible": true,
+      "selectionGroup": null,
+      "selectionSeed": null
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000041",
+      "assignmentAttempt": "0198e000-0000-7000-8000-000000000021",
+      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
+      "sourcePosition": 0,
+      "issuedPosition": 0,
+      "reference": {
+        "questionId": "7K3-M9QP",
+        "versionNumber": 1
+      },
+      "statisticsEligible": true,
+      "selectionGroup": null,
+      "selectionSeed": null
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000042",
+      "assignmentAttempt": "0198e000-0000-7000-8000-000000000022",
+      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
+      "sourcePosition": 0,
+      "issuedPosition": 0,
+      "reference": {
+        "questionId": "7K3-M9QP",
+        "versionNumber": 1
+      },
+      "statisticsEligible": true,
+      "selectionGroup": null,
+      "selectionSeed": null
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000043",
+      "assignmentAttempt": "0198e000-0000-7000-8000-000000000023",
+      "assignmentItem": "0198e000-0000-7000-8000-000000000017",
+      "sourcePosition": 0,
+      "issuedPosition": 0,
+      "reference": {
+        "questionId": "7K3-M9QP",
+        "versionNumber": 1
+      },
+      "statisticsEligible": true,
+      "selectionGroup": null,
+      "selectionSeed": null
     }
   ],
   "attempts": [
     {
       "id": "0198e000-0000-7000-8000-000000000030",
-      "run": "0198e000-0000-7000-8000-000000000020",
-      "problem": "0198e000-0000-7000-8000-000000000003",
-      "questionVersion": "0198e000-0000-7000-8000-000000000004",
-      "assignmentPosition": 0,
+      "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
       "seed": 1001,
       "parameterHash": "33c6a11b3eadacaac5d49a752148884e27c8815c803ace157c9f58ac9dbe416d",
       "response": {
         "kind": "multipleChoice",
-        "selected": ["carbonyl"]
+        "selected": [
+          "carbonyl"
+        ]
       },
       "status": "submitted",
       "result": {
@@ -386,7 +453,7 @@
         "pointsEarned": 0.0,
         "pointsPossible": 1.0
       },
-      "timer": {
+      "timing": {
         "issuedAt": 1786000001100,
         "deadline": null,
         "submittedAt": 1786000001200
@@ -410,21 +477,20 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "4cddff550d3e53f980baab609ada99a57ca7854edbfd2426f2c8db7cd43a6c01"
+        "renderedQuestionSha256": "45fe08b539e1dd11a279de65d9b38c66cbb5dba94fe84201f20c9251563dde3a"
       },
       "issuedCapability": "flatPresentation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000031",
-      "run": "0198e000-0000-7000-8000-000000000021",
-      "problem": "0198e000-0000-7000-8000-000000000003",
-      "questionVersion": "0198e000-0000-7000-8000-000000000004",
-      "assignmentPosition": 0,
+      "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
       "seed": 1002,
       "parameterHash": "5b19c155569205c9bda96ab6ca1058f70cd06121238e1ff198dd9d6cada2adce",
       "response": {
         "kind": "multipleChoice",
-        "selected": ["amide"]
+        "selected": [
+          "amide"
+        ]
       },
       "status": "submitted",
       "result": {
@@ -432,7 +498,7 @@
         "pointsEarned": 1.0,
         "pointsPossible": 1.0
       },
-      "timer": {
+      "timing": {
         "issuedAt": 1786000002100,
         "deadline": null,
         "submittedAt": 1786000002200
@@ -456,21 +522,20 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "23a3ae175d3410dc23aa1ea3e923fb4dc2b734774fca9323d02ccb83fc80be68"
+        "renderedQuestionSha256": "3270f67ca0cdc26dd83cce69a5ee0cc676c92d3d7ff544b0b2683d3ccc633520"
       },
       "issuedCapability": "flatPresentation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000032",
-      "run": "0198e000-0000-7000-8000-000000000022",
-      "problem": "0198e000-0000-7000-8000-000000000003",
-      "questionVersion": "0198e000-0000-7000-8000-000000000004",
-      "assignmentPosition": 0,
+      "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
       "seed": 1003,
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
       "response": {
         "kind": "multipleChoice",
-        "selected": ["carbonyl"]
+        "selected": [
+          "carbonyl"
+        ]
       },
       "status": "submitted",
       "result": {
@@ -478,7 +543,7 @@
         "pointsEarned": 0.0,
         "pointsPossible": 1.0
       },
-      "timer": {
+      "timing": {
         "issuedAt": 1786000003100,
         "deadline": null,
         "submittedAt": 1786000003200
@@ -502,22 +567,19 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "2263b63aad876ef681e007114c7a8ae9a8cc9e458c33338704e999251938b21b"
+        "renderedQuestionSha256": "075fc0c4eecfba695b7ff627868a2beff07e5171937436ca8b26fd12726afe84"
       },
       "issuedCapability": "flatPresentation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000033",
-      "run": "0198e000-0000-7000-8000-000000000023",
-      "problem": "0198e000-0000-7000-8000-000000000003",
-      "questionVersion": "0198e000-0000-7000-8000-000000000004",
-      "assignmentPosition": 0,
+      "issuedQuestion": "0198e000-0000-7000-8000-000000000043",
       "seed": 1004,
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
       "response": null,
       "status": "in_progress",
       "result": null,
-      "timer": {
+      "timing": {
         "issuedAt": 1786000004100,
         "deadline": null,
         "submittedAt": null
@@ -541,34 +603,35 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "7e2bd04cd5fa748568b7f567b008501696771c3afb4df2f055241081d8cd1d54"
+        "renderedQuestionSha256": "4182fda72bfa6bfc9b8b6789ee17811607b3d2ce9063f89b101208f70bb8c9bf"
       },
       "issuedCapability": "flatPresentation"
     }
   ],
   "summary": {
-    "enrollment": "0198e000-0000-7000-8000-000000000007",
+    "studentRecord": "0198e000-0000-7000-8000-000000000007",
+    "assignment": "0198e000-0000-7000-8000-000000000006",
     "currentScore": 1.0,
     "bestScore": 1.0,
     "latestScore": 0.0,
-    "completedRunCount": 3,
+    "completedAssignmentAttemptCount": 3,
     "totalQuestionAttempts": 4,
     "lastActivityAt": 1786000004100
   },
   "gradebook": [
     {
       "course_id": "0198e000-0000-7000-8000-000000000014",
-      "enrollment_id": "0198e000-0000-7000-8000-000000000007",
-      "student_id": "0198e000-0000-7000-8000-000000000008",
+      "student_record_id": "0198e000-0000-7000-8000-000000000007",
       "student_name": "Jordan Student",
       "assignment_id": "0198e000-0000-7000-8000-000000000006",
       "assignment_title": "Peptide bond mastery",
       "summary": {
-        "enrollment": "0198e000-0000-7000-8000-000000000007",
+        "studentRecord": "0198e000-0000-7000-8000-000000000007",
+        "assignment": "0198e000-0000-7000-8000-000000000006",
         "currentScore": 1.0,
         "bestScore": 1.0,
         "latestScore": 0.0,
-        "completedRunCount": 3,
+        "completedAssignmentAttemptCount": 3,
         "totalQuestionAttempts": 4,
         "lastActivityAt": 1786000004100
       },

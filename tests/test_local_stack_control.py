@@ -253,7 +253,7 @@ def ready_snapshot(with_smtp: bool = False) -> local_stack_control.models.Projec
 			container(service, running=False, health=None, state="exited", exit_code=0)
 		)
 	for service in local_stack_control.status.required_long_running(with_smtp):
-		health = None if service in ("worker", "invitation-delivery-worker") else "healthy"
+		health = "healthy"
 		containers.append(
 			container(service, running=True, health=health, state="running", exit_code=0)
 		)
@@ -481,65 +481,6 @@ def test_duplicate_required_service_is_not_ready() -> None:
 
 
 #============================================
-def test_smtp_topology_requires_its_setup_service() -> None:
-	"""Selecting SMTP keeps the stack unready until its one-shot setup completes."""
-	report = local_stack_control.status.build_report("containers", True, ready_snapshot(False))
-
-	assert not report.ok
-
-
-#============================================
-def test_smtp_resources_infer_the_required_overlay() -> None:
-	"""Status cannot call an SMTP-backed stack ready as a base stack."""
-	report = local_stack_control.status.build_report("containers", False, ready_snapshot(True))
-
-	assert report.ok and report.with_smtp
-
-
-#============================================
-def test_persisted_smtp_topology_requires_invitation_delivery_worker() -> None:
-	"""An inferred SMTP topology cannot be ready without its delivery worker."""
-	snapshot = ready_snapshot(True)
-	without_delivery_worker = tuple(
-		container_value
-		for container_value in snapshot.containers
-		if container_value.service != "invitation-delivery-worker"
-	)
-	report = local_stack_control.status.build_report(
-		"containers",
-		False,
-		local_stack_control.models.ProjectSnapshot("containers", without_delivery_worker, (), ()),
-	)
-
-	assert report.with_smtp and not report.ok
-
-
-#============================================
-def test_smtp_delivery_worker_requires_one_running_instance() -> None:
-	"""SMTP readiness rejects duplicate delivery workers even if each is running."""
-	snapshot = ready_snapshot(True)
-	delivery_worker = next(
-		item for item in snapshot.containers if item.service == "invitation-delivery-worker"
-	)
-	with_duplicate = local_stack_control.models.ProjectSnapshot(
-		"containers",
-		(*snapshot.containers, dataclasses.replace(delivery_worker, id="delivery-worker-duplicate")),
-		(),
-		(),
-	)
-	report = local_stack_control.status.build_report("containers", True, with_duplicate)
-
-	assert not report.ok and report.state == "failed"
-
-
-#============================================
-def test_invitation_delivery_restart_is_limited_to_smtp_topology() -> None:
-	"""The optional delivery worker has no base-stack restart authority."""
-	assert "invitation-delivery-worker" not in local_stack_control.models.restartable_services(False)
-	assert "invitation-delivery-worker" in local_stack_control.models.restartable_services(True)
-
-
-#============================================
 def test_reset_requires_visible_default_project_acknowledgement(tmp_path: pathlib.Path) -> None:
 	"""A reset plan cannot be created until the operator names its target project."""
 	selected_target = target(tmp_path)
@@ -588,96 +529,6 @@ def test_stop_keeps_a_volume_only_project_actionable(tmp_path: pathlib.Path) -> 
 	plan = local_stack_control.cleanup.stop_plan(target(tmp_path), snapshot)
 
 	assert not plan.removes_volumes
-
-
-#============================================
-def test_confirmed_reset_removes_manifest_after_empty_cleanup_proof(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-) -> None:
-	"""A confirmed reset clears its replay record after label discovery is empty."""
-	selected_target = target(tmp_path)
-	base_course_manifest = (
-		selected_target.env_file.parent
-		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
-	)
-	chapter_manifest = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
-	base_course_manifest.parent.mkdir(parents=True)
-	chapter_manifest.parent.mkdir(parents=True, exist_ok=True)
-	for manifest_path in (base_course_manifest, chapter_manifest):
-		manifest_path.write_text("{}", encoding="ascii")
-		manifest_path.chmod(0o600)
-	snapshot = local_stack_control.models.ProjectSnapshot(
-		"containers",
-		(),
-		(local_stack_control.models.VolumeResource("containers_ple_pgdata", "containers"),),
-		(),
-	)
-	plan = local_stack_control.cleanup.reset_plan(selected_target, snapshot, "containers", False)
-	runner = ValidationLaneRunner((0,))
-	empty_snapshot = local_stack_control.models.ProjectSnapshot("containers", (), (), ())
-	monkeypatch.setattr(local_stack_control.process, "require_rootless_local_engine", lambda *_: None)
-	monkeypatch.setattr(local_stack_control.discovery, "discover_snapshot", lambda *_: empty_snapshot)
-
-	local_stack_control.commands.execute_cleanup(plan, selected_target, runner, False)
-
-	assert not base_course_manifest.exists()
-	assert not chapter_manifest.exists()
-
-
-#============================================
-def test_confirmed_reset_keeps_manifest_when_labelled_data_remains(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-) -> None:
-	"""The replay record remains available when Compose cleanup leaves owned data."""
-	selected_target = target(tmp_path)
-	base_course_manifest = (
-		selected_target.env_file.parent
-		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
-	)
-	chapter_manifest = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
-	base_course_manifest.parent.mkdir(parents=True)
-	chapter_manifest.parent.mkdir(parents=True, exist_ok=True)
-	for manifest_path in (base_course_manifest, chapter_manifest):
-		manifest_path.write_text("{}", encoding="ascii")
-		manifest_path.chmod(0o600)
-	snapshot = local_stack_control.models.ProjectSnapshot(
-		"containers",
-		(),
-		(local_stack_control.models.VolumeResource("containers_ple_pgdata", "containers"),),
-		(),
-	)
-	plan = local_stack_control.cleanup.reset_plan(selected_target, snapshot, "containers", False)
-	runner = ValidationLaneRunner((0,))
-	monkeypatch.setattr(local_stack_control.process, "require_rootless_local_engine", lambda *_: None)
-	monkeypatch.setattr(local_stack_control.discovery, "discover_snapshot", lambda *_: snapshot)
-
-	with pytest.raises(local_stack_control.models.ControllerError, match="resources remain"):
-		local_stack_control.commands.execute_cleanup(plan, selected_target, runner, False)
-
-	assert base_course_manifest.exists()
-	assert chapter_manifest.exists()
-
-
-#============================================
-def test_reset_preview_owns_live_demo_private_records(tmp_path: pathlib.Path) -> None:
-	"""A reset preview names each local live-demo record before any mutation."""
-	selected_target = target(tmp_path)
-	snapshot = local_stack_control.models.ProjectSnapshot(
-		"containers",
-		(),
-		(local_stack_control.models.VolumeResource("containers_ple_pgdata", "containers"),),
-		(),
-	)
-
-	plan = local_stack_control.cleanup.reset_plan(selected_target, snapshot, "containers", True)
-
-	assert plan.host_paths_to_remove == (
-		selected_target.env_file.parent
-		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE,
-		tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE,
-	)
 
 
 #============================================
@@ -822,13 +673,9 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 
 #============================================
 def test_default_compose_order_keeps_base_before_optional_smtp(tmp_path: pathlib.Path) -> None:
-	"""The ordinary target uses base Compose and optionally layers SMTP."""
-	(base,) = local_stack_control.compose.compose_files(tmp_path, False)
-	with_smtp = local_stack_control.compose.compose_files(tmp_path, True)
-
-	assert with_smtp == (
-		base,
-		tmp_path / local_stack_control.models.SMTP_COMPOSE_FILE,
+	"""The ordinary target uses one explicit Compose topology."""
+	assert local_stack_control.compose.compose_files(tmp_path) == (
+		tmp_path / local_stack_control.models.PRIMARY_COMPOSE_FILE,
 	)
 
 

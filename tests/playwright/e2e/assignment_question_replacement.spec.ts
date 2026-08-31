@@ -13,7 +13,7 @@
 // - src/pages/assignment_editor_content_list.tsx:54-84 owns each fixed-question row and its
 //   Replace action, including the post-success focus target.
 // - src/pages/course_roster_page.tsx:497-552 owns invitation creation and the invitation link.
-// - src/pages/assignment_overview_page.tsx and src/pages/run_page.tsx own learner assignment
+// - src/pages/assignment_overview_page.tsx and src/pages/run_page.tsx own student assignment
 //   and attempt surfaces; src/pages/run_summary_page.tsx:103 owns Start fresh practice.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
@@ -43,7 +43,7 @@ async function createPublishedQuestion(
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
   await page.getByRole("button", { name: "Create flat question", exact: true }).click();
   await page.getByLabel("Question title").fill(title);
-  await page.getByLabel("Learner-facing prompt").fill(`Choose the supported statement: ${title}`);
+  await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
   await page.getByLabel("Choice text").nth(1).fill(`Alternative choice for ${title}`);
   await page
@@ -107,8 +107,8 @@ async function createPublishedAssignmentAndInvitation(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
-  await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
+  await page.getByLabel("Course roster email").fill(maryEmail);
+  await page.getByLabel("Course roster ID").fill(`mary-${namespace}`);
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();

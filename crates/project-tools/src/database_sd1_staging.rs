@@ -3,9 +3,13 @@
 use anyhow::{Context, Result, bail};
 use learning_data_access::postgres::{MigrationStatus, Pool};
 use sqlx::migrate::Migrator;
+use sqlx::{Acquire, AssertSqlSafe, Row};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
-const STAGED_MIGRATIONS_RELATIVE_PATH: &str = "schemas/staged_migrations";
+// The pre-production schema is a single fresh baseline.  `schemas/migrations`
+// is therefore both the authoring source and the ledger comparison source.
+const STAGED_MIGRATIONS_RELATIVE_PATH: &str = "schemas/migrations";
 const STAGED_MIGRATION_PRINCIPAL: &str = "ple_migrator";
 const FIRST_STAGED_MIGRATION_VERSION: i64 = 2026082901;
 
@@ -43,10 +47,20 @@ pub(super) async fn run(action: Sd1StagedAction, pool: &Pool) -> Result<()> {
 }
 
 async fn migrate(pool: &Pool, directory: &Path, migrator: &Migrator) -> Result<()> {
-    migrator
-        .run(pool)
+    let mut connection = pool
+        .acquire()
         .await
-        .context("applying the canonical repository-owned SD1 staged migrations")?;
+        .context("acquiring the SD1 baseline migration connection")?;
+    // SQLx records its own migration ledger in the bootstrap-owned `public`
+    // schema. Keep that lookup explicit while the migrations safely switch to
+    // the application schema owners.
+    sqlx::query("SET search_path TO pg_catalog, public")
+        .execute(&mut *connection)
+        .await
+        .context("pinning the SQLx migration ledger search path")?;
+    apply_staged_migrations(&mut connection, migrator)
+        .await
+        .context("applying the canonical repository-owned SD1 baseline migrations")?;
 
     let status = staged_status(pool, directory).await?;
     require_compatible(&status)?;
@@ -54,17 +68,219 @@ async fn migrate(pool: &Pool, directory: &Path, migrator: &Migrator) -> Result<(
     Ok(())
 }
 
+async fn apply_staged_migrations(
+    connection: &mut sqlx::pool::PoolConnection<sqlx::Postgres>,
+    migrator: &Migrator,
+) -> Result<()> {
+    // SQLx sends an entire migration file as one raw SQL batch. PostgreSQL
+    // analyzes policy expressions before an in-file SET LOCAL ROLE establishes
+    // the owning schema role. SD1 migrations deliberately establish ownership
+    // in the same transaction as the DDL, so execute complete top-level SQL
+    // statements in order while retaining SQLx's ledger shape and checksum.
+    // ASVS 8.2.1, 8.2.2: each policy is compiled by its owning schema role.
+    let ledger_exists = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT to_regclass('public._sqlx_migrations')::text",
+    )
+    .fetch_one(&mut **connection)
+    .await
+    .context("checking the SD1 migration ledger")?
+    .is_some();
+    if !ledger_exists {
+        sqlx::query(
+            "CREATE TABLE public._sqlx_migrations (\
+                version BIGINT PRIMARY KEY, description TEXT NOT NULL, \
+                installed_on TIMESTAMPTZ NOT NULL DEFAULT now(), success BOOLEAN NOT NULL, \
+                checksum BYTEA NOT NULL, execution_time BIGINT NOT NULL)",
+        )
+        .execute(&mut **connection)
+        .await
+        .context("creating the SD1 migration ledger")?;
+    }
+
+    let rows = sqlx::query(
+        "SELECT version, success, checksum FROM public._sqlx_migrations ORDER BY version",
+    )
+    .fetch_all(&mut **connection)
+    .await
+    .context("reading the SD1 migration ledger")?;
+    let applied = rows
+        .into_iter()
+        .map(|row| {
+            Ok((
+                row.try_get::<i64, _>("version")?,
+                (
+                    row.try_get::<bool, _>("success")?,
+                    row.try_get::<Vec<u8>, _>("checksum")?,
+                ),
+            ))
+        })
+        .collect::<Result<std::collections::BTreeMap<_, _>, sqlx::Error>>()?;
+
+    for migration in migrator
+        .iter()
+        .filter(|migration| !migration.migration_type.is_down_migration())
+    {
+        if let Some((success, checksum)) = applied.get(&migration.version) {
+            if !success {
+                bail!("SD1 migration {} is recorded as dirty", migration.version);
+            }
+            if checksum.as_slice() != migration.checksum.as_ref() {
+                bail!(
+                    "SD1 migration {} checksum does not match its ledger entry",
+                    migration.version
+                );
+            }
+            continue;
+        }
+        if migration.no_tx {
+            bail!(
+                "SD1 migration {} must use transactional DDL",
+                migration.version
+            );
+        }
+
+        let started = Instant::now();
+        let mut transaction = connection
+            .begin()
+            .await
+            .with_context(|| format!("starting SD1 migration {}", migration.version))?;
+        for statement in top_level_sql_statements(migration.sql.as_str())? {
+            // The splitter receives only the repository-owned migration text
+            // loaded from the canonical directory above; no caller input
+            // reaches this execution path.
+            sqlx::raw_sql(AssertSqlSafe(statement.to_owned()))
+                .execute(&mut *transaction)
+                .await
+                .with_context(|| {
+                    format!("executing SD1 migration {} statement", migration.version)
+                })?;
+        }
+        sqlx::query(
+            "INSERT INTO public._sqlx_migrations \
+             (version, description, success, checksum, execution_time) VALUES ($1, $2, TRUE, $3, -1)",
+        )
+        .bind(migration.version)
+        .bind(migration.description.as_ref())
+        .bind(migration.checksum.as_ref())
+        .execute(&mut *transaction)
+        .await
+        .with_context(|| format!("recording SD1 migration {}", migration.version))?;
+        transaction
+            .commit()
+            .await
+            .with_context(|| format!("committing SD1 migration {}", migration.version))?;
+        sqlx::query("UPDATE public._sqlx_migrations SET execution_time = $1 WHERE version = $2")
+            .bind(i64::try_from(started.elapsed().as_nanos()).unwrap_or(i64::MAX))
+            .bind(migration.version)
+            .execute(&mut **connection)
+            .await
+            .with_context(|| format!("timing SD1 migration {}", migration.version))?;
+    }
+    Ok(())
+}
+
+fn top_level_sql_statements(sql: &str) -> Result<Vec<&str>> {
+    let bytes = sql.as_bytes();
+    let mut statements = Vec::new();
+    let mut start = 0;
+    let mut index = 0;
+    let mut quote: Option<u8> = None;
+    let mut dollar_quote: Option<&str> = None;
+    let mut block_comment_depth = 0_usize;
+    while index < bytes.len() {
+        if let Some(tag) = dollar_quote {
+            if sql[index..].starts_with(tag) {
+                index += tag.len();
+                dollar_quote = None;
+            } else {
+                index += 1;
+            }
+            continue;
+        }
+        if block_comment_depth > 0 {
+            if bytes[index..].starts_with(b"/*") {
+                block_comment_depth += 1;
+                index += 2;
+            } else if bytes[index..].starts_with(b"*/") {
+                block_comment_depth -= 1;
+                index += 2;
+            } else {
+                index += 1;
+            }
+            continue;
+        }
+        if let Some(delimiter) = quote {
+            if bytes[index] == delimiter {
+                if index + 1 < bytes.len() && bytes[index + 1] == delimiter {
+                    index += 2;
+                } else {
+                    quote = None;
+                    index += 1;
+                }
+            } else {
+                index += 1;
+            }
+            continue;
+        }
+        if bytes[index..].starts_with(b"--") {
+            index += 2;
+            while index < bytes.len() && bytes[index] != b'\n' {
+                index += 1;
+            }
+        } else if bytes[index..].starts_with(b"/*") {
+            block_comment_depth = 1;
+            index += 2;
+        } else if matches!(bytes[index], b'\'' | b'\"') {
+            quote = Some(bytes[index]);
+            index += 1;
+        } else if bytes[index] == b'$' {
+            let end = sql[index + 1..].find('$').map(|offset| index + offset + 1);
+            if let Some(end) = end {
+                let tag = &sql[index..=end];
+                if tag[1..tag.len() - 1]
+                    .bytes()
+                    .all(|byte| byte == b'_' || byte.is_ascii_alphanumeric())
+                {
+                    dollar_quote = Some(tag);
+                    index = end + 1;
+                } else {
+                    index += 1;
+                }
+            } else {
+                index += 1;
+            }
+        } else if bytes[index] == b';' {
+            let statement = sql[start..=index].trim();
+            if !statement.is_empty() {
+                statements.push(statement);
+            }
+            start = index + 1;
+            index += 1;
+        } else {
+            index += 1;
+        }
+    }
+    if quote.is_some() || dollar_quote.is_some() || block_comment_depth != 0 {
+        bail!("SD1 migration contains an unterminated SQL delimiter");
+    }
+    let trailing = sql[start..].trim();
+    if !trailing.is_empty() {
+        statements.push(trailing);
+    }
+    Ok(statements)
+}
+
 async fn load_staged_migrator(directory: &Path) -> Result<Migrator> {
     let migrator = Migrator::new(directory)
         .await
-        .context("loading the canonical repository-owned SD1 staged migrations")?;
+        .context("loading the canonical repository-owned SD1 baseline migrations")?;
     let first_up_migration = migrator
         .iter()
         .find(|migration| !migration.migration_type.is_down_migration())
-        .context("the canonical SD1 staged migration epoch is empty")?;
+        .context("the canonical SD1 baseline migration epoch is empty")?;
     if first_up_migration.version != FIRST_STAGED_MIGRATION_VERSION {
         bail!(
-            "the canonical SD1 staged migration epoch must begin at {FIRST_STAGED_MIGRATION_VERSION}"
+            "the canonical SD1 baseline migration epoch must begin at {FIRST_STAGED_MIGRATION_VERSION}"
         );
     }
     Ok(migrator)
@@ -96,7 +312,7 @@ async fn verify(pool: &Pool, directory: &Path) -> Result<()> {
 async fn staged_status(pool: &Pool, directory: &Path) -> Result<MigrationStatus> {
     learning_data_access::postgres::migration_status_from_directory(pool, directory)
         .await
-        .context("comparing the SQLx ledger with the canonical SD1 staged migrations")
+        .context("comparing the SQLx ledger with the canonical SD1 baseline migrations")
 }
 
 fn require_compatible(status: &MigrationStatus) -> Result<()> {
@@ -114,11 +330,9 @@ fn staged_migrations_directory() -> Result<PathBuf> {
     let expected = repository_root.join(STAGED_MIGRATIONS_RELATIVE_PATH);
     let canonical = expected
         .canonicalize()
-        .context("canonicalizing schemas/staged_migrations")?;
+        .context("canonicalizing schemas/migrations")?;
     if canonical != expected || !canonical.is_dir() {
-        bail!(
-            "schemas/staged_migrations must be the canonical repository-owned migration directory"
-        );
+        bail!("schemas/migrations must be the canonical repository-owned migration directory");
     }
     Ok(canonical)
 }
@@ -161,7 +375,7 @@ mod tests {
         assert_eq!(repository_root, Path::new("/repo"));
         assert_eq!(
             repository_root.join(STAGED_MIGRATIONS_RELATIVE_PATH),
-            Path::new("/repo/schemas/staged_migrations")
+            Path::new("/repo/schemas/migrations")
         );
     }
 
@@ -170,5 +384,44 @@ mod tests {
         assert!(staged_migration_principal_is_expected("ple_migrator"));
         assert!(!staged_migration_principal_is_expected("postgres"));
         assert!(!staged_migration_principal_is_expected("ple_app"));
+    }
+
+    #[test]
+    fn top_level_splitter_preserves_quoted_and_dollar_quoted_semicolons() {
+        let statements = top_level_sql_statements(
+            "SET LOCAL ROLE ple_api_owner;\n\
+             CREATE FUNCTION ple_api.example() RETURNS void LANGUAGE plpgsql AS $body$\n\
+             BEGIN\n\
+                 PERFORM ';';\n\
+             END\n\
+             $body$;\n\
+             -- a comment containing ; must remain with the next statement\n\
+             RESET ROLE;",
+        )
+        .unwrap();
+
+        assert_eq!(statements.len(), 3);
+        assert_eq!(statements[0], "SET LOCAL ROLE ple_api_owner;");
+        assert!(statements[1].contains("PERFORM ';';"));
+        assert!(statements[1].ends_with("$body$;"));
+        assert!(statements[2].ends_with("RESET ROLE;"));
+    }
+
+    #[test]
+    fn top_level_splitter_preserves_nested_block_comments() {
+        let statements = top_level_sql_statements(
+            "/* outer ; /* inner ; */ still outer ; */\nSELECT 1;\nSELECT 2;",
+        )
+        .unwrap();
+
+        assert_eq!(statements.len(), 2);
+        assert!(statements[0].ends_with("SELECT 1;"));
+        assert_eq!(statements[1], "SELECT 2;");
+    }
+
+    #[test]
+    fn top_level_splitter_rejects_an_unterminated_delimiter() {
+        let error = top_level_sql_statements("SELECT $$unfinished;").unwrap_err();
+        assert!(error.to_string().contains("unterminated SQL delimiter"));
     }
 }

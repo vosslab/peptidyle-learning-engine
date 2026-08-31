@@ -3,7 +3,7 @@
 ## Status and authority
 
 WP-INST-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
-acceptance path over ordinary assignments, learner runs, grading, evidence, and Instructor
+acceptance path over ordinary assignments, student runs, grading, evidence, and Instructor
 inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
 product behavior,
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
@@ -14,7 +14,7 @@ allocation.
 
 PLE has one assignment-execution model:
 
-- Instructors author, publish, preview current policy, and inspect audited learner work.
+- Instructors author, publish, preview current policy, and inspect audited student work.
 - Students exercise the actual assignment delivery path through ordinary enrollments, runs,
   attempts, submissions, immutable receipts, grades, and repeat practice.
 - Deterministic graders execute on the server from issuance-owned private material.
@@ -25,7 +25,7 @@ PLE has one assignment-execution model:
 
 Preview remains the accepted WP-INST-T3 live computation over ordinary course policy. It explains
 effective state and provenance. Delivery validation uses ordinary Student work, so evidence from
-preview, learner execution, grading, receipt replay, gradebook totals, and Instructor inspection
+preview, student execution, grading, receipt replay, gradebook totals, and Instructor inspection
 connects through the same product records.
 
 ## Scope
@@ -52,7 +52,7 @@ WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 
 - assignment and complete assignment-definition mutation with revision conflict checks;
 - course-group, entitlement, accommodation, and schedule-exception source authority;
-- immutable issued-question source and private execution snapshots for normal learner work;
+- immutable issued-question source and private execution snapshots for normal student work;
 - session-derived course creation and co-instructor invitation mutations;
 - grade-scheme, export-audit, scoring preparation, and scoring finalization brokers; and
 - least-privilege PostgreSQL roles, forced RLS, typed conflicts, and route-bound witnesses.
@@ -65,13 +65,13 @@ owning broker. Server composition routes every operation through the narrow capa
 
 The connected acceptance path uses one disposable HTTPS production stack. Instructor workflows
 create the course, assignment, policies, and roster state through visible UI actions. Student
-workflows create runs and submissions through the visible learner UI. Instructor pages then show
-the resulting grade settings, gradebook, and audited learner-work evidence. Narrow backend setup is
+workflows create runs and submissions through the visible student UI. Instructor pages then show
+the resulting grade settings, gradebook, and audited student-work evidence. Narrow backend setup is
 reserved for installation baselines and controlled infrastructure faults.
 
 ## Dependency and handoff
 
-WP-INST-LD3 depends on accepted WP-INST-T3 and the accepted learner-delivery and issued-receipt
+WP-INST-LD3 depends on accepted WP-INST-T3 and the accepted student-delivery and issued-receipt
 foundations. It is a convergence package, so discovery, collections, curricula, and grading
 operations continue to use their existing package identities and dependency order.
 
@@ -86,9 +86,9 @@ Focused implementation evidence:
    access, server, and project-tools tests pass.
 2. Type generation converges and the TypeScript typecheck, lint, format, and Node tests pass.
 3. A fresh PostgreSQL cluster applies the final migration ledger and passes assignment mutation,
-   group/accommodation, learner issuance/submission/replay, teaching authority, grade settings,
+   group/accommodation, student issuance/submission/replay, teaching authority, grade settings,
    and scoring authority tests with exact least-privilege roles and forced RLS.
-4. The canonical production HTTPS browser suite exercises authoring, preview, learner delivery,
+4. The canonical production HTTPS browser suite exercises authoring, preview, student delivery,
    deterministic grading, grade settings, and Instructor review on ordinary live state.
 5. The WebWork service and replica-restart oracles pass against the same product topology.
 6. The connected browser lane starts as an anonymous visitor, visibly enters each seeded role including Sysadmin,

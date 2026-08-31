@@ -1,99 +1,66 @@
-//! Production-only API composition (MOD-SRV).
-//!
-//! This module is the one place that chooses concrete persistent backends.
-//! Route modules remain generic so their behavior can be exercised with their
-//! focused contract fixtures, while this root makes it impossible for the API
-//! binary to acquire process-local educational state by accident.
+//! Explicit assembly for the current Account and Authenticated Session server.
 
-#[path = "composition/accepted_submission_execution.rs"]
-mod accepted_submission_execution;
-#[path = "composition/backend.rs"]
-mod backend;
-#[path = "composition/router.rs"]
-mod router;
-#[path = "composition/settings.rs"]
-mod settings;
-#[path = "composition/worker.rs"]
-mod worker;
+use std::{net::SocketAddr, sync::Arc};
 
-use backend::PersistentDependencies;
-use settings::StorageRuntime;
-#[cfg(feature = "e2e-grader-fault")]
-pub use worker::run_deterministic_grader_exception_worker_from_env;
-pub use worker::{
-    run_production_invitation_delivery_worker_from_env, run_production_worker_from_env,
-    run_public_asset_publisher_from_env,
+use anyhow::{Context, Result, bail};
+use axum::{Router, http::StatusCode, routing::get};
+use learning_data_access::{
+    SessionLifetime,
+    postgres::{
+        PostgresSessionStore, ProductionLoginProfile, local_development_pool, production_pool,
+    },
+};
+use question_model::AccountId;
+
+use crate::auth::{
+    CookieTransport, ProductionBrowserBoundary, SeededDemoAccount, SeededDemoConfig,
+    SeededDemoPersona, SessionConfig, live_demo_router, session_router,
 };
 
-pub(super) use std::net::SocketAddr;
-pub(super) use std::sync::Arc;
+const LIVE_DEMO_ACCOUNT_ID_ENV: [&str; 5] = [
+    "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
+    "PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
+];
 
-pub(super) use anyhow::{Context, Result, bail};
-pub(super) use axum::Extension;
-pub(super) use axum::http::StatusCode;
-pub(super) use axum::response::IntoResponse;
-pub(super) use axum::routing::get;
-pub(super) use axum::{Json, Router};
-#[cfg(feature = "e2e-observability")]
-use axum::{
-    extract::{Request as AxumRequest, State},
-    http::{HeaderName, HeaderValue},
-    middleware,
-    response::Response,
-};
-pub(super) use base64::Engine;
-pub(super) use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-pub(super) use learning_data_access::postgres::{
-    Pool, PostgresAcceptedSubmissionRecoveryStore, PostgresGraderStore, PostgresStore,
-    ProductionLoginProfile, SchemaCompatibilityError, accepted_submission_recovery_pool,
-    local_accepted_submission_recovery_pool, production_pool,
-};
-#[cfg(not(feature = "e2e-grader-fault"))]
-pub(super) use learning_data_access::postgres::{
-    PostgresAcceptedSubmissionFastPathStore, accepted_submission_fast_path_pool,
-    local_accepted_submission_fast_path_pool,
-};
-pub(super) use learning_data_access::{
-    AssetStore, AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore,
-    CourseItemAnalysisStore, CourseRecordsAccessStore, ExportJobStore, FlatImportProvenanceStore,
-    FlatQuestionGradingStore, FlatQuestionStore, QtiImportApiStore, QtiImportStore,
-    RetentionApiStore, RetentionStore, SessionStore, Store, WorkerId,
-};
-pub(super) use serde_json::json;
-
-pub(super) use crate::asset::{PublicAssetBaseUrl, PublicAssetUrlResolver};
-pub(super) use crate::auth::SessionConfig;
-pub(super) use crate::catalog::{BackendRegistry, PublicReviewGate};
-pub(super) use crate::composite_backend::CompositeBackend;
-pub(super) use crate::health::{ProbeResult, Readiness, readiness};
-pub(super) use crate::imathas_backend::{ImathasBackend, LaunchStateAead};
-pub(super) use crate::native_backend::NativeBackend;
-pub(super) use crate::qti_backend::QtiBackend;
-pub(super) use crate::run::{RunBackend, external_tool_router};
-pub(super) use crate::webwork_backend::WebworkBackend;
-pub(super) use adapter_imathas::broker_provider::{
-    ContractedScoredEmbedConfig, ContractedScoredEmbedProvider,
-};
-pub(super) use adapter_imathas::http_transport::{
-    HttpContractedScoredEmbedConfig, HttpContractedScoredEmbedTransport,
-};
-pub(super) use adapter_imathas::scored_embed::ScoredEmbedProfileConfig;
-pub(super) use adapter_imathas::{CorrelationIssuer, ImathasAdapter, SupportedProfile};
-pub(super) use adapter_webwork::renderer_contract::RendererIdentity;
-pub(super) use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig, WebworkAdapter};
-
-/// Builds the actual production application router from explicit startup
-/// settings.
-///
-/// Production enters PLE-owned passwordless account authentication directly.
-/// The seeded account selector is available only when its deployment settings
-/// are present and establishes the same persisted account/session state.
+/// Builds the current route surface from explicit environment configuration.
 pub async fn production_router_from_env() -> Result<Router> {
-    let persistent = PersistentDependencies::from_env(StorageRuntime::api_from_env()?).await?;
-    persistent.production_router()
+    let database_url = required_env("DATABASE_URL")?;
+    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
+    {
+        local_development_pool(&database_url, ProductionLoginProfile::Api)
+    } else {
+        production_pool(&database_url, ProductionLoginProfile::Api)
+    }
+    .context("could not construct the attested API database pool")?;
+    pool.acquire()
+        .await
+        .context("the attested API database pool could not connect")?;
+
+    let sessions = Arc::new(PostgresSessionStore::new(pool));
+    let session_config = production_session_config();
+    let router = Router::new()
+        .route("/health", get(|| async { StatusCode::OK }))
+        .merge(session_router(Arc::clone(&sessions), session_config))
+        .merge(live_demo_router(
+            sessions,
+            live_demo_config_from_env()?,
+            session_config,
+        ));
+    let browser_boundary =
+        ProductionBrowserBoundary::new(Arc::from(required_env("PLE_BROWSER_ORIGIN")?))
+            .map_err(anyhow::Error::msg)?;
+    Ok(crate::http_security::apply_api_security_headers(
+        router.layer(axum::middleware::from_fn_with_state(
+            browser_boundary,
+            crate::auth::production_cookie_boundary,
+        )),
+    ))
 }
 
-/// The address the binary should bind, read once at process startup.
+/// The address the binary binds, parsed once at startup.
 pub fn bind_address_from_env() -> Result<SocketAddr> {
     std::env::var("PLE_BIND_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:3000".to_string())
@@ -101,9 +68,56 @@ pub fn bind_address_from_env() -> Result<SocketAddr> {
         .context("PLE_BIND_ADDR must be a socket address")
 }
 
-#[cfg(test)]
-#[path = "composition/tests/storage_topology.rs"]
-mod storage_topology_tests;
-#[cfg(test)]
-#[path = "composition/tests/mod.rs"]
-mod tests;
+fn production_session_config() -> SessionConfig {
+    SessionConfig::new(
+        SessionLifetime::from_seconds(8 * 60 * 60).expect("positive session lifetime"),
+        CookieTransport::FirstPartyHttps,
+    )
+}
+
+fn live_demo_config_from_env() -> Result<Option<SeededDemoConfig>> {
+    let values = LIVE_DEMO_ACCOUNT_ID_ENV.map(std::env::var);
+    if values.iter().all(Result::is_err) {
+        return Ok(None);
+    }
+    let accounts: [AccountId; 5] = values
+        .into_iter()
+        .map(|value| {
+            let value = value.context("the seeded Live Demo requires all five Account IDs")?;
+            let id = uuid::Uuid::parse_str(&value)
+                .context("a seeded Live Demo Account ID must be a UUID")?;
+            Ok(AccountId::from_uuid(id))
+        })
+        .collect::<Result<Vec<_>>>()?
+        .try_into()
+        .map_err(|_: Vec<AccountId>| {
+            anyhow::anyhow!("the seeded Live Demo requires five Accounts")
+        })?;
+    let [elena, mary, jack, avery, morgan] = accounts;
+    SeededDemoConfig::new([
+        SeededDemoAccount::new(
+            SeededDemoPersona::ElenaInstructor,
+            elena,
+            "Elena Instructor",
+        )
+        .map_err(anyhow::Error::msg)?,
+        SeededDemoAccount::new(SeededDemoPersona::MaryStudent, mary, "Mary Student")
+            .map_err(anyhow::Error::msg)?,
+        SeededDemoAccount::new(SeededDemoPersona::JackStudent, jack, "Jack Student")
+            .map_err(anyhow::Error::msg)?,
+        SeededDemoAccount::new(SeededDemoPersona::AveryStudent, avery, "Avery Student")
+            .map_err(anyhow::Error::msg)?,
+        SeededDemoAccount::new(SeededDemoPersona::MorganSysadmin, morgan, "Morgan Sysadmin")
+            .map_err(anyhow::Error::msg)?,
+    ])
+    .map(Some)
+    .map_err(anyhow::Error::msg)
+}
+
+fn required_env(name: &str) -> Result<String> {
+    let value = std::env::var(name).with_context(|| format!("{name} must be set"))?;
+    if value.is_empty() {
+        bail!("{name} must not be empty");
+    }
+    Ok(value)
+}

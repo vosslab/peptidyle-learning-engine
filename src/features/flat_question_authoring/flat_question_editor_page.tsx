@@ -3,7 +3,6 @@
 import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
-import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import { parseReviewedPublicByline } from "../../api/public_byline";
 import { FlatFeedbackFields } from "./flat_feedback_fields";
 import { hotspotSourceFromAsset } from "./flat_hotspot_editor_model";
@@ -138,17 +137,13 @@ function answerCheck(source: FlatQuestionSourceV2): FlatQuestionInstructorAnswer
   };
 }
 
-function isPublicationScope(value: string): value is PublicationScope {
-  return value === "institution" || value === "public";
-}
-
 function hasLocalDraftChanges(state: FlatQuestionEditorState): boolean {
   if (state.kind === "ready") return state.status !== "clean";
   return ["loading", "conflict", "reloading", "error", "published"].includes(state.kind);
 }
 
 /**
- * A purpose-built author surface. Learner preview is a local answer-free projection; this component
+ * A purpose-built author surface. Student preview is a local answer-free projection; this component
  * does not write source material to URLs, storage, or diagnostics.
  */
 export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.Element {
@@ -156,7 +151,6 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   const [latestRevision, setLatestRevision] = createSignal(props.initial.revision);
   const [review, setReview] = createSignal<Review | null>(null);
   const [reviewLoading, setReviewLoading] = createSignal(false);
-  const [scope, setScope] = createSignal<PublicationScope>("institution");
   const [bylineText, setBylineText] = createSignal("");
   const [publishedSummary, setPublishedSummary] = createSignal<CatalogProblemSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
@@ -173,7 +167,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   // Numeric source values are numbers. This local literal is intentionally separate so partially
   // typed values such as "6.02e" remain visible without replacing the last valid source value.
   const [numericAnswerLiteral, setNumericAnswerLiteral] = createSignal("0");
-  // HOTSPOT remains local until a verified descriptor and a useful learner description can make
+  // HOTSPOT remains local until a verified descriptor and a useful student description can make
   // a valid persisted source. This prevents a placeholder asset from entering a draft.
   const [hotspotPending, setHotspotPending] = createSignal(false);
   const [pendingHotspotAsset, setPendingHotspotAsset] =
@@ -325,7 +319,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
     const description = pendingHotspotDescription();
     if (description.trim() === "") {
       setStatus(
-        "Describe the image for learners, then the verified image will become this hotspot draft.",
+        "Describe the image for Students, then the verified image will become this hotspot draft.",
       );
       return;
     }
@@ -495,7 +489,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
     transition({ kind: "publishStarted" });
     setStatus("Publishing a new Question ID...");
     try {
-      const summary = await props.repository.publish(props.workspace, { scope: scope(), byline });
+      const summary = await props.repository.publish(props.workspace, { byline });
       setPublishedSummary(summary);
       transition({
         kind: "publishSucceeded",
@@ -543,7 +537,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
           Flat question
         </h1>
         <p>
-          Build a clear learner question, save it privately, then review and publish it when it is
+          Build a clear student question, save it privately, then review and publish it when it is
           ready.
         </p>
       </header>
@@ -588,7 +582,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                 />
               </label>
               <label class="flat-question-authoring__field">
-                <span>Learner-facing prompt</span>
+                <span>Student-facing prompt</span>
                 <textarea
                   value={currentSource().prompt}
                   disabled={isLocked()}
@@ -683,7 +677,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                   when={!hotspotPending()}
                   fallback={
                     <p role="status">
-                      Student preview appears after the verified image and learner description form
+                      Student preview appears after the verified image and student description form
                       a complete hotspot draft.
                     </p>
                   }
@@ -733,20 +727,6 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                         <For each={activeReview().changed}>{(section) => <li>{section}</li>}</For>
                       </ul>
                       <label class="flat-question-authoring__field">
-                        <span>Publication scope</span>
-                        <select
-                          value={scope()}
-                          onChange={(event) => {
-                            const nextScope = event.currentTarget.value;
-                            if (isPublicationScope(nextScope)) setScope(nextScope);
-                          }}
-                          disabled={isLocked()}
-                        >
-                          <option value="institution">Institution</option>
-                          <option value="public">Public</option>
-                        </select>
-                      </label>
-                      <label class="flat-question-authoring__field">
                         <span>Reviewed public byline</span>
                         <textarea
                           ref={(element) => {
@@ -794,8 +774,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                     <strong>Question ID:</strong> <code>{summary.questionId}</code>
                   </p>
                   <p>
-                    <strong>Published to:</strong>{" "}
-                    {summary.scope === "public" ? "Public library" : "Institution library"}
+                    <strong>Published to:</strong> Question Corpus
                   </p>
                   <p>
                     <strong>By:</strong> {summary.byline.names.join(", ")}

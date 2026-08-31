@@ -1,8 +1,8 @@
 # PLE flat-question JSON
 
 Status: accepted v2-only source contract. Version 2 implements all eight required
-Question Types through strict parsing, answer-free compilation,
-publication validation, learner rendering, response validation, and isolated
+flat-question families through strict parsing, answer-free compilation,
+publication validation, student rendering, response validation, and isolated
 server grading.
 
 ## Decision
@@ -15,9 +15,9 @@ the internal model.
 Version 2 uses a closed type-specific `response` object. PLE does not add QTI
 expression trees, arbitrary response processing, or vendor extension containers.
 
-## Required Question Types
+## Required family roadmap
 
-The complete product supports these eight native Question Types:
+The complete product must support at least these eight flat-question families:
 
 - multiple choice (MC), implemented by `singleChoice`;
 - multiple answer (MA);
@@ -107,9 +107,9 @@ inside one closed `response` object. The common top-level members are
 refused at every level.
 
 `attemptPolicy` is closed and contains only `maxAttempts`, which controls the
-retry bound. It does not disclose results, feedback, or answers. Learner
+retry bound. It does not disclose results, feedback, or answers. Student
 disclosure is assignment-owned through the independent five-field
-`LearnerDisclosurePolicy`: score, per-item correctness, feedback text,
+`StudentDisclosurePolicy`: score, per-item correctness, feedback text,
 solution, and class statistics.
 
 The eight exact response shapes are:
@@ -128,7 +128,7 @@ The eight exact response shapes are:
 Choice, prompt, blank, ordering-item, and region identifiers use the same
 stable identifier grammar. They identify semantics, not
 display positions. The server may later project attempt-specific rendered item
-IDs at the learner wire boundary without changing these durable source IDs.
+IDs at the student wire boundary without changing these durable source IDs.
 
 For example, a matching question is:
 
@@ -179,7 +179,7 @@ is not the only way to identify a region.
 
 ## Compilation and security boundary
 
-The authored document contains answers. It is never a learner, public,
+The authored document contains answers. It is never a student, public,
 ordinary-browser-contract, or Wasm payload. The one narrow exception is an
 authenticated author-role instructor requesting that instructor's own private
 workspace source through the dedicated canonical-source `GET`/`PUT` route;
@@ -213,7 +213,7 @@ records and cannot receive signed delivery URLs. Publication IDs are minted
 only after both compiled halves validate successfully.
 
 This split is more important than the physical JSON representation: a single
-combined JSONB row readable by the learner path would violate the grading
+combined JSONB row readable by the student path would violate the grading
 boundary even if the application promised not to serialize certain members.
 
 ## Why JSON rather than YAML
@@ -248,7 +248,7 @@ The native codec currently enforces these bounds:
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
 
-The v2 contract additionally enforces exact Question-Type-specific bindings: accepted text
+The v2 contract additionally enforces exact family-specific bindings: accepted text
 answers are nonempty and unique; multi-blank IDs and answers are complete;
 numeric answers and tolerance parameters are finite; matching binds every
 prompt once to one unique available choice; ordering names every item exactly
@@ -257,8 +257,8 @@ region subsets are complete and internally consistent.
 
 Per-choice feedback is selected for the submitted choice. Correct or incorrect
 outcome feedback is appended according to the server-derived grade. The normal
-assignment-owned learner disclosure policy still decides whether and when the
-learner receives that teaching content.
+assignment-owned student disclosure policy still decides whether and when the
+student receives that teaching content.
 
 Canonicalization preserves choice order because order is authored behavior.
 Whitespace and JSON object-member order do not change the canonical checksum.

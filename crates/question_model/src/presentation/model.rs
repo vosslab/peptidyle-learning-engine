@@ -3,11 +3,12 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
-use crate::activity::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId, RunMode};
+use crate::QuestionVersionReference;
+use crate::activity::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId};
 use crate::course_appearance::CourseThemeId;
 use crate::envelope::{AssetRef, ContentBlock};
 use crate::generation::Seed;
-use crate::identity::{AssetId, VersionId};
+use crate::identity::AssetId;
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -210,7 +211,7 @@ pub struct PresentedHotspotRegionV1 {
     pub height: u16,
 }
 
-/// Image-backed surface receiving normalized learner coordinates.
+/// Image-backed surface receiving normalized student coordinates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotSurfaceV1 {
@@ -262,11 +263,11 @@ pub enum ResponseSchemaV1 {
     },
 }
 
-/// Complete answer-free question state presented to one learner.
+/// Complete answer-free question state presented to one student.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentationEnvelopeV1 {
-    pub version: VersionId,
+    pub question_version: QuestionVersionReference,
     pub seed: Seed,
     pub presentation_nonce: PresentationNonceV1,
     pub title: String,
@@ -274,7 +275,7 @@ pub struct PresentationEnvelopeV1 {
     pub response: ResponseSchemaV1,
 }
 
-/// Minimal active attempt fields needed by the learner screen.
+/// Minimal active attempt fields needed by the student screen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentAttemptDescriptorV1 {
@@ -292,15 +293,14 @@ pub struct StudentRunScreenScopeV1 {
     pub theme: CourseThemeId,
 }
 
-/// Learner-visible run context, without storage or policy internals.
+/// Student-visible run context, without storage or policy internals.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentRunScreenRunV1 {
     pub number: u32,
-    pub mode: RunMode,
 }
 
-/// One consolidated active learner screen response.
+/// One consolidated active student screen response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentRunScreenV1 {

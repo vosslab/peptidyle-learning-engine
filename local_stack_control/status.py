@@ -5,33 +5,15 @@ import local_stack_control.models
 
 
 #============================================
-def required_one_shots(with_smtp: bool) -> tuple[str, ...]:
-	"""Return one-shot services required by the selected topology."""
-	services = list(local_stack_control.models.BASE_ONE_SHOT_SERVICES)
-	if with_smtp:
-		services.extend(local_stack_control.models.SMTP_ONE_SHOT_SERVICES)
-	return tuple(services)
+def required_one_shots(unused_with_smtp: bool = False) -> tuple[str, ...]:
+	"""Return the one-shot services required by the supported topology."""
+	return local_stack_control.models.BASE_ONE_SHOT_SERVICES
 
 
 #============================================
-def required_long_running(with_smtp: bool) -> tuple[str, ...]:
-	"""Return long-running services required by the selected topology."""
-	services = list(local_stack_control.models.BASE_LONG_RUNNING_SERVICES)
-	if with_smtp:
-		services.extend(local_stack_control.models.SMTP_LONG_RUNNING_SERVICES)
-	return tuple(services)
-
-
-#============================================
-def smtp_topology_present(
-	snapshot: local_stack_control.models.ProjectSnapshot,
-) -> bool:
-	"""Return whether labelled resources prove the SMTP overlay was selected."""
-	if any(item.service == "smtp-secret-init" for item in snapshot.containers):
-		return True
-	volume_name = f"{snapshot.project}_ple_smtp_runtime"
-	present = any(item.name == volume_name for item in snapshot.volumes)
-	return present
+def required_long_running(unused_with_smtp: bool = False) -> tuple[str, ...]:
+	"""Return long-running services required by the supported topology."""
+	return local_stack_control.models.BASE_LONG_RUNNING_SERVICES
 
 
 #============================================
@@ -109,11 +91,6 @@ def long_running_status(
 		container.running and container.health == "healthy"
 		for container in containers
 	)
-	if service in ("worker", "invitation-delivery-worker"):
-		healthy = all(
-			container.running and container.health in (None, "", "disabled")
-			for container in containers
-		)
 	running = all(container.running for container in containers)
 	state = "running"
 	if not running:
@@ -163,7 +140,7 @@ def build_report(
 	with_smtp: bool,
 	snapshot: local_stack_control.models.ProjectSnapshot,
 ) -> local_stack_control.models.StatusReport:
-	"""Build meaningful readiness, inferring a persisted SMTP overlay safely."""
+	"""Build meaningful readiness for the supported topology."""
 	return _build_report(project, with_smtp, snapshot, None)
 
 
@@ -189,11 +166,10 @@ def _build_report(
 	| None,
 ) -> local_stack_control.models.StatusReport:
 	"""Build readiness with default or closed target-derived cardinality."""
-	effective_with_smtp = with_smtp or smtp_topology_present(snapshot)
 	statuses: list[local_stack_control.models.StackServiceStatus] = []
-	for service in required_one_shots(effective_with_smtp):
+	for service in required_one_shots():
 		statuses.append(one_shot_status(snapshot, service))
-	for service in required_long_running(effective_with_smtp):
+	for service in required_long_running():
 		expected_instances = 1
 		if target is not None:
 			expected_instances = local_stack_control.lifecycle_profiles.expected_long_running_count(
@@ -229,7 +205,7 @@ def _build_report(
 		message = "required services are missing"
 	report = local_stack_control.models.StatusReport(
 		project=project,
-		with_smtp=effective_with_smtp,
+		with_smtp=with_smtp,
 		snapshot=snapshot,
 		services=tuple(statuses),
 		ok=ok,

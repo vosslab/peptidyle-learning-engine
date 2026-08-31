@@ -1,24 +1,24 @@
-//! Course-owned enrollment, run, attempt, and summary records (WP-C3, MOD-RUN).
+//! Course-owned Student Record, Assignment Attempt, Issued Question, and
+//! Question Attempt records (WP-C3, MOD-ACTIVITY).
 //!
-//! Completion of one run does not end an enrollment. A student can start new
-//! runs for practice, and each run owns its question attempts. The explicit
-//! three-level model keeps post-completion practice from rewriting the run
-//! that first completed an assignment.
+//! Completion of one Assignment Attempt does not end a Student Record. A
+//! Student can begin another Assignment Attempt when its explicit continuation
+//! rules permit it, and each Assignment Attempt owns its Issued Questions and
+//! Question Attempts. Historical completion remains immutable.
 //!
-//! These records are educational records. Their exact course and enrollment
-//! relationships provide their authorization scope; an installation-wide
-//! account is never an institution boundary.
+//! These are educational records. Their exact Course, Student Record,
+//! Assignment, and Issued Question relationships provide authorization scope;
+//! an installation-wide Account is the global product identity.
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::AccountId;
-use crate::ProblemVersionRef;
-use crate::RunReference;
+use crate::AssignmentAttemptReference;
+use crate::QuestionVersionReference;
+use crate::assignment_activity_rules::VariationPolicy;
 use crate::generation::GeneratorReference;
-use crate::identity::{ObjectId, ProblemId, VersionId};
+use crate::identity::ObjectId;
 use crate::response::StudentResponse;
-use crate::run_policy::VariationPolicy;
 
 /// A course-owned assignment offered to students.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -36,10 +36,6 @@ pub struct AssignmentSelectionGroupId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseId(Uuid);
 
-/// One current membership group inside a course.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseGroupId(Uuid);
-
 /// One durable course-local membership record.
 ///
 /// This identity is historical evidence as well as the single current
@@ -49,23 +45,23 @@ pub struct CourseGroupId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseMembershipId(Uuid);
 
-/// A student enrolled in an assignment.
+/// One durable Student Record in a Course Instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct StudentId(Uuid);
+pub struct StudentRecordId(Uuid);
 
-/// One current student/group exception attached to an assignment.
+/// One direct Student Accommodation attached to an Assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentPolicyExceptionId(Uuid);
-
-/// One student's durable relationship with one assignment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EnrollmentId(Uuid);
+pub struct AccommodationId(Uuid);
 
 /// One pass through an assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct RunId(Uuid);
+pub struct AssignmentAttemptId(Uuid);
 
 /// One issued question inside a run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct IssuedQuestionId(Uuid);
+
+/// One server-issued try for one Issued Question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionAttemptId(Uuid);
 
@@ -102,12 +98,11 @@ impl_activity_identifier!(AssignmentId);
 impl_activity_identifier!(AssignmentItemId);
 impl_activity_identifier!(AssignmentSelectionGroupId);
 impl_activity_identifier!(CourseId);
-impl_activity_identifier!(CourseGroupId);
 impl_activity_identifier!(CourseMembershipId);
-impl_activity_identifier!(StudentId);
-impl_activity_identifier!(AssignmentPolicyExceptionId);
-impl_activity_identifier!(EnrollmentId);
-impl_activity_identifier!(RunId);
+impl_activity_identifier!(StudentRecordId);
+impl_activity_identifier!(AccommodationId);
+impl_activity_identifier!(AssignmentAttemptId);
+impl_activity_identifier!(IssuedQuestionId);
 impl_activity_identifier!(QuestionAttemptId);
 
 /// A timestamp supplied by the server as Unix milliseconds.
@@ -131,134 +126,97 @@ impl ActivityTimestamp {
     }
 }
 
-/// Cross-run completion state for an enrollment.
+/// Authoritative completion state of one Assignment Attempt.
 ///
-/// This is derived from `first_completed_at`; it is not another stored field
-/// that can disagree with the completion record.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum EnrollmentStatus {
-    /// No run has yet satisfied the completion requirement.
-    InProgress,
-    /// At least one run has satisfied the completion requirement.
-    Completed,
-}
-
-/// One student's relationship with one assignment.
+/// Successor availability is deliberately separate: an Assignment Attempt can have no next
+/// attempt because it completed or because it exhausted its attempt policy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentEnrollment {
-    /// Durable enrollment identity.
-    pub id: EnrollmentId,
-    /// Assignment the student may run repeatedly.
-    pub assignment: AssignmentId,
-    /// Authenticated person authorized to act on this enrollment.
-    pub account: AccountId,
-    /// Student who owns the activity.
-    ///
-    /// This is the institution's pedagogical record identity. It remains
-    /// distinct from [`Self::user`] even when one provider maps both to the
-    /// same underlying UUID.
-    pub student: StudentId,
-    /// First server time at which a run satisfied completion.
-    pub first_completed_at: Option<ActivityTimestamp>,
-    /// Run currently selected by the assignment's grade policy.
-    pub current_grade_run: Option<RunId>,
-    /// Highest-scoring completed run.
-    pub best_grade_run: Option<RunId>,
-}
-
-impl AssignmentEnrollment {
-    /// Derives the enrollment's cross-run completion state.
-    pub fn status(&self) -> EnrollmentStatus {
-        if self.first_completed_at.is_some() {
-            EnrollmentStatus::Completed
-        } else {
-            EnrollmentStatus::InProgress
-        }
-    }
-}
-
-/// Whether a run is initial assigned work or continued practice.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RunMode {
-    /// Work performed before the assignment is first completed.
-    Assigned,
-    /// A new run started after completion for continued learning.
-    Practice,
-}
-
-/// Authoritative completion state of one run.
-///
-/// Successor availability is deliberately separate: a run can have no next
-/// attempt because it completed or because it exhausted its attempt policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RunCompletionStatus {
-    /// The run has not satisfied its assignment completion requirement.
+pub enum AssignmentAttemptCompletion {
+    /// The Assignment Attempt has not satisfied its assignment completion requirement.
     InProgress,
-    /// The run has satisfied its assignment completion requirement.
+    /// The Assignment Attempt has satisfied its assignment completion requirement.
     Completed,
 }
 
 /// One pass through an assignment.
 ///
 /// There is deliberately no stored `complete` boolean. The domain derives
-/// within-run completion from current question states, then records the
+/// within-Assignment-Attempt completion from current question states, then records the
 /// resulting completion timestamp and score as one transition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentRun {
-    /// Durable run identity.
-    pub id: RunId,
+pub struct AssignmentAttempt {
+    /// Durable Assignment Attempt identity.
+    pub id: AssignmentAttemptId,
     /// Stable typed locator used in application navigation.
-    pub reference: RunReference,
-    /// Enrollment that owns this run.
-    pub enrollment: EnrollmentId,
-    /// One-based run number within the enrollment.
-    pub run_number: u32,
-    /// Server time at which the run began.
+    pub reference: AssignmentAttemptReference,
+    /// Student Record that owns this Assignment Attempt.
+    pub student_record: StudentRecordId,
+    /// Assignment that this Student Record attempts.
+    pub assignment: AssignmentId,
+    /// One-based attempt number for this Student Record and Assignment.
+    pub attempt_number: u32,
+    /// Server time at which the Assignment Attempt began.
     pub started_at: ActivityTimestamp,
     /// Server time at which derived completion was recorded, if complete.
     pub completed_at: Option<ActivityTimestamp>,
     /// Score fraction recorded on completion, if complete.
     pub score: Option<f64>,
-    /// Whether this is assigned work or post-completion practice.
-    pub mode: RunMode,
-    /// Variation policy applied when this run was issued.
+    /// Variation policy applied when this Assignment Attempt was issued.
     pub variation: VariationPolicy,
 }
 
-impl AssignmentRun {
-    /// Returns the completion state recorded by the authoritative run projection.
-    pub fn completion_status(&self) -> RunCompletionStatus {
+/// The policy-selected course result for one Student Record and Assignment.
+///
+/// This record owns selected-score pointers only. Immutable activity remains
+/// under Assignment Attempts and their Issued Questions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentGrade {
+    /// Student Record whose course result this is.
+    pub student_record: StudentRecordId,
+    /// Assignment whose policy selected this result.
+    pub assignment: AssignmentId,
+    /// First time an Assignment Attempt satisfied completion.
+    pub first_completed_at: Option<ActivityTimestamp>,
+    /// Assignment Attempt currently selected by the grade rule.
+    pub current_assignment_attempt: Option<AssignmentAttemptId>,
+    /// Highest-scoring completed Assignment Attempt.
+    pub best_assignment_attempt: Option<AssignmentAttemptId>,
+}
+
+impl AssignmentAttempt {
+    /// Returns the completion state recorded by the authoritative Assignment Attempt projection.
+    pub fn completion(&self) -> AssignmentAttemptCompletion {
         if self.completed_at.is_some() {
-            RunCompletionStatus::Completed
+            AssignmentAttemptCompletion::Completed
         } else {
-            RunCompletionStatus::InProgress
+            AssignmentAttemptCompletion::InProgress
         }
     }
 }
 
-/// Immutable question selection and issued order for one run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Immutable question selection and issued order for one Assignment Attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentRunItem {
-    /// Run whose future sequencing is frozen by this row.
-    pub run: RunId,
+pub struct IssuedQuestion {
+    /// Durable issued-question identity.
+    pub id: IssuedQuestionId,
+    /// Assignment Attempt whose future sequencing is frozen by this record.
+    pub assignment_attempt: AssignmentAttemptId,
     /// Stable fixed-item or selection-candidate identity.
     pub assignment_item: AssignmentItemId,
-    /// Position in the mutable assignment definition when the run began.
+    /// Position in the mutable assignment definition when the Assignment Attempt began.
     pub source_position: u32,
     /// Expanded zero-based delivery order inside this run.
     pub issued_position: u32,
     /// Exact immutable catalog version selected for delivery.
-    pub reference: ProblemVersionRef,
+    pub reference: QuestionVersionReference,
     /// Whether this issued item may contribute to cross-course learning evidence.
     ///
     /// The value is frozen when the run begins so later assignment scoring
-    /// changes cannot rewrite the validity of an observed learner response.
+    /// changes cannot rewrite the validity of an observed student response.
     pub statistics_eligible: bool,
     /// Selection group that produced this item, if it was drawn.
     pub selection_group: Option<AssignmentSelectionGroupId>,
@@ -269,7 +227,7 @@ pub struct AssignmentRunItem {
 /// Server-recorded timing inputs for one issued question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AttemptTimerRecord {
+pub struct QuestionAttemptTiming {
     /// Server time at which the question became available.
     pub issued_at: ActivityTimestamp,
     /// Server-owned base deadline before authorized pauses, or `None` when untimed.
@@ -282,9 +240,9 @@ pub struct AttemptTimerRecord {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptStatus {
-    /// The learner may still submit a response.
+    /// The student may still submit a response.
     InProgress,
-    /// A learner or instructor submitted the current response.
+    /// A student or instructor submitted the current response.
     Submitted,
     /// The server submitted automatically at the effective deadline.
     AutoSubmitted,
@@ -374,23 +332,14 @@ pub enum IssuedAttemptCapabilityV1 {
     NotApplicable,
 }
 
-/// One question issued inside an assignment run.
+/// One server-issued try under an exact Issued Question.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionAttempt {
     /// Durable question-attempt identity.
     pub id: QuestionAttemptId,
-    /// Run that owns this attempt.
-    pub run: RunId,
-    /// Stable published problem containing the attempted version.
-    pub problem: ProblemId,
-    /// Immutable published question version used for this attempt.
-    pub question_version: VersionId,
-    /// Zero-based position of this question in the assignment definition.
-    ///
-    /// Position, rather than only problem/version identity, keeps repeated
-    /// content and retries tied to the correct logical question.
-    pub assignment_position: u32,
+    /// Immutable delivered Question that owns this attempt.
+    pub issued_question: IssuedQuestionId,
     /// Seed used to regenerate the exact question variant.
     pub seed: u64,
     /// SHA-256 of the generated parameters.
@@ -402,7 +351,7 @@ pub struct QuestionAttempt {
     /// Server grading result, once graded.
     pub result: Option<AttemptResult>,
     /// Server-owned timing record.
-    pub timer: AttemptTimerRecord,
+    pub timing: QuestionAttemptTiming,
     /// Versions and object identities required to reproduce this attempt.
     pub provenance: AttemptProvenance,
     /// Checksummed immutable capability for the protected issuance payloads.
@@ -411,22 +360,24 @@ pub struct QuestionAttempt {
 
 /// Compact projection read by course pages and the gradebook.
 ///
-/// Historical runs remain separate. Updating this projection from the same
-/// run transition lets storage commit the history and summary atomically.
+/// Historical Assignment Attempts remain separate. Updating this projection from the same
+/// Assignment Attempt transition lets storage commit the history and summary atomically.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudentAssignmentSummary {
-    /// Enrollment summarized by this row.
-    pub enrollment: EnrollmentId,
+pub struct AssignmentProgressRecord {
+    /// Student Record summarized by this view.
+    pub student_record: StudentRecordId,
+    /// Assignment summarized by this view.
+    pub assignment: AssignmentId,
     /// Score selected by the assignment's grade policy.
     pub current_score: Option<f64>,
-    /// Highest completed-run score seen so far.
+    /// Highest completed Assignment Attempt score seen so far.
     pub best_score: Option<f64>,
-    /// Most recently completed-run score.
+    /// Most recently completed Assignment Attempt score.
     pub latest_score: Option<f64>,
-    /// Number of completed runs, including continued practice runs.
-    pub completed_run_count: u32,
-    /// Number of question responses recorded across all runs.
+    /// Number of completed Assignment Attempts, including continued activity.
+    pub completed_assignment_attempt_count: u32,
+    /// Number of Question Attempts recorded across all Assignment Attempts.
     pub total_question_attempts: u64,
     /// Latest server-supplied activity timestamp.
     pub last_activity_at: Option<ActivityTimestamp>,
@@ -436,10 +387,10 @@ pub struct StudentAssignmentSummary {
 ///
 /// This is a presentation state, not an authorization input.  The server
 /// derives it from the current assignment disclosure policy and never sends
-/// the policy, clock, or enrollment to the browser for inference.
+/// the policy, clock, or Student Record to the browser for inference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum StudentScoreState {
+pub enum AssignmentProgressScoreState {
     /// The Student has not submitted any response for this assignment.
     NoActivity,
     /// The Student has activity, but the current policy withholds scores.
@@ -450,25 +401,25 @@ pub enum StudentScoreState {
 
 /// Key-free Student projection of an assignment's aggregate progress.
 ///
-/// It deliberately excludes the enrollment identifier carried by
-/// [`StudentAssignmentSummary`]. Browser routes use this type instead of the
+/// It deliberately excludes the Student Record and Assignment identifiers
+/// carried by [`AssignmentProgressRecord`]. Browser routes use this type instead of the
 /// storage projection so score totals are omitted while withheld.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct StudentAssignmentProgress {
+pub struct AssignmentProgress {
     /// Whether aggregate score values are absent because there is no submitted
     /// response, are currently withheld, or are available for display.
-    pub score_state: StudentScoreState,
+    pub score_state: AssignmentProgressScoreState,
     /// Current freshness and visibility of the assignment's computed scores.
     pub scoring_status: crate::ScoringStatus,
     /// Score selected by the assignment's grade policy when available.
     pub current_score: Option<f64>,
-    /// Highest completed-run score when available.
+    /// Highest completed Assignment Attempt score when available.
     pub best_score: Option<f64>,
-    /// Most recently completed-run score when available.
+    /// Most recently completed Assignment Attempt score when available.
     pub latest_score: Option<f64>,
-    /// Number of completed runs. This is not a score total.
-    pub completed_run_count: u32,
+    /// Number of completed Assignment Attempts. This is not a score total.
+    pub completed_assignment_attempt_count: u32,
     /// Number of recorded responses. This is not a score total.
     pub total_question_attempts: u64,
     /// Latest server-recorded activity time, if any.
@@ -479,18 +430,18 @@ pub struct StudentAssignmentProgress {
     pub class_statistics: Option<crate::StudentClassStatistics>,
 }
 
-impl StudentAssignmentProgress {
+impl AssignmentProgress {
     /// Projects an entitled Student's assignment before the first durable
     /// educational receipt exists. Reading progress must not create an
-    /// enrollment merely to represent the valid no-activity state.
+    /// Assignment Attempt merely to represent the valid no-activity state.
     pub fn no_activity(scoring_status: crate::ScoringStatus) -> Self {
         Self {
-            score_state: StudentScoreState::NoActivity,
+            score_state: AssignmentProgressScoreState::NoActivity,
             scoring_status,
             current_score: None,
             best_score: None,
             latest_score: None,
-            completed_run_count: 0,
+            completed_assignment_attempt_count: 0,
             total_question_attempts: 0,
             last_activity_at: None,
             class_statistics: None,
@@ -500,18 +451,18 @@ impl StudentAssignmentProgress {
     /// Projects the internal summary after the server has made its disclosure
     /// decision. No-activity takes precedence over the disclosure setting.
     pub fn from_summary(
-        summary: &StudentAssignmentSummary,
+        summary: &AssignmentProgressRecord,
         score_disclosed: bool,
         scoring_status: crate::ScoringStatus,
     ) -> Self {
         let score_state = if summary.total_question_attempts == 0 {
-            StudentScoreState::NoActivity
+            AssignmentProgressScoreState::NoActivity
         } else if score_disclosed {
-            StudentScoreState::Available
+            AssignmentProgressScoreState::Available
         } else {
-            StudentScoreState::Withheld
+            AssignmentProgressScoreState::Withheld
         };
-        let scores = matches!(score_state, StudentScoreState::Available)
+        let scores = matches!(score_state, AssignmentProgressScoreState::Available)
             && matches!(scoring_status, crate::ScoringStatus::Current);
         Self {
             score_state,
@@ -519,7 +470,7 @@ impl StudentAssignmentProgress {
             current_score: scores.then_some(summary.current_score).flatten(),
             best_score: scores.then_some(summary.best_score).flatten(),
             latest_score: scores.then_some(summary.latest_score).flatten(),
-            completed_run_count: summary.completed_run_count,
+            completed_assignment_attempt_count: summary.completed_assignment_attempt_count,
             total_question_attempts: summary.total_question_attempts,
             last_activity_at: summary.last_activity_at,
             class_statistics: None,
@@ -527,15 +478,16 @@ impl StudentAssignmentProgress {
     }
 }
 
-impl StudentAssignmentSummary {
-    /// Creates the empty projection for a new enrollment.
-    pub fn empty(enrollment: EnrollmentId) -> Self {
+impl AssignmentProgressRecord {
+    /// Creates the empty activity view for one Student Record and Assignment.
+    pub fn empty(student_record: StudentRecordId, assignment: AssignmentId) -> Self {
         Self {
-            enrollment,
+            student_record,
+            assignment,
             current_score: None,
             best_score: None,
             latest_score: None,
-            completed_run_count: 0,
+            completed_assignment_attempt_count: 0,
             total_question_attempts: 0,
             last_activity_at: None,
         }
@@ -547,42 +499,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn enrollment_status_comes_from_first_completion() {
-        let enrollment = AssignmentEnrollment {
-            id: EnrollmentId::from_uuid(Uuid::from_u128(1)),
+    fn assignment_attempt_binds_a_student_record_and_assignment() {
+        let attempt = AssignmentAttempt {
+            id: AssignmentAttemptId::from_uuid(Uuid::from_u128(1)),
+            reference: AssignmentAttemptReference::new(1).expect("valid attempt reference"),
+            student_record: StudentRecordId::from_uuid(Uuid::from_u128(2)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-            account: AccountId::from_uuid(Uuid::from_u128(5)),
-            student: StudentId::from_uuid(Uuid::from_u128(4)),
-            first_completed_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
-            current_grade_run: None,
-            best_grade_run: None,
+            attempt_number: 1,
+            started_at: ActivityTimestamp::from_unix_millis(1_000),
+            completed_at: None,
+            score: None,
+            variation: VariationPolicy::NewSeeds,
         };
 
-        assert_eq!(enrollment.status(), EnrollmentStatus::Completed);
+        assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
+        assert_eq!(attempt.assignment.as_uuid(), Uuid::from_u128(3));
     }
 
     #[test]
     fn student_progress_distinguishes_no_activity_withheld_and_available_scores() {
         assert_eq!(
-            StudentAssignmentProgress::no_activity(crate::ScoringStatus::Current),
-            StudentAssignmentProgress {
-                score_state: StudentScoreState::NoActivity,
+            AssignmentProgress::no_activity(crate::ScoringStatus::Current),
+            AssignmentProgress {
+                score_state: AssignmentProgressScoreState::NoActivity,
                 scoring_status: crate::ScoringStatus::Current,
                 current_score: None,
                 best_score: None,
                 latest_score: None,
-                completed_run_count: 0,
+                completed_assignment_attempt_count: 0,
                 total_question_attempts: 0,
                 last_activity_at: None,
                 class_statistics: None,
             }
         );
-        let mut summary =
-            StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
+        let mut summary = AssignmentProgressRecord::empty(
+            StudentRecordId::from_uuid(Uuid::from_u128(2)),
+            AssignmentId::from_uuid(Uuid::from_u128(3)),
+        );
         assert_eq!(
-            StudentAssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current)
+            AssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current)
                 .score_state,
-            StudentScoreState::NoActivity
+            AssignmentProgressScoreState::NoActivity
         );
 
         summary.total_question_attempts = 1;
@@ -590,8 +547,8 @@ mod tests {
         summary.best_score = Some(0.5);
         summary.latest_score = Some(0.5);
         let withheld =
-            StudentAssignmentProgress::from_summary(&summary, false, crate::ScoringStatus::Current);
-        assert_eq!(withheld.score_state, StudentScoreState::Withheld);
+            AssignmentProgress::from_summary(&summary, false, crate::ScoringStatus::Current);
+        assert_eq!(withheld.score_state, AssignmentProgressScoreState::Withheld);
         assert_eq!(
             (
                 withheld.current_score,
@@ -602,24 +559,32 @@ mod tests {
         );
 
         let available =
-            StudentAssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current);
-        assert_eq!(available.score_state, StudentScoreState::Available);
+            AssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current);
+        assert_eq!(
+            available.score_state,
+            AssignmentProgressScoreState::Available
+        );
         assert_eq!(available.current_score, Some(0.5));
         assert!(available.class_statistics.is_none());
     }
 
     #[test]
     fn student_progress_hides_scores_while_scoring_is_not_current() {
-        let mut summary =
-            StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(2)));
+        let mut summary = AssignmentProgressRecord::empty(
+            StudentRecordId::from_uuid(Uuid::from_u128(2)),
+            AssignmentId::from_uuid(Uuid::from_u128(3)),
+        );
         summary.total_question_attempts = 1;
         summary.current_score = Some(0.5);
         for scoring_status in [
             crate::ScoringStatus::Recalculating,
             crate::ScoringStatus::Failed,
         ] {
-            let progress = StudentAssignmentProgress::from_summary(&summary, true, scoring_status);
-            assert_eq!(progress.score_state, StudentScoreState::Available);
+            let progress = AssignmentProgress::from_summary(&summary, true, scoring_status);
+            assert_eq!(
+                progress.score_state,
+                AssignmentProgressScoreState::Available
+            );
             assert_eq!(progress.scoring_status, scoring_status);
             assert_eq!(progress.current_score, None);
         }
@@ -628,7 +593,7 @@ mod tests {
     #[test]
     fn every_activity_identifier_stays_distinct_but_round_trips() {
         let raw = Uuid::from_u128(7);
-        let run = RunId::from_uuid(raw);
+        let run = AssignmentAttemptId::from_uuid(raw);
         let attempt = QuestionAttemptId::from_uuid(raw);
 
         assert_eq!((run.as_uuid(), attempt.as_uuid()), (raw, raw));

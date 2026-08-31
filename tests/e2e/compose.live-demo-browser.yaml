@@ -20,12 +20,6 @@ services:
     volumes: !override
       - ple_identity_runtime:/run/ple-secrets:ro
 
-  worker:
-    command: ["--worker"]
-    environment:
-      PLE_QTI_RUNTIME_ENABLED: "1"
-      PLE_STORAGE_TOPOLOGY: disposable-local
-
   gateway:
     volumes: !override
       - ../tests/e2e/Caddyfile.live-demo-browser:/etc/caddy/Caddyfile:ro

@@ -29,11 +29,6 @@ def lanes() -> tuple[ValidationLane, ...]:
 	"""Return the closed ordered validation contract without lifecycle authority."""
 	result = (
 		ValidationLane(
-			"canonical production-browser behavior",
-			("bash", "run_playwright_tests.sh", "--build"),
-			EvidenceBoundary.CANONICAL_PRODUCTION_BROWSER,
-		),
-		ValidationLane(
 			"disposable PostgreSQL schema, authority, and persistence oracle",
 			("bash", "tests/e2e/e2e_database_baseline.sh"),
 			EvidenceBoundary.REAL_SERVICE,
@@ -41,16 +36,6 @@ def lanes() -> tuple[ValidationLane, ...]:
 		ValidationLane(
 			"course-appearance PostgreSQL and MinIO coherence oracle",
 			("bash", "tests/e2e/e2e_course_appearance.sh"),
-			EvidenceBoundary.REAL_SERVICE,
-		),
-		ValidationLane(
-			"isolated WebWork renderer service oracle",
-			("bash", "tests/e2e/e2e_webwork_render_rpc.sh"),
-			EvidenceBoundary.REAL_SERVICE,
-		),
-		ValidationLane(
-			"isolated replica restart service oracle",
-			("node", "tests/e2e/e2e_replica_restart.mjs"),
 			EvidenceBoundary.REAL_SERVICE,
 		),
 	)

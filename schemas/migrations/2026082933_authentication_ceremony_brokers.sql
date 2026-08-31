@@ -83,13 +83,48 @@ $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.consume_email_authentication_challenge(uuid, bytea, bytea) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.consume_passkey_authentication(uuid, bytea, bytea) FROM PUBLIC;
-GRANT USAGE ON SCHEMA ple_private TO ple_auth;
-GRANT EXECUTE ON FUNCTION ple_private.consume_email_authentication_challenge(uuid, bytea, bytea) TO ple_auth;
-GRANT EXECUTE ON FUNCTION ple_private.consume_passkey_authentication(uuid, bytea, bytea) TO ple_auth;
+GRANT EXECUTE ON FUNCTION ple_private.consume_email_authentication_challenge(uuid, bytea, bytea) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.consume_passkey_authentication(uuid, bytea, bytea) TO ple_api_owner;
 
 COMMENT ON FUNCTION ple_private.consume_email_authentication_challenge(uuid, bytea, bytea) IS
     'Atomically consumes one eligible browser-bound email challenge and returns its existing Account role.';
 COMMENT ON FUNCTION ple_private.consume_passkey_authentication(uuid, bytea, bytea) IS
     'Consumes one validated browser-bound WebAuthn ceremony and records active passkey use.';
 
+RESET ROLE;
+
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.consume_email_authentication_challenge(
+    p_challenge_id uuid,
+    p_proof_hash bytea,
+    p_browser_binding_hash bytea
+)
+RETURNS TABLE (account_id uuid, role text)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+    SELECT * FROM ple_private.consume_email_authentication_challenge(
+        p_challenge_id, p_proof_hash, p_browser_binding_hash
+    )
+$$;
+
+CREATE FUNCTION ple_api.consume_passkey_authentication(
+    p_ceremony_id uuid,
+    p_credential_id_hash bytea,
+    p_browser_binding_hash bytea
+)
+RETURNS TABLE (account_id uuid, role text)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+    SELECT * FROM ple_private.consume_passkey_authentication(
+        p_ceremony_id, p_credential_id_hash, p_browser_binding_hash
+    )
+$$;
+
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.consume_email_authentication_challenge(uuid, bytea, bytea) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.consume_passkey_authentication(uuid, bytea, bytea) FROM PUBLIC;
+GRANT USAGE ON SCHEMA ple_api TO ple_auth;
+GRANT EXECUTE ON FUNCTION ple_api.consume_email_authentication_challenge(uuid, bytea, bytea) TO ple_auth;
+GRANT EXECUTE ON FUNCTION ple_api.consume_passkey_authentication(uuid, bytea, bytea) TO ple_auth;
 RESET ROLE;

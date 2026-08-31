@@ -37,7 +37,7 @@ function plural(count: number, singular: string): string {
 }
 
 function displayMoment(moment: RelativeScheduleMoment | null): string {
-  return moment === null ? "" : `${moment.dayOffset}|${moment.localTime}`;
+  return moment === null ? "" : `${moment.day_offset}|${moment.local_time}`;
 }
 
 function readMoment(value: string): RelativeScheduleMoment | null {
@@ -46,23 +46,23 @@ function readMoment(value: string): RelativeScheduleMoment | null {
   if (offset === undefined || localTime === undefined || extra !== undefined) return null;
   const dayOffset = Number(offset);
   if (!Number.isSafeInteger(dayOffset)) return null;
-  return { dayOffset, localTime };
+  return { day_offset: dayOffset, local_time: localTime };
 }
 
 function entrySummary(entry: ReusableAssignmentDefinitionInput["entries"][number]): string {
-  if (entry.kind === "fixed") return `Fixed question ${entry.questionId}`;
-  return `Pool: draw ${entry.drawCount} from ${plural(entry.candidates.length, "candidate")}`;
+  if (entry.kind === "fixed") return `Fixed Question ${entry.question_id}`;
+  return `Question Pool: draw ${entry.draw_count} from ${plural(entry.candidates.length, "candidate")}`;
 }
 
 function lateSubmissionFromValue(
   value: string,
-): ReusableAssignmentDefinitionInput["defaults"]["lateSubmission"] | undefined {
+): ReusableAssignmentDefinitionInput["defaults"]["late_submission"] | undefined {
   return value === "accept" || value === "markLate" || value === "reject" ? value : undefined;
 }
 
 function gradePolicyFromValue(
   value: string,
-): ReusableAssignmentDefinitionInput["defaults"]["runPolicies"]["grade"] | undefined {
+): ReusableAssignmentDefinitionInput["defaults"]["activity_rules"]["grade"] | undefined {
   return value === "first" ||
     value === "latest" ||
     value === "highest" ||
@@ -99,7 +99,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
     );
   }
 
-  function changeNumber(field: "timeLimitSeconds" | "attemptLimit", value: string): void {
+  function changeNumber(field: "time_limit_seconds" | "attempt_limit", value: string): void {
     const parsed = value.trim() === "" ? null : Number(value);
     if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed < 1)) {
       props.onChange(
@@ -154,7 +154,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
             />
           </label>
           <label class="curriculum-form-wide">
-            Instructions for learners
+            Instructions for students
             <textarea
               value={props.definition.instructions}
               rows="4"
@@ -207,7 +207,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
                           type="number"
                           min="1"
                           max={entry.kind === "pool" ? entry.candidates.length : 1}
-                          value={entry.kind === "pool" ? entry.drawCount : 1}
+                          value={entry.kind === "pool" ? entry.draw_count : 1}
                           disabled={!props.editable}
                           onInput={(event) => {
                             const drawCount = Number(event.currentTarget.value);
@@ -273,8 +273,8 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
             <input
               type="number"
               min="1"
-              value={props.definition.defaults.timeLimitSeconds ?? ""}
-              onInput={(event) => changeNumber("timeLimitSeconds", event.currentTarget.value)}
+              value={props.definition.defaults.time_limit_seconds ?? ""}
+              onInput={(event) => changeNumber("time_limit_seconds", event.currentTarget.value)}
             />
           </label>
           <label>
@@ -282,21 +282,21 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
             <input
               type="number"
               min="1"
-              value={props.definition.defaults.attemptLimit ?? ""}
-              onInput={(event) => changeNumber("attemptLimit", event.currentTarget.value)}
+              value={props.definition.defaults.attempt_limit ?? ""}
+              onInput={(event) => changeNumber("attempt_limit", event.currentTarget.value)}
             />
           </label>
           <label>
             Late work
             <select
-              value={props.definition.defaults.lateSubmission}
+              value={props.definition.defaults.late_submission}
               onChange={(event) => {
-                const lateSubmission = lateSubmissionFromValue(event.currentTarget.value);
-                if (lateSubmission === undefined) return;
+                const late_submission = lateSubmissionFromValue(event.currentTarget.value);
+                if (late_submission === undefined) return;
                 props.onChange(
                   updateReusableDefaults(props.definition, {
                     ...props.definition.defaults,
-                    lateSubmission,
+                    late_submission,
                   }),
                   "Late-work default updated. Continue with schedule or save.",
                 );
@@ -310,14 +310,14 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
           <label>
             Grade policy
             <select
-              value={props.definition.defaults.runPolicies.grade}
+              value={props.definition.defaults.activity_rules.grade}
               onChange={(event) => {
                 const grade = gradePolicyFromValue(event.currentTarget.value);
                 if (grade === undefined) return;
                 props.onChange(
                   updateReusableDefaults(props.definition, {
                     ...props.definition.defaults,
-                    runPolicies: { ...props.definition.defaults.runPolicies, grade },
+                    activity_rules: { ...props.definition.defaults.activity_rules, grade },
                   }),
                   "Grade-policy default updated. Continue with schedule or save.",
                 );
@@ -341,19 +341,19 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
         <div class="curriculum-form-grid">
           <ScheduleField
             label="Available"
-            field="availableAt"
+            field="available_at"
             definition={props.definition}
             onChange={changeSchedule}
           />
           <ScheduleField
             label="Due"
-            field="dueAt"
+            field="due_at"
             definition={props.definition}
             onChange={changeSchedule}
           />
           <ScheduleField
             label="Close"
-            field="closesAt"
+            field="closes_at"
             definition={props.definition}
             onChange={changeSchedule}
           />

@@ -4,7 +4,7 @@ import { useParams } from "@solidjs/router";
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
-import type { CourseGroupMemberView } from "../../generated/api/CourseGroupMemberView";
+import type { StudentMembershipView } from "../../generated/api/StudentMembershipView";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import type { PreviewSubject } from "./assignment_access/model";
@@ -40,7 +40,7 @@ async function loadAllPreviewSubjects(
     cursor?: string,
     pageSize?: number,
   ) => Promise<{
-    readonly students: ReadonlyArray<CourseGroupMemberView>;
+    readonly students: ReadonlyArray<StudentMembershipView>;
     readonly nextCursor: string | null;
   }>,
 ): Promise<ReadonlyArray<PreviewSubject>> {

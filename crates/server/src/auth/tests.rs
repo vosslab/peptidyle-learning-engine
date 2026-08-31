@@ -3,13 +3,114 @@ use axum::body::{Body, to_bytes};
 use axum::http::Request;
 use axum::middleware;
 use axum::routing::post;
-use learning_data_access::in_memory::MemoryStore;
-use question_model::{AccountId, AccountRole};
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+
+use async_trait::async_trait;
+use learning_data_access::{
+    SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
+};
+use question_model::{AccountId, AccountRole, ActivityTimestamp};
 use tower::ServiceExt;
 use uuid::Uuid;
 
 fn account() -> AccountId {
     AccountId::from_uuid(Uuid::from_u128(2))
+}
+
+#[derive(Clone, Default)]
+struct MemorySessionStore(Arc<Mutex<BTreeMap<SessionTokenHash, SessionRecord>>>);
+
+#[async_trait]
+impl SessionStore for MemorySessionStore {
+    async fn create_session(
+        &self,
+        token_hash: SessionTokenHash,
+        account: AccountId,
+        lifetime: SessionLifetime,
+    ) -> Result<SessionRecord, StoreError> {
+        let mut records = self.0.lock().expect("test store lock");
+        if records.contains_key(&token_hash) {
+            return Err(StoreError::AlreadyExists);
+        }
+        let record = SessionRecord {
+            id: SessionId::generate()?,
+            token_hash,
+            account,
+            role: AccountRole::Student,
+            created_at: ActivityTimestamp::from_unix_millis(0),
+            expires_at: ActivityTimestamp::from_unix_millis(
+                i64::from(lifetime.as_seconds()) * 1_000,
+            ),
+        };
+        records.insert(token_hash, record.clone());
+        Ok(record)
+    }
+
+    async fn resolve_session(
+        &self,
+        token_hash: SessionTokenHash,
+    ) -> Result<Option<SessionRecord>, StoreError> {
+        Ok(self
+            .0
+            .lock()
+            .expect("test store lock")
+            .get(&token_hash)
+            .cloned())
+    }
+
+    async fn revoke_session(&self, token_hash: SessionTokenHash) -> Result<(), StoreError> {
+        self.0.lock().expect("test store lock").remove(&token_hash);
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn session_issuer_returns_the_product_role_derived_by_the_session_store() {
+    #[derive(Clone, Default)]
+    struct InstructorSessionStore;
+
+    #[async_trait]
+    impl SessionStore for InstructorSessionStore {
+        async fn create_session(
+            &self,
+            token_hash: SessionTokenHash,
+            account: AccountId,
+            lifetime: SessionLifetime,
+        ) -> Result<SessionRecord, StoreError> {
+            Ok(SessionRecord {
+                id: SessionId::generate()?,
+                token_hash,
+                account,
+                role: AccountRole::Instructor,
+                created_at: ActivityTimestamp::from_unix_millis(0),
+                expires_at: ActivityTimestamp::from_unix_millis(
+                    i64::from(lifetime.as_seconds()) * 1_000,
+                ),
+            })
+        }
+
+        async fn resolve_session(
+            &self,
+            _token_hash: SessionTokenHash,
+        ) -> Result<Option<SessionRecord>, StoreError> {
+            Ok(None)
+        }
+
+        async fn revoke_session(&self, _token_hash: SessionTokenHash) -> Result<(), StoreError> {
+            Ok(())
+        }
+    }
+
+    let issued = issue_session(
+        &InstructorSessionStore,
+        account(),
+        config(CookieTransport::FirstPartyHttps),
+    )
+    .await
+    .expect("session should issue");
+
+    assert_eq!(issued.record.role, AccountRole::Instructor);
 }
 
 fn config(transport: CookieTransport) -> SessionConfig {
@@ -28,16 +129,11 @@ fn cookie_request_header(set_cookie: &str) -> &str {
 
 #[tokio::test]
 async fn revocation_on_one_replica_takes_effect_on_another() {
-    let issuer = MemoryStore::default();
+    let issuer = MemorySessionStore::default();
     let next_replica = issuer.clone();
-    let issued = issue_session(
-        &issuer,
-        account(),
-        AccountRole::Student,
-        config(CookieTransport::FirstPartyHttps),
-    )
-    .await
-    .expect("session should issue");
+    let issued = issue_session(&issuer, account(), config(CookieTransport::FirstPartyHttps))
+        .await
+        .expect("session should issue");
     let header = cookie_request_header(&issued.set_cookie);
 
     revoke_session(&next_replica, Some(header))
@@ -52,9 +148,8 @@ async fn revocation_on_one_replica_takes_effect_on_another() {
 #[tokio::test]
 async fn issued_session_debug_redacts_the_set_cookie_credential() {
     let issued = issue_session(
-        &MemoryStore::default(),
+        &MemorySessionStore::default(),
         account(),
-        AccountRole::Student,
         config(CookieTransport::FirstPartyHttps),
     )
     .await
@@ -207,6 +302,7 @@ async fn production_boundary_drops_legacy_sensitive_cookie_aliases() {
                 .method("POST")
                 .uri("/write")
                 .header("host", "learn.example.edu")
+                .header("origin", "https://learn.example.edu")
                 .header(COOKIE, "ple_session=attacker; theme=contrast")
                 .body(Body::empty())
                 .expect("legacy-cookie request"),
@@ -267,7 +363,7 @@ async fn production_boundary_normalizes_the_session_cookie_and_rejects_duplicate
 
 #[tokio::test]
 async fn malformed_unknown_and_duplicate_cookies_share_one_failure() {
-    let store = MemoryStore::default();
+    let store = MemorySessionStore::default();
     for header in [
         None,
         Some("ple_session=not-base64"),

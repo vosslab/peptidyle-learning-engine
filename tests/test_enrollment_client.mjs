@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  decodeAccountPresentationPreference,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
   decodeRosterImportCommitResult,
@@ -30,20 +29,9 @@ function json(value, status = 200, headers = {}) {
   });
 }
 
-test("course and roster decoders reject authority and secret fields", () => {
-  assert.deepEqual(decodeAccountPresentationPreference({ contrast: "standard" }), {
-    contrast: "standard",
-  });
-  assert.throws(
-    () => decodeAccountPresentationPreference({ contrast: "maximum" }),
-    /one of standard, increased/u,
-  );
-  assert.throws(
-    () => decodeAccountPresentationPreference({ contrast: "increased", course: COURSE }),
-    /field allowed by this response contract/u,
-  );
+test("course roster decoders reject authority and secret fields", () => {
   const roster = {
-    rosterMode: "emailEnrollment",
+    rosterMode: "courseInvitations",
     members: [
       {
         memberId: "0198e000-0000-7000-8000-000000000602",
@@ -64,7 +52,6 @@ test("course and roster decoders reject authority and secret fields", () => {
       },
     ],
     allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }],
-    signupPosture: "invitationOnly",
     nextCursor: null,
     rosterRevision: 4,
   };
@@ -99,11 +86,10 @@ test("roster pagination preserves the opaque cursor", async () => {
       if (url.pathname.endsWith("/roster")) {
         return Promise.resolve(
           json({
-            rosterMode: "emailEnrollment",
+            rosterMode: "courseInvitations",
             members: [],
             pendingInvitations: [],
             allowedEmailDomains: [],
-            signupPosture: "invitationOnly",
             nextCursor: null,
             rosterRevision: 4,
           }),
@@ -253,6 +239,16 @@ test("roster mutations preserve revisions idempotency and protected export heade
           { etag: '"1"' },
         );
       }
+      if (path.endsWith("/invitation-email-rule")) {
+        return json(
+          {
+            allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }],
+            rosterRevision: 5,
+          },
+          200,
+          { etag: '"5"' },
+        );
+      }
       throw new Error(`unexpected request ${path}`);
     },
   });
@@ -264,9 +260,16 @@ test("roster mutations preserve revisions idempotency and protected export heade
     4,
     "preview-once",
   );
+  await client.replaceCourseInvitationEmailRule(
+    COURSE,
+    { allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }] },
+    4,
+  );
   assert.equal(requests[0]?.init.headers["idempotency-key"], "invite-once");
   assert.equal(requests[1]?.init.headers["if-match"], '"4"');
   assert.equal(requests[1]?.init.headers["content-type"], "text/csv; charset=utf-8");
+  assert.match(requests[2]?.path ?? "", /\/invitation-email-rule$/u);
+  assert.equal(requests[2]?.init.headers["if-match"], '"4"');
 });
 
 test("one-time URL fragments are consumed into memory and immediately removed", () => {

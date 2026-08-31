@@ -26,7 +26,7 @@ VPC; do not run it from an ECS API or worker task.
    PostgreSQL logins are separate credentials.
 3. Create five Secrets Manager JSON values: the API value holds only the names
    selected by `local.api_required_secret_keys` and enabled feature groups;
-   the worker value holds only `PLE_WORKER_DATABASE_URL` and `PLE_GRADER_DATABASE_URL`.
+   the worker value holds only `PLE_WORKER_DATABASE_URL` and `PLE_AUTOMATED_GRADING_DATABASE_URL`.
    The recovery value holds only `PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL` for
    `ple_accepted_submission_recovery_login`. The fast-path value holds only
    `PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL` for
@@ -45,7 +45,7 @@ VPC; do not run it from an ECS API or worker task.
    verification, an operator may set one exact account's `platform_roles` to
    `["sysadmin"]` or add one direct `Instructor` course membership. Record the
    operator, verified person, reason, target account/course, timestamp, and
-   resulting database identities in the institutional change record. Never
+   resulting database identities in the deployment change record. Never
    grant either role from the API login, an email string alone, an invitation,
    or browser input. The application grants on `ple_account` deliberately
    exclude `platform_roles` updates. The canonical human role boundary is

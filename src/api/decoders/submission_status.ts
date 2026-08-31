@@ -1,6 +1,6 @@
-// Closed learner submission acknowledgement decoder.
+// Closed student submission acknowledgement decoder.
 
-import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
+import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
 import type { StudentSubmissionStatus, NextIssuedAttempt, SubmissionReceipt } from "../contracts";
 import {
@@ -13,7 +13,7 @@ import {
   decodeStringEnum,
   decodeTrue,
 } from "../decoder";
-import { decodeQuestionAttempt } from "./run";
+import { decodeIssuedQuestion, decodeQuestionAttempt } from "./run";
 import { decodeDisclosedFeedback } from "./question_delivery";
 import { decodeIdentifier, decodeSha256, field, requireOnlyFields } from "./shared";
 
@@ -25,7 +25,7 @@ const SCORING_STATUSES = [
 const RUN_COMPLETION_STATUSES = [
   "inProgress",
   "completed",
-] as const satisfies ReadonlyArray<RunCompletionStatus>;
+] as const satisfies ReadonlyArray<AssignmentAttemptCompletion>;
 
 export function decodeSubmissionReceipt(value: unknown, path = "response"): SubmissionReceipt {
   const record = decodeRecord(value, path);
@@ -34,7 +34,7 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
     "attempt",
     "feedback",
     "scoringStatus",
-    "runCompletionStatus",
+    "assignmentAttemptCompletion",
     "nextIssued",
     "nextPending",
   ]);
@@ -51,9 +51,9 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       `${path}.scoringStatus`,
       SCORING_STATUSES,
     ),
-    runCompletionStatus: decodeStringEnum(
-      field(record, "runCompletionStatus", path),
-      `${path}.runCompletionStatus`,
+    assignmentAttemptCompletion: decodeStringEnum(
+      field(record, "assignmentAttemptCompletion", path),
+      `${path}.assignmentAttemptCompletion`,
       RUN_COMPLETION_STATUSES,
     ),
     nextIssued: decodeNullable(
@@ -70,7 +70,7 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
     );
   }
   if (
-    decoded.runCompletionStatus === "completed" &&
+    decoded.assignmentAttemptCompletion === "completed" &&
     (decoded.nextIssued !== null || decoded.nextPending)
   ) {
     throw new DecodeError(path, "a completed run without successor delivery state");
@@ -90,7 +90,7 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
   return decoded;
 }
 
-/** Decodes only the three answer-free learner status alternatives frozen by the wire contract. */
+/** Decodes only the three answer-free student status alternatives frozen by the wire contract. */
 export function decodeStudentSubmissionStatus(
   value: unknown,
   path = "response",
@@ -108,7 +108,7 @@ export function decodeStudentSubmissionStatus(
       "attempt",
       "feedback",
       "scoringStatus",
-      "runCompletionStatus",
+      "assignmentAttemptCompletion",
       "nextIssued",
       "nextPending",
     ]);
@@ -147,29 +147,22 @@ export function decodeNextIssuedAttempt(value: unknown, path = "response"): Next
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "run",
-    "questionVersion",
+    "issuedQuestion",
     "seed",
     "deadline",
-    "assignmentPosition",
     "renderedQuestionSha256",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    run: decodeIdentifier(field(record, "run", path), `${path}.run`),
-    questionVersion: decodeIdentifier(
-      field(record, "questionVersion", path),
-      `${path}.questionVersion`,
+    issuedQuestion: decodeIssuedQuestion(
+      field(record, "issuedQuestion", path),
+      `${path}.issuedQuestion`,
     ),
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
     deadline: decodeNullable(
       field(record, "deadline", path),
       `${path}.deadline`,
       decodeFiniteNumber,
-    ),
-    assignmentPosition: decodeNonnegativeInteger(
-      field(record, "assignmentPosition", path),
-      `${path}.assignmentPosition`,
     ),
     renderedQuestionSha256: decodeSha256(
       field(record, "renderedQuestionSha256", path),

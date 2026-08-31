@@ -54,7 +54,7 @@ export function FlatHotspotEditor(props: FlatHotspotEditorProps): JSX.Element {
     <fieldset class="flat-question-authoring__hotspot">
       <legend>Image hotspot</legend>
       <p class="flat-question-authoring__help">
-        Select a verified image, describe it for learners, then define labeled regions with the
+        Select a verified image, describe it for students, then define labeled regions with the
         keyboard. Coordinates use a scale-independent 0 through 10,000 surface.
       </p>
       <Show when={clientUnavailable()}>
@@ -76,7 +76,7 @@ export function FlatHotspotEditor(props: FlatHotspotEditorProps): JSX.Element {
         )}
       </Show>
       <label class="flat-question-authoring__field">
-        <span>Image description for learners</span>
+        <span>Image description for Students</span>
         <textarea
           value={description()}
           disabled={props.disabled || clientUnavailable()}
@@ -88,13 +88,13 @@ export function FlatHotspotEditor(props: FlatHotspotEditorProps): JSX.Element {
           }}
         />
         <span class="flat-question-authoring__help">
-          Explain what learners should inspect. The answer remains limited to the labeled regions.
+          Explain what students should inspect. The answer remains limited to the labeled regions.
         </span>
       </label>
       <Show when={response() === null}>
         <section class="flat-question-authoring__error" role="status">
           <p>
-            Choose a verified image and add its learner-facing description to start this hotspot.
+            Choose a verified image and add its student-facing description to start this hotspot.
           </p>
         </section>
       </Show>

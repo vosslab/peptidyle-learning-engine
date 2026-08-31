@@ -109,7 +109,7 @@ export function FlatMetadataFields(props: FlatMetadataFieldsProps): JSX.Element 
       <section aria-labelledby="flat-taxonomy-heading">
         <h3 id="flat-taxonomy-heading">Taxonomy</h3>
         <p class="flat-question-authoring__help">
-          Use an established scheme, code, and learner-readable label.
+          Use an established scheme, code, and student-readable label.
         </p>
         <Show when={taxonomyError() !== undefined}>
           <p class="flat-question-authoring__error" role="alert">

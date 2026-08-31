@@ -9,7 +9,7 @@ use the maintained profiles declared by the current screenshot corpus.
 Blueprint Courses show reusable course-level content and structure. Published Blueprint Courses are
 visible to all vetted Instructors; drafts are private to their owner and authorized collaborators.
 Course Instances are created from exactly one Blueprint parent and are private to their current equal
-co-Instructors and enrolled Students. Course Instance pages own deadlines, releases,
+Teaching Team Members and enrolled Students. Course Instance pages own deadlines, releases,
 accommodations, grades, and delivery settings. No Blueprint page shows Student records or live
 delivery state.
 
@@ -28,18 +28,18 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | Blueprint Courses       | `/curriculum`                                                | Reusable Blueprint list, publication state, and owned drafts                            |
 | Blueprint detail        | `/curriculum/:curriculumRef`                                 | Ordered modules and assignments, revision, publication, and fork actions                |
 | Assignment overview     | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                            |
-| Learner assignment page | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                              |
+| Student assignment page | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                              |
 | New assignment          | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and catalog entry points                               |
 | Assignment Questions    | `/instructor/courses/C-1/assignments/A-1/questions`          | Title, ordered questions, pools, discovery, reuse, and server samples                   |
 | Assignment Policies     | `/instructor/courses/C-1/assignments/A-1/policies`           | Instance instructions, release, delivery, lifecycle, access, and checks                 |
-| Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free learner landing with Instructor identity active            |
+| Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free Student landing with Instructor identity active            |
 | Grading operations      | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Assignment-local automated-grading attention and recovery actions                       |
 | Students                | `/instructor/courses/C-1/students`                           | Invitation, enrollment policy, pending invitation, and roster context                   |
-| Gradebook               | `/instructor/courses/C-1/gradebook`                          | Compact learner-assignment progress without expanded raw records                        |
+| Gradebook               | `/instructor/courses/C-1/gradebook`                          | Compact Student-assignment progress without expanded raw records                        |
 | Grade settings          | `/instructor/courses/C-1/grade-settings`                     | Weighted categories, assignment membership, totals, and audited export                  |
 | Course appearance       | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context               |
 | Question library        | `/library`                                                   | Full-width search, filters, Question IDs, and published results                         |
-| Question detail         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, and learner-facing prompt                        |
+| Question detail         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, and Student-facing prompt                        |
 | Workspace               | `/workspace`                                                 | Private question drafts and the currently selected draft workspace                      |
 | Question editor         | `/workspace/W-1`                                             | QTI import entry and native flat-question authoring                                     |
 | Live Demo sign-in       | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                        |
@@ -51,7 +51,7 @@ Instructor-workspace gallery. The approved end-to-end teaching loop remains in
 
 Student view is an inspection of the current live assignment in the Instructor session. It is
 answer-free and creates no run, attempt, submission, receipt, grade, or enrollment. Ordinary Student
-entry creates real graded work through the visible learner path, and the Instructor sees the result
+entry creates real graded work through the visible Student path, and the Instructor sees the result
 in the Course Instance Gradebook. The Student view keeps the Instructor session and clearly points
 to ordinary Student entry for graded validation.
 
@@ -60,7 +60,7 @@ to ordinary Student entry for graded validation.
 `tests/e2e/e2e_browser_screenshot_contract.py` strictly consume that source.
 A screenshot is acceptance evidence only after a fresh capture and inspection; the retained gallery
 does not claim that a current implementation has passed its acceptance gate. Keep private Instructor
-evidence separate from public or learner evidence under `docs/screenshots/`.
+evidence separate from public or Student evidence under `docs/screenshots/`.
 
 ## Visual gallery
 
@@ -73,17 +73,15 @@ passkey authentication adapters.
 
 ![Instructor teaching operations groups](screenshots/instructor/teaching_operations/01_teaching_operations_groups.png)
 ![Instructor active roster](screenshots/instructor/course_management/01_instructor_active_roster.png)
-![Instructor Gradebook with learner progress](screenshots/instructor/grading/01_instructor_gradebook.png)
+![Instructor Gradebook with Student progress](screenshots/instructor/grading/01_instructor_gradebook.png)
 ![Instructor assignment access preview](screenshots/instructor/assignment_access/01_access_preview_allowed.png)
 ![Instructor grade settings conflict recovery](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
 ![Instructor assignment delivery preview](screenshots/instructor/assignment_preview/01_schedule_entitlement.png)
 ![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)
 ![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
-![Instructor automated-grading operations recovery](screenshots/instructor/automated_grading_recovery/01_instructor_operation_laptop.png)
-![Instructor Gradebook after automated-grading recovery](screenshots/instructor/automated_grading_recovery/02_instructor_gradebook_laptop.png)
 ![Instructor catalog discovery evidence](screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png)
-![Instructor problem curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
+![Instructor question curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
 ![Instructor reusable Blueprint workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
 <!-- screenshots:end -->

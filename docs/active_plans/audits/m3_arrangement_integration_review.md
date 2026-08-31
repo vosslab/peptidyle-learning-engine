@@ -109,7 +109,7 @@ bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
 bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
 ```
 
-For each run, verify the fixed child succeeds, the learner visibly signs in and
+For each run, verify the fixed child succeeds, the student visibly signs in and
 opens both `Peptide mastery retry` and `Peptide exam contrast`, the private
 report is mode 0600 in a mode-0700 directory with exactly five arrangement
 records, no mock server is used, and selected containers are absent after

@@ -1,5 +1,5 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
+import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
@@ -9,18 +9,16 @@ import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSc
 import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
-import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
+import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
-import type { RunId } from "../../../generated/api/RunId";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
-  EnrollmentView,
+  AssignmentAttemptScreenData,
   PublicationDiff,
-  RunScreenData,
-  RunSummaryResponse,
+  AssignmentAttemptSummaryResponse,
   StudentQuestionAttempt,
   WorkspaceDraftDetail,
 } from "../contracts";
@@ -28,7 +26,7 @@ import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query
 import { assignmentRouteReference } from "../../navigation/public_route";
 import {
   decodeStudentAssignmentPage,
-  decodeAssignmentRun,
+  decodeAssignmentAttempt,
   decodeStudentAssignmentDetail,
   decodeAttemptPage,
   decodeCatalogPage,
@@ -41,14 +39,13 @@ import {
   decodeCoursePage,
   decodeCourseSummary,
   decodeDraftQuestionDefinition,
-  decodeEnrollmentView,
   decodeExternalToolLaunch,
   decodeStudentQuestionAttempt,
   decodeQuestionEnvelope,
   decodeIssuedPresentationEnvelope,
-  decodeRunPage,
-  decodeRunSummaryResponse,
-  decodeStudentAssignmentProgress,
+  decodeAssignmentAttemptPage,
+  decodeAssignmentAttemptSummaryResponse,
+  decodeAssignmentProgress,
   decodeTaxonomyPage,
   decodeWorkspaceDraftPage,
   decodePublicationDiff,
@@ -240,33 +237,37 @@ async function publicationDiff(
     throw new ApiProtocolError("Publication diff ETag does not match its draftRevision");
   return diff;
 }
-async function activeAttempt(client: ApiClient, runId: RunId): Promise<StudentQuestionAttempt> {
+async function activeAttempt(
+  client: ApiClient,
+  assignmentAttemptId: AssignmentAttemptId,
+): Promise<StudentQuestionAttempt> {
   let cursor: string | undefined;
   const seen = new Set<string>();
   while (true) {
-    const page = await client.listAttempts(runId, cursor);
+    const page = await client.listQuestionAttempts(assignmentAttemptId, cursor);
     const active = page.items.find((attempt) => attempt.status === "in_progress");
     if (active !== undefined) return active;
     if (page.nextCursor === null)
-      throw new ApiProtocolError(`Run ${runId} has no active question attempt`);
+      throw new ApiProtocolError(
+        `Assignment Attempt ${assignmentAttemptId} has no active Question Attempt`,
+      );
     if (seen.has(page.nextCursor))
-      throw new ApiProtocolError(`Run ${runId} repeated an attempt cursor`);
+      throw new ApiProtocolError(
+        `Assignment Attempt ${assignmentAttemptId} repeated a Question Attempt cursor`,
+      );
     seen.add(page.nextCursor);
     cursor = page.nextCursor;
   }
 }
-function verifyRunEnrollment(run: AssignmentRun, enrollment: EnrollmentView): void {
-  if (enrollment.enrollment.id !== run.enrollment)
-    throw new ApiProtocolError("Run screen enrollment records are inconsistent");
-}
-function verifyRunScreen(screen: RunScreenData): void {
-  if (screen.run.id !== screen.attempt.run)
-    throw new ApiProtocolError("Run screen attempt does not belong to the requested run");
-  if (
-    screen.issuedQuestion.version !== screen.attempt.questionVersion ||
-    screen.issuedQuestion.seed !== screen.attempt.seed
-  )
-    throw new ApiProtocolError("Run screen issued question does not match its attempt");
+function verifyAssignmentAttemptScreen(screen: AssignmentAttemptScreenData): void {
+  if (screen.assignment.id !== screen.assignmentAttempt.assignment)
+    throw new ApiProtocolError(
+      "Assignment Attempt screen assignment does not match its Assignment Attempt",
+    );
+  if (screen.issuedQuestion.seed !== screen.attempt.seed)
+    throw new ApiProtocolError(
+      "Assignment Attempt screen issued presentation does not match its Question Attempt",
+    );
 }
 
 export function createResponseClient(
@@ -292,16 +293,15 @@ export function createResponseClient(
   | "listAssignments"
   | "getAssignment"
   | "getAssignmentSummary"
-  | "getEnrollment"
-  | "listRuns"
-  | "getRun"
-  | "getRunSummary"
-  | "listAttempts"
+  | "listAssignmentAttempts"
+  | "getAssignmentAttempt"
+  | "getAssignmentAttemptSummary"
+  | "listQuestionAttempts"
   | "getAttempt"
   | "getIssuedQuestion"
   | "beginExternalToolLaunch"
-  | "getSummary"
-  | "getRunScreen"
+  | "getAssignmentActivitySummary"
+  | "getAssignmentAttemptScreen"
   | "fetchCourseBanner"
   | "assetUrl"
 > {
@@ -415,54 +415,61 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/assignments/${encodedId(assignmentId)}/summary`,
-        decodeStudentAssignmentProgress,
+        decodeAssignmentProgress,
       ),
-    getEnrollment: (enrollmentId: EnrollmentId) =>
+    listAssignmentAttempts: (studentRecordId: StudentRecordId, cursor) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/enrollments/${encodedId(enrollmentId)}`,
-        decodeEnrollmentView,
+        cursorPath(
+          `/api/student-records/${encodedId(studentRecordId)}/assignment-attempts`,
+          cursor,
+        ),
+        decodeAssignmentAttemptPage,
       ),
-    listRuns: (enrollmentId, cursor) =>
+    getAssignmentAttempt: (assignmentAttemptId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        cursorPath(`/api/enrollments/${encodedId(enrollmentId)}/runs`, cursor),
-        decodeRunPage,
+        `/api/assignment-attempts/${encodedId(assignmentAttemptId)}`,
+        decodeAssignmentAttempt,
       ),
-    getRun: (runId) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        `/api/runs/${encodedId(runId)}`,
-        decodeAssignmentRun,
-      ),
-    getRunSummary: (runId, cursor, pageSize): Promise<RunSummaryResponse> => {
+    getAssignmentAttemptSummary: (
+      assignmentAttemptId,
+      cursor,
+      pageSize,
+    ): Promise<AssignmentAttemptSummaryResponse> => {
       if (cursor !== undefined && (cursor.length === 0 || cursor.length > 512))
         return Promise.reject(
-          new ApiProtocolError("run summary cursor must be 1 through 512 characters"),
+          new ApiProtocolError(
+            "Assignment Attempt summary cursor must be 1 through 512 characters",
+          ),
         );
       if (
         pageSize !== undefined &&
         (!Number.isSafeInteger(pageSize) || pageSize <= 0 || pageSize > 100)
       )
-        return Promise.reject(new ApiProtocolError("run summary pageSize must be 1 through 100"));
+        return Promise.reject(
+          new ApiProtocolError("Assignment Attempt summary pageSize must be 1 through 100"),
+        );
       const query = new URLSearchParams();
       if (cursor !== undefined) query.set("cursor", cursor);
       if (pageSize !== undefined) query.set("pageSize", String(pageSize));
       return requestJson(
         fetchImplementation,
         basePath,
-        `/api/runs/${encodedId(runId)}/summary${query.size === 0 ? "" : `?${query.toString()}`}`,
-        decodeRunSummaryResponse,
+        `/api/assignment-attempts/${encodedId(assignmentAttemptId)}/summary${query.size === 0 ? "" : `?${query.toString()}`}`,
+        decodeAssignmentAttemptSummaryResponse,
       );
     },
-    listAttempts: (runId, cursor) =>
+    listQuestionAttempts: (assignmentAttemptId, cursor) =>
       requestJson(
         fetchImplementation,
         basePath,
-        cursorPath(`/api/runs/${encodedId(runId)}/attempts`, cursor),
+        cursorPath(
+          `/api/assignment-attempts/${encodedId(assignmentAttemptId)}/question-attempts`,
+          cursor,
+        ),
         decodeAttemptPage,
       ),
     getAttempt: (attemptId: QuestionAttemptId) =>
@@ -496,46 +503,27 @@ export function createResponseClient(
           decodeExternalToolLaunch(value, path, courseId, assignmentId, attemptId),
         { method: "POST" },
       ),
-    getSummary: (enrollmentId) =>
+    getAssignmentActivitySummary: (studentRecordId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/grading/summaries/${encodedId(enrollmentId)}`,
-        decodeStudentAssignmentProgress,
+        `/api/student-records/${encodedId(studentRecordId)}/assignment-activity-summary`,
+        decodeAssignmentProgress,
       ),
-    getRunScreen: async (runId): Promise<RunScreenData> => {
+    getAssignmentAttemptScreen: async (
+      assignmentAttemptId,
+    ): Promise<AssignmentAttemptScreenData> => {
       const client = getClient();
-      const run = await client.getRun(runId);
-      const [enrollment, initial] = await Promise.all([
-        client.getEnrollment(run.enrollment),
-        activeAttempt(client, runId).then(
-          (attempt) => ({ kind: "attempt" as const, attempt }),
-          (error: unknown) => ({ kind: "error" as const, error }),
-        ),
-      ]);
-      verifyRunEnrollment(run, enrollment);
-      const assignment = await client.getAssignment(enrollment.enrollment.assignment);
-      if (assignment.id !== enrollment.enrollment.assignment)
-        throw new ApiProtocolError("Run screen assignment does not match its enrollment");
+      const assignmentAttempt = await client.getAssignmentAttempt(assignmentAttemptId);
+      const assignment = await client.getAssignment(assignmentAttempt.assignment);
+      const attempt = await activeAttempt(client, assignmentAttemptId);
       const assignmentRoute = await client.resolveNavigation(
         assignmentRouteReference(assignment.reference),
       );
       if (assignmentRoute.kind !== "assignment")
         throw new ApiProtocolError(
-          "Run screen assignment reference did not resolve to an assignment",
+          "Assignment Attempt screen assignment reference did not resolve to an assignment",
         );
-      let attempt: StudentQuestionAttempt;
-      if (initial.kind === "attempt") attempt = initial.attempt;
-      else {
-        const noActive =
-          initial.error instanceof ApiProtocolError &&
-          initial.error.message === `Run ${runId} has no active question attempt`;
-        if (!noActive || run.completedAt !== null) throw initial.error;
-        const resumed = await client.startRun(assignmentRoute.courseId, assignment.id);
-        if (resumed.id !== runId || resumed.enrollment !== run.enrollment)
-          throw new ApiProtocolError("Run screen recovery did not resume the requested run");
-        attempt = await activeAttempt(client, runId);
-      }
       const [summary, appearance, issuedQuestion] = await Promise.all([
         client.getCourse(assignmentRoute.courseId),
         client.getCourseAppearance(assignmentRoute.courseId),
@@ -547,14 +535,14 @@ export function createResponseClient(
           attempt,
         ),
       ]);
-      const screen: RunScreenData = {
+      const screen: AssignmentAttemptScreenData = {
         course: { summary, appearance },
         assignment,
-        run,
+        assignmentAttempt,
         attempt,
         issuedQuestion,
       };
-      verifyRunScreen(screen);
+      verifyAssignmentAttemptScreen(screen);
       return screen;
     },
     fetchCourseBanner: (bannerId) => fetchCourseBanner(fetchImplementation, basePath, bannerId),

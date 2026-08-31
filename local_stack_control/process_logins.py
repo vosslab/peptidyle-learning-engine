@@ -12,26 +12,9 @@ import local_stack_control.process
 
 
 API_LOGIN = "ple_api_login"
-WORKER_LOGIN = "ple_worker_login"
-RECOVERY_LOGIN = "ple_accepted_submission_recovery_login"
-FAST_PATH_LOGIN = "ple_accepted_submission_fast_path_login"
 API_ROLES = ("ple_app", "ple_auth")
-WORKER_ROLES = ("ple_app",)
-RECOVERY_ROLES = ("ple_accepted_submission_execution",)
-FAST_PATH_ROLES = ("ple_accepted_submission_execution_fast_path",)
 LOGIN_PROFILES = (
 	(API_LOGIN, API_ROLES, "PLE_API_DATABASE_URL"),
-	(WORKER_LOGIN, WORKER_ROLES, "PLE_WORKER_DATABASE_URL"),
-	(
-		RECOVERY_LOGIN,
-		RECOVERY_ROLES,
-		"PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL",
-	),
-	(
-		FAST_PATH_LOGIN,
-		FAST_PATH_ROLES,
-		"PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL",
-	),
 )
 
 
@@ -155,7 +138,7 @@ def write_runtime_urls(
 	env_file: pathlib.Path,
 	urls: tuple[str, ...],
 ) -> None:
-	"""Replace the four service URLs inside the selected mode-0600 Compose input."""
+	"""Replace the API database URL inside the selected mode-0600 Compose input."""
 	local_stack_control.env_file.require_mutation_env_file(env_file)
 	if len(urls) != len(LOGIN_PROFILES) or len(set(urls)) != len(LOGIN_PROFILES):
 		raise local_stack_control.models.ControllerError("process login URLs are invalid")

@@ -25,7 +25,7 @@ specialized durable contracts own their detailed data shapes and operations:
   authenticated-session context, grants, and database-side capability predicates.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
   object/database reconciliation.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the learner
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the student
   render, response, digest, and rendered-item wire contract.
 - [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns caller-visible recovery and
   evidence-preserving failure handling.
@@ -54,7 +54,7 @@ and provider state remain typed server-side values, not browser DTO fields.
 
 The browser-safe model explains the input shape and public grading policy. The
 current compatibility envelope may expose a numeric tolerance or that exactly
-two choices are required. The reserved compact learner presentation must not
+two choices are required. The reserved compact student presentation must not
 expose tolerance; [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
 owns that cutover. The expected number and the two correct choice IDs remain
 in `crates/grading`.
@@ -74,7 +74,7 @@ key. Native H5P remains ungraded practice because its own evaluation runs in
 the browser. The authenticated author-role-only flat-source `GET`/`PUT` route
 is the narrow exception for an instructor's own canonical source. It uses
 `Cache-Control: no-store` and a strong ETag, exposes no signed object URL or
-checksum, and does not widen learner, public, non-author, or Wasm contracts.
+checksum, and does not widen student, public, non-author, or Wasm contracts.
 
 `grading::grade(question, response, key)` repeats browser-safe format
 validation before consulting the key. Its generic all-or-nothing checker owns
@@ -188,10 +188,10 @@ is an explicit non-browser E2E because it builds the Rust target and runs bindge
 ## Authentication and authorization derivation
 
 The required production authentication design is PLE-owned and provider-free: a
-short-lived, single-use email ceremony restores the existing opaque PLE Account, and
+short-lived, single-use email ceremony restores the provisioned opaque PLE Account, and
 WebAuthn passkeys are optional additional credentials for that same account.
 PLE stores no password verifier. Email remains the recovery authority: loss or
-revocation of a passkey returns the learner to email sign-in, while a signed-in
+revocation of a passkey returns the student to email sign-in, while a signed-in
 email change requires control of the current account. The ordinary visible
 email-code and passkey adapters are pending reconstruction. The current Live
 Demo provides its visible seeded-role entry through the same server-owned
@@ -282,7 +282,7 @@ secret storage, never tracked examples.
 ## Published QTI runtime
 
 QTI stays unsupported unless `PLE_QTI_RUNTIME_ENABLED=1` and a nonempty
-`PLE_GRADER_DATABASE_URL` are both present. Partial, malformed, or unreachable
+`PLE_AUTOMATED_GRADING_DATABASE_URL` are both present. Partial, malformed, or unreachable
 configuration fails startup before router construction. The grader URL uses the
 dedicated `ple_grading_reader` login and constructs a separate bounded pool. It is
 never the normal application pool, never acquired through `SET ROLE`, and is
@@ -302,10 +302,10 @@ output, browser DTOs, TypeScript, or WASM.
 Student records are FERPA data and treated as radioactive: course-scoped,
 Student-owned where applicable, minimized, and excluded from general logs and analytics;
 reusable published content is not. Every
-learner-facing Store and PostgreSQL path checks the same course-retention access predicate, so
+student-facing Store and PostgreSQL path checks the same course-retention access predicate, so
 archive cannot be bypassed through runs, summaries, feedback, exports, external tools, or protected
 StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
-lifecycle, fixed notification copy, and a strong revision-not learner, object,
+lifecycle, fixed notification copy, and a strong revision-not student, object,
 job, lease, or generation identity. This payload-free lifecycle authority is
 one registered `SysadminSupportCapability` in addition to the separately
 audited, closed exact-course support capability. The closed registry in
@@ -374,7 +374,7 @@ The catalog's public audience is the authenticated approved-Instructor set.
 Student access remains assignment-entitlement delivery, and anonymous web
 requests receive no catalog authority.
 
-The browser supplies a workspace identifier, but never a new `ProblemId`, a
+The browser supplies a workspace identifier, but never a new `QuestionId`, a
 publication scope, or a backend capability declaration. The server loads the
 account-authorized draft, resolves capabilities from its trusted adapter
 registry, returns the complete capability-violation list, and generates fresh
@@ -419,7 +419,7 @@ approved Instructor may create a course; Sysadmin status alone does not satisfy
 that predicate. A Sysadmin must complete the explicit Instructor approval path
 before course creation or teaching. Creation atomically establishes the first
 ordinary Instructor membership. Access to an existing course requires an
-exact current `course_member` row. Every current co-Instructor has the same
+exact current `course_member` row. Every current Teaching Team Member has the same
 teaching authority; course creation does not create an owner or elevated
 creator capability. `Sysadmin` is not a course membership variant. Its
 `SysadminSupportCapability` is resolved through the closed registry in
@@ -539,15 +539,15 @@ log.
 ## Run authorization and grading boundary
 
 The presentation model and its server-persisted binding are implemented, but
-the current learner HTTP route still accepts the broader tagged
+the current student HTTP route still accepts the broader tagged
 `StudentResponse` body, including the browser-supplied response `kind`. The
-current route rederives and validates the expected Answer Format from the attempt;
+current route rederives and validates the expected family from the attempt;
 `kind` is therefore not submission authority. The current grading-payload
 contract owns a future atomic wire cutover to authenticated attempt ID, idempotency
-key, presentation digest, and a minimal answer. That target
+key, presentation digest, and a family-minimal, type-free answer. That target
 also introduces CRC16 rendered-item IDs and a SHA-256-backed presentation
 digest to detect inconsistent presentation state. Neither target value
-authenticates the learner or grades an answer. All component scoring and
+authenticates the student or grades an answer. All component scoring and
 partial credit remain server-owned in both contracts.
 
 The current tagged render `ResponseDefinition` also exposes some
@@ -560,12 +560,12 @@ rules, answer keys, weights, and rubrics server-only.
 Run reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
-`StudentId`. This is repeated for learner run, enrollment, summary, attempt,
+`StudentRecordId`. This is repeated for Student Assignment Attempt, enrollment, summary, attempt,
 prefetch, feedback-release, issuance, submission, and external-tool paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record projection after removal;
-that Instructor authority never leaks into a learner-scoped Store method.
+that Instructor authority never leaks into a student-scoped Store method.
 Direct course instructors may read enrollment history and
 summaries, but only the enrollment owner may start or submit a run. Nonowners
 receive not found so record existence is not disclosed.
@@ -603,16 +603,16 @@ validates the result against the server-only grading envelope before calling
 the injected grader. Native and WeBWorK first grading additionally require
 their matching issued private grading contracts, so neither path reloads a
 current catalog definition or grader view. The idempotency table retains the
-original public learner response; the translated private response is grade-only. Submission persistence
+original public student response; the translated private response is grade-only. Submission persistence
 rejects malformed point values and atomically commits the response, grade
 event, run and enrollment transitions, and summary. The idempotency table is
 insert-only for the application role; an exact retry returns its first
 committed receipt, while a changed key or response conflicts.
 
-The current attempt DTO is answer-free but broader than the learner needs: it
+The current attempt DTO is answer-free but broader than the student needs: it
 still carries version, seed, parameter hash, provenance, implementation IDs,
 and source/asset identifiers. Feedback policy redacts answer-bearing material,
-not that complete DTO. The payload plan's minimal learner descriptor,
+not that complete DTO. The payload plan's minimal student descriptor,
 digest-bound type-free response body, and compact receipt are accepted target
 work, not the current HTTP contract. Until that atomic cutover, clients must
 not treat current provenance fields or the tagged response `kind` as
@@ -630,7 +630,7 @@ provider response can clear that exact marker. A timeout, I/O failure, process
 death, lease expiry, or later launch leaves the attempt permanently
 indeterminate and fail-closed: it cannot be reclaimed, relaunched, graded, or
 finalized automatically. Read-only provider retrieval is structurally a GET;
-the browser has no generic provider proxy. The learner receives a generic
+the browser has no generic provider proxy. The student receives a generic
 accessible recovery message directing them to the instructor, rather than
 details that could disclose provider state or invite a duplicate action.
 
@@ -716,7 +716,7 @@ Security controls require evidence at the boundary they claim to protect.
 Wasm closure and export-allowlist tests prove browser exclusion; Memory tests
 prove pure and Store behavior; live PostgreSQL tests prove migrations, roles,
 grants, and forced RLS; private renderer checks prove a provider protocol; and
-browser traces prove what a learner-facing page actually receives. No one
+browser traces prove what a student-facing page actually receives. No one
 class substitutes for another. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
 defines those limits, while the active release plan names the required gate for
 each work package.

@@ -4,7 +4,6 @@ import { A, useParams } from "@solidjs/router";
 import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { CourseGroupSummaryView } from "../../generated/api/CourseGroupSummaryView";
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
 import type { PreviewScheduleProjection } from "../../generated/api/PreviewScheduleProjection";
@@ -158,17 +157,7 @@ function PreviewResult(props: {
             {titleCase(evaluation.subject.kind)} subject; entitlement:{" "}
             {titleCase(evaluation.entitlement)}.
           </p>
-          <Show
-            when={evaluation.subject.groups.length > 0}
-            fallback={<p>This is a course-wide subject with no specific group.</p>}
-          >
-            <h4>Role-only groups</h4>
-            <ul aria-label="Role-only subject groups">
-              <For each={evaluation.subject.groups}>
-                {(group) => <li>{titleCase(group.role)}</li>}
-              </For>
-            </ul>
-          </Show>
+          <p>This preview resolves the direct assignment policy without a group selector.</p>
           <ScheduleTable
             label="Resolved delivery schedule and source layers"
             schedule={evaluation.schedule}
@@ -218,7 +207,7 @@ function PreviewResult(props: {
   );
 }
 
-/** The page sends only public C-/A-/M-/G- locators; all delivery facts come back from the server. */
+/** The page sends only public C-/A-/M- locators; all delivery facts come back from the server. */
 export function AssignmentPreviewPage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
@@ -232,11 +221,9 @@ export function AssignmentPreviewPage(): JSX.Element {
   const [state, setState] = createSignal<PageState>("loading");
   const [revision, setRevision] = createSignal<TeachingOperationRevision>();
   const [schedule, setSchedule] = createSignal<InstructorPreviewSchedulePage>();
-  const [groups, setGroups] = createSignal<ReadonlyArray<CourseGroupSummaryView>>([]);
   const [cursor, setCursor] = createSignal<string>();
   const [builder, setBuilder] = createSignal<BuilderKind>("derived");
   const [membership, setMembership] = createSignal("");
-  const [selectedGroups, setSelectedGroups] = createSignal<Array<string>>([]);
   const [moment, setMoment] = createSignal("");
   const [modifierMode, setModifierMode] = createSignal<ModifierMode>("extendOnly");
   const [modifierDraft, setModifierDraft] = createSignal<ModifierPatchDraft>(emptyPatchDraft());
@@ -277,22 +264,16 @@ export function AssignmentPreviewPage(): JSX.Element {
         }
         activeRevision = previewRevision(editor.revision);
       }
-      const [page, groupPage] = await Promise.all([
-        runtime.client.listPreviewSchedule(
-          selectedCourse.reference,
-          selectedAssignment,
-          activeRevision,
-          nextCursor,
-          25,
-        ),
-        nextCursor === undefined
-          ? runtime.client.listCourseGroups(selectedCourse.id, undefined, 100)
-          : Promise.resolve(undefined),
-      ]);
+      const page = await runtime.client.listPreviewSchedule(
+        selectedCourse.reference,
+        selectedAssignment,
+        activeRevision,
+        nextCursor,
+        25,
+      );
       setRevision(page.revision);
       setSchedule(page);
       setCursor(page.nextCursor ?? undefined);
-      if (groupPage !== undefined) setGroups(groupPage.groups);
       if (moment().length === 0) setMoment(courseMoment(selectedCourse.term.startDate));
       setNeedsReload(false);
       setState("ready");
@@ -310,12 +291,6 @@ export function AssignmentPreviewPage(): JSX.Element {
     if (state() === "ready") {
       setMessage("The latest assignment revision is loaded. Your hypothetical draft is preserved.");
     }
-  }
-
-  function toggleGroup(reference: string, checked: boolean): void {
-    setSelectedGroups((current) =>
-      checked ? [...current, reference] : current.filter((item) => item !== reference),
-    );
   }
 
   function updateModifierLimit(field: "timeLimitSeconds" | "attemptLimit", value: string): void {
@@ -375,7 +350,6 @@ export function AssignmentPreviewPage(): JSX.Element {
           selectedAssignment,
           activeRevision,
           {
-            groups: selectedGroups(),
             selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
             modifiers,
           },
@@ -412,7 +386,7 @@ export function AssignmentPreviewPage(): JSX.Element {
       data-route-surface="assignmentPreview"
       aria-live="polite"
     >
-      <p class="preview-only-cue">Preview only - no learner work or grades are created.</p>
+      <p class="preview-only-cue">Preview only - no Student work or grades are created.</p>
       <p class="eyebrow">Instructor delivery inspection</p>
       <h1>Assignment delivery check</h1>
       <Show when={course() && assignment()}>
@@ -510,7 +484,7 @@ export function AssignmentPreviewPage(): JSX.Element {
                       checked={builder() === "synthetic"}
                       onInput={() => setBuilder("synthetic")}
                     />{" "}
-                    Construct a synthetic group subject
+                    Construct a synthetic accommodation preview
                   </label>
                 </fieldset>
                 <label class="preview-field preview-moment-field">
@@ -525,28 +499,7 @@ export function AssignmentPreviewPage(): JSX.Element {
                   <span>{course()?.term.timeZone} (course zone)</span>
                 </label>
                 <div class="preview-subject-target">
-                  <Show
-                    when={builder() === "derived"}
-                    fallback={
-                      <fieldset>
-                        <legend>Course groups</legend>
-                        <For each={groups()}>
-                          {(group) => (
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={selectedGroups().includes(group.reference)}
-                                onInput={(event) =>
-                                  toggleGroup(group.reference, event.currentTarget.checked)
-                                }
-                              />{" "}
-                              {group.title} ({group.purpose})
-                            </label>
-                          )}
-                        </For>
-                      </fieldset>
-                    }
-                  >
+                  <Show when={builder() === "derived"}>
                     <label class="preview-field">
                       Student membership reference
                       <select

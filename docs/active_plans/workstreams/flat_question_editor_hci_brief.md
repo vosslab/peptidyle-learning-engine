@@ -21,13 +21,13 @@ Target user: instructor with author role on `/workspace/:workspaceId`.
 The first visible instructor draft editor is a persistence-aware authoring shell:
 
 - loads an existing workspace draft list and selects a draft (or first draft),
-- edits draft learner-facing fields,
+- edits draft student-facing fields,
 - renders local key-free preview before submission,
 - offers optional protected instructor preview tied to latest saved revision,
 - performs capability checks for publication readiness,
 - requires a confirmation diff before immutable publish.
 
-Plan expectation says draft editor + preview includes learner and answer-key views with seeded generation in WASM
+Plan expectation says draft editor + preview includes student and answer-key views with seeded generation in WASM
 for immediate feedback (`implementation_plan.md:1035-1037`).
 
 ## 2) Current goal/action flow
@@ -80,7 +80,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 | Draft edit state                | dirty local edits | "Save draft" available; "Draft saved..."/error message text region          | `editor_page.tsx:555-583`, `editor_page.tsx:496-498`             |
 | Student preview                 | `idle`            | "Seed" input + Preview button                                               | `editor_page.tsx:649-665`                                        |
 | Student preview                 | `loading`         | `role=status` "Generating preview..."                                       | `editor_page.tsx:673-675`                                        |
-| Student preview                 | `ready`           | question and response widget rendered (same components as learner)          | `editor_page.tsx:691-709`                                        |
+| Student preview                 | `ready`           | question and response widget rendered (same components as student)          | `editor_page.tsx:691-709`                                        |
 | Student preview                 | `error`           | error region with message                                                   | `editor_page.tsx:676-680`                                        |
 | Instructor preview              | `idle`            | button available unless backend capability unavailable                      | `editor_page.tsx:713-733`                                        |
 | Instructor preview              | `loading`         | `role=status` "Loading protected instructor preview..."                     | `editor_page.tsx:737-739`                                        |

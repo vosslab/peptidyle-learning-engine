@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
-    ActivityTimestamp, BackendCapabilities, CourseReference, DraftQuestionSource, ProblemId,
-    QuestionMetadata, QuestionSource, VersionId,
+    ActivityTimestamp, BackendCapabilities, CourseReference, DraftQuestionSource, QuestionMetadata,
+    QuestionSource, QuestionVersionNumber,
 };
 
 pub use crate::catalog_facets::{
@@ -169,55 +169,27 @@ impl std::str::FromStr for ProblemDisplayRef {
     }
 }
 
-/// Exact immutable publication evidence used by trusted storage, replay,
-/// grading, audit, and optional source provenance.
-///
-/// Browser-safe catalog and assignment projections carry [`QuestionId`]
-/// instead. The server resolves that identifier under authorization before it
-/// persists this exact reference.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+/// Exact immutable publication evidence used by storage, delivery, grading,
+/// replay, and audit.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProblemVersionRef {
-    /// Opaque identity for this immutable published question.
-    pub problem: ProblemId,
-    /// Companion opaque identity for this immutable published question.
-    pub version: VersionId,
+pub struct QuestionVersionReference {
+    /// Stable Question lineage.
+    pub question_id: QuestionId,
+    /// Exact immutable version within that Question lineage.
+    pub version_number: QuestionVersionNumber,
 }
 
-/// Visibility of immutable published content.
-///
-/// Private content remains a workspace-owned draft and therefore has no variant
-/// here and no `ProblemId`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PublicationScope {
-    /// Discoverable only by the publishing institution.
-    Institution,
-    /// Discoverable across the installation.
-    Public,
-}
-
-impl PublicationScope {
-    /// Every publication scope supported by catalog discovery.
-    pub const ALL: [Self; 2] = [Self::Institution, Self::Public];
-}
-
-/// Catalog state after publication.
+/// Current selection availability for an already published Question Version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
-    tag = "state",
+    tag = "availability",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum CatalogLifecycle {
+pub enum QuestionVersionAvailability {
     /// Discoverable and eligible for ordinary new selection.
-    Published,
-    /// Discoverable with its lifecycle label, but ineligible for ordinary new
-    /// selection; retained for authorized stable-ID and exact-pin resolution.
-    Deprecated {
-        /// Why instructors should stop newly assigning this version.
-        reason: String,
-    },
+    Available,
     /// Discoverable historical content, ineligible for ordinary new selection,
     /// and retained for authorized stable-ID and exact-pin resolution.
     Archived {
@@ -226,12 +198,12 @@ pub enum CatalogLifecycle {
     },
 }
 
-impl CatalogLifecycle {
+impl QuestionVersionAvailability {
     /// Whether catalog browsing should include the immutable publication.
     pub fn is_discoverable(&self) -> bool {
         matches!(
             self,
-            Self::Published | Self::Deprecated { .. } | Self::Archived { .. }
+            Self::Available | Self::Archived { .. }
         )
     }
 
@@ -239,7 +211,7 @@ impl CatalogLifecycle {
     ///
     /// This does not govern resolution of an existing exact immutable pin.
     pub fn is_eligible_for_ordinary_new_selection(&self) -> bool {
-        matches!(self, Self::Published)
+        matches!(self, Self::Available)
     }
 
     /// Whether a stable Question ID can resolve this publication for an
@@ -249,10 +221,7 @@ impl CatalogLifecycle {
     /// their stable identity. Resolution does not make non-Published content
     /// eligible for ordinary new selection.
     pub fn is_resolvable_by_stable_question_id(&self) -> bool {
-        matches!(
-            self,
-            Self::Published | Self::Deprecated { .. } | Self::Archived { .. }
-        )
+        matches!(self, Self::Available | Self::Archived { .. })
     }
 }
 
@@ -334,10 +303,9 @@ pub struct CatalogProblemSummary {
     pub metadata: QuestionMetadata,
     /// Immutable reviewed publication attribution; never account authority.
     pub byline: crate::PublicByline,
-    /// Institution-only or public visibility.
-    pub scope: PublicationScope,
-    /// Published, deprecated, or archived state.
-    pub lifecycle: CatalogLifecycle,
+    /// Current availability for ordinary new selection; publication itself is
+    /// separate immutable history.
+    pub availability: QuestionVersionAvailability,
     /// Database-authoritative publication time.
     pub published_at: ActivityTimestamp,
 }
@@ -362,7 +330,7 @@ impl CatalogProblemSummary {
 /// Explainable, privacy-governed discovery evidence for one exact publication.
 ///
 /// The evidence contains only disclosed aggregate observations. It never
-/// exposes a ranking contribution, learner work, or a course identity.
+/// exposes a ranking contribution, student work, or a course identity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "state",
@@ -380,7 +348,7 @@ pub enum CatalogDiscoveryEvidence {
         formula_version: u16,
         /// Number of anonymous courses observed by the formula.
         observed_course_count: u64,
-        /// Independent first-valid learner observations for this exact publication.
+        /// Independent first-valid student observations for this exact publication.
         independent_learner_observation_count: u64,
         /// Mean normalized score, in the inclusive range `0.0..=1.0`.
         difficulty_index: f64,
@@ -407,18 +375,18 @@ pub struct CatalogDiscoveryItem {
     pub evidence: CatalogDiscoveryEvidence,
 }
 
-/// Scope-explicit usage counts for one exact publication.
+/// Global and Account-owned usage counts for one exact publication.
 ///
-/// Institution totals do not identify a course. Own counts describe only the
+/// Global totals do not identify a course. Own counts describe only the
 /// requesting instructor's visible course references and are expanded by
 /// [`CatalogUsageDetail`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogUsageSummary {
-    /// Institution-wide number of distinct courses with an assignment use.
-    pub institution_course_count: u64,
-    /// Institution-wide number of assignment uses.
-    pub institution_assignment_count: u64,
+    /// Installation-wide number of distinct courses with an assignment use.
+    pub global_course_count: u64,
+    /// Installation-wide number of assignment uses.
+    pub global_assignment_count: u64,
     /// Current Account's distinct courses that use this publication.
     pub own_course_count: u64,
     /// Current Account's assignment uses across their visible courses.
@@ -590,17 +558,11 @@ mod tests {
     }
 
     #[test]
-    fn only_published_content_is_eligible_for_ordinary_new_selection() {
-        assert!(CatalogLifecycle::Published.is_discoverable());
-        assert!(CatalogLifecycle::Published.is_eligible_for_ordinary_new_selection());
-        let deprecated = CatalogLifecycle::Deprecated {
-            reason: "A separately published immutable question is available.".to_string(),
-        };
-        assert!(deprecated.is_discoverable());
-        assert!(!deprecated.is_eligible_for_ordinary_new_selection());
-        assert!(deprecated.is_resolvable_by_stable_question_id());
-        assert!(CatalogLifecycle::Published.is_resolvable_by_stable_question_id());
-        let archived = CatalogLifecycle::Archived {
+    fn only_available_content_is_eligible_for_ordinary_new_selection() {
+        assert!(QuestionVersionAvailability::Available.is_discoverable());
+        assert!(QuestionVersionAvailability::Available.is_eligible_for_ordinary_new_selection());
+        assert!(QuestionVersionAvailability::Available.is_resolvable_by_stable_question_id());
+        let archived = QuestionVersionAvailability::Archived {
             reason: "Historical".to_string(),
         };
         assert!(archived.is_discoverable());
@@ -679,16 +641,15 @@ mod tests {
                         .expect("valid byline"),
                 ])
                 .expect("valid byline"),
-                scope: PublicationScope::Public,
-                lifecycle: CatalogLifecycle::Published,
+                availability: QuestionVersionAvailability::Available,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
             prompt: CatalogPromptProjection::Static { blocks: Vec::new() },
             evidence: CatalogDiscoveryEvidence::InsufficientEvidence,
             usage: CatalogUsageDetail {
                 summary: CatalogUsageSummary {
-                    institution_course_count: 0,
-                    institution_assignment_count: 0,
+                    global_course_count: 0,
+                    global_assignment_count: 0,
                     own_course_count: 0,
                     own_assignment_count: 0,
                 },

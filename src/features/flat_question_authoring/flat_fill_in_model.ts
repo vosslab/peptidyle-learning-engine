@@ -35,7 +35,7 @@ export function validateFillInResponse(response: FlatQuestionFillInResponse): Fl
       return;
     }
     if (answer.length > response.maxLength) {
-      issues[`answers.${index}`] = "This answer is longer than the learner response limit.";
+      issues[`answers.${index}`] = "This answer is longer than the student response limit.";
       return;
     }
     if (seen.has(normalized)) {

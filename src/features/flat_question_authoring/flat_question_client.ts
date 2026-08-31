@@ -1,12 +1,11 @@
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
-import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
   decodeCatalogProblemSummary,
   decodeDraftQuestionDefinition,
-  isPublishedNativeCatalogProblemSummary,
+  isAvailableNativeCatalogProblemSummary,
 } from "../../api/decoders";
 import { isPublicByline } from "../../api/public_byline";
 import {
@@ -75,7 +74,7 @@ export interface FlatQuestionClient {
   ): Promise<FlatQuestionSave>;
   publish(
     workspace: WorkspaceId,
-    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+    request: { readonly byline: PublicByline },
     revision: string,
   ): Promise<CatalogProblemSummary>;
 }
@@ -321,12 +320,9 @@ export function createFlatQuestionClient(
 
   async function publish(
     workspace: WorkspaceId,
-    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+    request: { readonly byline: PublicByline },
     revision: string,
   ): Promise<CatalogProblemSummary> {
-    if (request.scope !== "institution" && request.scope !== "public") {
-      throw new FlatQuestionProtocolError("Flat-question publication scope is invalid");
-    }
     if (!isPublicByline(request.byline)) {
       throw new FlatQuestionProtocolError(
         "Flat-question publication requires one to sixteen reviewed author names",
@@ -355,9 +351,9 @@ export function createFlatQuestionClient(
       path,
       true,
     );
-    if (!isPublishedNativeCatalogProblemSummary(summary, request.scope)) {
+    if (!isAvailableNativeCatalogProblemSummary(summary)) {
       throw new FlatQuestionProtocolError(
-        "Flat-question publication response must be a native published summary for its requested scope",
+        "Flat-question publication response must be an available native catalog summary",
       );
     }
     return summary;

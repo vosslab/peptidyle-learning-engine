@@ -5,13 +5,13 @@ create a Course Instance for one teaching term, invite Students, deliver assignm
 learning in the Gradebook. Start the local system first with [USAGE.md](USAGE.md).
 
 **Blueprint Course** is shared course-level reusable content and structure. A published Blueprint
-Course is visible to every vetted (approved) Instructor. A draft is private to its owning workspace
-and authorized collaborators. A Blueprint Course has no Students, live deadlines, releases,
+Course is visible to every vetted (approved) Instructor. A Draft Blueprint Revision is private to
+its Blueprint Course Owner and exact Blueprint Collaborators. A Blueprint Course has no Students, live deadlines, releases,
 accommodations, grades, or delivery settings.
 
 **Course Instance** is the teaching and delivery aggregate created from exactly one Blueprint Course.
 Its parent and applied Blueprint revision are immutable. A Course Instance is private to its current
-equal co-Instructors and enrolled Students, and owns enrollment, deadlines, releases,
+equal Teaching Team Members and enrolled Students, and owns enrollment, deadlines, releases,
 accommodations, grades, and delivery settings. It never sends those teaching records back upstream.
 
 All people and course records shown in these captures are fictional live-demo data. The seeded
@@ -24,7 +24,7 @@ discards them and recreates the same fictional baseline.
 
 ![Instructor roster showing active course members](screenshots/instructor/course_management/01_instructor_active_roster.png)
 
-![Instructor assignment workspace Student view showing the answer-free learner landing](screenshots/instructor/assignment_workspace/02_student_view.png)
+![Instructor assignment workspace Student view showing the answer-free Student landing](screenshots/instructor/assignment_workspace/02_student_view.png)
 
 ![Instructor gradebook showing Mary Okafor at 100 percent on Peptide Bonds Guided Practice](screenshots/instructor/grading/01_instructor_gradebook.png)
 <!-- screenshots:end -->
@@ -58,12 +58,12 @@ supports an immediate retry.
 ## Invite a student
 
 1. Open **Students** from the Course Instance navigation.
-2. Enter the learner's **Institutional email** and course-scoped **Institutional student ID**.
+2. Enter the Student's **Course roster email** and course-scoped **Course roster ID**.
 3. Activate **Create invitation**.
 4. In **Share this invitation**, copy the one-time link and share it through the trusted LMS or
    another trusted course channel. Configured SMTP may deliver the same link, but the copy-link
    path remains available.
-5. Confirm the roster reports **Invitation pending** until the learner authenticates their PLE
+5. Confirm the roster reports **Invitation pending** until the Student authenticates their PLE
    account and claims the invitation; after claiming, confirm the member reports **Active**.
 
 Students belong only to the Course Instance. They cannot enroll in or browse a Blueprint Course.
@@ -92,7 +92,7 @@ When a Course Instance is created from a Blueprint, the instance receives the re
 and an applied source revision. Review the resulting assignments in the instance before release.
 
 When a later Blueprint revision adds an assignment, each daughter Course Instance receives that
-assignment as **Unreleased**. The current equal co-Instructors review its Questions and Policies,
+assignment as **Unreleased**. The current equal Teaching Team Members review its Questions and Policies,
 resolve its schedule against the instance term, and explicitly release it. Propagation never silently
 releases an assignment or overwrites instance-owned delivery changes.
 
@@ -102,10 +102,10 @@ The assignment-local navigation keeps delivery work together:
   delivery summary.
 - **Questions** owns fixed questions, reusable pools, ordering, reuse, and replacement. Its
   **Save questions and order** action commits the complete ordered definition.
-- **Policies** owns instance delivery and publishing: learner instructions, lifecycle, schedule,
-  limits, run policies, and feedback visibility. Its save action is separate from Questions.
+- **Policies** owns instance delivery and publishing: Student instructions, lifecycle, schedule,
+  limits, Assignment activity rules, and Student Feedback visibility. Its save action is separate from Questions.
 - **Student view** is a stable-identity, answer-free inspection of the current live assignment. It
-  keeps the Instructor session and creates no learner run, submission, grade, or other work.
+  keeps the Instructor session and creates no Student run, submission, grade, or other work.
 
 Use the assignment title link to return to **Overview**. The supported paths are
 `/instructor/courses/:courseRef/assignments/:assignmentRef`, with `/questions`, `/policies`, or
@@ -119,7 +119,7 @@ America/Chicago**. Changing the computer clock does not change it.
 The Questions and Policies saves share the assignment revision. A conflict offers current server
 values without discarding local work. Invalid or ambiguous local times, a timestamp outside the
 Course Instance term, invalid ordering, or an illegal lifecycle transition preserve the draft,
-announce the exact field, and move focus there. Closing removes learner start access; archiving is
+announce the exact field, and move focus there. Closing removes Student start access; archiving is
 terminal and cannot be reopened.
 
 ## Manage blueprint changes
@@ -140,7 +140,7 @@ Use one explicit path for each kind of change:
   manifest. The new Course Instance receives reusable definitions but no Student memberships,
   invitations, attempts, responses, grades, retention state, or issued evidence.
 - **Shift Course Instance term:** choose **Shift course term** only for an existing instance with
-  no issued learner work. Preview every resolved date in the target IANA time zone, correct any DST
+  no issued Student work. Preview every resolved date in the target IANA time zone, correct any DST
   gap or ambiguity, and apply the witnessed proposal atomically. If work has been issued, use
   rollover instead; issued evidence keeps its original term context.
 
@@ -150,7 +150,7 @@ other delivery settings remain instance-owned after every operation.
 
 ## Inspect and run as a student
 
-From the assignment workspace, open **Student view** to inspect the current live learner landing.
+From the assignment workspace, open **Student view** to inspect the current live Student landing.
 The view has a stable assignment identity, contains no answer material, and leaves the Instructor
 session in place. It is an inspection surface only: it does not start a run or create graded work.
 
@@ -161,7 +161,7 @@ feedback or an instructor-attention state appears. When attention appears, sign 
 Instructor, open **Grading operations**, review the metadata-only recovery row, and choose its
 currently enabled named action when the operation is eligible. Follow the operation's current state
 and available action, then open **Gradebook** and confirm the current score. Ordinary Student entry
-creates the real learner run, submission, receipt, grade, and Instructor-visible Gradebook history.
+creates the real Student run, submission, receipt, grade, and Instructor-visible Gradebook history.
 
 ## Configure course grades
 
@@ -190,5 +190,5 @@ After a Student completes and repeats an assignment, open **Gradebook** and expa
 history** for the assignment row. Confirm Best and Latest scores, Completed count, and the authorized
 run-history entries after a fresh read.
 
-The companion [STUDENT_GUIDE.md](STUDENT_GUIDE.md) follows the learner path. The platform keyboard
+The companion [STUDENT_GUIDE.md](STUDENT_GUIDE.md) follows the Student path. The platform keyboard
 contract is documented in [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).

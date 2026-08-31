@@ -18,13 +18,13 @@ not present. No student participants or screen-reader users were recruited for t
 of a third-party external-tool frame remains that provider's responsibility.
 
 The durable required behavior is now separated from this dated evidence in
-`docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. Each new Question Type satisfies that contract through
-its own acceptance package.
+`docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. New response families must satisfy that contract as part
+of their own acceptance package.
 
 The acceptance goal is direct: a student can open a course, open an assignment, begin or resume a
-run, use every currently implemented Answer Control, submit, read feedback, continue, review a
+run, answer every currently implemented response family, submit, read feedback, continue, review a
 summary, recover from an error, and return without a mouse. The completed evidence demonstrates the
-full route only for the built mock journey below; the remaining Answer Controls have the fixture or
+full route only for the built mock journey below; the remaining response families have the fixture or
 source-inspection coverage named in their rows.
 
 ## Evidence layers
@@ -55,12 +55,12 @@ response components, but their convenience does not become a prerequisite for an
 The built mock journey through a single-choice response is covered by `a student completes the
 primary platform-key course-to-answer path without a pointer` in
 `tests/playwright/frontend_contract.spec.ts`. It also proves Shift+Tab can reverse from Submit answer
-to the selected answer and return. It is not evidence that every Answer Control has completed the
+to the selected response and return. It is not evidence that every response family has completed the
 entire route end to end.
 
-## Answer Control keyboard contract
+## Response-family keyboard contract
 
-| Answer Control   | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
+| Response family | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
 | --------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
 | Single choice   | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, mounted extension scenarios, and live PLE-owned WebWork path |
 | Multiple answer | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Mounted production-component platform and extension fixtures                              |
@@ -117,7 +117,7 @@ Scores use 0 for a critical problem and 4 for no material issue in this keyboard
 | Flexibility and efficiency      |      2 |     4 | Arrow movement avoids repeated Tab presses while visible controls remain available |
 | Aesthetic and minimalist design |      2 |     4 | Per-response no-op summary actions were removed                                    |
 | Error recognition and recovery  |      4 |     4 | Existing retry and preserved-response paths remain keyboard-operable               |
-| Help and documentation          |      3 |     4 | The Answer Control contract and task evidence are now recorded here                 |
+| Help and documentation          |      3 |     4 | The response-family contract and task evidence are now recorded here               |
 
 ## Validation
 
@@ -140,10 +140,10 @@ not promote source-inspection rows into full-route evidence. The scenarios asser
 outcomes rather than exact Tab counts or DOM layout, so they qualify as permanent behavior tests
 under `docs/PYTEST_STYLE.md` rather than one-time implementation probes.
 
-The separate required live WebWork gate subsequently passed through
-`tests/e2e/e2e_webwork_render_rpc.sh`. Its three-test Playwright invocation proved keyboard-only
-selection and submission through the PLE-owned radio projection while the browser contacted PLE
-only and received no upstream source, credential, hidden field, or answer mapping.
+The current production-browser gate owns the WebWork interaction path through
+`run_playwright_tests.sh --build`. It verifies keyboard-only selection and submission through the
+PLE-owned radio projection while the browser contacts PLE only and receives no upstream source,
+credential, hidden field, or answer mapping.
 
 ## Remaining human evaluation
 

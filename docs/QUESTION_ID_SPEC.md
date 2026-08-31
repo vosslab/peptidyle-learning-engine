@@ -99,7 +99,7 @@ The closed semantic change classes are:
 
 - Presentation, accessibility, or metadata work that preserves grading meaning
   publishes a new immutable version in the same lineage.
-- A compatible learner-content improvement that preserves the objective, task,
+- A compatible student-content improvement that preserves the objective, task,
   and Question Type publishes a new immutable version in the same lineage.
 - A grading-semantic correction publishes a new immutable version in the same
   lineage, records its impact, and starts the required recalculation workflow.

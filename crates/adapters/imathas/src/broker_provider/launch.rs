@@ -3,7 +3,7 @@
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::generation::Seed;
-use question_model::{ActivityTimestamp, ProblemId, QuestionAttemptId};
+use question_model::{ActivityTimestamp, QuestionAttemptId};
 use sha2::Sha256;
 use uuid::Uuid;
 
@@ -94,7 +94,7 @@ impl LaunchSessionCodec {
         let mut data = Vec::with_capacity(512);
         data.extend_from_slice(b"PLEIMLS1");
         data.push(1);
-        write_binding(&mut data, p.binding);
+        write_binding(&mut data, &p.binding)?;
         for value in [
             &p.provider_key,
             &p.provider_question_id,
@@ -187,30 +187,33 @@ impl LaunchSessionCodec {
     }
 }
 
-fn write_binding(data: &mut Vec<u8>, binding: GradeBinding) {
-    for id in [
-        binding.attempt.as_uuid(),
-        binding.problem.as_uuid(),
-        binding.version.as_uuid(),
-    ] {
-        data.extend_from_slice(id.as_bytes());
-    }
+fn write_binding(data: &mut Vec<u8>, binding: &GradeBinding) -> Result<(), ImathasAdapterError> {
+    data.extend_from_slice(binding.attempt.as_uuid().as_bytes());
+    write_text(data, &binding.question_version.question_id.to_string())?;
+    data.extend_from_slice(&binding.question_version.version_number.get().to_be_bytes());
     data.extend_from_slice(&binding.seed.value().to_be_bytes());
+    Ok(())
 }
 
 fn read_binding(cursor: &mut Cursor<'_>) -> Result<GradeBinding, ImathasAdapterError> {
-    let id = |cursor: &mut Cursor<'_>| -> Result<Uuid, ImathasAdapterError> {
-        Ok(Uuid::from_bytes(
-            cursor
-                .take(16)?
-                .try_into()
-                .map_err(|_| ImathasAdapterError::InvalidCorrelation)?,
-        ))
-    };
+    let attempt = QuestionAttemptId::from_uuid(Uuid::from_bytes(
+        cursor
+            .take(16)?
+            .try_into()
+            .map_err(|_| ImathasAdapterError::InvalidCorrelation)?,
+    ));
+    let question_id = cursor
+        .text()?
+        .parse()
+        .map_err(|_| ImathasAdapterError::InvalidCorrelation)?;
+    let version_number = question_model::QuestionVersionNumber::new(cursor.u32()?)
+        .map_err(|_| ImathasAdapterError::InvalidCorrelation)?;
     Ok(GradeBinding {
-        attempt: QuestionAttemptId::from_uuid(id(cursor)?),
-        problem: ProblemId::from_uuid(id(cursor)?),
-        version: question_model::VersionId::from_uuid(id(cursor)?),
+        attempt,
+        question_version: question_model::QuestionVersionReference {
+            question_id,
+            version_number,
+        },
         seed: Seed::new(cursor.u64()?),
     })
 }
@@ -255,6 +258,13 @@ impl<'a> Cursor<'a> {
     fn u16(&mut self) -> Result<u16, ImathasAdapterError> {
         Ok(u16::from_be_bytes(
             self.take(2)?
+                .try_into()
+                .map_err(|_| ImathasAdapterError::InvalidCorrelation)?,
+        ))
+    }
+    fn u32(&mut self) -> Result<u32, ImathasAdapterError> {
+        Ok(u32::from_be_bytes(
+            self.take(4)?
                 .try_into()
                 .map_err(|_| ImathasAdapterError::InvalidCorrelation)?,
         ))

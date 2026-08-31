@@ -9,7 +9,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use syn::Item;
+use syn::{Fields, Item, Type};
 
 use model::{Generated, doc_lines, generate_enum, generate_struct};
 use output::{prepare_out_dir, render};
@@ -58,14 +58,27 @@ fn generate_declarations(contract_roots: &[&Path]) -> Result<Vec<OriginGenerated
             fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         let parsed =
             syn::parse_file(&source).with_context(|| format!("parsing {}", path.display()))?;
+        let manually_serialized = manually_serialized_public_types(&parsed.items);
         for item in parsed.items {
             let declaration = match item {
-                Item::Struct(item) if is_exported(&item.vis, &item.attrs) => Some(
-                    generate_struct(&item).with_context(|| format!("generating {}", item.ident))?,
-                ),
-                Item::Enum(item) if is_exported(&item.vis, &item.attrs) => Some(
-                    generate_enum(&item).with_context(|| format!("generating {}", item.ident))?,
-                ),
+                Item::Struct(item)
+                    if is_exported(&item.vis, &item.attrs)
+                        || manually_serialized.contains(&item.ident.to_string()) =>
+                {
+                    Some(
+                        generate_struct(&item)
+                            .with_context(|| format!("generating {}", item.ident))?,
+                    )
+                }
+                Item::Enum(item)
+                    if is_exported(&item.vis, &item.attrs)
+                        || manually_serialized.contains(&item.ident.to_string()) =>
+                {
+                    Some(
+                        generate_enum(&item)
+                            .with_context(|| format!("generating {}", item.ident))?,
+                    )
+                }
                 Item::Const(item)
                     if matches!(item.vis, syn::Visibility::Public(_))
                         && matches!(*item.ty, syn::Type::Path(ref path) if path.path.is_ident("usize") || path.path.is_ident("u32"))
@@ -102,6 +115,50 @@ fn generate_declarations(contract_roots: &[&Path]) -> Result<Vec<OriginGenerated
         }
     }
     Ok(generated)
+}
+
+/// Finds transparent collection wrappers whose hand-written Serde
+/// implementations preserve their single inner wire value.
+///
+/// A named struct with manual serialization may construct a private wire DTO
+/// and therefore requires an explicit browser projection instead. Tuple
+/// wrappers are the safe structural case: their one owned field is the exact
+/// serialized value and can be emitted beside a public record that names it.
+fn manually_serialized_public_types(items: &[Item]) -> BTreeSet<String> {
+    let mut manually_serialized = BTreeSet::new();
+    for item in items {
+        let Item::Impl(implementation) = item else {
+            continue;
+        };
+        let Some((trait_path, _)) = &implementation.trait_ else {
+            continue;
+        };
+        let Some(trait_name) = trait_path.segments.last() else {
+            continue;
+        };
+        if trait_name.ident != "Serialize" && trait_name.ident != "Deserialize" {
+            continue;
+        }
+        let Type::Path(self_type) = implementation.self_ty.as_ref() else {
+            continue;
+        };
+        let Some(type_name) = self_type.path.segments.last() else {
+            continue;
+        };
+        manually_serialized.insert(type_name.ident.to_string());
+    }
+    items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Struct(item)
+                if matches!(&item.fields, Fields::Unnamed(fields) if fields.unnamed.len() == 1)
+                    && manually_serialized.contains(&item.ident.to_string()) =>
+            {
+                Some(item.ident.to_string())
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 #[cfg(test)]

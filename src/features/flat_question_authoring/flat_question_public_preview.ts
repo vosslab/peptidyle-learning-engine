@@ -8,7 +8,7 @@ import type {
 } from "./flat_question_source";
 import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
 
-/** The local learner preview deliberately excludes correctness and all feedback. */
+/** The local student preview deliberately excludes correctness and all feedback. */
 export type FlatQuestionPublicPreview = {
   readonly title: string;
   readonly prompt: string;
@@ -22,7 +22,7 @@ export type FlatQuestionPublicPreview = {
   readonly language: string;
 };
 
-/** Projects an author source into exactly the information a learner may receive. */
+/** Projects an author source into exactly the information a student may receive. */
 export function flatQuestionPublicPreview(source: FlatQuestionSourceV2): FlatQuestionPublicPreview {
   const response = flatQuestionResponseDefinition(source);
   return {
@@ -99,7 +99,7 @@ export function flatQuestionResponseDefinition(source: FlatQuestionSourceV2): Re
           height: region.height,
         })),
         // The private correct-region set must not determine public response shape.
-        // Learners may choose one or more public candidate regions; server-only
+        // Students may choose one or more public candidate regions; server-only
         // grading decides whether their complete selection is correct.
         selection: { kind: "atLeastOne" },
       };

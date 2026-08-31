@@ -1,4 +1,4 @@
-"""Offline closed-protocol coverage for the learner gateway recovery owner."""
+"""Offline closed-protocol coverage for the student gateway recovery owner."""
 
 import dataclasses
 import os

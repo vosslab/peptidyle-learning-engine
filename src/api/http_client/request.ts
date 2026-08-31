@@ -1,6 +1,6 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentItemId } from "../../../generated/api/AssignmentItemId";
-import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
+import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
@@ -32,7 +32,7 @@ import {
   decodeAssignmentContentInput,
   decodeInstructorStudentView,
   decodeAssignmentPoliciesValidationFailure,
-  decodeAssignmentRun,
+  decodeAssignmentAttempt,
   decodeCapabilityViolations,
   decodeCourseAppearance,
   decodeCourseGradeSchemeView,
@@ -234,10 +234,7 @@ function verifyStudentSubmissionStatus(
   if (returnedAttemptId !== attemptId)
     throw new ApiProtocolError("Submission status attempt does not match its request");
   if (status.kind !== "completed") return status;
-  if (
-    status.nextIssued !== null &&
-    (status.nextIssued.run !== status.attempt.run || status.nextIssued.id === status.attempt.id)
-  )
+  if (status.nextIssued !== null && status.nextIssued.id === status.attempt.id)
     throw new ApiProtocolError("Submission receipt next attempt is not bound to its response");
   if (status.nextPending && status.nextIssued !== null)
     throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
@@ -395,7 +392,7 @@ export function createRequestClient(
   | "replaceAssignmentFixedItem"
   | "saveAssignmentPolicies"
   | "getInstructorStudentView"
-  | "startRun"
+  | "startAssignmentAttempt"
   | "prefetchNextQuestion"
   | "submitResponse"
   | "getSubmissionStatus"
@@ -528,8 +525,6 @@ export function createRequestClient(
       request: PublicationRequest,
       revision: string,
     ): Promise<PublicationResult> => {
-      if (request.scope !== "institution" && request.scope !== "public")
-        throw new ApiProtocolError("publication scope must be institution or public");
       if (!isPublicByline(request.byline))
         throw new ApiProtocolError("publication requires one to sixteen reviewed author names");
       if (!validRevision(revision))
@@ -710,12 +705,12 @@ export function createRequestClient(
       if (!response.ok) throw new ApiRequestError(response.status, path);
       return decodeInstructorStudentView(await boundedResponseJson(response, path), "response");
     },
-    startRun: (courseId, assignmentId): Promise<AssignmentRun> =>
+    startAssignmentAttempt: (courseId, assignmentId): Promise<AssignmentAttempt> =>
       requestJson(
         fetchImplementation,
         basePath,
-        `${assignmentPath(courseId, assignmentId)}/runs`,
-        decodeAssignmentRun,
+        `${assignmentPath(courseId, assignmentId)}/assignment-attempts`,
+        decodeAssignmentAttempt,
         {
           method: "POST",
         },

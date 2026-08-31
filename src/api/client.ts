@@ -3,22 +3,12 @@
 import type { AssetId } from "../../generated/api/AssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentItemId } from "../../generated/api/AssignmentItemId";
-import type { AssignmentRun } from "../../generated/api/AssignmentRun";
+import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseGroupCreateRequest } from "../../generated/api/CourseGroupCreateRequest";
-import type { CourseGroupDetailView } from "../../generated/api/CourseGroupDetailView";
-import type { CourseGroupListPage } from "../../generated/api/CourseGroupListPage";
-import type { CourseGroupMembershipWarningView } from "../../generated/api/CourseGroupMembershipWarningView";
-import type { CourseGroupPurpose } from "../../generated/api/CourseGroupPurpose";
-import type { CourseGroupPurposePolicyUpdateRequest } from "../../generated/api/CourseGroupPurposePolicyUpdateRequest";
-import type { CourseGroupPurposePolicyView } from "../../generated/api/CourseGroupPurposePolicyView";
-import type { CourseGroupReference } from "../../generated/api/CourseGroupReference";
-import type { CourseGroupSummaryView } from "../../generated/api/CourseGroupSummaryView";
-import type { CourseGroupUpdateRequest } from "../../generated/api/CourseGroupUpdateRequest";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../generated/api/CourseAppearanceUpdate";
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
@@ -26,12 +16,12 @@ import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGrad
 import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
 import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseBannerId } from "../../generated/api/CourseBannerId";
-import type { EnrollmentId } from "../../generated/api/EnrollmentId";
+import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
-import type { RunId } from "../../generated/api/RunId";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
+import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
@@ -40,20 +30,18 @@ import type { AccountApprovalView } from "../../generated/api/AccountApprovalVie
 import type { AccountReference } from "../../generated/api/AccountReference";
 import type { SysadminInstructorCandidateSearchPage } from "../../generated/api/SysadminInstructorCandidateSearchPage";
 import type { SysadminInstructorCandidateSearchRequest } from "../../generated/api/SysadminInstructorCandidateSearchRequest";
-import type { AssignmentPolicyPatchUpdateRequest } from "../../generated/api/AssignmentPolicyPatchUpdateRequest";
-import type { CoInstructorInvitationCreateRequest } from "../../generated/api/CoInstructorInvitationCreateRequest";
-import type { CoInstructorInvitationReference } from "../../generated/api/CoInstructorInvitationReference";
-import type { CoInstructorInvitationTerminalActionRequest } from "../../generated/api/CoInstructorInvitationTerminalActionRequest";
-import type { CoInstructorTargetSearchPage } from "../../generated/api/CoInstructorTargetSearchPage";
-import type { CoInstructorTargetSearchQuery } from "../../generated/api/CoInstructorTargetSearchQuery";
-import type { CourseCoInstructorInvitationsPage } from "../../generated/api/CourseCoInstructorInvitationsPage";
+import type { CourseInvitationCreateRequest } from "../../generated/api/CourseInvitationCreateRequest";
+import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
+import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
+import type { CourseInvitationTargetSearchPage } from "../../generated/api/CourseInvitationTargetSearchPage";
+import type { CourseInvitationTargetSearchQuery } from "../../generated/api/CourseInvitationTargetSearchQuery";
+import type { CourseCourseInvitationsPage } from "../../generated/api/CourseCourseInvitationsPage";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { CourseStudentMembershipsPage } from "../../generated/api/CourseStudentMembershipsPage";
-import type { GroupScheduleOffsetUpdateRequest } from "../../generated/api/GroupScheduleOffsetUpdateRequest";
-import type { IndividualPolicyPatchUpdateRequest } from "../../generated/api/IndividualPolicyPatchUpdateRequest";
+import type { AccommodationPatchUpdateRequest } from "../../generated/api/AccommodationPatchUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../generated/api/InstructorMembershipsPage";
-import type { PendingCoInstructorInvitationsPage } from "../../generated/api/PendingCoInstructorInvitationsPage";
+import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { RetentionActionResponse } from "../../generated/api/RetentionActionResponse";
 import type { RetentionArchiveRequest } from "../../generated/api/RetentionArchiveRequest";
 import type { RetentionExtendRequest } from "../../generated/api/RetentionExtendRequest";
@@ -83,11 +71,10 @@ import type {
   CourseCreateInput,
   CourseSummary,
   CursorPage,
-  EnrollmentView,
   ExternalToolLaunch,
   FeedbackReleaseResponse,
-  RunScreenData,
-  RunSummaryResponse,
+  AssignmentAttemptScreenData,
+  AssignmentAttemptSummaryResponse,
   WorkspaceDraftDetail,
   WorkspaceDraftPage,
   PublicationDiff,
@@ -111,7 +98,7 @@ import type {
   InstructorGradingOperationsPage,
 } from "./decoders/grading_operations";
 import type { GradingOperationReference } from "../../generated/api/GradingOperationReference";
-import type { RunReference } from "../../generated/api/RunReference";
+import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type {
   CalculatedGradebookQuery,
   CalculatedGradebookResult,
@@ -168,7 +155,7 @@ export interface CalculatedGradebookClient {
     courseId: CourseId,
     membership: CourseMembershipReference,
     assignment: AssignmentReference,
-    run: RunReference,
+    run: AssignmentAttemptReference,
     operationRef?: GradingOperationReference,
   ) => Promise<InspectedStudentWorkDetail>;
 }
@@ -189,84 +176,19 @@ export interface ApiClient
     CurriculumAdoptionClient,
     GradingOperationsClient,
     CalculatedGradebookClient {
-  readonly listCourseGroups: (
-    courseId: CourseId,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<CourseGroupListPage>;
-  readonly getCourseGroup: (
-    courseId: CourseId,
-    group: CourseGroupReference,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<CourseGroupDetailView>;
-  readonly createCourseGroup: (
-    courseId: CourseId,
-    request: CourseGroupCreateRequest,
-  ) => Promise<CourseGroupSummaryView>;
-  readonly updateCourseGroup: (
-    courseId: CourseId,
-    group: CourseGroupReference,
-    request: CourseGroupUpdateRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<CourseGroupSummaryView>;
-  readonly deleteCourseGroup: (
-    courseId: CourseId,
-    group: CourseGroupReference,
-    revision: TeachingOperationRevision,
-  ) => Promise<void>;
-  readonly getCourseGroupPurposePolicy: (
-    courseId: CourseId,
-    purpose: CourseGroupPurpose,
-  ) => Promise<CourseGroupPurposePolicyView>;
-  readonly updateCourseGroupPurposePolicy: (
-    courseId: CourseId,
-    purpose: CourseGroupPurpose,
-    request: CourseGroupPurposePolicyUpdateRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<CourseGroupPurposePolicyView>;
-  readonly getCourseGroupMembershipWarnings: (
-    courseId: CourseId,
-  ) => Promise<CourseGroupMembershipWarningView>;
   readonly listCourseStudentTargets: (
     courseId: CourseId,
     cursor?: string,
     pageSize?: number,
   ) => Promise<CourseStudentMembershipsPage>;
-  readonly putGroupScheduleOffset: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    group: CourseGroupReference,
-    request: GroupScheduleOffsetUpdateRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<TeachingOperationRevisionResponse>;
-  readonly deleteGroupScheduleOffset: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    group: CourseGroupReference,
-    revision: TeachingOperationRevision,
-  ) => Promise<TeachingOperationRevisionResponse>;
-  readonly putGroupAccommodation: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    group: CourseGroupReference,
-    request: AssignmentPolicyPatchUpdateRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<TeachingOperationRevisionResponse>;
-  readonly deleteGroupAccommodation: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    group: CourseGroupReference,
-    revision: TeachingOperationRevision,
-  ) => Promise<TeachingOperationRevisionResponse>;
-  readonly putIndividualPolicyException: (
+  readonly putAccommodation: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     student: CourseMembershipReference,
-    request: IndividualPolicyPatchUpdateRequest,
+    request: AccommodationPatchUpdateRequest,
     revision: TeachingOperationRevision,
   ) => Promise<TeachingOperationRevisionResponse>;
-  readonly deleteIndividualPolicyException: (
+  readonly deleteAccommodation: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     student: CourseMembershipReference,
@@ -299,7 +221,7 @@ export interface ApiClient
     revision: TeachingOperationRevision,
     request: Omit<DerivedPreviewSubjectRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
-  /** Samples one saved item pool with server-owned entropy and no learner activity. */
+  /** Samples one saved item pool with server-owned entropy and no student activity. */
   readonly previewPoolDraw: (
     course: CourseReference,
     assignment: AssignmentReference,
@@ -314,33 +236,33 @@ export interface ApiClient
     account: AccountReference,
     revision: TeachingOperationRevision,
   ) => Promise<AccountApprovalView>;
-  readonly listCourseCoInstructorInvitations: (
+  readonly listCourseCourseInvitations: (
     courseId: CourseId,
     cursor?: string,
     pageSize?: number,
-  ) => Promise<CourseCoInstructorInvitationsPage>;
-  readonly searchCourseCoInstructorTargets: (
+  ) => Promise<CourseCourseInvitationsPage>;
+  readonly searchCourseCourseInvitationTargets: (
     courseId: CourseId,
-    query: CoInstructorTargetSearchQuery,
+    query: CourseInvitationTargetSearchQuery,
     cursor?: string,
     pageSize?: number,
-  ) => Promise<CoInstructorTargetSearchPage>;
-  readonly createCourseCoInstructorInvitation: (
+  ) => Promise<CourseInvitationTargetSearchPage>;
+  readonly createCourseCourseInvitation: (
     courseId: CourseId,
-    request: CoInstructorInvitationCreateRequest,
-  ) => Promise<CoInstructorInvitationReference>;
-  readonly revokeCourseCoInstructorInvitation: (
+    request: CourseInvitationCreateRequest,
+  ) => Promise<CourseInvitationReference>;
+  readonly revokeCourseCourseInvitation: (
     courseId: CourseId,
-    invitation: CoInstructorInvitationReference,
+    invitation: CourseInvitationReference,
     revision: TeachingOperationRevision,
   ) => Promise<void>;
-  readonly listPendingCoInstructorInvitations: (
+  readonly listPendingCourseInvitations: (
     cursor?: string,
     pageSize?: number,
-  ) => Promise<PendingCoInstructorInvitationsPage>;
-  readonly respondToCoInstructorInvitation: (
-    invitation: CoInstructorInvitationReference,
-    request: CoInstructorInvitationTerminalActionRequest,
+  ) => Promise<PendingCourseInvitationsPage>;
+  readonly respondToCourseInvitation: (
+    invitation: CourseInvitationReference,
+    request: CourseInvitationTerminalActionRequest,
     revision: TeachingOperationRevision,
   ) => Promise<void>;
   readonly listCourseInstructors: (
@@ -433,10 +355,10 @@ export interface ApiClient
     courseId: CourseId,
     cursor?: string,
   ) => Promise<CursorPage<StudentAssignmentLandingSummary>>;
-  /** Learner-safe detail; Instructor workspace reads require an exact course identity. */
+  /** Student-safe detail; Instructor workspace reads require an exact course identity. */
   readonly getAssignment: (assignmentId: AssignmentId) => Promise<StudentAssignmentDetail>;
-  /** Current key-free learner progress; the server omits withheld score totals. */
-  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<StudentAssignmentProgress>;
+  /** Current key-free student progress; the server omits withheld score totals. */
+  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<AssignmentProgress>;
   /** Reads the course-bound Instructor assignment workspace. */
   readonly getAssignmentWorkspace: (
     courseId: CourseId,
@@ -454,7 +376,7 @@ export interface ApiClient
     input: AssignmentContentInput,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
-  /** Replaces one existing fixed slot for future runs without changing issued learner work. */
+  /** Replaces one existing fixed slot for future runs without changing issued student work. */
   readonly replaceAssignmentFixedItem: (
     courseId: CourseId,
     assignmentId: AssignmentId,
@@ -474,24 +396,28 @@ export interface ApiClient
     courseId: CourseId,
     assignmentId: AssignmentId,
   ) => Promise<InstructorStudentView>;
-  readonly getEnrollment: (enrollmentId: EnrollmentId) => Promise<EnrollmentView>;
-  readonly listRuns: (
-    enrollmentId: EnrollmentId,
+  readonly listAssignmentAttempts: (
+    studentRecordId: StudentRecordId,
     cursor?: string,
-  ) => Promise<CursorPage<AssignmentRun>>;
+  ) => Promise<CursorPage<AssignmentAttempt>>;
   /**
-   * Starts or resumes learner work within the course route that authorizes the assignment.
-   * The browser supplies no learner-work authority or answer material.
+   * Starts or resumes student work within the course route that authorizes the assignment.
+   * The browser supplies no student-work authority or answer material.
    */
-  readonly startRun: (courseId: CourseId, assignmentId: AssignmentId) => Promise<AssignmentRun>;
-  readonly getRun: (runId: RunId) => Promise<AssignmentRun>;
-  readonly getRunSummary: (
-    runId: RunId,
+  readonly startAssignmentAttempt: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+  ) => Promise<AssignmentAttempt>;
+  readonly getAssignmentAttempt: (
+    assignmentAttemptId: AssignmentAttemptId,
+  ) => Promise<AssignmentAttempt>;
+  readonly getAssignmentAttemptSummary: (
+    assignmentAttemptId: AssignmentAttemptId,
     cursor?: string,
     pageSize?: number,
-  ) => Promise<RunSummaryResponse>;
-  readonly listAttempts: (
-    runId: RunId,
+  ) => Promise<AssignmentAttemptSummaryResponse>;
+  readonly listQuestionAttempts: (
+    assignmentAttemptId: AssignmentAttemptId,
     cursor?: string,
   ) => Promise<CursorPage<StudentQuestionAttempt>>;
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
@@ -521,7 +447,7 @@ export interface ApiClient
     response: StudentResponse,
     idempotencyKey: string,
   ) => Promise<StudentSubmissionStatus>;
-  /** Reads a previously acknowledged learner submission without resending answer material. */
+  /** Reads a previously acknowledged student submission without resending answer material. */
   readonly getSubmissionStatus: (
     courseId: CourseId,
     assignmentId: AssignmentId,
@@ -531,8 +457,12 @@ export interface ApiClient
   readonly releaseAttemptFeedback: (
     attemptId: QuestionAttemptId,
   ) => Promise<FeedbackReleaseResponse>;
-  readonly getSummary: (enrollmentId: EnrollmentId) => Promise<StudentAssignmentProgress>;
-  readonly getRunScreen: (runId: RunId) => Promise<RunScreenData>;
+  readonly getAssignmentActivitySummary: (
+    studentRecordId: StudentRecordId,
+  ) => Promise<AssignmentProgress>;
+  readonly getAssignmentAttemptScreen: (
+    assignmentAttemptId: AssignmentAttemptId,
+  ) => Promise<AssignmentAttemptScreenData>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Public immutable catalog-asset redirect path; it never issues a capability. */

@@ -1,13 +1,8 @@
 """Closed, catalog-owned policy for disposable production browser scenarios."""
 
 import dataclasses
-import json
-import pathlib
 import re
 from collections.abc import Iterable, Sequence
-
-import local_stack_control.base_course_lifecycle
-import local_stack_control.models
 
 BASELINE_VERSION = "base-course-v1"
 SCHEMA_VERSION = 2
@@ -33,12 +28,10 @@ PERSONAS = frozenset(
 )
 RESOURCE_KINDS = frozenset(
 	{
-		"alpha_curriculum",
 		"assignment",
 		"blueprint",
 		"collection",
 		"course",
-		"course_group",
 		"grade_scheme",
 		"invitation",
 		"passkey",
@@ -50,10 +43,8 @@ RESOURCE_KINDS = frozenset(
 	}
 )
 SEED_STATE_TRANSITIONS = frozenset({"avery_instructor_approval"})
-SERVICE_RECEIPTS = frozenset({"renderer_delivery", "worker_completion"})
-FAULT_TRANSITIONS = frozenset(
-	{"gateway_submit_outage", "deterministic_grader_exception"}
-)
+SERVICE_RECEIPTS = frozenset({"renderer_delivery"})
+FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
 REQUIRED_ROLE_SECURITY_SCENARIOS = {
 	"direct_role_entry": (
 		"tests/playwright/e2e/direct_role_entry.spec.ts",
@@ -168,19 +159,6 @@ def namespace_for(scenario_id: str, entropy: str) -> str:
 	return result
 
 
-def validate_installed_baseline(
-	receipt_path: pathlib.Path,
-	contract: ScenarioContract,
-) -> None:
-	"""Bind a contract's semantic baseline to Rust's completed install receipt."""
-	validate_contract(contract)
-	receipt = _decode_installed_receipt(receipt_path)
-	if json.loads(receipt.raw_output).get("baselineVersion") != BASELINE_VERSION:
-		raise ScenarioContractError(
-			"installed Base Course receipt has an incompatible baseline"
-		)
-
-
 def _registry(
 	contracts: Sequence[ScenarioContract] | None,
 ) -> tuple[ScenarioContract, ...]:
@@ -270,22 +248,6 @@ def _validate_registry_entry(
 	seen_ids.add(contract.scenario_id)
 	seen_specs.add(contract.spec_path)
 	validate_contract(contract)
-
-
-def _decode_installed_receipt(
-	receipt_path: pathlib.Path,
-) -> local_stack_control.base_course_lifecycle.Receipt:
-	try:
-		contents = receipt_path.read_text(encoding="ascii")
-		return local_stack_control.base_course_lifecycle.decode(contents, "install")
-	except (
-		OSError,
-		UnicodeDecodeError,
-		local_stack_control.models.ControllerError,
-	) as error:
-		raise ScenarioContractError(
-			"installed Base Course receipt is unavailable"
-		) from error
 
 
 def _validate_closed_values(

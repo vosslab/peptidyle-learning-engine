@@ -6,7 +6,7 @@ use objects::{
 };
 use question_model::{
     ActivityTimestamp, AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
-    ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
+    QuestionId, QuestionVersionNumber, QuestionVersionReference, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -14,10 +14,16 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
+fn question_version(version_number: u32) -> QuestionVersionReference {
+    QuestionVersionReference {
+        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        version_number: QuestionVersionNumber::new(version_number).expect("positive version"),
+    }
+}
+
 async fn exercise_object_store(store: &dyn ObjectStore) {
-    let key = ObjectKey::ProblemSource {
-        problem: ProblemId::from_uuid(id(1)),
-        version: VersionId::from_uuid(id(2)),
+    let key = ObjectKey::QuestionSource {
+        question_version: question_version(2),
         object: ObjectId::from_uuid(id(3)),
     };
     let request = PutObject {
@@ -46,8 +52,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         "answer-bearing source must remain server-only"
     );
     let archive_key = ObjectKey::PublishedImportArchive {
-        problem: ProblemId::from_uuid(id(41)),
-        version: VersionId::from_uuid(id(42)),
+        question_version: question_version(42),
         import: WorkspaceImportId::from_uuid(id(43)),
         object: ObjectId::from_uuid(id(44)),
     };
@@ -69,9 +74,8 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         Err(ObjectStoreError::NotSignable),
         "published import provenance must remain server-only"
     );
-    let asset_key = ObjectKey::ProblemAsset {
-        problem: ProblemId::from_uuid(id(1)),
-        version: VersionId::from_uuid(id(2)),
+    let asset_key = ObjectKey::QuestionAsset {
+        question_version: question_version(2),
         asset: AssetId::from_uuid(id(13)),
         object: ObjectId::from_uuid(id(14)),
     };
@@ -215,7 +219,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             .await
             .expect("workspace import put should succeed");
         assert_eq!(record.bucket, Bucket::PrivateContent);
-        assert_eq!(record.version, None);
+        assert_eq!(record.question_version, None);
         assert_eq!(
             store
                 .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
@@ -229,7 +233,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             record.sha256,
             record.bucket,
             record.category,
-            record.version,
+            record.question_version,
             record.size_bytes,
             stored.bytes,
             signed.expires_at,
@@ -240,7 +244,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             Sha256Digest::compute(b"published source"),
             Bucket::PrivateContent,
             ObjectCategory::Source,
-            Some(VersionId::from_uuid(id(2))),
+            Some(question_version(2)),
             16,
             b"published source".to_vec(),
             ActivityTimestamp::from_unix_millis(3_602_000),
@@ -318,7 +322,7 @@ fn workspace_object_paths_bind_workspace_and_import_identity() {
     assert_ne!(source.path(), other_workspace.path());
     assert_eq!(source.bucket(), Bucket::PrivateContent);
     assert_eq!(source.category(), ObjectCategory::Source);
-    assert_eq!(source.version_id(), None);
+    assert_eq!(source.question_version(), None);
     assert!(source.path().starts_with("workspaces/"));
     assert!(!source.path().starts_with("problems/"));
 }
@@ -336,7 +340,7 @@ fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source
     );
     assert_eq!(source.bucket(), Bucket::PrivateContent);
     assert_eq!(source.category(), ObjectCategory::Source);
-    assert_eq!(source.version_id(), None);
+    assert_eq!(source.question_version(), None);
     assert!(!source.path().contains("imports"));
 }
 
@@ -354,7 +358,7 @@ fn workspace_question_asset_key_is_private_content_without_import_or_version() {
     assert_eq!(asset.bucket(), Bucket::PrivateContent);
     assert_eq!(asset.category(), ObjectCategory::Asset);
     assert_eq!(asset.object_id(), ObjectId::from_uuid(id(36)));
-    assert_eq!(asset.version_id(), None);
+    assert_eq!(asset.question_version(), None);
     assert!(!asset.may_issue_signed_url());
     assert!(!asset.path().contains("imports"));
     assert!(!asset.path().contains("versions"));

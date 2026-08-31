@@ -5,7 +5,6 @@ import pathlib
 import pytest
 import yaml
 
-import file_utils
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.process_logins
@@ -102,13 +101,6 @@ def test_process_login_profiles_have_exact_set_only_memberships() -> None:
 	"""Role reset grants each service its one intended capability profile."""
 	expected_roles = {
 		local_stack_control.process_logins.API_LOGIN: ("ple_app", "ple_auth"),
-		local_stack_control.process_logins.WORKER_LOGIN: ("ple_app",),
-		local_stack_control.process_logins.RECOVERY_LOGIN: (
-			"ple_accepted_submission_execution",
-		),
-		local_stack_control.process_logins.FAST_PATH_LOGIN: (
-			"ple_accepted_submission_execution_fast_path",
-		),
 	}
 	actual_roles = {
 		login: roles
@@ -128,7 +120,7 @@ def test_process_login_profiles_reject_unallowlisted_capability() -> None:
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.process_logins.login_sql(
 			local_stack_control.process_logins.API_LOGIN,
-			("ple_app", "ple_accepted_submission_execution"),
+			("ple_app", "ple_unexpected_capability"),
 			"a" * 64,
 		)
 
@@ -140,7 +132,7 @@ def test_provision_writes_separate_service_urls_without_service_credentials_in_c
 ) -> None:
 	"""Compose reads service credentials only from its selected private file."""
 	runner = RecordingRunner()
-	passwords = iter(("a" * 64, "b" * 64, "c" * 64, "d" * 64))
+	passwords = iter(("a" * 64,))
 	monkeypatch.setattr(
 		local_stack_control.process_logins.secrets,
 		"token_hex",
@@ -158,19 +150,8 @@ def test_provision_writes_separate_service_urls_without_service_credentials_in_c
 	)
 	content = selected.env_file.read_text(encoding="utf-8")
 	assert "PLE_API_DATABASE_URL=postgres://ple_api_login:" + "a" * 64 in content
-	assert "PLE_WORKER_DATABASE_URL=postgres://ple_worker_login:" + "b" * 64 in content
-	recovery_url = (
-		"PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL="
-		"postgres://ple_accepted_submission_recovery_login:" + "c" * 64
-	)
-	fast_path_url = (
-		"PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL="
-		"postgres://ple_accepted_submission_fast_path_login:" + "d" * 64
-	)
-	assert recovery_url in content
-	assert fast_path_url in content
 	assert runner.environment == {"PATH": "/bin", "PGPASSWORD": "admin-private"}
-	service_passwords = ("a" * 64, "b" * 64, "c" * 64, "d" * 64)
+	service_passwords = ("a" * 64,)
 	assert all(password not in runner.environment.values() for password in service_passwords)
 
 
@@ -195,47 +176,3 @@ def test_provisioning_failure_redacts_ephemeral_process_passwords() -> None:
 
 
 #============================================
-def test_compose_assigns_distinct_database_variables_to_api_and_worker() -> None:
-	"""The shipped topology gives each service exactly its required private URLs."""
-	compose_path = pathlib.Path(file_utils.get_repo_root()) / "containers" / "compose.yaml"
-	services = _load_compose_mapping(compose_path)["services"]
-	api_environment = services["api"]["environment"]
-	worker_environment = services["worker"]["environment"]
-	assert "PLE_API_DATABASE_URL" in api_environment["DATABASE_URL"]
-	assert "DATABASE_URL" not in worker_environment and "PLE_WORKER_DATABASE_URL" in worker_environment
-	assert "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL" in api_environment
-	assert "PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL" not in api_environment
-	assert "PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL" in worker_environment
-	assert "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL" not in worker_environment
-	assert worker_environment["PLE_GRADER_DATABASE_URL"] == api_environment["PLE_GRADER_DATABASE_URL"]
-	assert {
-		name: worker_environment[name]
-		for name in (
-			"PLE_WEBWORK_RENDERER_BASE_URL",
-			"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
-			"PLE_WEBWORK_MAX_RESPONSE_BYTES",
-			"PLE_WEBWORK_RENDERER_ID",
-			"PLE_WEBWORK_RENDERER_VERSION",
-		)
-	} == {
-		name: api_environment[name]
-		for name in (
-			"PLE_WEBWORK_RENDERER_BASE_URL",
-			"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
-			"PLE_WEBWORK_MAX_RESPONSE_BYTES",
-			"PLE_WEBWORK_RENDERER_ID",
-			"PLE_WEBWORK_RENDERER_VERSION",
-		)
-	}
-	assert services["worker"]["depends_on"]["webwork-renderer"] == {
-		"condition": "service_healthy"
-	}
-	assert services["worker"]["networks"] == ["default", "renderer_private"]
-
-	overlay_path = (
-		pathlib.Path(file_utils.get_repo_root())
-		/ "tests/e2e/compose.live-demo-browser.yaml"
-	)
-	overlay = _load_compose_mapping(overlay_path)["services"]
-	assert overlay["api"]["environment"]["PLE_QTI_RUNTIME_ENABLED"] == "1"
-	assert overlay["worker"]["environment"]["PLE_QTI_RUNTIME_ENABLED"] == "1"

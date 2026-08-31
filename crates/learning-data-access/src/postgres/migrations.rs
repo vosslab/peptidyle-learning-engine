@@ -257,8 +257,9 @@ pub async fn migration_status_from_directory(
 
 /// Verifies the exact application-visible schema epoch through a read-only transaction.
 ///
-/// This deliberately queries the narrow `ple_migration_state` projection as
-/// `ple_app`; application startup never creates the SQLx ledger or applies DDL.
+/// This deliberately queries the narrow `ple_api.ple_migration_state`
+/// projection as `ple_app`; application startup never creates the SQLx ledger
+/// or applies DDL.
 ///
 /// # Errors
 ///
@@ -270,52 +271,22 @@ pub async fn verify_application_schema(pool: &PgPool) -> Result<(), SchemaCompat
     verify_schema_as(pool, SchemaVerificationProfile::Application).await
 }
 
-/// Verifies the exact embedded schema through the publisher's metadata-only
-/// capability. The publisher cannot assume `ple_app` merely to run a startup
-/// check.
-pub async fn verify_public_asset_publisher_schema(
-    pool: &PgPool,
-) -> Result<(), SchemaCompatibilityError> {
-    verify_schema_as(pool, SchemaVerificationProfile::PublicAssetPublisher).await
-}
-
-/// Verifies the exact embedded schema through the invitation-delivery
-/// worker's function-only capability. It cannot read the migration projection
-/// or application tables directly.
-pub async fn verify_invitation_delivery_worker_schema(
-    pool: &PgPool,
-) -> Result<(), SchemaCompatibilityError> {
-    verify_schema_as(pool, SchemaVerificationProfile::InvitationDeliveryWorker).await
-}
-
 #[derive(Clone, Copy)]
 enum SchemaVerificationProfile {
     Application,
-    PublicAssetPublisher,
-    InvitationDeliveryWorker,
 }
 
 impl SchemaVerificationProfile {
     const fn role_sql(self) -> &'static str {
         match self {
             Self::Application => "SET LOCAL ROLE ple_app",
-            Self::PublicAssetPublisher => "SET LOCAL ROLE ple_public_asset_publisher",
-            Self::InvitationDeliveryWorker => "SET LOCAL ROLE ple_invitation_delivery_worker",
         }
     }
 
     const fn migration_state_sql(self) -> &'static str {
         match self {
             Self::Application => {
-                "SELECT version, success, checksum FROM public.ple_migration_state ORDER BY version"
-            }
-            Self::PublicAssetPublisher => {
-                "SELECT version, success, checksum \
-                 FROM public.ple_public_asset_publisher_migration_state() ORDER BY version"
-            }
-            Self::InvitationDeliveryWorker => {
-                "SELECT version, success, checksum \
-                 FROM public.ple_invitation_delivery_worker_migration_state() ORDER BY version"
+                "SELECT version, success, checksum FROM ple_api.ple_migration_state ORDER BY version"
             }
         }
     }
@@ -438,37 +409,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn invitation_delivery_worker_schema_profile_is_function_only() {
-        let profile = SchemaVerificationProfile::InvitationDeliveryWorker;
-        assert_eq!(
-            profile.role_sql(),
-            "SET LOCAL ROLE ple_invitation_delivery_worker"
-        );
+    fn application_schema_profile_reads_the_baseline_api_projection() {
+        let profile = SchemaVerificationProfile::Application;
+        assert_eq!(profile.role_sql(), "SET LOCAL ROLE ple_app");
         assert_eq!(
             profile.migration_state_sql(),
-            "SELECT version, success, checksum \
-                 FROM public.ple_invitation_delivery_worker_migration_state() ORDER BY version"
-        );
-    }
-
-    #[test]
-    fn invitation_delivery_worker_migration_projection_is_execute_only() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026081502)
-            .expect("invitation delivery migration is embedded")
-            .sql
-            .as_ref();
-        assert!(
-            sql.contains("CREATE OR REPLACE FUNCTION public.ple_invitation_delivery_worker_migration_state()")
-                && sql.contains("LANGUAGE sql SECURITY DEFINER")
-                && sql.contains("SELECT version, success, checksum FROM public.ple_migration_state ORDER BY version")
-                && sql.contains("ALTER FUNCTION public.ple_invitation_delivery_worker_migration_state()\n    OWNER TO ple_invitation_delivery_broker;")
-                && sql.contains("REVOKE ALL ON FUNCTION public.ple_invitation_delivery_worker_migration_state() FROM PUBLIC, ple_app;")
-                && sql.contains("GRANT SELECT ON public.ple_migration_state TO ple_invitation_delivery_broker;")
-                && sql.contains("GRANT EXECUTE ON FUNCTION public.ple_invitation_delivery_worker_migration_state()\n    TO ple_invitation_delivery_worker;")
-                && !sql.contains("GRANT SELECT ON public.ple_migration_state TO ple_invitation_delivery_worker;"),
-            "worker compatibility checks must use the broker-owned function only"
+            "SELECT version, success, checksum FROM ple_api.ple_migration_state ORDER BY version"
         );
     }
 
@@ -544,151 +490,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn qti_profile_evidence_must_be_complete_before_recognized_import_commit() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026080805)
-            .expect("operations migration is embedded")
-            .sql
-            .as_ref();
-        let start = sql
-            .find("CREATE FUNCTION public.ple_commit_prepared_qti_import(")
-            .expect("QTI commit capability is present");
-        let end = sql[start..]
-            .find("CREATE FUNCTION public.ple_complete_worker_job(")
-            .map(|offset| start + offset)
-            .expect("QTI commit capability has a bounded definition");
-        let capability = &sql[start..end];
-
-        assert!(
-            capability.contains("NOT (registry.payload ? 'profileSummary')")
-                && capability.contains("workspace_qti_profile_import_evidence AS profile")
-                && capability.contains("profile.profile_report_sha256")
-                && capability.contains("workspace_qti_profile_item_evidence AS evidence")
-                && capability.contains("result.status = 'accepted'::text")
-                && capability.contains("result.normalized_sha256 =")
-                && capability.contains("result.payload ->> 'itemId' <> result.source_identifier")
-                && capability.contains("evidence.source_item_identifier")
-                && capability.contains("result.payload ->> 'itemId' = evidence.item_id")
-                && capability.contains("NOT EXISTS (\n                                SELECT 1\n                                  FROM public.workspace_qti_import_result AS result")
-                && capability.contains("NOT EXISTS (\n                                SELECT 1\n                                  FROM public.workspace_qti_profile_import_evidence AS profile"),
-            "recognized profile imports require exact evidence for accepted items but no synthetic evidence when all items are rejected"
-        );
-    }
-
-    #[test]
-    fn qti_profile_evidence_stage_matches_the_prepared_registry_summary() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026080805)
-            .expect("operations migration is embedded")
-            .sql
-            .as_ref();
-        let start = sql
-            .find("CREATE FUNCTION public.ple_stage_qti_profile_evidence(")
-            .expect("QTI profile evidence staging capability is present");
-        let end = sql[start..]
-            .find("CREATE FUNCTION public.ple_read_committed_qti_profile_evidence(")
-            .map(|offset| start + offset)
-            .expect("QTI profile evidence capability has a bounded definition");
-        let capability = &sql[start..end];
-
-        assert!(
-            !capability.contains("NOT (registry.payload ? 'profileSummary')")
-                && capability
-                    .contains("jsonb_typeof(registry.payload -> 'profileSummary') = 'object'")
-                && capability
-                    .contains("registry.payload #>> '{profileSummary,profileId}' = p_profile_id")
-                && capability.contains(
-                    "registry.payload #>> '{profileSummary,profileVersion}' = p_profile_version"
-                )
-                && capability.contains(
-                    "registry.payload #>> '{profileSummary,mappingVersion}' = p_mapping_version"
-                )
-                && capability.contains("'{profileSummary,profileReportSha256}'"),
-            "recognized prepared registries reject evidence for another profile or safe report"
-        );
-    }
-
-    #[test]
-    fn qti_profile_conversion_capabilities_repeat_the_committed_summary_binding() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026080805)
-            .expect("operations migration is embedded")
-            .sql
-            .as_ref();
-        let reader_start = sql
-            .find("CREATE FUNCTION public.ple_read_committed_qti_profile_evidence(")
-            .expect("committed profile reader is present");
-        let reader_end = sql[reader_start..]
-            .find("CREATE FUNCTION public.ple_read_workspace_flat_import_origin(")
-            .map(|offset| reader_start + offset)
-            .expect("committed profile reader has a bounded definition");
-        let reader = &sql[reader_start..reader_end];
-        let replace_start = sql
-            .find("CREATE FUNCTION public.ple_replace_workspace_flat_import_origin(")
-            .expect("origin replacement capability is present");
-        let replace_end = sql[replace_start..]
-            .find("CREATE FUNCTION public.ple_promote_flat_import_origin(")
-            .map(|offset| replace_start + offset)
-            .expect("origin replacement capability has a bounded definition");
-        let replace = &sql[replace_start..replace_end];
-
-        for capability in [reader, replace] {
-            assert!(
-                capability
-                    .contains("jsonb_typeof(registry.payload -> 'profileSummary') = 'object'")
-                    && capability.contains("'{profileSummary,profileId}'")
-                    && capability.contains("'{profileSummary,profileVersion}'")
-                    && capability.contains("'{profileSummary,mappingVersion}'")
-                    && capability.contains("'{profileSummary,profileReportSha256}'"),
-                "conversion capabilities must bind private evidence to the committed summary"
-            );
-        }
-    }
-
-    #[test]
-    fn curriculum_adoption_immutable_evidence_binds_the_complete_qmodel_envelope() {
-        let sql = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == 2026081838)
-            .expect("curriculum-adoption foundation migration is embedded")
-            .sql
-            .as_ref();
-
-        for table in [
-            "curriculum_assignment_adoption_evidence",
-            "curriculum_whole_course_adoption",
-            "curriculum_alpha_fork_lineage",
-        ] {
-            let start = sql
-                .find(&format!("CREATE TABLE public.{table} ("))
-                .expect("immutable evidence relation is present");
-            let definition = &sql[start..]
-                .split_once("\n);\n")
-                .expect("immutable evidence relation has a bounded definition")
-                .0;
-
-            assert!(
-                definition.contains("semantic_payload jsonb NOT NULL")
-                    && definition.contains("semantic_canonical_version smallint NOT NULL")
-                    && definition.contains("semantic_canonical_bytes bytea NOT NULL")
-                    && definition.contains("semantic_sha256 bytea NOT NULL")
-                    && definition.contains("CHECK (jsonb_typeof(semantic_payload) = 'object')")
-                    && definition.contains(
-                        "CHECK (octet_length(semantic_payload::text) BETWEEN 2 AND 524288)"
-                    )
-                    && definition.contains("CHECK (semantic_canonical_version BETWEEN 1 AND 255)")
-                    && definition.contains(
-                        "CHECK (octet_length(semantic_canonical_bytes) BETWEEN 1 AND 524288)"
-                    )
-                    && definition.contains(
-                        "CHECK (semantic_sha256 = digest(semantic_canonical_bytes, 'sha256'))"
-                    ),
-                "{table} must retain its reconstruction DTO separately from the exact, bounded, versioned qmodel semantic envelope"
-            );
-        }
-    }
 }

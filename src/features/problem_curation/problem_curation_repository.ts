@@ -1,6 +1,6 @@
 // problem_curation_repository.ts - adapts D2 HTTP capability to the Library workspace.
 
-import type { ProblemCollectionReference } from "../../../generated/api/ProblemCollectionReference";
+import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
 import { createCatalogRepository } from "../../api/catalog_repository";
 import type { ApiClient } from "../../api/client";
 import type { CatalogBrowseRepository, CatalogBrowseRow } from "../../pages/library_page_model";
@@ -17,7 +17,7 @@ import {
 const PAGE_SIZE = 100;
 
 function rowFromMember(
-  member: import("../../../generated/api/ProblemCollectionMemberView").ProblemCollectionMemberView,
+  member: import("../../../generated/api/QuestionCollectionMemberView").QuestionCollectionMemberView,
 ): CatalogBrowseRow {
   return {
     displayId: member.questionId,
@@ -33,7 +33,7 @@ function rowFromMember(
 
 function sourceCollection(
   source: ProblemPickerSearchRequest["source"],
-): ProblemCollectionReference | null {
+): QuestionCollectionReference | null {
   return source.kind === "collection" ? source.collection : null;
 }
 
@@ -51,19 +51,15 @@ export function createProblemCurationRepository(
   const authoredCatalog = createCatalogRepository(client, "authoredByCurrentAccount");
   const sharedCatalog = createCatalogRepository(client, "any");
   const curation: ProblemCurationRepository = {
-    async ensureFavorites() {
-      const result = await client.ensureFavorites();
-      return { value: result.collection, etag: result.etag };
-    },
     async getCollection(reference) {
-      const result = await client.getProblemCollection(reference);
+      const result = await client.getQuestionCollection(reference);
       return { value: result.collection, etag: result.etag };
     },
     async listCollections(cursor) {
-      return await client.listProblemCollections(cursor ?? undefined, PAGE_SIZE);
+      return await client.listQuestionCollections(cursor ?? undefined, PAGE_SIZE);
     },
     async listCollectionMembers(reference, cursor) {
-      const result = await client.listProblemCollectionMembers(
+      const result = await client.listQuestionCollectionMembers(
         reference,
         cursor ?? undefined,
         PAGE_SIZE,
@@ -71,38 +67,25 @@ export function createProblemCurationRepository(
       return { ...result.page, etag: result.etag };
     },
     async replaceCollection(replacement) {
-      if (replacement.kind === "favorites") {
-        const current = await client.ensureFavorites();
-        if (replacement.reference !== null && replacement.revision !== current.etag) {
-          throw new Error("Favorites changed before this save.");
-        }
-        const saved = await client.replaceFavorites(
-          { questionIds: replacement.questionIds },
-          current.etag,
-        );
-        return { value: saved.collection, etag: saved.etag };
-      }
       if (replacement.reference === null) {
-        const saved = await client.createProblemCollection({
+        const saved = await client.createQuestionCollection({
           title: replacement.title,
-          visibility: replacement.visibility,
           questionIds: replacement.questionIds,
         });
         return { value: saved.collection, etag: saved.etag };
       }
-      const saved = await client.replaceProblemCollection(
+      const saved = await client.replaceQuestionCollection(
         replacement.reference,
         {
           title: replacement.title,
-          visibility: replacement.visibility,
           questionIds: replacement.questionIds,
         },
-        replacement.revision ?? missingEtag(),
+        replacement.editNumber ?? missingEtag(),
       );
       return { value: saved.collection, etag: saved.etag };
     },
-    async deleteCollection(reference, revision) {
-      await client.deleteProblemCollection(reference, revision);
+    async deleteCollection(reference, editNumber) {
+      await client.deleteQuestionCollection(reference, editNumber);
     },
     async listSavedSearches(cursor) {
       return await client.listSavedProblemSearches(cursor ?? undefined, PAGE_SIZE);
@@ -119,7 +102,7 @@ export function createProblemCurationRepository(
       const saved = await client.replaceSavedProblemSearch(
         replacement.reference,
         request,
-        replacement.revision ?? missingEtag(),
+        replacement.editNumber ?? missingEtag(),
       );
       return { value: saved.search, etag: saved.etag };
     },
@@ -127,8 +110,8 @@ export function createProblemCurationRepository(
       const result = await client.getSavedProblemSearch(reference);
       return { value: result.search, etag: result.etag };
     },
-    async deleteSavedSearch(reference, revision) {
-      await client.deleteSavedProblemSearch(reference, revision);
+    async deleteSavedSearch(reference, editNumber) {
+      await client.deleteSavedProblemSearch(reference, editNumber);
     },
   };
   const picker: ProblemPickerSourceRepository = {
@@ -143,19 +126,9 @@ export function createProblemCurationRepository(
         return await authoredCatalog.search(request.query, request.cursor);
       }
       const reference = sourceCollection(request.source);
-      if (request.source.kind === "favorites") {
-        const favorites = await client.ensureFavorites();
-        return memberPage(
-          await client.listProblemCollectionMembers(
-            favorites.collection.reference,
-            request.cursor ?? undefined,
-            PAGE_SIZE,
-          ),
-        );
-      }
       if (reference !== null) {
         return memberPage(
-          await client.listProblemCollectionMembers(
+          await client.listQuestionCollectionMembers(
             reference,
             request.cursor ?? undefined,
             PAGE_SIZE,
@@ -163,7 +136,7 @@ export function createProblemCurationRepository(
         );
       }
       throw new Error(
-        "Choose the current Library, shared catalog, Favorites, or a named collection source.",
+        "Choose the current Library, shared catalog, or a private Question Collection source.",
       );
     },
   };
@@ -172,7 +145,7 @@ export function createProblemCurationRepository(
 
 function memberPage(value: {
   readonly page: ProblemCurationPage<
-    import("../../../generated/api/ProblemCollectionMemberView").ProblemCollectionMemberView
+    import("../../../generated/api/QuestionCollectionMemberView").QuestionCollectionMemberView
   >;
 }): unknown {
   return {

@@ -102,7 +102,6 @@ function syntheticBody(
   );
   return {
     selectedMoment: parsed.selectedMoment,
-    groups: parsed.groups,
     modifiers: parsed.modifiers,
   };
 }

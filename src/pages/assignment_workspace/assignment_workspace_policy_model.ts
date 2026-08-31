@@ -1,7 +1,7 @@
 // assignment_workspace_policy_model.ts - policy-page request construction and local control values.
 
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
-import type { RunPolicies } from "../../../generated/api/RunPolicies";
+import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
 
@@ -16,7 +16,6 @@ export type PolicyFocusTarget =
   | "completionFraction"
   | "additionalRuns"
   | "variation"
-  | "audience"
   | "questions"
   | "schedule";
 
@@ -64,12 +63,11 @@ export function assignmentPolicyFeedbackNeedsQuestionRepair(
 
 /** Keeps the page's focused write closed to the policies-owned aggregate slice. */
 export function assignmentPoliciesInput(
-  audience: AssignmentPoliciesInput["audience"],
   disclosurePolicy: AssignmentPoliciesInput["disclosurePolicy"],
   policies: AssignmentPoliciesInput["policies"],
   teachingSettings: InstructorAssignmentTeachingSettingsLocal,
 ): AssignmentPoliciesInput {
-  return { audience, disclosurePolicy, policies, teachingSettings };
+  return { disclosurePolicy, policies, teachingSettings };
 }
 
 /** Converts a native local-date-time control value to the explicit wire form. */
@@ -77,11 +75,6 @@ export function canonicalCourseLocalTime(value: string): string | null {
   if (value === "") return null;
   const normalized = value.length === 16 ? `${value}:00.000` : value;
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(normalized) ? normalized : null;
-}
-
-/** An empty group audience is incomplete before it crosses the strict server boundary. */
-export function hasEmptyGroupAudience(audience: AssignmentPoliciesInput["audience"]): boolean {
-  return audience.kind === "anyOfGroups" && audience.groups.length === 0;
 }
 
 function teachingTarget(
@@ -113,26 +106,15 @@ function teachingMessage(
     case "scheduleOutOfOrder":
       return "Arrange the available, due, and close times in order.";
     case "timeLimitOutOfRange":
-      return "Choose a valid whole-run time limit.";
+      return "Choose a valid whole Assignment Attempt time limit.";
     case "attemptLimitOutOfRange":
       return "Choose a valid attempt limit.";
     case "illegalLifecycleTransition":
       return "Choose a lifecycle that follows this assignment's current state.";
     case "invalidInstructions":
-      return "Revise the learner instructions before saving.";
+      return "Revise the Student instructions before saving.";
     case "invalidInput":
       return "Review the assignment delivery settings before saving.";
-  }
-}
-
-function audienceMessage(issue: AssignmentPoliciesValidationIssue & { kind: "audience" }): string {
-  switch (issue.reason) {
-    case "groupRequired":
-      return "Choose one or more course groups for this audience.";
-    case "groupUnavailable":
-      return "Choose currently available course groups for this audience.";
-    case "groupsMustBeDistinct":
-      return "Choose each course group once for this audience.";
   }
 }
 
@@ -169,21 +151,13 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
         details: [],
         questionRepairRequired: false,
       };
-    case "audience":
-      return {
-        kind: "error",
-        message: audienceMessage(issue),
-        target: "audience",
-        details: [],
-        questionRepairRequired: false,
-      };
     case "configuration":
       return {
         kind: "error",
         message: "Selected problem variants require fixed assignment questions.",
         target: "variation",
         details: [
-          "Choose a different Next practice run policy or revise the assignment questions.",
+          "Choose a different next-practice Assignment Attempt rule or revise the Assignment Questions.",
         ],
         questionRepairRequired: false,
       };
@@ -243,10 +217,10 @@ export type PositiveIntegerDraft = {
   readonly valid: boolean;
 };
 
-export type RunPolicyDraftField = "completionFraction" | "additionalRuns";
+export type AssignmentActivityRuleDraftField = "completionFraction" | "additionalRuns";
 
 /** Raw number controls stay local until their typed policy value is valid. */
-export type RunPolicyDraft = {
+export type AssignmentActivityRuleDraft = {
   readonly completionFraction: string;
   readonly additionalRuns: string;
 };
@@ -284,7 +258,7 @@ export function scoreFractionDraft(raw: string): FractionDraft {
     : { raw, value: null, valid: false };
 }
 
-/** Additional practice runs are a bounded nonnegative whole-number setting. */
+/** Additional practice Assignment Attempts are a bounded nonnegative whole-number setting. */
 export function nonnegativeIntegerDraft(raw: string): PositiveIntegerDraft {
   if (!/^[0-9]+$/u.test(raw)) return { raw, value: null, valid: false };
   const value = Number(raw);
@@ -293,7 +267,7 @@ export function nonnegativeIntegerDraft(raw: string): PositiveIntegerDraft {
     : { raw, value: null, valid: false };
 }
 
-export function runPolicyDraftFromPolicies(policies: RunPolicies): RunPolicyDraft {
+export function activityRuleDraftFromRules(policies: AssignmentActivityRules): AssignmentActivityRuleDraft {
   return {
     completionFraction: numberDraft(
       policies.completion.kind === "scoreAtLeast" ? policies.completion.fraction : 0.8,
@@ -307,10 +281,10 @@ export function runPolicyDraftFromPolicies(policies: RunPolicies): RunPolicyDraf
 }
 
 /** Keeps inactive conditional text available for a later deliberate policy change. */
-export function mergeSavedRunPolicyDraft(
-  current: RunPolicyDraft,
-  saved: RunPolicies,
-): RunPolicyDraft {
+export function mergeSavedActivityRuleDraft(
+  current: AssignmentActivityRuleDraft,
+  saved: AssignmentActivityRules,
+): AssignmentActivityRuleDraft {
   return {
     completionFraction:
       saved.completion.kind === "scoreAtLeast"

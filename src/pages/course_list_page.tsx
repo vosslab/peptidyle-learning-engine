@@ -47,7 +47,7 @@ function pluralize(count: number, singular: string, plural: string): string {
   return count === 1 ? singular : plural;
 }
 
-/** Visible, append-only course paging keeps a large learner roster reachable without a route shortcut. */
+/** Visible, append-only course paging keeps a large student roster reachable without a route shortcut. */
 export function CourseList(props: CourseListProps): JSX.Element {
   const runtime = useApiRuntime();
   const [state, setState] = createSignal<CursorPageSessionState<CourseSummary>>({
@@ -332,7 +332,7 @@ export function CourseListPage(): JSX.Element {
       <h1>{mayCreateCourse() ? "Courses you teach" : "Pick up where you left off"}</h1>
       <p class="page-lede">
         {mayCreateCourse()
-          ? "Open a course to manage assignments, learners, progress, and its visual identity."
+          ? "Open a course to manage assignments, Students, progress, and its visual identity."
           : "Practice is open-book. Choose a course, explain your reasoning, and learn from each attempt."}
       </p>
       <Show when={mayCreateCourse()}>

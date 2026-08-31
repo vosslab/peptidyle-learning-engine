@@ -16,7 +16,7 @@ The accepted path is limited to the active pilot charter:
 - instructor creates a corpus-backed Mastery assignment;
 - the student completes the keyboard-only take, score, and repeat journey;
 - the instructor sees the gradebook summary and two completed run history;
-- shared assignment and learner-completion outcomes agree.
+- shared assignment and student-completion outcomes agree.
 
 Email registration, mail delivery, SMTP, mailbox access, and canonical
 onboarding remain intentionally outside this acceptance.
@@ -53,10 +53,10 @@ The strict public reader accepted the report with seed 42. It records status
 | J3 | controls cleared; leave; resume; start |
 | J4 | back action; completion; controls cleared; submit |
 | J5 | gradebook; score summary; two-run history |
-| J8 | instructor gradebook; learner completion; shared assignment |
+| J8 | instructor gradebook; student completion; shared assignment |
 
 The top-level elapsed time equals the nine journey elapsed values. The public
-schema admits no IDs, titles, learner identity, email, score value, answer,
+schema admits no IDs, titles, student identity, email, score value, answer,
 credential, trace, screenshot, video, or private state field.
 
 ## Lifecycle and retention evidence

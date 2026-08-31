@@ -215,7 +215,7 @@ impl<'a> SnapshotTransportRequest<'a> {
 pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) provider_key: &'a str,
-    pub(crate) version: question_model::VersionId,
+    pub(crate) question_version: question_model::QuestionVersionReference,
     pub(crate) seed: Seed,
 }
 impl<'a> RenderTransportRequest<'a> {
@@ -225,8 +225,8 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn provider_key(&self) -> &'a str {
         self.provider_key
     }
-    pub fn version(&self) -> question_model::VersionId {
-        self.version
+    pub fn question_version(&self) -> &question_model::QuestionVersionReference {
+        &self.question_version
     }
     pub fn seed(&self) -> Seed {
         self.seed
@@ -479,8 +479,10 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         }
         let binding = GradeBinding {
             attempt,
-            problem: question.problem,
-            version: question.version,
+            question_version: question_model::QuestionVersionReference {
+                question_id: question.question_id.clone(),
+                version_number: question.version_number,
+            },
             seed,
         };
         let expiry = now
@@ -601,7 +603,7 @@ impl<T: ScoredEmbedTransport> ImathasProvider for ContractedScoredEmbedProvider<
             .render_safe(RenderTransportRequest {
                 snapshot: request.snapshot,
                 provider_key: self.config.profile.provider_key(),
-                version: request.version,
+                question_version: request.question_version,
                 seed: request.seed,
             })
             .await

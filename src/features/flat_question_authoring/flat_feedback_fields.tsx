@@ -19,7 +19,7 @@ export function FlatFeedbackFields(props: FlatFeedbackFieldsProps): JSX.Element 
     <fieldset>
       <legend>Outcome feedback</legend>
       <p class="flat-question-authoring__help">
-        This appears after the learner's answer according to the feedback policy.
+        This appears after the student's answer according to the feedback policy.
       </p>
       <label class="flat-question-authoring__field">
         <span>Correct-answer feedback (optional)</span>

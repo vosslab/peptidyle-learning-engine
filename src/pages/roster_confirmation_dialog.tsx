@@ -23,7 +23,7 @@ interface RosterConfirmationDialogProps {
 
 function confirmationCopy(confirmation: PendingRosterConfirmation): string {
   if (confirmation.kind === "cancelInvitation") {
-    return "The learner can no longer claim this pending invitation. You can create a new invitation later.";
+    return "The Student can no longer claim this pending invitation. You can create a new invitation later.";
   }
   return `${confirmation.displayName} immediately loses course access. Existing education records remain under retention.`;
 }

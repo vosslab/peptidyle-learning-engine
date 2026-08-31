@@ -1,13 +1,11 @@
 // model.ts - typed, browser-safe state helpers for assignment access modifiers.
 
 import type { AssignmentPolicyPatchUpdateRequest } from "../../../generated/api/AssignmentPolicyPatchUpdateRequest";
-import type { CourseGroupSummaryView } from "../../../generated/api/CourseGroupSummaryView";
-import type { GroupScheduleOffsetUpdateRequest } from "../../../generated/api/GroupScheduleOffsetUpdateRequest";
-import type { IndividualPolicyPatchUpdateRequest } from "../../../generated/api/IndividualPolicyPatchUpdateRequest";
+import type { AccommodationPatchUpdateRequest } from "../../../generated/api/AccommodationPatchUpdateRequest";
 import type { TeachingPreviewFieldSource } from "../../../generated/api/TeachingPreviewFieldSource";
 import type { TeachingTimeFieldPatch } from "../../../generated/api/TeachingTimeFieldPatch";
 
-export type ModifierScope = "scheduleOffset" | "groupAccommodation" | "individualException";
+export type ModifierScope = "accommodation";
 export type PatchKind = "inherit" | "set" | "unrestricted";
 export type ModifierMode = "extendOnly" | "override";
 
@@ -22,21 +20,6 @@ export interface ModifierPatchDraft {
 export interface PreviewSubject {
   readonly reference: string;
   readonly display: string;
-}
-
-/** M2 applies schedule groups; M3 is deliberately limited to accommodation groups. */
-export function eligibleModifierGroups(
-  scope: ModifierScope,
-  groups: ReadonlyArray<CourseGroupSummaryView>,
-): ReadonlyArray<CourseGroupSummaryView> {
-  if (scope === "groupAccommodation")
-    return groups.filter((group) => group.purpose === "accommodation");
-  if (scope === "scheduleOffset")
-    return groups.filter(
-      (group) =>
-        group.purpose === "section" || group.purpose === "lab" || group.purpose === "cohort",
-    );
-  return [];
 }
 
 /** A reload changes only the strong revision; a caller-owned modifier draft is deliberately retained. */
@@ -90,7 +73,7 @@ function limitPatch(
 export function policyRequest(
   mode: ModifierMode,
   draft: ModifierPatchDraft,
-): AssignmentPolicyPatchUpdateRequest | IndividualPolicyPatchUpdateRequest {
+): AssignmentPolicyPatchUpdateRequest | AccommodationPatchUpdateRequest {
   return {
     mode,
     patch: {
@@ -103,18 +86,9 @@ export function policyRequest(
   };
 }
 
-export function scheduleOffsetRequest(value: string): GroupScheduleOffsetUpdateRequest {
-  const offsetSeconds = Number(value);
-  if (!Number.isSafeInteger(offsetSeconds) || offsetSeconds === 0) {
-    throw new Error("Schedule offset must be a nonzero whole number of seconds.");
-  }
-  return { offsetSeconds };
-}
-
 export function sourceLabel(source: TeachingPreviewFieldSource): string {
   if (source.kind === "base") return source.label;
-  if (source.kind === "membership") return source.label;
-  return source.groups.map((group) => group.label).join(", ");
+  return source.label;
 }
 
 export function startLabel(

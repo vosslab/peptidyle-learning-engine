@@ -50,7 +50,7 @@ const IMMUTABLE_PUBLICATION_TAG_QUERY: &str = "ple-published-immutable=true";
 #[cfg(feature = "s3")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BucketNames {
-    /// CDN-readable immutable learner-public assets only.
+    /// CDN-readable immutable student-public assets only.
     pub public_assets: String,
     /// Private authoring, provenance, render, and course-content bytes.
     pub private_content: String,
@@ -267,7 +267,7 @@ impl ObjectStore for S3ObjectStore {
             size_bytes,
             media_type: request.media_type,
             category: request.key.category(),
-            version: request.key.version_id(),
+            question_version: request.key.question_version().cloned(),
             license: request.license,
             provenance: request.provenance,
             created_at: request.created_at,
@@ -424,7 +424,7 @@ fn decode_record(
         || record.id != key.object_id()
         || record.bucket != key.bucket()
         || record.category != key.category()
-        || record.version != key.version_id()
+        || record.question_version != key.question_version().cloned()
     {
         return Err(unavailable_metadata("semantic key does not match record"));
     }
@@ -480,12 +480,12 @@ fn unavailable_metadata(message: &str) -> ObjectStoreError {
     ObjectStoreError::Unavailable(format!("invalid object metadata: {message}"))
 }
 
-/// `ProblemAsset` is the one semantic key admitted to the public-assets
+/// `QuestionAsset` is the one semantic key admitted to the public-assets
 /// bucket. Every other typed key must remain untagged so a private object
 /// cannot accidentally acquire the public immutable-publication capability.
 #[cfg(feature = "s3")]
 fn requires_immutable_publication_tag(key: &ObjectKey) -> bool {
-    matches!(key, ObjectKey::ProblemAsset { .. })
+    matches!(key, ObjectKey::QuestionAsset { .. })
 }
 
 #[cfg(feature = "s3")]
@@ -511,13 +511,21 @@ fn validate_immutable_publication_tags<'a>(
 #[cfg(all(test, feature = "s3"))]
 mod tests {
     use super::*;
-    use question_model::{AssetId, ObjectId, ProblemId, VersionId};
+    use question_model::{
+        AssetId, ObjectId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
+    };
     use uuid::Uuid;
 
+    fn question_version() -> QuestionVersionReference {
+        QuestionVersionReference {
+            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+            version_number: QuestionVersionNumber::new(2).expect("positive version"),
+        }
+    }
+
     fn record() -> ObjectRecord {
-        let key = ObjectKey::ProblemSource {
-            problem: ProblemId::from_uuid(Uuid::from_u128(1)),
-            version: VersionId::from_uuid(Uuid::from_u128(2)),
+        let key = ObjectKey::QuestionSource {
+            question_version: question_version(),
             object: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         ObjectRecord {
@@ -528,7 +536,7 @@ mod tests {
             size_bytes: 6,
             media_type: "application/zip".to_string(),
             category: crate::ObjectCategory::Source,
-            version: Some(VersionId::from_uuid(Uuid::from_u128(2))),
+            question_version: Some(question_version()),
             license: "CC-BY-SA-4.0".to_string(),
             provenance: "faculty source with an accented name: Jos\u{e9}".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
@@ -536,9 +544,8 @@ mod tests {
     }
 
     fn public_asset_key() -> ObjectKey {
-        ObjectKey::ProblemAsset {
-            problem: ProblemId::from_uuid(Uuid::from_u128(1)),
-            version: VersionId::from_uuid(Uuid::from_u128(2)),
+        ObjectKey::QuestionAsset {
+            question_version: question_version(),
             asset: AssetId::from_uuid(Uuid::from_u128(3)),
             object: ObjectId::from_uuid(Uuid::from_u128(4)),
         }

@@ -45,19 +45,19 @@ function editorJsonResponse(value, status) {
   });
 }
 
-test("Questions content save gives issued learner work its own typed recovery", async () => {
-  assert.deepEqual(decodeAssignmentContentIssuedWorkConflict({ kind: "issuedLearnerWork" }), {
-    kind: "issuedLearnerWork",
+test("Questions content save gives issued Student work its own typed recovery", async () => {
+  assert.deepEqual(decodeAssignmentContentIssuedWorkConflict({ kind: "issuedStudentWork" }), {
+    kind: "issuedStudentWork",
   });
   await assert.rejects(
-    contentSave(editorJsonResponse({ kind: "issuedLearnerWork" }, 409)),
+    contentSave(editorJsonResponse({ kind: "issuedStudentWork" }, 409)),
     (error) => {
       assert.ok(error instanceof AssignmentIssuedWorkError);
       assert.equal(error.status, 409);
       assert.deepEqual(resolveAssignmentContentSaveFailure(error), {
-        kind: "issuedLearnerWork",
+        kind: "issuedStudentWork",
         message:
-          "Learner work has already been issued, so this assignment's question structure remains unchanged.",
+          "Student work has already been issued, so this assignment's question structure remains unchanged.",
       });
       return true;
     },
@@ -67,13 +67,13 @@ test("Questions content save gives issued learner work its own typed recovery", 
 test("Questions content conflict decoder rejects malformed and extra fields", () => {
   assert.throws(() => decodeAssignmentContentIssuedWorkConflict({ kind: "other" }), DecodeError);
   assert.throws(
-    () => decodeAssignmentContentIssuedWorkConflict({ kind: "issuedLearnerWork", extra: true }),
+    () => decodeAssignmentContentIssuedWorkConflict({ kind: "issuedStudentWork", extra: true }),
     DecodeError,
   );
 });
 
 test("Questions content save treats malformed issued-work bodies as ordinary 409 errors", async () => {
-  for (const body of [{ kind: "other" }, { kind: "issuedLearnerWork", extra: true }]) {
+  for (const body of [{ kind: "other" }, { kind: "issuedStudentWork", extra: true }]) {
     await assert.rejects(contentSave(editorJsonResponse(body, 409)), (error) => {
       assert.ok(error instanceof ApiRequestError);
       assert.ok(!(error instanceof AssignmentIssuedWorkError));

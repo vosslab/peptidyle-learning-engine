@@ -36,12 +36,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	restart.add_argument("--timeout-seconds", required=True, type=int)
 	stop_outage = actions.add_parser("stop-outage-service")
 	stop_outage.add_argument("--manifest", required=True, type=pathlib.Path)
-	fault_worker = actions.add_parser("run-automated-grading-fault-worker")
-	fault_worker.add_argument("--manifest", required=True, type=pathlib.Path)
 	evidence_logs = actions.add_parser("read-evidence-logs")
 	evidence_logs.add_argument("--manifest", required=True, type=pathlib.Path)
 	evidence_logs.add_argument(
-		"--claim", required=True, choices=("worker_completion", "renderer_delivery")
+		"--claim", required=True, choices=("renderer_delivery",)
 	)
 	diagnostics = actions.add_parser("diagnostics")
 	diagnostics.add_argument("--manifest", required=True, type=pathlib.Path)
@@ -314,12 +312,6 @@ def main() -> None:
 		if args.action == "stop-outage-service":
 			completed = local_stack_control.consumer.stop_declared_outage_service(runner, disposable)
 			print(f"Disposable outage stopped: {completed.service}")
-			raise SystemExit(0)
-		if args.action == "run-automated-grading-fault-worker":
-			service = local_stack_control.consumer.run_automated_grading_fault_worker(
-				runner, disposable
-			)
-			print(f"Disposable automated-grading fault worker started: {service}")
 			raise SystemExit(0)
 		if args.action == "read-evidence-logs":
 			result = read_evidence_logs(runner, disposable, args.claim)

@@ -1,14 +1,14 @@
-//! Derived within-run completion (MOD-STATE).
+//! Derived within-Assignment-Attempt completion.
 //!
 //! Completion is a projection over current required-question states, never a
 //! stored boolean. A stored flag could disagree with the attempts that
 //! produced it; deriving the value keeps those states inseparable.
 
-use question_model::{CompletionRequirement, RunCompletionStatus};
+use question_model::{AssignmentAttemptCompletion, CompletionRequirement};
 
-use crate::run::{RunModelError, validate_fraction};
+use crate::run::{AssignmentActivityError, validate_fraction};
 
-/// Current state of one required question within a run.
+/// Current state of one required question within an Assignment Attempt.
 ///
 /// This is a projection of its attempts, not another persisted completion
 /// flag. The current response may change while retries remain available.
@@ -24,21 +24,21 @@ pub struct RequiredQuestionState {
     pub points_possible: f64,
 }
 
-/// Derives within-run completion from current required-question states.
+/// Derives within-Assignment-Attempt completion from current required-question states.
 ///
-/// An empty run is always in progress. Threshold completion requires every
-/// question to have an answer before its score can complete the run.
+/// An empty Assignment Attempt is always in progress. Threshold completion requires every
+/// question to have an answer before its score can complete the Assignment Attempt.
 ///
 /// # Errors
 ///
-/// Returns [`RunModelError`] when a threshold or normalized result cannot
+/// Returns [`AssignmentActivityError`] when a threshold or normalized result cannot
 /// represent a finite bounded score.
-pub fn derive_within_run_completion(
+pub fn derive_within_assignment_attempt_completion(
     questions: &[RequiredQuestionState],
     requirement: CompletionRequirement,
-) -> Result<RunCompletionStatus, RunModelError> {
+) -> Result<AssignmentAttemptCompletion, AssignmentActivityError> {
     if questions.is_empty() {
-        return Ok(RunCompletionStatus::InProgress);
+        return Ok(AssignmentAttemptCompletion::InProgress);
     }
 
     let all_answered = questions.iter().all(|question| question.answered);
@@ -49,20 +49,20 @@ pub fn derive_within_run_completion(
         }
         CompletionRequirement::ScoreAtLeast { fraction } => {
             validate_fraction(fraction)
-                .map_err(|_| RunModelError::InvalidCompletionThreshold { fraction })?;
+                .map_err(|_| AssignmentActivityError::InvalidCompletionThreshold { fraction })?;
             all_answered && score_fraction(questions)? >= fraction
         }
     };
 
     Ok(if complete {
-        RunCompletionStatus::Completed
+        AssignmentAttemptCompletion::Completed
     } else {
-        RunCompletionStatus::InProgress
+        AssignmentAttemptCompletion::InProgress
     })
 }
 
 /// Computes the current score fraction across required questions.
-fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, RunModelError> {
+fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, AssignmentActivityError> {
     let mut earned = 0.0;
     let mut possible = 0.0;
 
@@ -74,7 +74,7 @@ fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, RunModelEr
             || !credit.is_finite()
             || !(-1_000.0..=1_000.0).contains(&credit)
         {
-            return Err(RunModelError::InvalidQuestionPoints);
+            return Err(AssignmentActivityError::InvalidQuestionPoints);
         }
         earned += question.points_earned;
         possible += question.points_possible;
@@ -84,7 +84,7 @@ fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, RunModelEr
     if fraction.is_finite() && (-1_000.0..=1_000.0).contains(&fraction) {
         Ok(fraction)
     } else {
-        Err(RunModelError::InvalidQuestionPoints)
+        Err(AssignmentActivityError::InvalidQuestionPoints)
     }
 }
 
@@ -102,10 +102,10 @@ mod tests {
     }
 
     #[test]
-    fn empty_run_is_not_complete() {
+    fn empty_assignment_attempt_is_not_complete() {
         assert_eq!(
-            derive_within_run_completion(&[], CompletionRequirement::AnswerAll),
-            Ok(RunCompletionStatus::InProgress)
+            derive_within_assignment_attempt_completion(&[], CompletionRequirement::AnswerAll),
+            Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
 
@@ -113,8 +113,8 @@ mod tests {
     fn answer_all_requires_each_required_question() {
         let states = [question(true, false, 0.0), question(false, false, 0.0)];
         assert_eq!(
-            derive_within_run_completion(&states, CompletionRequirement::AnswerAll),
-            Ok(RunCompletionStatus::InProgress)
+            derive_within_assignment_attempt_completion(&states, CompletionRequirement::AnswerAll),
+            Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
 
@@ -122,8 +122,8 @@ mod tests {
     fn all_correct_is_derived_from_every_required_question() {
         let states = [question(true, true, 1.0), question(true, false, 0.0)];
         assert_eq!(
-            derive_within_run_completion(&states, CompletionRequirement::AllCorrect),
-            Ok(RunCompletionStatus::InProgress)
+            derive_within_assignment_attempt_completion(&states, CompletionRequirement::AllCorrect),
+            Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
 
@@ -131,11 +131,11 @@ mod tests {
     fn score_threshold_requires_answers_before_points_can_complete() {
         let states = [question(true, true, 1.0), question(false, false, 1.0)];
         assert_eq!(
-            derive_within_run_completion(
+            derive_within_assignment_attempt_completion(
                 &states,
                 CompletionRequirement::ScoreAtLeast { fraction: 0.5 }
             ),
-            Ok(RunCompletionStatus::InProgress)
+            Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
 
@@ -143,11 +143,11 @@ mod tests {
     fn score_threshold_completes_at_its_inclusive_boundary() {
         let states = [question(true, true, 1.0), question(true, false, 0.0)];
         assert_eq!(
-            derive_within_run_completion(
+            derive_within_assignment_attempt_completion(
                 &states,
                 CompletionRequirement::ScoreAtLeast { fraction: 0.5 }
             ),
-            Ok(RunCompletionStatus::Completed)
+            Ok(AssignmentAttemptCompletion::Completed)
         );
     }
 
@@ -155,11 +155,11 @@ mod tests {
     fn invalid_threshold_is_an_explicit_error() {
         let states = [question(true, true, 1.0)];
         assert_eq!(
-            derive_within_run_completion(
+            derive_within_assignment_attempt_completion(
                 &states,
                 CompletionRequirement::ScoreAtLeast { fraction: 1.1 }
             ),
-            Err(RunModelError::InvalidCompletionThreshold { fraction: 1.1 })
+            Err(AssignmentActivityError::InvalidCompletionThreshold { fraction: 1.1 })
         );
     }
 }

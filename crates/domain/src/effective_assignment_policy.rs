@@ -9,20 +9,16 @@ use std::num::NonZeroU32;
 
 use chrono::{DateTime, Utc};
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentLifecycle, CourseGroupId, CourseTerm,
-    GroupPurposeCapabilities, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, StudentId,
+    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentLifecycle, CourseTerm,
+    LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    StudentRecordId,
 };
 
 /// Compatibility re-export for established policy-resolution callers.
 pub use question_model::BaseAssignmentPolicy;
 
-use crate::entitlement::{
-    ApplicablePolicyScopes, EntitlementDecision, EntitlementDenial,
-    SyntheticPreviewEntitlementDecision,
-};
+use crate::entitlement::{EntitlementDecision, EntitlementDenial, SyntheticPreviewEntitlementDecision};
 
-const MAX_SCHEDULE_OFFSET_SECONDS: i32 = 31_536_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssignmentLifecycleGate {
@@ -95,15 +91,12 @@ pub enum GateDenial {
     Authorization(AuthorizationDenial),
 }
 
-/// Origin of one resolved field. Schedule offsets are additive; equally
-/// permissive M3 rows keep every winning accommodation source in ID order.
+/// Origin of one resolved field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicySource {
     Base,
-    GroupScheduleOffsets(Vec<CourseGroupId>),
-    GroupAccommodations(Vec<CourseGroupId>),
-    IndividualException(StudentId),
-    HypotheticalIndividualException,
+    Accommodation(StudentRecordId),
+    HypotheticalAccommodation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,8 +116,8 @@ pub struct EffectiveAssignmentPolicy {
     pub deadline_behavior: ResolvedField<AssignmentDeadlineBehavior>,
 }
 
-/// A sparse M3/M4 patch. Assignment-owned late and deadline behavior are not
-/// writable through group accommodations or individual exceptions.
+/// A sparse direct-Student accommodation patch. Assignment-owned late and
+/// deadline behavior remain Assignment policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PolicyPatchSet {
     pub available_at: PolicyPatch<ActivityTimestamp>,
@@ -158,56 +151,16 @@ pub enum PolicyModificationMode {
     Override,
 }
 
-/// Validated representation of the normalized signed, non-zero seconds
-/// column. Conversion to milliseconds happens only while applying a window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScheduleOffsetSeconds(i32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ScheduleOffsetSecondsError {
-    Zero,
-    OutOfRange,
-}
-
-impl ScheduleOffsetSeconds {
-    pub fn try_new(seconds: i32) -> Result<Self, ScheduleOffsetSecondsError> {
-        if seconds == 0 {
-            return Err(ScheduleOffsetSecondsError::Zero);
-        }
-        if !(-MAX_SCHEDULE_OFFSET_SECONDS..=MAX_SCHEDULE_OFFSET_SECONDS).contains(&seconds) {
-            return Err(ScheduleOffsetSecondsError::OutOfRange);
-        }
-        Ok(Self(seconds))
-    }
-
-    pub fn get(self) -> i32 {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GroupScheduleOffset {
-    pub group: CourseGroupId,
-    pub offset_seconds: ScheduleOffsetSeconds,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GroupAccommodation {
-    pub group: CourseGroupId,
-    pub mode: PolicyModificationMode,
-    pub patch: PolicyPatchSet,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct IndividualPolicyException {
-    pub student: StudentId,
+pub struct Accommodation {
+    pub student_record: StudentRecordId,
     pub mode: PolicyModificationMode,
     pub patch: PolicyPatchSet,
 }
 
 /// A preview-only individual policy modifier with no persisted Student key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HypotheticalIndividualPolicyException {
+pub struct HypotheticalAccommodation {
     pub mode: PolicyModificationMode,
     pub patch: PolicyPatchSet,
 }
@@ -248,9 +201,7 @@ pub struct ResolveEffectivePolicyInput {
     pub now: ActivityTimestamp,
     pub prior_run_count: u32,
     pub base: BaseAssignmentPolicy,
-    pub group_schedule_offsets: Vec<GroupScheduleOffset>,
-    pub group_accommodations: Vec<GroupAccommodation>,
-    pub individual_exception: Option<IndividualPolicyException>,
+    pub accommodation: Option<Accommodation>,
 }
 
 /// Identity-free S3 input for a synthetic T3 preview subject.
@@ -261,9 +212,7 @@ pub struct ResolveSyntheticPreviewPolicyInput {
     pub now: ActivityTimestamp,
     pub prior_run_count: u32,
     pub base: BaseAssignmentPolicy,
-    pub group_schedule_offsets: Vec<GroupScheduleOffset>,
-    pub group_accommodations: Vec<GroupAccommodation>,
-    pub hypothetical_individual_exception: Option<HypotheticalIndividualPolicyException>,
+    pub hypothetical_accommodation: Option<HypotheticalAccommodation>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -277,9 +226,8 @@ pub enum PolicyField {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModifierSource {
-    Group(CourseGroupId),
-    Individual(StudentId),
-    HypotheticalIndividual,
+    Accommodation(StudentRecordId),
+    HypotheticalAccommodation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -288,16 +236,9 @@ pub enum EffectivePolicyError {
     BaseAttemptLimitOutOfRange,
     BaseTimestampOutsideCourseTerm(PolicyField),
     BaseTimestampOutOfRange(PolicyField),
-    UnapprovedScheduleScope(CourseGroupId),
-    UnapprovedAccommodationScope(CourseGroupId),
-    IndividualExceptionStudentMismatch {
-        granted: StudentId,
-        modifier: StudentId,
-    },
-    DuplicateScheduleOffset(CourseGroupId),
-    MultipleAccommodationOverrides {
-        field: PolicyField,
-        sources: Vec<CourseGroupId>,
+    AccommodationStudentRecordMismatch {
+        granted: StudentRecordId,
+        modifier: StudentRecordId,
     },
     ExtendOnlyViolation {
         field: PolicyField,
@@ -400,26 +341,19 @@ pub fn resolve_effective_policy(
         });
     }
 
-    validate_group_modifier_authority(
-        grant.applicable_policy_scopes(),
-        &input.group_schedule_offsets,
-        &input.group_accommodations,
-    )?;
-    if let Some(individual) = input.individual_exception
-        && individual.student != grant.student()
+    if let Some(individual) = input.accommodation
+        && individual.student_record != grant.student_record()
     {
-        return Err(EffectivePolicyError::IndividualExceptionStudentMismatch {
-            granted: grant.student(),
-            modifier: individual.student,
+        return Err(EffectivePolicyError::AccommodationStudentRecordMismatch {
+            granted: grant.student_record(),
+            modifier: individual.student_record,
         });
     }
     resolve_authorized_policy(
         input.now,
         input.prior_run_count,
         input.base,
-        input.group_schedule_offsets,
-        input.group_accommodations,
-        input.individual_exception.map(IndividualPatch::Student),
+        input.accommodation.map(AccommodationPatch::Student),
     )
 }
 
@@ -435,7 +369,7 @@ pub fn resolve_synthetic_preview_policy(
             reason: GateDenial::Lifecycle(reason),
         });
     }
-    let grant = match input.entitlement {
+    match input.entitlement {
         SyntheticPreviewEntitlementDecision::Granted(grant) => grant,
         SyntheticPreviewEntitlementDecision::Denied(reason) => {
             return Ok(EffectivePolicyDecision::Denied {
@@ -451,20 +385,13 @@ pub fn resolve_synthetic_preview_policy(
         });
     }
 
-    validate_group_modifier_authority(
-        grant.applicable_policy_scopes(),
-        &input.group_schedule_offsets,
-        &input.group_accommodations,
-    )?;
     resolve_authorized_policy(
         input.now,
         input.prior_run_count,
         input.base,
-        input.group_schedule_offsets,
-        input.group_accommodations,
         input
-            .hypothetical_individual_exception
-            .map(IndividualPatch::Hypothetical),
+            .hypothetical_accommodation
+            .map(AccommodationPatch::Hypothetical),
     )
 }
 
@@ -472,55 +399,17 @@ fn resolve_authorized_policy(
     now: ActivityTimestamp,
     prior_run_count: u32,
     base: BaseAssignmentPolicy,
-    group_schedule_offsets: Vec<GroupScheduleOffset>,
-    group_accommodations: Vec<GroupAccommodation>,
-    individual_patch: Option<IndividualPatch>,
+    accommodation: Option<AccommodationPatch>,
 ) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
     let mut policy = base_policy(base);
-    apply_schedule_offsets(&mut policy, &group_schedule_offsets)?;
-    apply_accommodations(&mut policy, &group_accommodations)?;
-    if let Some(individual) = individual_patch {
-        apply_individual_patch(&mut policy, individual)?;
+    if let Some(accommodation) = accommodation {
+        apply_accommodation_patch(&mut policy, accommodation)?;
     }
     validate_schedule(&policy)?;
     let start = start_verdict(&policy, now, prior_run_count);
     Ok(EffectivePolicyDecision::Allowed {
         policy: Box::new(policy),
         start,
-    })
-}
-
-fn validate_group_modifier_authority(
-    scopes: &ApplicablePolicyScopes,
-    schedule_offsets: &[GroupScheduleOffset],
-    accommodations: &[GroupAccommodation],
-) -> Result<(), EffectivePolicyError> {
-    for offset in schedule_offsets {
-        if !scope_allows(scopes, offset.group, |capabilities| {
-            capabilities.schedule_scope
-        }) {
-            return Err(EffectivePolicyError::UnapprovedScheduleScope(offset.group));
-        }
-    }
-    for accommodation in accommodations {
-        if !scope_allows(scopes, accommodation.group, |capabilities| {
-            capabilities.accommodation_scope
-        }) {
-            return Err(EffectivePolicyError::UnapprovedAccommodationScope(
-                accommodation.group,
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn scope_allows(
-    scopes: &ApplicablePolicyScopes,
-    group: CourseGroupId,
-    permits: impl Fn(GroupPurposeCapabilities) -> bool,
-) -> bool {
-    scopes.iter().any(|(scope, purpose)| {
-        *scope == group && permits(GroupPurposeCapabilities::for_purpose(*purpose))
     })
 }
 
@@ -543,198 +432,13 @@ fn resolved<T>(value: T) -> ResolvedField<T> {
     }
 }
 
-fn apply_schedule_offsets(
-    policy: &mut EffectiveAssignmentPolicy,
-    offsets: &[GroupScheduleOffset],
-) -> Result<(), EffectivePolicyError> {
-    let mut groups = Vec::with_capacity(offsets.len());
-    let mut total_seconds = 0_i64;
-    for offset in offsets {
-        if groups.contains(&offset.group) {
-            return Err(EffectivePolicyError::DuplicateScheduleOffset(offset.group));
-        }
-        groups.push(offset.group);
-        total_seconds = total_seconds
-            .checked_add(i64::from(offset.offset_seconds.get()))
-            .ok_or(EffectivePolicyError::ScheduleOffsetOverflow)?;
-    }
-    if groups.is_empty() {
-        return Ok(());
-    }
-    let total_milliseconds = total_seconds
-        .checked_mul(1_000)
-        .ok_or(EffectivePolicyError::ScheduleOffsetOverflow)?;
-    groups.sort_unstable();
-    let source = PolicySource::GroupScheduleOffsets(groups);
-    offset_timestamp(&mut policy.available_at, total_milliseconds, source.clone())?;
-    offset_timestamp(&mut policy.due_at, total_milliseconds, source.clone())?;
-    offset_timestamp(&mut policy.closes_at, total_milliseconds, source)?;
-    Ok(())
-}
-
-fn offset_timestamp(
-    field: &mut ResolvedField<Option<ActivityTimestamp>>,
-    offset_milliseconds: i64,
-    source: PolicySource,
-) -> Result<(), EffectivePolicyError> {
-    let Some(value) = field.value else {
-        return Ok(());
-    };
-    let value = value
-        .as_unix_millis()
-        .checked_add(offset_milliseconds)
-        .ok_or(EffectivePolicyError::ScheduleOffsetOverflow)?;
-    field.value = Some(ActivityTimestamp::from_unix_millis(value));
-    field.source = source;
-    Ok(())
-}
-
-fn apply_accommodations(
-    policy: &mut EffectiveAssignmentPolicy,
-    accommodations: &[GroupAccommodation],
-) -> Result<(), EffectivePolicyError> {
-    apply_accommodation_field(
-        &mut policy.available_at,
-        accommodations,
-        |patch| patch.available_at,
-        PolicyField::AvailableAt,
-        OptionalRule::Earlier,
-    )?;
-    apply_accommodation_field(
-        &mut policy.due_at,
-        accommodations,
-        |patch| patch.due_at,
-        PolicyField::DueAt,
-        OptionalRule::Later,
-    )?;
-    apply_accommodation_field(
-        &mut policy.closes_at,
-        accommodations,
-        |patch| patch.closes_at,
-        PolicyField::ClosesAt,
-        OptionalRule::Later,
-    )?;
-    apply_accommodation_field(
-        &mut policy.time_limit_seconds,
-        accommodations,
-        |patch| patch.time_limit_seconds,
-        PolicyField::TimeLimitSeconds,
-        OptionalRule::Later,
-    )?;
-    apply_accommodation_field(
-        &mut policy.attempt_limit,
-        accommodations,
-        |patch| patch.attempt_limit,
-        PolicyField::AttemptLimit,
-        OptionalRule::Later,
-    )?;
-    Ok(())
-}
-
-fn apply_accommodation_field<T: Ord + Copy>(
-    field: &mut ResolvedField<Option<T>>,
-    accommodations: &[GroupAccommodation],
-    patch_for: impl Fn(PolicyPatchSet) -> PolicyPatch<T>,
-    policy_field: PolicyField,
-    rule: OptionalRule,
-) -> Result<(), EffectivePolicyError> {
-    let mut overrides = Vec::new();
-    let mut extensions = Vec::new();
-    for accommodation in accommodations {
-        let patch = patch_for(accommodation.patch);
-        if matches!(patch, PolicyPatch::Inherit) {
-            continue;
-        }
-        match accommodation.mode {
-            PolicyModificationMode::Override => overrides.push((accommodation.group, patch)),
-            PolicyModificationMode::ExtendOnly => {
-                let replacement = patch_value(patch);
-                if !extends_optional(field.value, replacement, rule) {
-                    return Err(EffectivePolicyError::ExtendOnlyViolation {
-                        field: policy_field,
-                        source: ModifierSource::Group(accommodation.group),
-                    });
-                }
-                extensions.push((accommodation.group, replacement));
-            }
-        }
-    }
-
-    overrides.sort_unstable_by_key(|(group, _)| *group);
-    if overrides.len() > 1 {
-        return Err(EffectivePolicyError::MultipleAccommodationOverrides {
-            field: policy_field,
-            sources: overrides.into_iter().map(|(group, _)| group).collect(),
-        });
-    }
-    if let Some((group, patch)) = overrides.pop() {
-        field.value = patch_value(patch);
-        field.source = PolicySource::GroupAccommodations(vec![group]);
-        return Ok(());
-    }
-    if extensions.is_empty() {
-        return Ok(());
-    }
-
-    let winner = select_most_permissive(&extensions, rule);
-    let mut sources = extensions
-        .into_iter()
-        .filter_map(|(group, candidate)| (candidate == winner).then_some(group))
-        .collect::<Vec<_>>();
-    sources.sort_unstable();
-    field.value = winner;
-    field.source = PolicySource::GroupAccommodations(sources);
-    Ok(())
-}
-
-fn patch_value<T>(patch: PolicyPatch<T>) -> Option<T> {
-    match patch {
-        PolicyPatch::Set(value) => Some(value),
-        PolicyPatch::Unrestricted => None,
-        PolicyPatch::Inherit => {
-            unreachable!("inherit patches are filtered before value extraction")
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
-enum OptionalRule {
-    Earlier,
-    Later,
+enum AccommodationPatch {
+    Student(Accommodation),
+    Hypothetical(HypotheticalAccommodation),
 }
 
-fn select_most_permissive<T: Ord + Copy>(
-    candidates: &[(CourseGroupId, Option<T>)],
-    rule: OptionalRule,
-) -> Option<T> {
-    candidates
-        .iter()
-        .map(|(_, candidate)| *candidate)
-        .reduce(|current, candidate| more_permissive(current, candidate, rule))
-        .expect("at least one accommodation candidate")
-}
-
-fn more_permissive<T: Ord>(
-    current: Option<T>,
-    candidate: Option<T>,
-    rule: OptionalRule,
-) -> Option<T> {
-    match (current, candidate) {
-        (None, _) | (_, None) => None,
-        (Some(current), Some(candidate)) => Some(match rule {
-            OptionalRule::Earlier => current.min(candidate),
-            OptionalRule::Later => current.max(candidate),
-        }),
-    }
-}
-
-#[derive(Clone, Copy)]
-enum IndividualPatch {
-    Student(IndividualPolicyException),
-    Hypothetical(HypotheticalIndividualPolicyException),
-}
-
-impl IndividualPatch {
+impl AccommodationPatch {
     fn mode(self) -> PolicyModificationMode {
         match self {
             Self::Student(value) => value.mode,
@@ -751,20 +455,20 @@ impl IndividualPatch {
 
     fn source(self) -> ModifierSource {
         match self {
-            Self::Student(value) => ModifierSource::Individual(value.student),
-            Self::Hypothetical(_) => ModifierSource::HypotheticalIndividual,
+            Self::Student(value) => ModifierSource::Accommodation(value.student_record),
+            Self::Hypothetical(_) => ModifierSource::HypotheticalAccommodation,
         }
     }
 }
 
-fn apply_individual_patch(
+fn apply_accommodation_patch(
     policy: &mut EffectiveAssignmentPolicy,
-    individual: IndividualPatch,
+    accommodation: AccommodationPatch,
 ) -> Result<(), EffectivePolicyError> {
-    let source = individual.source();
-    let patch = individual.patch();
-    let mode = individual.mode();
-    apply_individual_field(
+    let source = accommodation.source();
+    let patch = accommodation.patch();
+    let mode = accommodation.mode();
+    apply_accommodation_field(
         &mut policy.available_at,
         patch.available_at,
         mode,
@@ -772,7 +476,7 @@ fn apply_individual_patch(
         OptionalRule::Earlier,
         source,
     )?;
-    apply_individual_field(
+    apply_accommodation_field(
         &mut policy.due_at,
         patch.due_at,
         mode,
@@ -780,7 +484,7 @@ fn apply_individual_patch(
         OptionalRule::Later,
         source,
     )?;
-    apply_individual_field(
+    apply_accommodation_field(
         &mut policy.closes_at,
         patch.closes_at,
         mode,
@@ -788,7 +492,7 @@ fn apply_individual_patch(
         OptionalRule::Later,
         source,
     )?;
-    apply_individual_field(
+    apply_accommodation_field(
         &mut policy.time_limit_seconds,
         patch.time_limit_seconds,
         mode,
@@ -796,7 +500,7 @@ fn apply_individual_patch(
         OptionalRule::Later,
         source,
     )?;
-    apply_individual_field(
+    apply_accommodation_field(
         &mut policy.attempt_limit,
         patch.attempt_limit,
         mode,
@@ -807,7 +511,13 @@ fn apply_individual_patch(
     Ok(())
 }
 
-fn apply_individual_field<T: Ord + Copy>(
+#[derive(Clone, Copy)]
+enum OptionalRule {
+    Earlier,
+    Later,
+}
+
+fn apply_accommodation_field<T: Ord + Copy>(
     field: &mut ResolvedField<Option<T>>,
     patch: PolicyPatch<T>,
     mode: PolicyModificationMode,
@@ -818,7 +528,11 @@ fn apply_individual_field<T: Ord + Copy>(
     if matches!(patch, PolicyPatch::Inherit) {
         return Ok(());
     }
-    let replacement = patch_value(patch);
+    let replacement = match patch {
+        PolicyPatch::Inherit => unreachable!("inherited accommodation fields return above"),
+        PolicyPatch::Set(value) => Some(value),
+        PolicyPatch::Unrestricted => None,
+    };
     if mode == PolicyModificationMode::ExtendOnly
         && !extends_optional(field.value, replacement, rule)
     {
@@ -829,11 +543,8 @@ fn apply_individual_field<T: Ord + Copy>(
     }
     field.value = replacement;
     field.source = match error_source {
-        ModifierSource::Individual(student) => PolicySource::IndividualException(student),
-        ModifierSource::HypotheticalIndividual => PolicySource::HypotheticalIndividualException,
-        ModifierSource::Group(_) => {
-            unreachable!("individual patches always carry an individual source")
-        }
+        ModifierSource::Accommodation(student) => PolicySource::Accommodation(student),
+        ModifierSource::HypotheticalAccommodation => PolicySource::HypotheticalAccommodation,
     };
     Ok(())
 }

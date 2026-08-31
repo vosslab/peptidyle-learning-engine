@@ -8,16 +8,16 @@ authoritative contracts for implementation detail.
 
 A **Blueprint Course** is the one reusable course-level aggregate. It holds ordered modules,
 assignments, reusable question selections, policies, and relative schedule defaults. Published
-Blueprint Courses are visible and reusable by every vetted (approved) Instructor. Drafts are private
-to their owning workspace and authorized collaborators. A Blueprint Course has no Students, live
+Blueprint Courses are visible and reusable by every vetted (approved) Instructor. Draft Blueprint
+Revisions are private to their Blueprint Course Owner and exact Blueprint Collaborators. A Blueprint Course has no Students, live
 deadlines, releases, accommodations, grades, or delivery settings.
 
 ## What is a Course Instance?
 
 A **Course Instance** is the teaching and delivery aggregate created from exactly one Blueprint
 Course. Its parent and applied Blueprint revision are immutable. It is private to its current equal
-co-Instructors and enrolled Students, and owns enrollment, deadlines, releases, accommodations,
-grades, and delivery settings. It is the only course type that receives learner work.
+Teaching Team Members and enrolled Students, and owns enrollment, deadlines, releases, accommodations,
+grades, and delivery settings. It is the only course type that receives student work.
 
 ## How do I create a course?
 
@@ -30,7 +30,7 @@ are never copied from another instance.
 ## How do Blueprint updates reach a Course Instance?
 
 An Instructor publishes a new Blueprint revision explicitly. A new assignment in that revision
-appears in each daughter Course Instance as **Unreleased**. The current equal co-Instructors review
+appears in each daughter Course Instance as **Unreleased**. The current equal Teaching Team Members review
 the source revision, assignment manifest, question replacements, and resolved schedule, then use
 **Prepare update proposal** and **Apply proposal**. Propagation never silently releases an assignment
 or overwrites instance-owned delivery changes. Divergent work uses an explicit selected copy or new
@@ -45,7 +45,7 @@ assignment action; PLE does not perform an implicit merge.
   invitations, attempts, responses, grades, retention state, or issued evidence.
 - **Shift Course Instance term** changes an existing instance's unissued schedules after a full
   preview. Every relative date resolves in the target IANA time zone; DST gaps and ambiguities need
-  correction. An instance with issued learner work uses rollover instead.
+  correction. An instance with issued student work uses rollover instead.
 
 ## Is PLE tied to one format?
 
@@ -112,13 +112,13 @@ remain future work. See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_A
 They have separate jobs. PostgreSQL stores PLE-owned accounts, Blueprint Courses, Course Instances,
 assignments, attempts, scores, and retention state under exact relationship authorization and row-
 level security. The private external PG renderer evaluates a bounded WeBWorK question and has no PLE
-database, learner credentials, persistent volume, or host-published port. PLE remains the only
+database, student credentials, persistent volume, or host-published port. PLE remains the only
 assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
-## How do learners sign in?
+## How do students sign in?
 
-PLE Accounts use stable opaque Account IDs and one immutable Product Role. Sysadmin provisioning
+PLE Accounts use stable opaque Account IDs and one immutable Product Role. Sysadmin Account Creation
 creates an Account; email-code authentication restores an existing Account, and passkeys are
 optional additional credentials for that same Account. The ordinary email-code and passkey browser
 adapters are being reconstructed on the canonical Authenticated Session foundation. The current
@@ -147,14 +147,14 @@ is regenerated; regeneration restores the seeded baseline and discards disposabl
 ## Are live-demo roles isolated from one another?
 
 No. Seeded personas use ordinary accounts, memberships, courses, and records in the same installation.
-An Instructor's Course Instance is private to its current equal co-Instructors and enrolled Students;
+An Instructor's Course Instance is private to its current equal Teaching Team Members and enrolled Students;
 the data is disposable because the installation can be regenerated, not because each role has a
 private sandbox. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [USER_ROLES.md](USER_ROLES.md).
 
 ## Is Student view the same as entering as a Student?
 
 No. **Student view** is an answer-free, no-store inspection of the current assignment that retains
-the Instructor session and creates no learner work. Ordinary Student entry uses the enrolled
+the Instructor session and creates no student work. Ordinary Student entry uses the enrolled
 Student's authority and can create a run, attempt, submission, score, and Gradebook evidence. Use
 Student view to inspect delivery; use Student entry to exercise graded work. See
 [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md) and [API_CONTRACTS.md](API_CONTRACTS.md).
@@ -171,12 +171,12 @@ compatibility alias. See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 Yes, but reuse is explicit and versioned. Select a published question by its human-readable Question
 ID, reuse an assignment's ordered questions, or draw from a reusable pool. A published Blueprint
 Course can supply ordered modules and assignments to a new Course Instance through the adoption
-workflow. Existing issued learner runs keep their immutable question snapshot. See
+workflow. Existing issued student runs keep their immutable question snapshot. See
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
 ## What happens if automated grading stalls?
 
-The learner submits once and receives **Response received** while the server keeps the accepted
+The student submits once and receives **Response received** while the server keeps the accepted
 response private. **Check grading status** is an answer-free read, and the normal path proceeds to
 feedback and **View completed run** without Instructor intervention. If the status says **Your
 response needs instructor attention**, an authorized Instructor reviews **Grading operations** and
@@ -187,7 +187,7 @@ grading internals, or a hidden key. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
 
 ## Can the browser or another Student see answer keys?
 
-No. Public question and learner projections are answer-free. Answer keys, private source material,
+No. Public question and student projections are answer-free. Answer keys, private source material,
 grading rules, and provider credentials remain on the server; exact relationship authorization also
 restricts educational records. See [SECURITY_MODEL.md](SECURITY_MODEL.md) and [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
@@ -200,16 +200,16 @@ session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [AUTHORIZATION_CONTRACTS
 
 ## Why does a submission identify an attempt?
 
-A durable question attempt binds the authenticated learner, Course Instance, assignment, immutable
+A durable question attempt binds the authenticated student, Course Instance, assignment, immutable
 question version, seed, timing state, and grading backend. The browser therefore sends only that
-attempt's route identity, an idempotency key, and the learner's answer. Presentation digests and
+attempt's route identity, an idempotency key, and the student's answer. Presentation digests and
 compact rendered-item IDs detect a stale or mismatched display; they are consistency checks, not
 authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
 ## Can a Student upload a file answer?
 
 Not yet. The current browser widget and submission route fail closed because a browser-supplied object
-key cannot prove course, learner, attempt, storage, or inspection ownership. The planned capability
+key cannot prove course, student, attempt, storage, or inspection ownership. The planned capability
 creates one server-issued, attempt-bound upload record and later accepts only that opaque upload ID.
 See [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 

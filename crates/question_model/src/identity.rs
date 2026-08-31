@@ -1,14 +1,9 @@
 //! Identity types (WP-C1, WP-C2, MOD-ID).
 //!
-//! The published-content identifiers are distinct types, not aliases for one another. A
-//! function taking a [`VersionId`] cannot be handed a [`ProblemId`], so the
-//! class of bug where a draft identifier reaches a published-content lookup
-//! cannot compile.
-//!
-//! The lifecycle rule in one sentence a maintainer can apply: a draft lives in
-//! an instructor workspace and has no [`ProblemId`]; publishing is the only
-//! transition that constructs a fresh `(ProblemId, VersionId)` pair; one
-//! immutable published question owns that pair thereafter.
+//! Published Question identity is the stable human-facing Question ID plus a
+//! positive Question Version Number. A draft carries neither value;
+//! publication establishes the first version and each accepted same-lineage
+//! change advances the version number.
 //!
 //! Fresh server-minted identifiers are UUIDv7: random enough that a catalog
 //! number leaks no volume information, time-ordered enough to index well, and
@@ -38,21 +33,45 @@ pub struct WorkspaceId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorkspaceImportId(Uuid);
 
-/// One opaque identity in an immutable published-question pair.
-///
-/// Publishing constructs this together with a fresh [`VersionId`]. A content
-/// change receives a new Question ID and another fresh pair. A draft has no
-/// `ProblemId`, which makes "drafts carry no catalog number" a property of
-/// the type.
+/// Positive, monotonic version number within one Question lineage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ProblemId(Uuid);
+#[serde(try_from = "u32", into = "u32")]
+pub struct QuestionVersionNumber(u32);
 
-/// The second opaque identity in an immutable published-question pair.
-///
-/// Trusted storage keeps `(ProblemId, VersionId)` as exact delivery, grading,
-/// replay, and audit evidence. Browser summaries use the assigned Question ID.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct VersionId(Uuid);
+impl QuestionVersionNumber {
+    /// Creates a positive version number.
+    pub fn new(value: u32) -> Result<Self, &'static str> {
+        if value == 0 {
+            return Err("question version number must be positive");
+        }
+        Ok(Self(value))
+    }
+
+    /// Returns the stored positive integer.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
+impl TryFrom<u32> for QuestionVersionNumber {
+    type Error = &'static str;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<QuestionVersionNumber> for u32 {
+    fn from(value: QuestionVersionNumber) -> Self {
+        value.0
+    }
+}
+
+impl std::fmt::Display for QuestionVersionNumber {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.0)
+    }
+}
 
 /// A stored asset: an image, a figure, or an imported source package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -103,8 +122,6 @@ macro_rules! impl_identifier {
 
 impl_identifier!(WorkspaceId);
 impl_identifier!(WorkspaceImportId);
-impl_identifier!(ProblemId);
-impl_identifier!(VersionId);
 impl_identifier!(AssetId);
 impl_identifier!(ObjectId);
 
@@ -113,18 +130,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_identifier_round_trips_through_its_uuid() {
-        let raw = Uuid::from_u128(0x0192_3f4b_5c6d_7e8f_9012_3456_789a_bcde);
-        let id = VersionId::from_uuid(raw);
-        assert_eq!(id.as_uuid(), raw);
+    fn a_question_version_number_is_positive() {
+        let version = QuestionVersionNumber::new(1).expect("positive version");
+        assert_eq!(version.get(), 1);
     }
 
     #[test]
-    fn identifiers_display_as_their_uuid() {
-        let raw = Uuid::from_u128(1);
+    fn question_version_numbers_display_as_integers() {
         assert_eq!(
-            ProblemId::from_uuid(raw).to_string(),
-            "00000000-0000-0000-0000-000000000001"
+            QuestionVersionNumber::new(1)
+                .expect("positive version")
+                .to_string(),
+            "1"
         );
     }
 

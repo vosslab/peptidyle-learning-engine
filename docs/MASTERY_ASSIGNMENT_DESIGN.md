@@ -13,8 +13,8 @@ simplification of the instructor experience. It complements the record-level con
 
 ## Teaching intent
 
-A mastery assignment asks a human question: "Can the learner now apply this concept reliably?" It
-does not ask whether the learner happened to complete one fixed worksheet first. Appropriate learner
+A mastery assignment asks a human question: "Can the student now apply this concept reliably?" It
+does not ask whether the student happened to complete one fixed worksheet first. Appropriate student
 behavior is to retry, use feedback, work through fresh instances, and stop only when the idea is
 dependable.
 
@@ -24,7 +24,7 @@ The durable product promise is:
 - A later practice run keeps the earlier run, responses, scores, and provenance as educational
   history.
 - Fresh variation supports transfer to a new instance instead of memorization of a previous answer.
-- The learner sees only feedback authorized for the question and assignment context.
+- The student sees only feedback authorized for the question and assignment context.
 - The authenticated server, not the browser, decides timing, correctness, retries, completion, and
   scores.
 
@@ -33,36 +33,42 @@ and connect evidence rather than stop at recall of a familiar prompt.
 
 ## Current model
 
-### Three durable levels
+### Durable activity records
 
-The implemented activity model has three course-owned records:
+The implemented activity model has four durable records and one selected course result:
 
-| Level            | Role                                         | Important consequence                                    |
-| ---------------- | -------------------------------------------- | -------------------------------------------------------- |
-| Enrollment       | One learner's relationship to one assignment | Preserves cross-run completion and grade pointers        |
-| Run              | One pass through an assignment               | Records score, mode, variation, and server timestamps    |
-| Question attempt | One issued instance and response             | Preserves seed, provenance, timing, response, and result |
+| Level              | Role                                            | Important consequence                                               |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------- |
+| Student Record     | One Student's protected course record           | Separates course records from global Account identity               |
+| Assignment Attempt | One pass through an Assignment                  | Records mode, variation, server timestamps, and completion          |
+| Issued Question    | One selected Question in an Assignment Attempt  | Preserves version, order, selection evidence, and scoring treatment |
+| Question Attempt   | One server-issued try under an Issued Question  | Preserves seed, timing, response, and grading result                |
 
-`AssignmentEnrollment.first_completed_at` derives whether the learner has completed the assignment
-at least once. A new run after that point is `Practice`; a run before it is `Assigned`. The system
-does not store a competing within-run `complete` flag: completion is derived from current
-required-question states, then recorded as one server transition. These are implemented in
+`AssignmentGrade.first_completed_at` derives whether the Student has completed
+the Assignment at least once. A new Assignment Attempt after that point is
+`Practice`; an earlier Assignment Attempt is `Assigned`. The system does not
+store a competing within-attempt `complete` flag: completion is derived from
+current required-question states, then recorded as one server transition. These are implemented in
 [crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs) and
 [crates/domain/src/completion.rs](../crates/domain/src/completion.rs).
 
+`AssignmentGrade` is the selected course result for one Student Record and
+Assignment. **Assignment Progress** is the separate derived activity view;
+`AssignmentProgressRecord` is its internal server representation.
+
 ### One active question
 
-PLE permits at most one unresolved question attempt per run. Starting or reopening an assignment
-returns the existing active run when there is one; it does not create a competing run or timer. Once
+PLE permits at most one unresolved Question Attempt per Assignment Attempt. Starting or reopening
+an Assignment returns the existing active Assignment Attempt when there is one; it does not create
+a competing attempt or timer. Once
 a response commits, the server advances through unattempted positions before offering an allowed
 retry. This makes resume safe and keeps attempt sequencing understandable.
 
-The route begins a run only after authenticating the session, while both in-memory and PostgreSQL
-stores enforce the same run policy, timing, run-number, and one-active-run rules. See
-[crates/server/src/run/routes.rs](../crates/server/src/run/routes.rs),
-[crates/learning-data-access/src/in_memory/runs.rs](../crates/learning-data-access/src/in_memory/runs.rs),
-and
-[crates/learning-data-access/src/postgres/run_lifecycle.rs](../crates/learning-data-access/src/postgres/run_lifecycle.rs).
+The route begins an Assignment Attempt only after authenticating the session.
+The canonical path validates its policy, timing, sequence, and one-active-attempt
+rules before it commits activity. See
+[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs),
+and [crates/learning-data-access/src/activity_policy.rs](../crates/learning-data-access/src/activity_policy.rs).
 
 ### Retries preserve evidence
 
@@ -110,18 +116,18 @@ seed; only a newly issued instance receives a fresh one.
 PLE currently stores the independent policies below. The recommended mastery configuration is an
 explicit composition of those existing values, not a hidden special case:
 
-| Concern            | Recommended mastery value     | Learner meaning                                                                                             |
+| Concern            | Recommended mastery value     | Student meaning                                                                                             |
 | ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Completion         | `AllCorrect`                  | Keep working until every required question is correct                                                       |
 | Grade              | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
 | Continued practice | `Unlimited`                   | Start another run after completion whenever useful                                                          |
 | Variation          | `NewSeeds`                    | See the same concepts with fresh generated values                                                           |
 | Question attempts  | `max_attempts: None`          | Retry a question until correct                                                                              |
-| Learner disclosure | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
+| Student disclosure | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
 | Timing             | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
 
-The first four fields are assignment `RunPolicies`. The assignment also owns the five independent
-learner-disclosure timings. Attempt count and question timer are immutable properties of the selected
+The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the five independent
+Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
 published question version. The Questions and Policies workspace pages expose these assignment controls
 separately; they do not override question policies. See
 [src/pages/assignment_workspace/assignment_workspace_questions_page.tsx](../src/pages/assignment_workspace/assignment_workspace_questions_page.tsx),
@@ -138,7 +144,7 @@ side effects of a label.
 
 ### Feedback is server-projected
 
-Each assignment independently schedules five learner-visible fields: score,
+Each assignment independently schedules five student-visible fields: score,
 per-item correctness, feedback text, solution, and class statistics. Each uses
 one timing: `DuringAttempt`, `AfterSubmit`, `AfterDue`, `AfterClose`, or
 `Never`. The server first requires S5 entitlement, then uses the current
@@ -146,7 +152,7 @@ S3-resolved effective-policy verdict and authoritative time to evaluate the
 current assignment policy. A field scheduled `AfterDue` or `AfterClose` remains withheld when its
 corresponding boundary is absent; a withheld field is omitted rather than sent
 as a hidden null. `feedback_release` is immutable audit evidence of an
-instructor action, never a learner-result unlock.
+instructor action, never a student-result unlock.
 
 For the recommended mastery bundle, set all five fields to `AfterSubmit`.
 An assessment can instead schedule each field independently without changing
@@ -155,8 +161,8 @@ the selected question or its retry bound.
 Private feedback is intentionally not serializable or debug-printable. The public
 `DisclosedFeedback` DTO omits locked fields rather than sending hidden nulls. The implementation is
 in [crates/question_model/src/feedback.rs](../crates/question_model/src/feedback.rs),
-[crates/domain/src/disclosure_policy.rs](../crates/domain/src/disclosure_policy.rs), and
-[crates/learning-data-access/src/feedback.rs](../crates/learning-data-access/src/feedback.rs).
+[crates/domain/src/disclosure_policy.rs](../crates/domain/src/disclosure_policy.rs); Store
+integration returns with the fresh course-delivery reconstruction.
 
 ### Time is server-owned
 
@@ -184,7 +190,7 @@ Those are current user-interface facts, not evidence that a formal assignment-ty
 
 The following is a planned instructor-facing layer over the existing orthogonal model. It should be
 implemented as recognizable activity types with safe defaults, not as a new persisted combined enum.
-The stored assignment remains `RunPolicies`, five independent assignment disclosure timings, selected
+The stored Assignment remains `AssignmentActivityRules`, five independent Student Feedback Release timings, selected
 published question versions, and access policy. The examples below are proposed defaults, not a
 claim that an older coarse feedback bundle is directly representable.
 
@@ -210,7 +216,7 @@ combinations, while the normal instructor path represents familiar teaching acti
 type sets defaults; it does not conceal the resulting behavior or turn a later advanced choice into
 an unexplained exception.
 
-## Learner language
+## Student language
 
 Students should see behavior and purpose, not Rust enum names or implementation settings. For a
 mastery assignment, the preferred copy is:
@@ -237,19 +243,19 @@ server rejection gracefully.
 
 The Instructor assignment workspace keeps mastery configuration in the same assignment aggregate
 while separating the teaching tasks. Questions owns the title and ordered fixed-or-pool content;
-Policies owns audience, disclosure, run policies, instructions, schedule, limits, late behavior,
+Policies owns audience, Student Feedback Release Rules, Assignment activity rules, instructions, schedule, limits, late behavior,
 and lifecycle. Each focused save uses the assignment's shared revision and returns the complete
 authoritative projection, so a Policies save cannot silently replace Questions content.
 
 An empty persisted Draft is valid while the Instructor builds the assignment across pages. Derived
 publication readiness blocks Published until an active deliverable position and valid policy state
-exist. Once learner work is issued, a structural Questions change can return the typed
-issued-learner-work conflict; the page preserves its draft for recovery. Student view is an
+exist. Once student work is issued, a structural Questions change can return the typed
+issued-student-work conflict; the page preserves its draft for recovery. Student view is an
 answer-free, non-mutating presentation of the current assignment and does not create a practice run.
 
 Only an ordinary enrolled Student starts or resumes a mastery run and produces submissions, scores,
 receipts, and gradebook evidence. The Instructor Student view retains the Instructor identity and
-links to explicit Student entry instead of fabricating a learner account.
+links to explicit Student entry instead of fabricating a student account.
 
 See [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace),
 [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md#client-contract), and
@@ -259,17 +265,17 @@ See [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace),
 
 The browser presents a learning experience; it does not administer the assignment. The server:
 
-- derives course and learner authority from the authenticated session;
-- chooses or resumes the run and assigns the run number;
+- derives course and student authority from the authenticated session;
+- chooses or resumes the Assignment Attempt and assigns its attempt number;
 - issues attempt identifiers, seeds, deadlines, and immutable question provenance;
 - validates response format again before calling a trusted grading backend;
 - computes correctness, points, retry availability, completion, and grade summary;
 - commits response, feedback record, summary projection, and completion transition atomically; and
-- applies the current assignment-owned learner-disclosure decision before returning a learner-facing result.
+- applies the current assignment-owned student-disclosure decision before returning a student-facing result.
 
 The browser can perform key-free format validation for prompt feedback, show a server-projected
-timer, and request a new practice run. It never receives an answer key or gains authority by
-constructing a policy, timestamp, run mode, or score. See [SECURITY_MODEL.md](SECURITY_MODEL.md),
+timer, and request a new practice Assignment Attempt. It never receives an answer key or gains authority by
+constructing a policy, timestamp, Assignment Activity configuration, or score. See [SECURITY_MODEL.md](SECURITY_MODEL.md),
 [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md), and
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
@@ -281,9 +287,9 @@ When changing mastery behavior, update the appropriate contract in the same patc
   [QUESTION_MODEL.md](QUESTION_MODEL.md).
 - Enrollment, run, attempt, or summary behavior: `crates/question_model/src/activity.rs`,
   `crates/domain/`, and [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
-- Server authority, disclosure, or learner response boundary: [SECURITY_MODEL.md](SECURITY_MODEL.md)
+- Server authority, disclosure, or student response boundary: [SECURITY_MODEL.md](SECURITY_MODEL.md)
   and [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-- Instructor activity-type chooser or learner copy: this document, the relevant Solid route, and the
+- Instructor activity-type chooser or student copy: this document, the relevant Solid route, and the
   browser accessibility contract.
 
 Use behavior-focused tests for changed policy outcomes: a mastery run completing only after all

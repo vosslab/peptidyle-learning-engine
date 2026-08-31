@@ -16,7 +16,7 @@ use crate::{
 };
 
 impl NativeAdapter {
-    /// Generates one key-free native question instance.
+    /// Generates one key-free native Issued Question.
     ///
     /// Trusted asset bindings are resolved against the generated envelope,
     /// then canonical immutable object IDs are persisted in provenance.
@@ -101,7 +101,10 @@ impl NativeAdapter {
             answer_key: execution.derive_answer_key(family, question, &generated)?,
         };
         let envelope = QuestionEnvelope {
-            version: question.version,
+            question_version: question_model::QuestionVersionReference {
+                question_id: question.question_id.clone(),
+                version_number: question.version_number,
+            },
             seed,
             title: question.metadata.title.clone(),
             prompt: materialized.prompt.clone(),

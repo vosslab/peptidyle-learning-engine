@@ -1,15 +1,13 @@
 use std::collections::VecDeque;
 
-use uuid::Uuid;
-
 use crate::answer::{SelectionCardinality, TextMatchMode};
 use crate::envelope::{ContentBlock, QuestionEnvelope};
 use crate::generation::Seed;
-use crate::identity::VersionId;
 use crate::response::{
     ChoiceId, ChoiceOption, MatchPair, ResponseDefinition, StudentResponse, TextEntryAnswer,
     TextEntrySlot,
 };
+use crate::{QuestionVersionNumber, QuestionVersionReference};
 
 use super::builder::{
     NonceSourceV1, PresentationBuildError, build_presentation_v1_with_hasher,
@@ -35,7 +33,10 @@ fn choice(id: &str, text: &str) -> ChoiceOption {
 
 fn fixture() -> QuestionEnvelope {
     QuestionEnvelope {
-        version: VersionId::from_uuid(Uuid::from_u128(0x0192_3f4b_5c6d_7e8f_9012_3456_789a_bcde)),
+        question_version: QuestionVersionReference {
+            question_id: "123-4567".parse().expect("valid Question ID"),
+            version_number: QuestionVersionNumber::new(1).expect("positive version"),
+        },
         seed: Seed::new(42),
         title: "Peptide bond".to_owned(),
         prompt: vec![ContentBlock::Text {
@@ -97,17 +98,16 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
         presentation.item_bindings[0].rendered,
         presentation.item_bindings[1].rendered
     );
-    assert_eq!(presentation.item_bindings[0].rendered.as_str(), "cfdf");
-    assert_eq!(presentation.item_bindings[1].rendered.as_str(), "6603");
+    assert_eq!(presentation.item_bindings[0].rendered.as_str(), "fe11");
     assert_eq!(
         presentation.digest.as_bytes(),
         [
-            0x84, 0xbd, 0x81, 0x11, 0xe1, 0x88, 0x7f, 0x35, 0x07, 0xc9, 0xa0, 0xcc, 0x5b, 0x9b,
-            0x28, 0xe8, 0x86, 0xb7, 0x2e, 0x70, 0x4a, 0xc5, 0x90, 0x8c, 0xa9, 0x51, 0x3c, 0x5e,
-            0xec, 0x97, 0xe7, 0x7d,
+            0x28, 0x33, 0x29, 0xc9, 0x8f, 0x30, 0xab, 0x41, 0xdd, 0x46, 0x65, 0x10, 0x3c, 0xed,
+            0x2d, 0xf3, 0xca, 0xb5, 0xec, 0x4c, 0x07, 0xb1, 0xbd, 0xf1, 0x61, 0x3b, 0x8d, 0x30,
+            0x39, 0x3f, 0x57, 0x35,
         ]
     );
-    assert_eq!(public.as_str(), "pd1_hL2BEeGIfzUHyaDMW5so6A");
+    assert_eq!(public.as_str(), "pd1_KDMpyY8wq0HdRmUQPO0t8w");
     assert!(
         !serde_json::to_string(&presentation.envelope)
             .expect("public JSON")

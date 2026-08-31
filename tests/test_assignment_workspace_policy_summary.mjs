@@ -34,11 +34,6 @@ const baseInput = {
   },
   timeLimitSecondsDraft: "900",
   attemptLimitDraft: "2",
-  audience: { kind: "anyOfGroups", groups: ["HONORS", "LAB"] },
-  courseGroups: [
-    { reference: "HONORS", title: "Honors section" },
-    { reference: "LAB", title: "Tuesday lab" },
-  ],
 };
 
 test("current-draft summary covers every Policies-owned decision in readable copy", () => {
@@ -51,7 +46,7 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   assert.match(valueFor("variation"), /selected problem variants/);
   assert.match(valueFor("savedDelivery"), /open now/);
   assert.match(valueFor("lifecycle"), /Published/);
-  assert.match(valueFor("lifecycle"), /learner instructions included/);
+  assert.match(valueFor("lifecycle"), /Student instructions included/);
   const schedule = valueFor("scheduleLimits");
   assert.match(schedule, /2026-09-01 09:00/);
   assert.match(schedule, /900s time limit/);
@@ -62,9 +57,6 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   for (const category of ["Score", "correctness", "feedback", "solutions", "statistics"]) {
     assert.match(disclosure, new RegExp(category));
   }
-  const audience = valueFor("audience");
-  assert.match(audience, /Honors section/);
-  assert.match(audience, /Tuesday lab/);
 });
 
 test("current-draft summary surfaces invalid unsaved limits without stale values", () => {
@@ -73,13 +65,11 @@ test("current-draft summary surfaces invalid unsaved limits without stale values
     runPolicyDraft: { completionFraction: "1.2", additionalRuns: "-1" },
     timeLimitSecondsDraft: "0",
     attemptLimitDraft: "many",
-    audience: { kind: "anyOfGroups", groups: [] },
   });
 
   const completion = summary.find((item) => item.key === "completion")?.value ?? "";
   const practice = summary.find((item) => item.key === "continuedPractice")?.value ?? "";
   const schedule = summary.find((item) => item.key === "scheduleLimits")?.value ?? "";
-  const audience = summary.find((item) => item.key === "audience")?.value ?? "";
   assert.match(completion, /needs correction/);
   assert.doesNotMatch(completion, /75%/);
   assert.match(practice, /needs correction/);
@@ -87,7 +77,6 @@ test("current-draft summary surfaces invalid unsaved limits without stale values
   assert.match(schedule, /time limit needs correction/);
   assert.match(schedule, /attempt limit needs correction/);
   assert.doesNotMatch(schedule, /900s time limit|2 attempts/);
-  assert.match(audience, /No course groups selected/);
 });
 
 test("summary keeps saved effective state distinct from unsaved lifecycle decisions", () => {

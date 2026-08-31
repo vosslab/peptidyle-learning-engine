@@ -6,7 +6,6 @@ import type { Capability } from "../../generated/api/Capability";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { Seed } from "../../generated/api/Seed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { PublicByline } from "../../generated/api/PublicByline";
 import { QuestionRenderer } from "../components/question_renderer";
 import { ResponseWidget } from "../components/response_widget";
@@ -156,7 +155,6 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
   const [violations, setViolations] = createSignal<ReadonlyArray<DraftCapabilityViolation>>([]);
   const [publicationReadiness, setPublicationReadiness] = createSignal<string | null>(null);
   const [saveMessage, setSaveMessage] = createSignal<string | null>(null);
-  const [publicationScope, setPublicationScope] = createSignal<PublicationScope>("institution");
   const [publicationByline, setPublicationByline] = createSignal("");
   const [staleConflict, setStaleConflict] = createSignal(false);
   const [creatingFlatQuestion, setCreatingFlatQuestion] = createSignal(false);
@@ -442,10 +440,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       requestAnimationFrame(() => publicationBylineInput?.focus());
       return;
     }
-    const request: { readonly scope: PublicationScope; readonly byline: PublicByline } = {
-      scope: publicationScope(),
-      byline,
-    };
+    const request: { readonly byline: PublicByline } = { byline };
     setPublish({ kind: "publishing" });
     try {
       const outcome = await props.repository.publish(current.draft, request, review.diff.revision);
@@ -560,7 +555,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       <p class="eyebrow">Instructor workspace</p>
       <h1>Draft, preview, and publish a learning question</h1>
       <p class="page-lede">
-        Start with the prompt and response learners will see. Preview uses a seed-controlled,
+        Start with the prompt and response students will see. Preview uses a seed-controlled,
         key-free local variant; an explicit instructor action can request a protected answer
         presentation. Each confirmed publication creates a new Question ID after review.
       </p>
@@ -576,7 +571,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       <Show when={page().kind === "empty"}>
         <section class="editor-panel" aria-label="No workspace drafts">
           <h2>No drafts yet</h2>
-          <p>Create a workspace draft to begin with a small learner-facing prompt and response.</p>
+          <p>Create a workspace draft to begin with a small Student-facing prompt and response.</p>
           <Show when={props.onCreateFlatQuestion !== undefined}>
             <button
               class="primary-action"
@@ -642,7 +637,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
 
             <div class="editor-preview">
               <section class="editor-panel" aria-labelledby="draft-editor-heading">
-                <h2 id="draft-editor-heading">Learner-facing draft</h2>
+                <h2 id="draft-editor-heading">Student-facing draft</h2>
                 <label class="editor-field">
                   Question title
                   <input
@@ -738,7 +733,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
               <section class="editor-panel" aria-labelledby="preview-heading">
                 <h2 id="preview-heading">Student preview</h2>
                 <p>
-                  This uses the same renderer and response controls as learners, without sending a
+                  This uses the same renderer and response controls as students, without sending a
                   request or revealing evaluation material.
                 </p>
                 <label class="editor-field">
@@ -902,20 +897,6 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                           )}
                         </For>
                       </ul>
-                      <label class="editor-field">
-                        Publication scope
-                        <select
-                          value={publicationScope()}
-                          onChange={(event) =>
-                            setPublicationScope(
-                              event.currentTarget.value === "public" ? "public" : "institution",
-                            )
-                          }
-                        >
-                          <option value="institution">Institution</option>
-                          <option value="public">Public (review required)</option>
-                        </select>
-                      </label>
                       <label class="editor-field">
                         Reviewed public byline
                         <textarea

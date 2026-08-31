@@ -3,7 +3,7 @@
 ## Scope
 
 This workstream adds the fixed local instructor J11/J12/J13 browser child. It preserves schema-v1
-learner modules and does not retarget J1-J5 or J8.
+student modules and does not retarget J1-J5 or J8.
 
 ## Implemented boundary
 

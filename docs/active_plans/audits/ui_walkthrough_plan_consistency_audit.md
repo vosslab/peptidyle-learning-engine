@@ -45,7 +45,7 @@ unchanged.
 
 - **Walkthrough passages:** `:140-141` says only course and assignment creation remain arranged, and
   `:185-191` says browser roster action makes enrollment walked. M3 nevertheless requires additional
-  students to be enrolled by arrangement at `:390-395`; WP-A3 permits extra learners to be arranged
+  students to be enrolled by arrangement at `:390-395`; WP-A3 permits extra students to be arranged
   through endpoints at `:633-646`; the full-run requirement still lists login and enrollment as
   arrangements at `:911-914`. The close-out changelog text repeats the nonexistent login/enrollment
   UI claim at `:951-953`.
@@ -53,7 +53,7 @@ unchanged.
   cannot truthfully classify a run.
 - **Resolution:** make the single coverage table authoritative: J9/J10 are walked only after the
   canonical identity path is accepted; course and assignment creation are arrangements until product
-  UI exists. For scale-only accounts, distinguish account provisioning from enrollment, record it as
+  UI exists. For scale-only accounts, distinguish Account Creation from enrollment, record it as
   arrangement, and never put it in a "walked enrollment" baseline. Update the report and changelog
   gap wording to say exactly which surfaces are absent at the time of release.
 
@@ -88,7 +88,7 @@ unchanged.
 - **Severity:** blocking for WP-A1 and M6. A six-family `QuestionAuthor` cannot meet the released
   response contract or exercise multi-blank and hotspot accessibility.
 - **Resolution:** rename the family table and interfaces to the eight canonical family names. Make M6
-  depend on accepted WP-RC4 and the secure learner-payload package before claiming all-family live
+  depend on accepted WP-RC4 and the secure student-payload package before claiming all-family live
   coverage. If the walkthrough is intentionally scoped to a smaller temporary subset, name it as a
   subset and do not use "every v2 response family" or a release acceptance claim.
 
@@ -126,7 +126,7 @@ unchanged.
    SQL, six-family, and old-gap statements above.
 3. Implement one bounded simulator preflight: WP-O1/WP-O2 load the existing live gateway and validate
    inputs without starting the mock server. Its acceptance is a canonical-account sign-in plus an
-   instructor-created copy-link invitation and learner claim through visible browser controls. It
+   instructor-created copy-link invitation and student claim through visible browser controls. It
    produces no corpus, course, assignment, scale accounts, or score assertions.
 
 This slice preserves the one-axis coverage model, makes identity a real prerequisite, and gives M3

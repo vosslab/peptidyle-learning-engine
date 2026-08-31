@@ -1,12 +1,10 @@
 // assignment_workspace_policies_page.tsx - focused delivery-policy editor for one assignment.
 
 import { A } from "@solidjs/router";
-import { For, Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js";
 
-import type { CourseGroupSummaryView } from "../../../generated/api/CourseGroupSummaryView";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
-import type { RunPolicies } from "../../../generated/api/RunPolicies";
-import type { AssignmentPoliciesInput } from "../../api/contracts";
+import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
   ApiRequestError,
   AssignmentConflictError,
@@ -27,20 +25,17 @@ import {
   assignmentPolicyFeedbackNeedsQuestionRepair,
   assignmentPoliciesValidationFeedback,
   canonicalCourseLocalTime,
-  hasEmptyGroupAudience,
-  mergeSavedRunPolicyDraft,
+  mergeSavedActivityRuleDraft,
   nonnegativeIntegerDraft,
   numberDraft,
   optionalPositiveIntegerDraft,
-  runPolicyDraftFromPolicies,
+  activityRuleDraftFromRules,
   scoreFractionDraft,
   type AssignmentPolicyFeedback,
   type PolicyFocusTarget,
-  type RunPolicyDraft,
-  type RunPolicyDraftField,
+  type AssignmentActivityRuleDraft,
+  type AssignmentActivityRuleDraftField,
 } from "./assignment_workspace_policy_model";
-
-type GroupLoadState = "loading" | "ready" | "failed";
 
 function controlValue(value: string | null): string {
   return value === null ? "" : value.slice(0, 16);
@@ -63,8 +58,8 @@ function lateSubmission(
 
 function lifecycleLabel(value: InstructorAssignmentTeachingSettingsLocal["lifecycle"]): string {
   if (value === "draft") return "Draft - students cannot access it";
-  if (value === "published") return "Published - eligible for learner access";
-  if (value === "closed") return "Closed - no new learner work";
+  if (value === "published") return "Published - eligible for Student access";
+  if (value === "closed") return "Closed - no new Student work";
   return "Archived - permanently retired";
 }
 
@@ -105,17 +100,12 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [teachingSettings, setTeachingSettings] = createSignal(
     workspace.assignment().teachingSettings,
   );
-  const [audienceDraft, setAudienceDraft] = createSignal<AssignmentPoliciesInput["audience"]>(
-    workspace.assignment().audience,
-  );
-  const [groups, setGroups] = createSignal<ReadonlyArray<CourseGroupSummaryView>>([]);
   const [busy, setBusy] = createSignal(false);
   const [feedback, setFeedback] = createSignal<AssignmentPolicyFeedback>();
   const [failureField, setFailureField] = createSignal<PolicyFocusTarget>();
   const [needsReload, setNeedsReload] = createSignal(false);
-  const [groupLoadState, setGroupLoadState] = createSignal<GroupLoadState>("loading");
-  const [runPolicyDraft, setRunPolicyDraft] = createSignal<RunPolicyDraft>(
-    runPolicyDraftFromPolicies(policies()),
+  const [activityRuleDraft, setActivityRuleDraft] = createSignal<AssignmentActivityRuleDraft>(
+    activityRuleDraftFromRules(policies()),
   );
   const [timeLimitSecondsDraft, setTimeLimitSecondsDraft] = createSignal(
     numberDraft(teachingSettings().timeLimitSeconds),
@@ -131,13 +121,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       savedLifecycle: workspace.assignment().teachingSettings.lifecycle,
       savedCurrentState: workspace.assignment().currentState,
       policies: policies(),
-      runPolicyDraft: runPolicyDraft(),
+      activityRuleDraft: activityRuleDraft(),
       disclosurePolicy: disclosurePolicy(),
       teachingSettings: teachingSettings(),
       timeLimitSecondsDraft: timeLimitSecondsDraft(),
       attemptLimitDraft: attemptLimitDraft(),
-      audience: audienceDraft(),
-      courseGroups: groups(),
     }),
   );
 
@@ -158,8 +146,6 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     reloadButton = element;
   }
 
-  onMount(() => void loadGroups());
-
   createEffect(() => {
     const field = failureField();
     if (field === undefined || assignmentPolicyFeedbackNeedsQuestionRepair(feedback())) return;
@@ -177,19 +163,6 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     if (!reloadIsShown || busy()) return;
     queueMicrotask(() => reloadButton?.focus());
   });
-
-  function loadGroups(): Promise<void> {
-    setGroupLoadState("loading");
-    return workspace.client
-      .listCourseGroups(workspace.courseId, undefined, 100)
-      .then((page) => {
-        setGroups(page.groups);
-        setGroupLoadState("ready");
-      })
-      .catch(() => {
-        setGroupLoadState("failed");
-      });
-  }
 
   function updateTeaching(
     next: Partial<InstructorAssignmentTeachingSettingsLocal>,
@@ -233,8 +206,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     );
   }
 
-  function updateRunPolicyDraft(field: RunPolicyDraftField, raw: string): void {
-    setRunPolicyDraft((current) => ({ ...current, [field]: raw }));
+  function updateActivityRuleDraft(field: AssignmentActivityRuleDraftField, raw: string): void {
+    setActivityRuleDraft((current) => ({ ...current, [field]: raw }));
     const parsed =
       field === "completionFraction" ? scoreFractionDraft(raw) : nonnegativeIntegerDraft(raw);
     const value = parsed.value;
@@ -254,7 +227,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     }
   }
 
-  function changeCompletionKind(kind: RunPolicies["completion"]["kind"]): void {
+  function changeCompletionKind(kind: AssignmentActivityRules["completion"]["kind"]): void {
     if (kind === "allCorrect") {
       setPolicies((current) => ({ ...current, completion: { kind } }));
       return;
@@ -263,34 +236,34 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setPolicies((current) => ({ ...current, completion: { kind } }));
       return;
     }
-    const parsed = scoreFractionDraft(runPolicyDraft().completionFraction);
+    const parsed = scoreFractionDraft(activityRuleDraft().completionFraction);
     setPolicies((current) => ({
       ...current,
       completion: { kind, fraction: parsed.value ?? 0.8 },
     }));
   }
 
-  function changeContinuedPracticeKind(kind: RunPolicies["continuedPractice"]["kind"]): void {
+  function changeContinuedPracticeKind(kind: AssignmentActivityRules["continuedPractice"]["kind"]): void {
     if (kind === "unlimited" || kind === "closed") {
       setPolicies((current) => ({ ...current, continuedPractice: { kind } }));
       return;
     }
-    const parsed = nonnegativeIntegerDraft(runPolicyDraft().additionalRuns);
+    const parsed = nonnegativeIntegerDraft(activityRuleDraft().additionalRuns);
     setPolicies((current) => ({
       ...current,
       continuedPractice: { kind, maxAdditionalRuns: parsed.value ?? 3 },
     }));
   }
 
-  function runPolicyFieldError(field: RunPolicyDraftField): string | undefined {
+  function activityRuleFieldError(field: AssignmentActivityRuleDraftField): string | undefined {
     const active =
       (field === "completionFraction" && policies().completion.kind === "scoreAtLeast") ||
       (field === "additionalRuns" && policies().continuedPractice.kind === "capped");
     if (!active) return undefined;
     const parsed =
       field === "completionFraction"
-        ? scoreFractionDraft(runPolicyDraft().completionFraction)
-        : nonnegativeIntegerDraft(runPolicyDraft().additionalRuns);
+        ? scoreFractionDraft(activityRuleDraft().completionFraction)
+        : nonnegativeIntegerDraft(activityRuleDraft().additionalRuns);
     if (!parsed.valid) {
       return field === "completionFraction"
         ? "Enter a decimal from 0 through 1."
@@ -306,7 +279,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       field === "timeLimitSeconds" ? timeLimitSecondsDraft() : attemptLimitDraft(),
     );
     if (!parsed.valid) {
-      return `${field === "timeLimitSeconds" ? "Whole-run seconds" : "Attempt limit"} must be a positive whole number or blank.`;
+      return `${field === "timeLimitSeconds" ? "Whole Assignment Attempt seconds" : "Attempt limit"} must be a positive whole number or blank.`;
     }
     return relevantField(failureField(), field) ? feedback()?.message : undefined;
   }
@@ -315,56 +288,27 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     return relevantField(failureField(), "variation") ? feedback()?.message : undefined;
   }
 
-  function updateVariationPolicy(next: RunPolicies): void {
+  function updateVariationPolicy(next: AssignmentActivityRules): void {
     setPolicies(next);
     clearRecoveredControl("variation");
-  }
-
-  function audienceDescription(): string | undefined {
-    const descriptions = [];
-    if (relevantField(failureField(), "audience")) {
-      descriptions.push("assignment-policies-field-error");
-    }
-    if (
-      audienceDraft().kind === "anyOfGroups" &&
-      (hasEmptyGroupAudience(audienceDraft()) || groupLoadState() === "failed")
-    ) {
-      descriptions.push("assignment-audience-guidance");
-    }
-    return descriptions.length === 0 ? undefined : descriptions.join(" ");
   }
 
   function firstInvalidNumericField(): PolicyFocusTarget | undefined {
     if (
       policies().completion.kind === "scoreAtLeast" &&
-      !scoreFractionDraft(runPolicyDraft().completionFraction).valid
+      !scoreFractionDraft(activityRuleDraft().completionFraction).valid
     ) {
       return "completionFraction";
     }
     if (
       policies().continuedPractice.kind === "capped" &&
-      !nonnegativeIntegerDraft(runPolicyDraft().additionalRuns).valid
+      !nonnegativeIntegerDraft(activityRuleDraft().additionalRuns).valid
     ) {
       return "additionalRuns";
     }
     if (!optionalPositiveIntegerDraft(timeLimitSecondsDraft()).valid) return "timeLimitSeconds";
     if (!optionalPositiveIntegerDraft(attemptLimitDraft()).valid) return "attemptLimit";
     return undefined;
-  }
-
-  function toggleAudienceGroup(reference: string, selected: boolean): void {
-    const current = audienceDraft();
-    const selectedGroups = current.kind === "anyOfGroups" ? current.groups : [];
-    const groups = selected
-      ? [...selectedGroups, reference]
-      : selectedGroups.filter((group) => group !== reference);
-    setAudienceDraft({ kind: "anyOfGroups", groups });
-    if (selected && groups.length > 0) clearRecoveredField("audience");
-  }
-
-  function selectedAudienceGroup(reference: string): boolean {
-    const current = audienceDraft();
-    return current.kind === "anyOfGroups" && current.groups.includes(reference);
   }
 
   async function save(): Promise<void> {
@@ -382,9 +326,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         invalidField === "completionFraction"
           ? "Required score fraction"
           : invalidField === "additionalRuns"
-            ? "Additional runs"
+            ? "Additional Assignment Attempts"
             : invalidField === "timeLimitSeconds"
-              ? "Whole-run seconds"
+              ? "Whole Assignment Attempt seconds"
               : "Attempt limit";
       setFailureField(invalidField);
       setFeedback({
@@ -398,7 +342,6 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     setFailureField(undefined);
     try {
       const input = assignmentPoliciesInput(
-        audienceDraft(),
         disclosurePolicy(),
         policies(),
         teachingSettings(),
@@ -413,10 +356,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setPolicies(saved.policies);
       setDisclosurePolicy(saved.disclosurePolicy);
       setTeachingSettings(saved.teachingSettings);
-      setAudienceDraft(saved.audience);
       setTimeLimitSecondsDraft(numberDraft(saved.teachingSettings.timeLimitSeconds));
       setAttemptLimitDraft(numberDraft(saved.teachingSettings.attemptLimit));
-      setRunPolicyDraft((current) => mergeSavedRunPolicyDraft(current, saved.policies));
+      setActivityRuleDraft((current) => mergeSavedActivityRuleDraft(current, saved.policies));
       setNeedsReload(false);
       setFeedback({
         kind: "success",
@@ -455,10 +397,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setPolicies(latest.policies);
       setDisclosurePolicy(latest.disclosurePolicy);
       setTeachingSettings(latest.teachingSettings);
-      setAudienceDraft(latest.audience);
       setTimeLimitSecondsDraft(numberDraft(latest.teachingSettings.timeLimitSeconds));
       setAttemptLimitDraft(numberDraft(latest.teachingSettings.attemptLimit));
-      setRunPolicyDraft(runPolicyDraftFromPolicies(latest.policies));
+      setActivityRuleDraft(activityRuleDraftFromRules(latest.policies));
       setFailureField(undefined);
       setNeedsReload(false);
       setFeedback({
@@ -486,8 +427,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-policies-heading">Policies</h1>
         <p class="page-lede">
-          Configure how {workspace.assignment().title} opens, runs, and shares feedback with
-          learners. Times use the course wall clock.
+          Configure how {workspace.assignment().title} opens, accepts Assignment Attempts, and shares
+          Student Feedback. Times use the Course wall clock.
         </p>
       </header>
 
@@ -539,21 +480,12 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             type="button"
             disabled={
               needsReload() ||
-              hasEmptyGroupAudience(audienceDraft()) ||
               firstInvalidNumericField() !== undefined
-            }
-            aria-describedby={
-              hasEmptyGroupAudience(audienceDraft()) ? "assignment-audience-guidance" : undefined
             }
             onClick={() => void save()}
           >
             {busy() ? "Saving assignment policies..." : "Save assignment policies"}
           </button>
-          <Show when={hasEmptyGroupAudience(audienceDraft())}>
-            <p class="assignment-editor-note" role="status">
-              Choose one or more course groups before saving this audience.
-            </p>
-          </Show>
           <Show when={needsReload() || assignmentPolicyCanReload(feedback())}>
             <button
               ref={registerReloadButton}
@@ -589,16 +521,16 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
           <AssignmentWorkspacePolicyPanel
             policies={policies}
             disclosurePolicy={disclosurePolicy}
-            runPolicyDraft={runPolicyDraft}
-            runPolicyFieldError={runPolicyFieldError}
+            activityRuleDraft={activityRuleDraft}
+            activityRuleFieldError={activityRuleFieldError}
             variationPolicyError={variationPolicyError}
             onPoliciesChange={setPolicies}
             onVariationChange={updateVariationPolicy}
             onDisclosurePolicyChange={setDisclosurePolicy}
-            onRunPolicyDraftChange={updateRunPolicyDraft}
+            onActivityRuleDraftChange={updateActivityRuleDraft}
             onCompletionKindChange={changeCompletionKind}
             onContinuedPracticeKindChange={changeContinuedPracticeKind}
-            onRegisterRunPolicyControl={(field, element) => controls.set(field, element)}
+            onRegisterActivityRuleControl={(field, element) => controls.set(field, element)}
             onRegisterPolicyControl={(field, element) => controls.set(field, element)}
           />
 
@@ -617,7 +549,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             <p class="assignment-editor-note">Course time zone: {teachingSettings().timeZone}.</p>
 
             <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--lifecycle">
-              <legend>Lifecycle and learner instructions</legend>
+              <legend>Lifecycle and Student instructions</legend>
               <label class="assignment-editor-field">
                 Lifecycle
                 <select
@@ -637,7 +569,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 </select>
               </label>
               <label class="assignment-editor-field">
-                Learner instructions
+                Student instructions
                 <textarea
                   ref={(element) => controls.set("instructions", element)}
                   rows="4"
@@ -707,7 +639,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 />
               </label>
               <label class="assignment-editor-field">
-                Whole-run seconds
+                Whole Assignment Attempt seconds
                 <input
                   type="number"
                   ref={(element) => controls.set("timeLimitSeconds", element)}
@@ -781,125 +713,6 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               </p>
             </fieldset>
 
-            <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--audience">
-              <legend>Learner audience</legend>
-              <div
-                class="assignment-workspace-audience-choices"
-                role="radiogroup"
-                aria-label="Learner audience"
-                aria-required={audienceDraft().kind === "anyOfGroups"}
-                aria-describedby={audienceDescription()}
-              >
-                <label class="assignment-editor-field assignment-workspace-choice">
-                  <input
-                    type="radio"
-                    name="assignment-audience"
-                    checked={audienceDraft().kind === "courseWide"}
-                    onChange={() => {
-                      setAudienceDraft({ kind: "courseWide" });
-                      clearRecoveredField("audience");
-                    }}
-                  />
-                  Every enrolled learner in this course
-                </label>
-                <label class="assignment-editor-field assignment-workspace-choice">
-                  <input
-                    type="radio"
-                    ref={(element) => controls.set("audience", element)}
-                    name="assignment-audience"
-                    checked={audienceDraft().kind === "anyOfGroups"}
-                    aria-invalid={
-                      hasEmptyGroupAudience(audienceDraft()) ||
-                      relevantField(failureField(), "audience")
-                    }
-                    aria-describedby={audienceDescription()}
-                    onChange={() => {
-                      if (audienceDraft().kind === "courseWide") {
-                        setAudienceDraft({ kind: "anyOfGroups", groups: [] });
-                      }
-                    }}
-                  />
-                  Members of one or more course groups
-                </label>
-              </div>
-              <Show when={audienceDraft().kind === "anyOfGroups"}>
-                <div
-                  class="assignment-workspace-group-choices"
-                  aria-label="Assignment groups"
-                  aria-describedby={audienceDescription()}
-                >
-                  <Show when={hasEmptyGroupAudience(audienceDraft())}>
-                    <p
-                      id="assignment-audience-guidance"
-                      class="assignment-editor-note"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      Choose one or more course groups for this audience.
-                    </p>
-                  </Show>
-                  <Show when={groupLoadState() === "failed"}>
-                    <p
-                      id={
-                        hasEmptyGroupAudience(audienceDraft())
-                          ? undefined
-                          : "assignment-audience-guidance"
-                      }
-                      class="assignment-editor-note"
-                      role="alert"
-                    >
-                      Course groups could not load. Retry course groups to choose this audience.
-                    </p>
-                    <button type="button" onClick={() => void loadGroups()}>
-                      Retry course groups
-                    </button>
-                    <A
-                      class="quiet-link"
-                      href={`/instructor/courses/${workspace.courseReference}/teaching-operations`}
-                    >
-                      Open Students and groups
-                    </A>
-                  </Show>
-                  <Show when={groupLoadState() === "loading"}>
-                    <p class="assignment-editor-note" role="status">
-                      Loading course groups...
-                    </p>
-                  </Show>
-                  <Show
-                    when={groupLoadState() === "ready" && groups().length > 0}
-                    fallback={
-                      <Show when={groupLoadState() === "ready"}>
-                        <p class="assignment-editor-note">
-                          No course groups are available yet. Create a group in Students and groups,
-                          or choose the course-wide audience.
-                        </p>
-                        <A
-                          class="quiet-link"
-                          href={`/instructor/courses/${workspace.courseReference}/teaching-operations`}
-                        >
-                          Open Students and groups
-                        </A>
-                      </Show>
-                    }
-                  >
-                    <For each={groups()}>
-                      {(group) => (
-                        <label class="assignment-workspace-choice">
-                          <input
-                            type="checkbox"
-                            checked={selectedAudienceGroup(group.reference)}
-                            onChange={(event) =>
-                              toggleAudienceGroup(group.reference, event.currentTarget.checked)
-                            }
-                          />
-                          {group.title}
-                        </label>
-                      )}
-                    </For>
-                  </Show>
-                </div>
-              </Show>
-            </fieldset>
           </section>
         </div>
       </fieldset>

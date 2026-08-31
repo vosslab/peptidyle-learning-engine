@@ -1,6 +1,6 @@
 //! Browser-safe reusable BlueprintCourse definitions and answer-free views.
 //!
-//! A reusable definition has no course, learner, version, or server-private
+//! A reusable definition has no course, student, version, or server-private
 //! identity. The Store resolves its public Question IDs to exact publication
 //! pins before persistence. Browser views deliberately keep the same ordered
 //! shape while substituting current answer-free catalog discovery rows.
@@ -18,7 +18,7 @@ use crate::{
     MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
     MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES,
     MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, QuestionId,
-    RunPolicies, SelectionOrdering, StudentDisclosurePolicy,
+    AssignmentActivityRules, SelectionOrdering, StudentDisclosurePolicy,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
@@ -124,7 +124,7 @@ pub struct RelativeScheduleMoment {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct RelativeAssignmentSchedule {
-    /// First local moment when learners may open a future copied assignment.
+    /// First local moment when students may open a future copied assignment.
     pub available_at: Option<RelativeScheduleMoment>,
     /// Ordinary local due moment for a future copied assignment.
     pub due_at: Option<RelativeScheduleMoment>,
@@ -167,7 +167,7 @@ pub struct ReusableAssignmentDefaults {
     /// Server deadline action copied into the future assignment policy.
     pub deadline_behavior: AssignmentDeadlineBehavior,
     /// Independent run behavior copied into the future assignment policy.
-    pub run_policies: RunPolicies,
+    pub activity_rules: AssignmentActivityRules,
     /// Student-release policy copied into the future assignment policy.
     #[serde(rename = "student_disclosure")]
     pub student_disclosure: StudentDisclosurePolicy,
@@ -255,7 +255,7 @@ pub enum ReusableAssignmentEntryInput {
 pub struct ReusableAssignmentDefinitionInput {
     /// Instructor-facing title copied into future assignment definitions.
     pub title: String,
-    /// Learner-facing instructions copied into future assignment definitions.
+    /// Student-facing instructions copied into future assignment definitions.
     pub instructions: AssignmentInstructions,
     /// Fixed items and pools in authored order.
     pub entries: Vec<ReusableAssignmentEntryInput>,
@@ -359,7 +359,7 @@ pub enum ReusableAssignmentEntryView {
 pub struct ReusableAssignmentDefinitionView {
     /// Instructor-facing title copied into future assignment definitions.
     pub title: String,
-    /// Learner-facing instructions copied into future assignment definitions.
+    /// Student-facing instructions copied into future assignment definitions.
     pub instructions: AssignmentInstructions,
     /// Fixed items and pools in retained authored order.
     pub entries: Vec<ReusableAssignmentEntryView>,
@@ -553,9 +553,9 @@ mod tests {
     use super::*;
     use crate::taxonomy::License;
     use crate::{
-        ActivityTimestamp, BackendCapabilities, CatalogDiscoveryEvidence, CatalogLifecycle,
+        ActivityTimestamp, BackendCapabilities, CatalogDiscoveryEvidence, QuestionVersionAvailability,
         CatalogProblemSummary, CatalogResponseFamily, PublicAuthorName, PublicByline,
-        PublicationScope, QuestionBackend, QuestionMetadata,
+        QuestionBackend, QuestionMetadata,
     };
     use uuid::Uuid;
 
@@ -577,7 +577,7 @@ mod tests {
             attempt_limit: None,
             late_submission: LateSubmissionPolicy::Accept,
             deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-            run_policies: RunPolicies {
+            activity_rules: AssignmentActivityRules {
                 completion: crate::CompletionRequirement::AnswerAll,
                 grade: crate::GradePolicy::Highest,
                 continued_practice: crate::ContinuedPractice::Unlimited,
@@ -632,8 +632,7 @@ mod tests {
                     PublicAuthorName::new("Ada Lovelace".to_string()).expect("valid byline"),
                 ])
                 .expect("valid byline"),
-                scope: PublicationScope::Public,
-                lifecycle: CatalogLifecycle::Published,
+                availability: QuestionVersionAvailability::Available,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
             evidence: CatalogDiscoveryEvidence::InsufficientEvidence,
@@ -815,7 +814,7 @@ mod blueprint_course_tests {
                         attempt_limit: None,
                         late_submission: LateSubmissionPolicy::Accept,
                         deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-                        run_policies: RunPolicies {
+                        activity_rules: AssignmentActivityRules {
                             completion: crate::CompletionRequirement::AnswerAll,
                             grade: crate::GradePolicy::Highest,
                             continued_practice: crate::ContinuedPractice::Unlimited,
@@ -831,7 +830,7 @@ mod blueprint_course_tests {
         let wire = serde_json::to_value(&input).expect("serializes");
         assert!(wire.get("modules").is_some());
         assert!(wire.to_string().contains("question_id"));
-        assert!(!wire.to_string().contains("ProblemVersionRef"));
+        assert!(!wire.to_string().contains("QuestionVersionReference"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
         assert!(serde_json::from_value::<CreateBlueprintCourseDefinitionInput>(forged).is_err());
@@ -866,7 +865,7 @@ mod blueprint_course_tests {
                 attempt_limit: None,
                 late_submission: LateSubmissionPolicy::Accept,
                 deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-                run_policies: RunPolicies {
+                activity_rules: AssignmentActivityRules {
                     completion: crate::CompletionRequirement::AnswerAll,
                     grade: crate::GradePolicy::Highest,
                     continued_practice: crate::ContinuedPractice::Unlimited,

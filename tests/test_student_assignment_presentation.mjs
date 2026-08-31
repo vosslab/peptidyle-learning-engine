@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  formatAssignmentRunTimeLimit,
+  formatAssignmentAttemptTimeLimit,
   toStudentAssignmentPresentationData,
 } from "../src/components/student_assignment_presentation.tsx";
 
@@ -67,7 +67,7 @@ test("Instructor Student view keeps its explicit variation and disclosure data",
   assert.equal("lateStatus" in presentation.delivery, false);
 });
 
-test("run-time copy stays readable across minute, hour, and second limits", () => {
-  assert.equal(formatAssignmentRunTimeLimit(3_600), "1 hour per run");
-  assert.equal(formatAssignmentRunTimeLimit(90), "90 seconds per run");
+test("attempt-time copy stays readable across minute, hour, and second limits", () => {
+  assert.equal(formatAssignmentAttemptTimeLimit(3_600), "1 hour per attempt");
+  assert.equal(formatAssignmentAttemptTimeLimit(90), "90 seconds per attempt");
 });

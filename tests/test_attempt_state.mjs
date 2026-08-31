@@ -1,4 +1,4 @@
-// test_attempt_state.mjs - permanent behavior checks for learner attempt recovery semantics.
+// test_attempt_state.mjs - permanent behavior checks for student attempt recovery semantics.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -47,7 +47,7 @@ function receipt() {
     },
     feedback: null,
     scoringStatus: "current",
-    runCompletionStatus: "inProgress",
+    assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
   };
@@ -689,7 +689,7 @@ test("storage exceptions retain accepted state without exposing a raw receipt", 
   assert.deepEqual(state.acknowledgement, {
     accepted: true,
     attemptId: "attempt-a",
-    runCompletionStatus: "inProgress",
+    assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
     scoringStatus: "current",

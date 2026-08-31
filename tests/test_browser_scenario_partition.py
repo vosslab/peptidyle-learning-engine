@@ -12,22 +12,17 @@ import e2e_browser_scenario_contract
 import e2e_browser_scenario_partition
 
 
-def test_fault_contract_owns_a_fresh_profile_group() -> None:
-	"""The deterministic exception journey cannot share ordinary browser state."""
+def test_selected_contracts_share_the_canonical_browser_profile() -> None:
+	"""Gateway recovery and ordinary journeys use the one browser topology."""
 	registry = e2e_browser_scenario_contract.scenario_contracts()
-	fault = e2e_browser_scenario_contract.require_contract(
-		"automated_grading_recovery", registry
-	)
 	ordinary = e2e_browser_scenario_contract.require_contract("learner_delivery", registry)
-	groups = e2e_browser_scenario_partition.partition((ordinary, fault))
-	assert tuple(group.profile.value for group in groups) == (
-		"browser", "automated_grading_fault"
-	)
-	assert groups[1].contracts == (fault,)
+	recovery = e2e_browser_scenario_contract.require_contract("learner_gateway_recovery", registry)
+	groups = e2e_browser_scenario_partition.partition((ordinary, recovery))
+	assert tuple(group.profile.value for group in groups) == ("browser",)
+	assert groups[0].contracts == (ordinary, recovery)
 
 
-def test_fault_group_rejects_multiple_deterministic_exception_journeys() -> None:
-	"""One single-use fault worker remains bound to one selected scenario."""
-	fault = e2e_browser_scenario_contract.require_contract("automated_grading_recovery")
-	with pytest.raises(e2e_browser_scenario_partition.ScenarioPartitionError, match="exactly one"):
-		e2e_browser_scenario_partition.partition((fault, fault))
+def test_empty_selection_is_rejected() -> None:
+	"""A browser run always names at least one catalog-owned scenario."""
+	with pytest.raises(e2e_browser_scenario_partition.ScenarioPartitionError, match="empty"):
+		e2e_browser_scenario_partition.partition(())

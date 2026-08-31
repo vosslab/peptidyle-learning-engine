@@ -28,10 +28,9 @@ export interface RouteContract {
     | "signIn"
     | "courseRoster"
     | "teachingOperations"
-    | "curriculumAdoption"
     | "assignmentAccess"
     | "assignmentPreview"
-    | "pendingCoInstructorInvitations";
+    | "pendingCourseInvitations";
   readonly path: string;
   readonly surface: string;
   /** Role gate for the route; each route declares the real roles it serves. */
@@ -53,7 +52,7 @@ export const ROUTE_CONTRACT = [
     requiredRoles: [],
   },
   {
-    id: "pendingCoInstructorInvitations",
+    id: "pendingCourseInvitations",
     path: "/account/co-instructor-invitations",
     surface: "Account-owned pending co-instructor invitations",
     requiredRoles: [],
@@ -97,7 +96,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "curriculum",
     path: "/curriculum",
-    surface: "Reusable blueprint and public Alpha curriculum workspace",
+    surface: "Blueprint Course workspace",
     requiredRoles: ["instructor"],
   },
   {
@@ -201,12 +200,6 @@ export const ROUTE_CONTRACT = [
     id: "teachingOperations",
     path: "/instructor/courses/:courseRef/teaching-operations",
     surface: "Course teaching operations hub",
-    requiredRoles: ["instructor", "sysadmin"],
-  },
-  {
-    id: "curriculumAdoption",
-    path: "/instructor/courses/:courseRef/curriculum",
-    surface: "Instructor curriculum adoption, rollover, schedule shift, and import evidence",
     requiredRoles: ["instructor", "sysadmin"],
   },
 ] as const satisfies ReadonlyArray<RouteContract>;

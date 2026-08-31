@@ -40,12 +40,12 @@ isolated baseline.
 ## Required evidence now present
 
 - The focused server test creates two existing assignments, concurrently
-  activates the configured learner, proves a single redacted local-development
+  activates the configured student, proves a single redacted local-development
   member, checks unknown/nonmanager refusal and conflict rollback, and observes
   both assignment rows (`crates/server/src/course/tests/roster.rs:396-628`).
 - The ignored live PostgreSQL test seeds two existing assignments before
   activation; concurrent requests yield exactly one student membership, two
-  learner enrollments for those assignment IDs, and two joined summary rows. It
+  student enrollments for those assignment IDs, and two joined summary rows. It
   also covers source/null fields, manager/nonmanager/foreign boundaries, and
   rollback of conflict side effects
   (`crates/learning-data-access/tests/postgres_enrollment_live.rs:414-620`).

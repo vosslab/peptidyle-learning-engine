@@ -1,26 +1,26 @@
-// Strict same-origin browser transport for D2 Favorites, collections, and saved searches.
+// Strict same-origin browser transport for private Question Collections and saved searches.
 
-import type { ProblemCollectionReference } from "../../../generated/api/ProblemCollectionReference";
-import type { ProblemCollectionSummaryView } from "../../../generated/api/ProblemCollectionSummaryView";
+import type { QuestionCollectionReference } from "../../../generated/api/QuestionCollectionReference";
+import type { QuestionCollectionSummaryView } from "../../../generated/api/QuestionCollectionSummaryView";
 import type { SavedProblemSearchReference } from "../../../generated/api/SavedProblemSearchReference";
 import type { SavedProblemSearchView } from "../../../generated/api/SavedProblemSearchView";
 import type { ApiClient } from "../client";
 import {
-  type CreateProblemCollectionRequest,
-  type ProblemCollectionMembersPage,
-  type ProblemCollectionReplaceRequest,
+  type CreateQuestionCollectionRequest,
+  type QuestionCollectionMembersPage,
+  type QuestionCollectionReplaceRequest,
   type ProblemCurationClient,
   type ProblemCurationEtag,
-  type RevisionedProblemCollection,
+  type RevisionedQuestionCollection,
   type RevisionedSavedProblemSearch,
   type SavedProblemSearchReplaceRequest,
 } from "../problem_curation";
 import {
-  decodeProblemCollectionMemberPage,
-  decodeProblemCollectionPage,
-  decodeProblemCollectionReference,
-  decodeProblemCollectionSummaryView,
-  decodeProblemCollectionQuestionIds,
+  decodeQuestionCollectionMemberPage,
+  decodeQuestionCollectionPage,
+  decodeQuestionCollectionReference,
+  decodeQuestionCollectionSummaryView,
+  decodeQuestionCollectionQuestionIds,
   decodeProblemCurationTitle,
   decodeSavedProblemSearchFilter,
   decodeSavedProblemSearchReference,
@@ -48,9 +48,9 @@ function pagePath(path: string, cursor: string | undefined, pageSize: number | u
   return `${path}${suffix}`;
 }
 
-function collectionPath(collection: ProblemCollectionReference): string {
-  const reference = decodeProblemCollectionReference(collection, "collection");
-  return `/api/problem-collections/${encodeURIComponent(reference)}`;
+function collectionPath(collection: QuestionCollectionReference): string {
+  const reference = decodeQuestionCollectionReference(collection, "collection");
+  return `/api/question-collections/${encodeURIComponent(reference)}`;
 }
 
 function savedSearchPath(search: SavedProblemSearchReference): string {
@@ -67,12 +67,12 @@ function parseStrongEtag(value: string, path: string): string {
 
 function requireMatchingEtag(
   response: Response,
-  revision: string,
+  editNumber: string,
   path: string,
 ): ProblemCurationEtag {
   const etag = response.headers.get("etag");
-  if (etag === null || parseStrongEtag(etag, path) !== `"${revision}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its revision`);
+  if (etag === null || parseStrongEtag(etag, path) !== `"${editNumber}"`) {
+    throw new ApiProtocolError(`API response ${path} ETag must match its edit number`);
   }
   return etag;
 }
@@ -82,36 +82,28 @@ function requestRevision(value: ProblemCurationEtag, path: string): string {
 }
 
 function collectionRequest(
-  request: ProblemCollectionReplaceRequest,
-  path: string,
-): { title?: string; visibility?: "private" | "institution"; questionIds: Array<string> } {
+  request: QuestionCollectionReplaceRequest,
+  _path: string,
+): { title?: string; questionIds: Array<string> } {
   const decoded: {
     title?: string;
-    visibility?: "private" | "institution";
     questionIds: Array<string>;
   } = {
-    questionIds: decodeProblemCollectionQuestionIds(request.questionIds, "request.questionIds"),
+    questionIds: decodeQuestionCollectionQuestionIds(request.questionIds, "request.questionIds"),
   };
   if (request.title !== undefined) decoded.title = decodeProblemCurationTitle(request.title);
-  if (request.visibility !== undefined) {
-    if (request.visibility !== "private" && request.visibility !== "institution") {
-      throw new ApiProtocolError(`${path} collection visibility must be private or institution`);
-    }
-    decoded.visibility = request.visibility;
-  }
   return decoded;
 }
 
-function createCollectionRequest(request: CreateProblemCollectionRequest): {
+function createCollectionRequest(request: CreateQuestionCollectionRequest): {
   title: string;
-  visibility: "private" | "institution";
   questionIds: Array<string>;
 } {
-  const decoded = collectionRequest(request, "/api/problem-collections");
-  if (decoded.title === undefined || decoded.visibility === undefined) {
-    throw new ApiProtocolError("new named collections require a title and sharing choice");
+  const decoded = collectionRequest(request, "/api/question-collections");
+  if (decoded.title === undefined) {
+    throw new ApiProtocolError("new named collections require a title");
   }
-  return { title: decoded.title, visibility: decoded.visibility, questionIds: decoded.questionIds };
+  return { title: decoded.title, questionIds: decoded.questionIds };
 }
 
 function savedSearchRequest(request: SavedProblemSearchReplaceRequest): {
@@ -171,12 +163,12 @@ async function deleteCuration(
 }
 
 function revisionedCollection(
-  result: { readonly body: ProblemCollectionSummaryView; readonly response: Response },
+  result: { readonly body: QuestionCollectionSummaryView; readonly response: Response },
   path: string,
-): RevisionedProblemCollection {
+): RevisionedQuestionCollection {
   return {
     collection: result.body,
-    etag: requireMatchingEtag(result.response, result.body.revision, path),
+    etag: requireMatchingEtag(result.response, result.body.editNumber, path),
   };
 }
 
@@ -186,7 +178,7 @@ function revisionedSavedSearch(
 ): RevisionedSavedProblemSearch {
   return {
     search: result.body,
-    etag: requireMatchingEtag(result.response, result.body.revision, path),
+    etag: requireMatchingEtag(result.response, result.body.editNumber, path),
   };
 }
 
@@ -196,66 +188,55 @@ export function createProblemCurationClient(
   basePath: string,
 ): Pick<ApiClient, keyof ProblemCurationClient> {
   return {
-    listProblemCollections: async (
+    listQuestionCollections: async (
       cursor,
       pageSize,
-    ): Promise<CursorPage<ProblemCollectionSummaryView>> => {
-      const path = pagePath("/api/problem-collections", cursor, pageSize);
+    ): Promise<CursorPage<QuestionCollectionSummaryView>> => {
+      const path = pagePath("/api/question-collections", cursor, pageSize);
       const result = await curationJson(
         fetchImplementation,
         basePath,
         path,
-        decodeProblemCollectionPage,
+        decodeQuestionCollectionPage,
       );
       return result.body;
     },
-    getProblemCollection: async (collection): Promise<RevisionedProblemCollection> => {
+    getQuestionCollection: async (collection): Promise<RevisionedQuestionCollection> => {
       const path = collectionPath(collection);
       const result = await curationJson(
         fetchImplementation,
         basePath,
         path,
-        decodeProblemCollectionSummaryView,
+        decodeQuestionCollectionSummaryView,
       );
       return revisionedCollection(result, path);
     },
-    ensureFavorites: async (): Promise<RevisionedProblemCollection> => {
-      const path = "/api/problem-collections/favorites";
-      const result = await curationJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeProblemCollectionSummaryView,
-        { method: "POST", expectedStatus: 200 },
-      );
-      return revisionedCollection(result, path);
-    },
-    listProblemCollectionMembers: async (
+    listQuestionCollectionMembers: async (
       collection,
       cursor,
       pageSize,
-    ): Promise<ProblemCollectionMembersPage> => {
+    ): Promise<QuestionCollectionMembersPage> => {
       const path = pagePath(`${collectionPath(collection)}/members`, cursor, pageSize);
       const result = await curationJson(
         fetchImplementation,
         basePath,
         path,
-        decodeProblemCollectionMemberPage,
+        decodeQuestionCollectionMemberPage,
       );
       const etag = result.response.headers.get("etag");
       if (etag === null)
         throw new ApiProtocolError(
-          `API response ${path} must include the collection revision ETag`,
+          `API response ${path} must include the collection edit-number ETag`,
         );
       return { page: result.body, etag: parseStrongEtag(etag, path) };
     },
-    createProblemCollection: async (request): Promise<RevisionedProblemCollection> => {
-      const path = "/api/problem-collections";
+    createQuestionCollection: async (request): Promise<RevisionedQuestionCollection> => {
+      const path = "/api/question-collections";
       const result = await curationJson(
         fetchImplementation,
         basePath,
         path,
-        decodeProblemCollectionSummaryView,
+        decodeQuestionCollectionSummaryView,
         {
           method: "POST",
           body: createCollectionRequest(request),
@@ -264,17 +245,17 @@ export function createProblemCurationClient(
       );
       return revisionedCollection(result, path);
     },
-    replaceProblemCollection: async (
+    replaceQuestionCollection: async (
       collection,
       request,
       etag,
-    ): Promise<RevisionedProblemCollection> => {
+    ): Promise<RevisionedQuestionCollection> => {
       const path = collectionPath(collection);
       const result = await curationJson(
         fetchImplementation,
         basePath,
         path,
-        decodeProblemCollectionSummaryView,
+        decodeQuestionCollectionSummaryView,
         {
           method: "PUT",
           body: collectionRequest(request, path),
@@ -284,23 +265,7 @@ export function createProblemCurationClient(
       );
       return revisionedCollection(result, path);
     },
-    replaceFavorites: async (request, etag): Promise<RevisionedProblemCollection> => {
-      const path = "/api/problem-collections/favorites";
-      const result = await curationJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeProblemCollectionSummaryView,
-        {
-          method: "PUT",
-          body: collectionRequest(request, path),
-          etag,
-          expectedStatus: 200,
-        },
-      );
-      return revisionedCollection(result, path);
-    },
-    deleteProblemCollection: (collection, etag): Promise<void> =>
+    deleteQuestionCollection: (collection, etag): Promise<void> =>
       deleteCuration(fetchImplementation, basePath, collectionPath(collection), etag),
     listSavedProblemSearches: async (
       cursor,

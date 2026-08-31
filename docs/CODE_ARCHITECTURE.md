@@ -14,7 +14,7 @@ The course model has one reusable source aggregate and one delivery aggregate:
 BlueprintCourse (reusable, revisioned, answer-free source)
   +- ordered BlueprintModule
      \`- ordered BlueprintAssignment
-        \`- exact published ProblemVersionRef pins
+        \`- exact published QuestionVersionReference pins
 
 CourseInstance (private teaching aggregate)
   +- immutable BlueprintCourse parent and applied revision
@@ -26,7 +26,7 @@ CourseInstance (private teaching aggregate)
 grades, or delivery settings. Drafts are private to their owner and authorized
 workspace collaborators. An explicitly published projection is visible and
 reusable by every vetted Instructor. `CourseInstance` is private to its
-current equal co-Instructors and enrolled Students. Every instance has exactly
+current equal Teaching Team Members and enrolled Students. Every instance has exactly
 one immutable Blueprint parent and records the applied Blueprint revision.
 
 The former product-level Alpha/Blueprint split is not part of this architecture.
@@ -100,7 +100,7 @@ assignment. Rollover and term shift are separate CourseInstance operations.
 | Domain | `crates/domain/` | Pure timing, policy, disclosure, run, scoring, generation, and validation behavior without database or wall-clock reads. |
 | Grading | `crates/grading/` | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure. |
 | Store contracts | `crates/learning-data-access/src/contracts/` | `ReusableCurriculumStore` for BlueprintCourse and `CurriculumAdoptionStore` for source-to-instance operations. |
-| Memory Store | `crates/learning-data-access/src/in_memory/` | Deterministic conformance implementation for reusable courses and adoption; no production selection path. |
+| Retired Memory seam | `crates/learning-data-access/src/in_memory/` | Unmounted legacy source being removed during the direct PostgreSQL cutover; it is not a Store implementation or a production selection path. |
 | PostgreSQL Store | `crates/learning-data-access/src/postgres/` | Production persistence, transaction locks, source re-resolution, broker calls, and RLS-backed projections. |
 | Server | `crates/server/src/` | Authentication, preflight, route binding, HTTP policy, Store composition, worker composition, and answer-free response assembly. |
 | Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited. |
@@ -153,7 +153,7 @@ Instructor creates or edits BlueprintCourse
   -> CurriculumAdoptionStore previews target CourseInstance materialization
   -> server resolves term/zone and DST corrections
   -> atomic apply binds one Blueprint revision to one CourseId
-  -> CourseInstance owns delivery, learner records, release, and grading state
+  -> CourseInstance owns delivery, student records, release, and grading state
 ```
 
 The picker selects a nested Blueprint assignment by typed reference plus module

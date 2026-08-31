@@ -26,50 +26,6 @@ function createTeachingFetch(handler) {
   };
 }
 
-test("course-group creation requires 201, matching strong ETag, and safe Location", async () => {
-  const client = createHttpApiClient({
-    fetch: createTeachingFetch(async (request) => {
-      assert.equal(request.method, "POST");
-      assert.equal(
-        await request.text(),
-        '{"title":"Section A","purpose":"section","members":["M-1"]}',
-      );
-      return jsonResponse(
-        { reference: "G-1", title: "Section A", purpose: "section", revision: "2", memberCount: 1 },
-        201,
-        {
-          etag: '"2"',
-          location: `/api/courses/${course}/groups/G-1`,
-        },
-      );
-    }),
-  });
-
-  const created = await client.createCourseGroup(course, {
-    title: "Section A",
-    purpose: "section",
-    members: ["M-1"],
-  });
-  assert.equal(created.reference, "G-1");
-  assert.equal(created.revision, "2");
-});
-
-test("M2 mutation sends canonical If-Match and rejects an ETag mismatch", async () => {
-  const client = createHttpApiClient({
-    fetch: createTeachingFetch(async (request) => {
-      assert.equal(request.method, "PUT");
-      assert.equal(request.headers.get("if-match"), '"7"');
-      assert.equal(await request.text(), '{"offsetSeconds":3600}');
-      return jsonResponse({ revision: "8" }, 200, { etag: '"9"' });
-    }),
-  });
-
-  await assert.rejects(
-    client.putGroupScheduleOffset(course, assignment, "G-1", { offsetSeconds: 3600 }, "7"),
-    ApiProtocolError,
-  );
-});
-
 test("retention uses generated responses and keeps non-successes coarse", async () => {
   const client = createHttpApiClient({
     fetch: createTeachingFetch(async (request) => {
@@ -115,13 +71,13 @@ test("safe picker reads percent-encode pagination and decode only bounded projec
       assert.equal(url.pathname, `/api/courses/${course}/student-targets`);
       assert.equal(url.search, "?after=2%2Fnext&size=1");
       return jsonResponse({
-        students: [{ reference: "M-1", display: "Learner One", role: "student", status: "active" }],
+        students: [{ reference: "M-1", display: "Student One", role: "student", status: "active" }],
         nextCursor: null,
       });
     }),
   });
 
-  const targets = await client.searchCourseCoInstructorTargets(course, "Dr. A&B", "cursor/one", 2);
+  const targets = await client.searchCourseCourseInvitationTargets(course, "Dr. A&B", "cursor/one", 2);
   assert.equal(targets.targets[0]?.account.reference, "U-1");
   const students = await client.listCourseStudentTargets(course, "2/next", 1);
   assert.equal(students.students[0]?.reference, "M-1");

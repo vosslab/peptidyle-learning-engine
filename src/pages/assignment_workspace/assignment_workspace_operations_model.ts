@@ -85,8 +85,8 @@ export function gradingOperationsGroupLabel(row: InstructorGradingOperationRow):
   switch (row.group.kind) {
     case "question":
       return `Question: ${row.group.title}`;
-    case "learner":
-      return `Learner: ${row.group.displayName}`;
+    case "student":
+      return `Student: ${row.group.displayName}`;
     case "assignment":
       return "Entire assignment";
   }
@@ -128,8 +128,8 @@ export function gradingOperationsStateLabel(row: InstructorGradingOperationRow):
   }
 }
 
-export function gradingOperationsAffectedLearnersLabel(count: number): string {
-  return count === 1 ? "1 affected learner" : `${count} affected learners`;
+export function gradingOperationsAffectedStudentsLabel(count: number): string {
+  return count === 1 ? "1 affected Student" : `${count} affected Students`;
 }
 
 export function gradingOperationsTrustGenerationLabel(row: InstructorGradingOperationRow): string {
@@ -141,7 +141,7 @@ export function gradingOperationsRetryLabel(row: InstructorGradingOperationRow):
   switch (row.group.kind) {
     case "question":
       return `Retry automated grading for ${row.group.title} (${row.group.questionId})`;
-    case "learner":
+    case "student":
       return `Retry automated grading for ${row.group.displayName}`;
     case "assignment":
       return "Retry automated grading for this assignment";

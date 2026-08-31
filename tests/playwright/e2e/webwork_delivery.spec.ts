@@ -1,4 +1,4 @@
-// Connected WebWork delivery proof. All teaching and learner state uses the visible PLE UI.
+// Connected WebWork delivery proof. All teaching and student state uses the visible PLE UI.
 //
 // Selector contract:
 // - src/pages/library_page.tsx:117 owns published-question search, cards, and question IDs.
@@ -6,7 +6,7 @@
 //   course creation and the title-first assignment workflow.
 // - src/pages/course_roster_page.tsx:423 owns student invitation fields and the invitation link.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
-//   learner claiming and practice entry.
+//   student claiming and practice entry.
 // - src/pages/run_page.tsx:442 and src/components/responses/common.tsx:294 own run visibility,
 //   answer controls, feedback, and completion navigation.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -84,8 +84,8 @@ async function createCourseAssignmentAndInvitation(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
-  await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill(`mary-${scenarioNamespace}`);
+  await page.getByLabel("Course roster email").fill(maryEmail);
+  await page.getByLabel("Course roster ID").fill(`mary-${scenarioNamespace}`);
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();

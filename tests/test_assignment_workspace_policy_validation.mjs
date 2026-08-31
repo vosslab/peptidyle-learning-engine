@@ -16,7 +16,6 @@ import { jsonResponse } from "./http_client_test_support.mjs";
 const course = "0198e000-0000-7000-8000-000000000001";
 const assignment = "0198e000-0000-7000-8000-000000000002";
 const input = {
-  audience: { kind: "courseWide" },
   disclosurePolicy: {
     score: "after_submit",
     per_item_correctness: "after_submit",
@@ -79,7 +78,7 @@ test("Policies validation decoder accepts only the closed bounded envelope", () 
     () =>
       decodeAssignmentPoliciesValidationFailure({
         ...validationFailure,
-        issues: [{ kind: "audience", reason: "futureAudienceRule" }],
+        issues: [{ kind: "futurePolicyRule" }],
       }),
     DecodeError,
   );

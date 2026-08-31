@@ -12,7 +12,7 @@ test("curation deletion presents one named dialog with Cancel as the initial act
     kind: "named",
     title: "Exam candidates",
     visibility: "private",
-    revision: "7",
+    editNumber: "7",
     access: "owner",
   });
   const presentation = problemCurationConfirmationPresentation(deletion);

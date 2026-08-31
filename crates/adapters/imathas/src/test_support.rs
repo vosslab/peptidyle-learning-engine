@@ -31,7 +31,7 @@ use crate::{
 pub enum RecordedProviderMode {
     /// Return a deterministic correct grade after exact request binding.
     Verified,
-    /// Inject a provider outage without fabricating learner correctness.
+    /// Inject a provider outage without fabricating student correctness.
     Unavailable,
     /// Inject a bounded provider timeout.
     Timeout,
@@ -144,8 +144,7 @@ impl ImathasProvider for RecordedImathasProvider {
             },
             crate::GradeBinding {
                 attempt: request.attempt(),
-                problem: request.problem(),
-                version: request.version(),
+                question_version: request.question_version().clone(),
                 seed: request.seed(),
             },
             request.correlation(),
@@ -174,7 +173,7 @@ pub enum RecordedContractedTransportMode {
     /// This is only available behind this crate's `test-support` feature.
     Verified,
     /// Launch succeeds but server-to-server result retrieval is unavailable.
-    /// It proves an upstream failure never manufactures a learner grade.
+    /// It proves an upstream failure never manufactures a student grade.
     ResultUnavailable,
     Unavailable,
 }
@@ -210,7 +209,7 @@ impl RecordedContractedTransportFactory {
 
     /// Builds the bounded provider together with a cloned, counter-only
     /// transport handle for server acceptance tests. The handle exposes no
-    /// provider endpoint, launch session, signed result, or learner input.
+    /// provider endpoint, launch session, signed result, or student input.
     pub fn contracted_provider_with_transport(
         self,
     ) -> (
@@ -220,7 +219,7 @@ impl RecordedContractedTransportFactory {
         let transport = self.build();
         let provider = ContractedScoredEmbedProvider::new(
             ContractedScoredEmbedConfig::new(
-                ScoredEmbedProfileConfig::contracted_self_hosted("institution-imathas", true, true)
+                ScoredEmbedProfileConfig::contracted_self_hosted("self-hosted-imathas", true, true)
                     .expect("recorded contracted profile"),
                 b"recorded-launch-secret",
                 b"recorded-result-secret",

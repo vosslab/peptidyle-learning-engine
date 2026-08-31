@@ -1,15 +1,18 @@
 //! Score selection and compact summary projection (MOD-SCORE).
 //!
-//! `score` selects a completed run for reconciliation and explicit instructor
+//! `select_assignment_attempt_grade` selects a completed Assignment Attempt for
+//! reconciliation and explicit instructor
 //! actions. `project_summary` updates the ordinary course-page projection one
-//! transition at a time, so storage never scans run or attempt history on a
+//! transition at a time, so storage never scans Assignment Attempt history on a
 //! synchronous page request. Both functions are pure.
 
 use std::collections::HashSet;
 
-use question_model::{ActivityTimestamp, GradePolicy, RunId, StudentAssignmentSummary};
+use question_model::{
+    ActivityTimestamp, AssignmentProgressRecord, AssignmentAttemptId, GradePolicy,
+};
 
-use crate::run::RunModelError;
+use crate::run::AssignmentActivityError;
 
 const MAX_ABSOLUTE_CURRENT_SCORE: f64 = 1_000.0;
 
@@ -23,55 +26,55 @@ fn validate_current_score(score: f64) -> Result<(), ()> {
     }
 }
 
-/// One completed run eligible for grade selection.
+/// One completed Assignment Attempt eligible for grade selection.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CompletedRunScore {
-    /// Durable identity of the completed run.
-    pub run: RunId,
+pub struct CompletedAssignmentAttemptScore {
+    /// Durable identity of the completed Assignment Attempt.
+    pub assignment_attempt: AssignmentAttemptId,
     /// One-based sequence number within the enrollment.
-    pub run_number: u32,
+    pub attempt_number: u32,
     /// Current score ratio. Extra and negative credit may put it outside 0..=1.
     pub score: f64,
 }
 
-/// Run and score selected by a grade policy.
+/// Assignment Attempt and score selected by a grade policy.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct GradeSelection {
-    /// Selected completed run.
-    pub run: RunId,
+pub struct AssignmentAttemptGradeSelection {
+    /// Selected completed Assignment Attempt.
+    pub assignment_attempt: AssignmentAttemptId,
     /// Selected score fraction.
     pub score: f64,
 }
 
-/// A rejected completed-run set or instructor selection.
+/// A rejected completed-Assignment-Attempt set or instructor selection.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ScoreModelError {
-    /// A completed run used the invalid zero sequence number.
-    InvalidRunNumber {
-        /// Run carrying the invalid number.
-        run: RunId,
+    /// A completed Assignment Attempt used the invalid zero sequence number.
+    InvalidAssignmentAttemptNumber {
+        /// Assignment Attempt carrying the invalid number.
+        assignment_attempt: AssignmentAttemptId,
     },
     /// A score was non-finite or outside the bounded current-score range.
     InvalidScore {
-        /// Run carrying the invalid score.
-        run: RunId,
+        /// Assignment Attempt carrying the invalid score.
+        assignment_attempt: AssignmentAttemptId,
         /// Rejected score.
         score: f64,
     },
-    /// The completed-run set repeated one durable run identity.
-    DuplicateRun {
-        /// Repeated run identity.
-        run: RunId,
+    /// The completed-Assignment-Attempt set repeated one durable identity.
+    DuplicateAssignmentAttempt {
+        /// Repeated Assignment Attempt identity.
+        assignment_attempt: AssignmentAttemptId,
     },
-    /// The completed-run set repeated a one-based sequence number.
-    DuplicateRunNumber {
+    /// The completed-Assignment-Attempt set repeated a one-based sequence number.
+    DuplicateAssignmentAttemptNumber {
         /// Repeated sequence number.
-        run_number: u32,
+        attempt_number: u32,
     },
-    /// An instructor selected a run outside the completed-run set.
+    /// An instructor selected an Assignment Attempt outside the completed set.
     UnknownInstructorSelection {
-        /// Unknown selected run.
-        run: RunId,
+        /// Unknown selected Assignment Attempt.
+        assignment_attempt: AssignmentAttemptId,
     },
     /// An automatic policy received an instructor-only selection.
     UnexpectedInstructorSelection,
@@ -80,110 +83,151 @@ pub enum ScoreModelError {
 impl std::fmt::Display for ScoreModelError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidRunNumber { run } => write!(formatter, "run {run} has run number zero"),
-            Self::InvalidScore { run, score } => {
-                write!(formatter, "run {run} has invalid score {score}")
+            Self::InvalidAssignmentAttemptNumber { assignment_attempt } => write!(
+                formatter,
+                "Assignment Attempt {assignment_attempt} has attempt number zero"
+            ),
+            Self::InvalidScore {
+                assignment_attempt,
+                score,
+            } => {
+                write!(
+                    formatter,
+                    "Assignment Attempt {assignment_attempt} has invalid score {score}"
+                )
             }
-            Self::DuplicateRun { run } => write!(formatter, "run {run} appears more than once"),
-            Self::DuplicateRunNumber { run_number } => {
-                write!(formatter, "run number {run_number} appears more than once")
+            Self::DuplicateAssignmentAttempt { assignment_attempt } => write!(
+                formatter,
+                "Assignment Attempt {assignment_attempt} appears more than once"
+            ),
+            Self::DuplicateAssignmentAttemptNumber { attempt_number } => {
+                write!(
+                    formatter,
+                    "attempt number {attempt_number} appears more than once"
+                )
             }
-            Self::UnknownInstructorSelection { run } => {
-                write!(formatter, "instructor-selected run {run} is not completed")
+            Self::UnknownInstructorSelection { assignment_attempt } => {
+                write!(
+                    formatter,
+                    "instructor-selected Assignment Attempt {assignment_attempt} is not completed"
+                )
             }
-            Self::UnexpectedInstructorSelection => {
-                formatter.write_str("only instructor-selected grading accepts a selected run")
-            }
+            Self::UnexpectedInstructorSelection => formatter.write_str(
+                "only instructor-selected grading accepts a selected Assignment Attempt",
+            ),
         }
     }
 }
 
 impl std::error::Error for ScoreModelError {}
 
-/// Selects the completed run whose score reaches the gradebook.
+/// Selects the completed Assignment Attempt whose score reaches the gradebook.
 ///
-/// First and latest use one-based run number rather than slice order. Highest
-/// keeps the earlier run when scores tie, matching incremental projection and
-/// keeping a stable grade pointer. `InstructorSelected` returns `None` until an
-/// instructor explicitly selects a completed run.
+/// First and latest use one-based attempt number rather than slice order. Highest
+/// keeps the earlier Assignment Attempt when scores tie, matching incremental
+/// projection and keeping a stable grade pointer. `InstructorSelected` returns
+/// `None` until an instructor explicitly selects a completed Assignment Attempt.
 ///
 /// # Errors
 ///
-/// Returns [`ScoreModelError`] when a run number or score is invalid, an
-/// identity or run number repeats, an automatic policy receives a selection,
-/// or an instructor selects a run outside the completed set.
-pub fn score(
-    completed_runs: &[CompletedRunScore],
+/// Returns [`ScoreModelError`] when an attempt number or score is invalid, an
+/// identity or attempt number repeats, an automatic policy receives a selection,
+/// or an instructor selects an Assignment Attempt outside the completed set.
+pub fn select_assignment_attempt_grade(
+    completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
     policy: GradePolicy,
-    instructor_selected: Option<RunId>,
-) -> Result<Option<GradeSelection>, ScoreModelError> {
-    validate_completed_runs(completed_runs)?;
+    instructor_selected: Option<AssignmentAttemptId>,
+) -> Result<Option<AssignmentAttemptGradeSelection>, ScoreModelError> {
+    validate_completed_assignment_attempts(completed_assignment_attempts)?;
 
     if policy != GradePolicy::InstructorSelected && instructor_selected.is_some() {
         return Err(ScoreModelError::UnexpectedInstructorSelection);
     }
 
     let selected = match policy {
-        GradePolicy::First => completed_runs.iter().min_by_key(|run| run.run_number),
-        GradePolicy::Latest => completed_runs.iter().max_by_key(|run| run.run_number),
-        GradePolicy::Highest => highest_run(completed_runs),
+        GradePolicy::First => completed_assignment_attempts
+            .iter()
+            .min_by_key(|assignment_attempt| assignment_attempt.attempt_number),
+        GradePolicy::Latest => completed_assignment_attempts
+            .iter()
+            .max_by_key(|assignment_attempt| assignment_attempt.attempt_number),
+        GradePolicy::Highest => highest_assignment_attempt(completed_assignment_attempts),
         GradePolicy::InstructorSelected => match instructor_selected {
-            Some(selected_run) => Some(
-                completed_runs
+            Some(selected_assignment_attempt) => Some(
+                completed_assignment_attempts
                     .iter()
-                    .find(|run| run.run == selected_run)
-                    .ok_or(ScoreModelError::UnknownInstructorSelection { run: selected_run })?,
+                    .find(|assignment_attempt| {
+                        assignment_attempt.assignment_attempt == selected_assignment_attempt
+                    })
+                    .ok_or(ScoreModelError::UnknownInstructorSelection {
+                        assignment_attempt: selected_assignment_attempt,
+                    })?,
             ),
             None => None,
         },
     };
 
-    Ok(selected.map(|run| GradeSelection {
-        run: run.run,
-        score: run.score,
-    }))
+    Ok(
+        selected.map(|assignment_attempt| AssignmentAttemptGradeSelection {
+            assignment_attempt: assignment_attempt.assignment_attempt,
+            score: assignment_attempt.score,
+        }),
+    )
 }
 
-fn validate_completed_runs(completed_runs: &[CompletedRunScore]) -> Result<(), ScoreModelError> {
-    let mut run_ids = HashSet::with_capacity(completed_runs.len());
-    let mut run_numbers = HashSet::with_capacity(completed_runs.len());
+fn validate_completed_assignment_attempts(
+    completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
+) -> Result<(), ScoreModelError> {
+    let mut assignment_attempt_ids = HashSet::with_capacity(completed_assignment_attempts.len());
+    let mut attempt_numbers = HashSet::with_capacity(completed_assignment_attempts.len());
 
-    for run in completed_runs {
-        if run.run_number == 0 {
-            return Err(ScoreModelError::InvalidRunNumber { run: run.run });
+    for assignment_attempt in completed_assignment_attempts {
+        if assignment_attempt.attempt_number == 0 {
+            return Err(ScoreModelError::InvalidAssignmentAttemptNumber {
+                assignment_attempt: assignment_attempt.assignment_attempt,
+            });
         }
-        validate_current_score(run.score).map_err(|()| ScoreModelError::InvalidScore {
-            run: run.run,
-            score: run.score,
+        validate_current_score(assignment_attempt.score).map_err(|()| {
+            ScoreModelError::InvalidScore {
+                assignment_attempt: assignment_attempt.assignment_attempt,
+                score: assignment_attempt.score,
+            }
         })?;
-        if !run_ids.insert(run.run) {
-            return Err(ScoreModelError::DuplicateRun { run: run.run });
+        if !assignment_attempt_ids.insert(assignment_attempt.assignment_attempt) {
+            return Err(ScoreModelError::DuplicateAssignmentAttempt {
+                assignment_attempt: assignment_attempt.assignment_attempt,
+            });
         }
-        if !run_numbers.insert(run.run_number) {
-            return Err(ScoreModelError::DuplicateRunNumber {
-                run_number: run.run_number,
+        if !attempt_numbers.insert(assignment_attempt.attempt_number) {
+            return Err(ScoreModelError::DuplicateAssignmentAttemptNumber {
+                attempt_number: assignment_attempt.attempt_number,
             });
         }
     }
     Ok(())
 }
 
-fn highest_run(completed_runs: &[CompletedRunScore]) -> Option<&CompletedRunScore> {
-    completed_runs.iter().reduce(|selected, candidate| {
-        if candidate.score > selected.score
-            || (candidate.score == selected.score && candidate.run_number < selected.run_number)
-        {
-            candidate
-        } else {
-            selected
-        }
-    })
+fn highest_assignment_attempt(
+    completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
+) -> Option<&CompletedAssignmentAttemptScore> {
+    completed_assignment_attempts
+        .iter()
+        .reduce(|selected, candidate| {
+            if candidate.score > selected.score
+                || (candidate.score == selected.score
+                    && candidate.attempt_number < selected.attempt_number)
+            {
+                candidate
+            } else {
+                selected
+            }
+        })
 }
 
-/// A run change that affects the compact assignment summary.
+/// An Assignment Attempt change that affects the compact assignment summary.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum RunTransition {
-    /// A new run began at the supplied server timestamp.
+pub enum AssignmentActivityTransition {
+    /// A new Assignment Attempt began at the supplied server timestamp.
     Started {
         /// Authoritative server time for the transition.
         at: ActivityTimestamp,
@@ -203,39 +247,40 @@ pub enum RunTransition {
     },
 }
 
-/// Projects one run transition into the compact assignment summary.
+/// Projects one Assignment Attempt transition into the compact assignment summary.
 ///
 /// The input is left unchanged. A store can persist the transition and the
 /// returned projection in the same transaction. `InstructorSelected` keeps
 /// `current_score` unchanged because only an explicit instructor action may
-/// select a different run.
+/// select a different Assignment Attempt.
 ///
 /// # Errors
 ///
-/// Returns [`RunModelError`] for an invalid completed-run score or when a
+/// Returns [`AssignmentActivityError`] for an invalid completed-Assignment-Attempt score or when a
 /// summary counter overflows.
 pub fn project_summary(
-    previous: &StudentAssignmentSummary,
-    transition: RunTransition,
+    previous: &AssignmentProgressRecord,
+    transition: AssignmentActivityTransition,
     grade_policy: GradePolicy,
-) -> Result<StudentAssignmentSummary, RunModelError> {
+) -> Result<AssignmentProgressRecord, AssignmentActivityError> {
     let mut next = previous.clone();
 
     match transition {
-        RunTransition::Started { at } => touch(&mut next, at),
-        RunTransition::QuestionAttemptRecorded { at } => {
+        AssignmentActivityTransition::Started { at } => touch(&mut next, at),
+        AssignmentActivityTransition::QuestionAttemptRecorded { at } => {
             next.total_question_attempts = next
                 .total_question_attempts
                 .checked_add(1)
-                .ok_or(RunModelError::SummaryCounterOverflow)?;
+                .ok_or(AssignmentActivityError::SummaryCounterOverflow)?;
             touch(&mut next, at);
         }
-        RunTransition::Completed { score, at } => {
-            validate_current_score(score).map_err(|()| RunModelError::InvalidScore { score })?;
-            next.completed_run_count = next
-                .completed_run_count
+        AssignmentActivityTransition::Completed { score, at } => {
+            validate_current_score(score)
+                .map_err(|()| AssignmentActivityError::InvalidScore { score })?;
+            next.completed_assignment_attempt_count = next
+                .completed_assignment_attempt_count
                 .checked_add(1)
-                .ok_or(RunModelError::SummaryCounterOverflow)?;
+                .ok_or(AssignmentActivityError::SummaryCounterOverflow)?;
             next.latest_score = Some(score);
             next.best_score = Some(next.best_score.map_or(score, |best| best.max(score)));
             next.current_score = match grade_policy {
@@ -252,7 +297,7 @@ pub fn project_summary(
 }
 
 /// Advances the activity timestamp without moving it backward.
-fn touch(summary: &mut StudentAssignmentSummary, at: ActivityTimestamp) {
+fn touch(summary: &mut AssignmentProgressRecord, at: ActivityTimestamp) {
     summary.last_activity_at = Some(
         summary
             .last_activity_at
@@ -263,29 +308,39 @@ fn touch(summary: &mut StudentAssignmentSummary, at: ActivityTimestamp) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::EnrollmentId;
+    use question_model::{AssignmentId, StudentRecordId};
     use uuid::Uuid;
 
-    fn run(id: u128, run_number: u32, score: f64) -> CompletedRunScore {
-        CompletedRunScore {
-            run: RunId::from_uuid(Uuid::from_u128(id)),
-            run_number,
+    fn assignment_attempt(
+        id: u128,
+        attempt_number: u32,
+        score: f64,
+    ) -> CompletedAssignmentAttemptScore {
+        CompletedAssignmentAttemptScore {
+            assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(id)),
+            attempt_number,
             score,
         }
     }
 
-    fn empty_summary() -> StudentAssignmentSummary {
-        StudentAssignmentSummary::empty(EnrollmentId::from_uuid(Uuid::from_u128(11)))
+    fn empty_summary() -> AssignmentProgressRecord {
+        AssignmentProgressRecord::empty(
+            StudentRecordId::from_uuid(Uuid::from_u128(11)),
+            AssignmentId::from_uuid(Uuid::from_u128(12)),
+        )
     }
 
-    fn projected_score(completed_runs: &[CompletedRunScore], policy: GradePolicy) -> Option<f64> {
+    fn projected_score(
+        completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
+        policy: GradePolicy,
+    ) -> Option<f64> {
         let mut summary = empty_summary();
-        for completed in completed_runs {
+        for completed in completed_assignment_attempts {
             summary = project_summary(
                 &summary,
-                RunTransition::Completed {
+                AssignmentActivityTransition::Completed {
                     score: completed.score,
-                    at: ActivityTimestamp::from_unix_millis(i64::from(completed.run_number)),
+                    at: ActivityTimestamp::from_unix_millis(i64::from(completed.attempt_number)),
                 },
                 policy,
             )
@@ -296,24 +351,28 @@ mod tests {
 
     #[test]
     fn hand_computed_fixture_agrees_for_batch_and_incremental_scoring() {
-        let completed_runs = [run(1, 1, 0.4), run(2, 2, 0.9), run(3, 3, 0.7)];
+        let completed_assignment_attempts = [
+            assignment_attempt(1, 1, 0.4),
+            assignment_attempt(2, 2, 0.9),
+            assignment_attempt(3, 3, 0.7),
+        ];
         let cases = [
-            (GradePolicy::First, completed_runs[0]),
-            (GradePolicy::Latest, completed_runs[2]),
-            (GradePolicy::Highest, completed_runs[1]),
+            (GradePolicy::First, completed_assignment_attempts[0]),
+            (GradePolicy::Latest, completed_assignment_attempts[2]),
+            (GradePolicy::Highest, completed_assignment_attempts[1]),
         ];
 
         for (policy, expected) in cases {
             assert_eq!(
-                score(&completed_runs, policy, None),
-                Ok(Some(GradeSelection {
-                    run: expected.run,
+                select_assignment_attempt_grade(&completed_assignment_attempts, policy, None),
+                Ok(Some(AssignmentAttemptGradeSelection {
+                    assignment_attempt: expected.assignment_attempt,
                     score: expected.score,
                 })),
                 "{policy:?} batch selection"
             );
             assert_eq!(
-                projected_score(&completed_runs, policy),
+                projected_score(&completed_assignment_attempts, policy),
                 Some(expected.score),
                 "{policy:?} incremental projection"
             );
@@ -321,66 +380,78 @@ mod tests {
     }
 
     #[test]
-    fn highest_tie_keeps_the_earlier_run() {
-        let completed_runs = [run(1, 2, 0.9), run(2, 1, 0.9)];
+    fn highest_tie_keeps_the_earlier_assignment_attempt() {
+        let completed_assignment_attempts =
+            [assignment_attempt(1, 2, 0.9), assignment_attempt(2, 1, 0.9)];
 
         assert_eq!(
-            score(&completed_runs, GradePolicy::Highest, None),
-            Ok(Some(GradeSelection {
-                run: completed_runs[1].run,
+            select_assignment_attempt_grade(
+                &completed_assignment_attempts,
+                GradePolicy::Highest,
+                None
+            ),
+            Ok(Some(AssignmentAttemptGradeSelection {
+                assignment_attempt: completed_assignment_attempts[1].assignment_attempt,
                 score: 0.9,
             }))
         );
     }
 
     #[test]
-    fn instructor_selection_is_explicit_and_must_name_a_completed_run() {
-        let completed_runs = [run(1, 1, 0.4), run(2, 2, 0.9)];
+    fn instructor_selection_is_explicit_and_must_name_a_completed_assignment_attempt() {
+        let completed_assignment_attempts =
+            [assignment_attempt(1, 1, 0.4), assignment_attempt(2, 2, 0.9)];
 
         assert_eq!(
-            score(&completed_runs, GradePolicy::InstructorSelected, None),
+            select_assignment_attempt_grade(
+                &completed_assignment_attempts,
+                GradePolicy::InstructorSelected,
+                None
+            ),
             Ok(None)
         );
         assert_eq!(
-            score(
-                &completed_runs,
+            select_assignment_attempt_grade(
+                &completed_assignment_attempts,
                 GradePolicy::InstructorSelected,
-                Some(completed_runs[0].run),
+                Some(completed_assignment_attempts[0].assignment_attempt),
             ),
-            Ok(Some(GradeSelection {
-                run: completed_runs[0].run,
+            Ok(Some(AssignmentAttemptGradeSelection {
+                assignment_attempt: completed_assignment_attempts[0].assignment_attempt,
                 score: 0.4,
             }))
         );
-        let unknown = RunId::from_uuid(Uuid::from_u128(99));
+        let unknown = AssignmentAttemptId::from_uuid(Uuid::from_u128(99));
         assert_eq!(
-            score(
-                &completed_runs,
+            select_assignment_attempt_grade(
+                &completed_assignment_attempts,
                 GradePolicy::InstructorSelected,
                 Some(unknown),
             ),
-            Err(ScoreModelError::UnknownInstructorSelection { run: unknown })
+            Err(ScoreModelError::UnknownInstructorSelection {
+                assignment_attempt: unknown
+            })
         );
     }
 
     #[test]
-    fn malformed_completed_run_sets_are_rejected() {
-        let duplicate_id = [run(1, 1, 0.4), run(1, 2, 0.9)];
-        let duplicate_number = [run(1, 1, 0.4), run(2, 1, 0.9)];
-        let invalid_score = [run(1, 1, f64::NAN)];
+    fn malformed_completed_assignment_attempt_sets_are_rejected() {
+        let duplicate_id = [assignment_attempt(1, 1, 0.4), assignment_attempt(1, 2, 0.9)];
+        let duplicate_number = [assignment_attempt(1, 1, 0.4), assignment_attempt(2, 1, 0.9)];
+        let invalid_score = [assignment_attempt(1, 1, f64::NAN)];
 
         assert_eq!(
-            score(&duplicate_id, GradePolicy::First, None),
-            Err(ScoreModelError::DuplicateRun {
-                run: duplicate_id[0].run,
+            select_assignment_attempt_grade(&duplicate_id, GradePolicy::First, None),
+            Err(ScoreModelError::DuplicateAssignmentAttempt {
+                assignment_attempt: duplicate_id[0].assignment_attempt,
             })
         );
         assert_eq!(
-            score(&duplicate_number, GradePolicy::First, None),
-            Err(ScoreModelError::DuplicateRunNumber { run_number: 1 })
+            select_assignment_attempt_grade(&duplicate_number, GradePolicy::First, None),
+            Err(ScoreModelError::DuplicateAssignmentAttemptNumber { attempt_number: 1 })
         );
         assert!(matches!(
-            score(&invalid_score, GradePolicy::First, None),
+            select_assignment_attempt_grade(&invalid_score, GradePolicy::First, None),
             Err(ScoreModelError::InvalidScore { score, .. }) if score.is_nan()
         ));
     }
@@ -393,7 +464,7 @@ mod tests {
 
         let next = project_summary(
             &previous,
-            RunTransition::Completed {
+            AssignmentActivityTransition::Completed {
                 score: 0.9,
                 at: ActivityTimestamp::from_unix_millis(9),
             },

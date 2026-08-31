@@ -21,7 +21,7 @@ import type {
 import { CopyableQuestionId } from "../../components/copyable_question_id";
 import {
   gradingOperationsActionFailure,
-  gradingOperationsAffectedLearnersLabel,
+  gradingOperationsAffectedStudentsLabel,
   gradingOperationsGroupLabel,
   gradingOperationsPositionForGroup,
   gradingOperationsReasonLabel,
@@ -56,7 +56,7 @@ function acceptedActionMessage(intent: GradingOperationsActionIntent): string {
     : "The assignment recalculation was accepted. The operations list is refreshing.";
 }
 
-/** Presents one assignment's recovery work without exposing learner submissions or grading payloads. */
+/** Presents one assignment's recovery work without exposing student submissions or grading payloads. */
 export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
   const location = useLocation();
@@ -282,11 +282,11 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
           <button
             class="quiet-action"
             type="button"
-            aria-pressed={groupBy() === "learner"}
+            aria-pressed={groupBy() === "student"}
             disabled={listState() === "loading" && rows().length === 0}
-            onClick={() => changeGrouping("learner")}
+            onClick={() => changeGrouping("student")}
           >
-            Group by learner
+            Group by Student
           </button>
         </div>
       </section>
@@ -403,7 +403,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
                     </div>
                     <div>
                       <dt>Affected scope</dt>
-                      <dd>{gradingOperationsAffectedLearnersLabel(row.affectedLearnerCount)}</dd>
+                      <dd>{gradingOperationsAffectedStudentsLabel(row.affectedStudentCount)}</dd>
                     </div>
                     <div>
                       <dt>Grading generation</dt>

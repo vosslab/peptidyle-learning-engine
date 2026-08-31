@@ -5,8 +5,8 @@ use std::fmt::Write as _;
 use objects::ObjectKey;
 use question_model::generation::Seed;
 use question_model::{
-    ImplementationVersion, ObjectId, ProblemId, QuestionDefinition, QuestionEnvelope,
-    QuestionSource, SourceArtifact, VersionId,
+    ImplementationVersion, ObjectId, QuestionDefinition, QuestionEnvelope, QuestionSource,
+    QuestionVersionReference, SourceArtifact,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -38,7 +38,11 @@ pub(super) fn validate_cache(
         || cached.source != source.artifact
         || cached.provider != source.provider
         || cached.profile != source.profile
-        || cached.envelope.version != question.version
+        || cached.envelope.question_version
+            != (QuestionVersionReference {
+                question_id: question.question_id.clone(),
+                version_number: question.version_number,
+            })
         || cached.envelope.seed != seed
         || question_model::validate_question_title(&cached.envelope.title).is_err()
         || !matches!(
@@ -55,7 +59,12 @@ pub(super) fn verify_binding(
     question: &QuestionDefinition,
     source: &ImathasSource,
 ) -> Result<(), ImathasAdapterError> {
-    if question.problem != source.problem || question.version != source.version {
+    if source.question_version
+        != (QuestionVersionReference {
+            question_id: question.question_id.clone(),
+            version_number: question.version_number,
+        })
+    {
         return Err(ImathasAdapterError::SourceDoesNotMatchQuestion);
     }
     match &question.source {
@@ -77,19 +86,19 @@ pub(super) fn verify_binding(
     }
 }
 
-pub(super) fn render_key(problem: ProblemId, version: VersionId, seed: Seed) -> ObjectKey {
-    ObjectKey::ProblemRender {
-        problem,
-        version,
+pub(super) fn render_key(question_version: &QuestionVersionReference, seed: Seed) -> ObjectKey {
+    ObjectKey::QuestionRender {
+        question_version: question_version.clone(),
         seed,
-        object: deterministic_id(version, seed),
+        object: deterministic_id(question_version, seed),
     }
 }
 
-fn deterministic_id(version: VersionId, seed: Seed) -> ObjectId {
+fn deterministic_id(question_version: &QuestionVersionReference, seed: Seed) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:render-cache:v1");
-    hash.update(version.as_uuid().as_bytes());
+    hash.update(question_version.question_id.to_string().as_bytes());
+    hash.update(question_version.version_number.get().to_be_bytes());
     hash.update(seed.value().to_be_bytes());
     let digest = hash.finalize();
     let mut bytes = [0; 16];
@@ -132,10 +141,10 @@ pub(super) fn valid_item_ref(value: &str) -> bool {
 }
 
 pub(super) fn binding_payload(binding: &GradeBinding) -> Vec<u8> {
-    let mut value = Vec::with_capacity(16 * 3 + 8);
+    let mut value = Vec::with_capacity(16 + 8 + 4 + 8);
     value.extend_from_slice(binding.attempt.as_uuid().as_bytes());
-    value.extend_from_slice(binding.problem.as_uuid().as_bytes());
-    value.extend_from_slice(binding.version.as_uuid().as_bytes());
+    value.extend_from_slice(binding.question_version.question_id.to_string().as_bytes());
+    value.extend_from_slice(&binding.question_version.version_number.get().to_be_bytes());
     value.extend_from_slice(&binding.seed.value().to_be_bytes());
     value
 }

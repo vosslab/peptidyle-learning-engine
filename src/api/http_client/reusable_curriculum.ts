@@ -1,28 +1,22 @@
 // Strict same-origin transport for instructor reusable curricula.
 
-import type { AlphaCourseDefinitionInput } from "../../../generated/api/AlphaCourseDefinitionInput";
-import type { AlphaCourseReference } from "../../../generated/api/AlphaCourseReference";
-import type { AlphaCourseSummaryView } from "../../../generated/api/AlphaCourseSummaryView";
-import type { BlueprintDefinitionInput } from "../../../generated/api/BlueprintDefinitionInput";
 import type { BlueprintReference } from "../../../generated/api/BlueprintReference";
-import type { BlueprintSummaryView } from "../../../generated/api/BlueprintSummaryView";
+import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
+import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
+import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
 import type { ApiClient } from "../client";
 import type { CursorPage } from "../contracts";
 import {
-  decodeAlphaCourseDefinitionInput,
-  decodeAlphaCoursePage,
-  decodeAlphaCourseReference,
-  decodeAlphaCourseView,
-  decodeBlueprintDefinitionInput,
-  decodeBlueprintPage,
+  decodeBlueprintCoursePage,
+  decodeBlueprintCourseView,
+  decodeCreateBlueprintCourseDefinitionInput,
   decodeBlueprintReference,
-  decodeBlueprintView,
+  decodeReplaceBlueprintCourseDefinitionInput,
 } from "../decoders/reusable_curriculum";
 import type {
   ReusableCurriculumClient,
   ReusableCurriculumEtag,
-  RevisionedAlphaCourse,
-  RevisionedBlueprint,
+  RevisionedBlueprintCourse,
 } from "../reusable_curriculum";
 import { ApiProtocolError, ApiRequestError, ReusableCurriculumConflictError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -66,11 +60,6 @@ function requestRevision(value: ReusableCurriculumEtag, path: string): string {
 function blueprintPath(value: BlueprintReference): string {
   const reference = decodeBlueprintReference(value, "blueprint");
   return `/api/course-blueprints/${encodeURIComponent(reference)}`;
-}
-
-function alphaPath(value: AlphaCourseReference): string {
-  const reference = decodeAlphaCourseReference(value, "alpha");
-  return `/api/alpha-courses/${encodeURIComponent(reference)}`;
 }
 
 async function curriculumJson<T>(
@@ -126,119 +115,76 @@ export function createReusableCurriculumClient(
   basePath: string,
 ): Pick<ApiClient, keyof ReusableCurriculumClient> {
   return {
-    listBlueprints: async (cursor, pageSize): Promise<CursorPage<BlueprintSummaryView>> => {
+    listBlueprintCourses: async (
+      cursor,
+      pageSize,
+    ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath("/api/course-blueprints", cursor, pageSize);
-      const result = await curriculumJson(fetchImplementation, basePath, path, decodeBlueprintPage);
+      const result = await curriculumJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintCoursePage,
+      );
       return result.body;
     },
-    getBlueprint: async (reference): Promise<RevisionedBlueprint> => {
+    getBlueprintCourse: async (reference): Promise<RevisionedBlueprintCourse> => {
       const path = blueprintPath(reference);
-      const result = await curriculumJson(fetchImplementation, basePath, path, decodeBlueprintView);
+      const result = await curriculumJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintCourseView,
+      );
       return {
-        blueprint: result.body,
+        blueprintCourse: result.body,
         etag: requireMatchingEtag(result.response, result.body.revision, path),
       };
     },
-    createBlueprint: async (definition: BlueprintDefinitionInput): Promise<RevisionedBlueprint> => {
+    createBlueprintCourse: async (
+      definition: CreateBlueprintCourseDefinitionInput,
+    ): Promise<RevisionedBlueprintCourse> => {
       const path = "/api/course-blueprints";
       const result = await curriculumJson(
         fetchImplementation,
         basePath,
         path,
-        decodeBlueprintView,
+        decodeBlueprintCourseView,
         {
           method: "POST",
-          body: decodeBlueprintDefinitionInput(definition),
+          body: decodeCreateBlueprintCourseDefinitionInput(definition),
           expectedStatus: 201,
         },
       );
       return {
-        blueprint: result.body,
+        blueprintCourse: result.body,
         etag: requireMatchingEtag(result.response, result.body.revision, path),
       };
     },
-    replaceBlueprint: async (reference, definition, etag): Promise<RevisionedBlueprint> => {
+    replaceBlueprintCourse: async (
+      reference,
+      definition: ReplaceBlueprintCourseDefinitionInput,
+      etag,
+    ): Promise<RevisionedBlueprintCourse> => {
       const path = blueprintPath(reference);
       const result = await curriculumJson(
         fetchImplementation,
         basePath,
         path,
-        decodeBlueprintView,
+        decodeBlueprintCourseView,
         {
           method: "PUT",
-          body: decodeBlueprintDefinitionInput(definition),
+          body: decodeReplaceBlueprintCourseDefinitionInput(definition),
           etag,
           expectedStatus: 200,
         },
       );
       return {
-        blueprint: result.body,
+        blueprintCourse: result.body,
         etag: requireMatchingEtag(result.response, result.body.revision, path),
       };
     },
-    deleteBlueprint: (reference, etag) =>
+    deleteBlueprintCourse: (reference, etag) =>
       deleteCurriculum(fetchImplementation, basePath, blueprintPath(reference), etag),
-    listAlphaCourses: async (cursor, pageSize): Promise<CursorPage<AlphaCourseSummaryView>> => {
-      const path = pagePath("/api/alpha-courses", cursor, pageSize);
-      const result = await curriculumJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeAlphaCoursePage,
-      );
-      return result.body;
-    },
-    getAlphaCourse: async (reference): Promise<RevisionedAlphaCourse> => {
-      const path = alphaPath(reference);
-      const result = await curriculumJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeAlphaCourseView,
-      );
-      return {
-        alpha: result.body,
-        etag: requireMatchingEtag(result.response, result.body.revision, path),
-      };
-    },
-    createAlphaCourse: async (
-      definition: AlphaCourseDefinitionInput,
-    ): Promise<RevisionedAlphaCourse> => {
-      const path = "/api/alpha-courses";
-      const result = await curriculumJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeAlphaCourseView,
-        {
-          method: "POST",
-          body: decodeAlphaCourseDefinitionInput(definition),
-          expectedStatus: 201,
-        },
-      );
-      return {
-        alpha: result.body,
-        etag: requireMatchingEtag(result.response, result.body.revision, path),
-      };
-    },
-    replaceAlphaCourse: async (reference, definition, etag): Promise<RevisionedAlphaCourse> => {
-      const path = alphaPath(reference);
-      const result = await curriculumJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeAlphaCourseView,
-        {
-          method: "PUT",
-          body: decodeAlphaCourseDefinitionInput(definition),
-          etag,
-          expectedStatus: 200,
-        },
-      );
-      return {
-        alpha: result.body,
-        etag: requireMatchingEtag(result.response, result.body.revision, path),
-      };
-    },
   };
 }

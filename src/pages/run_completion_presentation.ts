@@ -1,35 +1,36 @@
-// run_completion_presentation.ts - explicit learner copy for terminal run states.
+// run_completion_presentation.ts - explicit student copy for terminal Assignment Attempt states.
 
-import type { RunCompletionStatus } from "../../generated/api/RunCompletionStatus";
+import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { SubmissionAcknowledgement } from "../features/attempt/attempt_state";
 
-export interface RunCompletionPresentation {
+export interface AssignmentAttemptCompletionPresentation {
   readonly eyebrow: string;
   readonly heading: string;
   readonly message: string;
 }
 
 /** Copy follows authoritative completion, not the absence of a successor attempt. */
-export function runCompletionPresentation(
-  status: RunCompletionStatus,
+export function assignmentAttemptCompletionPresentation(
+  status: AssignmentAttemptCompletion,
   practiceAllowed: boolean | undefined,
-): RunCompletionPresentation {
+): AssignmentAttemptCompletionPresentation {
   if (status === "inProgress") {
     return {
-      eyebrow: "Run ended",
+      eyebrow: "Assignment Attempt ended",
       heading: "Completion requirement not met",
-      message: "Your response is recorded, but this run did not meet the completion requirement.",
+      message:
+        "Your response is recorded, but this Assignment Attempt did not meet the completion requirement.",
     };
   }
   return {
-    eyebrow: "Run complete",
+    eyebrow: "Assignment Attempt complete",
     heading:
       practiceAllowed === undefined
-        ? "Run complete"
+        ? "Assignment Attempt complete"
         : practiceAllowed
           ? "Keep practicing with a fresh variation"
-          : "This run is complete",
-    message: "Your completed run is recorded.",
+          : "This Assignment Attempt is complete",
+    message: "Your completed Assignment Attempt is recorded.",
   };
 }
 
@@ -39,7 +40,7 @@ export function submissionAdvanceLabel(
 ): string | undefined {
   if (acknowledgement.nextPending) return "Refresh for the next question";
   if (acknowledgement.nextIssued !== null) return undefined;
-  return acknowledgement.runCompletionStatus === "completed"
-    ? "View completed run"
-    : "View run status";
+  return acknowledgement.assignmentAttemptCompletion === "completed"
+    ? "View completed Assignment Attempt"
+    : "View Assignment Attempt status";
 }

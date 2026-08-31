@@ -40,7 +40,7 @@
 
 - ACCEPTED: the fixed replay vector is an external oracle rather than a self-comparison. The named
   stream isolation case first captures `observer.review`, consumes two independently-created
-  `learner.answer` streams, and proves the observer replay remains unchanged. Allocation and report
+  `student.answer` streams, and proves the observer replay remains unchanged. Allocation and report
   ordering also prove nonmutation with fixed expected outputs.
 - ACCEPTED: a scripted stream returns the rejected tail value `0xffff_ffff` and then `5` for a
   bound of three; the test proves the returned index and exactly two stream consumptions. It also

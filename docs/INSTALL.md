@@ -126,7 +126,7 @@ has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
   provide the clean-volume receipt preflight, receipt writers, commit-v2 authority, and retry V2
   retirement boundary. Final material-tree Validation passed with the affected 99-migration live
   database, RLS, worker, browser, WebWork, and replica evidence. `WP-INST-G2` now owns audited
-  learner-work inspection and grade-scheme-aware calculated Gradebook work. `WP-RC12` release
+  student-work inspection and grade-scheme-aware calculated Gradebook work. `WP-RC12` release
   acceptance remains open; this disposable live demo is not release evidence by itself.
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

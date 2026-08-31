@@ -280,7 +280,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
                 provider: request.provider_key(),
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
-                version: request.version().to_string(),
+                version: request.question_version().version_number.to_string(),
                 seed: request.seed().value(),
             })
             .send()
@@ -486,7 +486,7 @@ mod tests {
     }
     fn locator() -> crate::DraftLocator {
         crate::DraftLocator::from_draft(&question_model::DraftQuestionSource::Imathas {
-            provider: "institution-imathas".into(),
+            provider: "self-hosted-imathas".into(),
             item_ref: "17".into(),
         })
         .unwrap()
@@ -507,7 +507,7 @@ mod tests {
         let transport = HttpContractedScoredEmbedTransport::new(config).unwrap();
         let request = SnapshotTransportRequest {
             locator: &locator(),
-            provider_key: "institution-imathas",
+            provider_key: "self-hosted-imathas",
         };
         let snapshot = transport.fetch_snapshot(request).await.unwrap();
         assert_eq!(snapshot.bytes(), br#"{"recorded":true}"#);
@@ -516,7 +516,7 @@ mod tests {
             let error = transport
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    provider_key: "institution-imathas",
+                    provider_key: "self-hosted-imathas",
                 })
                 .await
                 .unwrap_err();
@@ -528,7 +528,7 @@ mod tests {
             transport
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    provider_key: "institution-imathas"
+                    provider_key: "self-hosted-imathas"
                 })
                 .await
                 .unwrap_err(),
@@ -565,8 +565,15 @@ mod tests {
             transport
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
-                    provider_key: "institution-imathas",
-                    version: question_model::VersionId::from_uuid(uuid::Uuid::from_u128(1)),
+                    provider_key: "self-hosted-imathas",
+                    question_version: question_model::QuestionVersionReference {
+                        question_id: question_model::QuestionId::from_canonical_parts(
+                            "ABCDEF", 'G'
+                        )
+                        .expect("Question ID"),
+                        version_number: question_model::QuestionVersionNumber::new(1)
+                            .expect("positive version"),
+                    },
                     seed: question_model::generation::Seed::new(7)
                 })
                 .await
@@ -576,7 +583,7 @@ mod tests {
         );
         let handle = transport
             .start_protected_launch(ProtectedLaunchRequest {
-                provider_key: "institution-imathas".into(),
+                provider_key: "self-hosted-imathas".into(),
                 item_ref: "17".into(),
                 provider_seed: 7,
                 source_digest: "a".repeat(64),
@@ -586,18 +593,24 @@ mod tests {
             .unwrap();
         let binding = crate::GradeBinding {
             attempt: question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
-            problem: question_model::ProblemId::from_uuid(uuid::Uuid::from_u128(3)),
-            version: question_model::VersionId::from_uuid(uuid::Uuid::from_u128(4)),
+            question_version: question_model::QuestionVersionReference {
+                question_id: question_model::QuestionId::from_canonical_parts("BCDEFG", 'H')
+                    .expect("Question ID"),
+                version_number: question_model::QuestionVersionNumber::new(4)
+                    .expect("positive version"),
+            },
             seed: question_model::generation::Seed::new(7),
         };
         let issuer = crate::CorrelationIssuer::from_server_secret([1; 32]);
-        let correlation = issuer.restore(binding, &issuer.begin(binding)).unwrap();
+        let correlation = issuer
+            .restore(binding.clone(), &issuer.begin(binding.clone()))
+            .unwrap();
         assert_eq!(
             transport
                 .fetch_signed_grade_get(ResultTransportRequest {
                     handle: &handle,
                     correlation: &correlation,
-                    provider_key: "institution-imathas"
+                    provider_key: "self-hosted-imathas"
                 })
                 .await
                 .unwrap(),
@@ -648,7 +661,7 @@ mod tests {
         let error = timeout
             .fetch_snapshot(SnapshotTransportRequest {
                 locator: &locator(),
-                provider_key: "institution-imathas",
+                provider_key: "self-hosted-imathas",
             })
             .await
             .unwrap_err();
@@ -667,7 +680,7 @@ mod tests {
             refused
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    provider_key: "institution-imathas"
+                    provider_key: "self-hosted-imathas"
                 })
                 .await
                 .unwrap_err(),

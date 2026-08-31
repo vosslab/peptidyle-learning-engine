@@ -1,4 +1,4 @@
-// feedback_panel.tsx - accessible display of server-disclosed learner feedback.
+// feedback_panel.tsx - accessible display of server-disclosed student feedback.
 
 import {
   createEffect,
@@ -40,7 +40,7 @@ export type FeedbackPresentation =
 
 export interface FeedbackPanelProps {
   readonly disclosure: FeedbackPresentation;
-  /** A server-projected record of what the learner submitted, never a question definition. */
+  /** A server-projected record of what the student submitted, never a question definition. */
   readonly studentResponse?: ReadonlyArray<ContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
@@ -194,7 +194,7 @@ function scrollNewFeedbackIntoView(heading: HTMLHeadingElement): void {
 }
 
 /**
- * Displays only the server-redacted DTO and an optional public learner-response projection.
+ * Displays only the server-redacted DTO and an optional public student-response projection.
  * It has no grading, policy, question-definition, answer-key, or raw-response dependencies.
  */
 export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {

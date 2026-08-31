@@ -21,7 +21,7 @@
   policy. The returned DTO contains only the arrangement label and public identifiers.
 - The module has no authentication, account, course, membership, roster, invitation,
   enrollment, SQL, or cleanup operation. Product assignment creation reconciles the existing
-  learner enrollment.
+  student enrollment.
 
 ## Evidence
 
@@ -31,6 +31,6 @@
 - [wp_a2_assignment_arrangement_review.md](../audits/wp_a2_assignment_arrangement_review.md)
   independently accepts the offline contract. WP-A1 is also accepted offline.
 - The accepted M3 runner created both assignments in the launcher-seeded course and
-  the learner opened their visible cards through the rendered local sign-in flow.
+  the student opened their visible cards through the rendered local sign-in flow.
   See [m3_arrangement_integration.md](m3_arrangement_integration.md) and the
   independent [M3 review](../audits/m3_arrangement_integration_review.md).

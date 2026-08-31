@@ -4,7 +4,7 @@ import type { AssignmentItemSummary } from "../../generated/api/AssignmentItemSu
 import type { AssignmentSelectionGroupSummary } from "../../generated/api/AssignmentSelectionGroupSummary";
 import type { Capability } from "../../generated/api/Capability";
 import type { StudentDisclosurePolicy } from "../../generated/api/StudentDisclosurePolicy";
-import type { RunPolicies } from "../../generated/api/RunPolicies";
+import type { AssignmentActivityRules } from "../../generated/api/AssignmentActivityRules";
 import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
@@ -51,7 +51,7 @@ export interface AssignmentEditorDraft {
   readonly title: string;
   /** One ordered definition, shared by fixed questions and selection groups. */
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
-  readonly policies: RunPolicies;
+  readonly policies: AssignmentActivityRules;
   readonly disclosurePolicy: StudentDisclosurePolicy;
   readonly revision: string;
 }

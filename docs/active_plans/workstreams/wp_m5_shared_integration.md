@@ -10,7 +10,7 @@ J8 through visible keyboard paths. See the resolved
 [gradebook review](../audits/pagination_gradebook_review.md), and
 [walkthrough integration review](../audits/pagination_walkthrough_integration_review.md).
 
-**Charter supersession:** this remains accepted evidence for the learner and
+**Charter supersession:** this remains accepted evidence for the student and
 gradebook slice. The repository owner's corrected walkthrough charter also
 requires visible instructor course creation, active local-student roster
 addition, and corpus-backed assignment creation. M5 used a launcher-seeded
@@ -48,6 +48,6 @@ from overwriting the current course.
 
 ## Scope limit
 
-This accepts the historical M5 learner slice only. It does not accept the
+This accepts the historical M5 student slice only. It does not accept the
 corrected visible instructor setup, live PostgreSQL pagination, or any release
 gate.

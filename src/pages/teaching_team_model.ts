@@ -1,6 +1,6 @@
 // Pure presentation helpers for the bounded teaching-team API projections.
 
-import type { CoInstructorInvitationStateView } from "../../generated/api/CoInstructorInvitationStateView";
+import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
 
 export interface ReferenceRow {
   readonly reference: string;
@@ -25,7 +25,7 @@ export function appendTeachingTeamRows<T>(
   return [...current, ...appended];
 }
 
-export function invitationStateLabel(state: CoInstructorInvitationStateView): string {
+export function invitationStateLabel(state: CourseInvitationStateView): string {
   switch (state) {
     case "pending":
       return "Pending response";
@@ -45,7 +45,7 @@ export function serverExpiryCopy(expiresAt: number): string {
   return `Expires at ${new Date(expiresAt).toLocaleString()} (server supplied)`;
 }
 
-export function isPendingInvitation(state: CoInstructorInvitationStateView): boolean {
+export function isPendingInvitation(state: CourseInvitationStateView): boolean {
   return state === "pending";
 }
 

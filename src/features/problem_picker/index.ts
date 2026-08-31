@@ -6,7 +6,7 @@ export {
   moveProblemPickerSelection,
   problemPickerSelection,
   toggleProblemPickerSelection,
-  type ProblemCollectionReference,
+  type QuestionCollectionReference,
   type ProblemPickerCurationActions,
   type ProblemPickerCurationIntent,
   type ProblemPickerSearchRequest,

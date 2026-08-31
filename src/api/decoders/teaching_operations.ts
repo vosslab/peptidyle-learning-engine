@@ -2,7 +2,6 @@
 
 import { MAX_ASSIGNMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_LIMIT";
 import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
-import { MAX_COURSE_GROUP_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_COURSE_GROUP_TITLE_UNICODE_SCALARS";
 import { MAX_RETENTION_EXTENSION_DAYS } from "../../../generated/api/MAX_RETENTION_EXTENSION_DAYS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
@@ -12,23 +11,13 @@ import type { SysadminInstructorCandidateSearchPage } from "../../../generated/a
 import type { SysadminInstructorCandidateSearchRequest } from "../../../generated/api/SysadminInstructorCandidateSearchRequest";
 import type { SysadminInstructorCandidateView } from "../../../generated/api/SysadminInstructorCandidateView";
 import type { AssignmentPolicyPatchUpdateRequest } from "../../../generated/api/AssignmentPolicyPatchUpdateRequest";
-import type { CoInstructorInvitationCreateRequest } from "../../../generated/api/CoInstructorInvitationCreateRequest";
-import type { CoInstructorInvitationTerminalActionRequest } from "../../../generated/api/CoInstructorInvitationTerminalActionRequest";
-import type { CourseCoInstructorInvitationsPage } from "../../../generated/api/CourseCoInstructorInvitationsPage";
-import type { CourseGroupCreateRequest } from "../../../generated/api/CourseGroupCreateRequest";
-import type { CourseGroupDetailView } from "../../../generated/api/CourseGroupDetailView";
-import type { CourseGroupListPage } from "../../../generated/api/CourseGroupListPage";
-import type { CourseGroupMembershipWarningView } from "../../../generated/api/CourseGroupMembershipWarningView";
-import type { CourseGroupPurposePolicyUpdateRequest } from "../../../generated/api/CourseGroupPurposePolicyUpdateRequest";
-import type { CourseGroupPurposePolicyView } from "../../../generated/api/CourseGroupPurposePolicyView";
-import type { CourseGroupMemberView } from "../../../generated/api/CourseGroupMemberView";
-import type { CourseGroupSummaryView } from "../../../generated/api/CourseGroupSummaryView";
-import type { CourseGroupUpdateRequest } from "../../../generated/api/CourseGroupUpdateRequest";
-import type { GroupScheduleOffsetUpdateRequest } from "../../../generated/api/GroupScheduleOffsetUpdateRequest";
-import type { IndividualPolicyPatchUpdateRequest } from "../../../generated/api/IndividualPolicyPatchUpdateRequest";
+import type { CourseInvitationCreateRequest } from "../../../generated/api/CourseInvitationCreateRequest";
+import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
+import type { CourseCourseInvitationsPage } from "../../../generated/api/CourseCourseInvitationsPage";
+import type { AccommodationPatchUpdateRequest } from "../../../generated/api/AccommodationPatchUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
-import type { PendingCoInstructorInvitationsPage } from "../../../generated/api/PendingCoInstructorInvitationsPage";
+import type { PendingCourseInvitationsPage } from "../../../generated/api/PendingCourseInvitationsPage";
 import type { RetentionActionResponse } from "../../../generated/api/RetentionActionResponse";
 import type { RetentionArchiveRequest } from "../../../generated/api/RetentionArchiveRequest";
 import type { RetentionExtendRequest } from "../../../generated/api/RetentionExtendRequest";
@@ -36,12 +25,12 @@ import type { RetentionReadView } from "../../../generated/api/RetentionReadView
 import type { TeachingPreviewView } from "../../../generated/api/TeachingPreviewView";
 import type { TeachingOperationRevisionResponse } from "../../../generated/api/TeachingOperationRevisionResponse";
 import type { TeachingAccountView } from "../../../generated/api/TeachingAccountView";
-import type { CoInstructorTargetView } from "../../../generated/api/CoInstructorTargetView";
-import type { CoInstructorTargetSearchPage } from "../../../generated/api/CoInstructorTargetSearchPage";
-import type { CoInstructorTargetSearchRequest } from "../../../generated/api/CoInstructorTargetSearchRequest";
+import type { CourseInvitationTargetView } from "../../../generated/api/CourseInvitationTargetView";
+import type { CourseInvitationTargetSearchPage } from "../../../generated/api/CourseInvitationTargetSearchPage";
+import type { CourseInvitationTargetSearchRequest } from "../../../generated/api/CourseInvitationTargetSearchRequest";
 import type { CourseStudentMembershipsPage } from "../../../generated/api/CourseStudentMembershipsPage";
+import type { StudentMembershipView } from "../../../generated/api/StudentMembershipView";
 import type { TeachingPreviewFieldSource } from "../../../generated/api/TeachingPreviewFieldSource";
-import type { TeachingPreviewGroupSource } from "../../../generated/api/TeachingPreviewGroupSource";
 import type { TeachingPreviewLimitField } from "../../../generated/api/TeachingPreviewLimitField";
 import type { TeachingPreviewTimeField } from "../../../generated/api/TeachingPreviewTimeField";
 import type { RetentionDispositionView } from "../../../generated/api/RetentionDispositionView";
@@ -64,12 +53,18 @@ import {
 } from "./shared";
 
 const MAX_ROUTE_REFERENCE = 2_147_483_647;
-const MAX_GROUP_SCHEDULE_OFFSET_SECONDS = 31_536_000;
-const PURPOSES = ["section", "lab", "cohort", "accommodation", "work"] as const;
-const MEMBERSHIP_ROLES = ["instructor", "student"] as const;
 const MEMBERSHIP_STATUSES = ["active", "revoked"] as const;
-const MULTIPLE_MEMBERSHIP_POLICIES = ["allow", "warn"] as const;
 const INVITATION_STATES = ["pending", "expired", "accepted", "declined", "revoked"] as const;
+
+function studentMembership(value: unknown, path: string): StudentMembershipView {
+  const record = closed(value, path, ["reference", "display", "role", "status"]);
+  return {
+    reference: reference(record.reference, `${path}.reference`, "M"),
+    display: boundedTrimmedText(record.display, `${path}.display`, MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS),
+    role: decodeStringEnum(record.role, `${path}.role`, ["instructor", "student"] as const),
+    status: decodeStringEnum(record.status, `${path}.status`, MEMBERSHIP_STATUSES),
+  };
+}
 
 function closed(
   value: unknown,
@@ -152,172 +147,6 @@ function courseLocalDateTime(value: unknown, path: string): string {
 function ianaTimeZone(value: unknown, path: string): string {
   const timeZone = boundedTrimmedText(value, path, 255);
   return timeZone;
-}
-
-function boundedCount(value: unknown, path: string, maximum: number): number {
-  const parsed = decodeSafeInteger(value, path);
-  if (parsed < 0 || parsed > maximum) {
-    throw new DecodeError(path, `a nonnegative integer no larger than ${maximum}`);
-  }
-  return parsed;
-}
-
-export function decodeCourseGroupSummary(
-  value: unknown,
-  path = "response",
-): CourseGroupSummaryView {
-  const record = closed(value, path, ["reference", "title", "purpose", "revision", "memberCount"]);
-  return {
-    reference: reference(record.reference, `${path}.reference`, "G"),
-    title: boundedTrimmedText(
-      record.title,
-      `${path}.title`,
-      MAX_COURSE_GROUP_TITLE_UNICODE_SCALARS,
-    ),
-    purpose: decodeStringEnum(record.purpose, `${path}.purpose`, PURPOSES),
-    revision: revision(record.revision, `${path}.revision`),
-    memberCount: boundedCount(record.memberCount, `${path}.memberCount`, MAX_TEACHING_PAGE_SIZE),
-  };
-}
-
-function groupMember(value: unknown, path: string): CourseGroupMemberView {
-  const record = closed(value, path, ["reference", "display", "role", "status"]);
-  return {
-    reference: reference(record.reference, `${path}.reference`, "M"),
-    display: boundedTrimmedText(
-      record.display,
-      `${path}.display`,
-      MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-    ),
-    role: decodeStringEnum(record.role, `${path}.role`, MEMBERSHIP_ROLES),
-    status: decodeStringEnum(record.status, `${path}.status`, MEMBERSHIP_STATUSES),
-  };
-}
-
-function groupMembers(value: unknown, path: string): Array<string> {
-  const members = decodeBoundedArray(value, path, MAX_TEACHING_PAGE_SIZE, (entry, entryPath) =>
-    reference(entry, entryPath, "M"),
-  );
-  if (new Set(members).size !== members.length) {
-    throw new DecodeError(path, "unique course-membership references");
-  }
-  return members;
-}
-
-export function decodeCourseGroupListPage(value: unknown, path = "response"): CourseGroupListPage {
-  const record = closed(value, path, ["groups", "nextCursor"]);
-  return {
-    groups: decodeBoundedArray(
-      record.groups,
-      `${path}.groups`,
-      MAX_TEACHING_PAGE_SIZE,
-      decodeCourseGroupSummary,
-    ),
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-  };
-}
-
-export function decodeCourseGroupDetailView(
-  value: unknown,
-  path = "response",
-): CourseGroupDetailView {
-  const record = closed(value, path, ["group", "members", "nextCursor"]);
-  return {
-    group: decodeCourseGroupSummary(record.group, `${path}.group`),
-    members: decodeBoundedArray(
-      record.members,
-      `${path}.members`,
-      MAX_TEACHING_PAGE_SIZE,
-      groupMember,
-    ),
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-  };
-}
-
-/** Compatibility spelling for consumers that name every generated view explicitly. */
-export const decodeCourseGroupSummaryView = decodeCourseGroupSummary;
-
-function decodeGroupWrite(value: unknown, path: string): CourseGroupCreateRequest {
-  const record = closed(value, path, ["title", "purpose", "members"]);
-  return {
-    title: boundedTrimmedText(
-      record.title,
-      `${path}.title`,
-      MAX_COURSE_GROUP_TITLE_UNICODE_SCALARS,
-    ),
-    purpose: decodeStringEnum(record.purpose, `${path}.purpose`, PURPOSES),
-    members: groupMembers(record.members, `${path}.members`),
-  };
-}
-
-export function decodeCourseGroupCreateRequest(
-  value: unknown,
-  path = "request",
-): CourseGroupCreateRequest {
-  return decodeGroupWrite(value, path);
-}
-
-export function decodeCourseGroupUpdateRequest(
-  value: unknown,
-  path = "request",
-): CourseGroupUpdateRequest {
-  return decodeGroupWrite(value, path);
-}
-
-export function decodeCourseGroupPurposePolicyView(
-  value: unknown,
-  path = "response",
-): CourseGroupPurposePolicyView {
-  const record = closed(value, path, ["purpose", "multipleMembership", "revision"]);
-  return {
-    purpose: decodeStringEnum(record.purpose, `${path}.purpose`, PURPOSES),
-    multipleMembership: decodeStringEnum(
-      record.multipleMembership,
-      `${path}.multipleMembership`,
-      MULTIPLE_MEMBERSHIP_POLICIES,
-    ),
-    revision: revision(record.revision, `${path}.revision`),
-  };
-}
-
-export function decodeCourseGroupPurposePolicyUpdateRequest(
-  value: unknown,
-  path = "request",
-): CourseGroupPurposePolicyUpdateRequest {
-  const record = closed(value, path, ["multipleMembership"]);
-  return {
-    multipleMembership: decodeStringEnum(
-      record.multipleMembership,
-      `${path}.multipleMembership`,
-      MULTIPLE_MEMBERSHIP_POLICIES,
-    ),
-  };
-}
-
-export function decodeCourseGroupMembershipWarningView(
-  value: unknown,
-  path = "response",
-): CourseGroupMembershipWarningView {
-  const record = closed(value, path, ["disposition", "warningCount"]);
-  return {
-    disposition: decodeStringEnum(record.disposition, `${path}.disposition`, [
-      "allowed",
-      "allowedWithWarning",
-    ] as const),
-    warningCount: boundedCount(record.warningCount, `${path}.warningCount`, MAX_TEACHING_PAGE_SIZE),
-  };
-}
-
-export function decodeGroupScheduleOffsetUpdateRequest(
-  value: unknown,
-  path = "request",
-): GroupScheduleOffsetUpdateRequest {
-  const record = closed(value, path, ["offsetSeconds"]);
-  const offsetSeconds = decodeSafeInteger(record.offsetSeconds, `${path}.offsetSeconds`);
-  if (offsetSeconds === 0 || Math.abs(offsetSeconds) > MAX_GROUP_SCHEDULE_OFFSET_SECONDS) {
-    throw new DecodeError(`${path}.offsetSeconds`, "a nonzero offset within one year in seconds");
-  }
-  return { offsetSeconds };
 }
 
 /** Decode the common exact strong-revision response for accepted M2--M4 mutations. */
@@ -411,23 +240,11 @@ export function decodeAssignmentPolicyPatchUpdateRequest(
   return decodePolicyWrite(value, path);
 }
 
-export function decodeIndividualPolicyPatchUpdateRequest(
+export function decodeAccommodationPatchUpdateRequest(
   value: unknown,
   path = "request",
-): IndividualPolicyPatchUpdateRequest {
+): AccommodationPatchUpdateRequest {
   return decodePolicyWrite(value, path);
-}
-
-function previewGroupSource(value: unknown, path: string): TeachingPreviewGroupSource {
-  const record = closed(value, path, ["group", "label"]);
-  return {
-    group: reference(record.group, `${path}.group`, "G"),
-    label: boundedTrimmedText(
-      record.label,
-      `${path}.label`,
-      MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-    ),
-  };
 }
 
 function previewSource(value: unknown, path: string): TeachingPreviewFieldSource {
@@ -444,7 +261,7 @@ function previewSource(value: unknown, path: string): TeachingPreviewFieldSource
           MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
         ),
       };
-    case "membership":
+    case "accommodation":
       requireOnlyFields(record, path, ["kind", "membership", "label"]);
       return {
         kind,
@@ -455,23 +272,6 @@ function previewSource(value: unknown, path: string): TeachingPreviewFieldSource
           MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
         ),
       };
-    case "groupScheduleOffsets":
-    case "groupAccommodations": {
-      requireOnlyFields(record, path, ["kind", "groups"]);
-      const groups = decodeBoundedArray(
-        field(record, "groups", path),
-        `${path}.groups`,
-        MAX_TEACHING_PAGE_SIZE,
-        previewGroupSource,
-      );
-      if (
-        groups.length === 0 ||
-        new Set(groups.map((group) => group.group)).size !== groups.length
-      ) {
-        throw new DecodeError(`${path}.groups`, "nonempty unique ordered group sources");
-      }
-      return { kind, groups };
-    }
     default:
       throw new DecodeError(`${path}.kind`, "a known preview provenance kind");
   }
@@ -697,15 +497,15 @@ export function decodeInstructorMembershipsPage(
   };
 }
 
-export function decodeCoInstructorInvitationCreateRequest(
+export function decodeCourseInvitationCreateRequest(
   value: unknown,
   path = "request",
-): CoInstructorInvitationCreateRequest {
+): CourseInvitationCreateRequest {
   const record = closed(value, path, ["target"]);
   return { target: reference(record.target, `${path}.target`, "U") };
 }
 
-function coInstructorTarget(value: unknown, path: string): CoInstructorTargetView {
+function courseInvitationTarget(value: unknown, path: string): CourseInvitationTargetView {
   const record = closed(value, path, ["account", "approval"]);
   return {
     account: teachingAccount(record.account, `${path}.account`),
@@ -714,27 +514,27 @@ function coInstructorTarget(value: unknown, path: string): CoInstructorTargetVie
 }
 
 /** Decode the bounded safe-picker search page without accepting account PII. */
-export function decodeCoInstructorTargetSearchPage(
+export function decodeCourseInvitationTargetSearchPage(
   value: unknown,
   path = "response",
-): CoInstructorTargetSearchPage {
+): CourseInvitationTargetSearchPage {
   const record = closed(value, path, ["targets", "nextCursor"]);
   return {
     targets: decodeBoundedArray(
       record.targets,
       `${path}.targets`,
       MAX_TEACHING_PAGE_SIZE,
-      coInstructorTarget,
+      courseInvitationTarget,
     ),
     nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
   };
 }
 
 /** Decode the strict display-name-only target-search request before URL serialization. */
-export function decodeCoInstructorTargetSearchRequest(
+export function decodeCourseInvitationTargetSearchRequest(
   value: unknown,
   path = "request",
-): CoInstructorTargetSearchRequest {
+): CourseInvitationTargetSearchRequest {
   const record = closed(value, path, ["query", "after", "size"]);
   const query = boundedTrimmedText(record.query, `${path}.query`, 100);
   if (Array.from(query).length < 2) {
@@ -757,7 +557,7 @@ export function decodeCourseStudentMembershipsPage(
     record.students,
     `${path}.students`,
     MAX_TEACHING_PAGE_SIZE,
-    groupMember,
+    studentMembership,
   );
   if (!students.every((student) => student.role === "student")) {
     throw new DecodeError(`${path}.students`, "student membership rows");
@@ -765,10 +565,10 @@ export function decodeCourseStudentMembershipsPage(
   return { students, nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`) };
 }
 
-export function decodeCourseCoInstructorInvitationsPage(
+export function decodeCourseCourseInvitationsPage(
   value: unknown,
   path = "response",
-): CourseCoInstructorInvitationsPage {
+): CourseCourseInvitationsPage {
   const record = closed(value, path, ["invitations", "nextCursor"]);
   return {
     invitations: decodeBoundedArray(
@@ -786,7 +586,7 @@ export function decodeCourseCoInstructorInvitationsPage(
         ]);
         return {
           reference: reference(invitation.reference, `${entryPath}.reference`, "CI"),
-          target: coInstructorTarget(invitation.target, `${entryPath}.target`),
+          target: courseInvitationTarget(invitation.target, `${entryPath}.target`),
           state: decodeStringEnum(invitation.state, `${entryPath}.state`, INVITATION_STATES),
           createdAt: decodeTimestamp(invitation.createdAt, `${entryPath}.createdAt`),
           expiresAt: decodeTimestamp(invitation.expiresAt, `${entryPath}.expiresAt`),
@@ -798,10 +598,10 @@ export function decodeCourseCoInstructorInvitationsPage(
   };
 }
 
-export function decodePendingCoInstructorInvitationsPage(
+export function decodePendingCourseInvitationsPage(
   value: unknown,
   path = "response",
-): PendingCoInstructorInvitationsPage {
+): PendingCourseInvitationsPage {
   const record = closed(value, path, ["invitations", "nextCursor"]);
   return {
     invitations: decodeBoundedArray(
@@ -833,10 +633,10 @@ export function decodePendingCoInstructorInvitationsPage(
   };
 }
 
-export function decodeCoInstructorInvitationTerminalActionRequest(
+export function decodeCourseInvitationTerminalActionRequest(
   value: unknown,
   path = "request",
-): CoInstructorInvitationTerminalActionRequest {
+): CourseInvitationTerminalActionRequest {
   const record = closed(value, path, ["action"]);
   return {
     action: decodeStringEnum(record.action, `${path}.action`, ["accept", "decline"] as const),

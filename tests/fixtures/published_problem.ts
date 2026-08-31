@@ -8,8 +8,7 @@ const workspace = "0198e000-0000-7000-8000-000000000002";
 const problem = "0198e000-0000-7000-8000-000000000003";
 const version = "0198e000-0000-7000-8000-000000000004";
 const assignmentId = "0198e000-0000-7000-8000-000000000006";
-const enrollmentId = "0198e000-0000-7000-8000-000000000007";
-const studentId = "0198e000-0000-7000-8000-000000000008";
+const studentRecordId = "0198e000-0000-7000-8000-000000000007";
 const courseId = "0198e000-0000-7000-8000-000000000014";
 
 const metadata = {
@@ -87,7 +86,7 @@ const questionSettings = {
 
 function attempt(
   id: string,
-  run: string,
+  issuedQuestion: string,
   seed: number,
   selected: string | undefined,
   issuedAt: number,
@@ -95,10 +94,7 @@ function attempt(
   const submitted = selected !== undefined;
   return {
     id,
-    run,
-    problem,
-    questionVersion: version,
-    assignmentPosition: 0,
+    issuedQuestion,
     seed,
     parameterHash: "a".repeat(64),
     response: submitted ? { kind: "multipleChoice", selected: [selected] } : null,
@@ -110,7 +106,7 @@ function attempt(
           pointsPossible: 1,
         }
       : null,
-    timer: { issuedAt, deadline: null, submittedAt: submitted ? issuedAt + 100 : null },
+    timing: { issuedAt, deadline: null, submittedAt: submitted ? issuedAt + 100 : null },
     provenance: {
       adapter: { id: "native-adapter", version: "1" },
       renderer: null,
@@ -142,8 +138,7 @@ export const publishedProblemFixture = {
     ],
     metadata,
     byline: { names: ["Fixture Instructor"] },
-    scope: "public",
-    lifecycle: { state: "published" },
+    availability: { availability: "available" },
     publishedAt: 1786000000000,
   },
   publishedProblem: {
@@ -204,50 +199,66 @@ export const publishedProblemFixture = {
       variation: "newSeeds",
     },
   },
-  enrollment: {
-    id: enrollmentId,
-    assignment: assignmentId,
-    user: "0198e000-0000-7000-8000-000000000016",
-    student: studentId,
-    firstCompletedAt: 1786000001300,
-    currentGradeRun: "0198e000-0000-7000-8000-000000000021",
-    bestGradeRun: "0198e000-0000-7000-8000-000000000021",
-  },
+  studentRecord: studentRecordId,
   runs: [
     {
       id: "0198e000-0000-7000-8000-000000000020",
       reference: "R-1",
-      enrollment: enrollmentId,
-      runNumber: 1,
+      studentRecord: studentRecordId,
+      assignment: assignmentId,
+      attemptNumber: 1,
       startedAt: 1786000001000,
       completedAt: 1786000001300,
       score: 0,
-      mode: "assigned",
       variation: "newSeeds",
     },
     {
       id: "0198e000-0000-7000-8000-000000000021",
       reference: "R-2",
-      enrollment: enrollmentId,
-      runNumber: 2,
+      studentRecord: studentRecordId,
+      assignment: assignmentId,
+      attemptNumber: 2,
       startedAt: 1786000002000,
       completedAt: 1786000002300,
       score: 1,
-      mode: "practice",
       variation: "newSeeds",
+    },
+  ],
+  issuedQuestions: [
+    {
+      id: "0198e000-0000-7000-8000-000000000040",
+      assignmentAttempt: "0198e000-0000-7000-8000-000000000020",
+      assignmentItem: "0198e000-0000-7000-8000-000000000017",
+      sourcePosition: 0,
+      issuedPosition: 0,
+      reference: { problem, version },
+      statisticsEligible: true,
+      selectionGroup: null,
+      selectionSeed: null,
+    },
+    {
+      id: "0198e000-0000-7000-8000-000000000041",
+      assignmentAttempt: "0198e000-0000-7000-8000-000000000021",
+      assignmentItem: "0198e000-0000-7000-8000-000000000017",
+      sourcePosition: 0,
+      issuedPosition: 0,
+      reference: { problem, version },
+      statisticsEligible: true,
+      selectionGroup: null,
+      selectionSeed: null,
     },
   ],
   attempts: [
     attempt(
       "0198e000-0000-7000-8000-000000000030",
-      "0198e000-0000-7000-8000-000000000020",
+      "0198e000-0000-7000-8000-000000000040",
       1001,
       "carbonyl",
       1786000001100,
     ),
     attempt(
       "0198e000-0000-7000-8000-000000000031",
-      "0198e000-0000-7000-8000-000000000021",
+      "0198e000-0000-7000-8000-000000000041",
       1002,
       "amide",
       1786000002100,

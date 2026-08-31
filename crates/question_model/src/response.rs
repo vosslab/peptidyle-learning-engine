@@ -47,7 +47,7 @@ pub struct ChoiceOption {
 pub struct TextEntrySlot {
     /// Stable semantic slot identifier.
     pub id: ChoiceId,
-    /// Learner-visible label or surrounding prompt fragment.
+    /// Student-visible label or surrounding prompt fragment.
     pub label: Vec<ContentBlock>,
     /// How the server compares this slot's text.
     pub match_mode: TextMatchMode,
@@ -55,13 +55,13 @@ pub struct TextEntrySlot {
     pub max_length: u32,
 }
 
-/// One learner-supplied value for a named text-entry slot.
+/// One student-supplied value for a named text-entry slot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TextEntryAnswer {
     /// Slot being answered.
     pub slot: ChoiceId,
-    /// Learner text before server-owned normalization.
+    /// Student text before server-owned normalization.
     pub text: String,
 }
 
@@ -89,7 +89,7 @@ pub struct HotspotPoint {
     pub y: u16,
 }
 
-/// One public candidate region and its accessible learner label.
+/// One public candidate region and its accessible student label.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HotspotRegion {
@@ -142,14 +142,14 @@ pub enum ResponseDefinition {
     },
     /// Several independently identified short-text entries.
     MultiBlank {
-        /// Slots in learner presentation order.
+        /// Slots in student presentation order.
         blanks: Vec<TextEntrySlot>,
     },
     /// A set of prompt-to-choice associations.
     Matching {
-        /// Prompts in learner presentation order.
+        /// Prompts in student presentation order.
         prompts: Vec<ChoiceOption>,
-        /// Available choices in learner presentation order.
+        /// Available choices in student presentation order.
         choices: Vec<ChoiceOption>,
     },
     /// An arrangement of items into the correct order.
@@ -165,7 +165,7 @@ pub enum ResponseDefinition {
         description: String,
         /// Public candidate regions; the correct region set remains private.
         regions: Vec<HotspotRegion>,
-        /// Number of points the learner must select.
+        /// Number of points the student must select.
         selection: SelectionCardinality,
     },
     /// An uploaded file, for work done outside the browser.
@@ -226,7 +226,7 @@ pub enum StudentResponse {
     },
     /// Normalized points selected on a hotspot surface.
     Hotspot {
-        /// Points in learner selection order.
+        /// Points in student selection order.
         points: Vec<HotspotPoint>,
     },
     /// A reference to an uploaded object in the `student-records` bucket.
@@ -234,7 +234,7 @@ pub enum StudentResponse {
         /// Storage key of the uploaded object.
         object_key: String,
     },
-    /// The learner used the ordinary submission action for an external tool.
+    /// The student used the ordinary submission action for an external tool.
     ///
     /// It is intentionally a marker only; browser-supplied provider material
     /// can never enter the generic submission record through this variant.

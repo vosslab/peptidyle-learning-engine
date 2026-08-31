@@ -201,6 +201,27 @@ fn explicit_contract_roots_generate_one_direct_type_graph() {
 }
 
 #[test]
+fn hand_written_serde_wrappers_generate_their_browser_declaration() {
+    let source = TestDirectory::new("manual-serde-wrapper");
+    let out_dir = TestDirectory::new("manual-serde-wrapper-output");
+    fs::create_dir_all(source.path()).expect("temporary source should be created");
+    fs::write(
+        source.path().join("wrapper.rs"),
+        "pub struct BoundedItems(Vec<String>);\nimpl Serialize for BoundedItems { fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error> where S: serde::Serializer { unreachable!() } }\nimpl<'de> Deserialize<'de> for BoundedItems { fn deserialize<D>(_: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> { unreachable!() } }\n#[derive(Serialize)] pub struct BrowserRecord { pub items: BoundedItems }\n",
+    )
+    .expect("manual Serde wrapper source should be written");
+
+    run(&[source.path()], out_dir.path()).expect("manual wrapper contract should generate");
+
+    let wrapper = fs::read_to_string(out_dir.path().join("BoundedItems.ts"))
+        .expect("manual wrapper declaration should be generated");
+    let record = fs::read_to_string(out_dir.path().join("BrowserRecord.ts"))
+        .expect("browser record declaration should be generated");
+    assert!(wrapper.contains("export type BoundedItems = Array<string>;"));
+    assert!(record.contains("import type { BoundedItems } from \"./BoundedItems\";"));
+}
+
+#[test]
 fn empty_contract_roots_preserve_existing_output() {
     let out_dir = TestDirectory::new("empty-contract-roots");
     fs::create_dir_all(out_dir.path()).expect("temporary output should be created");

@@ -54,13 +54,15 @@ migration run does not itself accept an unfinished package.
 | Version | File | Owns |
 | --- | --- | --- |
 | 2026082901 | [principal baseline](../schemas/migrations/2026082901_principal_baseline.sql) | Default-deny schemas and PostgreSQL capability roles. |
-| 2026082902 | [global Account and session](../schemas/migrations/2026082902_global_account_authenticated_session.sql) | Immutable Account role and opaque Authenticated Session records. |
+| 2026082902 | [global Account and session](../schemas/migrations/2026082902_global_account_authenticated_session.sql) | Immutable Product Role, Account State Events, and opaque Authenticated Session records. |
 | 2026082903 | [email challenges](../schemas/migrations/2026082903_email_challenges_and_rate_limits.sql) | Private Authentication Email, passwordless email ceremonies, and rate limits. |
 | 2026082904 | [WebAuthn](../schemas/migrations/2026082904_webauthn_ceremonies_and_passkeys.sql) | Browser-bound WebAuthn ceremonies and passkeys. |
-| 2026082905 | [Instructor approval](../schemas/migrations/2026082905_instructor_approval.sql) | Global approved-Instructor eligibility without course authority. |
-| 2026082906 | [session resolver](../schemas/migrations/2026082906_session_resolution_broker.sql) | Authenticated-session resolution, installation, creation, and revocation brokers. |
+| 2026082905 | [Instructor approval](../schemas/migrations/2026082905_instructor_approval.sql) | Immutable global Instructor Approval Events; current eligibility grants no course authority. |
+| 2026082906 | [session resolver](../schemas/migrations/2026082906_session_resolution_broker.sql) | Active-Account Authenticated Session resolution, installation, creation, and revocation brokers. |
+| 2026082914 | [course relationships](../schemas/migrations/2026082914_course_memberships.sql) | Immutable Course Membership and Course Invitation event-ledger transitions. |
 | 2026082933 | `authentication_ceremony_brokers.sql` | Atomic email-challenge and validated-passkey completion for existing Accounts. |
-| 2026082934 | `sysadmin_account_provisioning_broker.sql` | Sysadmin-only Account Creation broker for a global Account and immutable Product Role. |
+| 2026082934 | `sysadmin_account_creation.sql` | Sysadmin-only Account Creation for a global Account and immutable Product Role. |
+| 2026082935 | `blueprint_revision_collaboration.sql` | Immutable Blueprint Publication, Blueprint Collaborator, and Blueprint Revision Availability Events. |
 
 Later `20260829xx` files build the shared catalog, authoring workspaces,
 BlueprintCourses, CourseInstances, Student records, delivery, grading, capability brokers,
@@ -83,7 +85,7 @@ unfinished migration allocation, while the active release plan owns package acce
 
 | Version    | Planned owner     | Intended scope                                                                                                                                                                                                                                                      | Current source state                                                                                       |
 | ---------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 2026080908 | WP-P2             | Secure learner grading payload binding and WeBWorK replay state                                                                                                                                                                                                     | File present; acceptance open                                                                              |
+| 2026080908 | WP-P2             | Secure student grading payload binding and WeBWorK replay state                                                                                                                                                                                                     | File present; acceptance open                                                                              |
 | 2026080909 | WP-RC8            | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit                                                                                                                                                             | File present; migration gate passed; package acceptance open                                               |
 | 2026080914 | WP-RC4            | Flat-question v2 grading                                                                                                                                                                                                                                            | File present; package acceptance open                                                                      |
 | 2026080915 | WP-HG1            | Historical internal catalog display-number range                                                                                                                                                                                                                    | File present; public use superseded by 2026080931                                                          |
@@ -110,7 +112,7 @@ unfinished migration allocation, while the active release plan owns package acce
 | 2026081802 | WP-INST-S7        | Positive public scalar for course groups; immutable validated public byline on published versions and catalog projection                                                                                                                                            | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
 | 2026081803 | WP-INST-S5        | Canonical membership episodes, derived entitlement, typed group purposes/audiences, sealed materialization provenance, and typed assignment summaries                                                                                                               | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
 | 2026081804 | WP-INST-S3        | Normalized base policy, group offsets/accommodations, individual exceptions, sealed per-attempt effective-policy receipts, field provenance, and current pointer                                                                                                    | Accepted and immutable; fresh PostgreSQL 17 baseline and exact normalized resolver/RLS oracle passed       |
-| 2026081805 | WP-INST-S4        | Assignment-owned five-field learner disclosure policy and removal of retired coarse disclosure columns                                                                                                                                                              | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
+| 2026081805 | WP-INST-S4        | Assignment-owned five-field student disclosure policy and removal of retired coarse disclosure columns                                                                                                                                                              | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed                                 |
 | 2026081806 | WP-INST-S6        | Course-owned total-points and weighted-category schemes, normalized categories and letter bands, compact-summary totals, and PII-free export audit                                                                                                                  | Accepted and immutable                                                                                     |
 | 2026081807 | WP-INST-T2        | Purpose-aware course-group membership policy, global non-authorizing Instructor approval, target-bound co-instructor invitations, safe public teaching references, final-Instructor protection, and modifier reference guards                                       | Accepted and immutable; fresh PostgreSQL 17 upgrade, group, authority, RLS, and concurrency oracles passed |
 | 2026081837 | WP-INST-B1        | Historical pre-SD1 evidence: split personal Blueprint and Alpha curriculum tables, validators, pins, policies, and broker functions                                                                                                                                   | Immutable historical evidence; removed from the active target by fresh SD1-C                              |
@@ -127,18 +129,17 @@ unfinished migration allocation, while the active release plan owns package acce
 
 The 2026080931 and 2026080935 entries describe superseded pre-production migration behavior. The
 current WP-R2 schema contract uses one immutable Question ID per publication, fresh hidden
-`(ProblemId, VersionId)` evidence, optional one-way provenance, and deliberate revision-checked
+`(QuestionId, QuestionVersionNumber)` evidence, optional one-way provenance, and deliberate revision-checked
 assignment replacement. The migration ledger remains historical evidence; it does not authorize
 same-question correction, version-chain resolution, or automatic propagation.
 
-Learner file responses remain unavailable until their dedicated current-schema
+Student file responses remain unavailable until their dedicated current-schema
 contract and validation evidence exist.
 The fresh pre-production baseline starts with the global Account and Authenticated Session roots in
 `2026082902_global_account_authenticated_session.sql`. `2026082903` adds private verified
 Authentication Email and browser-bound email-challenge state; `2026082904` adds private WebAuthn
 ceremony and Passkey state. These credential relations establish an existing Account only; they do
-creates sessions for existing Accounts and leaves Account Creation, Product Role assignment, and
-Course Membership creation to their owning boundaries. Local browser entry
+not provision accounts, assign Product Roles, or create Course Memberships. Local browser entry
 uses the same Account and Authenticated Session records as the deployed product: the
 deployment-gated seeded-persona selector may enter one of the configured disposable Accounts, but
 it introduces no alternate identity or session model. Because this checked-in schema is
@@ -180,7 +181,7 @@ relations plus `course_total_export_audit`. The mode check is closed to total po
 categories; completion-based grading is not represented. The scheme revision is positive and
 strong-CAS updates replace the whole title-free assignment setting, while scheme reads project
 the current server-owned assignment titles. Course totals read one scheme snapshot and maintained
-compact assignment summaries; the browser receives no email, learner identity, or raw summary
+compact assignment summaries; the browser receives no email, student identity, or raw summary
 payload. Export rows are synchronous and ephemeral; only bounded, PII-free audit metadata is
 durable. All new relations use exact relationship keys, forced RLS, and retention reachability.
 
@@ -233,7 +234,7 @@ relative schedule defaults. Relative calendar-day and local-wall-clock values ar
 they are not live deadlines.
 
 Every fixed entry and pool candidate resolves its submitted public `QuestionId` to one exact,
-immutable `(problem_id, version_id)` publication pin. The public ID is the catalog locator and the
+immutable `(question_id, version_number)` publication pin. The public ID is the catalog locator and the
 hidden pair is the server-side grading, provenance, and replay identity. A replacement resolves all
 pins atomically under the current authority before changing any child row. No current catalog
 lookup, latest-version rule, or pool draw may reinterpret an existing pin.
@@ -245,10 +246,13 @@ meaning locks the root, replaces the ordered child document atomically, and adva
 once; a semantic no-op keeps the revision. An observed stale revision refuses without changing the
 stored tree. There is no separate revision stream for modules, assignments, or individual pins.
 
-Draft ownership is the root `owner_account_id` (`AccountId`) in its `WorkspaceId`, with explicit
-workspace collaborators receiving only the workspace capability. A draft is private to that
-relationship. The creating Instructor is the owner; there is no separate creator authority or
-creator-owned second course type.
+Draft Question ownership is the root `owner_account_id` (`AccountId`) in its `WorkspaceId`, with
+explicit Workspace Collaborators receiving only the workspace capability. Immutable Workspace
+Collaborator start and end events derive that current relationship. A Draft Blueprint Revision has
+a separate, exact Blueprint Collaborator relationship. Its immutable grant and end
+events bind an Approved Instructor to one unpublished Blueprint Revision; the relationship grants
+neither Authoring Workspace access nor Course Instance authority. The creating Instructor is the
+owner; there is no separate creator authority or creator-owned second course type.
 Publication is an explicit lifecycle transition that stores one immutable reviewed `PublicByline`
 snapshot and exposes the answer-free reusable projection to every approved Instructor. The creator
 snapshot is attribution, not an additional authorization role. The current owner/collaborator and
@@ -266,28 +270,30 @@ BlueprintCourse archives instead of being hard-deleted.
 
 Instantiation copies reusable assignment meaning, reviewed relative schedule defaults, policy
 defaults, theme defaults, and import provenance into the exact CourseInstance. It never copies
-Students, enrollment, invitations, co-Instructors, accommodations, live deadlines, releases,
+Students, Course Memberships, Course Invitations, Teaching Team Members, accommodations, live deadlines, releases,
 grades, attempts, responses, retention state, or other FERPA records. The target CourseInstance
 resolves relative schedules against its own term and time zone during preview and apply; it then
 owns the resulting live deadlines and every later delivery edit.
 
-CourseInstance owns `course_member`, `enrollment`, assignment lifecycle and delivery state, runs,
-attempts, submissions, feedback, grades, accommodations, releases, and retention linkage. Those
-relations are private to its current equal co-Instructors and enrolled Students under the exact
-course authorization boundary. A BlueprintCourse read never exposes this state, and a published
-question's shared catalog visibility never grants access to it.
+CourseInstance owns Course Memberships, Student Records, Assignments and Assignment Revisions,
+Assignment Attempts, submissions, feedback, Gradebook evidence, accommodations, releases, and
+retention linkage. Those relations are private to its current equal Teaching Team Members and
+enrolled Students under the exact course authorization boundary. A BlueprintCourse read never
+exposes this state, and a Published Question's shared catalog visibility never grants access to it.
 
 A later BlueprintCourse revision is a controlled update. Each new Blueprint assignment materializes
 in every affected daughter CourseInstance as an unreleased assignment projection. Existing local
-delivery edits remain intact. Current co-Instructors review the resolved preview and explicitly
+delivery edits remain intact. Current Teaching Team Members review the resolved preview and explicitly
 release the new assignment before an enrolled Student can receive it; propagation never silently
-releases, overwrites, or creates learner records.
+releases, overwrites, or creates student records.
 
 ### SD1-C cutover
 
 SD1-C builds this shape on a fresh database using the status-owned allocations
 `2026082913`-`2026082916` for courses, memberships, Students, invitations, and curricula and
-`2026082929`-`2026082932` for capability brokers, forced RLS, grants, and acceptance helpers.
+`2026082929`-`2026082932` for Course Observer relationships, exact authorization brokers,
+forced RLS, and acceptance helpers, plus `2026082935` for exact Draft Blueprint Revision
+publication and collaboration evidence.
 The exact migration allocation remains owned by
 [implementation_status.md](active_plans/implementation_status.md).
 
@@ -311,14 +317,14 @@ are not stored in these relations.
 | Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                                                      | One human Question ID names one immutable published question; hidden exact evidence preserves grading and provenance.       |
 | Reusable course           | `course_blueprint`, `course_blueprint_module`, `course_blueprint_assignment`, `course_blueprint_entry`, `course_blueprint_fixed`, `course_blueprint_pool`, `course_blueprint_pool_candidate` | One revisioned BlueprintCourse tree; draft ownership is workspace-scoped and published projection is shared with approved Instructors. |
 | Private authoring          | `workspace_draft` and `workspace_*` import/source relations                                                                                                                             | Workspace-private mutable work before publication.                                                                          |
-| Course activity            | `course` (CourseInstance), `course_member`, `student_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment`                               | CourseInstance configuration, protected roster PII, membership, enrollment, and delivery state.                             |
-| Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `attempt_effective_policy_receipt`, `attempt_effective_policy_receipt_field_source`, `submission`, `submission_evaluation` | Course/Student educational records; effective-policy evidence is append-only and sealed.                                    |
-| Current projections        | `attempt_score_current`, `student_assignment_summary`, `course_item_analysis_current`                                                                                                   | Recomputed/published current state; not a substitute for source evidence.                                                   |
+| Course activity            | `course_instance`, `course_membership`, `course_membership_event`, `student_record`, `assignment`, `assignment_revision`, `course_invitation`, `course_invitation_event` | Course Instance configuration, protected Student Record, event-derived membership and invitation state, and Assignment definition. |
+| Student evidence           | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and immutable receipts                                                     | Course/Student educational records; selection, responses, grading, and finalization stay in their owning records.            |
+| Current projections        | `assignment_grade`, `assignment_activity_summary`, `assignment_analysis`                                                                                                                   | Derived course records; not a substitute for source evidence.                                                                |
 | Course grading             | `course_grade_scheme`, `course_grade_category`, `course_grade_category_assignment`, `course_grade_letter_band`, `course_total_export_audit`                                             | Course-owned scheme and normalized membership; export audit stores only account/course/revision/mode/rounding/count metadata. |
 | Protected delivery/audit   | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event`                                                                                                                | Explicitly authorized and retention-bound record access/evidence.                                                           |
 
-Publication pins an assignment to an exact `(problem_id, version_id)` and an issued run item
-to what that learner actually received. A course edit therefore does not reinterpret an
+Publication pins an Assignment Entry to an exact `(question_id, version_number)` and an Issued Question
+to what that student actually received. A course edit therefore does not reinterpret an
 already issued question. The detailed lifecycle is in
 [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and the information-class boundary is in
 [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). The authoritative database-facing list of
@@ -331,12 +337,12 @@ partitions, views, temporary tables, query results, dumps, WAL, replicas, snapsh
 The relational activity spine is:
 
 ```text
-course -> assignment -> enrollment -> assignment_run -> assignment_run_item
-                                                   -> question_attempt
-                                                        -> submission
-                                                        -> submission_evaluation
-                                                        -> attempt_score_current
-                                                    enrollment -> student_assignment_summary
+course_instance -> student_record
+course_instance -> assignment -> assignment_revision
+student_record + assignment -> assignment_attempt -> issued_question -> question_attempt
+                                                                  -> question_submission -> grading_result
+assignment_attempt -> assignment_submission
+student_record + assignment -> assignment_grade
 ```
 
 All Student-facing transitions derive the authenticated Account, exact course/Student relationship, assignment position, version, seed,
@@ -345,20 +351,21 @@ select those facts.
 
 | Relation                                                 | Durable responsibility                                                                                                                                                                      |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assignment_run`                                         | One owned pass through an assignment; completion is derived from attempt state.                                                                                                             |
-| `assignment_run_item`                                    | Exact version/order and selection evidence delivered in that run.                                                                                                                           |
-| `question_attempt`                                       | One issued question instance, including seed, provenance, timing, and controlled state.                                                                                                     |
-| `question_prefetch`                                      | One bounded, server-only reservation; it has no started timer, response, or score, but may contain private issue-time grading authority and must never enter a learner DTO or public cache. |
-| `submission`                                             | Append-only learner response evidence.                                                                                                                                                      |
+| `assignment_attempt`                                    | One complete Student pass through one Assignment; it owns pass-level variation, timing, and derived completion.                                                                             |
+| `issued_question`                                       | One selected Question Version for an Assignment Attempt, with frozen delivery order, Assignment Entry scoring treatment, and selection evidence.                                            |
+| `question_attempt`                                      | One server-issued try for an Issued Question, including seed, provenance, timing, and controlled state.                                                                                     |
+| `question_prefetch`                                      | One bounded, server-only reservation; it has no started timer, response, or score, but may contain private issue-time grading authority and must never enter a student DTO or public cache. |
+| `question_submission`                                    | Immutable accepted Student Response evidence for one Question Attempt.                                                                                                                      |
+| `assignment_submission`                                  | Explicit accepted whole-attempt finalization with an attributed Receipt.                                                                                                                    |
 | `submission_idempotency` and receipt relations           | Exact retry/replay fence; no second grade on a conflicting retry.                                                                                                                           |
-| `submission_evaluation`                                  | Server-produced normalized result and policy-controlled feedback basis.                                                                                                                     |
-| `attempt_score_current` and `student_assignment_summary` | Current scoring/gradebook projections, updated under scoring-generation rules.                                                                                                              |
+| `grading_result`                                         | Server-produced result for an accepted Question Submission and policy-controlled feedback basis.                                                                                            |
+| `assignment_grade` and `assignment_activity_summary`    | Selected course-record result and derived activity presentation, updated under scoring-generation rules.                                                                                   |
 
-The accepted issuance and receipt design binds a response to `AttemptId`, an idempotency key, and
+The accepted issuance and receipt design binds a Student Response to one exact Question Attempt, an idempotency key, and
 the issued presentation. The current browser request still carries a tagged `StudentResponse`; the
 server validates that tag against issued authority and never trusts it to select a question, key,
-or grader. The later compact learner-wire target removes the redundant response kind and sends only
-the minimal answer plus presentation binding. See
+or grader. The later compact student-wire target removes the redundant response kind and sends only
+the family-minimal answer plus presentation binding. See
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for that explicit
 current-versus-target boundary.
 
@@ -371,7 +378,7 @@ Migration 0908 introduces descriptor primitives for the secure grading-payload c
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `question_attempt.presentation_descriptor_*`                         | Versioned descriptor, nonce, and digest from 0908.                                                                                                       | Public descriptor primitives; never a grading key.                                                                                      |
 | `question_attempt.presentation_capability`, `presentation_*_payload` | 0917 explicit capability and checksummed answer-free issued presentation snapshot.                                                                       | `EnvelopeV1` is complete; `NotApplicable` contains no inferred fallback data.                                                           |
-| `question_attempt.grading_envelope_*`                                | 0919 server-only checksummed answer-free envelope with durable response IDs.                                                                             | First submit translates public rendered IDs without rerendering mutable catalog/backend state; this payload never enters a learner DTO. |
+| `question_attempt.grading_envelope_*`                                | 0919 server-only checksummed answer-free envelope with durable response IDs.                                                                             | First submit translates public rendered IDs without rerendering mutable catalog/backend state; this payload never enters a student DTO. |
 | `question_attempt.flat_grading_*`                                    | 0921 server-only checksummed flat `QuestionDefinition` plus private grading payload.                                                                     | Required for issued flat attempts; first grade reads this immutable contract rather than a current catalog/grader view.                 |
 | `question_attempt.webwork_grading_*`                                 | 0922 server-only checksummed WeBWorK `QuestionDefinition`.                                                                                               | Required for issued WeBWorK attempts; first grade does not resolve a current catalog definition or reissue to recover it.               |
 | `question_prefetch.presentation_*`                                   | The same binding for one reservation before promotion to an attempt.                                                                                     | Prevents an unbound prefetch from becoming an issued render.                                                                            |
@@ -394,11 +401,11 @@ mutate a row. Authorization is a separate Store/PostgreSQL decision using the ex
 relationship, current workspace owner/collaborator relationship, approved-Instructor predicate, or
 registered typed capability/lease.
 Shared published content is the deliberate exception: course/run records reference immutable global
-`(problem_id, version_id)` identities, while authorization remains on the exact course-owned
+`(question_id, version_number)` identities, while authorization remains on the exact course-owned
 assignment and Student attempt chain. Delete behavior is explicit rather than inherited from
 application convention:
 assignment composition and course membership use bounded cascades, published versions and receipt
-evidence use restrictive references, and learner-record purges go through the retention capability.
+evidence use restrictive references, and student-record purges go through the retention capability.
 
 JSONB is reserved for cohesive versioned payloads. Every authoritative JSON payload has a relational
 identity/owner, a closed discriminator or version, bounded size, and, where replay or private/public
@@ -413,7 +420,7 @@ The migration owns indexes alongside the query contract. Representative hot path
 | Exact Question ID and text search                | `catalog_search_document_question_id_idx` and `catalog_search_document_search_idx`        |
 | Course assignment paging and selected item order | `assignment_course_page_idx` and `assignment_item_assignment_idx`                         |
 | Gradebook enrollment paging                      | `enrollment_gradebook_summary_page_idx` over the current summary join key                 |
-| One active run and run-attempt cursor paging     | `assignment_run_one_active_idx` and `question_attempt_run_summary_cursor_idx`             |
+| Assignment Attempt and Question Attempt paging   | `assignment_attempt_student_assignment_idx` and `question_attempt_issued_question_idx`    |
 | Submission replay and immutable successor lookup | primary/unique idempotency keys plus `submission_next_attempt_next_idx`                   |
 | Ready worker claims and expired leases           | partial `worker_job_claim_ready_idx` and `worker_job_expired_lease_idx`                   |
 | Active Account sessions and credential lookup    | `authenticated_session_active_account_idx`, `email_authentication_challenge_active_token_idx`, and `passkey_active_account_idx` |
@@ -436,14 +443,14 @@ exact Instructor course membership.
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ple_app`                           | Normal API/server work through RLS and narrowly granted tables/functions.                                                                                                                         |
 | `ple_student`                       | Read-only Student projections subject to exact course/Student ownership predicates.                                                                                                              |
-| `ple_grader` / `ple_grading_reader` | Server-only grading material and approved reader functions; never browser access.                                                                                                                 |
+| `ple_automated_grading` / `ple_grading_reader` | Server-only automated-grading material and approved reader functions. This service capability is distinct from the reserved human Grader Course Membership Role. |
 | `ple_auth`                          | Hash-based session resolution only.                                                                                                                                                               |
-| `ple_retention_broker`              | Retention-manifest and learner-record cleanup work under its RLS policies.                                                                                                                        |
+| `ple_retention_broker`              | Retention-manifest and student-record cleanup work under its RLS policies.                                                                                                                        |
 | `ple_statistics_broker`             | Identity-free aggregate/statistics contribution work.                                                                                                                                             |
 | `ple_qti_*_broker`                  | Narrow staging/provenance capabilities for QTI import.                                                                                                                                            |
 | `ple_roster_support_broker`         | RLS-obeying owner for the non-action roster precheck and narrow audited Sysadmin roster-support capability; it has only the membership-column privilege needed to take a key-share lock. |
 
-Grants do not replace RLS, and RLS does not prove individual learner ownership by itself.
+Grants do not replace RLS, and RLS does not prove individual student ownership by itself.
 Production acceptance must exercise the deployed roles and transaction context, including
 foreign-course, foreign-Student, and foreign-Account denial. The detailed model is in
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
@@ -481,7 +488,7 @@ authoritative references before deleting anything. The full ownership and crash-
 
 `worker_job` is a durable typed queue. Its claim function uses bounded job kinds,
 leases, attempt counts, and `FOR UPDATE SKIP LOCKED`; handlers commit under lease and
-generation fences. Worker payloads carry identifiers and generations rather than learner
+generation fences. Worker payloads carry identifiers and generations rather than student
 names, raw responses, grades, answer keys, or storage credentials.
 
 Retention is a database-backed lifecycle, not an ad hoc delete:
@@ -493,17 +500,17 @@ Retention is a database-backed lifecycle, not an ad hoc delete:
 - `course_retention`, notification, stage, dispatch, and API-receipt relations persist exact
   course-scoped policy and revision-fenced actions.
 - Cleanup manifest relations freeze the exact typed object set for one course, stage, and generation
-  before a worker removes learner records, so a retry cannot discover a newly written or unrelated
+  before a worker removes student records, so a retry cannot discover a newly written or unrelated
   object.
 - Purge relations record ordered deletion progress for attempts, runs, and exports.
 - Shared published content, private drafts, and identity-free question statistics remain
-  outside a learner-record purge.
+  outside a student-record purge.
 
 `question_statistics_aggregate` is shared, identity-free statistical state.
 `question_statistics_contribution_receipt` makes first-completed-run contribution
-idempotent and supports deletion of the learner-owned receipt without deleting the aggregate.
+idempotent and supports deletion of the student-owned receipt without deleting the aggregate.
 Course item analysis remains a separate radioactive course-owned current projection. Its
-learner-safe class-statistics read uses the latest completed run for each
+student-safe class-statistics read uses the latest completed run for each
 enrollment and releases only a metric-free `insufficientEvidence` state or an
 `available` cohort count plus normalized assignment average. The Store checks
 current S5 entitlement; the server exposes that union only when the assignment
@@ -515,10 +522,10 @@ policy is in [RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 ## Partitioning and operations
 
-The baseline partitions the high-churn learner evidence tables by month, including
+The baseline partitions the high-churn student evidence tables by month, including
 `question_attempt`, `submission`, `record_access_log`, and `audit_event`; a default
 partition catches unprepared dates. `problem_version_payload` uses hash partitions by
-`problem_id`. Partition children are runtime schema objects and are not included in the
+`question_id`. Partition children are runtime schema objects and are not included in the
 80-relation inventory above.
 
 Keep current grade summaries and compact identity/header relations unpartitioned unless

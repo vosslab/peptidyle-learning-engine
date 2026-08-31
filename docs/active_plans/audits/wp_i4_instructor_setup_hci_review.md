@@ -7,7 +7,7 @@ the corrected local no-email pilot. Manager and independent seed-42
 retained-stack `--build` runs used the visible J11/J12/J13 setup before the
 student keyboard and instructor-gradebook journeys, then emitted the canonical
 schema-v2 report. This accepts the bounded local setup only, not email,
-canonical onboarding, J6/J7, all-family, multi-learner, or release work.
+canonical onboarding, J6/J7, all-family, multi-student, or release work.
 
 ## Scope and verdict
 
@@ -29,7 +29,7 @@ sequence completes, and currently fails strict TypeScript compilation.
 The user is a local instructor preparing one real course before a remote student
 works in it. Completion means the instructor can, without a pointer or hidden
 state access, sign in locally; create and open a uniquely named course; open
-Students and visibly activate the configured learner; return through a rendered
+Students and visibly activate the configured student; return through a rendered
 control; create a Mastery assignment from the public catalog; and observe its
 real course assignment link. The only retained handoff is the exact public
 course, assignment, problem, and version IDs after this whole sequence has
@@ -117,7 +117,7 @@ focused target; a visible completion or recovery state; and a bounded timeout.
   assertion identifies a generic visible `Local pilot` cell rather than the
   alias entered in the labelled J12 form. The child asserts normal success only;
   it does not prove the labelled recovery/error states that preserve the course
-  title, learner alias, or assignment draft, nor does it set child-specific
+  title, student alias, or assignment draft, nor does it set child-specific
   timeouts beyond Playwright's global 30 seconds.
 - **Impact:** A changed ordering or preexisting local row can select the wrong
   resource, and a failure gives limited instructor-oriented recovery evidence.
@@ -134,7 +134,7 @@ focused target; a visible completion or recovery state; and a bounded timeout.
 - The child starts at `/`; it does not use `context.request`, `page.request`,
   storage-state injection, cookie operations, `page.evaluate`, direct focus,
   or a non-root `goto`.
-- Local instructor credentials and the configured learner alias are read from
+- Local instructor credentials and the configured student alias are read from
   regular non-symlink mode-0600 files at their visible form action boundaries.
   They are not serialized into `InstructorSetupFragment`.
 - The runner's instructor-only arrangement publishes only the public retry
@@ -144,7 +144,7 @@ focused target; a visible completion or recovery state; and a bounded timeout.
 - `InstructorSetupFragment` is a closed schema with only fixed journey/status
   codes, elapsed time, and public UUIDs. Its reader rejects extra private
   fields, reordered fragments, unsafe state metadata, and symlinks.
-- Product source inspection confirms labelled Course title, Configured learner
+- Product source inspection confirms labelled Course title, Configured student
   alias, Assignment title, and public catalog controls; it also confirms
   visible product recovery copy for course creation, roster activation, and
   catalog failures. This does not substitute for the missing keyboard journey
@@ -177,9 +177,9 @@ Run only after the four P1 repairs and focused offline gates pass.
   rendered Students link by Tab and activate it with Enter; do not use browser
   history, direct navigation, pointer action, request context, direct focus,
   storage, or cookies.
-- In J12, reach the labelled configured-learner field by Tab, supply only the
+- In J12, reach the labelled configured-student field by Tab, supply only the
   configured local alias, focus and activate Add active student with Enter or
-  Space, and require exactly one matching visible active learner outcome with
+  Space, and require exactly one matching visible active student outcome with
   an announced completion/recovery state.
 - Return through a rendered visible control, not history. Reach New assignment
   through Tab/Enter, fill the labelled assignment title/search fields, and use
@@ -188,7 +188,7 @@ Run only after the four P1 repairs and focused offline gates pass.
   Highest run score, Allow unlimited practice) and the exact real course
   assignment link.
 - Confirm no test source or trace reads an answer, feedback body, score,
-  learner identity beyond the configured visible input/action boundary, or a
+  student identity beyond the configured visible input/action boundary, or a
   private browser/session value. Confirm stdout/stderr and credentials are
   discarded.
 - After every J11/J12/J13 visible assertion passes, inspect the protected state
@@ -211,7 +211,7 @@ does not accept a retained-stack run, M10, or the end-to-end teaching loop.
 ### Accepted repairs
 
 - J11/J12/J13 now starts only at `/`. The instructor reaches the labelled local
-  credential field, Course title, Students, configured learner field, Back to
+  credential field, Course title, Students, configured student field, Back to
   course, New assignment, search, catalog action, and create action with
   `tabTo`, asserts focus, and activates native controls with Enter. The
   rendered Back to course link replaces the prior browser-history shortcut.
@@ -248,7 +248,7 @@ does not accept a retained-stack run, M10, or the end-to-end teaching loop.
 - Run the normal fixed `--build --instructor-setup-only` child with an empty
   Podman container list before it begins.
 - Observe only Tab, Shift+Tab if needed, and native Enter/Space from root login
-  through unique course creation/opening, Students, configured local learner
+  through unique course creation/opening, Students, configured local student
   activation, rendered Back to course, public catalog selection, Mastery
   policy verification, assignment creation, and its real course link.
 - Confirm every route change has a visible/focused destination and no pointer,
@@ -305,7 +305,7 @@ The present early return prevents that contract from being exercised at all.
   private file decodes as exactly one complete ordered J11/J12/J13 prefix with
   the same course ID and only validated public UUIDs/fixed visible codes.
 - Make that validated public handoff available only to the fixed J1/J5/J8
-  children in the non-instructor-only path; do not emit credentials, learner
+  children in the non-instructor-only path; do not emit credentials, student
   identity, answer, score, feedback, child stdout, or private file contents.
 - E1 must render the final ordered J11, J12, J13, J1, J2, J3, J4, J5, and J8
   report. Until then, label the instructor-only report as a narrow live child

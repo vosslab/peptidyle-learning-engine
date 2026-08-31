@@ -4,16 +4,9 @@ import type { AccountApprovalView } from "../../../generated/api/AccountApproval
 import type { SysadminInstructorCandidateSearchPage } from "../../../generated/api/SysadminInstructorCandidateSearchPage";
 import type { SysadminInstructorCandidateSearchRequest } from "../../../generated/api/SysadminInstructorCandidateSearchRequest";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { CourseGroupCreateRequest } from "../../../generated/api/CourseGroupCreateRequest";
-import type { CourseGroupPurpose } from "../../../generated/api/CourseGroupPurpose";
-import type { CourseGroupPurposePolicyUpdateRequest } from "../../../generated/api/CourseGroupPurposePolicyUpdateRequest";
-import type { CourseGroupPurposePolicyView } from "../../../generated/api/CourseGroupPurposePolicyView";
-import type { CourseGroupReference } from "../../../generated/api/CourseGroupReference";
-import type { CourseGroupSummaryView } from "../../../generated/api/CourseGroupSummaryView";
-import type { CourseGroupUpdateRequest } from "../../../generated/api/CourseGroupUpdateRequest";
-import type { CoInstructorInvitationReference } from "../../../generated/api/CoInstructorInvitationReference";
-import type { CoInstructorTargetSearchPage } from "../../../generated/api/CoInstructorTargetSearchPage";
-import type { CoInstructorTargetSearchQuery } from "../../../generated/api/CoInstructorTargetSearchQuery";
+import type { CourseInvitationReference } from "../../../generated/api/CourseInvitationReference";
+import type { CourseInvitationTargetSearchPage } from "../../../generated/api/CourseInvitationTargetSearchPage";
+import type { CourseInvitationTargetSearchQuery } from "../../../generated/api/CourseInvitationTargetSearchQuery";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
 import type { RetentionActionResponse } from "../../../generated/api/RetentionActionResponse";
 import type { RetentionArchiveRequest } from "../../../generated/api/RetentionArchiveRequest";
@@ -24,26 +17,16 @@ import type { TeachingOperationRevisionResponse } from "../../../generated/api/T
 import type { ApiClient, SysadminInstructorCandidateClient } from "../client";
 import {
   decodeAccountApprovalView,
-  decodeAssignmentPolicyPatchUpdateRequest,
-  decodeCoInstructorInvitationCreateRequest,
-  decodeCoInstructorInvitationTerminalActionRequest,
-  decodeCoInstructorTargetSearchPage,
-  decodeCoInstructorTargetSearchRequest,
-  decodeCourseCoInstructorInvitationsPage,
-  decodeCourseGroupCreateRequest,
-  decodeCourseGroupDetailView,
-  decodeCourseGroupListPage,
-  decodeCourseGroupMembershipWarningView,
-  decodeCourseGroupPurposePolicyUpdateRequest,
-  decodeCourseGroupPurposePolicyView,
-  decodeCourseGroupSummary,
-  decodeCourseGroupUpdateRequest,
+  decodeCourseInvitationCreateRequest,
+  decodeCourseInvitationTerminalActionRequest,
+  decodeCourseInvitationTargetSearchPage,
+  decodeCourseInvitationTargetSearchRequest,
+  decodeCourseCourseInvitationsPage,
   decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
   decodeInstructorMembershipsPage,
-  decodeGroupScheduleOffsetUpdateRequest,
-  decodeIndividualPolicyPatchUpdateRequest,
-  decodePendingCoInstructorInvitationsPage,
+  decodeAccommodationPatchUpdateRequest,
+  decodePendingCourseInvitationsPage,
   decodeRetentionActionResponse,
   decodeRetentionArchiveRequest,
   decodeRetentionExtendRequest,
@@ -86,11 +69,11 @@ function pagePath(path: string, cursor: string | undefined, pageSize: number | u
 
 function targetSearchPath(
   courseId: CourseId,
-  query: CoInstructorTargetSearchQuery,
+  query: CourseInvitationTargetSearchQuery,
   cursor: string | undefined,
   pageSize: number | undefined,
 ): string {
-  const request = decodeCoInstructorTargetSearchRequest(
+  const request = decodeCourseInvitationTargetSearchRequest(
     { query, after: cursor ?? null, size: pageSize ?? 50 },
     "request",
   );
@@ -191,14 +174,6 @@ async function createdEmpty(
   return response;
 }
 
-function groupPath(courseId: CourseId, group: CourseGroupReference): string {
-  return `/api/courses/${encodedId(courseId)}/groups/${encodeURIComponent(group)}`;
-}
-
-function groupPolicyPath(courseId: CourseId, purpose: CourseGroupPurpose): string {
-  return `/api/courses/${encodedId(courseId)}/group-purpose-policies/${encodeURIComponent(purpose)}`;
-}
-
 function requireLocation(response: Response, path: string): string {
   const location = response.headers.get("location");
   if (location === null || location.length === 0)
@@ -212,11 +187,6 @@ function verifyLocationRevision(response: Response, path: string): void {
     throw new ApiProtocolError(
       `API response ${path} must include one positive strong numeric ETag`,
     );
-}
-
-function createdGroupLocation(location: string, path: string): void {
-  if (!location.startsWith(`${path}/`))
-    throw new ApiProtocolError(`API response ${path} Location must identify the created group`);
 }
 
 function invitationReferenceFromLocation(location: string, path: string): string {
@@ -263,31 +233,19 @@ export function createTeachingOperationsClient(
   basePath: string,
 ): Pick<
   ApiClient & SysadminInstructorCandidateClient,
-  | "listCourseGroups"
-  | "getCourseGroup"
-  | "createCourseGroup"
-  | "updateCourseGroup"
-  | "deleteCourseGroup"
-  | "getCourseGroupPurposePolicy"
-  | "updateCourseGroupPurposePolicy"
-  | "getCourseGroupMembershipWarnings"
   | "listCourseStudentTargets"
-  | "putGroupScheduleOffset"
-  | "deleteGroupScheduleOffset"
-  | "putGroupAccommodation"
-  | "deleteGroupAccommodation"
-  | "putIndividualPolicyException"
-  | "deleteIndividualPolicyException"
+  | "putAccommodation"
+  | "deleteAccommodation"
   | "getTeachingPreview"
   | "approveInstructorAccount"
   | "revokeInstructorApproval"
   | "searchSysadminInstructorCandidates"
-  | "listCourseCoInstructorInvitations"
-  | "searchCourseCoInstructorTargets"
-  | "createCourseCoInstructorInvitation"
-  | "revokeCourseCoInstructorInvitation"
-  | "listPendingCoInstructorInvitations"
-  | "respondToCoInstructorInvitation"
+  | "listCourseCourseInvitations"
+  | "searchCourseCourseInvitationTargets"
+  | "createCourseCourseInvitation"
+  | "revokeCourseCourseInvitation"
+  | "listPendingCourseInvitations"
+  | "respondToCourseInvitation"
   | "listCourseInstructors"
   | "removeCourseInstructor"
   | "getCourseRetention"
@@ -297,111 +255,6 @@ export function createTeachingOperationsClient(
   | "extendCourseRetention"
 > {
   return {
-    listCourseGroups: (courseId, cursor, pageSize) =>
-      teachingJson(
-        fetchImplementation,
-        basePath,
-        pagePath(`/api/courses/${encodedId(courseId)}/groups`, cursor, pageSize),
-        decodeCourseGroupListPage,
-      ).then((result) => result.body),
-    getCourseGroup: (courseId, group, cursor, pageSize) =>
-      teachingJson(
-        fetchImplementation,
-        basePath,
-        pagePath(groupPath(courseId, group), cursor, pageSize),
-        decodeCourseGroupDetailView,
-      ).then((result) => result.body),
-    createCourseGroup: async (courseId, request): Promise<CourseGroupSummaryView> => {
-      const path = `/api/courses/${encodedId(courseId)}/groups`;
-      const body: CourseGroupCreateRequest = decodeCourseGroupCreateRequest(request, "request");
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeCourseGroupSummary,
-        {
-          method: "POST",
-          body,
-          expectedStatus: 201,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      createdGroupLocation(requireLocation(result.response, path), path);
-      return result.body;
-    },
-    updateCourseGroup: async (
-      courseId,
-      group,
-      request,
-      revision,
-    ): Promise<CourseGroupSummaryView> => {
-      const path = groupPath(courseId, group);
-      const body: CourseGroupUpdateRequest = decodeCourseGroupUpdateRequest(request, "request");
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeCourseGroupSummary,
-        {
-          method: "PUT",
-          body,
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    deleteCourseGroup: (courseId, group, revision) =>
-      noContent(fetchImplementation, basePath, groupPath(courseId, group), {
-        method: "DELETE",
-        revision,
-      }),
-    getCourseGroupPurposePolicy: async (
-      courseId,
-      purpose,
-    ): Promise<CourseGroupPurposePolicyView> => {
-      const path = groupPolicyPath(courseId, purpose);
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeCourseGroupPurposePolicyView,
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    updateCourseGroupPurposePolicy: async (
-      courseId,
-      purpose,
-      request,
-      revision,
-    ): Promise<CourseGroupPurposePolicyView> => {
-      const path = groupPolicyPath(courseId, purpose);
-      const body: CourseGroupPurposePolicyUpdateRequest =
-        decodeCourseGroupPurposePolicyUpdateRequest(request, "request");
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeCourseGroupPurposePolicyView,
-        {
-          method: "PUT",
-          body,
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    getCourseGroupMembershipWarnings: (courseId) =>
-      teachingJson(
-        fetchImplementation,
-        basePath,
-        `/api/courses/${encodedId(courseId)}/group-membership-warnings`,
-        decodeCourseGroupMembershipWarningView,
-      ).then((result) => result.body),
     listCourseStudentTargets: (courseId, cursor, pageSize) =>
       teachingJson(
         fetchImplementation,
@@ -409,53 +262,19 @@ export function createTeachingOperationsClient(
         pagePath(`/api/courses/${encodedId(courseId)}/student-targets`, cursor, pageSize),
         decodeCourseStudentMembershipsPage,
       ).then((result) => result.body),
-    putGroupScheduleOffset: (courseId, assignmentId, group, request, revision) =>
+    putAccommodation: (courseId, assignmentId, student, request, revision) =>
       modifierMutation(
         fetchImplementation,
         basePath,
-        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/group-schedule-offsets/${encodeURIComponent(group)}`,
-        decodeGroupScheduleOffsetUpdateRequest(request, "request"),
+        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/accommodations/${encodeURIComponent(student)}`,
+        decodeAccommodationPatchUpdateRequest(request, "request"),
         revision,
       ),
-    deleteGroupScheduleOffset: (courseId, assignmentId, group, revision) =>
+    deleteAccommodation: (courseId, assignmentId, student, revision) =>
       modifierMutation(
         fetchImplementation,
         basePath,
-        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/group-schedule-offsets/${encodeURIComponent(group)}`,
-        undefined,
-        revision,
-        "DELETE",
-      ),
-    putGroupAccommodation: (courseId, assignmentId, group, request, revision) =>
-      modifierMutation(
-        fetchImplementation,
-        basePath,
-        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/group-accommodations/${encodeURIComponent(group)}`,
-        decodeAssignmentPolicyPatchUpdateRequest(request, "request"),
-        revision,
-      ),
-    deleteGroupAccommodation: (courseId, assignmentId, group, revision) =>
-      modifierMutation(
-        fetchImplementation,
-        basePath,
-        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/group-accommodations/${encodeURIComponent(group)}`,
-        undefined,
-        revision,
-        "DELETE",
-      ),
-    putIndividualPolicyException: (courseId, assignmentId, student, request, revision) =>
-      modifierMutation(
-        fetchImplementation,
-        basePath,
-        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/individual-policy-exceptions/${encodeURIComponent(student)}`,
-        decodeIndividualPolicyPatchUpdateRequest(request, "request"),
-        revision,
-      ),
-    deleteIndividualPolicyException: (courseId, assignmentId, student, revision) =>
-      modifierMutation(
-        fetchImplementation,
-        basePath,
-        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/individual-policy-exceptions/${encodeURIComponent(student)}`,
+        `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/accommodations/${encodeURIComponent(student)}`,
         undefined,
         revision,
         "DELETE",
@@ -511,56 +330,56 @@ export function createTeachingOperationsClient(
       );
       return result.body;
     },
-    listCourseCoInstructorInvitations: (courseId, cursor, pageSize) =>
+    listCourseCourseInvitations: (courseId, cursor, pageSize) =>
       teachingJson(
         fetchImplementation,
         basePath,
         pagePath(`/api/courses/${encodedId(courseId)}/co-instructor-invitations`, cursor, pageSize),
-        decodeCourseCoInstructorInvitationsPage,
+        decodeCourseCourseInvitationsPage,
       ).then((result) => result.body),
-    searchCourseCoInstructorTargets: async (
+    searchCourseCourseInvitationTargets: async (
       courseId,
       query,
       cursor,
       pageSize,
-    ): Promise<CoInstructorTargetSearchPage> => {
+    ): Promise<CourseInvitationTargetSearchPage> => {
       const path = targetSearchPath(courseId, query, cursor, pageSize);
       const result = await teachingJson(
         fetchImplementation,
         basePath,
         path,
-        decodeCoInstructorTargetSearchPage,
+        decodeCourseInvitationTargetSearchPage,
       );
       return result.body;
     },
-    createCourseCoInstructorInvitation: async (
+    createCourseCourseInvitation: async (
       courseId,
       request,
-    ): Promise<CoInstructorInvitationReference> => {
+    ): Promise<CourseInvitationReference> => {
       const path = `/api/courses/${encodedId(courseId)}/co-instructor-invitations`;
-      const body = decodeCoInstructorInvitationCreateRequest(request, "request");
+      const body = decodeCourseInvitationCreateRequest(request, "request");
       const response = await createdEmpty(fetchImplementation, basePath, path, body);
       const location = requireLocation(response, path);
       const reference = invitationReferenceFromLocation(location, path);
       verifyLocationRevision(response, path);
       return reference;
     },
-    revokeCourseCoInstructorInvitation: (courseId, invitation, revision) =>
+    revokeCourseCourseInvitation: (courseId, invitation, revision) =>
       noContent(
         fetchImplementation,
         basePath,
         `/api/courses/${encodedId(courseId)}/co-instructor-invitations/${encodeURIComponent(invitation)}`,
         { method: "DELETE", revision },
       ),
-    listPendingCoInstructorInvitations: (cursor, pageSize) =>
+    listPendingCourseInvitations: (cursor, pageSize) =>
       teachingJson(
         fetchImplementation,
         basePath,
         pagePath("/api/account/co-instructor-invitations", cursor, pageSize),
-        decodePendingCoInstructorInvitationsPage,
+        decodePendingCourseInvitationsPage,
       ).then((result) => result.body),
-    respondToCoInstructorInvitation: (invitation, request, revision): Promise<void> => {
-      const body = decodeCoInstructorInvitationTerminalActionRequest(request, "request");
+    respondToCourseInvitation: (invitation, request, revision): Promise<void> => {
+      const body = decodeCourseInvitationTerminalActionRequest(request, "request");
       return noContent(
         fetchImplementation,
         basePath,

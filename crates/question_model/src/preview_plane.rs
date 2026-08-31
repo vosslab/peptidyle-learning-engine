@@ -1,6 +1,6 @@
 //! Strict browser/server contracts for the non-mutating WP-INST-T3 preview plane.
 //!
-//! A route request owns any `M-` or `G-` locator.  The Store resolves and discards
+//! A route request owns any `M-` locator. The Store resolves and discards
 //! those locators before returning the owned [`PreviewSubject`].  That value is
 //! immutable, self-contained, and identity-free; later preview evaluation only
 //! borrows it and returns an owned closed projection.
@@ -8,49 +8,11 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentDeadlineBehavior, AssignmentReference, CourseGroupPurpose, CourseGroupReference,
-    CourseLocalDateTime, CourseMembershipReference, IanaTimeZone, LateSubmissionPolicy,
+    AssignmentDeadlineBehavior, AssignmentReference, CourseLocalDateTime, CourseMembershipReference,
+    IanaTimeZone, LateSubmissionPolicy,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, PolicyModificationModeView,
     PolicyPatchView, TeachingDisplayLabel, TeachingOperationRevision,
 };
-
-/// A synthetic request may name at most one normal teaching-operations page of groups.
-pub const MAX_PREVIEW_SUBJECT_GROUPS: usize = 100;
-
-/// A bounded, canonical collection of course-local group locators at the request boundary.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    try_from = "Vec<CourseGroupReference>",
-    into = "Vec<CourseGroupReference>"
-)]
-pub struct PreviewSyntheticGroupReferences(Vec<CourseGroupReference>);
-
-impl PreviewSyntheticGroupReferences {
-    pub fn as_slice(&self) -> &[CourseGroupReference] {
-        &self.0
-    }
-}
-
-impl TryFrom<Vec<CourseGroupReference>> for PreviewSyntheticGroupReferences {
-    type Error = &'static str;
-
-    fn try_from(mut groups: Vec<CourseGroupReference>) -> Result<Self, Self::Error> {
-        if groups.len() > MAX_PREVIEW_SUBJECT_GROUPS {
-            return Err("preview subject may contain at most 100 groups");
-        }
-        groups.sort_unstable();
-        if groups.windows(2).any(|pair| pair[0] == pair[1]) {
-            return Err("preview subject groups must be unique");
-        }
-        Ok(Self(groups))
-    }
-}
-
-impl From<PreviewSyntheticGroupReferences> for Vec<CourseGroupReference> {
-    fn from(value: PreviewSyntheticGroupReferences) -> Self {
-        value.0
-    }
-}
 
 /// Bounded Instructor wall-clock input. The server resolves it in this exact course zone.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,14 +22,13 @@ pub struct PreviewSelectedMoment {
     pub time_zone: IanaTimeZone,
 }
 
-/// Request to construct a hypothetical subject from course-local group choices.
+/// Request to construct an identity-free hypothetical assignment preview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyntheticPreviewSubjectRequest {
     pub assignment: AssignmentReference,
     pub revision: TeachingOperationRevision,
     pub selected_moment: PreviewSelectedMoment,
-    pub groups: PreviewSyntheticGroupReferences,
     pub modifiers: SyntheticPreviewModifiers,
 }
 
@@ -79,7 +40,7 @@ pub struct SyntheticPreviewModifiers {
     pub patch: PolicyPatchView,
 }
 
-/// Request-bound learner locator used only to derive an identity-free subject.
+/// Request-bound student locator used only to derive an identity-free subject.
 ///
 /// The returned subject deliberately has no corresponding field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,114 +52,12 @@ pub struct DerivedPreviewSubjectRequest {
     pub membership: CourseMembershipReference,
 }
 
-/// Safe role label, selected by the server from a resolved group purpose.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PreviewGroupRole {
-    SectionMember,
-    LabMember,
-    CohortMember,
-    AccommodationRecipient,
-    WorkGroupMember,
-}
-
-/// Maps the only safe role label from a closed group purpose; callers cannot pair them freely.
-pub const fn preview_group_role(purpose: CourseGroupPurpose) -> PreviewGroupRole {
-    match purpose {
-        CourseGroupPurpose::Section => PreviewGroupRole::SectionMember,
-        CourseGroupPurpose::Lab => PreviewGroupRole::LabMember,
-        CourseGroupPurpose::Cohort => PreviewGroupRole::CohortMember,
-        CourseGroupPurpose::Accommodation => PreviewGroupRole::AccommodationRecipient,
-        CourseGroupPurpose::Work => PreviewGroupRole::WorkGroupMember,
-    }
-}
-
-/// Identity-free group fact preserved in a portable preview subject.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    rename_all = "camelCase",
-    try_from = "PreviewGroupFactWire",
-    deny_unknown_fields
-)]
-pub struct PreviewGroupFact {
-    role: PreviewGroupRole,
-    purpose: CourseGroupPurpose,
-}
-
-impl PreviewGroupFact {
-    /// Constructs the only role and purpose pair admitted by the closed mapping.
-    pub const fn from_purpose(purpose: CourseGroupPurpose) -> Self {
-        Self {
-            role: preview_group_role(purpose),
-            purpose,
-        }
-    }
-
-    pub const fn role(&self) -> PreviewGroupRole {
-        self.role
-    }
-
-    pub const fn purpose(&self) -> CourseGroupPurpose {
-        self.purpose
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PreviewGroupFactWire {
-    role: PreviewGroupRole,
-    purpose: CourseGroupPurpose,
-}
-
-impl TryFrom<PreviewGroupFactWire> for PreviewGroupFact {
-    type Error = &'static str;
-
-    fn try_from(value: PreviewGroupFactWire) -> Result<Self, Self::Error> {
-        // ASVS 1.5.2 and 2.2.3: deserialize through a closed shape and validate the pair.
-        let fact = Self::from_purpose(value.purpose);
-        if value.role != fact.role {
-            return Err("preview group role must match its purpose");
-        }
-        Ok(fact)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "Vec<PreviewGroupFact>", into = "Vec<PreviewGroupFact>")]
-pub struct PreviewGroupFacts(Vec<PreviewGroupFact>);
-
-impl PreviewGroupFacts {
-    pub fn as_slice(&self) -> &[PreviewGroupFact] {
-        &self.0
-    }
-}
-impl TryFrom<Vec<PreviewGroupFact>> for PreviewGroupFacts {
-    type Error = &'static str;
-    fn try_from(mut values: Vec<PreviewGroupFact>) -> Result<Self, Self::Error> {
-        if values.len() > MAX_PREVIEW_SUBJECT_GROUPS {
-            return Err("preview subject may contain at most 100 group facts");
-        }
-        values.sort_unstable_by_key(|fact| fact.purpose);
-        if values.windows(2).any(|pair| pair[0] == pair[1]) {
-            return Err("preview subject group facts must be unique");
-        }
-        Ok(Self(values))
-    }
-}
-impl From<PreviewGroupFacts> for Vec<PreviewGroupFact> {
-    fn from(value: PreviewGroupFacts) -> Self {
-        value.0
-    }
-}
-
-/// Closed, sanitized provenance labels. These never carry a group, membership, or person locator.
+/// Closed, sanitized provenance labels. These never carry a membership or person locator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PreviewPolicySourceLayer {
     Base,
-    GroupSchedule,
-    GroupAccommodation,
-    IndividualException,
+    Accommodation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -380,7 +239,6 @@ pub struct PreviewSubject {
     pub assignment: AssignmentReference,
     pub revision: TeachingOperationRevision,
     pub selected_moment: PreviewSelectedMoment,
-    groups: PreviewGroupFacts,
     pub policy: PreviewResolvedPolicy,
     pub prior_run_count: PreviewPriorRunCount,
 }
@@ -392,7 +250,6 @@ struct PreviewSubjectWire {
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
     selected_moment: PreviewSelectedMoment,
-    groups: Vec<PreviewGroupFact>,
     policy: PreviewResolvedPolicy,
     prior_run_count: PreviewPriorRunCount,
 }
@@ -405,7 +262,6 @@ impl TryFrom<PreviewSubjectWire> for PreviewSubject {
             value.assignment,
             value.revision,
             value.selected_moment,
-            value.groups,
             value.policy,
             value.prior_run_count,
         )
@@ -419,23 +275,17 @@ impl PreviewSubject {
         assignment: AssignmentReference,
         revision: TeachingOperationRevision,
         selected_moment: PreviewSelectedMoment,
-        groups: Vec<PreviewGroupFact>,
         policy: PreviewResolvedPolicy,
         prior_run_count: PreviewPriorRunCount,
     ) -> Result<Self, &'static str> {
-        let groups = PreviewGroupFacts::try_from(groups)?;
         Ok(Self {
             kind,
             assignment,
             revision,
             selected_moment,
-            groups,
             policy,
             prior_run_count,
         })
-    }
-    pub fn groups(&self) -> &[PreviewGroupFact] {
-        self.groups.as_slice()
     }
 }
 
@@ -454,8 +304,7 @@ pub enum PreviewEntitlementOutcome {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PreviewEntitlementGrantReason {
-    CourseWide,
-    GroupAudience,
+    ActiveStudentCourseMembership,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -602,342 +451,64 @@ pub enum PreviewFutureSeam {
 }
 
 #[cfg(test)]
-mod tests {
+mod direct_preview_tests {
     use super::*;
 
-    fn selected() -> PreviewSelectedMoment {
-        PreviewSelectedMoment {
-            value: CourseLocalDateTime::parse("2026-08-20T09:00:00.000").unwrap(),
-            time_zone: IanaTimeZone::parse("America/Chicago").unwrap(),
-        }
+    #[test]
+    fn synthetic_request_accepts_only_direct_preview_fields() {
+        let request = serde_json::json!({
+            "assignment": "A-1",
+            "revision": "1",
+            "selectedMoment": { "value": "2026-08-20T09:00:00.000", "timeZone": "America/Chicago" },
+            "modifiers": { "mode": "extendOnly", "patch": {
+                "availableAt": { "kind": "inherit" },
+                "dueAt": { "kind": "inherit" },
+                "closesAt": { "kind": "inherit" },
+                "timeLimitSeconds": { "kind": "inherit" },
+                "attemptLimit": { "kind": "inherit" }
+            } }
+        });
+        serde_json::from_value::<SyntheticPreviewSubjectRequest>(request)
+            .expect("direct synthetic preview request");
+        let retired = serde_json::json!({
+            "assignment": "A-1",
+            "revision": "1",
+            "selectedMoment": { "value": "2026-08-20T09:00:00.000", "timeZone": "America/Chicago" },
+            "groups": [],
+            "modifiers": { "mode": "extendOnly", "patch": {
+                "availableAt": { "kind": "inherit" },
+                "dueAt": { "kind": "inherit" },
+                "closesAt": { "kind": "inherit" },
+                "timeLimitSeconds": { "kind": "inherit" },
+                "attemptLimit": { "kind": "inherit" }
+            } }
+        });
+        assert!(serde_json::from_value::<SyntheticPreviewSubjectRequest>(retired).is_err());
     }
 
     #[test]
-    fn synthetic_request_is_strict_and_group_refs_are_deduplicated() {
-        let value = serde_json::json!({"assignment":"A-9","revision":"4","selectedMoment":{"value":"2026-08-20T09:00:00.000","timeZone":"America/Chicago"},"groups":["G-2","G-1"],"modifiers":{"mode":"extendOnly","patch":{"availableAt":{"kind":"inherit"},"dueAt":{"kind":"inherit"},"closesAt":{"kind":"inherit"},"timeLimitSeconds":{"kind":"inherit"},"attemptLimit":{"kind":"inherit"}}}});
-        let request: SyntheticPreviewSubjectRequest = serde_json::from_value(value).unwrap();
-        assert_eq!(request.groups.as_slice()[0].to_string(), "G-1");
-        let mut invalid = serde_json::to_value(&request).unwrap();
-        invalid["email"] = serde_json::json!("nope");
-        assert!(serde_json::from_value::<SyntheticPreviewSubjectRequest>(invalid).is_err());
-        assert!(
-            PreviewSyntheticGroupReferences::try_from(vec![
-                "G-1".parse().unwrap(),
-                "G-1".parse().unwrap()
-            ])
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn derived_request_is_boundary_only_and_subject_json_has_no_identity_shapes() {
-        let request: DerivedPreviewSubjectRequest = serde_json::from_value(serde_json::json!({"assignment":"A-9","revision":"4","selectedMoment":{"value":"2026-08-20T09:00:00.000","timeZone":"America/Chicago"},"membership":"M-2"})).unwrap();
-        assert_eq!(request.membership.to_string(), "M-2");
-        let field = PreviewPolicySourceLayer::Base;
-        let policy = PreviewResolvedPolicy::new(
-            PreviewTimeField {
-                value: None,
-                source: field,
-            },
-            PreviewTimeField {
-                value: None,
-                source: field,
-            },
-            PreviewTimeField {
-                value: None,
-                source: field,
-            },
-            PreviewLimitField {
-                value: None,
-                source: field,
-            },
-            PreviewLimitField {
-                value: None,
-                source: field,
-            },
-            PreviewLateSubmissionField {
-                value: LateSubmissionPolicy::Accept,
-                source: PreviewPolicySourceLayer::IndividualException,
-            },
-            PreviewDeadlineBehaviorField {
-                value: AssignmentDeadlineBehavior::AutoSubmit,
-                source: field,
-            },
-        )
-        .unwrap();
+    fn preview_subject_serializes_without_membership_or_group_facts() {
         let subject = PreviewSubject::new(
-            PreviewSubjectKind::Derived,
-            "A-9".parse().unwrap(),
-            TeachingOperationRevision::new(4).unwrap(),
-            selected(),
-            vec![PreviewGroupFact::from_purpose(CourseGroupPurpose::Lab)],
-            policy,
-            PreviewPriorRunCount::try_from(0).unwrap(),
-        )
-        .unwrap();
-        let wire = serde_json::to_string(&subject).unwrap();
-        for forbidden in [
-            "M-", "G-", "U-", "CI-", "PV-", "email", "name", "uuid", "answer", "score", "audit",
-        ] {
-            assert!(!wire.contains(forbidden), "{forbidden} leaked: {wire}");
-        }
-        let mut malformed: serde_json::Value = serde_json::from_str(&wire).unwrap();
-        malformed["groups"] = serde_json::json!([
-            {"role":"labMember", "purpose":"lab"},
-            {"role":"labMember", "purpose":"lab"}
-        ]);
-        assert!(serde_json::from_value::<PreviewSubject>(malformed).is_err());
-        assert_eq!(
-            preview_group_role(CourseGroupPurpose::Work),
-            PreviewGroupRole::WorkGroupMember
-        );
-    }
-
-    #[test]
-    fn group_fact_wire_accepts_only_the_closed_role_and_purpose_pairs() {
-        let pairs = [
-            (CourseGroupPurpose::Section, PreviewGroupRole::SectionMember),
-            (CourseGroupPurpose::Lab, PreviewGroupRole::LabMember),
-            (CourseGroupPurpose::Cohort, PreviewGroupRole::CohortMember),
-            (
-                CourseGroupPurpose::Accommodation,
-                PreviewGroupRole::AccommodationRecipient,
-            ),
-            (CourseGroupPurpose::Work, PreviewGroupRole::WorkGroupMember),
-        ];
-        for (purpose, role) in pairs {
-            let fact = PreviewGroupFact::from_purpose(purpose);
-            assert_eq!(fact.role(), role);
-            assert_eq!(fact.purpose(), purpose);
-            let wire = serde_json::to_value(fact).unwrap();
-            assert_eq!(
-                serde_json::from_value::<PreviewGroupFact>(wire).unwrap(),
-                fact
-            );
-        }
-        assert_eq!(
-            serde_json::to_value(PreviewGroupFact::from_purpose(CourseGroupPurpose::Lab)).unwrap(),
-            serde_json::json!({"role":"labMember", "purpose":"lab"})
-        );
-        let mismatched = serde_json::json!({"role":"sectionMember", "purpose":"lab"});
-        assert!(serde_json::from_value::<PreviewGroupFact>(mismatched).is_err());
-    }
-
-    #[test]
-    fn resolved_policy_rejects_bad_limits_and_schedule_but_accepts_equal_boundaries() {
-        let zone = PreviewPolicySourceLayer::Base;
-        let at = |value| PreviewTimeField {
-            value: Some(CourseLocalDateTime::parse(value).unwrap()),
-            source: zone,
-        };
-        let limit = |value| PreviewLimitField {
-            value,
-            source: zone,
-        };
-        let late = PreviewLateSubmissionField {
-            value: LateSubmissionPolicy::Accept,
-            source: zone,
-        };
-        let deadline = PreviewDeadlineBehaviorField {
-            value: AssignmentDeadlineBehavior::AutoSubmit,
-            source: zone,
-        };
-        assert!(
+            PreviewSubjectKind::Synthetic,
+            AssignmentReference::new(1).expect("assignment reference"),
+            TeachingOperationRevision::new(1).expect("revision"),
+            PreviewSelectedMoment {
+                value: CourseLocalDateTime::parse("2026-08-20T09:00:00.000").expect("moment"),
+                time_zone: IanaTimeZone::parse("America/Chicago").expect("zone"),
+            },
             PreviewResolvedPolicy::new(
-                at("2026-08-20T09:00:00.000"),
-                at("2026-08-20T09:00:00.000"),
-                at("2026-08-20T09:00:00.000"),
-                limit(Some(1)),
-                limit(Some(1)),
-                late.clone(),
-                deadline.clone()
-            )
-            .is_ok()
-        );
-        assert!(
-            PreviewResolvedPolicy::new(
-                at("2026-08-20T10:00:00.000"),
-                at("2026-08-20T09:00:00.000"),
-                PreviewTimeField {
-                    value: None,
-                    source: zone
-                },
-                limit(None),
-                limit(None),
-                late.clone(),
-                deadline.clone()
-            )
-            .is_err()
-        );
-        assert!(
-            PreviewResolvedPolicy::new(
-                PreviewTimeField {
-                    value: None,
-                    source: zone
-                },
-                PreviewTimeField {
-                    value: None,
-                    source: zone
-                },
-                PreviewTimeField {
-                    value: None,
-                    source: zone
-                },
-                limit(Some(0)),
-                limit(None),
-                late,
-                deadline
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn external_consumer_reads_every_validated_policy_field_without_serialization() {
-        let policy = PreviewResolvedPolicy::new(
-            PreviewTimeField {
-                value: Some(CourseLocalDateTime::parse("2026-08-20T09:00:00.000").unwrap()),
-                source: PreviewPolicySourceLayer::Base,
-            },
-            PreviewTimeField {
-                value: Some(CourseLocalDateTime::parse("2026-08-20T10:00:00.000").unwrap()),
-                source: PreviewPolicySourceLayer::GroupSchedule,
-            },
-            PreviewTimeField {
-                value: Some(CourseLocalDateTime::parse("2026-08-20T11:00:00.000").unwrap()),
-                source: PreviewPolicySourceLayer::GroupAccommodation,
-            },
-            PreviewLimitField {
-                value: Some(1_200),
-                source: PreviewPolicySourceLayer::IndividualException,
-            },
-            PreviewLimitField {
-                value: Some(3),
-                source: PreviewPolicySourceLayer::Base,
-            },
-            PreviewLateSubmissionField {
-                value: LateSubmissionPolicy::Accept,
-                source: PreviewPolicySourceLayer::Base,
-            },
-            PreviewDeadlineBehaviorField {
-                value: AssignmentDeadlineBehavior::AutoSubmit,
-                source: PreviewPolicySourceLayer::Base,
-            },
-        )
-        .unwrap();
-
-        assert_eq!(
-            policy.available_at().value.as_ref().unwrap().as_str(),
-            "2026-08-20T09:00:00.000"
-        );
-        assert_eq!(
-            policy.due_at().value.as_ref().unwrap().as_str(),
-            "2026-08-20T10:00:00.000"
-        );
-        assert_eq!(
-            policy.closes_at().value.as_ref().unwrap().as_str(),
-            "2026-08-20T11:00:00.000"
-        );
-        assert_eq!(policy.time_limit_seconds().value, Some(1_200));
-        assert_eq!(policy.attempt_limit().value, Some(3));
-        assert_eq!(policy.late_submission().value, LateSubmissionPolicy::Accept);
-        assert_eq!(
-            policy.deadline_behavior().value,
-            AssignmentDeadlineBehavior::AutoSubmit
-        );
-    }
-
-    #[test]
-    fn remaining_future_seam_and_denial_wires_stay_minimal() {
-        assert_eq!(
-            serde_json::to_value(PreviewFutureSeam::Unavailable {
-                capability: PreviewDeferredCapability::CloneAndTermShift
-            })
-            .unwrap(),
-            serde_json::json!({"kind":"unavailable","capability":"cloneAndTermShift"})
-        );
-        assert_eq!(
-            serde_json::to_value(PreviewFutureSeam::Unavailable {
-                capability: PreviewDeferredCapability::CloneAndTermShift
-            })
-            .unwrap(),
-            serde_json::json!({"kind":"unavailable","capability":"cloneAndTermShift"})
-        );
-        assert_eq!(
-            serde_json::to_value(PreviewEvaluation::Denied {
-                reason: PreviewDenialReason::NotEntitled
-            })
-            .unwrap(),
-            serde_json::json!({"kind":"denied","reason":"notEntitled"})
-        );
-        let response = PreviewPlaneResponse {
-            evaluation: PreviewEvaluation::Denied {
-                reason: PreviewDenialReason::NotEntitled,
-            },
-            accommodation: None,
-        };
-        let response_wire = serde_json::to_value(&response).unwrap();
-        assert_eq!(
-            response_wire,
-            serde_json::json!({
-                "evaluation":{"kind":"denied","reason":"notEntitled"},
-                "accommodation":null
-            })
-        );
-        let mut extra_field = response_wire;
-        extra_field["audit"] = serde_json::json!("forbidden");
-        assert!(serde_json::from_value::<PreviewPlaneResponse>(extra_field).is_err());
-        let schedule_row = InstructorPreviewScheduleRow::Denied {
-            membership: "M-9".parse().unwrap(),
-            display: TeachingDisplayLabel::try_from("Learner 9".to_owned()).unwrap(),
-            reason: PreviewEntitlementDenialReason::NotEntitled,
-        };
-        let schedule_wire = serde_json::to_value(schedule_row).unwrap();
-        assert_eq!(
-            schedule_wire,
-            serde_json::json!({
-                "kind":"denied",
-                "membership":"M-9",
-                "display":"Learner 9",
-                "reason":"notEntitled"
-            })
-        );
-        let denied_wire = serde_json::to_string(&PreviewEvaluation::Denied {
-            reason: PreviewDenialReason::NotEntitled,
-        })
-        .unwrap();
-        let schedule_wire = serde_json::to_string(&schedule_wire).unwrap();
-        for forbidden in [
-            "subject",
-            "schedule",
-            "resolved",
-            "provenance",
-            "disclosure",
-            "answer",
-            "score",
-            "audit",
-        ] {
-            assert!(
-                !denied_wire.contains(forbidden),
-                "{forbidden} leaked: {denied_wire}"
-            );
-            assert!(
-                !schedule_wire.contains(forbidden),
-                "{forbidden} leaked: {schedule_wire}"
-            );
-        }
-        for purpose in [
-            CourseGroupPurpose::Section,
-            CourseGroupPurpose::Lab,
-            CourseGroupPurpose::Cohort,
-            CourseGroupPurpose::Accommodation,
-            CourseGroupPurpose::Work,
-        ] {
-            assert!(
-                !serde_json::to_string(&preview_group_role(purpose))
-                    .unwrap()
-                    .is_empty()
-            );
-        }
+                PreviewTimeField { value: None, source: PreviewPolicySourceLayer::Base },
+                PreviewTimeField { value: None, source: PreviewPolicySourceLayer::Base },
+                PreviewTimeField { value: None, source: PreviewPolicySourceLayer::Base },
+                PreviewLimitField { value: None, source: PreviewPolicySourceLayer::Base },
+                PreviewLimitField { value: None, source: PreviewPolicySourceLayer::Base },
+                PreviewLateSubmissionField { value: LateSubmissionPolicy::Accept, source: PreviewPolicySourceLayer::Base },
+                PreviewDeadlineBehaviorField { value: AssignmentDeadlineBehavior::AutoSubmit, source: PreviewPolicySourceLayer::Base },
+            ).expect("policy"),
+            PreviewPriorRunCount::try_from(0).expect("count"),
+        ).expect("preview subject");
+        let wire = serde_json::to_string(&subject).expect("wire");
+        assert!(!wire.contains("groups"));
+        assert!(!wire.contains("M-"));
     }
 }
