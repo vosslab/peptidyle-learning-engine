@@ -102,19 +102,11 @@ export function projectStudentResponse(
     }
     case "hotspot": {
       if (definition.kind !== "hotspot") return [];
-      const selected = response.points.flatMap((point) =>
-        definition.regions.filter(
-          (region) =>
-            point.x >= region.x &&
-            point.x <= region.x + region.width &&
-            point.y >= region.y &&
-            point.y <= region.y + region.height,
-        ),
+      const selected = response.selections.flatMap((selection) =>
+        definition.regions.filter((region) => region.id === selection.region),
       );
       return selected.flatMap((region) => region.label);
     }
-    case "fileUpload":
-      return [text("A file was submitted.")];
     case "externalTool":
       return [text("Your external-tool response was recorded.")];
   }

@@ -1,13 +1,13 @@
 // question_attempt_state.ts - durable, question-agnostic browser state for one Student attempt.
 
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
-import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback";
+import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import type { IssuedQuestionId } from "../../../generated/api/IssuedQuestionId";
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
-import type { Seed } from "../../../generated/api/Seed";
+import type { QuestionSeed } from "../../../generated/api/QuestionSeed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { QuestionVersionReference } from "../../../generated/api/QuestionVersionReference";
 import type {
@@ -25,8 +25,8 @@ export interface AttemptContext {
   readonly issuedQuestionId: IssuedQuestionId;
   /** Exact immutable Question Version selected for this attempt. */
   readonly questionVersion: QuestionVersionReference;
-  /** Exact generated variant issued with this attempt. */
-  readonly seed: Seed;
+  /** Question Seed that selects the exact issued Question Variation. */
+  readonly seed: QuestionSeed;
   /** Unix milliseconds supplied by the server. A null deadline means untimed. */
   readonly deadline: number | null;
 }
@@ -58,7 +58,7 @@ export interface ResponseValidation {
 export type Feedback =
   | { readonly kind: "none" }
   | { readonly kind: "awaiting"; readonly feedback: null }
-  | { readonly kind: "released"; readonly feedback: DisclosedFeedback };
+  | { readonly kind: "released"; readonly feedback: StudentFeedback };
 
 /**
  * A transport acknowledgement deliberately separate from a grade result. The student state owns
@@ -74,7 +74,7 @@ export interface SubmissionAcknowledgement {
   /** Receipt state that keeps feedback visible while successor issuance recovers. */
   readonly nextPending: GradedQuestionSubmissionReceipt["nextPending"];
   /** Currentness of the server-owned score projection. */
-  readonly scoringStatus: GradedQuestionSubmissionReceipt["scoringStatus"];
+  readonly assignmentScoringState: GradedQuestionSubmissionReceipt["assignmentScoringState"];
 }
 
 /** Answer-free acknowledgement that permits a status read but never another answer POST. */
@@ -305,18 +305,13 @@ function isStudentResponse(value: unknown): value is StudentResponse {
   if (value.kind === "hotspot") {
     return (
       keys.length === 2 &&
-      "points" in value &&
-      isRecordArray(value.points) &&
-      value.points.every(
-        (point) =>
-          Object.keys(point).length === 2 &&
-          typeof point.x === "number" &&
-          typeof point.y === "number",
+      "selections" in value &&
+      isRecordArray(value.selections) &&
+      value.selections.every(
+        (selection) =>
+          Object.keys(selection).length === 1 && typeof selection.region === "string",
       )
     );
-  }
-  if (value.kind === "fileUpload") {
-    return keys.length === 2 && "objectKey" in value && typeof value.objectKey === "string";
   }
   return value.kind === "externalTool" && keys.length === 1;
 }
@@ -345,12 +340,10 @@ function responsesEqual(left: StudentResponse, right: StudentResponse): boolean 
     return JSON.stringify(left.order) === JSON.stringify(right.order);
   }
   if (left.kind === "hotspot" && right.kind === "hotspot") {
-    return JSON.stringify(left.points) === JSON.stringify(right.points);
+    return JSON.stringify(left.selections) === JSON.stringify(right.selections);
   }
   if (left.kind === "externalTool" && right.kind === "externalTool") return true;
-  return (
-    left.kind === "fileUpload" && right.kind === "fileUpload" && left.objectKey === right.objectKey
-  );
+  return false;
 }
 
 function feedbackFor(receipt: GradedQuestionSubmissionReceipt): Feedback {
@@ -379,7 +372,7 @@ function completedAcknowledgement(
     assignmentAttemptCompletion: status.receipt.assignmentAttemptCompletion,
     nextIssued: status.receipt.nextIssued,
     nextPending: status.receipt.nextPending,
-    scoringStatus: status.receipt.scoringStatus,
+    assignmentScoringState: status.receipt.assignmentScoringState,
   };
 }
 
@@ -715,7 +708,8 @@ export function createQuestionAttemptStateMachine(
         : false;
     const canCheck =
       (current.phase === "acceptedPending" ||
-        (current.phase === "feedback" && current.acknowledgement.scoringStatus !== "current")) &&
+        (current.phase === "feedback" &&
+          current.acknowledgement.assignmentScoringState !== "current")) &&
       !checkingStatus;
     if (!canCheck) return;
     const pending = current as Extract<

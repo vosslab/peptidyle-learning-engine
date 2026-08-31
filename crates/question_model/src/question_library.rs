@@ -434,7 +434,7 @@ pub struct QuestionDetails {
     /// Exact immutable hot metadata for this publication.
     pub summary: QuestionSummary,
     /// Static content or one server-materialized example; source, response,
-    /// randomization, grading, keys, and the preview seed are excluded.
+    /// Question Variation Definition, grading, keys, and preview seed are excluded.
     pub prompt: QuestionPromptProjection,
     /// Explainable anonymous evidence for this exact publication.
     pub evidence: QuestionStatistics,
@@ -633,7 +633,7 @@ mod tests {
         let wire = serde_json::to_value(detail).expect("detail serializes");
         assert!(wire.get("source").is_none());
         assert!(wire.get("response").is_none());
-        assert!(wire.get("randomization").is_none());
+        assert!(wire.get("questionVariationDefinition").is_none());
         assert!(wire.get("seed").is_none());
         assert!(wire.get("grading").is_none());
         assert!(wire.get("answerKey").is_none());

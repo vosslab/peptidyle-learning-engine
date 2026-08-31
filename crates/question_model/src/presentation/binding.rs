@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::codec::{DESCRIPTOR_VERSION_V1, PresentationDigestV1};
-use super::model::PresentationNonceV1;
+use super::codec::{DESCRIPTOR_VERSION_V1, QuestionPresentationDigest};
+use super::model::QuestionPresentationNonce;
 
 /// Physical descriptor columns stored with an attempt or prefetch row.
 ///
@@ -11,14 +11,14 @@ use super::model::PresentationNonceV1;
 /// student receives the nonce in the presentation envelope and only the
 /// truncated `pd1_` digest token in its minimal attempt descriptor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PresentationBindingV1 {
-    nonce: PresentationNonceV1,
-    digest: PresentationDigestV1,
+pub struct QuestionPresentationBinding {
+    nonce: QuestionPresentationNonce,
+    digest: QuestionPresentationDigest,
 }
 
-impl PresentationBindingV1 {
+impl QuestionPresentationBinding {
     /// Binds the exact nonce and full digest computed by the v1 codec.
-    pub fn new(nonce: PresentationNonceV1, digest: PresentationDigestV1) -> Self {
+    pub fn new(nonce: QuestionPresentationNonce, digest: QuestionPresentationDigest) -> Self {
         Self { nonce, digest }
     }
 
@@ -28,12 +28,12 @@ impl PresentationBindingV1 {
     }
 
     /// Exact 16 bytes persisted in the nonce column.
-    pub fn nonce(self) -> PresentationNonceV1 {
+    pub fn nonce(self) -> QuestionPresentationNonce {
         self.nonce
     }
 
     /// Exact 32 bytes persisted in the digest column.
-    pub fn digest(self) -> PresentationDigestV1 {
+    pub fn digest(self) -> QuestionPresentationDigest {
         self.digest
     }
 }
@@ -46,7 +46,7 @@ struct PresentationBindingWireV1 {
     digest: String,
 }
 
-impl Serialize for PresentationBindingV1 {
+impl Serialize for QuestionPresentationBinding {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         PresentationBindingWireV1 {
             descriptor_version: DESCRIPTOR_VERSION_V1,
@@ -57,7 +57,7 @@ impl Serialize for PresentationBindingV1 {
     }
 }
 
-impl<'de> Deserialize<'de> for PresentationBindingV1 {
+impl<'de> Deserialize<'de> for QuestionPresentationBinding {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let wire = PresentationBindingWireV1::deserialize(deserializer)?;
         if wire.descriptor_version != DESCRIPTOR_VERSION_V1 {
@@ -65,9 +65,10 @@ impl<'de> Deserialize<'de> for PresentationBindingV1 {
                 "unsupported presentation descriptor version",
             ));
         }
-        let nonce = PresentationNonceV1::parse(&wire.nonce).map_err(serde::de::Error::custom)?;
-        let digest =
-            PresentationDigestV1::parse_hex(&wire.digest).map_err(serde::de::Error::custom)?;
+        let nonce =
+            QuestionPresentationNonce::parse(&wire.nonce).map_err(serde::de::Error::custom)?;
+        let digest = QuestionPresentationDigest::parse_hex(&wire.digest)
+            .map_err(serde::de::Error::custom)?;
         Ok(Self::new(nonce, digest))
     }
 }

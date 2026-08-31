@@ -3,11 +3,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::generation::RandomizationDefinition;
+use question_model::generation::QuestionVariationDefinition;
 use question_model::taxonomy::License;
 use question_model::{
     DraftQuestionSource, GradingDefinition, QuestionFormat, QuestionMetadata, QuestionType,
-    WorkspaceId,
+    QuestionVersion, WorkspaceId,
 };
 
 use super::*;
@@ -25,7 +25,7 @@ enum Mismatch {
     Attempt,
     Problem,
     Version,
-    Seed,
+    QuestionSeed,
     Correlation,
 }
 
@@ -35,7 +35,7 @@ impl sealed::ProviderSealed for RecordedProvider {}
 impl ImathasProvider for RecordedProvider {
     async fn snapshot(
         &self,
-        locator: &DraftLocator,
+        locator: &ImathasDraftQuestionSource,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
         assert_eq!(locator.provider(), "recorded-provider");
         assert_eq!(locator.item_ref(), "item-17");
@@ -95,7 +95,7 @@ impl ImathasProvider for RecordedProvider {
                 verdict.question_version.version_number =
                     QuestionVersionNumber::new(99).expect("positive version")
             }
-            Some(Mismatch::Seed) => verdict.seed = Seed::new(99),
+            Some(Mismatch::QuestionSeed) => verdict.seed = QuestionSeed::new(99),
             Some(Mismatch::Correlation) => verdict.correlation = "wrong-server-correlation".into(),
             None => {}
         }
@@ -116,8 +116,8 @@ fn provider() -> RecordedProvider {
     }
 }
 
-fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
-    QuestionDefinition {
+fn question(snapshot: ObjectId, digest: String) -> QuestionVersion {
+    QuestionVersion {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         version_number: QuestionVersionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
@@ -134,7 +134,7 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
         question_type: QuestionType::Numeric,
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        randomization: RandomizationDefinition::Static,
+        question_variation_definition: QuestionVariationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded iMathAS question".into(),
@@ -148,13 +148,13 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
 
 async fn stored_source(
     store: &MemoryObjectStore,
-) -> (QuestionDefinition, ImathasSource, SourceObjectReference) {
+) -> (QuestionVersion, ImathasSource, SourceObjectReference) {
     let snapshot = ObjectId::from_uuid(Uuid::from_u128(4));
     let digest = hex(Sha256::digest(b"{\"recorded\":true}").as_slice());
     let question = question(snapshot, digest);
     let object = store
         .put(PutObject {
-            key: ObjectKey::QuestionSource {
+            address: ObjectAddress::QuestionSource {
                 question_version: QuestionVersionReference {
                     question_id: question.question_id.clone(),
                     version_number: question.version_number,
@@ -163,7 +163,7 @@ async fn stored_source(
             },
             bytes: b"{\"recorded\":true}".to_vec(),
             media_type: "application/json".into(),
-            license: "CC-BY-SA-4.0".into(),
+            license: Some(License::CcBySa),
             provenance: "recorded redacted iMathAS fixture".into(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
@@ -202,7 +202,7 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
     assert_eq!(prepared.profile().name(), "recorded-v1");
     assert!(!format!("{prepared:?}").contains("recorded\\\":true"));
     assert!(
-        DraftLocator::from_draft(&DraftQuestionSource::Imathas {
+        ImathasDraftQuestionSource::from_draft(&DraftQuestionSource::Imathas {
             provider: "https://untrusted.example".into(),
             item_ref: "item-17".into(),
         })
@@ -217,7 +217,7 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
         &"a".repeat(129),
     ] {
         assert!(
-            DraftLocator::from_draft(&DraftQuestionSource::Imathas {
+            ImathasDraftQuestionSource::from_draft(&DraftQuestionSource::Imathas {
                 provider: "recorded-provider".into(),
                 item_ref: item_ref.into(),
             })
@@ -227,13 +227,13 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
     assert_eq!(
         format!(
             "{:?}",
-            DraftLocator::from_draft(&DraftQuestionSource::Imathas {
+            ImathasDraftQuestionSource::from_draft(&DraftQuestionSource::Imathas {
                 provider: "recorded-provider".into(),
                 item_ref: "item-17".into(),
             })
             .unwrap()
         ),
-        "DraftLocator(REDACTED)"
+        "ImathasDraftQuestionSource(REDACTED)"
     );
 }
 
@@ -247,7 +247,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     let first = adapter
         .issue(
             &question,
-            Seed::new(17),
+            QuestionSeed::new(17),
             &source,
             ActivityTimestamp::from_unix_millis(2),
         )
@@ -256,7 +256,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     let second = adapter
         .issue(
             &question,
-            Seed::new(17),
+            QuestionSeed::new(17),
             &source,
             ActivityTimestamp::from_unix_millis(3),
         )
@@ -280,8 +280,8 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
             &question,
             &source,
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            Seed::new(17),
-            &correlation(&question, Seed::new(17)),
+            QuestionSeed::new(17),
+            &correlation(&question, QuestionSeed::new(17)),
         )
         .await
         .unwrap();
@@ -300,7 +300,7 @@ async fn historical_invalid_metadata_title_is_refused_before_provider_or_cache()
         adapter
             .issue(
                 &question,
-                Seed::new(17),
+                QuestionSeed::new(17),
                 &source,
                 ActivityTimestamp::from_unix_millis(2),
             )
@@ -338,8 +338,8 @@ async fn snapshot_mutation_wrong_binding_and_outage_refuse_without_fabricating_i
             &question,
             &source,
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            Seed::new(17),
-            &correlation(&question, Seed::new(17)),
+            QuestionSeed::new(17),
+            &correlation(&question, QuestionSeed::new(17)),
         )
         .await
         .unwrap_err();
@@ -356,7 +356,7 @@ async fn snapshot_mutation_wrong_binding_and_outage_refuse_without_fabricating_i
         outage
             .issue(
                 &question,
-                Seed::new(18),
+                QuestionSeed::new(18),
                 &source,
                 ActivityTimestamp::from_unix_millis(2)
             )
@@ -373,7 +373,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         Mismatch::Attempt,
         Mismatch::Problem,
         Mismatch::Version,
-        Mismatch::Seed,
+        Mismatch::QuestionSeed,
         Mismatch::Correlation,
     ] {
         let adapter = ImathasAdapter::new(
@@ -390,8 +390,8 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
                     &question,
                     &source,
                     QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                    Seed::new(17),
-                    &correlation(&question, Seed::new(17)),
+                    QuestionSeed::new(17),
+                    &correlation(&question, QuestionSeed::new(17)),
                 )
                 .await
                 .unwrap_err(),
@@ -405,7 +405,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
             question_id: question.question_id.clone(),
             version_number: question.version_number,
         },
-        seed: Seed::new(17),
+        seed: QuestionSeed::new(17),
     };
     let persisted = issuer.begin(binding.clone());
     let stored_value = persisted.to_storage_value();
@@ -439,7 +439,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         issuer
             .restore(
                 GradeBinding {
-                    seed: Seed::new(18),
+                    seed: QuestionSeed::new(18),
                     ..binding
                 },
                 &persisted
@@ -457,14 +457,14 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
             question_id: question.question_id.clone(),
             version_number: question.version_number,
         },
-        Seed::new(31),
+        QuestionSeed::new(31),
     );
     store
         .put(PutObject {
-            key,
+            address: key,
             bytes: b"{malformed".to_vec(),
             media_type: "application/json".into(),
-            license: "test".into(),
+            license: None,
             provenance: "test".into(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
@@ -475,7 +475,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
         adapter
             .issue(
                 &question,
-                Seed::new(31),
+                QuestionSeed::new(31),
                 &source,
                 ActivityTimestamp::from_unix_millis(2)
             )
@@ -497,8 +497,8 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
                 &question,
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                Seed::new(17),
-                &correlation(&question, Seed::new(17)),
+                QuestionSeed::new(17),
+                &correlation(&question, QuestionSeed::new(17)),
             )
             .await,
         Err(ImathasAdapterError::Provider(ProviderFailure::Timeout))
@@ -516,13 +516,13 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
     let (question, source, _) = stored_source(&store).await;
     let first = adapter.issue(
         &question,
-        Seed::new(41),
+        QuestionSeed::new(41),
         &source,
         ActivityTimestamp::from_unix_millis(2),
     );
     let second = adapter.issue(
         &question,
-        Seed::new(41),
+        QuestionSeed::new(41),
         &source,
         ActivityTimestamp::from_unix_millis(2),
     );
@@ -533,7 +533,7 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
     assert_eq!(first.envelope, second.envelope);
 }
 
-fn correlation(question: &QuestionDefinition, seed: Seed) -> ServerCorrelation {
+fn correlation(question: &QuestionVersion, seed: QuestionSeed) -> ServerCorrelation {
     let issuer = CorrelationIssuer::from_server_secret([7; 32]);
     let binding = GradeBinding {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),

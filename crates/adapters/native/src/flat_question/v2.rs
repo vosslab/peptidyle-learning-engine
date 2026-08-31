@@ -7,9 +7,10 @@ use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
 use question_model::envelope::{AssetRef, ContentBlock};
-use question_model::generation::RandomizationDefinition;
+use question_model::generation::QuestionVariationDefinition;
 use question_model::response::{
-    ResponseItemReference, ChoiceOption, HotspotRegion, QuestionResponseFormat, QuestionType, TextEntrySlot,
+    HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
+    QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
@@ -323,7 +324,7 @@ impl FlatQuestionV2 {
             question_type,
             question_attempt_limit: self.question_attempt_limit.into(),
             question_attempt_time_limit: self.question_attempt_time_limit.into(),
-            randomization: RandomizationDefinition::Static,
+            question_variation_definition: QuestionVariationDefinition::Static,
             grading: GradingDefinition::AllOrNothing {
                 points: self.points,
             },
@@ -435,13 +436,18 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             matches,
         } => (
             QuestionResponseFormat::Matching {
-                prompts: compile_items(prompts),
-                choices: compile_items(choices),
+                prompts: compile_matching_prompts(prompts),
+                choices: compile_matching_choices(choices),
             },
             AnswerKey::Matching {
                 correct: matches
                     .iter()
-                    .map(|pair| (ResponseItemReference::new(&pair.prompt), ResponseItemReference::new(&pair.choice)))
+                    .map(|pair| {
+                        (
+                            ResponseItemReference::new(&pair.prompt),
+                            ResponseItemReference::new(&pair.choice),
+                        )
+                    })
                     .collect(),
             },
             Vec::new(),
@@ -452,10 +458,13 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             correct_order,
         } => (
             QuestionResponseFormat::Ordering {
-                items: compile_items(items),
+                items: compile_ordering_items(items),
             },
             AnswerKey::Ordering {
-                correct: correct_order.iter().map(ResponseItemReference::new).collect(),
+                correct: correct_order
+                    .iter()
+                    .map(ResponseItemReference::new)
+                    .collect(),
             },
             Vec::new(),
             Vec::new(),
@@ -482,7 +491,10 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                     selection: ResponseSelectionRule::AtLeastOne,
                 },
                 AnswerKey::Hotspot {
-                    correct: correct_regions.iter().map(ResponseItemReference::new).collect(),
+                    correct: correct_regions
+                        .iter()
+                        .map(ResponseItemReference::new)
+                        .collect(),
                 },
                 Vec::new(),
                 vec![ContentBlock::Image {
@@ -504,7 +516,7 @@ fn compile_choices(
         QuestionResponseFormat::MultipleChoice {
             choices: choices
                 .iter()
-                .map(|choice| ChoiceOption {
+                .map(|choice| QuestionChoice {
                     id: ResponseItemReference::new(&choice.id),
                     body: markdown_blocks(&choice.text),
                 })
@@ -527,10 +539,30 @@ fn compile_choices(
     )
 }
 
-fn compile_items(items: &[FlatItem]) -> Vec<ChoiceOption> {
+fn compile_matching_prompts(items: &[FlatItem]) -> Vec<MatchingPrompt> {
     items
         .iter()
-        .map(|item| ChoiceOption {
+        .map(|item| MatchingPrompt {
+            id: ResponseItemReference::new(&item.id),
+            body: markdown_blocks(&item.text),
+        })
+        .collect()
+}
+
+fn compile_matching_choices(items: &[FlatItem]) -> Vec<MatchingChoice> {
+    items
+        .iter()
+        .map(|item| MatchingChoice {
+            id: ResponseItemReference::new(&item.id),
+            body: markdown_blocks(&item.text),
+        })
+        .collect()
+}
+
+fn compile_ordering_items(items: &[FlatItem]) -> Vec<OrderingItem> {
+    items
+        .iter()
+        .map(|item| OrderingItem {
             id: ResponseItemReference::new(&item.id),
             body: markdown_blocks(&item.text),
         })

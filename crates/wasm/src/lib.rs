@@ -6,9 +6,9 @@
 //! this crate's dependency closure and must stay there.
 
 use domain::{draft_preview, policy, timing, validation};
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::presentation::{
-    AssetBindingV1, PresentationDigestTokenV1, PresentationEnvelopeV1,
+    PresentationEnvelopeV1, PresentedQuestionAsset, QuestionPresentationToken,
     rebuild_public_presentation_v1,
 };
 use question_model::response::{QuestionResponseFormat, StudentResponse};
@@ -101,13 +101,13 @@ pub fn validate_assignment_config(config_json: &str) -> Result<String, JsValue> 
 /// Materializes one key-free, unversioned native workspace-draft preview.
 ///
 /// Non-native sources return the explicit `unavailable` capability result.
-/// The bridge never imports an adapter or grading implementation: it can only
+/// The bridge never imports Question Backend or Question Grader code: it can only
 /// generate disclosed parameters and apply them to safe prompt fields.
 #[wasm_bindgen]
 pub fn preview_native_draft(draft_json: &str, seed_json: &str) -> Result<String, JsValue> {
     let request: draft_preview::DraftPreviewRequest = serde_json::from_str(draft_json)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview request: {error}")))?;
-    let seed: Seed = serde_json::from_str(seed_json)
+    let seed: QuestionSeed = serde_json::from_str(seed_json)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview seed: {error}")))?;
     let preview = draft_preview::preview_native_draft(&request, seed)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview: {error}")))?;
@@ -132,9 +132,9 @@ pub fn verify_presentation_descriptor(
 ) -> Result<bool, JsValue> {
     let envelope: PresentationEnvelopeV1 = serde_json::from_str(envelope_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation envelope: {error}")))?;
-    let assets: Vec<AssetBindingV1> = serde_json::from_str(asset_bindings_json)
+    let assets: Vec<PresentedQuestionAsset> = serde_json::from_str(asset_bindings_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
-    let expected = PresentationDigestTokenV1::parse(digest)
+    let expected = QuestionPresentationToken::parse(digest)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation digest: {error}")))?;
     let presentation = rebuild_public_presentation_v1(&envelope, &assets)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn native_draft_preview_stays_key_free() {
         let preview = preview_native_draft(
-            r#"{"workspace":"00000000-0000-0000-0000-000000000001","source":{"backend":"native"},"title":"Fixture","prompt":[{"kind":"text","markdown":"Value {{value}}"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20},"randomization":{"kind":"seeded","generator":{"id":"fixture","version":"1"},"parameters":{"value":{"kind":"fixed","value":"safe"}}}}"#,
+            r#"{"workspace":"00000000-0000-0000-0000-000000000001","source":{"backend":"native"},"title":"Fixture","prompt":[{"kind":"text","markdown":"Value {{value}}"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20},"questionVariationDefinition":{"kind":"seeded","generator":{"id":"fixture","version":"1"},"parameters":{"value":{"kind":"fixed","value":"safe"}}}}"#,
             "4",
         )
         .expect("native draft preview");

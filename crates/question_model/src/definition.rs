@@ -1,4 +1,4 @@
-//! [`QuestionDefinition`], the backend-neutral representation every engine
+//! [`QuestionVersion`], the backend-neutral representation every engine
 //! maps into (WP-C1).
 //!
 //! One shared shape is what lets a WeBWorK question, a QTI item, an H5P
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use crate::envelope::ContentBlock;
-use crate::generation::RandomizationDefinition;
+use crate::generation::QuestionVariationDefinition;
 use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
 use crate::response::{QuestionResponseFormat, QuestionType};
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
@@ -315,7 +315,7 @@ pub struct DraftQuestionDefinition {
     /// Time limits, if any.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// How content varies between students and runs.
-    pub randomization: RandomizationDefinition,
+    pub question_variation_definition: QuestionVariationDefinition,
     /// How a response is judged.
     pub grading: GradingDefinition,
     /// Title, tags, taxonomy, license, language.
@@ -361,7 +361,7 @@ impl DraftQuestionDefinition {
 /// this type, so a draft can never enter a published-only path by omission.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionDefinition {
+pub struct QuestionVersion {
     /// Stable Question lineage established at publication.
     pub question_id: QuestionId,
     /// Exact immutable version within the Question lineage.
@@ -383,14 +383,14 @@ pub struct QuestionDefinition {
     /// Time limits, if any.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// How content varies between students and runs.
-    pub randomization: RandomizationDefinition,
+    pub question_variation_definition: QuestionVariationDefinition,
     /// How a response is judged.
     pub grading: GradingDefinition,
     /// Title, tags, taxonomy, license, language.
     pub metadata: QuestionMetadata,
 }
 
-impl QuestionDefinition {
+impl QuestionVersion {
     /// Attaches the IDs minted at successful publication to draft content.
     pub fn from_draft(
         draft: DraftQuestionDefinition,
@@ -409,7 +409,7 @@ impl QuestionDefinition {
             question_type: draft.question_type,
             question_attempt_limit: draft.question_attempt_limit,
             question_attempt_time_limit: draft.question_attempt_time_limit,
-            randomization: draft.randomization,
+            question_variation_definition: draft.question_variation_definition,
             grading: draft.grading,
             metadata: draft.metadata,
         }
@@ -420,7 +420,7 @@ impl QuestionDefinition {
 mod tests {
     use super::*;
     use crate::answer::NumericResponseTolerance;
-    use crate::generation::RandomizationDefinition;
+    use crate::generation::QuestionVariationDefinition;
     use uuid::Uuid;
 
     fn sample_draft() -> DraftQuestionDefinition {
@@ -438,7 +438,7 @@ mod tests {
             question_type: QuestionType::Numeric,
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            randomization: RandomizationDefinition::Static,
+            question_variation_definition: QuestionVariationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
             metadata: QuestionMetadata {
                 title: "Molar mass".to_string(),
@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn a_published_question_carries_its_question_version_reference() {
-        let published = QuestionDefinition::from_draft(
+        let published = QuestionVersion::from_draft(
             sample_draft(),
             "123-4567".parse().expect("valid Question ID"),
             QuestionVersionNumber::new(1).expect("positive version"),

@@ -377,6 +377,38 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'issued work does not retain its exact pin and Question Statistics Eligibility, or accepted submission evidence is not immutable';
 	END IF;
+	IF (SELECT count(*) FROM information_schema.columns
+		WHERE table_schema = 'ple_private' AND table_name = 'question_attempt'
+		AND column_name IN (
+			'question_seed', 'generated_parameter_sha256', 'question_attempt_state', 'reproduction_details'
+		) AND is_nullable = 'NO') <> 4
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.question_attempt'::regclass
+			AND conname = 'question_attempt_seed_is_u64'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.question_attempt'::regclass
+			AND conname = 'question_attempt_generated_parameter_sha256_is_canonical'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.question_attempt'::regclass
+			AND conname = 'question_attempt_state_is_closed'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.question_attempt'::regclass
+			AND tgname = 'question_attempt_state_transition_is_forward_only' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.question_attempt'::regclass
+			AND tgname = 'question_attempt_submission_state_is_exact' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_private.question_submission'::regclass
+			AND tgname = 'question_submission_requires_accepted_attempt_state' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Question Attempt persistence does not enforce the closed state and submission contract';
+	END IF;
 	IF to_regclass('ple_data.course_schedule_revision') IS NULL
 		OR (SELECT count(*) FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'course_schedule_revision') <> 7

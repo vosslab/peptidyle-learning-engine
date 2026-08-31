@@ -4,7 +4,6 @@ import type { JSX } from "solid-js";
 
 import { QUESTION_RESPONSE_CONTROL_STYLES } from "../question_response_control_styles";
 import { ExternalToolResponse } from "./external_tool";
-import { FileUploadResponse } from "./file_upload";
 import { HotspotResponse } from "./hotspot";
 import { MatchingResponse } from "./matching";
 import { MultipleChoiceResponse as MultipleChoiceController } from "./multiple_choice";
@@ -42,7 +41,6 @@ function assertNever(value: never): never {
 
 /** Exhaustive dispatch point for every browser-safe QuestionResponseFormat variant. */
 export function QuestionResponseControl(props: QuestionResponseControlProps): JSX.Element {
-  // File uploads remain unavailable until their secure, course-bound upload slot contract exists.
   let body: JSX.Element;
   switch (props.definition.kind) {
     case "numeric":
@@ -118,17 +116,6 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           definition={props.definition}
           initialResponse={
             props.initialResponse?.kind === "hotspot" ? props.initialResponse : undefined
-          }
-        />
-      );
-      break;
-    case "fileUpload":
-      body = (
-        <FileUploadResponse
-          {...props}
-          definition={props.definition}
-          initialResponse={
-            props.initialResponse?.kind === "fileUpload" ? props.initialResponse : undefined
           }
         />
       );

@@ -1,8 +1,8 @@
 //! Server-only WeBWorK grading composition.
 
 use grading::QuestionGradingOutcome;
-use question_model::generation::Seed;
-use question_model::{Capability, QuestionDefinition, StudentResponse};
+use question_model::generation::QuestionSeed;
+use question_model::{Capability, QuestionVersion, StudentResponse};
 
 use super::{WebworkAdapterError, WebworkSource};
 use crate::renderer_contract::{GradeRequest, WebworkRenderer, WebworkReplayMappingV1};
@@ -10,8 +10,8 @@ use crate::renderer_contract::{GradeRequest, WebworkRenderer, WebworkReplayMappi
 /// Delegates a student response under the exact source's accepted grading policy.
 pub(super) async fn grade<R: WebworkRenderer>(
     renderer: &R,
-    question: &QuestionDefinition,
-    seed: Seed,
+    question: &QuestionVersion,
+    seed: QuestionSeed,
     source: &WebworkSource,
     response: &StudentResponse,
     replay: &WebworkReplayMappingV1,

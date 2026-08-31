@@ -121,7 +121,7 @@ profile: browser
 ```
 
 The owner holds one lease through build, private capability generation,
-PostgreSQL bootstrap, migration, seed, renderer provenance, readiness, and
+PostgreSQL bootstrap, migration, seed, Question Renderer Version, readiness, and
 cleanup. It accepts no project, environment, identity, SMTP, or skipped-build
 selector. Bare `podman compose up` against an empty database is not an
 equivalent bootstrap path.
@@ -150,7 +150,7 @@ the ordinary Instructor workflow; those records remain scoped to their exact
 ## Startup order
 
 The lifecycle validates image digests, private files, Compose topology, and
-renderer provenance before mutating the selected target. It then:
+Question Renderer Version before mutating the selected target. It then:
 
 1. removes the prior fixed project while retaining no stale owner resources;
 2. runs `postgres-major-guard`, starts PostgreSQL, and waits for readiness;

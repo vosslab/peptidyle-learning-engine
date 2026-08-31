@@ -1,19 +1,19 @@
 // index.ts - the only browser boundary around generated wasm-bindgen glue.
 
 import type { ResponseItemReference } from "../../generated/api/ResponseItemReference";
-import type { AssetBindingV1 } from "../../generated/api/AssetBindingV1";
+import type { PresentedQuestionAsset } from "../../generated/api/PresentedQuestionAsset";
 import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
 import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
-import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
+import type { QuestionVersion } from "../../generated/api/QuestionVersion";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import type { PresentationDigestTokenV1 } from "../../generated/api/PresentationDigestTokenV1";
+import type { QuestionPresentationToken } from "../../generated/api/QuestionPresentationToken";
 import type { PresentationEnvelopeV1 } from "../../generated/api/PresentationEnvelopeV1";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
-import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
+import type { QuestionVariationDefinition } from "../../generated/api/QuestionVariationDefinition";
 import type { ResponseSelectionRule } from "../../generated/api/ResponseSelectionRule";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
@@ -41,8 +41,8 @@ export type StudentResponseFormatIssue =
   | { readonly kind: "duplicateMatchChoice"; readonly choice: ResponseItemReference }
   | { readonly kind: "unknownMatchChoice"; readonly choice: ResponseItemReference }
   | { readonly kind: "orderingItemsMismatch" }
-  | { readonly kind: "studentHotspotPointOutOfBounds" }
-  | { readonly kind: "studentHotspotPointOutsideRegion" }
+  | { readonly kind: "duplicateHotspotRegion"; readonly region: ResponseItemReference }
+  | { readonly kind: "unknownHotspotRegion"; readonly region: ResponseItemReference }
   | { readonly kind: "missingUploadReference" };
 
 export interface StudentResponseFormatCheck {
@@ -67,7 +67,7 @@ export type QuestionAttemptTimingDecision =
 export type TimerEvaluator = (evaluation: QuestionAttemptTimingEvaluation) => Promise<QuestionAttemptTimingDecision>;
 
 export interface AssignmentQuestionConfig {
-  readonly question: QuestionDefinition;
+  readonly question: QuestionVersion;
   readonly backendCapabilities: QuestionBackendCapabilities;
 }
 
@@ -92,7 +92,7 @@ export interface NativeDraftPreviewRequest {
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
   readonly response: QuestionResponseFormat;
-  readonly randomization: RandomizationDefinition;
+  readonly questionVariationDefinition: QuestionVariationDefinition;
 }
 
 /** Identity-free preview material returned only for local native sources. */
@@ -122,8 +122,8 @@ export type PresentationVerification =
 
 export type PresentationVerifier = (
   envelope: PresentationEnvelopeV1,
-  assets: ReadonlyArray<AssetBindingV1>,
-  digest: PresentationDigestTokenV1,
+  assets: ReadonlyArray<PresentedQuestionAsset>,
+  digest: QuestionPresentationToken,
 ) => Promise<PresentationVerification>;
 
 export interface WasmFacade {
@@ -273,8 +273,6 @@ function parseStudentResponseFormatIssue(value: unknown): StudentResponseFormatI
     case "orderingItemsMismatch":
     case "blankSlotsMismatch":
     case "matchingPromptsMismatch":
-    case "studentHotspotPointOutOfBounds":
-    case "studentHotspotPointOutsideRegion":
     case "missingUploadReference":
       return { kind };
     case "selectionCount":
@@ -288,6 +286,9 @@ function parseStudentResponseFormatIssue(value: unknown): StudentResponseFormatI
     case "duplicateMatchChoice":
     case "unknownMatchChoice":
       return { kind, choice: requiredString(value, "choice") };
+    case "duplicateHotspotRegion":
+    case "unknownHotspotRegion":
+      return { kind, region: requiredString(value, "region") };
     case "textTooLong":
       return {
         kind,

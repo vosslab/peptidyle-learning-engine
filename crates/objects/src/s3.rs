@@ -28,8 +28,8 @@ use question_model::ActivityTimestamp;
 
 #[cfg(feature = "s3")]
 use crate::{
-    Bucket, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, Sha256Digest,
-    SignedUrl, StoredObject,
+    ObjectAddress, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
+    Sha256Digest, SignedUrl, StoredObject,
 };
 
 #[cfg(feature = "s3")]
@@ -103,12 +103,12 @@ impl KmsKeyNames {
         })
     }
 
-    fn name(&self, bucket: Bucket) -> &str {
-        match bucket {
-            Bucket::PublicAssets => &self.public_assets,
-            Bucket::PrivateContent => &self.private_content,
-            Bucket::StudentRecords => &self.student_records,
-            Bucket::TempProcessing => &self.temp_processing,
+    fn name(&self, storage_area: ObjectStorageArea) -> &str {
+        match storage_area {
+            ObjectStorageArea::PublicAssets => &self.public_assets,
+            ObjectStorageArea::PrivateContent => &self.private_content,
+            ObjectStorageArea::StudentRecords => &self.student_records,
+            ObjectStorageArea::TempProcessing => &self.temp_processing,
         }
     }
 }
@@ -117,22 +117,22 @@ impl KmsKeyNames {
 impl Default for BucketNames {
     fn default() -> Self {
         Self {
-            public_assets: Bucket::PublicAssets.as_str().to_string(),
-            private_content: Bucket::PrivateContent.as_str().to_string(),
-            student_records: Bucket::StudentRecords.as_str().to_string(),
-            temp_processing: Bucket::TempProcessing.as_str().to_string(),
+            public_assets: ObjectStorageArea::PublicAssets.as_str().to_string(),
+            private_content: ObjectStorageArea::PrivateContent.as_str().to_string(),
+            student_records: ObjectStorageArea::StudentRecords.as_str().to_string(),
+            temp_processing: ObjectStorageArea::TempProcessing.as_str().to_string(),
         }
     }
 }
 
 #[cfg(feature = "s3")]
 impl BucketNames {
-    fn name(&self, bucket: Bucket) -> &str {
-        match bucket {
-            Bucket::PublicAssets => &self.public_assets,
-            Bucket::PrivateContent => &self.private_content,
-            Bucket::StudentRecords => &self.student_records,
-            Bucket::TempProcessing => &self.temp_processing,
+    fn name(&self, storage_area: ObjectStorageArea) -> &str {
+        match storage_area {
+            ObjectStorageArea::PublicAssets => &self.public_assets,
+            ObjectStorageArea::PrivateContent => &self.private_content,
+            ObjectStorageArea::StudentRecords => &self.student_records,
+            ObjectStorageArea::TempProcessing => &self.temp_processing,
         }
     }
 }
@@ -167,8 +167,8 @@ impl S3ObjectStore {
         }
     }
 
-    async fn head_record(&self, key: &ObjectKey) -> Result<ObjectRecord, ObjectStoreError> {
-        let bucket = self.buckets.name(key.bucket());
+    async fn head_record(&self, key: &ObjectAddress) -> Result<ObjectRecord, ObjectStoreError> {
+        let bucket = self.buckets.name(key.storage_area());
         let output = self
             .client
             .head_object()
@@ -196,7 +196,7 @@ impl S3ObjectStore {
             output.content_type(),
         )?;
         self.verify_encryption(
-            key.bucket(),
+            key.storage_area(),
             output.server_side_encryption(),
             output.ssekms_key_id(),
         )?;
@@ -209,7 +209,7 @@ impl S3ObjectStore {
     /// the marker must be read through the separate S3 tagging API.
     async fn verify_immutable_publication_tag(
         &self,
-        key: &ObjectKey,
+        key: &ObjectAddress,
     ) -> Result<(), ObjectStoreError> {
         if !requires_immutable_publication_tag(key) {
             return Ok(());
@@ -217,7 +217,7 @@ impl S3ObjectStore {
         let tags = self
             .client
             .get_object_tagging()
-            .bucket(self.buckets.name(key.bucket()))
+            .bucket(self.buckets.name(key.storage_area()))
             .key(key.path())
             .send()
             .await
@@ -233,7 +233,7 @@ impl S3ObjectStore {
 
     fn verify_encryption(
         &self,
-        bucket: Bucket,
+        storage_area: ObjectStorageArea,
         encryption: Option<&ServerSideEncryption>,
         kms_key_id: Option<&str>,
     ) -> Result<(), ObjectStoreError> {
@@ -241,7 +241,7 @@ impl S3ObjectStore {
             return Ok(());
         };
         if encryption != Some(&ServerSideEncryption::AwsKms)
-            || kms_key_id != Some(keys.name(bucket))
+            || kms_key_id != Some(keys.name(storage_area))
         {
             return Err(ObjectStoreError::Unavailable(
                 "object does not satisfy the bucket encryption contract".into(),
@@ -260,26 +260,26 @@ impl ObjectStore for S3ObjectStore {
         let content_length =
             i64::try_from(size_bytes).map_err(|_| ObjectStoreError::NumericOverflow)?;
         let record = ObjectRecord {
-            id: request.key.object_id(),
-            bucket: request.key.bucket(),
-            key: request.key.clone(),
+            id: request.address.object_id(),
+            storage_area: request.address.storage_area(),
+            data_class: request.address.data_class(),
+            address: request.address.clone(),
             sha256: Sha256Digest::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
-            category: request.key.category(),
-            question_version: request.key.question_version().cloned(),
+            question_version: request.address.question_version().cloned(),
             license: request.license,
             provenance: request.provenance,
             created_at: request.created_at,
         };
         let encoded_record = encode_record(&record)?;
-        let bucket = self.buckets.name(record.bucket);
+        let bucket = self.buckets.name(record.storage_area);
 
         let mut put = self
             .client
             .put_object()
             .bucket(bucket)
-            .key(record.key.path())
+            .key(record.address.path())
             .body(ByteStream::from(request.bytes))
             .content_length(content_length)
             .content_type(record.media_type.clone())
@@ -288,9 +288,9 @@ impl ObjectStore for S3ObjectStore {
         if let Some(keys) = &self.kms_keys {
             put = put
                 .server_side_encryption(ServerSideEncryption::AwsKms)
-                .ssekms_key_id(keys.name(record.bucket));
+                .ssekms_key_id(keys.name(record.storage_area));
         }
-        if let Some(tagging) = immutable_publication_tagging(&record.key) {
+        if let Some(tagging) = immutable_publication_tagging(&record.address) {
             put = put.tagging(tagging);
         }
         put.send().await.map_err(|error| {
@@ -306,8 +306,8 @@ impl ObjectStore for S3ObjectStore {
         Ok(record)
     }
 
-    async fn get(&self, key: &ObjectKey) -> Result<StoredObject, ObjectStoreError> {
-        let bucket = self.buckets.name(key.bucket());
+    async fn get(&self, key: &ObjectAddress) -> Result<StoredObject, ObjectStoreError> {
+        let bucket = self.buckets.name(key.storage_area());
         let output = self
             .client
             .get_object()
@@ -335,7 +335,7 @@ impl ObjectStore for S3ObjectStore {
             output.content_type(),
         )?;
         self.verify_encryption(
-            key.bucket(),
+            key.storage_area(),
             output.server_side_encryption(),
             output.ssekms_key_id(),
         )?;
@@ -350,11 +350,11 @@ impl ObjectStore for S3ObjectStore {
         verify_bytes(record, bytes)
     }
 
-    async fn delete(&self, key: &ObjectKey) -> Result<(), ObjectStoreError> {
+    async fn delete(&self, key: &ObjectAddress) -> Result<(), ObjectStoreError> {
         self.head_record(key).await?;
         self.client
             .delete_object()
-            .bucket(self.buckets.name(key.bucket()))
+            .bucket(self.buckets.name(key.storage_area()))
             .key(key.path())
             .send()
             .await
@@ -364,14 +364,14 @@ impl ObjectStore for S3ObjectStore {
 
     async fn signed_url(
         &self,
-        key: &ObjectKey,
+        key: &ObjectAddress,
         now: ActivityTimestamp,
     ) -> Result<SignedUrl, ObjectStoreError> {
         if !key.may_issue_signed_url() {
             return Err(ObjectStoreError::NotSignable);
         }
         self.head_record(key).await?;
-        let lifetime = signed_url_lifetime(key.bucket())?;
+        let lifetime = signed_url_lifetime(key.storage_area())?;
         let lifetime_millis =
             i64::try_from(lifetime.as_millis()).map_err(|_| ObjectStoreError::NumericOverflow)?;
         let expires_millis = now
@@ -386,7 +386,7 @@ impl ObjectStore for S3ObjectStore {
         let request = self
             .client
             .get_object()
-            .bucket(self.buckets.name(key.bucket()))
+            .bucket(self.buckets.name(key.storage_area()))
             .key(key.path())
             .presigned(config)
             .await
@@ -407,7 +407,7 @@ fn encode_record(record: &ObjectRecord) -> Result<String, ObjectStoreError> {
 
 #[cfg(feature = "s3")]
 fn decode_record(
-    key: &ObjectKey,
+    key: &ObjectAddress,
     metadata: Option<&HashMap<String, String>>,
     content_length: Option<i64>,
     content_type: Option<&str>,
@@ -420,10 +420,10 @@ fn decode_record(
         .map_err(|error| unavailable_metadata(&error.to_string()))?;
     let record: ObjectRecord =
         serde_json::from_slice(&json).map_err(|error| unavailable_metadata(&error.to_string()))?;
-    if record.key != *key
+    if record.address != *key
         || record.id != key.object_id()
-        || record.bucket != key.bucket()
-        || record.category != key.category()
+        || record.storage_area != key.storage_area()
+        || record.data_class != key.data_class()
         || record.question_version != key.question_version().cloned()
     {
         return Err(unavailable_metadata("semantic key does not match record"));
@@ -452,11 +452,13 @@ fn verify_bytes(record: ObjectRecord, bytes: Vec<u8>) -> Result<StoredObject, Ob
 }
 
 #[cfg(feature = "s3")]
-fn signed_url_lifetime(bucket: Bucket) -> Result<Duration, ObjectStoreError> {
-    match bucket {
-        Bucket::PublicAssets | Bucket::PrivateContent => Ok(Duration::from_secs(60 * 60)),
-        Bucket::StudentRecords => Ok(Duration::from_secs(5 * 60)),
-        Bucket::TempProcessing => Err(ObjectStoreError::NotSignable),
+fn signed_url_lifetime(storage_area: ObjectStorageArea) -> Result<Duration, ObjectStoreError> {
+    match storage_area {
+        ObjectStorageArea::PublicAssets | ObjectStorageArea::PrivateContent => {
+            Ok(Duration::from_secs(60 * 60))
+        }
+        ObjectStorageArea::StudentRecords => Ok(Duration::from_secs(5 * 60)),
+        ObjectStorageArea::TempProcessing => Err(ObjectStoreError::NotSignable),
     }
 }
 
@@ -484,12 +486,12 @@ fn unavailable_metadata(message: &str) -> ObjectStoreError {
 /// bucket. Every other typed key must remain untagged so a private object
 /// cannot accidentally acquire the public immutable-publication capability.
 #[cfg(feature = "s3")]
-fn requires_immutable_publication_tag(key: &ObjectKey) -> bool {
-    matches!(key, ObjectKey::QuestionAsset { .. })
+fn requires_immutable_publication_tag(key: &ObjectAddress) -> bool {
+    matches!(key, ObjectAddress::QuestionAsset { .. })
 }
 
 #[cfg(feature = "s3")]
-fn immutable_publication_tagging(key: &ObjectKey) -> Option<&'static str> {
+fn immutable_publication_tagging(key: &ObjectAddress) -> Option<&'static str> {
     requires_immutable_publication_tag(key).then_some(IMMUTABLE_PUBLICATION_TAG_QUERY)
 }
 
@@ -511,6 +513,8 @@ fn validate_immutable_publication_tags<'a>(
 #[cfg(all(test, feature = "s3"))]
 mod tests {
     use super::*;
+    use crate::ObjectDataClass;
+    use question_model::taxonomy::License;
     use question_model::{
         AssetId, ObjectId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
     };
@@ -524,27 +528,27 @@ mod tests {
     }
 
     fn record() -> ObjectRecord {
-        let key = ObjectKey::QuestionSource {
+        let key = ObjectAddress::QuestionSource {
             question_version: question_version(),
             object: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         ObjectRecord {
             id: key.object_id(),
-            bucket: key.bucket(),
-            key,
+            storage_area: key.storage_area(),
+            data_class: key.data_class(),
+            address: key,
             sha256: Sha256Digest::compute(b"source"),
             size_bytes: 6,
             media_type: "application/zip".to_string(),
-            category: crate::ObjectCategory::Source,
             question_version: Some(question_version()),
-            license: "CC-BY-SA-4.0".to_string(),
+            license: Some(License::CcBySa),
             provenance: "faculty source with an accented name: Jos\u{e9}".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         }
     }
 
-    fn public_asset_key() -> ObjectKey {
-        ObjectKey::QuestionAsset {
+    fn public_asset_key() -> ObjectAddress {
+        ObjectAddress::QuestionAsset {
             question_version: question_version(),
             asset: AssetId::from_uuid(Uuid::from_u128(3)),
             object: ObjectId::from_uuid(Uuid::from_u128(4)),
@@ -559,7 +563,7 @@ mod tests {
             encode_record(&expected).expect("record should encode"),
         )]);
         let actual = decode_record(
-            &expected.key,
+            &expected.address,
             Some(&metadata),
             Some(6),
             Some("application/zip"),
@@ -572,7 +576,7 @@ mod tests {
     #[test]
     fn metadata_for_another_semantic_key_is_rejected() {
         let stored = record();
-        let requested = ObjectKey::Temporary {
+        let requested = ObjectAddress::Temporary {
             object: ObjectId::from_uuid(Uuid::from_u128(4)),
         };
         let metadata = HashMap::from([(
@@ -592,6 +596,22 @@ mod tests {
     }
 
     #[test]
+    fn metadata_with_an_address_mismatched_data_class_is_rejected() {
+        let key = record().address;
+        let mut stored = record();
+        stored.data_class = ObjectDataClass::TemporaryProcessing;
+        let metadata = HashMap::from([(
+            RECORD_METADATA_KEY.to_string(),
+            encode_record(&stored).expect("record should encode"),
+        )]);
+
+        assert!(matches!(
+            decode_record(&key, Some(&metadata), Some(6), Some("application/zip")),
+            Err(ObjectStoreError::Unavailable(_))
+        ));
+    }
+
+    #[test]
     fn downloaded_bytes_must_match_the_record() {
         assert_eq!(
             verify_bytes(record(), b"changed".to_vec()),
@@ -601,7 +621,7 @@ mod tests {
 
     #[test]
     fn only_public_problem_assets_receive_the_immutable_publication_tag() {
-        let private_source = record().key;
+        let private_source = record().address;
         let public_asset = public_asset_key();
 
         assert_eq!(

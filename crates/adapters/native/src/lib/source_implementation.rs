@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use question_model::generation::GeneratorReference;
+use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, QuestionDefinition, QuestionSource,
+    DraftQuestionDefinition, DraftQuestionSource, QuestionSource, QuestionVersion,
 };
 
 use crate::generator::NativeQuestionImplementation;
@@ -11,7 +11,7 @@ use crate::{NativeAdapter, NativeAdapterError};
 impl NativeAdapter {
     pub(super) fn implementations_for_question(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
     ) -> Result<Vec<&dyn NativeQuestionImplementation>, NativeAdapterError> {
         if !matches!(question.source, QuestionSource::Native) {
             return Err(NativeAdapterError::UnsupportedSource);
@@ -34,8 +34,8 @@ impl NativeAdapter {
 
     pub(super) fn implementation_for_question(
         &self,
-        question: &QuestionDefinition,
-        generator: Option<&GeneratorReference>,
+        question: &QuestionVersion,
+        generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn NativeQuestionImplementation, NativeAdapterError> {
         if !matches!(question.source, QuestionSource::Native) {
             return Err(NativeAdapterError::UnsupportedSource);
@@ -60,7 +60,7 @@ impl NativeAdapter {
     pub(super) fn implementation_for_draft(
         &self,
         question: &DraftQuestionDefinition,
-        generator: Option<&GeneratorReference>,
+        generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn NativeQuestionImplementation, NativeAdapterError> {
         if !matches!(question.source, DraftQuestionSource::Native) {
             return Err(NativeAdapterError::UnsupportedSource);
@@ -86,7 +86,7 @@ impl NativeAdapter {
         &self,
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
-        generator: Option<&GeneratorReference>,
+        generator: Option<&QuestionGeneratorReference>,
     ) -> NativeAdapterError {
         NativeAdapterError::UnknownQuestionImplementation {
             question_format,

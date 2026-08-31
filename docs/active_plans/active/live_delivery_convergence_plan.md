@@ -19,7 +19,7 @@ PLE has one assignment-execution model:
   attempts, submissions, immutable receipts, grades, and repeat practice.
 - Deterministic graders execute on the server from issuance-owned private material.
 - Browser contracts contain the visible question and response shape needed for interaction while
-  answer material and grading implementations remain server-owned.
+  Answer Key data and Question Grader code remain server-owned.
 - The disposable HTTPS production stack creates and mutates ordinary PLE data through visible
   workflows and supplies canonical browser acceptance.
 

@@ -1,8 +1,8 @@
 //! Trusted immutable PG-source resolution and binding checks.
 
-use objects::{ObjectKey, ObjectStore};
+use objects::{ObjectAddress, ObjectStore};
 use question_model::{
-    QuestionDefinition, QuestionSource, QuestionVersionReference, SourceObjectReference,
+    QuestionSource, QuestionVersion, QuestionVersionReference, SourceObjectReference,
 };
 
 use super::WebworkAdapterError;
@@ -22,7 +22,7 @@ impl WebworkSource {
         question_version: QuestionVersionReference,
         source_object_reference: SourceObjectReference,
     ) -> Result<Self, WebworkAdapterError> {
-        let expected_key = ObjectKey::QuestionSource {
+        let expected_key = ObjectAddress::QuestionSource {
             question_version: question_version.clone(),
             object: source_object_reference.object,
         };
@@ -30,9 +30,8 @@ impl WebworkSource {
             .get(&expected_key)
             .await
             .map_err(WebworkAdapterError::ObjectStore)?;
-        if stored.record.key != expected_key
+        if stored.record.address != expected_key
             || stored.record.id != source_object_reference.object
-            || stored.record.category != objects::ObjectCategory::Source
             || stored.record.question_version != Some(question_version.clone())
             || stored.record.sha256.to_string() != source_object_reference.sha256
         {
@@ -45,14 +44,14 @@ impl WebworkSource {
         })
     }
 
-    /// Immutable Source Object Reference carried into the Question Attempt Source Record.
+    /// Immutable Source Object Reference carried into Question Attempt Reproduction Details.
     pub fn source_object_reference(&self) -> &SourceObjectReference {
         &self.source_object_reference
     }
 }
 
 pub(super) fn webwork_identity(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
 ) -> Result<(QuestionVersionReference, &str), WebworkAdapterError> {
     match &question.source {
         QuestionSource::Webwork { pg_path } => Ok((

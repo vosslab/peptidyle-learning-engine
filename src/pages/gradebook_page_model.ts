@@ -105,8 +105,10 @@ function validatePageRows(page: GradebookPageResult): void {
     throw new Error("Gradebook rows do not share one assignment structure");
   }
   if (
-    expected.length !== page.scoringWitnesses.length ||
-    !expected.every((cell, index) => cell.assignment === page.scoringWitnesses[index]?.assignment)
+    expected.length !== page.assignmentScoringSnapshots.length ||
+    !expected.every(
+      (cell, index) => cell.assignment === page.assignmentScoringSnapshots[index]?.assignment,
+    )
   ) {
     throw new Error("Gradebook score witnesses do not match the visible assignment structure");
   }

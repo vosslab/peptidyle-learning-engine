@@ -6,15 +6,15 @@ use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 
 use crate::{
-    Bucket, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, Sha256Digest,
-    SignedUrl, StoredObject,
+    ObjectAddress, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
+    Sha256Digest, SignedUrl, StoredObject,
 };
 use question_model::ActivityTimestamp;
 
 /// Object backend used by contract tests and lanes waiting for MinIO.
 #[derive(Debug, Clone, Default)]
 pub struct MemoryObjectStore {
-    entries: Arc<RwLock<BTreeMap<ObjectKey, StoredObject>>>,
+    entries: Arc<RwLock<BTreeMap<ObjectAddress, StoredObject>>>,
 }
 
 #[async_trait]
@@ -23,17 +23,17 @@ impl ObjectStore for MemoryObjectStore {
         let size_bytes =
             u64::try_from(request.bytes.len()).map_err(|_| ObjectStoreError::NumericOverflow)?;
         let record = ObjectRecord {
-            id: request.key.object_id(),
-            bucket: request.key.bucket(),
-            question_version: request.key.question_version().cloned(),
+            id: request.address.object_id(),
+            storage_area: request.address.storage_area(),
+            data_class: request.address.data_class(),
+            question_version: request.address.question_version().cloned(),
             sha256: Sha256Digest::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
-            category: request.key.category(),
             license: request.license,
             provenance: request.provenance,
             created_at: request.created_at,
-            key: request.key.clone(),
+            address: request.address.clone(),
         };
         let stored = StoredObject {
             record: record.clone(),
@@ -43,20 +43,20 @@ impl ObjectStore for MemoryObjectStore {
             .entries
             .write()
             .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
-        if entries.contains_key(&request.key) {
+        if entries.contains_key(&request.address) {
             return Err(ObjectStoreError::AlreadyExists);
         }
-        entries.insert(request.key, stored);
+        entries.insert(request.address, stored);
         Ok(record)
     }
 
-    async fn get(&self, key: &ObjectKey) -> Result<StoredObject, ObjectStoreError> {
+    async fn get(&self, address: &ObjectAddress) -> Result<StoredObject, ObjectStoreError> {
         let entries = self
             .entries
             .read()
             .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
         let stored = entries
-            .get(key)
+            .get(address)
             .cloned()
             .ok_or(ObjectStoreError::NotFound)?;
         if Sha256Digest::compute(&stored.bytes) != stored.record.sha256 {
@@ -65,21 +65,21 @@ impl ObjectStore for MemoryObjectStore {
         Ok(stored)
     }
 
-    async fn delete(&self, key: &ObjectKey) -> Result<(), ObjectStoreError> {
+    async fn delete(&self, address: &ObjectAddress) -> Result<(), ObjectStoreError> {
         let mut entries = self
             .entries
             .write()
             .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
-        entries.remove(key).ok_or(ObjectStoreError::NotFound)?;
+        entries.remove(address).ok_or(ObjectStoreError::NotFound)?;
         Ok(())
     }
 
     async fn signed_url(
         &self,
-        key: &ObjectKey,
+        address: &ObjectAddress,
         now: ActivityTimestamp,
     ) -> Result<SignedUrl, ObjectStoreError> {
-        if !key.may_issue_signed_url() {
+        if !address.may_issue_signed_url() {
             return Err(ObjectStoreError::NotSignable);
         }
         {
@@ -87,14 +87,16 @@ impl ObjectStore for MemoryObjectStore {
                 .entries
                 .read()
                 .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
-            if !entries.contains_key(key) {
+            if !entries.contains_key(address) {
                 return Err(ObjectStoreError::NotFound);
             }
         }
-        let lifetime_millis = match key.bucket() {
-            Bucket::PublicAssets | Bucket::PrivateContent => 60_i64 * 60 * 1_000,
-            Bucket::StudentRecords => 5_i64 * 60 * 1_000,
-            Bucket::TempProcessing => return Err(ObjectStoreError::NotSignable),
+        let lifetime_millis = match address.storage_area() {
+            ObjectStorageArea::PublicAssets | ObjectStorageArea::PrivateContent => {
+                60_i64 * 60 * 1_000
+            }
+            ObjectStorageArea::StudentRecords => 5_i64 * 60 * 1_000,
+            ObjectStorageArea::TempProcessing => return Err(ObjectStoreError::NotSignable),
         };
         let expires_millis = now
             .as_unix_millis()
@@ -104,8 +106,8 @@ impl ObjectStore for MemoryObjectStore {
         Ok(SignedUrl {
             url: format!(
                 "memory://{}/{}?expires={expires_millis}",
-                key.bucket().as_str(),
-                key.path()
+                address.storage_area().as_str(),
+                address.path()
             ),
             expires_at,
         })
@@ -121,15 +123,15 @@ mod tests {
     #[tokio::test]
     async fn read_refuses_bytes_that_no_longer_match_the_record() {
         let store = MemoryObjectStore::default();
-        let key = ObjectKey::Temporary {
+        let key = ObjectAddress::Temporary {
             object: ObjectId::from_uuid(Uuid::from_u128(1)),
         };
         store
             .put(PutObject {
-                key: key.clone(),
+                address: key.clone(),
                 bytes: b"original".to_vec(),
                 media_type: "application/octet-stream".to_string(),
-                license: "private".to_string(),
+                license: None,
                 provenance: "test".to_string(),
                 created_at: ActivityTimestamp::from_unix_millis(1),
             })

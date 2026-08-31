@@ -492,7 +492,7 @@ export function reorderChoices(
   return changed({ ...source, response: { ...source.response, choices } });
 }
 
-export function renameChoiceId(
+export function renameQuestionChoiceReference(
   source: FlatQuestionSourceV2,
   previousId: string,
   nextId: string,

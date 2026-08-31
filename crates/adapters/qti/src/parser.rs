@@ -13,7 +13,7 @@ use objects::Sha256Digest;
 use objects::image_validation::verify_still_image;
 use question_model::answer::ResponseSelectionRule;
 use question_model::envelope::{AssetRef, ContentBlock};
-use question_model::response::{ResponseItemReference, ChoiceOption};
+use question_model::response::{QuestionChoice, ResponseItemReference};
 use question_model::{AssetId, QuestionResponseFormat};
 use uuid::Uuid;
 
@@ -413,7 +413,7 @@ fn parse_single_choice_item(
                 "simpleChoice cannot be empty",
             ));
         }
-        choices.push(ChoiceOption {
+        choices.push(QuestionChoice {
             id: ResponseItemReference::new(id),
             body,
         });

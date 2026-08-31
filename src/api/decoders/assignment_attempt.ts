@@ -16,19 +16,17 @@ function decodeAssignmentAttemptReference(
   return reference;
 }
 import type { StudentAssignmentLandingSummary } from "../../../generated/api/StudentAssignmentLandingSummary";
-import type { QuestionAttemptSourceRecord } from "../../../generated/api/QuestionAttemptSourceRecord";
 import type { QuestionAttemptState } from "../../../generated/api/QuestionAttemptState";
 import type { QuestionAttemptTiming } from "../../../generated/api/QuestionAttemptTiming";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { IssuedAttemptCapabilityV1 } from "../../../generated/api/IssuedAttemptCapabilityV1";
-import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
+import type { StudentQuestionAttemptView } from "../../../generated/api/StudentQuestionAttemptView";
 import type { QuestionSubmission } from "../../../generated/api/QuestionSubmission";
-import type { SourceObjectReference } from "../../../generated/api/SourceObjectReference";
 import type { AssignmentProgress } from "../../../generated/api/AssignmentProgress";
 import type { StudentClassStatistics } from "../../../generated/api/StudentClassStatistics";
 import type { AssignmentProgressScoreState } from "../../../generated/api/AssignmentProgressScoreState";
-import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
+import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type {
   AuthenticatedSession,
@@ -77,10 +75,10 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeStudentAssignmentLandingSummary } from "./question_library";
-import { decodeGeneratorReference, decodeSelectionCardinality } from "./question_model";
+import { decodeResponseSelectionRule } from "./question_model";
 import {
   decodeGradingResult,
-  decodeDisclosedFeedback,
+  decodeStudentFeedback,
   decodeStudentResponse,
 } from "./question_delivery";
 import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
@@ -101,21 +99,19 @@ const ISSUED_ATTEMPT_CAPABILITIES = [
 // This fixed wire-contract minimum mirrors the server privacy floor. It only
 // rejects unsafe API data; release-policy evaluation remains server-owned.
 const STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE = 5;
-const SCORING_STATUSES = [
+const ASSIGNMENT_SCORING_STATES = [
   "current",
   "recalculating",
   "failed",
-] as const satisfies ReadonlyArray<ScoringStatus>;
+] as const satisfies ReadonlyArray<AssignmentScoringState>;
 
 const QUESTION_ATTEMPT_FIELDS = [
   "id",
   "issuedQuestion",
   "seed",
-  "parameterHash",
   "submission",
   "state",
   "timing",
-  "sourceRecord",
   "issuedCapability",
 ] as const;
 
@@ -185,69 +181,10 @@ export function decodeIssuedQuestion(value: unknown, path: string): IssuedQuesti
   } satisfies IssuedQuestion;
 }
 
-function decodeImplementationVersion(
+export function decodeStudentQuestionAttemptView(
   value: unknown,
-  path: string,
-): { id: string; version: string } {
-  return decodeGeneratorReference(value, path, true);
-}
-
-function decodeSourceObjectReference(value: unknown, path: string): SourceObjectReference {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["object", "sha256"]);
-  const decoded = {
-    object: decodeIdentifier(field(record, "object", path), `${path}.object`),
-    sha256: decodeSha256(field(record, "sha256", path), `${path}.sha256`),
-  } satisfies SourceObjectReference;
-  return decoded;
-}
-
-function decodeQuestionAttemptSourceRecord(
-  value: unknown,
-  path: string,
-): QuestionAttemptSourceRecord {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "adapter",
-    "renderer",
-    "generator",
-    "sourceObjectReference",
-    "assetObjects",
-    "grading",
-    "renderedQuestionSha256",
-  ]);
-  const decoded = {
-    adapter: decodeImplementationVersion(field(record, "adapter", path), `${path}.adapter`),
-    renderer: decodeNullable(
-      field(record, "renderer", path),
-      `${path}.renderer`,
-      decodeImplementationVersion,
-    ),
-    generator: decodeNullable(
-      field(record, "generator", path),
-      `${path}.generator`,
-      (generator, generatorPath) => decodeGeneratorReference(generator, generatorPath, true),
-    ),
-    sourceObjectReference: decodeNullable(
-      field(record, "sourceObjectReference", path),
-      `${path}.sourceObjectReference`,
-      decodeSourceObjectReference,
-    ),
-    assetObjects: decodeArray(
-      field(record, "assetObjects", path),
-      `${path}.assetObjects`,
-      decodeIdentifier,
-    ),
-    grading: decodeImplementationVersion(field(record, "grading", path), `${path}.grading`),
-    renderedQuestionSha256: decodeSha256(
-      field(record, "renderedQuestionSha256", path),
-      `${path}.renderedQuestionSha256`,
-    ),
-  } satisfies QuestionAttemptSourceRecord;
-  return decoded;
-}
-
-export function decodeQuestionAttempt(value: unknown, path = "response"): QuestionAttempt {
+  path = "response",
+): StudentQuestionAttemptView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, QUESTION_ATTEMPT_FIELDS);
   const id = decodeIdentifier(field(record, "id", path), `${path}.id`);
@@ -258,7 +195,6 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
       `${path}.issuedQuestion`,
     ),
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
-    parameterHash: decodeSha256(field(record, "parameterHash", path), `${path}.parameterHash`),
     submission: decodeNullable(
       field(record, "submission", path),
       `${path}.submission`,
@@ -266,20 +202,16 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
     ),
     state: decodeStringEnum(field(record, "state", path), `${path}.state`, [
       "open",
-      "submitted",
-      "automatically_submitted",
+      "submission_accepted",
+      "closed_at_deadline",
     ] as const satisfies ReadonlyArray<QuestionAttemptState>),
     timing: decodeQuestionAttemptTiming(field(record, "timing", path), `${path}.timing`),
-    sourceRecord: decodeQuestionAttemptSourceRecord(
-      field(record, "sourceRecord", path),
-      `${path}.sourceRecord`,
-    ),
     issuedCapability: decodeStringEnum(
       field(record, "issuedCapability", path),
       `${path}.issuedCapability`,
       ISSUED_ATTEMPT_CAPABILITIES,
     ),
-  } satisfies QuestionAttempt;
+  } satisfies StudentQuestionAttemptView;
   return decoded;
 }
 
@@ -323,20 +255,24 @@ export function decodeStudentQuestionAttempt(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     ...QUESTION_ATTEMPT_FIELDS,
-    "scoringStatus",
+    "assignmentScoringState",
     "questionPoolSelection",
   ]);
-  const { scoringStatus, questionPoolSelection, ...attempt } = record;
+  const { assignmentScoringState, questionPoolSelection, ...attempt } = record;
   const decoded = {
-    ...decodeQuestionAttempt(attempt, path),
-    scoringStatus: decodeStringEnum(scoringStatus, `${path}.scoringStatus`, SCORING_STATUSES),
+    ...decodeStudentQuestionAttemptView(attempt, path),
+    assignmentScoringState: decodeStringEnum(
+      assignmentScoringState,
+      `${path}.assignmentScoringState`,
+      ASSIGNMENT_SCORING_STATES,
+    ),
     questionPoolSelection: decodeQuestionPoolSelection(
       questionPoolSelection,
       `${path}.questionPoolSelection`,
     ),
   } satisfies StudentQuestionAttempt;
   if (
-    decoded.scoringStatus !== "current" &&
+    decoded.assignmentScoringState !== "current" &&
     decoded.submission !== null &&
     decoded.submission.gradingResult !== null
   ) {
@@ -519,7 +455,7 @@ export function decodeAssignmentProgress(value: unknown, path = "response"): Ass
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "score_state",
-    "scoring_status",
+    "assignment_scoring_state",
     "current_score",
     "best_score",
     "latest_score",
@@ -538,10 +474,10 @@ export function decodeAssignmentProgress(value: unknown, path = "response"): Ass
     : undefined;
   const decoded = {
     score_state: scoreState,
-    scoring_status: decodeStringEnum(
-      field(record, "scoring_status", path),
-      `${path}.scoring_status`,
-      SCORING_STATUSES,
+    assignment_scoring_state: decodeStringEnum(
+      field(record, "assignment_scoring_state", path),
+      `${path}.assignment_scoring_state`,
+      ASSIGNMENT_SCORING_STATES,
     ),
     current_score: decodeNullable(
       field(record, "current_score", path),
@@ -597,7 +533,7 @@ function decodeAssignmentAttemptSummaryOutcome(
     "submittedAt",
     "response",
     "feedback",
-    "scoringStatus",
+    "assignmentScoringState",
   ]);
   const decoded = {
     attempt: decodeIdentifier(field(record, "attempt", path), `${path}.attempt`),
@@ -618,16 +554,16 @@ function decodeAssignmentAttemptSummaryOutcome(
     feedback: decodeNullable(
       field(record, "feedback", path),
       `${path}.feedback`,
-      decodeDisclosedFeedback,
+      decodeStudentFeedback,
     ),
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
-      SCORING_STATUSES,
+    assignmentScoringState: decodeStringEnum(
+      field(record, "assignmentScoringState", path),
+      `${path}.assignmentScoringState`,
+      ASSIGNMENT_SCORING_STATES,
     ),
   } satisfies AssignmentAttemptSummaryOutcome;
   if (
-    decoded.scoringStatus !== "current" &&
+    decoded.assignmentScoringState !== "current" &&
     (decoded.feedback?.pointsEarned !== undefined || decoded.feedback?.pointsPossible !== undefined)
   ) {
     throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");
@@ -800,7 +736,7 @@ function decodeStudentResponseFormatIssue(value: unknown, path: string): Student
     case "selectionCount": {
       const decoded = {
         kind: violation,
-        expected: decodeSelectionCardinality(field(record, "expected", path), `${path}.expected`),
+        expected: decodeResponseSelectionRule(field(record, "expected", path), `${path}.expected`),
         actual: decodeNonnegativeInteger(field(record, "actual", path), `${path}.actual`),
       } satisfies StudentResponseFormatIssue;
       return decoded;

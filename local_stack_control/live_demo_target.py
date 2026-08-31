@@ -201,7 +201,7 @@ def write_private_target(
 	question_path = directory / "question-id-secret"
 	_write_private_file(invitation_path, canonical_secret32())
 	_write_private_file(question_path, canonical_secret32())
-	renderer_provenance_path = directory / "webwork-renderer.provenance"
+	renderer_version_path = directory / "question-renderer-version"
 	environment_path = directory / "env.local"
 	application_image_setting = ""
 	if policy.application_image is not None:
@@ -233,7 +233,7 @@ def write_private_target(
 		f"PLE_WEBWORK_RENDERER_IMAGE={selections['PLE_WEBWORK_RENDERER_IMAGE']}\n"
 		f"PLE_WEBWORK_RENDERER_BASE_URL={selections['PLE_WEBWORK_RENDERER_BASE_URL']}\n"
 		f"PLE_WEBWORK_RENDERER_ID={selections['PLE_WEBWORK_RENDERER_ID']}\n"
-		f"PLE_WEBWORK_PROVENANCE_FILE={renderer_provenance_path}\n"
+		f"PLE_WEBWORK_RENDERER_VERSION_FILE={renderer_version_path}\n"
 		f"PLE_WEBWORK_PROBLEM_JWT_SECRET={secrets.token_hex(32)}\n"
 		f"PLE_WEBWORK_SESSION_JWT_SECRET={secrets.token_hex(32)}\n"
 		f"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS={selections['PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS']}\n"

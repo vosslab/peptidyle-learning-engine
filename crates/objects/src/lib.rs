@@ -1,17 +1,18 @@
 //! Object-store contract and backends.
 //!
-//! Callers provide [`ObjectKey`] values built from typed IDs, never physical
-//! key strings. Implementations compute SHA-256 on write and verify it on read.
+//! Callers provide [`ObjectAddress`] values built from typed IDs, never physical
+//! path strings. Implementations compute SHA-256 on write and verify it on read.
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
+use question_model::taxonomy::License;
 use question_model::{ActivityTimestamp, ObjectId, QuestionVersionReference};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
 /// Production AWS client wiring using container workload identity only.
 pub mod aws;
-/// Typed bucket and immutable key construction.
+/// Typed Object Storage Area and immutable Object Address construction.
 pub mod bucket;
 /// Shared hostile-input validation for still instructional raster images.
 pub mod image_validation;
@@ -23,27 +24,9 @@ pub mod minio;
 pub mod s3;
 
 pub use crate::bucket::{
-    Bucket, ObjectKey, course_banner_candidate_object_id, course_banner_object_id,
-    published_import_archive_object_id, workspace_qti_archive_object_id,
+    ObjectAddress, ObjectDataClass, ObjectStorageArea, course_banner_candidate_object_id,
+    course_banner_object_id, published_import_archive_object_id, workspace_qti_archive_object_id,
 };
-
-/// Semantic role of an object.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ObjectCategory {
-    /// Original imported or authored source.
-    Source,
-    /// Image, audio, or other referenced content asset.
-    Asset,
-    /// Reusable course presentation content.
-    CourseContent,
-    /// Regenerable rendered output.
-    Render,
-    /// Student-specific exported artifact.
-    Export,
-    /// Short-lived processing data.
-    Temporary,
-}
 
 /// SHA-256 bytes recorded with every object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -140,22 +123,22 @@ fn hex_nibble(byte: u8) -> u8 {
 pub struct ObjectRecord {
     /// Durable object identity.
     pub id: ObjectId,
-    /// Physical bucket selected by the semantic key.
-    pub bucket: Bucket,
-    /// Semantic key from which the physical path is derived.
-    pub key: ObjectKey,
+    /// Object Storage Area selected by the semantic Object Address.
+    pub storage_area: ObjectStorageArea,
+    /// Required data class inherited from the semantic Object Address.
+    pub data_class: ObjectDataClass,
+    /// Semantic Object Address from which the physical path is derived.
+    pub address: ObjectAddress,
     /// Checksum computed from the stored bytes.
     pub sha256: Sha256Digest,
     /// Stored byte count.
     pub size_bytes: u64,
     /// Media type verified by the owning import or render path.
     pub media_type: String,
-    /// Semantic storage role.
-    pub category: ObjectCategory,
     /// Exact Question Version associated with content, when one exists.
     pub question_version: Option<QuestionVersionReference>,
-    /// License or educational-record handling label.
-    pub license: String,
+    /// Optional content-reuse terms. Data sensitivity belongs to `data_class`.
+    pub license: Option<License>,
     /// Human-readable source or derivation record.
     pub provenance: String,
     /// Server-supplied creation timestamp.
@@ -166,13 +149,13 @@ pub struct ObjectRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PutObject {
     /// Semantic destination built from stable IDs.
-    pub key: ObjectKey,
+    pub address: ObjectAddress,
     /// Bytes stored before the authoritative database record is written.
     pub bytes: Vec<u8>,
     /// Verified media type.
     pub media_type: String,
-    /// License or educational-record handling label.
-    pub license: String,
+    /// Optional content-reuse terms. Data sensitivity is derived from `address`.
+    pub license: Option<License>,
     /// Human-readable source or derivation record.
     pub provenance: String,
     /// Server-supplied creation timestamp.
@@ -206,7 +189,7 @@ pub enum ObjectStoreError {
     AlreadyExists,
     /// Stored bytes no longer match their authoritative checksum.
     ChecksumMismatch,
-    /// The bucket is never eligible for signed delivery.
+    /// The Object Storage Area is never eligible for signed delivery.
     NotSignable,
     /// A size or expiration calculation overflowed.
     NumericOverflow,
@@ -220,7 +203,7 @@ impl std::fmt::Display for ObjectStoreError {
             Self::NotFound => write!(formatter, "object not found"),
             Self::AlreadyExists => write!(formatter, "immutable object already exists"),
             Self::ChecksumMismatch => write!(formatter, "stored object checksum mismatch"),
-            Self::NotSignable => write!(formatter, "object bucket is not signable"),
+            Self::NotSignable => write!(formatter, "object storage area is not signable"),
             Self::NumericOverflow => write!(formatter, "object metadata calculation overflow"),
             Self::Unavailable(message) => write!(formatter, "object store unavailable: {message}"),
         }
@@ -236,15 +219,15 @@ pub trait ObjectStore: Send + Sync {
     async fn put(&self, request: PutObject) -> Result<ObjectRecord, ObjectStoreError>;
 
     /// Reads bytes and refuses them when their checksum does not verify.
-    async fn get(&self, key: &ObjectKey) -> Result<StoredObject, ObjectStoreError>;
+    async fn get(&self, address: &ObjectAddress) -> Result<StoredObject, ObjectStoreError>;
 
-    /// Deletes one exact semantic key.
-    async fn delete(&self, key: &ObjectKey) -> Result<(), ObjectStoreError>;
+    /// Deletes one exact semantic Object Address.
+    async fn delete(&self, address: &ObjectAddress) -> Result<(), ObjectStoreError>;
 
-    /// Produces the bucket-policy lifetime from a server-supplied current time.
+    /// Produces the Object Storage Area policy lifetime from server-supplied current time.
     async fn signed_url(
         &self,
-        key: &ObjectKey,
+        address: &ObjectAddress,
         now: ActivityTimestamp,
     ) -> Result<SignedUrl, ObjectStoreError>;
 }
@@ -306,17 +289,17 @@ mod tests {
         let object = ObjectId::from_uuid(Uuid::from_u128(3));
         let record = ObjectRecord {
             id: object,
-            bucket: Bucket::PrivateContent,
-            key: ObjectKey::QuestionSource {
+            storage_area: ObjectStorageArea::PrivateContent,
+            data_class: ObjectDataClass::QuestionSource,
+            address: ObjectAddress::QuestionSource {
                 question_version: question_version.clone(),
                 object,
             },
             sha256: Sha256Digest::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
             media_type: "application/zip".to_string(),
-            category: ObjectCategory::Source,
             question_version: Some(question_version),
-            license: "private".to_string(),
+            license: None,
             provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         };
@@ -326,17 +309,17 @@ mod tests {
             encoded,
             concat!(
                 "{\"id\":\"00000000-0000-0000-0000-000000000003\",",
-                "\"bucket\":\"private-content\",",
-                "\"key\":{\"kind\":\"questionSource\",",
+                "\"storageArea\":\"private-content\",",
+                "\"dataClass\":\"question-source\",",
+                "\"address\":{\"kind\":\"questionSource\",",
                 "\"questionVersion\":{\"questionId\":\"ABC-DEFG\",\"versionNumber\":2},",
                 "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
-                "\"category\":\"source\",",
                 "\"questionVersion\":{\"questionId\":\"ABC-DEFG\",\"versionNumber\":2},",
-                "\"license\":\"private\",",
+                "\"license\":null,",
                 "\"provenance\":\"fixture\",",
                 "\"createdAt\":1000}"
             )

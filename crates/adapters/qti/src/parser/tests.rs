@@ -105,13 +105,13 @@ fn imports_supported_single_choice_with_no_debuggable_answer_or_archive() {
             }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices: vec![
-                    ChoiceOption {
+                    QuestionChoice {
                         id: ResponseItemReference::new("a"),
                         body: vec![ContentBlock::Text {
                             markdown: "A".into(),
                         }],
                     },
-                    ChoiceOption {
+                    QuestionChoice {
                         id: ResponseItemReference::new("b"),
                         body: vec![ContentBlock::Text {
                             markdown: "B".into(),

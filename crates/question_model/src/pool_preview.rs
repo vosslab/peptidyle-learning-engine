@@ -69,8 +69,8 @@ mod tests {
             question_pool_label: "Pool 3".to_string(),
             draw_count: 1,
             selection_rule: QuestionPoolSelectionRule {
-                ordering: crate::SelectionOrdering::Randomized,
-                algorithm: crate::PoolDrawAlgorithm::V1,
+                ordering: crate::QuestionPoolSelectionOrdering::Randomized,
+                algorithm: crate::QuestionPoolDrawAlgorithm::V1,
             },
             candidates: vec![PoolDrawPreviewQuestion {
                 question_id: question_id.clone(),

@@ -31,7 +31,7 @@ const MAX_QUESTION_ID_BYTES: usize = 128;
 /// This is deterministic but not injective.  The resulting 9,999-variant
 /// collision space is an explicit authoring and capability limitation, not a
 /// claim that iMathAS can reproduce every PLE seed uniquely.
-pub fn normalize_provider_seed(ple_seed: question_model::generation::Seed) -> u16 {
+pub fn normalize_provider_seed(ple_seed: question_model::generation::QuestionSeed) -> u16 {
     (ple_seed.value() % PROVIDER_SEED_VARIANTS + 1) as u16
 }
 
@@ -236,15 +236,21 @@ impl ScoredEmbedLaunchLedger {
         self.provider_seed
     }
     /// Original PLE seed retained for exact attempt replay.
-    pub fn ple_seed(&self) -> question_model::generation::Seed {
+    pub fn ple_seed(&self) -> question_model::generation::QuestionSeed {
         self.binding.seed
     }
-    /// The private cache key component: version plus normalized provider seed.
-    pub fn cache_key(&self) -> ScoredEmbedRenderCacheKey {
-        ScoredEmbedRenderCacheKey {
+    /// The complete server-held cache entry identity for this provider render.
+    ///
+    /// It omits the attempt binding so identical published Question Versions may
+    /// reuse rendered content, while binding the exact provider payload and its
+    /// validity window.
+    pub fn external_question_provider_cache_entry(&self) -> ExternalQuestionProviderCacheEntry {
+        ExternalQuestionProviderCacheEntry {
             question_version: self.binding.question_version.clone(),
             provider_seed: self.provider_seed,
             profile: self.profile.clone(),
+            payload_digest: self.source_digest.clone(),
+            expires_at: self.expires_at,
         }
     }
 
@@ -400,21 +406,28 @@ impl std::fmt::Debug for ScoredEmbedLaunchClaims {
     }
 }
 
-/// Shared-content cache identity excludes attempt-bound grading identity.
+/// Complete server-held identity for a cached external-provider render.
+///
+/// The storage address belongs to the cache implementation and is deliberately
+/// absent from this application record.
 #[derive(Clone, PartialEq, Eq)]
-pub struct ScoredEmbedRenderCacheKey {
+pub struct ExternalQuestionProviderCacheEntry {
     question_version: QuestionVersionReference,
     provider_seed: u16,
     profile: String,
+    payload_digest: String,
+    expires_at: ActivityTimestamp,
 }
 
-impl std::fmt::Debug for ScoredEmbedRenderCacheKey {
+impl std::fmt::Debug for ExternalQuestionProviderCacheEntry {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("ScoredEmbedRenderCacheKey")
+            .debug_struct("ExternalQuestionProviderCacheEntry")
             .field("question_version", &self.question_version)
             .field("provider_seed", &self.provider_seed)
             .field("profile", &self.profile)
+            .field("payload_digest", &"REDACTED")
+            .field("expires_at", &self.expires_at)
             .finish()
     }
 }
@@ -691,7 +704,7 @@ mod tests {
     use hmac::{Hmac, KeyInit, Mac};
     use question_model::{
         QuestionAttemptId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
-        generation::Seed,
+        generation::QuestionSeed,
     };
     use uuid::Uuid;
 
@@ -709,7 +722,7 @@ mod tests {
                 question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
                 version_number: QuestionVersionNumber::new(4).expect("positive version"),
             },
-            seed: Seed::new(10_001),
+            seed: QuestionSeed::new(10_001),
         }
     }
 
@@ -779,15 +792,28 @@ mod tests {
     }
 
     #[test]
-    fn provider_seed_is_documented_bounded_and_cache_excludes_attempt_binding() {
-        assert_eq!(normalize_provider_seed(Seed::new(0)), 1);
-        assert_eq!(normalize_provider_seed(Seed::new(9_998)), 9_999);
-        assert_eq!(normalize_provider_seed(Seed::new(9_999)), 1);
+    fn provider_cache_entry_binds_render_input_without_attempt_identity() {
+        assert_eq!(normalize_provider_seed(QuestionSeed::new(0)), 1);
+        assert_eq!(normalize_provider_seed(QuestionSeed::new(9_998)), 9_999);
+        assert_eq!(normalize_provider_seed(QuestionSeed::new(9_999)), 1);
         let ledger = ledger(20_000);
-        assert_eq!(ledger.ple_seed(), Seed::new(10_001));
+        assert_eq!(ledger.ple_seed(), QuestionSeed::new(10_001));
         assert_eq!(ledger.provider_seed(), 3);
-        let debug = format!("{:?}", ledger.cache_key());
+        let entry = ledger.external_question_provider_cache_entry();
+        let debug = format!("{entry:?}");
         assert!(!debug.contains(&binding().attempt.to_string()));
+        assert!(!debug.contains(&"a".repeat(64)));
+
+        assert_ne!(
+            entry,
+            ledger_with(binding(), "b".repeat(64), [7; 32], 20_000)
+                .external_question_provider_cache_entry()
+        );
+        assert_ne!(
+            entry,
+            ledger_with(binding(), "a".repeat(64), [7; 32], 20_001)
+                .external_question_provider_cache_entry()
+        );
     }
 
     #[test]
@@ -891,7 +917,7 @@ mod tests {
                 ..base.clone()
             },
             GradeBinding {
-                seed: Seed::new(10_002),
+                seed: QuestionSeed::new(10_002),
                 ..base.clone()
             },
         ] {

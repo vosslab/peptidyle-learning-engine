@@ -611,8 +611,8 @@ mod tests {
                     points_per_item: AssignmentPointValue::from_whole(2),
                     scoring_rule: AssignmentEntryScoringRule::Normal,
                     selection_rule: QuestionPoolSelectionRule {
-                        ordering: crate::SelectionOrdering::Randomized,
-                        algorithm: crate::PoolDrawAlgorithm::V1,
+                        ordering: crate::QuestionPoolSelectionOrdering::Randomized,
+                        algorithm: crate::QuestionPoolDrawAlgorithm::V1,
                     },
                 }),
             ],
@@ -727,8 +727,8 @@ mod tests {
                 points_per_item: AssignmentPointValue::from_whole(1),
                 scoring_rule: AssignmentEntryScoringRule::Normal,
                 selection_rule: QuestionPoolSelectionRule {
-                    ordering: crate::SelectionOrdering::CandidateOrder,
-                    algorithm: crate::PoolDrawAlgorithm::V1,
+                    ordering: crate::QuestionPoolSelectionOrdering::CandidateOrder,
+                    algorithm: crate::QuestionPoolDrawAlgorithm::V1,
                 },
             })],
             ..definition

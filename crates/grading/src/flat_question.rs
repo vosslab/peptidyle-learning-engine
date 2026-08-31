@@ -9,12 +9,14 @@ use std::fmt::Write as _;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::envelope::ContentBlock;
-use question_model::generation::RandomizationDefinition;
-use question_model::response::{ResponseItemReference, QuestionResponseFormat, QuestionType, StudentResponse};
+use question_model::generation::QuestionVariationDefinition;
+use question_model::response::{
+    QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
+};
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, FeedbackContent, GradingDefinition,
-    GradingResult, QuestionDefinition, QuestionFormat, QuestionMetadata, QuestionSource,
-    QuestionTitleError,
+    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, GradingResult,
+    QuestionFeedback, QuestionFormat, QuestionMetadata, QuestionSource, QuestionTitleError,
+    QuestionVersion,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -105,7 +107,7 @@ struct FlatOutcomeFeedback {
 /// Result and private teaching content from one trusted evaluation.
 pub struct FlatQuestionEvaluation {
     pub outcome: QuestionGradingOutcome,
-    pub feedback: FeedbackContent,
+    pub feedback: QuestionFeedback,
 }
 
 impl FlatQuestionPrivate {
@@ -183,7 +185,7 @@ impl FlatQuestionPrivate {
     ///
     /// Publication uses this seam before durable identifiers exist. It proves
     /// that the key and feedback describe this exact public payload without
-    /// fabricating a published [`QuestionDefinition`].
+    /// fabricating a published [`QuestionVersion`].
     pub fn validate_for_draft(
         &self,
         draft: &DraftQuestionDefinition,
@@ -218,7 +220,7 @@ impl FlatQuestionPrivate {
 
     pub fn evaluate(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
         response: &StudentResponse,
     ) -> Result<FlatQuestionEvaluation, FlatQuestionError> {
         validate_flat_question_question(question)?;
@@ -243,7 +245,7 @@ impl FlatQuestionPrivate {
     /// definition before an issuance capability retains it for later grade.
     pub fn validate_for_question(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
     ) -> Result<(), FlatQuestionError> {
         validate_flat_question_question(question)?;
         if public_binding_sha256_for_question(question)? != self.public_sha256 {
@@ -274,7 +276,7 @@ impl FlatQuestionPrivate {
 
     fn validate_against_question(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
     ) -> Result<(), FlatQuestionError> {
         self.validate_private_shape()?;
         validate_key_against_response(&question.response, &self.answer_key)?;
@@ -298,11 +300,11 @@ impl FlatQuestionPrivate {
 
     fn feedback_for(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
         response: &StudentResponse,
         result: GradingResult,
-    ) -> Result<FeedbackContent, FlatQuestionError> {
-        let mut teaching = Vec::new();
+    ) -> Result<QuestionFeedback, FlatQuestionError> {
+        let mut choice_feedback = Vec::new();
         if let StudentResponse::MultipleChoice { selected } = response {
             for selected_choice in selected {
                 if let Some(feedback) = self
@@ -310,20 +312,19 @@ impl FlatQuestionPrivate {
                     .iter()
                     .find(|feedback| feedback.choice == selected_choice.as_str())
                 {
-                    teaching.extend(markdown_blocks(&feedback.markdown));
+                    choice_feedback.extend(markdown_blocks(&feedback.markdown));
                 }
             }
         }
-        let outcome = if result.correct {
-            self.outcome_feedback.correct.as_deref()
+        let (correct_feedback, incorrect_feedback) = if result.correct {
+            (self.outcome_feedback.correct.as_deref(), None)
         } else {
-            self.outcome_feedback.incorrect.as_deref()
+            (None, self.outcome_feedback.incorrect.as_deref())
         };
-        if let Some(markdown) = outcome {
-            teaching.extend(markdown_blocks(markdown));
-        }
-        Ok(FeedbackContent {
-            hint: (!teaching.is_empty()).then_some(teaching),
+        Ok(QuestionFeedback {
+            choice_feedback: (!choice_feedback.is_empty()).then_some(choice_feedback),
+            correct_feedback: correct_feedback.map(markdown_blocks),
+            incorrect_feedback: incorrect_feedback.map(markdown_blocks),
             correct_response: Some(correct_response_blocks(
                 &question.response,
                 &self.answer_key,
@@ -342,7 +343,7 @@ pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQue
     }
     validate_flat_shape(
         draft.question_type,
-        &draft.randomization,
+        &draft.question_variation_definition,
         &draft.response,
         &draft.grading,
     )
@@ -350,7 +351,7 @@ pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQue
 
 /// Validates a closed flat Question Type after publication.
 pub fn validate_flat_question_question(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
 ) -> Result<(), FlatQuestionError> {
     if !matches!(question.source, QuestionSource::Native)
         || question.question_format != QuestionFormat::PleFlatQuestionV2
@@ -359,7 +360,7 @@ pub fn validate_flat_question_question(
     }
     validate_flat_shape(
         question.question_type,
-        &question.randomization,
+        &question.question_variation_definition,
         &question.response,
         &question.grading,
     )
@@ -367,12 +368,15 @@ pub fn validate_flat_question_question(
 
 fn validate_flat_shape(
     question_type: QuestionType,
-    randomization: &RandomizationDefinition,
+    question_variation_definition: &QuestionVariationDefinition,
     response: &QuestionResponseFormat,
     grading: &GradingDefinition,
 ) -> Result<(), FlatQuestionError> {
-    if !matches!(randomization, RandomizationDefinition::Static) {
-        return invalid("flat questions require static randomization");
+    if !matches!(
+        question_variation_definition,
+        QuestionVariationDefinition::Static
+    ) {
+        return invalid("flat questions require a static Question Variation Definition");
     }
     validate_response_for_type(question_type, response)?;
     let GradingDefinition::AllOrNothing { points } = grading else {
@@ -460,8 +464,49 @@ fn validate_response_for_type(
     }
 }
 
-fn validate_options(
-    choices: &[question_model::response::ChoiceOption],
+trait SelectableResponseItem {
+    fn id(&self) -> &question_model::response::ResponseItemReference;
+    fn body(&self) -> &[ContentBlock];
+}
+
+impl SelectableResponseItem for question_model::response::QuestionChoice {
+    fn id(&self) -> &question_model::response::ResponseItemReference {
+        &self.id
+    }
+    fn body(&self) -> &[ContentBlock] {
+        &self.body
+    }
+}
+
+impl SelectableResponseItem for question_model::response::MatchingPrompt {
+    fn id(&self) -> &question_model::response::ResponseItemReference {
+        &self.id
+    }
+    fn body(&self) -> &[ContentBlock] {
+        &self.body
+    }
+}
+
+impl SelectableResponseItem for question_model::response::MatchingChoice {
+    fn id(&self) -> &question_model::response::ResponseItemReference {
+        &self.id
+    }
+    fn body(&self) -> &[ContentBlock] {
+        &self.body
+    }
+}
+
+impl SelectableResponseItem for question_model::response::OrderingItem {
+    fn id(&self) -> &question_model::response::ResponseItemReference {
+        &self.id
+    }
+    fn body(&self) -> &[ContentBlock] {
+        &self.body
+    }
+}
+
+fn validate_options<T: SelectableResponseItem>(
+    choices: &[T],
     minimum: usize,
 ) -> Result<(), FlatQuestionError> {
     if choices.len() < minimum || choices.len() > MAX_CHOICES {
@@ -469,8 +514,8 @@ fn validate_options(
     }
     let mut identifiers = HashSet::new();
     for choice in choices {
-        validate_choice_id(choice.id.as_str())?;
-        if choice.body.is_empty() || !identifiers.insert(choice.id.as_str()) {
+        validate_choice_id(choice.id().as_str())?;
+        if choice.body().is_empty() || !identifiers.insert(choice.id().as_str()) {
             return invalid("flat selectable item identifiers and bodies must be valid");
         }
     }
@@ -593,7 +638,6 @@ fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemRef
         QuestionResponseFormat::Numeric { .. }
         | QuestionResponseFormat::ShortText { .. }
         | QuestionResponseFormat::MultiBlank { .. }
-        | QuestionResponseFormat::FileUpload { .. }
         | QuestionResponseFormat::ExternalTool {} => BTreeSet::new(),
     }
 }
@@ -698,7 +742,7 @@ struct PublicBinding<'a> {
     response: &'a QuestionResponseFormat,
     question_attempt_limit: QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
-    randomization: &'a RandomizationDefinition,
+    question_variation_definition: &'a QuestionVariationDefinition,
     grading: &'a GradingDefinition,
     metadata: &'a QuestionMetadata,
 }
@@ -719,13 +763,13 @@ pub fn public_binding_sha256_for_draft(
         response: &draft.response,
         question_attempt_limit: draft.question_attempt_limit,
         question_attempt_time_limit: draft.question_attempt_time_limit,
-        randomization: &draft.randomization,
+        question_variation_definition: &draft.question_variation_definition,
         grading: &draft.grading,
         metadata: &draft.metadata,
     })
 }
 fn public_binding_sha256_for_question(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
 ) -> Result<String, FlatQuestionError> {
     if !matches!(question.source, QuestionSource::Native)
         || question.question_format != QuestionFormat::PleFlatQuestionV2
@@ -739,7 +783,7 @@ fn public_binding_sha256_for_question(
         response: &question.response,
         question_attempt_limit: question.question_attempt_limit,
         question_attempt_time_limit: question.question_attempt_time_limit,
-        randomization: &question.randomization,
+        question_variation_definition: &question.question_variation_definition,
         grading: &question.grading,
         metadata: &question.metadata,
     })

@@ -133,7 +133,7 @@ The final handoff records command, date, material-tree state, environment, recei
 
 ## Migration policy
 
-The shared migration ledger in [implementation_status.md](../implementation_status.md) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE flat JSON identity stays in its versioned source payload and immutable object/checksum binding; no family-shaped table is added. Current source and disposable test data use native v2 only. `PresentationBindingV1`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
+The shared migration ledger in [implementation_status.md](../implementation_status.md) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE flat JSON identity stays in its versioned source payload and immutable object/checksum binding; no family-shaped table is added. Current source and disposable test data use native v2 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
 
 ## Risk register
 

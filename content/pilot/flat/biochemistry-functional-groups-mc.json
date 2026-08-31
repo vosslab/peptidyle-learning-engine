@@ -18,8 +18,8 @@
     "incorrect": "Consider which functional group can accept a proton under biological conditions."
   },
   "points": 1.0,
-  "attemptPolicy": { "maxAttempts": null },
-  "timingPolicy": { "kind": "untimed" },
+  "questionAttemptLimit": { "maxAttempts": null },
+  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["biochemistry", "functional-groups", "chapter-1"],
   "taxonomy": [
     { "scheme": "Peptidyle", "code": "BIOCHEMISTRY.CHAPTER_1", "label": "Biochemistry Chapter 1" }

@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::envelope::ContentBlock;
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::{QuestionAttemptId, QuestionVersionReference};
 
 use crate::{
@@ -63,15 +63,15 @@ impl SupportedProfile {
     }
 }
 
-/// A private draft locator. It intentionally cannot name a published problem
+/// A private draft locator. It intentionally cannot name a published Question
 /// or version and cannot carry an endpoint or credential.
 #[derive(Clone, PartialEq, Eq)]
-pub struct DraftLocator {
+pub struct ImathasDraftQuestionSource {
     provider: String,
     item_ref: String,
 }
 
-impl DraftLocator {
+impl ImathasDraftQuestionSource {
     /// Creates a private sandbox locator from the draft source only.
     pub fn from_draft(
         source: &question_model::DraftQuestionSource,
@@ -103,9 +103,9 @@ impl DraftLocator {
     }
 }
 
-impl std::fmt::Debug for DraftLocator {
+impl std::fmt::Debug for ImathasDraftQuestionSource {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("DraftLocator(REDACTED)")
+        formatter.write_str("ImathasDraftQuestionSource(REDACTED)")
     }
 }
 
@@ -168,7 +168,7 @@ pub trait ImathasProvider: sealed::ProviderSealed + Send + Sync {
     /// Fetches exact source bytes and an explicitly supported profile for an unversioned draft.
     async fn snapshot(
         &self,
-        locator: &DraftLocator,
+        locator: &ImathasDraftQuestionSource,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure>;
 
     /// Produces only browser-safe prompt material from archived source bytes.
@@ -193,7 +193,7 @@ pub struct ProviderRenderRequest<'a> {
     /// Exact immutable Question Version.
     pub question_version: QuestionVersionReference,
     /// Deterministic Question Seed.
-    pub seed: Seed,
+    pub seed: QuestionSeed,
 }
 
 /// Server-held, attempt-bound provider grade request. Private fields prevent a
@@ -203,7 +203,7 @@ pub struct ProviderGradeRequest<'a> {
     pub(crate) profile: &'a str,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) question_version: QuestionVersionReference,
-    pub(crate) seed: Seed,
+    pub(crate) seed: QuestionSeed,
     pub(crate) correlation: &'a ServerCorrelation,
 }
 
@@ -220,7 +220,7 @@ impl<'a> ProviderGradeRequest<'a> {
     pub fn question_version(&self) -> &QuestionVersionReference {
         &self.question_version
     }
-    pub fn seed(&self) -> Seed {
+    pub fn seed(&self) -> QuestionSeed {
         self.seed
     }
 

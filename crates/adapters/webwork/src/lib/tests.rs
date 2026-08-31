@@ -3,27 +3,26 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use grading::{AnswerKey, QuestionGradingOutcome, grade};
-use objects::ObjectKey;
+use objects::ObjectAddress;
 use objects::Sha256Digest;
 use objects::memory::MemoryObjectStore;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
 use question_model::envelope::ContentBlock;
-use question_model::generation::RandomizationDefinition;
-use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
+use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
+use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::taxonomy::License;
 use question_model::{
-    GradingDefinition, ObjectId, QuestionFormat, QuestionId, QuestionMetadata, QuestionType,
-    QuestionVariation, QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
-    WorkspaceId,
+    GradingDefinition, ObjectId, QuestionFormat, QuestionId, QuestionMetadata,
+    QuestionRendererVersion, QuestionType, QuestionVariation, QuestionVersionNumber,
+    QuestionVersionReference, SourceObjectReference, WorkspaceId,
 };
 use uuid::Uuid;
 
 use super::*;
 use crate::renderer_contract::{
-    GradeRequest, RenderedWebworkQuestion, RendererIdentity, UpstreamControlV1,
-    WebworkReplayMappingV1,
+    GradeRequest, RenderedWebworkQuestion, UpstreamControlV1, WebworkReplayMappingV1,
 };
 
 const OPL_FIXTURE: &str = concat!(
@@ -49,13 +48,13 @@ fn question_version(number: u32) -> QuestionVersionReference {
 struct RecordedRenderer {
     calls: Arc<AtomicUsize>,
     failure: Option<RendererFailure>,
-    identity: RendererIdentity,
+    identity: QuestionRendererVersion,
     html: String,
 }
 
 #[async_trait]
 impl WebworkRenderer for RecordedRenderer {
-    fn identity(&self) -> &RendererIdentity {
+    fn identity(&self) -> &QuestionRendererVersion {
         &self.identity
     }
 
@@ -78,7 +77,7 @@ impl WebworkRenderer for RecordedRenderer {
             envelope: QuestionPresentation {
                 variation: QuestionVariation::static_variation(
                     request.question_version.clone(),
-                    Seed::new(request.seed),
+                    QuestionSeed::new(request.seed),
                 ),
                 title: "Untrusted renderer title".to_string(),
                 prompt: vec![ContentBlock::Text {
@@ -86,13 +85,13 @@ impl WebworkRenderer for RecordedRenderer {
                 }],
                 response: QuestionResponseFormat::MultipleChoice {
                     choices: vec![
-                        ChoiceOption {
+                        QuestionChoice {
                             id: ResponseItemReference::new("water"),
                             body: vec![ContentBlock::Text {
                                 markdown: "H&#x2082;O".to_string(),
                             }],
                         },
-                        ChoiceOption {
+                        QuestionChoice {
                             id: ResponseItemReference::new("oxygen"),
                             body: vec![ContentBlock::Text {
                                 markdown: "O&#x2082;".to_string(),
@@ -103,7 +102,7 @@ impl WebworkRenderer for RecordedRenderer {
                 },
             },
             html: self.html.clone(),
-            renderer: self.identity.clone(),
+            renderer_version: self.identity.clone(),
             replay: Some(recorded_replay()),
         })
     }
@@ -159,16 +158,16 @@ fn recorded_renderer(calls: Arc<AtomicUsize>) -> RecordedRenderer {
     RecordedRenderer {
         calls,
         failure: None,
-        identity: RendererIdentity {
-            id: "recorded-opl-renderer".to_string(),
+        identity: QuestionRendererVersion {
+            name: "recorded-opl-renderer".to_string(),
             version: "1".to_string(),
         },
         html: "<p>Which molecule is water?</p>".to_string(),
     }
 }
 
-fn question_with_response(response: QuestionResponseFormat) -> QuestionDefinition {
-    QuestionDefinition {
+fn question_with_response(response: QuestionResponseFormat) -> QuestionVersion {
+    QuestionVersion {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         version_number: QuestionVersionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
@@ -183,7 +182,7 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionDefinitio
             max_attempts: Some(2),
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        randomization: RandomizationDefinition::Static,
+        question_variation_definition: QuestionVariationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded OPL selection".to_string(),
@@ -195,14 +194,14 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionDefinitio
     }
 }
 
-async fn source(store: &MemoryObjectStore, question: &QuestionDefinition) -> WebworkSource {
+async fn source(store: &MemoryObjectStore, question: &QuestionVersion) -> WebworkSource {
     let source_object_reference = SourceObjectReference {
         object: ObjectId::from_uuid(Uuid::from_u128(4)),
         sha256: Sha256Digest::compute(OPL_FIXTURE.as_bytes()).to_string(),
     };
     store
         .put(PutObject {
-            key: ObjectKey::QuestionSource {
+            address: ObjectAddress::QuestionSource {
                 question_version: QuestionVersionReference {
                     question_id: question.question_id.clone(),
                     version_number: question.version_number,
@@ -211,7 +210,7 @@ async fn source(store: &MemoryObjectStore, question: &QuestionDefinition) -> Web
             },
             bytes: OPL_FIXTURE.as_bytes().to_vec(),
             media_type: "text/x-wework-pg".to_string(),
-            license: "CC-BY-SA-4.0".to_string(),
+            license: Some(License::CcBySa),
             provenance: "recorded OPL fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
@@ -239,14 +238,14 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
     let issued = adapter
         .issue(
             &question,
-            Seed::new(17),
+            QuestionSeed::new(17),
             &source,
             ActivityTimestamp::from_unix_millis(1),
         )
         .await
         .expect("recorded OPL fixture should render");
     assert!(!issued.cache_hit);
-    assert_eq!(issued.envelope.variation.seed, Seed::new(17));
+    assert_eq!(issued.envelope.variation.seed, QuestionSeed::new(17));
     assert_eq!(issued.envelope.title, question.metadata.title);
     assert_ne!(issued.envelope.title, "Untrusted renderer title");
     assert!(
@@ -258,7 +257,7 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
     let correct = adapter
         .grade(
             &question,
-            Seed::new(17),
+            QuestionSeed::new(17),
             &source,
             &StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("water")],
@@ -283,7 +282,7 @@ async fn historical_invalid_title_is_refused_before_cache_or_renderer() {
         adapter
             .issue(
                 &question,
-                Seed::new(17),
+                QuestionSeed::new(17),
                 &source,
                 ActivityTimestamp::from_unix_millis(1),
             )
@@ -303,14 +302,14 @@ async fn repeated_version_and_seed_are_served_without_a_renderer_call() {
     let first = adapter
         .issue(
             &question,
-            Seed::new(18),
+            QuestionSeed::new(18),
             &source,
             ActivityTimestamp::from_unix_millis(1),
         )
         .await
         .expect("first render should fill the cache");
     let second = adapter
-        .reproduce(&question, Seed::new(18), &source)
+        .reproduce(&question, QuestionSeed::new(18), &source)
         .await
         .expect("second request should use the cache");
     assert!(!first.cache_hit);
@@ -336,14 +335,14 @@ fn cache_boundary_emits_one_renderer_call_then_one_cache_hit() {
         let first = adapter
             .issue(
                 &question,
-                Seed::new(181),
+                QuestionSeed::new(181),
                 &source,
                 ActivityTimestamp::from_unix_millis(1),
             )
             .await
             .expect("first render should fill the cache");
         let second = adapter
-            .reproduce(&question, Seed::new(181), &source)
+            .reproduce(&question, QuestionSeed::new(181), &source)
             .await
             .expect("second render should use the verified cache");
         (first, second, calls.load(Ordering::SeqCst))
@@ -371,7 +370,7 @@ async fn renderer_outage_is_an_explicit_backend_local_failure() {
         adapter
             .issue(
                 &question,
-                Seed::new(19),
+                QuestionSeed::new(19),
                 &source,
                 ActivityTimestamp::from_unix_millis(1),
             )
@@ -402,7 +401,7 @@ async fn renderer_markup_is_sanitized_before_cache_or_issued_envelope() {
     let issued = adapter
         .issue(
             &question,
-            Seed::new(20),
+            QuestionSeed::new(20),
             &source,
             ActivityTimestamp::from_unix_millis(1),
         )
@@ -416,7 +415,7 @@ async fn renderer_markup_is_sanitized_before_cache_or_issued_envelope() {
     assert!(!issued.sanitized_html.contains("javascript:"));
     assert!(!issued.sanitized_html.contains("onerror"));
     let cached = adapter
-        .reproduce(&question, Seed::new(20), &source)
+        .reproduce(&question, QuestionSeed::new(20), &source)
         .await
         .expect("cache hit should retain already-sanitized markup");
     assert!(cached.cache_hit);
@@ -431,8 +430,8 @@ async fn cache_reuse_refuses_a_different_active_renderer_without_calling_it() {
     let source = source(&store, &question).await;
     let first_calls = Arc::new(AtomicUsize::new(0));
     let first_renderer = RecordedRenderer {
-        identity: RendererIdentity {
-            id: "renderer-a".to_string(),
+        identity: QuestionRendererVersion {
+            name: "renderer-a".to_string(),
             version: "1".to_string(),
         },
         ..recorded_renderer(first_calls.clone())
@@ -441,7 +440,7 @@ async fn cache_reuse_refuses_a_different_active_renderer_without_calling_it() {
     let first = first_adapter
         .issue(
             &question,
-            Seed::new(21),
+            QuestionSeed::new(21),
             &source,
             ActivityTimestamp::from_unix_millis(1),
         )
@@ -450,15 +449,15 @@ async fn cache_reuse_refuses_a_different_active_renderer_without_calling_it() {
 
     let second_calls = Arc::new(AtomicUsize::new(0));
     let second_renderer = RecordedRenderer {
-        identity: RendererIdentity {
-            id: "renderer-b".to_string(),
+        identity: QuestionRendererVersion {
+            name: "renderer-b".to_string(),
             version: "2".to_string(),
         },
         ..recorded_renderer(second_calls.clone())
     };
     let second_adapter = WebworkAdapter::new(store, second_renderer);
     let result = second_adapter
-        .reproduce(&question, Seed::new(21), &source)
+        .reproduce(&question, QuestionSeed::new(21), &source)
         .await;
     assert!(!first.cache_hit);
     assert_eq!(first_calls.load(Ordering::SeqCst), 1);
@@ -497,7 +496,7 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
 async fn source_from_another_published_question_is_refused_before_renderer_or_cache() {
     let store = MemoryObjectStore::default();
     let question = question_with_response(fixture_response());
-    let foreign_question = QuestionDefinition {
+    let foreign_question = QuestionVersion {
         question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
         version_number: QuestionVersionNumber::new(3).expect("positive version"),
         ..question.clone()
@@ -510,7 +509,7 @@ async fn source_from_another_published_question_is_refused_before_renderer_or_ca
         adapter
             .issue(
                 &question,
-                Seed::new(22),
+                QuestionSeed::new(22),
                 &foreign_source,
                 ActivityTimestamp::from_unix_millis(1),
             )
@@ -521,7 +520,7 @@ async fn source_from_another_published_question_is_refused_before_renderer_or_ca
         adapter
             .grade(
                 &question,
-                Seed::new(22),
+                QuestionSeed::new(22),
                 &foreign_source,
                 &StudentResponse::MultipleChoice {
                     selected: vec![ResponseItemReference::new("water")],
@@ -648,7 +647,7 @@ async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
     let error = adapter
         .grade(
             &question,
-            Seed::new(17),
+            QuestionSeed::new(17),
             &source,
             &StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("water")],
@@ -667,13 +666,13 @@ async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
 fn fixture_response() -> QuestionResponseFormat {
     QuestionResponseFormat::MultipleChoice {
         choices: vec![
-            ChoiceOption {
+            QuestionChoice {
                 id: ResponseItemReference::new("water"),
                 body: vec![ContentBlock::Text {
                     markdown: "H&#x2082;O".to_string(),
                 }],
             },
-            ChoiceOption {
+            QuestionChoice {
                 id: ResponseItemReference::new("oxygen"),
                 body: vec![ContentBlock::Text {
                     markdown: "O&#x2082;".to_string(),

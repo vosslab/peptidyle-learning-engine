@@ -3,7 +3,7 @@
 import { createSignal, For, type JSX } from "solid-js";
 
 import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
-import type { ChoiceOption } from "../../../generated/api/ChoiceOption";
+import type { OrderingItem } from "../../../generated/api/OrderingItem";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
@@ -29,7 +29,10 @@ function moveItem(
   return next;
 }
 
-function choiceById(items: ReadonlyArray<ChoiceOption>, id: ResponseItemReference): ChoiceOption | undefined {
+function orderingItemById(
+  items: ReadonlyArray<OrderingItem>,
+  id: ResponseItemReference,
+): OrderingItem | undefined {
   return items.find((item) => item.id === id);
 }
 
@@ -72,7 +75,7 @@ export function OrderingResponse(
     const next = moveItem(order(), from, to);
     if (next === order()) return;
     update(next);
-    const item = choiceById(props.definition.items, id);
+    const item = orderingItemById(props.definition.items, id);
     setMovementAnnouncement(
       `${item === undefined ? "Item" : textFromBlocks(item.body)} moved to position ${to + 1}.`,
     );
@@ -126,7 +129,7 @@ export function OrderingResponse(
           <For each={order()}>
             {(id, index) => {
               const itemText = (): string => {
-                const item = choiceById(props.definition.items, id);
+                const item = orderingItemById(props.definition.items, id);
                 return item === undefined ? "Unavailable item" : textFromBlocks(item.body);
               };
               return (

@@ -61,7 +61,6 @@ pub enum QuestionResponseControl {
     Matching,
     Ordering,
     Hotspot,
-    FileUpload,
     ExternalTool,
 }
 
@@ -85,13 +84,37 @@ impl ResponseItemReference {
     }
 }
 
-/// One option a student can pick.
+/// One selectable answer in a multiple-choice Question Response Format.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ChoiceOption {
+pub struct QuestionChoice {
     /// Stable identifier, used by grading.
     pub id: ResponseItemReference,
     /// What the student sees, in render order.
+    pub body: Vec<ContentBlock>,
+}
+
+/// One prompt a Student must match to a Matching Choice.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchingPrompt {
+    pub id: ResponseItemReference,
+    pub body: Vec<ContentBlock>,
+}
+
+/// One selectable answer for a Matching Prompt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchingChoice {
+    pub id: ResponseItemReference,
+    pub body: Vec<ContentBlock>,
+}
+
+/// One item a Student arranges in an ordering response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderingItem {
+    pub id: ResponseItemReference,
     pub body: Vec<ContentBlock>,
 }
 
@@ -129,18 +152,16 @@ pub struct StudentMatch {
     pub choice: ResponseItemReference,
 }
 
-/// A scale-independent point on a hotspot surface.
+/// One Hotspot Region selected by a Student.
 ///
-/// Coordinates use the inclusive integer range 0 through 10,000 rather than
-/// browser pixels. This keeps submissions stable across zoom, responsive
-/// layout, and image density.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// The reference identifies the selected region; authored region geometry
+/// belongs exclusively to the Question Response Format. This keeps a Student
+/// Response independent of the surface shape and display layout.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentHotspotPoint {
-    /// Horizontal normalized coordinate.
-    pub x: u16,
-    /// Vertical normalized coordinate.
-    pub y: u16,
+pub struct StudentHotspotSelection {
+    /// Selected Hotspot Region reference.
+    pub region: ResponseItemReference,
 }
 
 /// One public candidate region and its accessible student label.
@@ -183,7 +204,7 @@ pub enum QuestionResponseFormat {
     /// A selection from a fixed list.
     MultipleChoice {
         /// The choices, in authoring order.
-        choices: Vec<ChoiceOption>,
+        choices: Vec<QuestionChoice>,
         /// How many may be selected.
         selection: ResponseSelectionRule,
     },
@@ -202,16 +223,16 @@ pub enum QuestionResponseFormat {
     /// A set of prompt-to-choice associations.
     Matching {
         /// Prompts in student presentation order.
-        prompts: Vec<ChoiceOption>,
+        prompts: Vec<MatchingPrompt>,
         /// Available choices in student presentation order.
-        choices: Vec<ChoiceOption>,
+        choices: Vec<MatchingChoice>,
     },
     /// An arrangement of items into the correct order.
     Ordering {
         /// The items to arrange, in their presented order.
-        items: Vec<ChoiceOption>,
+        items: Vec<OrderingItem>,
     },
-    /// One or more points selected on an image-backed surface.
+    /// One or more labeled regions selected on an image-backed surface.
     Hotspot {
         /// Immutable image used as the coordinate surface.
         surface: AssetRef,
@@ -219,15 +240,8 @@ pub enum QuestionResponseFormat {
         description: String,
         /// Public candidate regions; the correct region set remains private.
         regions: Vec<HotspotRegion>,
-        /// Number of points the student must select.
+        /// Number of regions the student must select.
         selection: ResponseSelectionRule,
-    },
-    /// An uploaded file, for work done outside the browser.
-    FileUpload {
-        /// Largest accepted upload, in bytes.
-        max_bytes: u64,
-        /// Accepted extensions, lowercase and without a leading dot.
-        accepted_extensions: Vec<String>,
     },
     /// A server-brokered external learning tool.
     ///
@@ -247,15 +261,14 @@ impl QuestionResponseFormat {
             Self::Matching { .. } => QuestionResponseControl::Matching,
             Self::Ordering { .. } => QuestionResponseControl::Ordering,
             Self::Hotspot { .. } => QuestionResponseControl::Hotspot,
-            Self::FileUpload { .. } => QuestionResponseControl::FileUpload,
             Self::ExternalTool {} => QuestionResponseControl::ExternalTool,
         }
     }
 
     /// Whether this response shape can collect work for the declared Question Type.
     ///
-    /// File Upload and External Tool are controls, so they remain compatible with
-    /// the separately declared educational Question Type.
+    /// External Tool is a control, so it remains compatible with the separately
+    /// declared educational Question Type.
     pub const fn supports_question_type(&self, question_type: QuestionType) -> bool {
         match self {
             Self::Numeric { .. } => matches!(question_type, QuestionType::Numeric),
@@ -270,7 +283,7 @@ impl QuestionResponseFormat {
             Self::Matching { .. } => matches!(question_type, QuestionType::Matching),
             Self::Ordering { .. } => matches!(question_type, QuestionType::Ordering),
             Self::Hotspot { .. } => matches!(question_type, QuestionType::Hotspot),
-            Self::FileUpload { .. } | Self::ExternalTool {} => true,
+            Self::ExternalTool {} => true,
         }
     }
 }
@@ -317,15 +330,10 @@ pub enum StudentResponse {
         /// Response Item References, first to last.
         order: Vec<ResponseItemReference>,
     },
-    /// Normalized points selected on a hotspot surface.
+    /// Hotspot Regions selected on a hotspot surface.
     Hotspot {
-        /// Points in student selection order.
-        points: Vec<StudentHotspotPoint>,
-    },
-    /// A reference to an uploaded object in the `student-records` bucket.
-    FileUpload {
-        /// Storage key of the uploaded object.
-        object_key: String,
+        /// Region selections in Student selection order.
+        selections: Vec<StudentHotspotSelection>,
     },
     /// The student used the ordinary submission action for an external tool.
     ///
@@ -341,7 +349,10 @@ mod tests {
     #[test]
     fn choice_identifiers_survive_a_round_trip() {
         let response = StudentResponse::MultipleChoice {
-            selected: vec![ResponseItemReference::new("b"), ResponseItemReference::new("d")],
+            selected: vec![
+                ResponseItemReference::new("b"),
+                ResponseItemReference::new("d"),
+            ],
         };
         let json = serde_json::to_string(&response).expect("serialization should succeed");
         let restored: StudentResponse =

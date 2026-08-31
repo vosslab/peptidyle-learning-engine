@@ -6,11 +6,11 @@
 //! 1. `get` the typed workspace archive and verify its record and bytes;
 //! 2. derive the typed published candidate and `put` it;
 //! 3. on `AlreadyExists`, `get` the candidate and accept only an exact
-//!    key/category/media-type/size/digest match.
+//!    address/media-type/size/digest match.
 
 use objects::memory::MemoryObjectStore;
 use objects::{
-    Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, PutObject,
+    ObjectAddress, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
     Sha256Digest, published_import_archive_object_id,
 };
 use question_model::{
@@ -32,13 +32,12 @@ fn question_version(version_number: u32) -> QuestionVersionReference {
 
 /// The complete `AlreadyExists` acceptance comparison from the locked WP-QTI protocol.
 ///
-/// `bucket` is included as well because it is derived from the typed key and must not drift from
-/// the content-bucket provenance contract. License, provenance, and creation time are deliberately
+/// `storage_area` is included because it is derived from the typed Object Address and must not drift
+/// from the content-area provenance contract. License, provenance, and creation time are deliberately
 /// not replay-match fields; the frozen protocol names exactly these archive properties.
 fn is_exact_published_archive_replay(record: &ObjectRecord, candidate: &PutObject) -> bool {
-    record.key == candidate.key
-        && record.bucket == candidate.key.bucket()
-        && record.category == candidate.key.category()
+    record.address == candidate.address
+        && record.storage_area == candidate.address.storage_area()
         && record.media_type == candidate.media_type
         && record.size_bytes == candidate.bytes.len() as u64
         && record.sha256 == Sha256Digest::compute(&candidate.bytes)
@@ -51,7 +50,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let import = WorkspaceImportId::from_uuid(id(3));
     let question_version = question_version(5);
     let archive_bytes = b"verified QTI archive bytes".to_vec();
-    let workspace_key = ObjectKey::WorkspaceSource {
+    let workspace_key = ObjectAddress::WorkspaceSource {
         workspace,
         import,
         object: ObjectId::from_uuid(id(6)),
@@ -59,10 +58,10 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
 
     let workspace_record = store
         .put(PutObject {
-            key: workspace_key.clone(),
+            address: workspace_key.clone(),
             bytes: archive_bytes.clone(),
             media_type: "application/zip".to_string(),
-            license: "private provenance".to_string(),
+            license: None,
             provenance: "QTI workspace import".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
@@ -83,14 +82,14 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         verified_workspace_archive.record.sha256,
     );
     let candidate = PutObject {
-        key: ObjectKey::PublishedImportArchive {
+        address: ObjectAddress::PublishedImportArchive {
             question_version: question_version.clone(),
             import,
             object: archive_object,
         },
         bytes: verified_workspace_archive.bytes,
         media_type: verified_workspace_archive.record.media_type,
-        license: "private published provenance".to_string(),
+        license: None,
         provenance: "published from verified QTI workspace archive".to_string(),
         created_at: ActivityTimestamp::from_unix_millis(2_000),
     };
@@ -105,12 +104,14 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         published_import_archive_object_id(&question_version, import, first_record.sha256),
         "the candidate object identity must be derived from its complete typed identity"
     );
-    assert_eq!(first_record.bucket, Bucket::PrivateContent);
-    assert_eq!(first_record.category, ObjectCategory::Source);
-    assert!(!first_record.key.may_issue_signed_url());
+    assert_eq!(first_record.storage_area, ObjectStorageArea::PrivateContent);
+    assert!(!first_record.address.may_issue_signed_url());
     assert_eq!(
         store
-            .signed_url(&candidate.key, ActivityTimestamp::from_unix_millis(3_000))
+            .signed_url(
+                &candidate.address,
+                ActivityTimestamp::from_unix_millis(3_000)
+            )
             .await,
         Err(ObjectStoreError::NotSignable),
         "published import provenance must remain server-only"
@@ -122,7 +123,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         Err(ObjectStoreError::AlreadyExists)
     );
     let replay = store
-        .get(&candidate.key)
+        .get(&candidate.address)
         .await
         .expect("already-existing candidate should be re-readable for exact replay verification");
     assert!(is_exact_published_archive_replay(
@@ -131,13 +132,9 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     ));
 
     let mismatched_key = ObjectRecord {
-        key: ObjectKey::Temporary {
+        address: ObjectAddress::Temporary {
             object: ObjectId::from_uuid(id(7)),
         },
-        ..replay.record.clone()
-    };
-    let mismatched_category = ObjectRecord {
-        category: ObjectCategory::Asset,
         ..replay.record.clone()
     };
     let mismatched_media_type = ObjectRecord {
@@ -154,7 +151,6 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     };
     for mismatch in [
         mismatched_key,
-        mismatched_category,
         mismatched_media_type,
         mismatched_size,
         mismatched_digest,

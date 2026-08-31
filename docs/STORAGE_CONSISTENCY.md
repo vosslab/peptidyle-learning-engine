@@ -22,7 +22,7 @@ An **object** is immutable bytes and its server-created `ObjectRecord`. A **refe
 
 The database is authoritative for intended existence and visibility. The object store is authoritative
 for whether the exact bytes exist. Neither a bucket listing nor a successfully fetched object creates
-an authorization right. Physical domain selection comes from `ObjectKey`, not a caller's path string.
+an authorization right. Physical domain selection comes from `ObjectAddress`, not a caller's path string.
 Authorization is evaluated separately at the trusted Store/PostgreSQL boundary: a delivery needs the
 exact course/Student relationship, a current workspace owner/collaborator relationship, the approved
 Instructor Question Library capability, or another registered typed capability/lease. An object ID, bucket,
@@ -99,4 +99,4 @@ General Object Storage Checks are not yet implemented. Until they are, operators
 
 ## Change rule
 
-A new object class must add a typed `ObjectKey`, physical-domain decision, database reference, visibility rule, retention/recovery owner, and behavior-focused tests together. It may not gain access by reusing a generic bucket/path or by treating a checksum as permission.
+A new object class must add a typed `ObjectAddress`, physical-domain decision, database reference, visibility rule, retention/recovery owner, and behavior-focused tests together. It may not gain access by reusing a generic bucket/path or by treating a checksum as permission.

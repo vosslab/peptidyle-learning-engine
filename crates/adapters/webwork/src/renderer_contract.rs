@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use grading::QuestionGradingOutcome;
 use question_model::response::ResponseItemReference;
-use question_model::{QuestionPresentation, StudentResponse};
+use question_model::{QuestionPresentation, QuestionRendererVersion, StudentResponse};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -56,7 +56,7 @@ pub struct RenderedWebworkQuestion {
     ///
     /// This is part of renderer output rather than sampled from a client on a
     /// cache hit, so historical output is never relabelled after an upgrade.
-    pub renderer: RendererIdentity,
+    pub renderer_version: QuestionRendererVersion,
     /// Private issuance-only mapping excluded from every serialized form.
     #[serde(skip)]
     pub replay: Option<WebworkReplayMappingV1>,
@@ -68,20 +68,10 @@ impl std::fmt::Debug for RenderedWebworkQuestion {
             .debug_struct("RenderedWebworkQuestion")
             .field("envelope", &self.envelope)
             .field("html", &self.html)
-            .field("renderer", &self.renderer)
+            .field("renderer_version", &self.renderer_version)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
             .finish()
     }
-}
-
-/// Stable renderer implementation identity recorded with an attempt.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RendererIdentity {
-    /// Renderer service implementation identifier.
-    pub id: String,
-    /// Additive renderer compatibility implementation version.
-    pub version: String,
 }
 
 /// One bounded renderer failure that a run route can expose as a WeBWorK-only
@@ -123,7 +113,7 @@ impl std::error::Error for RendererFailure {}
 pub trait WebworkRenderer: Send + Sync {
     /// Returns the deployment identity that this client will use for render
     /// and grade requests.
-    fn identity(&self) -> &RendererIdentity;
+    fn identity(&self) -> &QuestionRendererVersion;
 
     /// Renders an immutable source/version/seed into browser-safe output,
     /// including the renderer identity that produced this exact response.

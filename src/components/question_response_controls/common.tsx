@@ -18,7 +18,6 @@ export type OrderingDefinition = Extract<QuestionResponseFormat, { kind: "orderi
 export type MultiBlankDefinition = Extract<QuestionResponseFormat, { kind: "multiBlank" }>;
 export type MatchingDefinition = Extract<QuestionResponseFormat, { kind: "matching" }>;
 export type HotspotDefinition = Extract<QuestionResponseFormat, { kind: "hotspot" }>;
-export type FileUploadDefinition = Extract<QuestionResponseFormat, { kind: "fileUpload" }>;
 
 type WidgetPhase =
   | { readonly kind: "idle" }
@@ -115,10 +114,10 @@ function issueMessage(issue: StudentResponseFormatIssue): string {
       return "Use each matching choice only once.";
     case "unknownMatchChoice":
       return "That matching choice is not available.";
-    case "studentHotspotPointOutOfBounds":
-      return "Choose a point within the image.";
-    case "studentHotspotPointOutsideRegion":
-      return "Choose one of the available labeled regions.";
+    case "duplicateHotspotRegion":
+      return "Choose each labeled image region only once.";
+    case "unknownHotspotRegion":
+      return "Choose one of the available labeled image regions.";
     case "missingUploadReference":
       return "Choose an uploaded file before submitting.";
     case "responseKindMismatch":

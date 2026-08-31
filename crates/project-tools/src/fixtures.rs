@@ -12,8 +12,7 @@ use std::path::{Component, Path, PathBuf};
 use adapter_native::{AssetObjectBinding, NativeAdapter};
 use anyhow::{Context, Result, bail, ensure};
 use grading::QuestionGradingOutcome;
-use question_model::definition::{DraftQuestionDefinition, QuestionDefinition, QuestionSource};
-use question_model::generation::Seed;
+use question_model::definition::{DraftQuestionDefinition, QuestionSource, QuestionVersion};
 use question_model::{
     AssignmentAttempt, AssignmentProgressRecord, AssignmentSummary, GradebookSummaryRow,
     IssuedQuestion, QuestionAttempt, QuestionSummary, QuestionVersionReference, StudentRecordId,
@@ -52,7 +51,7 @@ struct StoredFixtureSet {
     fixture_schema_version: u32,
     model_schema_version: u32,
     catalog_question: QuestionSummary,
-    published_problem: QuestionDefinition,
+    published_problem: QuestionVersion,
     draft: DraftQuestionDefinition,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
@@ -171,7 +170,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     let seeds: BTreeSet<u64> = fixture_set
         .attempts
         .iter()
-        .map(|attempt| attempt.seed)
+        .map(|attempt| attempt.seed.value())
         .collect();
     ensure!(
         seeds.len() == fixture_set.attempts.len(),
@@ -276,14 +275,17 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
     let bindings = asset_bindings(&fixture_set.assets);
     for attempt in &fixture_set.attempts {
         ensure!(
-            attempt.source_record.source_object_reference.is_none(),
+            attempt
+                .reproduction_details
+                .source_object_reference
+                .is_none(),
             "native stored fixture must not claim an external source source_object_reference"
         );
         let envelope = adapter.reproduce(
             &fixture_set.published_problem,
-            Seed::new(attempt.seed),
+            attempt.seed,
             &attempt.parameter_hash,
-            &attempt.source_record,
+            &attempt.reproduction_details,
             &bindings,
         )?;
         ensure!(
@@ -299,9 +301,9 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
             Some(submission) => {
                 let outcome = adapter.grade(
                     &fixture_set.published_problem,
-                    Seed::new(attempt.seed),
+                    attempt.seed,
                     &attempt.parameter_hash,
-                    &attempt.source_record,
+                    &attempt.reproduction_details,
                     &bindings,
                     &submission.response,
                 )?;

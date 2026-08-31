@@ -151,7 +151,7 @@ the retain-Questions-with-fresh-Seeds rule, and five Assignment disclosure field
 The run service issues at most one unresolved attempt at a time. The attempt
 binds the authenticated student and course through its enrollment and run, the
 assignment position, immutable version, seed, policy, timing state, grader
-backend, and Question Attempt Source Record. Resume returns the stored attempt and stored seed; it
+backend, and Question Attempt Reproduction Details. Resume returns the stored attempt and stored seed; it
 does not generate a different problem mid-attempt.
 
 Attempt issuance is a transactional storage operation. PostgreSQL locks the run
@@ -164,7 +164,7 @@ display and submission aid, never the timing authority.
 
 The student receives a public render envelope and the smallest state needed to
 use it. Rich render data includes prompt blocks, sanitized markup, accessible
-asset references, response schema, item order, and public constraints. It may
+asset references, Question Response Format, item order, and public constraints. It may
 also include seed and version to identify the public render. It excludes correct
 answers, expected values, private rubrics, raw sources, provider credentials,
 upstream fields, storage locations, and grader state.
@@ -226,7 +226,7 @@ status while the sealed worker owns grading. A successful worker transaction
 then commits the grading result, score event, attempt transition, run completion,
 enrollment pointers, summary projection, successor receipt, and immutable
 idempotency receipt together. The completed receipt copies the issued,
-answer-free `PresentationEnvelopeV1` and exact public `AssetBindingV1` snapshot.
+answer-free `PresentationEnvelopeV1` and exact public Presented Question Asset snapshot.
 Replay and status reads therefore use durable accepted or completed evidence,
 never a newer published Question/backend render, and never re-grade an answer.
 
@@ -270,7 +270,7 @@ the same source format.
 | WeBWorK       | PLE copies licensed PG/PGML source and provenance into immutable storage  | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender            |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration     | Provider launch/session is server-mediated                      | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score                                                                           |
 
-Native flat questions use PLE's public `QuestionDefinition` plus separate
+Native flat questions use PLE's public `QuestionVersion` plus separate
 grader-only material. The exact flat authoring format is
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), not a second generic
 runtime model.

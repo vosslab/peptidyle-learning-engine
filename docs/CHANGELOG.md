@@ -4,9 +4,276 @@
 
 ### Changes
 
-- Replaced `HotspotPoint` with Student Hotspot Point across Student Response,
-  hotspot validation, presentation translation, native flat-question grading,
-  Question Response Controls, generated browser types, and tests.
+- Defined the complete Published Question Metadata boundary for terminology
+  migration: searchable Question Title and Question Description; required,
+  separate Question Authorship, Question Owner, and exact versioned Question
+  License; optional Question Citation; Question Subject and Subsubject; free-form
+  Question Tags; and optional external Question Classifications. Reopened the
+  generic Object License migration because stored bytes must resolve legal terms
+  through their owning Question Revision, Question Source, or Question Asset.
+  Chose Question Revision over Question Version for immutable published history
+  and added the required Reason for Edit plus an explicit, receipted choice for
+  advancing the editor's Assignment Working Copies.
+
+- Simplified the Question Attempt terminology boundary. The complete Question
+  Attempt remains the durable server record; Student Question Attempt View is
+  the safe read shape; Question Attempt Reproduction Details hold server-only
+  source, software-version, asset, and checksum facts. Reopened the migration
+  rows for the current Source Record and Backend, Renderer, and Grader Release
+  types, clarified Submission Accepted versus Closed at Deadline, and reserved
+  projection for low-level database or query mechanics.
+
+- Completed the Question Attempt Reproduction Details cutover. The trusted
+  Rust record is excluded from generated browser contracts and Student HTTP
+  serialization; strict browser decoding rejects injected reproduction details,
+  while stored fixture validation, adapters, and the fresh `question_attempt`
+  schema column retain the complete record.
+
+- Replaced the browser's inherited durable Question Attempt shape with the
+  generated Student Question Attempt View. Server construction selects the
+  answer-free fields explicitly, generated contracts omit the durable record,
+  and Student decoders and submission receipts consume the View directly.
+
+- Replaced the generic Response Definition and Response Schema language with
+  Question Response Format across the presentation codec, Native authoring
+  behavior test, contracts, plans, and durable documentation.
+
+- Strengthened the fresh Question Attempt persistence contract: its exact
+  seed, generated-parameter checksum, state, and reproduction details are
+  stored together; deferred constraints require an accepted submission to
+  match `SubmissionAccepted` and preserve an empty deadline-closed attempt.
+
+- Replaced Question Backend and Question Grader release records with
+  role-specific Version records. All three executable roles now use stable
+  implementation names plus exact software versions in trusted reproduction
+  details; Native, WeBWorK, iMathAS, fixtures, cache validation, and current
+  documentation use the same terms.
+
+- Replaced generic scoring status and witness contracts with Assignment Scoring
+  State and Assignment Scoring Snapshot. Rust, generated types, strict browser
+  decoding, Gradebook verification, Student feedback gating, fixtures, and
+  visible state messages now use the exact assignment-scoring boundary.
+
+- Split object reuse terms from data sensitivity. Object records now carry an
+  optional typed Object License and an Object Data Class derived from the exact
+  Object Address; memory and S3 backends enforce the same address-derived
+  classification.
+
+- Replaced the underspecified iMathAS `ScoredEmbedRenderCacheKey` with the
+  server-held `ExternalQuestionProviderCacheEntry`. It binds the exact Question
+  Version, normalized provider seed, provider profile, payload digest, and
+  expiry; the cache implementation retains its storage address privately.
+
+- Removed the redundant `ObjectCategory` field and enum. Exact Object Address
+  variants and their owning relationships now carry object meaning directly;
+  storage adapters validate the complete address and immutable record facts.
+
+- Replaced the PLE-owned `Bucket` policy enum with `ObjectStorageArea` and
+  `ObjectRecord.storage_area`. The provider adapters retain `BucketNames`,
+  MinIO probes, and AWS SDK bucket operations at the storage-provider boundary.
+
+- Replaced `ObjectKey` with `ObjectAddress` across the typed object-store
+  contract, object records and writes, S3 and in-memory backends, provider
+  caches, conformance tests, and storage terminology. Object Reference remains
+  the distinct ownership and delivery-authority relationship.
+
+- Replaced the generic `ImplementationVersion` attempt-evidence record with
+  exact Question Backend, Renderer, and Grader releases. Native Question
+  Implementations now have their own release type; Rust producers, generated
+  contracts, strict browser decoding, fixtures, focused adapters, and durable
+  documentation use role-specific fields directly.
+
+- Moved the exact `AssignmentPointValue` contract and its fixed-precision
+  validation into the focused Assignment point-value module. The public model
+  continues to expose the same type while the primary Assignment model stays
+  below the repository source-size limit.
+
+- Split presented-asset validation and selection from the Question Presentation
+  builder into its own focused module. The builder is now 979 lines and retains
+  construction while the asset module owns reference collection, validation,
+  and rendition selection.
+
+- Renamed the server-only presentation integrity binding to
+  `QuestionPresentationBinding` across presentation construction,
+  verification, Question Model tests, and the active contract documents.
+
+- Renamed the server-minted presentation nonce to
+  `QuestionPresentationNonce` through the binding, builder, generated browser
+  contract, strict TypeScript check, and identity documentation.
+
+- Renamed the server-held full presentation digest to
+  `QuestionPresentationDigest`, keeping it separate from the browser-visible
+  public presentation digest token.
+
+- Renamed the browser-visible public digest prefix to
+  `QuestionPresentationToken`; generated contracts and the WebAssembly
+  presentation verifier retain its exact non-authorizing role.
+
+- Named the complete server-owned issued aggregate
+  `IssuedQuestionPresentation`, distinguishing its private bindings and full
+  digest from its browser-safe envelope.
+
+- Renamed the authorized score-only inspection record to
+  `StudentResponseInspection` across Rust projection, generated contracts,
+  Gradebook decoding, Student Work inspection, and focused tests.
+
+- Renamed the public issued-rendition record to `PresentedQuestionAsset` across
+  the presentation builder, descriptor codec, generated contract, WebAssembly
+  verifier, and Gradebook decoder.
+
+- Confirmed the Question Type boundary: Human Guidance and current contracts
+  use MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT as Question Types;
+  no PLE-owned Response Family contract remains.
+
+- Corrected the active saved-search receipt to `QuestionSearchFilter` and
+  `question_types`; current Question Library contracts carry no parallel
+  catalog-named summary, detail, search, or repository record.
+
+- Qualified the two closed components of a Question Pool Selection Rule as
+  Question Pool Draw Algorithm and Question Pool Selection Ordering. Rust
+  exports, generated browser contracts, strict decoding, Blueprint Course
+  inputs, and Question Pool previews now use the owned terminology directly.
+
+- Replaced generic renderer provenance with Question Renderer Version in the
+  Local Stack Controller's private selected-image record. Question Attempt
+  Reproduction Details now use the same role-specific version type through
+  WeBWorK configuration, iMathAS rendering, cache validation, and focused
+  adapter tests.
+
+- Replaced the generic generation `Seed` type with `QuestionSeed` through
+  Question definitions and variations, deterministic generation, all adapters,
+  object cache keys, WASM, generated browser contracts, fixtures, and focused
+  Rust and TypeScript validation.
+
+- Replaced `GeneratedVariant` and `GeneratedValue` with private Question
+  Variation Parameters and Question Variation Parameter Values. The generated
+  parameter output remains separate from the durable issued Question Variation.
+
+- Corrected the generated-output vocabulary boundary: a transient generated
+  parameter map is distinct from the durable issued Question Variation, which
+  owns the Question Version, Question Seed, and declared generator recipe.
+
+- Replaced `GeneratorReference` and `ParameterSpec` with
+  `QuestionGeneratorReference` and `QuestionGeneratorParameter` through the
+  Question Variation definition, generation engine, native adapters, generated
+  browser API, strict decoding, documentation, and focused tests.
+
+- Replaced `RandomizationDefinition` and its `randomization` contract field
+  with `QuestionVariationDefinition` and `questionVariationDefinition` across
+  Question definitions, generation, adapters, generated browser contracts,
+  strict decoders, editor state, fixtures, and focused tests.
+
+- Clarified the durable grading vocabulary: Question Grading Rule, Answer Key,
+  Question Feedback Asset, Student Feedback Attachment, and format-specific
+  grading records are separate owned concepts. “Material” remains ordinary
+  teaching prose and “materialization” remains its separate Tier 2 concern.
+
+- Separated Question Hints from Question Feedback. The Native adapter now
+  verifies the exact issued Question on a dedicated pre-response hint path;
+  post-grade feedback retains its selected-choice, correct-outcome, and
+  incorrect-outcome levels through automatic grading, Student release,
+  browser decoding, display, and focused tests.
+
+- Expanded the terminology and flat-question JSON contracts around Question
+  Hint, Choice/Correct/Incorrect Feedback, Question Answer Explanation, Keyboard
+  Instructions, Keyboard Tooltip, Response Format Message, and exact Hint,
+  Feedback, Answer, and Answer Explanation Asset roles. QTI imports now map by
+  instructional meaning even when QTI uses a feedback block as the container.
+  Student Feedback remains a transient authorized view whose audit trail comes
+  from the Assignment Revision and exact grading and Question records.
+
+- Separated Question Answer from Question Answer Explanation in the terminology
+  and migration contracts. Question Answer is the display-ready accepted
+  response derived by a trusted backend from the private Answer Key; Question
+  Answer Explanation is the optional teaching explanation of how or why. The
+  checklist now requires three explicit grading outputs and independent Show
+  Question Answer and Show Explanation release fields instead of the current
+  combined release field.
+
+- Reopened the Response Definition and Response Schema vocabulary rows after a
+  current audit found 21 active matches across documentation, the active plan,
+  a presentation-codec helper, and a browser test. Both wordings map to one
+  Question Response Format. The solution audit now tracks the combined release
+  field, combined visibility flags, and solution-free boundary prose while
+  retaining exact QTI and WeBWorK protocol vocabulary in their adapters.
+
+- Corrected the presentation-asset terminology after the type-only
+  `AssetBindingV1` rename left binding-shaped fields and helpers around a
+  `PresentedQuestionAsset` record that actually describes a selected rendition.
+  The contract now distinguishes Question Asset, Question Asset Reference,
+  Question Asset Rendition, and Object Delivery. Reopened the asset and Response
+  Item Binding rows and added migrations for role-specific presented Question
+  Choices, Matching Prompts, Matching Choices, Ordering Items, and Text Entry
+  Slots.
+
+- Separated Question Publication from Assignment Release. An Assignment now
+  has one stable Course-owned identity, at most one replaceable Assignment
+  Working Copy, a working-copy Assignment Edit Number, and immutable Assignment
+  Revisions created only by successful releases. Assignment Status belongs to
+  the stable Assignment; Assignment Access combines Released status with
+  schedule, membership, and policy. The migration checklist and vocabulary
+  detector now track the current edit-per-revision, Draft/Published Assignment,
+  Publication Readiness, and revision-local lifecycle boundaries as one
+  foundational storage correction.
+
+- Audited every vocabulary-replacement checkbox against the current material
+  tree. Reopened fifteen rows whose source, durable documentation, Human
+  Guidance, or active plans still carry the outgoing term. Each reopened row
+  now states the exact replacement action, affected owners and consumers, and
+  validation step. Clarified Assignment Point Value, Hotspot Region, Course
+  Date, and Relative Assignment Schedule rows so their checked state describes
+  a completed contextual correction.
+
+- Replaced generic private `FeedbackContent` with Question Feedback and the
+  opaque `DisclosedFeedback` and version-suffixed
+  `InspectedStudentScoreFeedbackV1` contracts with Student Feedback and
+  Student Response Inspection Feedback. The Question Model, grading, release
+  evaluation, generated browser API, strict decoders, Student state, Gradebook,
+  documentation, and tests now distinguish Question-attached automatic
+  feedback from its policy-released Student result.
+
+- Consolidated browser test data onto the approved published-Question fixture
+  set. Deleted its stale duplicate JSON projection, which carried retired
+  Question identities and fewer attempt records. Browser tests now make their
+  one required wire-shape conversion explicitly, and Rust export tests load
+  the shared stored JSON at runtime rather than embedding its contents.
+
+- Replaced the published-content `QuestionDefinition` contract with Question
+  Version across the Question Model, generated browser API, domain policy,
+  adapters, grading, export, project tools, strict decoding, Wasm, tests, and
+  documentation. Draft Question Definition remains the private authoring
+  contract. Updated pilot payload fields and fixture Assignment Revision pins
+  to their current immutable contracts.
+
+- Corrected the active Question Model, payload, data-contract, accessibility,
+  grading, and implementation-status documentation to list only the supported
+  eight Question Response Formats. The Student UI continues to select its
+  control exclusively from issued Question Response Format, not Question Type
+  or Question Format.
+
+- Replaced the overloaded `ChoiceOption` with Question Choice, Matching Prompt,
+  Matching Choice, and Ordering Item records. Each response format now carries
+  its own exact learner-visible item type through adapters, validation,
+  grading, presentation, generated browser contracts, decoders, controls, and
+  tests.
+
+- Retired the unmounted File Upload Question Response Format, browser control,
+  generated contracts, and free-form object-key Student Response. A future
+  Student Upload Reference requires a server-issued Object Reference bound to
+  the exact Student Record and Question Attempt.
+
+- Replaced `RenderedItemIdV1`, `RenderedItemRoleV1`, and
+  `RenderedItemBindingV1` with Presentation Response Item Reference, Response
+  Item Role, and Response Item Binding across Question Presentation
+  construction, response translation, strict browser contracts, generated
+  types, documentation, and tests. Roles now name Question Choice, Text Entry
+  Slot, Matching Prompt, Matching Choice, Ordering Item, Hotspot Surface, and
+  Hotspot Region precisely.
+
+- Replaced the coordinate-shaped `HotspotPoint` response with Student Hotspot
+  Selection. Student Responses now identify selected presentation-scoped
+  Hotspot Regions that translate server-side to durable region references;
+  authored geometry remains in the Question Response Format.
 
 - Replaced `MatchPair` with Student Match across Student Response, matching
   validation, presentation translation, native flat-question grading, Question
@@ -355,7 +622,7 @@
   Revisions; retained screenshot asset paths remain historical evidence.
 
 - Corrected the temporary vocabulary inventory to count complete terms. The
-  Actor inventory now reports zero because Factory is a distinct term, rather
+  The generic-authorization inventory now reports zero because Factory is a distinct term, rather
   than being counted as a substring match.
 
 - Completed the Factory terminology audit. Factory now appears only in its

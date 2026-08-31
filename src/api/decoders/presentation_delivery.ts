@@ -1,13 +1,16 @@
 // Strict student-presentation decoding and key-free response-widget projection.
 
 import type { AssetRef } from "../../../generated/api/AssetRef";
-import type { ChoiceOption } from "../../../generated/api/ChoiceOption";
 import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
+import type { MatchingChoice } from "../../../generated/api/MatchingChoice";
+import type { MatchingPrompt } from "../../../generated/api/MatchingPrompt";
+import type { OrderingItem } from "../../../generated/api/OrderingItem";
 import type { PresentationEnvelopeV1 } from "../../../generated/api/PresentationEnvelopeV1";
 import type { PresentedBlankV1 } from "../../../generated/api/PresentedBlankV1";
 import type { PresentedChoiceV1 } from "../../../generated/api/PresentedChoiceV1";
 import type { PresentedHotspotRegionV1 } from "../../../generated/api/PresentedHotspotRegionV1";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionChoice } from "../../../generated/api/QuestionChoice";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { IssuedQuestionResponseFormatV1 } from "../../../generated/api/IssuedQuestionResponseFormatV1";
 import type { ResponseSelectionRule } from "../../../generated/api/ResponseSelectionRule";
@@ -92,7 +95,7 @@ function normalizedCoordinate(value: unknown, path: string): number {
 
 function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotRegionV1 {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["label", "x", "y", "width", "height"]);
+  requireOnlyFields(record, path, ["id", "label", "x", "y", "width", "height"]);
   const x = normalizedCoordinate(field(record, "x", path), `${path}.x`);
   const y = normalizedCoordinate(field(record, "y", path), `${path}.y`);
   const width = decodePositiveInteger(field(record, "width", path), `${path}.width`);
@@ -101,6 +104,7 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
     throw new DecodeError(path, "a rectangle within the normalized 10000 by 10000 surface");
   }
   return {
+    id: renderedItemId(field(record, "id", path), `${path}.id`),
     label: decodeBoundedArray(
       field(record, "label", path),
       `${path}.label`,
@@ -261,8 +265,8 @@ function selectionFromBounds(
   throw new DecodeError(path, "selection bounds supported by the question response control");
 }
 
-function choicesForWidget(choices: ReadonlyArray<PresentedChoiceV1>): ChoiceOption[] {
-  return choices.map((choice) => ({ id: choice.id, body: choice.body }));
+function responseItemsForWidget<T>(choices: ReadonlyArray<PresentedChoiceV1>): T[] {
+  return choices.map((choice) => ({ id: choice.id, body: choice.body }) as T);
 }
 
 function responseForWidget(
@@ -273,13 +277,13 @@ function responseForWidget(
     case "singleChoice":
       return {
         kind: "multipleChoice",
-        choices: choicesForWidget(response.choices),
+        choices: responseItemsForWidget<QuestionChoice>(response.choices),
         selection: { kind: "exactlyOne" },
       };
     case "multipleAnswer":
       return {
         kind: "multipleChoice",
-        choices: choicesForWidget(response.choices),
+        choices: responseItemsForWidget<QuestionChoice>(response.choices),
         selection: selectionFromBounds(
           response.minimum,
           response.maximum,
@@ -307,16 +311,13 @@ function responseForWidget(
       }
       return {
         kind: "matching",
-        prompts: choicesForWidget(response.prompts),
-        choices: choicesForWidget(response.choices),
+        prompts: responseItemsForWidget<MatchingPrompt>(response.prompts),
+        choices: responseItemsForWidget<MatchingChoice>(response.choices),
       };
     case "ordering":
-      return { kind: "ordering", items: choicesForWidget(response.items) };
+      return { kind: "ordering", items: responseItemsForWidget<OrderingItem>(response.items) };
     case "hotspot": {
-      const regions: HotspotRegion[] = response.surface.regions.map((region, index) => ({
-        id: `${response.surface.id}-region-${index + 1}`,
-        ...region,
-      }));
+      const regions: HotspotRegion[] = response.surface.regions;
       return {
         kind: "hotspot",
         surface: response.surface.asset,

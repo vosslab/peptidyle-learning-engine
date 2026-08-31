@@ -111,7 +111,7 @@ Assignment definition and a Student's individual tries.
 - one server-owned try sequence within that Issued Question;
 - the generation seed and parameter hash;
 - server-issued timing data;
-- the adapter and grading implementation versions;
+- the Question Backend and Question Grader Versions;
 - the typed generator ID and version, plus the renderer version, when they apply;
 - the exact Source Object Reference when one exists;
 - referenced asset object IDs; and
@@ -120,11 +120,12 @@ Assignment definition and a Student's individual tries.
 
 A Question Submission owns the accepted Student Response and, after grading,
 its optional Grading Result. A Grading Result contains correctness and points,
-not an answer key. Correct answers and grading implementations remain in
+not an Answer Key. Correct answers and Question Grader code remain in
 `crates/grading`, outside the WebAssembly dependency closure. Feedback
 disclosure controls whether and when a result reaches a student response.
 
-`QuestionAttemptSourceRecord` groups the implementation and exact Source Object
+`QuestionAttemptReproductionDetails` groups the exact Question Backend, Question Renderer,
+Question Grader, and Source Object
 Reference without duplicating the seed, parameter hash, problem ID, or version ID carried by the
 owning Issued Question. Parameters themselves are regenerated from seed and
 generator version; the hash detects a mismatch without storing the same data
@@ -133,8 +134,8 @@ on hundreds of millions of rows.
 Issued Question Progress and Question Attempt state remain separate. The
 server derives Issued Question Progress from its retained Question Attempts,
 Question Submissions, and Grading Results. `QuestionAttempt.state` records the
-operational state of one issued evidence record: `Open`, `Submitted`, or
-server-owned `AutomaticallySubmitted`. Question Attempt Exclusion and Issued
+operational state of one issued evidence record: `Open`, `SubmissionAccepted`, or
+server-owned `ClosedAtDeadline`. Question Attempt Exclusion and Issued
 Question Exemption remain separate records. The separate
 `QuestionSubmissionGradingState` records `pending`, `instructor_attention`,
 `graded`, or `exempt`; `StudentQuestionSubmissionGradingState` projects only
@@ -202,11 +203,11 @@ Progress** is derived from those retained records. This keeps retries,
 timeouts, submission, grading, and Instructor exclusions independently
 auditable instead of compressing them into one mutable lifecycle state.
 
-The server supplies every event. Grading cannot skip `Submitted`, policy must
+The server supplies every event. Grading cannot skip `SubmissionAccepted`, policy must
 turn `Incorrect` into either `RetryAvailable` or `Exhausted`, and terminal
 states accept no later event. Starting a retry means issuing a new
 `QuestionAttempt` with a fresh server-owned seed. It never changes the
-Question Submission, Grading Result, seed, or source record of the earlier
+Question Submission, Grading Result, seed, or Reproduction Details of the earlier
 Question Attempt.
 
 ## Timer verdicts
@@ -253,7 +254,7 @@ unlimited practice, and issue new seeds on every Assignment Attempt. Continued p
 not decide which score counts; grade policy remains independent.
 
 Question-level policies remain separate from Assignment Activity policy. Every immutable
-published question version owns an `AttemptPolicy` retry bound and a
+published Question Version owns a `QuestionAttemptLimit` retry bound and a
 `QuestionAttemptTimeLimit`; an assignment cannot silently rewrite either one. Attempt
 policy does not disclose results, feedback, or answers. That lets the same Assignment Attempt
 model work for native, QTI, WeBWorK, and future Question Backends while keeping
@@ -275,7 +276,7 @@ which it could infer a withheld result.
 
 The server omits withheld fields rather than sending placeholders or answer
 material. Private feedback generation, grading keys, correct answers, and
-grading implementations remain server-only. `feedback_release` is immutable,
+Question Grader code remains server-only. `feedback_release` is immutable,
 retention-fenced audit evidence of an instructor action. It never unlocks or
 changes the student projection. See
 [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) for the teaching
@@ -407,7 +408,7 @@ are present only for `Available`; `NoActivity` means no submitted response and t
 disclosure. Starting an Assignment Attempt may set `last_activity_at` without changing that score state.
 The student projection omits internal course, Student Record, and Assignment
 identifiers.
-Its independent `scoring_status` is `Current`, `Recalculating`, or `Failed`.
+Its independent `assignment_scoring_state` is `Current`, `Recalculating`, or `Failed`.
 Recalculating and Failed omit aggregate scores, Assignment Attempt scores, Grading Results,
 and disclosed point values even when disclosure would otherwise permit them,
 while keeping the underlying Student Work/disclosure state so a maintenance

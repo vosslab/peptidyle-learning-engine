@@ -1,6 +1,6 @@
-//! Typed bucket and key construction (WP-C4, MOD-OBJ).
+//! Typed Object Storage Area and Object Address construction (WP-C4, MOD-OBJ).
 
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::{
     AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, QuestionVersionReference,
     WorkspaceId, WorkspaceImportId,
@@ -8,15 +8,15 @@ use question_model::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{ObjectCategory, Sha256Digest};
+use crate::Sha256Digest;
 
-/// One of the four object stores with a distinct access, encryption, and
+/// One of the four Object Storage Areas with a distinct access, encryption, and
 /// delivery policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum Bucket {
+pub enum ObjectStorageArea {
     /// Immutable student-facing renditions. This is the only CDN-readable
-    /// domain and therefore contains only [`ObjectKey::QuestionAsset`] bytes.
+    /// domain and therefore contains only [`ObjectAddress::QuestionAsset`] bytes.
     PublicAssets,
     /// Private authoring, provenance, grading, rendering, and course content.
     PrivateContent,
@@ -26,8 +26,8 @@ pub enum Bucket {
     TempProcessing,
 }
 
-impl Bucket {
-    /// Returns the deployment bucket name.
+impl ObjectStorageArea {
+    /// Returns the stable Object Storage Area identifier.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::PublicAssets => "public-assets",
@@ -38,7 +38,31 @@ impl Bucket {
     }
 }
 
-/// Stable identity components from which an immutable object key is built.
+/// Required sensitivity and ownership class derived from an Object Address.
+///
+/// Unlike an Object Storage Area, this names why PLE stores the bytes. It is
+/// never caller-supplied metadata and therefore cannot be relabeled to widen
+/// access or conceal a Student record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObjectDataClass {
+    /// Private instructor-authoring sources and assets.
+    AuthoringContent,
+    /// Immutable source bytes and import archives for a Question Version.
+    QuestionSource,
+    /// One logical Question Asset, whether public or restricted.
+    QuestionAsset,
+    /// A deterministic answer-free Question render.
+    QuestionRender,
+    /// A Course banner or pending banner upload.
+    CourseAppearance,
+    /// FERPA-bearing bytes owned by one Student record.
+    StudentRecord,
+    /// Short-lived bytes used only during processing.
+    TemporaryProcessing,
+}
+
+/// Stable identity components from which an immutable Object Address is built.
 ///
 /// There is no raw-string variant. Callers choose a semantic destination and
 /// supply typed IDs; MOD-OBJ alone decides the physical path.
@@ -48,10 +72,10 @@ impl Bucket {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum ObjectKey {
+pub enum ObjectAddress {
     /// Original bytes for a private workspace import.
     ///
-    /// This intentionally uses the private-content bucket for immutable
+    /// This intentionally uses the private-content Object Storage Area for immutable
     /// durable bytes and must never be exposed through CDN or Question Library asset
     /// delivery.
     WorkspaceSource {
@@ -146,8 +170,8 @@ pub enum ObjectKey {
     QuestionRender {
         /// Exact immutable Question Version that owns the rendered result.
         question_version: QuestionVersionReference,
-        /// Seed that fully determines the render.
-        seed: Seed,
+        /// Question Seed that fully determines the render.
+        seed: QuestionSeed,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -185,9 +209,9 @@ pub enum ObjectKey {
     },
 }
 
-impl ObjectKey {
-    /// Bucket selected by this semantic key.
-    pub fn bucket(&self) -> Bucket {
+impl ObjectAddress {
+    /// Object Storage Area selected by this semantic Object Address.
+    pub fn storage_area(&self) -> ObjectStorageArea {
         match self {
             Self::WorkspaceSource { .. }
             | Self::WorkspaceQuestionSource { .. }
@@ -197,11 +221,33 @@ impl ObjectKey {
             | Self::PublishedImportArchive { .. }
             | Self::RestrictedQuestionAsset { .. }
             | Self::QuestionRender { .. }
-            | Self::CourseBanner { .. } => Bucket::PrivateContent,
-            Self::QuestionAsset { .. } => Bucket::PublicAssets,
-            Self::CourseBannerCandidate { .. } => Bucket::TempProcessing,
-            Self::StudentRecord { .. } => Bucket::StudentRecords,
-            Self::Temporary { .. } => Bucket::TempProcessing,
+            | Self::CourseBanner { .. } => ObjectStorageArea::PrivateContent,
+            Self::QuestionAsset { .. } => ObjectStorageArea::PublicAssets,
+            Self::CourseBannerCandidate { .. } => ObjectStorageArea::TempProcessing,
+            Self::StudentRecord { .. } => ObjectStorageArea::StudentRecords,
+            Self::Temporary { .. } => ObjectStorageArea::TempProcessing,
+        }
+    }
+
+    /// Required Object Data Class inherited from the exact owning address.
+    pub fn data_class(&self) -> ObjectDataClass {
+        match self {
+            Self::WorkspaceSource { .. }
+            | Self::WorkspaceQuestionSource { .. }
+            | Self::WorkspaceAsset { .. }
+            | Self::WorkspaceQuestionAsset { .. } => ObjectDataClass::AuthoringContent,
+            Self::QuestionSource { .. } | Self::PublishedImportArchive { .. } => {
+                ObjectDataClass::QuestionSource
+            }
+            Self::QuestionAsset { .. } | Self::RestrictedQuestionAsset { .. } => {
+                ObjectDataClass::QuestionAsset
+            }
+            Self::QuestionRender { .. } => ObjectDataClass::QuestionRender,
+            Self::CourseBannerCandidate { .. } | Self::CourseBanner { .. } => {
+                ObjectDataClass::CourseAppearance
+            }
+            Self::StudentRecord { .. } => ObjectDataClass::StudentRecord,
+            Self::Temporary { .. } => ObjectDataClass::TemporaryProcessing,
         }
     }
 
@@ -309,25 +355,6 @@ impl ObjectKey {
         }
     }
 
-    /// Semantic category implied by the key shape.
-    pub fn category(&self) -> ObjectCategory {
-        match self {
-            Self::WorkspaceSource { .. } => ObjectCategory::Source,
-            Self::WorkspaceQuestionSource { .. } => ObjectCategory::Source,
-            Self::WorkspaceAsset { .. } => ObjectCategory::Asset,
-            Self::WorkspaceQuestionAsset { .. } => ObjectCategory::Asset,
-            Self::QuestionSource { .. } => ObjectCategory::Source,
-            Self::PublishedImportArchive { .. } => ObjectCategory::Source,
-            Self::QuestionAsset { .. } => ObjectCategory::Asset,
-            Self::RestrictedQuestionAsset { .. } => ObjectCategory::Asset,
-            Self::QuestionRender { .. } => ObjectCategory::Render,
-            Self::CourseBannerCandidate { .. } => ObjectCategory::Temporary,
-            Self::CourseBanner { .. } => ObjectCategory::CourseContent,
-            Self::StudentRecord { .. } => ObjectCategory::Export,
-            Self::Temporary { .. } => ObjectCategory::Temporary,
-        }
-    }
-
     /// Exact Question Version associated with content, when one exists.
     pub fn question_version(&self) -> Option<&QuestionVersionReference> {
         match self {
@@ -360,7 +387,7 @@ impl ObjectKey {
     /// Whether this semantic object may receive a direct delivery URL.
     ///
     /// Workspace imports and published Source Object References remain private in the
-    /// private-content bucket. Source may
+    /// private-content Object Storage Area. Source may
     /// contain answer keys or executable grading logic, so only trusted
     /// server-side adapters may read it. Generic Question Library or CDN URL issuance
     /// must reject every source key.
@@ -426,7 +453,7 @@ fn domain_separated_object_id(domain: &[u8], components: [uuid::Uuid; 3]) -> Obj
 ///
 /// UUID wrappers are encoded as their raw 16-byte values. The archive digest
 /// is deliberately excluded: an exact replay and divergent bytes for the same
-/// import identity must address the same immutable [`ObjectKey::WorkspaceSource`]
+/// import identity must address the same immutable [`ObjectAddress::WorkspaceSource`]
 /// key so the owning upload path can distinguish replay from conflict.
 /// Only the first 16 bytes of the domain-separated SHA-256 digest become the
 /// deterministic object UUID.
@@ -487,11 +514,11 @@ mod tests {
 
     #[test]
     fn source_objects_are_never_direct_delivery_targets() {
-        let source = ObjectKey::QuestionSource {
+        let source = ObjectAddress::QuestionSource {
             question_version: question_version(2),
             object: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
-        let asset = ObjectKey::QuestionAsset {
+        let asset = ObjectAddress::QuestionAsset {
             question_version: question_version(2),
             asset: AssetId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
@@ -507,62 +534,62 @@ mod tests {
         let question_version = question_version(4);
         let object = ObjectId::from_uuid(Uuid::from_u128(5));
 
-        let public_asset = ObjectKey::QuestionAsset {
+        let public_asset = ObjectAddress::QuestionAsset {
             question_version: question_version.clone(),
             asset: AssetId::from_uuid(Uuid::from_u128(6)),
             object,
         };
-        assert_eq!(public_asset.bucket(), Bucket::PublicAssets);
+        assert_eq!(public_asset.storage_area(), ObjectStorageArea::PublicAssets);
         assert_eq!(
-            ObjectKey::published_question_asset(
+            ObjectAddress::published_question_asset(
                 question_version.clone(),
                 AssetId::from_uuid(Uuid::from_u128(60)),
                 object,
             )
-            .bucket(),
-            Bucket::PrivateContent,
-            "Published Question assets must never enter the CDN-readable bucket"
+            .storage_area(),
+            ObjectStorageArea::PrivateContent,
+            "Published Question assets must never enter the CDN-readable Object Storage Area"
         );
 
         for private_key in [
-            ObjectKey::WorkspaceSource {
+            ObjectAddress::WorkspaceSource {
                 workspace,
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(7)),
                 object,
             },
-            ObjectKey::WorkspaceQuestionAsset {
+            ObjectAddress::WorkspaceQuestionAsset {
                 workspace,
                 asset: AssetId::from_uuid(Uuid::from_u128(8)),
                 object,
             },
-            ObjectKey::QuestionSource {
+            ObjectAddress::QuestionSource {
                 question_version: question_version.clone(),
                 object,
             },
-            ObjectKey::RestrictedQuestionAsset {
+            ObjectAddress::RestrictedQuestionAsset {
                 question_version: question_version.clone(),
                 asset: AssetId::from_uuid(Uuid::from_u128(61)),
                 object,
             },
-            ObjectKey::PublishedImportArchive {
+            ObjectAddress::PublishedImportArchive {
                 question_version: question_version.clone(),
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(9)),
                 object,
             },
-            ObjectKey::QuestionRender {
+            ObjectAddress::QuestionRender {
                 question_version: question_version.clone(),
-                seed: Seed::new(1),
+                seed: QuestionSeed::new(1),
                 object,
             },
-            ObjectKey::CourseBanner {
+            ObjectAddress::CourseBanner {
                 course: CourseId::from_uuid(Uuid::from_u128(10)),
                 banner: CourseBannerId::from_uuid(Uuid::from_u128(11)),
             },
         ] {
             assert_eq!(
-                private_key.bucket(),
-                Bucket::PrivateContent,
-                "{private_key:?} must not be placed in the CDN-readable bucket"
+                private_key.storage_area(),
+                ObjectStorageArea::PrivateContent,
+                "{private_key:?} must not be placed in the CDN-readable Object Storage Area"
             );
         }
     }
@@ -572,21 +599,19 @@ mod tests {
         let course = CourseId::from_uuid(Uuid::from_u128(2));
         let candidate_id = CourseBannerCandidateId::from_uuid(Uuid::from_u128(3));
         let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
-        let candidate = ObjectKey::CourseBannerCandidate {
+        let candidate = ObjectAddress::CourseBannerCandidate {
             course,
             candidate: candidate_id,
         };
-        let banner = ObjectKey::CourseBanner {
+        let banner = ObjectAddress::CourseBanner {
             course,
             banner: banner_id,
         };
 
-        assert_eq!(candidate.bucket(), Bucket::TempProcessing);
-        assert_eq!(candidate.category(), ObjectCategory::Temporary);
+        assert_eq!(candidate.storage_area(), ObjectStorageArea::TempProcessing);
         assert_eq!(candidate.question_version(), None);
         assert!(!candidate.may_issue_signed_url());
-        assert_eq!(banner.bucket(), Bucket::PrivateContent);
-        assert_eq!(banner.category(), ObjectCategory::CourseContent);
+        assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
         assert_eq!(banner.question_version(), None);
         assert!(banner.may_issue_signed_url());
         assert!(candidate.path().contains(&course.to_string()));
@@ -613,12 +638,12 @@ mod tests {
 
     #[test]
     fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
-        let key = ObjectKey::CourseBanner {
+        let key = ObjectAddress::CourseBanner {
             course: CourseId::from_uuid(Uuid::from_u128(2)),
             banner: CourseBannerId::from_uuid(Uuid::from_u128(3)),
         };
         let encoded = serde_json::to_string(&key).expect("banner key should serialize");
-        let decoded: ObjectKey =
+        let decoded: ObjectAddress =
             serde_json::from_str(&encoded).expect("banner key should deserialize");
 
         assert_eq!(decoded, key);
@@ -672,7 +697,7 @@ mod tests {
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
         let object = workspace_qti_archive_object_id(workspace, import);
-        let key = ObjectKey::WorkspaceSource {
+        let key = ObjectAddress::WorkspaceSource {
             workspace,
             import,
             object,
@@ -683,8 +708,7 @@ mod tests {
             format!("workspaces/{workspace}/imports/{import}/source/{object}")
         );
         assert_eq!(key.object_id(), object);
-        assert_eq!(key.bucket(), Bucket::PrivateContent);
-        assert_eq!(key.category(), ObjectCategory::Source);
+        assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
         assert_eq!(key.question_version(), None);
         assert!(!key.may_issue_signed_url());
     }
@@ -709,7 +733,7 @@ mod tests {
 
     #[test]
     fn published_import_archive_key_has_distinct_path_and_private_classification() {
-        let key = ObjectKey::PublishedImportArchive {
+        let key = ObjectAddress::PublishedImportArchive {
             question_version: question_version(3),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
@@ -719,8 +743,7 @@ mod tests {
             key.path(),
             "questions/ABC-DEFG/versions/3/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
         );
-        assert_eq!(key.bucket(), Bucket::PrivateContent);
-        assert_eq!(key.category(), ObjectCategory::Source);
+        assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
         assert_eq!(key.question_version(), Some(&question_version(3)));
         assert!(!key.may_issue_signed_url());
     }
@@ -767,14 +790,14 @@ mod tests {
 
     #[test]
     fn published_import_archive_key_round_trips_through_serde() {
-        let key = ObjectKey::PublishedImportArchive {
+        let key = ObjectAddress::PublishedImportArchive {
             question_version: question_version(3),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
         };
 
         let encoded = serde_json::to_string(&key).expect("object key should serialize");
-        let decoded: ObjectKey =
+        let decoded: ObjectAddress =
             serde_json::from_str(&encoded).expect("object key should deserialize");
         assert_eq!(decoded, key);
         assert!(encoded.contains("publishedImportArchive"));

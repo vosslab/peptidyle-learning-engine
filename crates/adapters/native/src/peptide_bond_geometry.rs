@@ -7,21 +7,23 @@
 
 use std::collections::BTreeSet;
 
-use domain::generator::{GeneratedValue, GeneratedVariant};
+use domain::generator::{QuestionVariationParameterValue, QuestionVariationParameters};
 use grading::AnswerKey;
 use question_model::answer::ResponseSelectionRule;
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::definition::GradingDefinition;
 use question_model::envelope::{ContentBlock, QuestionPresentation};
-use question_model::generation::GeneratorReference;
-use question_model::response::{ResponseItemReference, QuestionResponseFormat};
+use question_model::generation::QuestionGeneratorReference;
+use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    DraftQuestionDefinition, FeedbackContent, GradingResult, ImplementationVersion,
-    QuestionDefinition, QuestionFormat, QuestionType, StudentResponse,
+    DraftQuestionDefinition, GradingResult, QuestionFeedback, QuestionFormat, QuestionHint,
+    QuestionType, QuestionVersion, StudentResponse,
 };
 
 use crate::NativeAdapterError;
-use crate::generator::{AuthorPresentationContent, NativeQuestionImplementation};
+use crate::generator::{
+    AuthorPresentationContent, NativeQuestionImplementation, NativeQuestionImplementationRelease,
+};
 
 /// Stable native Question Implementation name.
 pub const IMPLEMENTATION_ID: &str = "peptide-bond-geometry";
@@ -50,15 +52,15 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         QuestionType::MultipleChoice
     }
 
-    fn implementation_release(&self) -> ImplementationVersion {
-        ImplementationVersion {
+    fn implementation_release(&self) -> NativeQuestionImplementationRelease {
+        NativeQuestionImplementationRelease {
             id: IMPLEMENTATION_ID.to_string(),
             version: IMPLEMENTATION_RELEASE.to_string(),
         }
     }
 
-    fn generator(&self) -> Option<GeneratorReference> {
-        Some(GeneratorReference {
+    fn generator(&self) -> Option<QuestionGeneratorReference> {
+        Some(QuestionGeneratorReference {
             id: GENERATOR_ID.to_string(),
             version: GENERATOR_VERSION.to_string(),
         })
@@ -76,8 +78,8 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionDefinition,
-        generated: &GeneratedVariant,
+        question: &QuestionVersion,
+        generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
         validate_question_shape(question)?;
         if !question.prompt.iter().any(|block| {
@@ -96,13 +98,13 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
 
     fn derive_feedback(
         &self,
-        question: &QuestionDefinition,
-        generated: &GeneratedVariant,
+        question: &QuestionVersion,
+        generated: &QuestionVariationParameters,
         envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<FeedbackContent, NativeAdapterError> {
+    ) -> Result<QuestionFeedback, NativeAdapterError> {
         validate_question_shape(question)?;
         let _ = generated_residue(generated)?;
         // Require the same trusted key shape used by grading, but never expose
@@ -147,10 +149,10 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
             .ok_or_else(|| {
                 invalid_definition("response choices must include the stable amide identifier")
             })?;
-        Ok(FeedbackContent {
-            hint: Some(vec![ContentBlock::Text {
-                markdown: "Compare the C-N bond to an ordinary single bond: ask whether nitrogen's lone pair can share electron density with the neighboring carbonyl.".to_string(),
-            }]),
+        Ok(QuestionFeedback {
+            choice_feedback: None,
+            correct_feedback: None,
+            incorrect_feedback: None,
             correct_response: Some(correct_choice.body.clone()),
             rationale: Some(vec![ContentBlock::Text {
                 markdown: "In a peptide bond, resonance delocalizes the nitrogen lone pair into the carbonyl. The C-N bond therefore has partial double-bond character, which restricts rotation and keeps the peptide group approximately planar.".to_string(),
@@ -158,10 +160,24 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         })
     }
 
+    fn derive_hint(
+        &self,
+        question: &QuestionVersion,
+        generated: &QuestionVariationParameters,
+        envelope: &QuestionPresentation,
+        answer_key: Option<&AnswerKey>,
+    ) -> Result<Option<QuestionHint>, NativeAdapterError> {
+        validate_question_shape(question)?;
+        let _ = (generated, envelope, answer_key);
+        Ok(QuestionHint::new(vec![ContentBlock::Text {
+            markdown: "Compare the C-N bond to an ordinary single bond: ask whether nitrogen's lone pair can share electron density with the neighboring carbonyl.".to_string(),
+        }]))
+    }
+
     fn derive_author_presentation(
         &self,
         question: &DraftQuestionDefinition,
-        generated: &GeneratedVariant,
+        generated: &QuestionVariationParameters,
         _prompt: &[ContentBlock],
     ) -> Result<Option<AuthorPresentationContent>, NativeAdapterError> {
         validate_draft_shape(question)?;
@@ -191,7 +207,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
     }
 }
 
-fn validate_question_shape(question: &QuestionDefinition) -> Result<(), NativeAdapterError> {
+fn validate_question_shape(question: &QuestionVersion) -> Result<(), NativeAdapterError> {
     validate_response_and_grading(&question.response, &question.grading)
 }
 
@@ -229,8 +245,10 @@ fn validate_response_and_grading(
     Ok(())
 }
 
-fn generated_residue(generated: &GeneratedVariant) -> Result<&str, NativeAdapterError> {
-    let Some(GeneratedValue::Choice { value }) = generated.parameters.get(RESIDUE_PARAMETER) else {
+fn generated_residue(generated: &QuestionVariationParameters) -> Result<&str, NativeAdapterError> {
+    let Some(QuestionVariationParameterValue::Choice { value }) =
+        generated.parameters.get(RESIDUE_PARAMETER)
+    else {
         return Err(invalid_definition(
             "generator must produce a choice parameter named residue",
         ));

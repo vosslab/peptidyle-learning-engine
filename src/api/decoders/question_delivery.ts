@@ -1,9 +1,9 @@
 // Issued-question, response, and feedback decoders.
 
 import type { GradingResult } from "../../../generated/api/GradingResult";
-import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback";
+import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
-import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
+import type { QuestionVersion } from "../../../generated/api/QuestionVersion";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch, PublicationResult } from "../contracts";
@@ -36,7 +36,7 @@ import {
   decodeDraftQuestionSource,
   decodeGradingDefinition,
   decodeQuestionSource,
-  decodeRandomization,
+  decodeQuestionVariationDefinition,
   decodeQuestionResponseFormat,
   decodeQuestionFormat,
   decodeQuestionType,
@@ -44,16 +44,10 @@ import {
   questionResponseFormatSupportsType,
 } from "./question_model";
 
-function decodeNormalizedCoordinate(value: unknown, path: string): number {
-  const coordinate = decodeNonnegativeInteger(value, path);
-  if (coordinate > 10_000) throw new DecodeError(path, "an integer from 0 through 10000");
-  return coordinate;
-}
-
 function decodeQuestionContent(
   record: Record<string, unknown>,
   path: string,
-): Omit<QuestionDefinition, "questionId" | "versionNumber"> {
+): Omit<QuestionVersion, "questionId" | "versionNumber"> {
   const response = decodeQuestionResponseFormat(
     field(record, "response", path),
     `${path}.response`,
@@ -91,14 +85,14 @@ function decodeQuestionContent(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    randomization: decodeRandomization(
-      field(record, "randomization", path),
-      `${path}.randomization`,
+    questionVariationDefinition: decodeQuestionVariationDefinition(
+      field(record, "questionVariationDefinition", path),
+      `${path}.questionVariationDefinition`,
       true,
     ),
     grading: decodeGradingDefinition(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
-  } satisfies Omit<QuestionDefinition, "questionId" | "versionNumber">;
+  } satisfies Omit<QuestionVersion, "questionId" | "versionNumber">;
 }
 
 function decodeDraftQuestionContent(
@@ -142,9 +136,9 @@ function decodeDraftQuestionContent(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    randomization: decodeRandomization(
-      field(record, "randomization", path),
-      `${path}.randomization`,
+    questionVariationDefinition: decodeQuestionVariationDefinition(
+      field(record, "questionVariationDefinition", path),
+      `${path}.questionVariationDefinition`,
       true,
     ),
     grading: decodeGradingDefinition(field(record, "grading", path), `${path}.grading`, true),
@@ -152,7 +146,7 @@ function decodeDraftQuestionContent(
   } satisfies DraftQuestionDefinition;
 }
 
-export function decodeQuestionDefinition(value: unknown, path = "response"): QuestionDefinition {
+export function decodeQuestionVersion(value: unknown, path = "response"): QuestionVersion {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionId",
@@ -165,7 +159,7 @@ export function decodeQuestionDefinition(value: unknown, path = "response"): Que
     "questionType",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "randomization",
+    "questionVariationDefinition",
     "grading",
     "metadata",
   ]);
@@ -176,7 +170,7 @@ export function decodeQuestionDefinition(value: unknown, path = "response"): Que
       `${path}.versionNumber`,
     ),
     ...decodeQuestionContent(record, path),
-  } satisfies QuestionDefinition;
+  } satisfies QuestionVersion;
   return decoded;
 }
 
@@ -195,7 +189,7 @@ export function decodeDraftQuestionDefinition(
     "questionType",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "randomization",
+    "questionVariationDefinition",
     "grading",
     "metadata",
   ]);
@@ -346,26 +340,24 @@ export function decodeStudentResponse(value: unknown, path = "response"): Studen
       return decoded;
     }
     case "hotspot": {
-      requireOnlyFields(record, path, ["kind", "points"]);
+      requireOnlyFields(record, path, ["kind", "selections"]);
       return {
         kind: response,
-        points: decodeArray(field(record, "points", path), `${path}.points`, (value, pointPath) => {
-          const point = decodeRecord(value, pointPath);
-          requireOnlyFields(point, pointPath, ["x", "y"]);
-          return {
-            x: decodeNormalizedCoordinate(field(point, "x", pointPath), `${pointPath}.x`),
-            y: decodeNormalizedCoordinate(field(point, "y", pointPath), `${pointPath}.y`),
-          };
-        }),
+        selections: decodeArray(
+          field(record, "selections", path),
+          `${path}.selections`,
+          (value, selectionPath) => {
+            const selection = decodeRecord(value, selectionPath);
+            requireOnlyFields(selection, selectionPath, ["region"]);
+            return {
+              region: decodeNonemptyString(
+                field(selection, "region", selectionPath),
+                `${selectionPath}.region`,
+              ),
+            };
+          },
+        ),
       } satisfies StudentResponse;
-    }
-    case "fileUpload": {
-      requireOnlyFields(record, path, ["kind", "objectKey"]);
-      const decoded = {
-        kind: response,
-        objectKey: decodeNonemptyString(field(record, "objectKey", path), `${path}.objectKey`),
-      } satisfies StudentResponse;
-      return decoded;
     }
     case "externalTool":
       requireOnlyFields(record, path, ["kind"]);
@@ -396,13 +388,15 @@ export function decodeGradingResult(value: unknown, path: string): GradingResult
  * must reject unknown properties rather than silently retaining a provider
  * transcript, key, or other server-private material.
  */
-export function decodeDisclosedFeedback(value: unknown, path = "response"): DisclosedFeedback {
+export function decodeStudentFeedback(value: unknown, path = "response"): StudentFeedback {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "correctness",
     "pointsEarned",
     "pointsPossible",
-    "hint",
+    "choiceFeedback",
+    "correctFeedback",
+    "incorrectFeedback",
     "correctResponse",
     "rationale",
   ]);
@@ -418,10 +412,28 @@ export function decodeDisclosedFeedback(value: unknown, path = "response"): Disc
     "pointsPossible" in record
       ? decodeFiniteNumber(field(record, "pointsPossible", path), `${path}.pointsPossible`)
       : undefined;
-  const hint =
-    "hint" in record
-      ? decodeArray(field(record, "hint", path), `${path}.hint`, (block, blockPath) =>
-          decodeContentBlock(block, blockPath, true),
+  const choiceFeedback =
+    "choiceFeedback" in record
+      ? decodeArray(
+          field(record, "choiceFeedback", path),
+          `${path}.choiceFeedback`,
+          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+        )
+      : undefined;
+  const correctFeedback =
+    "correctFeedback" in record
+      ? decodeArray(
+          field(record, "correctFeedback", path),
+          `${path}.correctFeedback`,
+          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+        )
+      : undefined;
+  const incorrectFeedback =
+    "incorrectFeedback" in record
+      ? decodeArray(
+          field(record, "incorrectFeedback", path),
+          `${path}.incorrectFeedback`,
+          (block, blockPath) => decodeContentBlock(block, blockPath, true),
         )
       : undefined;
   const correctResponse =
@@ -442,8 +454,10 @@ export function decodeDisclosedFeedback(value: unknown, path = "response"): Disc
     ...(correctness === undefined ? {} : { correctness }),
     ...(pointsEarned === undefined ? {} : { pointsEarned }),
     ...(pointsPossible === undefined ? {} : { pointsPossible }),
-    ...(hint === undefined ? {} : { hint }),
+    ...(choiceFeedback === undefined ? {} : { choiceFeedback }),
+    ...(correctFeedback === undefined ? {} : { correctFeedback }),
+    ...(incorrectFeedback === undefined ? {} : { incorrectFeedback }),
     ...(correctResponse === undefined ? {} : { correctResponse }),
     ...(rationale === undefined ? {} : { rationale }),
-  } satisfies DisclosedFeedback;
+  } satisfies StudentFeedback;
 }

@@ -56,7 +56,7 @@ The complete accessibility contract is in
    keeps your accepted response while the instructor resolves the grading issue.
 7. After feedback, correct the retry and continue to the completed summary.
 
-The student receives visible feedback, but answer keys and grading implementation remain on the
+The student receives visible feedback, but Answer Keys and the Question Grader remain on the
 server. The browser displays the countdown; the server decides whether a response arrived on time.
 When scoring is recalculating or has failed, the page reports that neutral state and omits numeric
 scores; it never presents a missing score as zero. Draft, closed, or otherwise unavailable work does

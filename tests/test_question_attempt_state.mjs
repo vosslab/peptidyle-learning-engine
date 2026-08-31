@@ -44,14 +44,12 @@ function receipt() {
         questionVersion: versionReference(1),
         assignmentPosition: 0,
         seed: 2,
-        parameterHash: "hash",
         response: { kind: "numeric", value: 7 },
         result: null,
         timer: { issuedAt: 0, deadline: null, submittedAt: 1 },
-        sourceRecord: { backend: "native", implementationVersion: "1", sourceChecksum: null },
       },
       feedback: null,
-      scoringStatus: "current",
+      assignmentScoringState: "current",
       assignmentAttemptCompletion: "inProgress",
       nextIssued: null,
       nextPending: false,
@@ -176,7 +174,7 @@ test("a completed recalculation exposes status and refreshes without resubmittin
   const fixture = createMachine({
     submitResponse: async () => ({
       ...receipt(),
-      receipt: { ...receipt().receipt, scoringStatus: "recalculating" },
+      receipt: { ...receipt().receipt, assignmentScoringState: "recalculating" },
     }),
     getSubmissionStatus: async () => {
       statusReads += 1;
@@ -184,7 +182,7 @@ test("a completed recalculation exposes status and refreshes without resubmittin
         ...receipt(),
         receipt: {
           ...receipt().receipt,
-          scoringStatus: statusReads === 1 ? "recalculating" : "current",
+          assignmentScoringState: statusReads === 1 ? "recalculating" : "current",
           feedback: statusReads === 1 ? null : { correctness: true, pointsEarned: 1 },
         },
       };
@@ -194,14 +192,14 @@ test("a completed recalculation exposes status and refreshes without resubmittin
 
   await fixture.machine.submit();
   assert.equal(fixture.machine.state().phase, "feedback");
-  assert.equal(fixture.machine.state().acknowledgement.scoringStatus, "recalculating");
+  assert.equal(fixture.machine.state().acknowledgement.assignmentScoringState, "recalculating");
 
   await fixture.machine.checkGradingStatus();
   assert.equal(statusReads, 1);
-  assert.equal(fixture.machine.state().acknowledgement.scoringStatus, "recalculating");
+  assert.equal(fixture.machine.state().acknowledgement.assignmentScoringState, "recalculating");
   await fixture.machine.checkGradingStatus();
   assert.equal(statusReads, 2);
-  assert.equal(fixture.machine.state().acknowledgement.scoringStatus, "current");
+  assert.equal(fixture.machine.state().acknowledgement.assignmentScoringState, "current");
   assert.equal(fixture.submissionCalls.length, 0);
 });
 
@@ -703,7 +701,7 @@ test("storage exceptions retain accepted state without exposing a raw receipt", 
     assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
-    scoringStatus: "current",
+    assignmentScoringState: "current",
   });
   assert.equal("receipt" in state, false);
 });

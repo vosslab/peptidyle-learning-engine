@@ -41,7 +41,7 @@ leave all of them intact.
 
 - The answer-key boundary is enforced by the compiler and by tests, not by convention: the Wasm
   dependency closure is asserted to be exactly `{wasm_bridge, domain, question_model}`, `grading` is
-  absent from both the Wasm and export crates, and `FeedbackContent` is proven to lack serialization
+  absent from both the Wasm and export crates, and `QuestionFeedback` is proven to lack serialization
   derives and to be absent from browser-facing files.
 - Publication immutability is enforced by PostgreSQL triggers, so a compromised application role
   cannot rewrite published questions.

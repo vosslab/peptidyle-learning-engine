@@ -8,10 +8,10 @@
 use std::collections::BTreeSet;
 
 use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-use question_model::generation::RandomizationDefinition;
+use question_model::generation::QuestionVariationDefinition;
 use question_model::{
     Capability, DraftQuestionDefinition, GradingDefinition, QuestionBackendCapabilities,
-    QuestionDefinition, QuestionVersionReference,
+    QuestionVersion, QuestionVersionReference,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentQuestionConfig {
     /// Browser-safe immutable question definition selected by the assignment.
-    pub question: QuestionDefinition,
+    pub question: QuestionVersion,
     /// Capabilities declared by the adapter that owns this question.
     pub question_backend_capabilities: QuestionBackendCapabilities,
 }
@@ -110,19 +110,23 @@ pub fn validate_draft_for_publication(
         .collect()
 }
 
-fn required_by_question(question: &QuestionDefinition) -> BTreeSet<Capability> {
+fn required_by_question(question: &QuestionVersion) -> BTreeSet<Capability> {
     required_by_content(question)
 }
 
 trait QuestionContentView {
-    fn randomization(&self) -> &question_model::generation::RandomizationDefinition;
+    fn question_variation_definition(
+        &self,
+    ) -> &question_model::generation::QuestionVariationDefinition;
     fn grading(&self) -> &GradingDefinition;
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit;
 }
 
-impl QuestionContentView for QuestionDefinition {
-    fn randomization(&self) -> &question_model::generation::RandomizationDefinition {
-        &self.randomization
+impl QuestionContentView for QuestionVersion {
+    fn question_variation_definition(
+        &self,
+    ) -> &question_model::generation::QuestionVariationDefinition {
+        &self.question_variation_definition
     }
     fn grading(&self) -> &GradingDefinition {
         &self.grading
@@ -133,8 +137,10 @@ impl QuestionContentView for QuestionDefinition {
 }
 
 impl QuestionContentView for DraftQuestionDefinition {
-    fn randomization(&self) -> &question_model::generation::RandomizationDefinition {
-        &self.randomization
+    fn question_variation_definition(
+        &self,
+    ) -> &question_model::generation::QuestionVariationDefinition {
+        &self.question_variation_definition
     }
     fn grading(&self) -> &GradingDefinition {
         &self.grading
@@ -148,8 +154,8 @@ fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capabili
     let mut required = BTreeSet::new();
 
     if matches!(
-        question.randomization(),
-        RandomizationDefinition::Seeded { .. }
+        question.question_variation_definition(),
+        QuestionVariationDefinition::Seeded { .. }
     ) {
         required.insert(Capability::AlgorithmicGeneration);
     }
@@ -181,7 +187,7 @@ mod tests {
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
     use question_model::envelope::ContentBlock;
-    use question_model::generation::{GeneratorReference, ParameterSpec};
+    use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::taxonomy::{License, Tag};
     use question_model::{
@@ -217,8 +223,8 @@ mod tests {
         }
     }
 
-    fn base_question(question_version: QuestionVersionReference) -> QuestionDefinition {
-        QuestionDefinition {
+    fn base_question(question_version: QuestionVersionReference) -> QuestionVersion {
+        QuestionVersion {
             question_id: question_version.question_id,
             version_number: question_version.version_number,
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
@@ -236,7 +242,7 @@ mod tests {
                 max_attempts: Some(1),
             },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            randomization: RandomizationDefinition::Static,
+            question_variation_definition: QuestionVariationDefinition::Static,
             grading: GradingDefinition::Ungraded,
             metadata: QuestionMetadata {
                 title: "Capability fixture".to_string(),
@@ -248,17 +254,17 @@ mod tests {
         }
     }
 
-    fn apply_feature(question: &mut QuestionDefinition, feature: CaseFeature) {
+    fn apply_feature(question: &mut QuestionVersion, feature: CaseFeature) {
         match feature {
             CaseFeature::Seeded => {
-                question.randomization = RandomizationDefinition::Seeded {
-                    generator: GeneratorReference {
+                question.question_variation_definition = QuestionVariationDefinition::Seeded {
+                    generator: QuestionGeneratorReference {
                         id: "capability-fixture".to_string(),
                         version: "1".to_string(),
                     },
                     parameters: BTreeMap::from([(
                         "mass".to_string(),
-                        ParameterSpec::IntegerRange { low: 1, high: 2 },
+                        QuestionGeneratorParameter::IntegerRange { low: 1, high: 2 },
                     )]),
                 };
             }

@@ -6,16 +6,16 @@
 //! server-only answer key. Adding an implementation therefore does not change
 //! the engine, API, or browser contracts.
 
-use domain::generator::GeneratedVariant;
+use domain::generator::QuestionVariationParameters;
 use grading::AnswerKey;
 use question_model::capability::QuestionBackendCapabilities;
 use question_model::definition::DraftQuestionDefinition;
 use question_model::envelope::ContentBlock;
 use question_model::envelope::QuestionPresentation;
-use question_model::generation::GeneratorReference;
+use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    FeedbackContent, GradingResult, ImplementationVersion, QuestionDefinition, QuestionFormat,
-    QuestionType, StudentResponse,
+    GradingResult, QuestionFeedback, QuestionFormat, QuestionHint, QuestionType, QuestionVersion,
+    StudentResponse,
 };
 
 use crate::NativeAdapterError;
@@ -33,11 +33,20 @@ pub struct AuthorPresentationContent {
     pub rationale: Option<Vec<ContentBlock>>,
 }
 
+/// Exact release of one Native Question Implementation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeQuestionImplementationRelease {
+    /// Stable Native Question Implementation identifier.
+    pub id: String,
+    /// Implementation compatibility release.
+    pub version: String,
+}
+
 /// One versioned first-party Question Implementation.
 ///
 /// Implement this trait to add a native implementation without editing adapter
 /// dispatch, persistence, API routes, or the browser. Implementations must be
-/// deterministic functions of the immutable definition and generated variant.
+/// deterministic functions of the immutable definition and generated Question Variation Parameters.
 pub trait NativeQuestionImplementation: Send + Sync {
     /// Authored representation this implementation accepts.
     fn question_format(&self) -> QuestionFormat;
@@ -46,14 +55,14 @@ pub trait NativeQuestionImplementation: Send + Sync {
     fn question_type(&self) -> QuestionType;
 
     /// Stable native implementation name and exact release.
-    fn implementation_release(&self) -> ImplementationVersion;
+    fn implementation_release(&self) -> NativeQuestionImplementationRelease;
 
     /// Exact additive Question Generator supported by this implementation.
     ///
     /// Static Question Implementations return `None`. A behavior change requires a new
     /// generator version and a new Question Implementation kept alongside the
     /// old one while published content references it.
-    fn generator(&self) -> Option<GeneratorReference>;
+    fn generator(&self) -> Option<QuestionGeneratorReference>;
 
     /// Capabilities this implementation can honestly provide now.
     fn capabilities(&self) -> QuestionBackendCapabilities;
@@ -66,8 +75,8 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// the authored Question does not satisfy this implementation's contract.
     fn derive_answer_key(
         &self,
-        question: &QuestionDefinition,
-        generated: &GeneratedVariant,
+        question: &QuestionVersion,
+        generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError>;
 
     /// Builds sanitized teaching material after the exact issued instance has
@@ -76,15 +85,30 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// not answer identifiers or key material.
     fn derive_feedback(
         &self,
-        question: &QuestionDefinition,
-        generated: &GeneratedVariant,
+        question: &QuestionVersion,
+        generated: &QuestionVariationParameters,
         envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<FeedbackContent, NativeAdapterError> {
+    ) -> Result<QuestionFeedback, NativeAdapterError> {
         let _ = (question, generated, envelope, answer_key, result, response);
-        Ok(FeedbackContent::default())
+        Ok(QuestionFeedback::default())
+    }
+
+    /// Builds one authorized pre-response hint for an exact issued Question.
+    ///
+    /// The caller owns the separate during-attempt hint request and its
+    /// disclosure policy. A hint is never merged into post-grade feedback.
+    fn derive_hint(
+        &self,
+        question: &QuestionVersion,
+        generated: &QuestionVariationParameters,
+        envelope: &QuestionPresentation,
+        answer_key: Option<&AnswerKey>,
+    ) -> Result<Option<QuestionHint>, NativeAdapterError> {
+        let _ = (question, generated, envelope, answer_key);
+        Ok(None)
     }
 
     /// Produces an instructor-only, display-ready answer presentation for an
@@ -96,7 +120,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     fn derive_author_presentation(
         &self,
         question: &DraftQuestionDefinition,
-        generated: &GeneratedVariant,
+        generated: &QuestionVariationParameters,
         prompt: &[ContentBlock],
     ) -> Result<Option<AuthorPresentationContent>, NativeAdapterError> {
         let _ = (question, generated, prompt);

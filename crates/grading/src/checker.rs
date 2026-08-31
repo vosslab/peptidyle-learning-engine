@@ -9,8 +9,8 @@ use std::collections::BTreeSet;
 use domain::statistics::QuestionStatisticsObservation;
 use domain::validation::{StudentResponseFormatIssue, validate_response_format};
 use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
-use question_model::response::{ResponseItemReference, HotspotRegion, QuestionResponseFormat, StudentResponse};
-use question_model::{GradingDefinition, GradingResult, QuestionDefinition};
+use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
+use question_model::{GradingDefinition, GradingResult, QuestionVersion};
 
 use crate::AnswerKey;
 
@@ -38,8 +38,6 @@ pub enum GradingError {
     InvalidDefinition(String),
     /// Partial-credit rules remain owned by a capable deterministic backend.
     PartialCreditRequiresBackend,
-    /// A graded file upload has no deterministic server-owned grader.
-    FileUploadRequiresDeterministicGrader,
 }
 
 impl std::fmt::Display for GradingError {
@@ -65,8 +63,6 @@ impl std::fmt::Display for GradingError {
             Self::PartialCreditRequiresBackend => {
                 formatter.write_str("partial credit requires a deterministic backend checker")
             }
-            Self::FileUploadRequiresDeterministicGrader => formatter
-                .write_str("graded file upload requires a deterministic server-owned grader"),
         }
     }
 }
@@ -85,11 +81,10 @@ impl std::error::Error for GradingError {}
 ///
 /// Returns [`GradingError`] for response-format violations, missing or
 /// mismatched keys, invalid public parameters, backend-owned partial credit,
-/// or other backend-owned grading behavior. A graded file upload returns a
-/// typed deterministic-capability refusal after its response has passed shape
-/// validation; this checker never fabricates a numeric grade.
+/// or other backend-owned grading behavior. This checker never fabricates a
+/// numeric grade.
 pub fn grade(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
     response: &StudentResponse,
     key: Option<&AnswerKey>,
 ) -> Result<QuestionGradingOutcome, GradingError> {
@@ -112,15 +107,6 @@ pub fn grade(
             return Err(GradingError::PartialCreditRequiresBackend);
         }
     };
-    if matches!(
-        (&question.response, response),
-        (
-            QuestionResponseFormat::FileUpload { .. },
-            StudentResponse::FileUpload { .. },
-        )
-    ) {
-        return Err(GradingError::FileUploadRequiresDeterministicGrader);
-    }
     let key = key.ok_or(GradingError::MissingAnswerKey)?;
     let correct = answer_is_correct(&question.response, response, key)?;
     Ok(QuestionGradingOutcome::Graded(GradingResult {
@@ -136,7 +122,7 @@ pub fn grade(
 /// selections. Other supported response formats still contribute one accepted
 /// grade and its correctness without inventing a choice-count interpretation.
 pub fn question_statistics_observation(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
     response: &StudentResponse,
     outcome: &QuestionGradingOutcome,
 ) -> Result<Option<QuestionStatisticsObservation>, GradingError> {
@@ -244,7 +230,8 @@ fn answer_is_correct(
             StudentResponse::Ordering { order },
             AnswerKey::Ordering { correct },
         ) => {
-            let available: BTreeSet<ResponseItemReference> = items.iter().map(|item| item.id.clone()).collect();
+            let available: BTreeSet<ResponseItemReference> =
+                items.iter().map(|item| item.id.clone()).collect();
             let keyed: BTreeSet<ResponseItemReference> = correct.iter().cloned().collect();
             if keyed.len() != correct.len() || keyed != available {
                 return Err(GradingError::InvalidDefinition(
@@ -255,7 +242,7 @@ fn answer_is_correct(
         }
         (
             QuestionResponseFormat::Hotspot { regions, .. },
-            StudentResponse::Hotspot { points },
+            StudentResponse::Hotspot { selections },
             AnswerKey::Hotspot { correct },
         ) => {
             let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
@@ -264,30 +251,14 @@ fn answer_is_correct(
                     "hotspot key names an unavailable region".to_string(),
                 ));
             }
-            let selected = points
+            let selected = selections
                 .iter()
-                .map(|point| {
-                    regions
-                        .iter()
-                        .find(|region| region_contains(region, point.x, point.y))
-                        .expect("format validation proved each point maps to one region")
-                        .id
-                        .clone()
-                })
+                .map(|selection| selection.region.clone())
                 .collect::<BTreeSet<_>>();
             Ok(selected == *correct)
         }
         _ => Err(GradingError::KindMismatch),
     }
-}
-
-fn region_contains(region: &HotspotRegion, x: u16, y: u16) -> bool {
-    let right = u32::from(region.x) + u32::from(region.width);
-    let bottom = u32::from(region.y) + u32::from(region.height);
-    u32::from(x) >= u32::from(region.x)
-        && u32::from(x) <= right
-        && u32::from(y) >= u32::from(region.y)
-        && u32::from(y) <= bottom
 }
 
 fn numeric_is_correct(
@@ -375,8 +346,8 @@ mod tests {
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
     use question_model::envelope::ContentBlock;
-    use question_model::generation::RandomizationDefinition;
-    use question_model::response::{ChoiceOption, QuestionType};
+    use question_model::generation::QuestionVariationDefinition;
+    use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::taxonomy::License;
     use question_model::{
         QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionVersionNumber,
@@ -384,18 +355,22 @@ mod tests {
     };
     use uuid::Uuid;
 
-    fn choice(id: &str) -> ChoiceOption {
-        ChoiceOption {
+    fn question_choice(id: &str) -> QuestionChoice {
+        QuestionChoice {
             id: ResponseItemReference::new(id),
             body: Vec::new(),
         }
     }
 
-    fn question(
-        response: QuestionResponseFormat,
-        grading: GradingDefinition,
-    ) -> QuestionDefinition {
-        QuestionDefinition {
+    fn ordering_item(id: &str) -> OrderingItem {
+        OrderingItem {
+            id: ResponseItemReference::new(id),
+            body: Vec::new(),
+        }
+    }
+
+    fn question(response: QuestionResponseFormat, grading: GradingDefinition) -> QuestionVersion {
+        QuestionVersion {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
             version_number: QuestionVersionNumber::new(2).expect("positive version"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
@@ -408,7 +383,7 @@ mod tests {
             question_type: QuestionType::MultipleChoice,
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            randomization: RandomizationDefinition::Static,
+            question_variation_definition: QuestionVariationDefinition::Static,
             grading,
             metadata: QuestionMetadata {
                 title: "Grading fixture".to_string(),
@@ -420,7 +395,7 @@ mod tests {
         }
     }
 
-    fn all_or_nothing(response: QuestionResponseFormat) -> QuestionDefinition {
+    fn all_or_nothing(response: QuestionResponseFormat) -> QuestionVersion {
         question(response, GradingDefinition::AllOrNothing { points: 2.0 })
     }
 
@@ -478,17 +453,27 @@ mod tests {
     #[test]
     fn choice_text_and_ordering_use_their_declared_comparisons() {
         let choice_question = all_or_nothing(QuestionResponseFormat::MultipleChoice {
-            choices: vec![choice("a"), choice("b"), choice("c")],
+            choices: vec![
+                question_choice("a"),
+                question_choice("b"),
+                question_choice("c"),
+            ],
             selection: ResponseSelectionRule::Exactly { count: 2 },
         });
         assert!(matches!(
             grade(
                 &choice_question,
                 &StudentResponse::MultipleChoice {
-                    selected: vec![ResponseItemReference::new("c"), ResponseItemReference::new("a")],
+                    selected: vec![
+                        ResponseItemReference::new("c"),
+                        ResponseItemReference::new("a")
+                    ],
                 },
                 Some(&AnswerKey::MultipleChoice {
-                    correct: BTreeSet::from([ResponseItemReference::new("a"), ResponseItemReference::new("c")]),
+                    correct: BTreeSet::from([
+                        ResponseItemReference::new("a"),
+                        ResponseItemReference::new("c")
+                    ]),
                 }),
             ),
             Ok(QuestionGradingOutcome::Graded(GradingResult {
@@ -518,16 +503,22 @@ mod tests {
         ));
 
         let ordering_question = all_or_nothing(QuestionResponseFormat::Ordering {
-            items: vec![choice("first"), choice("second")],
+            items: vec![ordering_item("first"), ordering_item("second")],
         });
         assert!(matches!(
             grade(
                 &ordering_question,
                 &StudentResponse::Ordering {
-                    order: vec![ResponseItemReference::new("first"), ResponseItemReference::new("second")],
+                    order: vec![
+                        ResponseItemReference::new("first"),
+                        ResponseItemReference::new("second")
+                    ],
                 },
                 Some(&AnswerKey::Ordering {
-                    correct: vec![ResponseItemReference::new("first"), ResponseItemReference::new("second")],
+                    correct: vec![
+                        ResponseItemReference::new("first"),
+                        ResponseItemReference::new("second")
+                    ],
                 }),
             ),
             Ok(QuestionGradingOutcome::Graded(GradingResult {
@@ -540,11 +531,18 @@ mod tests {
     #[test]
     fn accepted_multiple_choice_grade_yields_only_its_eligible_choice_counts() {
         let question = all_or_nothing(QuestionResponseFormat::MultipleChoice {
-            choices: vec![choice("a"), choice("b"), choice("c")],
+            choices: vec![
+                question_choice("a"),
+                question_choice("b"),
+                question_choice("c"),
+            ],
             selection: ResponseSelectionRule::Exactly { count: 2 },
         });
         let response = StudentResponse::MultipleChoice {
-            selected: vec![ResponseItemReference::new("a"), ResponseItemReference::new("c")],
+            selected: vec![
+                ResponseItemReference::new("a"),
+                ResponseItemReference::new("c"),
+            ],
         };
         let outcome = grade(
             &question,
@@ -639,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    fn ungraded_partial_credit_and_file_upload_capabilities_are_explicit() {
+    fn ungraded_and_partial_credit_capabilities_are_explicit() {
         let ungraded = question(
             QuestionResponseFormat::ShortText {
                 match_mode: TextResponseMatchRule::Exact,
@@ -684,21 +682,6 @@ mod tests {
                 Some(&AnswerKey::Numeric { expected: 1.0 }),
             ),
             Err(GradingError::PartialCreditRequiresBackend)
-        );
-
-        let upload = all_or_nothing(QuestionResponseFormat::FileUpload {
-            max_bytes: 1_000,
-            accepted_extensions: vec!["pdf".to_string()],
-        });
-        assert_eq!(
-            grade(
-                &upload,
-                &StudentResponse::FileUpload {
-                    object_key: "workspace/object".to_string(),
-                },
-                None,
-            ),
-            Err(GradingError::FileUploadRequiresDeterministicGrader)
         );
     }
 }

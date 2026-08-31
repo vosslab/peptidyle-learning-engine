@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 This is the sole mutable registry for the global current-package handoff and shared migration
 allocations. The [implementation plan](implementation_plan.md) and active
@@ -17,6 +17,29 @@ handoff while the plan is active and retire with the planning layer; product con
 data use domain identifiers.
 
 ## Current handoff
+
+- **Current scoped correction package:** `WP-SD1-A-TERM-01` owns direct
+  terminology alignment against Human Guidance and the terminology contract.
+  Its completed slices include removal of the retired installation-scope and
+  generic authorization labels,
+  Question Version, Question Variation, Question Seed, Question Feedback,
+  Response Item Reference, Question Attempt Limit, Question Pool Selection
+  Rule, Question Presentation integrity, Question Attempt Reproduction Details, Question Backend Version, Question Renderer Version, Question Grader Version, Object Address, Object Storage Area, Object Category removal, Object License and Object Data Class, Assignment Scoring State and Assignment Scoring Snapshot, External Question Provider Cache Entry, and iMathAS Draft Question Source terminology through affected code,
+  generated contracts, tests, and durable documentation. Evidence includes
+  workspace compilation, focused Rust and browser-decoder suites, TypeScript
+  checking, Markdown-link checks, formatter gates, and `git diff --check`.
+  The fresh baseline's private `question_attempt` record now stores the exact
+  Question Seed, generated-parameter SHA-256, closed Question Attempt State,
+  and Question Attempt Reproduction Details under their canonical names.
+  Deferred schema constraints require `SubmissionAccepted` to commit with one
+  Question Submission and require `Open` or `ClosedAtDeadline` to commit
+  without one; a forward-only state trigger preserves terminal history.
+  The connected disposable database verification remains unrun because the
+  configured acceptance-runtime manifest locator is invalid; source, model,
+  adapter, TypeScript, documentation, and SQL-style gates are current.
+  The Answer-versus-Solution model boundary and database split of generic
+  grading-material records remain open owner-dependent work; this scoped
+  package does not advance SD1-A acceptance.
 
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
   ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
@@ -148,8 +171,8 @@ data use domain identifiers.
 - **SD1-B3-B4 preparatory saved-search receipt:** `WP-SD1-B3-B4` is independently accepted from
   reports 56, 57, and 59 for the server-only `NamedQuestionSavedSearch` value aggregate. It retains
   one immutable global `AccountId` owner, one opaque server-only UUID identity, one validated title,
-  one normalized no-scope `CatalogSearchFilter` (`text`, `bylines`, `backends`, `tags`,
-  `response_families`, `taxonomy`, `capabilities`, `licenses`, `evidence`, `used_in_my_courses`,
+  one normalized no-scope `QuestionSearchFilter` (`text`, `bylines`, `backends`, `tags`,
+  `question_types`, `taxonomy`, `capabilities`, `licenses`, `evidence`, `used_in_my_courses`,
   and `authorship`), and one positive storage-safe revision. The aggregate has no installation scope, course,
   saved-owner identity, cursor, page size, route, DTO, browser, or Serde boundary; reruns use a fresh
   current-Question-Library query, with account-bound filters evaluated for the rerunning Account. Its revision-CAS
@@ -298,6 +321,13 @@ focused documentation. The eight rules now remain separate through their model-t
 the complete immutable `AssignmentRevisionDefinition`, and explicit constrained
 `assignment_revision` baseline fields; broader SD1 write-path and delivery enforcement remain
 separately allocated.
+
+The browser boundary now uses an explicit `StudentQuestionAttemptView` generated from the
+durable server-held `QuestionAttempt`. The view carries only Student-visible identity,
+presentation binding, submission, state, timing, and issued capability; reproduction details and
+generated-parameter evidence are absent from both its Rust and TypeScript contracts. Scoring
+freshness and Question Pool selection remain the separate authorized additions to that Student
+view at the browser transport boundary.
 
 The public navigation seam is no longer part of that remaining route vocabulary:
 `NavigationResolution::AssignmentAttempt` carries `assignment_attempt_id`, and its generated
@@ -508,20 +538,21 @@ route-policy authority, and HTTP tests are retired. Automated operations, accept
 processing, normal submission/status, and calculated Gradebook remain the active grading model.
 
 `WN1-MG1B1-outcome` is accepted on 2026-08-29. `QuestionGradingOutcome::NeedsManualGrading`,
-`AnswerKey::FileUpload`, and `SubmissionDisposition::NeedsManualGrading` are retired. Graded file
-upload now returns a typed deterministic-grader capability refusal after format and grading-mode
-validation and before answer-key lookup. Independent review returned `ACCEPT`. Format and affected
-package checks pass; grading, accepted-submission worker, run, and project-tools suites pass 6,
-18, 43, and 63 tests. Supported graded and ungraded paths, external committed outcomes, worker
-retry/fencing, Gradebook, and the transitional attempt/evaluation/store bridge remain intact.
+`AnswerKey::FileUpload`, and `SubmissionDisposition::NeedsManualGrading` are retired. The incomplete
+File Upload Question Response Format, browser control, and free-form object-key Student Response are
+also retired: no current response path represents an upload. Independent review returned `ACCEPT`.
+Format and affected package checks pass; grading, accepted-submission worker, run,
+and project-tools suites pass 6, 18, 43, and 63 tests. Supported graded and ungraded paths, external
+committed outcomes, worker retry/fencing, Gradebook, and the transitional attempt/evaluation/store
+bridge remain intact.
 
 `WN1-MG1B2-attempt-state` is accepted on 2026-08-29. `QuestionAttemptState` now has exactly
-`Open`, `Submitted`, and `AutomaticallySubmitted`, with direct Serde-owned `snake_case` generation
-and strict browser decoding. Memory and PostgreSQL force-submit atomically close Open work as
-answer-free Automatically Submitted state, retain exact action replay, timing cleanup, and audited
+`Open`, `SubmissionAccepted`, and `ClosedAtDeadline`, with direct Serde-owned `snake_case` generation
+and strict browser decoding. Memory and PostgreSQL deadline closure atomically close Open work as
+answer-free Closed at Deadline state, retain exact action replay, timing cleanup, and audited
 evidence, and fabricate neither a response nor a result. Question Attempt Exclusion and Issued
 Question Exemption remain separately owned records. The temporary manual Store bridge now uses
-Submitted state plus its separate manual evaluation record, and item analysis reads that evaluation
+Submission Accepted state plus its separate manual evaluation record, and item analysis reads that evaluation
 state directly. Independent review returned `ACCEPT`. Manager
 format, check, strict Clippy, question-model, Memory/PostgreSQL-capable Store, conformance,
 project-tools, TypeScript, and decoder gates pass; the connected absence-evidence worker closure

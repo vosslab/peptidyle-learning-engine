@@ -15,7 +15,7 @@ import {
 
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
-import type { InspectedStudentResponseV1 } from "../../generated/api/InspectedStudentResponseV1";
+import type { StudentResponseInspection } from "../../generated/api/StudentResponseInspection";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type {
   InspectedStudentSubmission,
@@ -82,14 +82,13 @@ function responseItemLabel(question: QuestionPresentation, item: string): string
     case "numeric":
     case "shortText":
     case "hotspot":
-    case "fileUpload":
     case "externalTool":
       return item;
   }
 }
 
 function InspectedResponse(props: {
-  readonly response: InspectedStudentResponseV1;
+  readonly response: StudentResponseInspection;
   readonly question?: QuestionPresentation;
 }): JSX.Element {
   const label = (item: string): string =>
@@ -149,18 +148,11 @@ function InspectedResponse(props: {
         <Match when={props.response.kind === "hotspot" ? props.response : undefined}>
           {(response) => (
             <ol>
-              <For each={response().points}>
-                {(point) => (
-                  <li>
-                    Horizontal {point.x / 100}% · vertical {point.y / 100}%
-                  </li>
-                )}
+              <For each={response().selectedRegions}>
+                {() => <li>Selected image region</li>}
               </For>
             </ol>
           )}
-        </Match>
-        <Match when={props.response.kind === "fileUpload" ? props.response : undefined}>
-          <p>File submitted. The protected storage location stays private.</p>
         </Match>
         <Match when={props.response.kind === "externalTool" ? props.response : undefined}>
           <p>External-tool submission recorded.</p>
@@ -172,8 +164,8 @@ function InspectedResponse(props: {
 
 function ScoringEvidence(props: { readonly submission: InspectedStudentSubmission }): JSX.Element {
   const score = (): string | undefined => {
-    if (props.submission.scoringStatus === "recalculating") return "Recalculating";
-    if (props.submission.scoringStatus === "failed") return "Needs Instructor attention";
+    if (props.submission.assignmentScoringState === "recalculating") return "Recalculating";
+    if (props.submission.assignmentScoringState === "failed") return "Needs Instructor attention";
     const feedback = props.submission.feedback;
     if (feedback.pointsEarned !== undefined && feedback.pointsPossible !== undefined) {
       return formatPointScore(feedback.pointsEarned, feedback.pointsPossible);

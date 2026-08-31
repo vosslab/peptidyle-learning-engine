@@ -1,13 +1,13 @@
 // Browser adapter from the shared WASM boundary to the editor's narrow preview contract.
 
-import type { Seed } from "../../generated/api/Seed";
+import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WasmFacade } from "../wasm/index";
 import type { EditorPreview, PreviewFacade } from "./editor_page_model";
 
 /** Uses the actual key-free WASM bridge; no local question generator exists in the editor. */
 export function createEditorPreviewFacade(wasm: WasmFacade): PreviewFacade {
   return {
-    preview: async (draft, seed: Seed): Promise<EditorPreview> => {
+    preview: async (draft, seed: QuestionSeed): Promise<EditorPreview> => {
       const result = await wasm.previewNativeDraft(
         {
           workspace: draft.workspace,
@@ -15,7 +15,7 @@ export function createEditorPreviewFacade(wasm: WasmFacade): PreviewFacade {
           title: draft.title,
           prompt: draft.prompt,
           response: draft.response,
-          randomization: draft.randomization,
+          questionVariationDefinition: draft.questionVariationDefinition,
         },
         seed,
       );

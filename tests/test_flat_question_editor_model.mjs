@@ -9,7 +9,7 @@ import {
   reduceFlatQuestionEditor,
   removeChoice,
   removeMatchingPair,
-  renameChoiceId,
+  renameQuestionChoiceReference,
   reorderChoices,
   reorderMatchingItems,
   setQuestionAttemptLimit,
@@ -117,9 +117,9 @@ test("choice edits retain semantic IDs and enforce choices and correct-answer in
   const removed = removeChoice(reordered.source, "choice_a");
   assert.equal(removed.source.response.correctChoice, "choice_b");
   assert.equal(removeChoice(source(), "choice_a").changed, false);
-  assert.equal(renameChoiceId(source(), "choice_a", "Bad ID").changed, false);
-  assert.equal(renameChoiceId(source(), "choice_a", "choice_b").changed, false);
-  const renamed = renameChoiceId(source(), "choice_a", "correct_answer");
+  assert.equal(renameQuestionChoiceReference(source(), "choice_a", "Bad ID").changed, false);
+  assert.equal(renameQuestionChoiceReference(source(), "choice_a", "choice_b").changed, false);
+  const renamed = renameQuestionChoiceReference(source(), "choice_a", "correct_answer");
   assert.equal(renamed.source.response.correctChoice, "correct_answer");
   assert.equal(setCorrectChoice(source(), "missing").changed, false);
   assert.equal(

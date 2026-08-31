@@ -3,8 +3,10 @@ use std::fmt::Write as _;
 use domain::draft_preview::materialize_prompt;
 use domain::generator::generate;
 use question_model::envelope::QuestionPresentation;
-use question_model::generation::Seed;
-use question_model::{DraftQuestionDefinition, QuestionAttemptSourceRecord, QuestionDefinition};
+use question_model::generation::QuestionSeed;
+use question_model::{
+    DraftQuestionDefinition, QuestionAttemptReproductionDetails, QuestionVersion,
+};
 use sha2::{Digest, Sha256};
 
 use crate::generator::AuthorPresentationContent;
@@ -19,28 +21,28 @@ impl NativeAdapter {
     /// Generates one key-free native Issued Question.
     ///
     /// Trusted asset bindings are resolved against the generated envelope,
-    /// then canonical immutable object IDs are persisted in the source record.
+    /// then canonical immutable object IDs are persisted in the reproduction details.
     pub fn issue(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         asset_bindings: &[AssetObjectBinding],
     ) -> Result<NativeIssuedAttempt, NativeAdapterError> {
         let prepared = self.prepare(question, seed)?;
         let asset_objects = resolve_asset_objects(&prepared.envelope, asset_bindings)?;
-        let source_record = QuestionAttemptSourceRecord {
-            adapter: self.current_adapter.clone(),
-            renderer: None,
+        let reproduction_details = QuestionAttemptReproductionDetails {
+            backend: self.current_backend.clone(),
+            renderer_version: None,
             generator: prepared.generated.generator.clone(),
             source_object_reference: None,
             asset_objects,
-            grading: self.current_grading.clone(),
+            grader: self.current_grader.clone(),
             rendered_question_sha256: prepared.rendered_question_sha256,
         };
         Ok(NativeIssuedAttempt {
             envelope: prepared.envelope,
             parameter_hash: prepared.parameter_hash,
-            source_record,
+            reproduction_details,
         })
     }
 
@@ -51,18 +53,22 @@ impl NativeAdapter {
     pub fn author_presentation(
         &self,
         question: &DraftQuestionDefinition,
-        seed: Seed,
+        seed: QuestionSeed,
     ) -> Result<Option<NativeDraftAuthorPresentation>, NativeAdapterError> {
         question
             .metadata
             .validate_title()
             .map_err(NativeAdapterError::InvalidTitle)?;
-        let generated =
-            generate(seed, &question.randomization).map_err(NativeAdapterError::Generation)?;
+        let generated = generate(seed, &question.question_variation_definition)
+            .map_err(NativeAdapterError::Generation)?;
         let implementation =
             self.implementation_for_draft(question, generated.generator.as_ref())?;
-        let prompt = materialize_prompt(&question.prompt, seed, &question.randomization)
-            .map_err(NativeAdapterError::Presentation)?;
+        let prompt = materialize_prompt(
+            &question.prompt,
+            seed,
+            &question.question_variation_definition,
+        )
+        .map_err(NativeAdapterError::Presentation)?;
         let Some(AuthorPresentationContent {
             correct_response,
             rationale,
@@ -81,32 +87,36 @@ impl NativeAdapter {
 
     pub(super) fn prepare_with_execution(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         execution: &NativeExecution,
     ) -> Result<PreparedNativeQuestion, NativeAdapterError> {
         question
             .metadata
             .validate_title()
             .map_err(NativeAdapterError::InvalidTitle)?;
-        let generated =
-            generate(seed, &question.randomization).map_err(NativeAdapterError::Generation)?;
+        let generated = generate(seed, &question.question_variation_definition)
+            .map_err(NativeAdapterError::Generation)?;
         let implementation =
             self.implementation_for_question(question, generated.generator.as_ref())?;
         let parameter_hash = generated.sha256().map_err(NativeAdapterError::Generation)?;
-        let prompt = materialize_prompt(&question.prompt, seed, &question.randomization)
-            .map_err(NativeAdapterError::Presentation)?;
+        let prompt = materialize_prompt(
+            &question.prompt,
+            seed,
+            &question.question_variation_definition,
+        )
+        .map_err(NativeAdapterError::Presentation)?;
         let materialized = MaterializedNativeQuestion {
             prompt,
             answer_key: execution.derive_answer_key(implementation, question, &generated)?,
         };
         let envelope = QuestionPresentation {
-            variation: question_model::QuestionVariation::from_randomization(
+            variation: question_model::QuestionVariation::from_question_variation_definition(
                 question_model::QuestionVersionReference {
                     question_id: question.question_id.clone(),
                     version_number: question.version_number,
                 },
-                &question.randomization,
+                &question.question_variation_definition,
                 seed,
             ),
             title: question.metadata.title.clone(),
@@ -125,14 +135,10 @@ impl NativeAdapter {
 
     pub(super) fn prepare(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
     ) -> Result<PreparedNativeQuestion, NativeAdapterError> {
-        let execution = self.execution_for(
-            &self.adapter_implementations,
-            &self.current_adapter,
-            "adapter",
-        )?;
+        let execution = self.backend_execution_for(&self.current_backend)?;
         self.prepare_with_execution(question, seed, execution)
     }
 }

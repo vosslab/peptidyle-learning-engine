@@ -8,7 +8,7 @@
 
 use std::fmt::Write as _;
 
-use crate::generator::NativeQuestionImplementation;
+use crate::generator::{NativeQuestionImplementation, NativeQuestionImplementationRelease};
 use grading::AnswerKey;
 pub use grading::flat_question::{
     FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
@@ -18,8 +18,7 @@ use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAt
 use question_model::envelope::ContentBlock;
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
-    DraftQuestionDefinition, ImplementationVersion, QuestionDefinition, QuestionFormat,
-    QuestionType, WorkspaceId,
+    DraftQuestionDefinition, QuestionFormat, QuestionType, QuestionVersion, WorkspaceId,
     capability::{Capability, QuestionBackendCapabilities},
 };
 use serde::{Deserialize, Serialize};
@@ -201,14 +200,14 @@ impl NativeQuestionImplementation for FlatV2QuestionImplementation {
         self.0
     }
 
-    fn implementation_release(&self) -> ImplementationVersion {
-        ImplementationVersion {
+    fn implementation_release(&self) -> NativeQuestionImplementationRelease {
+        NativeQuestionImplementationRelease {
             id: "ple-flat-question".to_string(),
             version: "2".to_string(),
         }
     }
 
-    fn generator(&self) -> Option<question_model::GeneratorReference> {
+    fn generator(&self) -> Option<question_model::QuestionGeneratorReference> {
         None
     }
 
@@ -223,8 +222,8 @@ impl NativeQuestionImplementation for FlatV2QuestionImplementation {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionDefinition,
-        _generated: &domain::generator::GeneratedVariant,
+        question: &QuestionVersion,
+        _generated: &domain::generator::QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, crate::NativeAdapterError> {
         if !matches!(question.source, question_model::QuestionSource::Native)
             || question.question_format != self.question_format()

@@ -431,8 +431,8 @@ class DoctorCheck:
 
 
 @dataclasses.dataclass(frozen=True)
-class RendererProvenance:
-	"""Private attestation connecting one renderer reference to its OCI ID."""
+class QuestionRendererVersion:
+	"""Private exact renderer version selected for one local-stack lifecycle."""
 
 	reference: str
 	oci_id: str

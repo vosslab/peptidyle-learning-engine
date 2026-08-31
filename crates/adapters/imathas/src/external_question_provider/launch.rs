@@ -2,7 +2,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::{ActivityTimestamp, QuestionAttemptId};
 use sha2::Sha256;
 use uuid::Uuid;
@@ -214,7 +214,7 @@ fn read_binding(cursor: &mut Cursor<'_>) -> Result<GradeBinding, ImathasAdapterE
             question_id,
             version_number,
         },
-        seed: Seed::new(cursor.u64()?),
+        seed: QuestionSeed::new(cursor.u64()?),
     })
 }
 

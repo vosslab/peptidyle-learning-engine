@@ -123,7 +123,7 @@ def configure_default_environment(
 		"PLE_LOCAL_AUTOMATED_GRADING_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
-		"PLE_WEBWORK_PROVENANCE_FILE": str(secret_directory / "webwork-renderer.provenance"),
+		"PLE_WEBWORK_RENDERER_VERSION_FILE": str(secret_directory / "question-renderer-version"),
 		"PLE_PUBLIC_ASSET_BASE_URL": "http://127.0.0.1:9000/public-assets",
 		"PLE_WEBAUTHN_RP_ID": "localhost",
 		"PLE_WEBAUTHN_RP_NAME": "Peptidyle Learning Engine",
@@ -226,7 +226,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
-		"PLE_WEBWORK_PROVENANCE_FILE",
+		"PLE_WEBWORK_RENDERER_VERSION_FILE",
 	)
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
 		required = required + (
@@ -384,7 +384,7 @@ def restart_lifecycle(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], child_environment(selected)
 	)
 	if service == "webwork-renderer":
-		require_renderer_restart_provenance(selected, values, oci_id)
+		require_question_renderer_version(selected, values, oci_id)
 	else:
 		require_attested_running_renderer(selected, runner, values, oci_id)
 		if service == "api":
@@ -605,7 +605,7 @@ def attest_renderer(target: local_stack_control.models.ComposeTarget, runner: lo
 	"""Prove renderer identity and behavior before replacing its private attestation."""
 	require_running_renderer(target, runner, oci_id)
 	probe_renderer(target, runner, repo_root, oci_id)
-	write_renderer_provenance(target, values, oci_id)
+	write_question_renderer_version(target, values, oci_id)
 
 
 #============================================
@@ -621,7 +621,7 @@ def probe_renderer(target: local_stack_control.models.ComposeTarget, runner: loc
 def require_attested_running_renderer(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, values: dict[str, str], oci_id: str) -> None:
 	"""Require the running renderer and its private preexisting OCI attestation."""
 	require_running_renderer(target, runner, oci_id)
-	require_renderer_restart_provenance(target, values, oci_id)
+	require_question_renderer_version(target, values, oci_id)
 
 
 #============================================
@@ -631,26 +631,26 @@ def require_running_renderer(target: local_stack_control.models.ComposeTarget, r
 
 
 #============================================
-def renderer_provenance_directory(target: local_stack_control.models.ComposeTarget, values: dict[str, str]) -> pathlib.Path:
-	"""Resolve the fixed selected private provenance directory."""
-	provenance_path = absolute_value_path(target.repo_root, values["PLE_WEBWORK_PROVENANCE_FILE"])
-	if provenance_path.name != local_stack_control.renderer.PROVENANCE_NAME:
-		raise local_stack_control.models.ControllerError("selected renderer provenance path has an invalid name")
-	return provenance_path.parent
+def question_renderer_version_directory(target: local_stack_control.models.ComposeTarget, values: dict[str, str]) -> pathlib.Path:
+	"""Resolve the fixed private Question Renderer Version directory."""
+	version_path = absolute_value_path(target.repo_root, values["PLE_WEBWORK_RENDERER_VERSION_FILE"])
+	if version_path.name != local_stack_control.renderer.QUESTION_RENDERER_VERSION_NAME:
+		raise local_stack_control.models.ControllerError("selected Question Renderer Version path has an invalid name")
+	return version_path.parent
 
 
 #============================================
-def write_renderer_provenance(target: local_stack_control.models.ComposeTarget, values: dict[str, str], oci_id: str) -> None:
-	"""Atomically replace the private renderer attestation after a successful probe."""
-	provenance = local_stack_control.models.RendererProvenance(values["PLE_WEBWORK_RENDERER_IMAGE"], oci_id)
-	local_stack_control.renderer.write_provenance(renderer_provenance_directory(target, values), provenance)
+def write_question_renderer_version(target: local_stack_control.models.ComposeTarget, values: dict[str, str], oci_id: str) -> None:
+	"""Record the exact Question Renderer Version after a successful probe."""
+	version = local_stack_control.models.QuestionRendererVersion(values["PLE_WEBWORK_RENDERER_IMAGE"], oci_id)
+	local_stack_control.renderer.write_question_renderer_version(question_renderer_version_directory(target, values), version)
 
 
 #============================================
-def require_renderer_restart_provenance(target: local_stack_control.models.ComposeTarget, values: dict[str, str], oci_id: str) -> None:
-	"""Require the preexisting renderer attestation before a renderer recovery mutation."""
-	local_stack_control.renderer.require_restart_provenance(
-		renderer_provenance_directory(target, values), oci_id
+def require_question_renderer_version(target: local_stack_control.models.ComposeTarget, values: dict[str, str], oci_id: str) -> None:
+	"""Require the current Question Renderer Version before renderer recovery."""
+	local_stack_control.renderer.require_question_renderer_version(
+		question_renderer_version_directory(target, values), oci_id
 	)
 
 

@@ -4,7 +4,7 @@ import { ErrorBoundary, For, Show, createEffect, createSignal, onMount, type JSX
 
 import type { Capability } from "../../generated/api/Capability";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
-import type { Seed } from "../../generated/api/Seed";
+import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { PublicByline } from "../../generated/api/PublicByline";
 import { QuestionRenderer } from "../components/question_renderer";
@@ -71,7 +71,7 @@ const EDITOR_CAPABILITIES: ReadonlyArray<Capability> = [
   "offlinePreview",
 ];
 
-function initialSeed(): Seed {
+function initialSeed(): QuestionSeed {
   return 101;
 }
 
@@ -215,7 +215,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     return value.kind === "error" ? value : undefined;
   };
 
-  function seed(): Seed | null {
+  function seed(): QuestionSeed | null {
     const value = Number(seedInput());
     return Number.isInteger(value) && value >= 0 && value <= 4_294_967_295 ? value : null;
   }

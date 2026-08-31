@@ -3,7 +3,7 @@
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
-import type { Seed } from "../../generated/api/Seed";
+import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import {
   DecodeError,
@@ -14,7 +14,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../api/decoder";
-import { decodeDisclosedFeedback, decodeKeyFreeDraftPreview } from "../api/decoders";
+import { decodeKeyFreeDraftPreview, decodeStudentFeedback } from "../api/decoders";
 
 const QUESTION_BACKENDS: ReadonlyArray<QuestionBackend> = [
   "native",
@@ -32,7 +32,7 @@ export interface InstructorPreviewPresentation {
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
   readonly response: QuestionResponseFormat;
-  readonly seed: Seed;
+  readonly seed: QuestionSeed;
   /** Display-ready blocks, not a reusable grading key or answer representation. */
   readonly correctResponse: ReadonlyArray<ContentBlock>;
   readonly rationale?: ReadonlyArray<ContentBlock>;
@@ -59,7 +59,7 @@ type DecodedInstructorPreview =
 export interface InstructorPreviewBoundary {
   readonly requestPresentation: (
     workspace: WorkspaceId,
-    seed: Seed,
+    seed: QuestionSeed,
     revision: string,
   ) => Promise<InstructorPreviewResult>;
 }
@@ -105,7 +105,7 @@ function requireOnlyFields(
   }
 }
 
-function decodePreviewSeed(value: unknown, path: string): Seed {
+function decodePreviewSeed(value: unknown, path: string): QuestionSeed {
   const seed = decodeNonnegativeInteger(value, path);
   if (seed > MAX_PREVIEW_SEED) {
     throw new DecodeError(path, `an integer no larger than ${MAX_PREVIEW_SEED}`);
@@ -135,7 +135,7 @@ function decodePresentation(
     { workspace, seed, title, prompt, response },
     `${path}.studentPresentation`,
   );
-  const answer = decodeDisclosedFeedback(
+  const answer = decodeStudentFeedback(
     {
       correctResponse: decodeField(record, "correctResponse", path),
       ...("rationale" in record ? { rationale: decodeField(record, "rationale", path) } : {}),
@@ -187,7 +187,7 @@ export function decodeInstructorPreview(
   }
 }
 
-function authorPreviewPath(workspace: WorkspaceId, seed: Seed): string {
+function authorPreviewPath(workspace: WorkspaceId, seed: QuestionSeed): string {
   const encodedWorkspace = encodeURIComponent(workspace);
   const query = new URLSearchParams({ seed: String(seed) });
   return `/api/workspaces/${encodedWorkspace}/author-preview?${query.toString()}`;

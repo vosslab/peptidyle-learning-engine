@@ -22,8 +22,8 @@ use crate::external_question_provider::{
 };
 use crate::scored_embed::ScoredEmbedProfileConfig;
 use crate::{
-    DraftLocator, ImathasProvider, ProviderFailure, ProviderGradeRequest, ProviderRenderRequest,
-    SafeProviderRender, SupportedProfile, VerifiedProviderGrade, sealed,
+    ImathasDraftQuestionSource, ImathasProvider, ProviderFailure, ProviderGradeRequest,
+    ProviderRenderRequest, SafeProviderRender, SupportedProfile, VerifiedProviderGrade, sealed,
 };
 
 /// Safe, deterministic behavior selected by a local server test.
@@ -93,7 +93,7 @@ impl sealed::ProviderSealed for RecordedImathasProvider {}
 impl ImathasProvider for RecordedImathasProvider {
     async fn snapshot(
         &self,
-        _locator: &DraftLocator,
+        _locator: &ImathasDraftQuestionSource,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
         self.snapshot_calls.fetch_add(1, Ordering::SeqCst);
         mode_result(self.mode)?;
@@ -388,7 +388,7 @@ mod tests {
             provider: "recorded-provider".into(),
             item_ref: "item-17".into(),
         };
-        let locator = DraftLocator::from_draft(&source).unwrap();
+        let locator = ImathasDraftQuestionSource::from_draft(&source).unwrap();
         assert_eq!(
             provider.snapshot(&locator).await,
             Err(ProviderFailure::Unavailable)

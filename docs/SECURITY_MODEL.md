@@ -403,7 +403,7 @@ graded work.
 
 Question Library search results contain hot browser-safe metadata only. They expose a
 Question Backend but no Native Question Implementation name, WeBWorK path, QTI package identifier,
-H5P package identifier, prompt, response definition, or answer-bearing value.
+H5P package identifier, prompt, Question Response Format, or answer-bearing value.
 Every published question remains discoverable to every approved Instructor while
 its lifecycle is `active`, `deprecated`, or `archived`; the safe projection
 shows that lifecycle state. Selection eligibility is separate: only `active`

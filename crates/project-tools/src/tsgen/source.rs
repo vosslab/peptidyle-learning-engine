@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use syn::{Attribute, Visibility};
+use syn::{Attribute, Meta, Visibility};
 
 use super::model::Generated;
 
@@ -53,7 +53,18 @@ pub(super) fn collect_contract_sources(
 }
 
 pub(super) fn is_exported(visibility: &Visibility, attrs: &[Attribute]) -> bool {
-    matches!(visibility, Visibility::Public(_)) && derives_serde(attrs)
+    matches!(visibility, Visibility::Public(_)) && derives_serde(attrs) && !is_server_held(attrs)
+}
+
+/// `#[doc(hidden)]` marks a public Rust type that is intentionally available
+/// to trusted server crates but has no browser contract. Keeping that marker
+/// at the declaration prevents a generated TypeScript declaration from making
+/// a server-held record appear importable by browser code.
+fn is_server_held(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        attr.path().is_ident("doc")
+            && matches!(&attr.meta, Meta::List(list) if list.tokens.to_string() == "hidden")
+    })
 }
 
 /// Returns the complete generated declaration namespace after rejecting a

@@ -3,9 +3,9 @@
 import type { Capability } from "../../generated/api/Capability";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
-import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
+import type { QuestionVariationDefinition } from "../../generated/api/QuestionVariationDefinition";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
-import type { Seed } from "../../generated/api/Seed";
+import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
@@ -27,7 +27,7 @@ export interface EditorDraft {
   readonly response: QuestionResponseFormat;
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly randomization: RandomizationDefinition;
+  readonly questionVariationDefinition: QuestionVariationDefinition;
 }
 
 export interface EditorDraftDisplayState {
@@ -50,7 +50,7 @@ export interface WorkspaceDraftPage {
 /** A key-free, unversioned offline preview result. */
 export interface EditorPreview {
   readonly workspace: WorkspaceId;
-  readonly seed: Seed;
+  readonly seed: QuestionSeed;
   readonly title: string;
   readonly prompt: ReadonlyArray<ContentBlock>;
   readonly response: QuestionResponseFormat;
@@ -82,7 +82,7 @@ export interface PublishVersionDiff {
 export interface InstructorPreviewProvider {
   readonly requestPresentation: (
     draft: EditorDraft,
-    seed: Seed,
+    seed: QuestionSeed,
   ) => Promise<InstructorPreviewResult>;
 }
 
@@ -125,7 +125,7 @@ export interface EditorRepository {
 
 /** Injected WASM-shaped key-free boundary. It must not call a network service. */
 export interface PreviewFacade {
-  readonly preview: (draft: EditorDraft, seed: Seed) => Promise<EditorPreview>;
+  readonly preview: (draft: EditorDraft, seed: QuestionSeed) => Promise<EditorPreview>;
 }
 
 export function serializeEditorState(draft: EditorDraft, preview: EditorPreview | null): string {

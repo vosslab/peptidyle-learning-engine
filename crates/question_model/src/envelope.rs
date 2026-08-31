@@ -14,7 +14,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::QuestionVersionReference;
-use crate::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition, Seed};
+use crate::generation::{
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
+    QuestionVariationDefinition,
+};
 use crate::identity::AssetId;
 use crate::response::QuestionResponseFormat;
 
@@ -94,17 +97,20 @@ pub struct QuestionVariation {
     pub question_version: QuestionVersionReference,
     /// Exact generator used for this variation, when the Question is seeded.
     #[serde(skip)]
-    pub generator: Option<GeneratorReference>,
+    pub generator: Option<QuestionGeneratorReference>,
     /// Declared generator parameters, in deterministic key order.
     #[serde(skip)]
-    pub parameters: BTreeMap<String, ParameterSpec>,
+    pub parameters: BTreeMap<String, QuestionGeneratorParameter>,
     /// The seed that produced this variant.
-    pub seed: Seed,
+    pub seed: QuestionSeed,
 }
 
 impl QuestionVariation {
     /// Records an exact static variation with no generator or parameters.
-    pub fn static_variation(question_version: QuestionVersionReference, seed: Seed) -> Self {
+    pub fn static_variation(
+        question_version: QuestionVersionReference,
+        seed: QuestionSeed,
+    ) -> Self {
         Self {
             question_version,
             generator: None,
@@ -114,14 +120,14 @@ impl QuestionVariation {
     }
 
     /// Records the exact declared variation recipe for an issued Question.
-    pub fn from_randomization(
+    pub fn from_question_variation_definition(
         question_version: QuestionVersionReference,
-        randomization: &RandomizationDefinition,
-        seed: Seed,
+        question_variation_definition: &QuestionVariationDefinition,
+        seed: QuestionSeed,
     ) -> Self {
-        match randomization {
-            RandomizationDefinition::Static => Self::static_variation(question_version, seed),
-            RandomizationDefinition::Seeded {
+        match question_variation_definition {
+            QuestionVariationDefinition::Static => Self::static_variation(question_version, seed),
+            QuestionVariationDefinition::Seeded {
                 generator,
                 parameters,
             } => Self {
@@ -182,27 +188,28 @@ mod tests {
 
     #[test]
     fn variation_retains_the_exact_declared_generation_recipe() {
-        let static_variation = QuestionVariation::static_variation(reference(), Seed::new(3));
+        let static_variation =
+            QuestionVariation::static_variation(reference(), QuestionSeed::new(3));
         assert_eq!(static_variation.generator, None);
         assert!(static_variation.parameters.is_empty());
 
         let mut parameters = BTreeMap::new();
         parameters.insert(
             "count".to_string(),
-            ParameterSpec::IntegerRange { low: 2, high: 7 },
+            QuestionGeneratorParameter::IntegerRange { low: 2, high: 7 },
         );
-        let variation = QuestionVariation::from_randomization(
+        let variation = QuestionVariation::from_question_variation_definition(
             reference(),
-            &RandomizationDefinition::Seeded {
-                generator: GeneratorReference {
+            &QuestionVariationDefinition::Seeded {
+                generator: QuestionGeneratorReference {
                     id: "counted".to_string(),
                     version: "2".to_string(),
                 },
                 parameters,
             },
-            Seed::new(5),
+            QuestionSeed::new(5),
         );
-        assert_eq!(variation.seed, Seed::new(5));
+        assert_eq!(variation.seed, QuestionSeed::new(5));
         assert_eq!(variation.generator.expect("seeded generator").id, "counted");
         assert_eq!(variation.parameters.len(), 1);
     }

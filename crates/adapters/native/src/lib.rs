@@ -10,14 +10,15 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use domain::draft_preview::PresentationError;
-use domain::generator::{GeneratedVariant, GenerationError};
+use domain::generator::{GenerationError, QuestionVariationParameters};
 use grading::GradingError;
 use question_model::envelope::{ContentBlock, QuestionPresentation};
 use question_model::{
-    AssetId, ImplementationVersion, ObjectId, QuestionAttemptSourceRecord, QuestionTitleError,
+    AssetId, ObjectId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
+    QuestionGraderVersion, QuestionTitleError,
 };
 
-use crate::generator::NativeQuestionImplementation;
+use crate::generator::{NativeQuestionImplementation, NativeQuestionImplementationRelease};
 
 #[path = "lib/capabilities.rs"]
 mod capabilities;
@@ -32,18 +33,12 @@ mod reproduction;
 #[path = "lib/source_implementation.rs"]
 mod source_implementation;
 
-use registry::{
-    ImplementationRegistrationKey, NativeExecution, NativeQuestionImplementationRegistrationKey,
-};
+use registry::{NativeExecution, NativeQuestionImplementationRegistrationKey};
 
 #[cfg(test)]
 use grading::QuestionGradingOutcome;
 #[cfg(test)]
-use question_model::QuestionDefinition;
-#[cfg(test)]
-use question_model::generation::Seed;
-#[cfg(test)]
-use registry::implementation_version;
+use registry::{backend_version, grader_version};
 #[cfg(test)]
 mod test_support;
 
@@ -54,15 +49,15 @@ pub mod generator;
 /// Reference implementation proving generation, rendering, and server grading end to end.
 pub mod peptide_bond_geometry;
 
-/// Stable adapter implementation identifier persisted with every native attempt.
+/// Stable Question Backend identifier persisted with every native attempt.
 pub const ADAPTER_ID: &str = "native-adapter";
-/// Current adapter implementation version for issuance and replay.
+/// Current Question Backend Version for issuance and replay.
 ///
-/// This is not the repository CalVer release or a question version.
+/// This is distinct from the repository CalVer release and from a Question Version.
 pub const ADAPTER_VERSION: &str = "1";
-/// Stable generic grader identifier persisted with every native attempt.
+/// Stable Question Grader identifier persisted with every native attempt.
 pub const GRADING_ID: &str = "generic-grader";
-/// Current generic-grader implementation version for issuance and replay.
+/// Current Question Grader Version for issuance and replay.
 pub const GRADING_VERSION: &str = "1";
 
 /// One trusted, server-side binding from an authored logical asset to its
@@ -87,7 +82,7 @@ pub struct NativeIssuedAttempt {
     /// SHA-256 of the canonical generated parameter map.
     pub parameter_hash: String,
     /// Versions and object identities needed to reproduce the attempt.
-    pub source_record: QuestionAttemptSourceRecord,
+    pub reproduction_details: QuestionAttemptReproductionDetails,
 }
 
 /// Server-only author presentation for one native draft seed.
@@ -115,14 +110,14 @@ pub struct NativeAdapter {
         NativeQuestionImplementationRegistrationKey,
         Arc<dyn NativeQuestionImplementation>,
     >,
-    adapter_implementations: BTreeMap<ImplementationRegistrationKey, NativeExecution>,
-    grading_implementations: BTreeMap<ImplementationRegistrationKey, NativeExecution>,
-    current_adapter: ImplementationVersion,
-    current_grading: ImplementationVersion,
+    backend_versions: BTreeMap<(String, String), NativeExecution>,
+    grader_versions: BTreeMap<(String, String), NativeExecution>,
+    current_backend: QuestionBackendVersion,
+    current_grader: QuestionGraderVersion,
 }
 
 struct PreparedNativeQuestion {
-    generated: GeneratedVariant,
+    generated: QuestionVariationParameters,
     materialized: MaterializedNativeQuestion,
     envelope: QuestionPresentation,
     parameter_hash: String,
@@ -143,20 +138,19 @@ pub enum NativeAdapterError {
     UnknownQuestionImplementation {
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
-        generator: Option<question_model::GeneratorReference>,
+        generator: Option<question_model::QuestionGeneratorReference>,
     },
     /// Two implementations attempted to own one exact Question contract.
     DuplicateQuestionImplementation {
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
-        generator: Option<question_model::GeneratorReference>,
-        implementation: ImplementationVersion,
+        generator: Option<question_model::QuestionGeneratorReference>,
+        implementation: NativeQuestionImplementationRelease,
     },
-    /// A persisted adapter or grader version has no compiled implementation.
-    UnknownImplementation {
-        field: &'static str,
-        version: ImplementationVersion,
-    },
+    /// A persisted Question Backend Version has no compiled implementation.
+    UnknownQuestionBackendVersion { version: QuestionBackendVersion },
+    /// A persisted Question Grader Version has no compiled implementation.
+    UnknownQuestionGraderVersion { version: QuestionGraderVersion },
     /// The authored definition does not meet its implementation's contract.
     IncompatibleQuestionImplementation { message: String },
     /// Persisted student-facing metadata cannot be delivered safely.
@@ -201,10 +195,15 @@ impl std::fmt::Display for NativeAdapterError {
                 "native Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}/{}@{}",
                 implementation.id, implementation.version
             ),
-            Self::UnknownImplementation { field, version } => write!(
+            Self::UnknownQuestionBackendVersion { version } => write!(
                 formatter,
-                "native {field} implementation is not installed: {}@{}",
-                version.id, version.version
+                "native Question Backend Version is not installed: {}@{}",
+                version.name, version.version
+            ),
+            Self::UnknownQuestionGraderVersion { version } => write!(
+                formatter,
+                "native Question Grader Version is not installed: {}@{}",
+                version.name, version.version
             ),
             Self::IncompatibleQuestionImplementation { message } => {
                 write!(

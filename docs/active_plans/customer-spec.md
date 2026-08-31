@@ -123,15 +123,15 @@ All question engines should map into a shared internal representation.
 For example:
 
 ```ts
-interface QuestionDefinition {
+interface QuestionVersion {
   id: string;
   source: QuestionSource;
   version: string;
   prompt: QuestionContent;
   responseFormat: QuestionResponseFormat;
-  attemptPolicy: AttemptPolicy;
+  questionAttemptLimit: QuestionAttemptLimit;
   timingPolicy: TimingPolicy;
-  randomization?: RandomizationDefinition;
+  questionVariationDefinition?: QuestionVariationDefinition;
   grading: GradingDefinition;
   metadata: QuestionMetadata;
 }
@@ -164,13 +164,13 @@ Each question system should implement a common adapter boundary.
 interface QuestionBackendAdapter {
   getCapabilities(): QuestionBackendCapabilities;
 
-  loadQuestion(reference: ExternalQuestionReference): Promise<QuestionDefinition>;
+  loadQuestion(reference: ExternalQuestionReference): Promise<QuestionVersion>;
 
-  createAttempt(question: QuestionDefinition, context: AttemptContext): Promise<QuestionAttempt>;
+  createAttempt(question: QuestionVersion, context: AttemptContext): Promise<QuestionAttempt>;
 
   gradeAttempt(attempt: QuestionAttempt, response: StudentResponse): Promise<GradeResult>;
 
-  exportQuestion?(question: QuestionDefinition, format: ExportFormat): Promise<ExportedQuestion>;
+  exportQuestion?(question: QuestionVersion, format: ExportFormat): Promise<ExportedQuestion>;
 }
 ```
 
@@ -195,7 +195,7 @@ interface Assignment {
   questions: AssignmentQuestion[];
   completionPolicy: CompletionPolicy;
   timingPolicy: TimingPolicy;
-  attemptPolicy: AttemptPolicy;
+  questionAttemptLimit: QuestionAttemptLimit;
   availability: AvailabilityPolicy;
 }
 ```

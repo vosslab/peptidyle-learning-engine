@@ -1,9 +1,10 @@
-//! Generation specifications: the input side of seeded generation (WP-C1).
+//! Generation specifications: the input side of Question Variation generation.
 //!
-//! A generation spec plus a [`Seed`] fully determines a variant. Everything a
+//! A generation specification plus a [`QuestionSeed`] fully determines a Question Variation.
+//! Everything a
 //! generator reads arrives through those two values, which is what lets the
 //! same spec run on the server and in the browser and agree byte for byte.
-//! That agreement is the WP-C5 seed-parity gate, and it underwrites both the
+//! That agreement underwrites both the
 //! render cache and the reproducibility record.
 //!
 //! Determinism rules for anyone implementing a generator: read parameters from
@@ -20,24 +21,24 @@ use serde::{Deserialize, Serialize};
 /// while existing published definitions continue to resolve to the old one.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GeneratorReference {
+pub struct QuestionGeneratorReference {
     /// Stable generator identifier.
     pub id: String,
     /// Additive generator version.
     pub version: String,
 }
 
-/// The value that selects one variant of a question.
+/// The value that selects one Question Variation.
 ///
-/// Stored with every attempt so the exact variant a student saw can be
+/// Stored with every attempt so the exact Question Variation a student saw can be
 /// rebuilt later, which is what makes a grade auditable years after the fact.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Seed(u64);
+pub struct QuestionSeed(u64);
 
-impl Seed {
+impl QuestionSeed {
     /// Wraps a raw seed value.
     pub fn new(value: u64) -> Self {
-        Seed(value)
+        QuestionSeed(value)
     }
 
     /// The raw value, for hashing and storage.
@@ -57,7 +58,7 @@ impl Seed {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum ParameterSpec {
+pub enum QuestionGeneratorParameter {
     /// An integer drawn from an inclusive range.
     IntegerRange {
         /// Smallest value, inclusive.
@@ -93,7 +94,7 @@ pub enum ParameterSpec {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum RandomizationDefinition {
+pub enum QuestionVariationDefinition {
     /// Every student sees identical content.
     ///
     /// The honest declaration for imported questions that carry no generator.
@@ -102,12 +103,12 @@ pub enum RandomizationDefinition {
     /// Content is generated from the seed.
     Seeded {
         /// Exact generator implementation the backend adapter dispatches on.
-        generator: GeneratorReference,
+        generator: QuestionGeneratorReference,
         /// Parameters the generator reads, keyed by name.
         ///
         /// A `BTreeMap` because iteration order reaches generated output, and
         /// determinism requires that order to be the same everywhere.
-        parameters: BTreeMap<String, ParameterSpec>,
+        parameters: BTreeMap<String, QuestionGeneratorParameter>,
     },
 }
 
@@ -117,7 +118,7 @@ mod tests {
 
     #[test]
     fn a_seed_keeps_its_value() {
-        assert_eq!(Seed::new(42).value(), 42);
+        assert_eq!(QuestionSeed::new(42).value(), 42);
     }
 
     #[test]
@@ -125,16 +126,16 @@ mod tests {
         let mut parameters = BTreeMap::new();
         parameters.insert(
             "mass".to_string(),
-            ParameterSpec::IntegerRange { low: 1, high: 9 },
+            QuestionGeneratorParameter::IntegerRange { low: 1, high: 9 },
         );
         parameters.insert(
             "element".to_string(),
-            ParameterSpec::Choice {
+            QuestionGeneratorParameter::Choice {
                 options: vec!["Na".to_string(), "K".to_string()],
             },
         );
-        let definition = RandomizationDefinition::Seeded {
-            generator: GeneratorReference {
+        let definition = QuestionVariationDefinition::Seeded {
+            generator: QuestionGeneratorReference {
                 id: "molar_mass".to_string(),
                 version: "1".to_string(),
             },

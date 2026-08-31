@@ -2,13 +2,13 @@ use std::num::NonZeroU32;
 
 use question_model::envelope::ContentBlock;
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineRule, FeedbackContent, GradingResult, LateWorkRule,
-    ScoringStatus, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    ActivityTimestamp, AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule,
+    QuestionFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 
 use super::{
-    StudentFeedbackReleaseDecision, evaluate_student_feedback_release, project_disclosed_feedback,
-    project_inspected_student_score_feedback, score_current_student_feedback_release,
+    StudentFeedbackReleaseDecision, evaluate_student_feedback_release, project_student_feedback,
+    project_student_response_inspection_feedback, score_current_student_feedback_release,
 };
 use crate::effective_assignment_policy::{
     AssignmentAccessDecision, AssignmentStartDecision, EffectiveAssignmentPolicy,
@@ -152,10 +152,16 @@ fn denied_s3_verdict_has_no_student_feedback_release_decision() {
     );
 }
 
-fn feedback() -> FeedbackContent {
-    FeedbackContent {
-        hint: Some(vec![ContentBlock::Text {
-            markdown: "Hint".to_string(),
+fn question_feedback() -> QuestionFeedback {
+    QuestionFeedback {
+        choice_feedback: Some(vec![ContentBlock::Text {
+            markdown: "Choice feedback".to_string(),
+        }]),
+        correct_feedback: Some(vec![ContentBlock::Text {
+            markdown: "Correct feedback".to_string(),
+        }]),
+        incorrect_feedback: Some(vec![ContentBlock::Text {
+            markdown: "Incorrect feedback".to_string(),
         }]),
         rationale: Some(vec![ContentBlock::Text {
             markdown: "Rationale".to_string(),
@@ -183,11 +189,13 @@ fn feedback_projection_allowlists_each_released_field() {
         solution: true,
         class_statistics: false,
     };
-    let disclosed = project_disclosed_feedback(decision, Some(result()), &feedback())
+    let disclosed = project_student_feedback(decision, Some(result()), &question_feedback())
         .expect("released fields produce feedback");
     assert_eq!(disclosed.correctness, Some(true));
     assert_eq!(disclosed.points_earned, Some(2.0));
-    assert!(disclosed.hint.is_some());
+    assert!(disclosed.choice_feedback.is_some());
+    assert!(disclosed.correct_feedback.is_some());
+    assert!(disclosed.incorrect_feedback.is_some());
     assert!(disclosed.rationale.is_some());
     assert!(disclosed.correct_response.is_some());
 }
@@ -202,12 +210,13 @@ fn inspection_projects_only_score_fields_and_hides_stale_values() {
         class_statistics: false,
     };
     for status in [
-        ScoringStatus::Current,
-        ScoringStatus::Recalculating,
-        ScoringStatus::Failed,
+        AssignmentScoringState::Current,
+        AssignmentScoringState::Recalculating,
+        AssignmentScoringState::Failed,
     ] {
-        let disclosed = project_inspected_student_score_feedback(decision, status, Some(result()));
-        if status == ScoringStatus::Current {
+        let disclosed =
+            project_student_response_inspection_feedback(decision, status, Some(result()));
+        if status == AssignmentScoringState::Current {
             assert_eq!(disclosed.correctness, Some(true));
             assert_eq!(disclosed.points_earned, Some(2.0));
         } else {
@@ -227,7 +236,8 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
         solution: false,
         class_statistics: false,
     };
-    let stale = score_current_student_feedback_release(decision, ScoringStatus::Recalculating);
+    let stale =
+        score_current_student_feedback_release(decision, AssignmentScoringState::Recalculating);
     assert!(!stale.score);
     assert!(!stale.per_item_correctness);
 }

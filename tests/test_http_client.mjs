@@ -177,12 +177,11 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
   const predecessor = publishedProblemFixture.attempts[0];
   assert.ok(predecessor);
   const envelope = {
-    version: publishedProblemFixture.publishedProblem.version,
-    seed: predecessor.seed,
-    presentationNonce: "a".repeat(32),
-    title: publishedProblemFixture.publishedProblem.metadata.title,
-    prompt: publishedProblemFixture.publishedProblem.prompt,
-    response: publishedProblemFixture.publishedProblem.response,
+    ...issuedQuestionWireFixture(predecessor, publishedProblemFixture.publishedProblem),
+    questionVersion: {
+      questionId: "BCDEFGH",
+      versionNumber: "99",
+    },
   };
   const client = createHttpApiClient({
     fetch: async () =>
@@ -195,7 +194,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
             version: "0198e000-0000-7000-8000-000000000099",
           },
         },
-        seed: envelope.seed,
+        seed: predecessor.seed,
         renderedQuestionSha256: "a".repeat(64),
         questionPoolSelection: null,
         envelope,
@@ -291,7 +290,7 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
         submission: { ...receiptAttempt.submission, response, gradingResult: null },
       },
       feedback: null,
-      scoringStatus: "current",
+      assignmentScoringState: "current",
       assignmentAttemptCompletion: "inProgress",
       nextIssued: null,
       nextPending: false,
@@ -357,7 +356,7 @@ test("external-tool submission sends only the marker with its caller idempotency
         },
       },
       feedback: null,
-      scoringStatus: "current",
+      assignmentScoringState: "current",
       assignmentAttemptCompletion: "inProgress",
       nextIssued: null,
       nextPending: false,

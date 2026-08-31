@@ -6,12 +6,12 @@
 
 use question_model::capability::Capability;
 use question_model::envelope::ContentBlock;
-use question_model::generation::{RandomizationDefinition, Seed};
+use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
 use question_model::question_library::QuestionBackend;
 use question_model::{DraftQuestionSource, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
-use crate::generator::{GeneratedValue, GenerationError, generate};
+use crate::generator::{GenerationError, QuestionVariationParameterValue, generate};
 
 /// Browser-safe inputs needed to preview one editable workspace draft.
 ///
@@ -31,7 +31,7 @@ pub struct DraftPreviewRequest {
     /// Browser-safe response shape.
     pub response: QuestionResponseFormat,
     /// Deterministic authored parameter specification.
-    pub randomization: RandomizationDefinition,
+    pub question_variation_definition: QuestionVariationDefinition,
 }
 
 /// Identity-free prompt presentation for one draft and seed.
@@ -41,7 +41,7 @@ pub struct DraftQuestionPreview {
     /// Private workspace owning the draft.
     pub workspace: WorkspaceId,
     /// Selected deterministic variant.
-    pub seed: Seed,
+    pub seed: QuestionSeed,
     /// Student-facing title.
     pub title: String,
     /// Fully materialized prompt.
@@ -110,7 +110,7 @@ impl std::error::Error for PresentationError {}
 /// they do not fall back to an invented browser evaluator.
 pub fn preview_native_draft(
     request: &DraftPreviewRequest,
-    seed: Seed,
+    seed: QuestionSeed,
 ) -> Result<DraftPreviewResult, PresentationError> {
     if !matches!(request.source, DraftQuestionSource::Native) {
         return Ok(DraftPreviewResult::Unavailable {
@@ -118,7 +118,11 @@ pub fn preview_native_draft(
             capability: Capability::OfflinePreview,
         });
     }
-    let prompt = materialize_prompt(&request.prompt, seed, &request.randomization)?;
+    let prompt = materialize_prompt(
+        &request.prompt,
+        seed,
+        &request.question_variation_definition,
+    )?;
     Ok(DraftPreviewResult::Ready {
         preview: DraftQuestionPreview {
             workspace: request.workspace,
@@ -138,10 +142,11 @@ pub fn preview_native_draft(
 /// response data remain literal.
 pub fn materialize_prompt(
     prompt: &[ContentBlock],
-    seed: Seed,
-    randomization: &RandomizationDefinition,
+    seed: QuestionSeed,
+    question_variation_definition: &QuestionVariationDefinition,
 ) -> Result<Vec<ContentBlock>, PresentationError> {
-    let generated = generate(seed, randomization).map_err(PresentationError::Generation)?;
+    let generated =
+        generate(seed, question_variation_definition).map_err(PresentationError::Generation)?;
     prompt
         .iter()
         .map(|block| materialize_block(block, &generated.parameters))
@@ -150,7 +155,7 @@ pub fn materialize_prompt(
 
 fn materialize_block(
     block: &ContentBlock,
-    parameters: &std::collections::BTreeMap<String, GeneratedValue>,
+    parameters: &std::collections::BTreeMap<String, QuestionVariationParameterValue>,
 ) -> Result<ContentBlock, PresentationError> {
     match block {
         ContentBlock::Text { markdown } => Ok(ContentBlock::Text {
@@ -192,7 +197,7 @@ fn materialize_block(
 
 fn interpolate(
     value: &str,
-    parameters: &std::collections::BTreeMap<String, GeneratedValue>,
+    parameters: &std::collections::BTreeMap<String, QuestionVariationParameterValue>,
     field: &'static str,
 ) -> Result<String, PresentationError> {
     let mut output = String::with_capacity(value.len());
@@ -221,12 +226,12 @@ fn interpolate(
     Ok(output)
 }
 
-fn generated_text(value: &GeneratedValue) -> String {
+fn generated_text(value: &QuestionVariationParameterValue) -> String {
     match value {
-        GeneratedValue::Integer { value } => value.to_string(),
-        GeneratedValue::Decimal { value }
-        | GeneratedValue::Choice { value }
-        | GeneratedValue::Fixed { value } => value.clone(),
+        QuestionVariationParameterValue::Integer { value } => value.to_string(),
+        QuestionVariationParameterValue::Decimal { value }
+        | QuestionVariationParameterValue::Choice { value }
+        | QuestionVariationParameterValue::Fixed { value } => value.clone(),
     }
 }
 
@@ -237,7 +242,7 @@ mod tests {
     use question_model::DraftQuestionSource;
     use question_model::answer::TextResponseMatchRule;
     use question_model::envelope::ContentBlock;
-    use question_model::generation::{GeneratorReference, ParameterSpec};
+    use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use uuid::Uuid;
 
@@ -262,21 +267,21 @@ mod tests {
                 match_mode: TextResponseMatchRule::Normalized,
                 max_length: 20,
             },
-            randomization: RandomizationDefinition::Seeded {
-                generator: GeneratorReference {
+            question_variation_definition: QuestionVariationDefinition::Seeded {
+                generator: QuestionGeneratorReference {
                     id: "fixture".to_string(),
                     version: "1".to_string(),
                 },
                 parameters: BTreeMap::from([
                     (
                         "count".to_string(),
-                        ParameterSpec::Fixed {
+                        QuestionGeneratorParameter::Fixed {
                             value: "4".to_string(),
                         },
                     ),
                     (
                         "residue".to_string(),
-                        ParameterSpec::Choice {
+                        QuestionGeneratorParameter::Choice {
                             options: vec!["glycine".to_string()],
                         },
                     ),
@@ -287,12 +292,13 @@ mod tests {
 
     #[test]
     fn native_preview_is_key_free_and_materializes_every_safe_text_field() {
-        let result = preview_native_draft(&request(DraftQuestionSource::Native), Seed::new(19))
-            .expect("valid preview");
+        let result =
+            preview_native_draft(&request(DraftQuestionSource::Native), QuestionSeed::new(19))
+                .expect("valid preview");
         let DraftPreviewResult::Ready { preview } = result else {
             panic!("native is ready")
         };
-        assert_eq!(preview.seed, Seed::new(19));
+        assert_eq!(preview.seed, QuestionSeed::new(19));
         assert_eq!(
             preview.prompt[0],
             ContentBlock::Text {
@@ -313,7 +319,7 @@ mod tests {
             &request(DraftQuestionSource::Webwork {
                 pg_path: "set/a.pg".to_string(),
             }),
-            Seed::new(1),
+            QuestionSeed::new(1),
         )
         .expect("unavailable is a valid result");
         assert_eq!(
@@ -332,14 +338,14 @@ mod tests {
             markdown: "{{missing}}".to_string(),
         }];
         assert!(matches!(
-            preview_native_draft(&request, Seed::new(1)),
+            preview_native_draft(&request, QuestionSeed::new(1)),
             Err(PresentationError::UnknownParameter { parameter, .. }) if parameter == "missing"
         ));
         request.prompt = vec![ContentBlock::Text {
             markdown: "{{missing".to_string(),
         }];
         assert!(matches!(
-            preview_native_draft(&request, Seed::new(1)),
+            preview_native_draft(&request, QuestionSeed::new(1)),
             Err(PresentationError::UnclosedPlaceholder { .. })
         ));
     }

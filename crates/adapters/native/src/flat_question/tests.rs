@@ -1,7 +1,7 @@
 use super::*;
 use grading::QuestionGradingOutcome;
 use question_model::response::{
-    ResponseItemReference, StudentHotspotPoint, StudentMatch, StudentResponse, StudentTextEntry,
+    ResponseItemReference, StudentHotspotSelection, StudentMatch, StudentResponse, StudentTextEntry,
 };
 use question_model::{DraftQuestionSource, QuestionId, QuestionSource, QuestionVersionNumber};
 use serde_json::Value;
@@ -12,11 +12,11 @@ use crate::test_support::{
     flat_single_choice_value,
 };
 
-fn published(draft: DraftQuestionDefinition) -> QuestionDefinition {
+fn published(draft: DraftQuestionDefinition) -> QuestionVersion {
     if !matches!(draft.source, DraftQuestionSource::Native) {
         panic!("flat fixture must use the native Question Backend");
     }
-    QuestionDefinition::from_draft(
+    QuestionVersion::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionVersionNumber::new(1).expect("positive version"),
@@ -62,7 +62,10 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
                 "correctChoices": ["a", "c"]
             }),
             StudentResponse::MultipleChoice {
-                selected: vec![ResponseItemReference::new("c"), ResponseItemReference::new("a")],
+                selected: vec![
+                    ResponseItemReference::new("c"),
+                    ResponseItemReference::new("a"),
+                ],
             },
             StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("a")],
@@ -197,10 +200,14 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
                 "correctRegions": ["nucleus"]
             }),
             StudentResponse::Hotspot {
-                points: vec![StudentHotspotPoint { x: 2000, y: 2000 }],
+                selections: vec![StudentHotspotSelection {
+                    region: ResponseItemReference::new("nucleus"),
+                }],
             },
             StudentResponse::Hotspot {
-                points: vec![StudentHotspotPoint { x: 7000, y: 7000 }],
+                selections: vec![StudentHotspotSelection {
+                    region: ResponseItemReference::new("membrane"),
+                }],
             },
         ),
     ];
@@ -278,7 +285,9 @@ fn hotspot_public_definition_does_not_reveal_correct_region_cardinality() {
         domain::validation::validate_response_format(
             &one_draft.response,
             &StudentResponse::Hotspot {
-                points: vec![StudentHotspotPoint { x: 2000, y: 2000 }],
+                selections: vec![StudentHotspotSelection {
+                    region: ResponseItemReference::new("nucleus"),
+                }],
             },
         )
         .is_valid()
@@ -394,15 +403,19 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         QuestionGradingOutcome::Graded(result) if !result.correct && result.points_earned == 0.0
     ));
     assert_eq!(
-        text(wrong.feedback.hint.as_ref()),
+        text(wrong.feedback.choice_feedback.as_ref()),
         vec![
             wrong_choice
                 .feedback
                 .as_deref()
-                .expect("stored wrong choice has feedback"),
-            stored.feedback.incorrect.as_str(),
+                .expect("stored wrong choice has feedback")
         ]
     );
+    assert_eq!(
+        text(wrong.feedback.incorrect_feedback.as_ref()),
+        vec![stored.feedback.incorrect.as_str()]
+    );
+    assert!(wrong.feedback.correct_feedback.is_none());
 
     let correct = private
         .evaluate(
@@ -417,7 +430,7 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == 1.0
     ));
     assert_eq!(
-        text(correct.feedback.hint.as_ref()),
+        text(correct.feedback.choice_feedback.as_ref()),
         vec![
             stored
                 .response
@@ -425,10 +438,14 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
                 .iter()
                 .find(|choice| choice.id == stored.response.correct_choice)
                 .and_then(|choice| choice.feedback.as_deref())
-                .expect("stored correct choice has feedback"),
-            stored.feedback.correct.as_str(),
+                .expect("stored correct choice has feedback")
         ]
     );
+    assert_eq!(
+        text(correct.feedback.correct_feedback.as_ref()),
+        vec![stored.feedback.correct.as_str()]
+    );
+    assert!(correct.feedback.incorrect_feedback.is_none());
 }
 
 #[test]

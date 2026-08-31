@@ -12,7 +12,7 @@ import {
   type JSX,
 } from "solid-js";
 
-import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
+import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
@@ -55,7 +55,7 @@ import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 function attemptContext(
   assignmentAttemptId: string,
-  attempt: QuestionAttempt,
+  attempt: StudentQuestionAttemptView,
   envelope: QuestionPresentation,
 ): AttemptContext {
   return {
@@ -106,13 +106,15 @@ function formatRemaining(milliseconds: number | null): string {
   return `${minutes}:${remainder.toString().padStart(2, "0")} remaining`;
 }
 
-function matchesIssuedSuccessor(attempt: QuestionAttempt, receipt: NextIssuedAttempt): boolean {
+function matchesIssuedSuccessor(
+  attempt: StudentQuestionAttemptView,
+  receipt: NextIssuedAttempt,
+): boolean {
   return (
     attempt.id === receipt.id &&
     attempt.issuedQuestion === receipt.issuedQuestion.id &&
     attempt.seed === receipt.seed &&
-    attempt.timing.deadline === receipt.deadline &&
-    attempt.sourceRecord.renderedQuestionSha256 === receipt.renderedQuestionSha256
+    attempt.timing.deadline === receipt.deadline
   );
 }
 
@@ -453,12 +455,12 @@ function AttemptExperience(props: {
       ? {
           kind: "released" as const,
           feedback: feedback.feedback.feedback,
-          scoringStatus: feedback.acknowledgement.scoringStatus,
+          assignmentScoringState: feedback.acknowledgement.assignmentScoringState,
         }
       : {
           kind: "awaiting" as const,
           feedback: null,
-          scoringStatus: feedback.acknowledgement.scoringStatus,
+          assignmentScoringState: feedback.acknowledgement.assignmentScoringState,
         };
 
   createEffect(() => {
@@ -538,12 +540,12 @@ function AttemptExperience(props: {
                           ? {
                               kind: "awaiting",
                               feedback: null,
-                              scoringStatus: outcome.scoringStatus,
+                              assignmentScoringState: outcome.assignmentScoringState,
                             }
                           : {
                               kind: "released",
                               feedback: outcome.feedback,
-                              scoringStatus: outcome.scoringStatus,
+                              assignmentScoringState: outcome.assignmentScoringState,
                             }
                       }
                       studentResponse={
@@ -733,15 +735,15 @@ function AttemptExperience(props: {
                 >
                   {(feedback) => (
                     <>
-                      <Show when={feedback().acknowledgement.scoringStatus !== "current"}>
+                      <Show when={feedback().acknowledgement.assignmentScoringState !== "current"}>
                         <section class="attempt-pending" aria-labelledby="score-status-heading">
                           <h2 id="score-status-heading">
-                            {feedback().acknowledgement.scoringStatus === "recalculating"
+                            {feedback().acknowledgement.assignmentScoringState === "recalculating"
                               ? "Score is being updated"
                               : "Score update needs attention"}
                           </h2>
                           <p>
-                            {feedback().acknowledgement.scoringStatus === "recalculating"
+                            {feedback().acknowledgement.assignmentScoringState === "recalculating"
                               ? "Your response is recorded. The current score will appear after grading finishes."
                               : "Your response is recorded. Check again to see whether the score is available."}
                           </p>

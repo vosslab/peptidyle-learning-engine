@@ -123,12 +123,12 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
                       ? {
                           kind: "awaiting",
                           feedback: null,
-                          scoringStatus: outcome.scoringStatus,
+                          assignmentScoringState: outcome.assignmentScoringState,
                         }
                       : {
                           kind: "released",
                           feedback: outcome.feedback,
-                          scoringStatus: outcome.scoringStatus,
+                          assignmentScoringState: outcome.assignmentScoringState,
                         }
                   }
                   assetUrl={(asset) =>

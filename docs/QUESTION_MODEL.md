@@ -70,14 +70,14 @@ backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
 The draft rule is carried by separate types rather than a flag:
-`DraftQuestionDefinition` has no Question identity, while `QuestionDefinition`
+`DraftQuestionDefinition` has no Question identity, while `QuestionVersion`
 requires both a Question ID and Question Version Number. There is no separate
 boolean to fall out of sync with that boundary.
 
 `QuestionId` is stable across one question lineage. Each publication in that
 lineage has a fresh immutable `QuestionVersionNumber`, and `QuestionVersionReference` keeps the
 exact `(QuestionId, QuestionVersionNumber)` evidence only in trusted delivery, grading,
-replay, audit, assignment pins, and optional non-operative Question Attempt Source Records.
+replay, audit, assignment pins, and optional non-operative Question Attempt Reproduction Details.
 An allowed original-lineage correction may retain the `QuestionId` while
 archiving the replaced version. A major objective, task, or Question Type
 change is a fork: its creator edits a private draft and publication gives it a
@@ -99,7 +99,7 @@ assignment cannot contain private question content.
 ID, Question Backend, capabilities, metadata, Current Question Version Availability, and publication time,
 but not prompt, response, private source-locator fields, or the opaque internal
 pair. Trusted server work resolves the Question ID and loads the separate
-internal `QuestionDefinition` payload. Question Details uses that safe
+internal `QuestionVersion` payload. Question Details uses that safe
 Question-ID projection and presents one selected immutable version within the
 stable lineage. Approved
 Instructors may inspect this published content even when another course
@@ -241,7 +241,7 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 ### Question definition
 
-`QuestionDefinition` carries the fields the specification names:
+`QuestionVersion` carries the fields the specification names:
 
 | Field           | Type                      | Purpose                                                                        |
 | --------------- | ------------------------- | ------------------------------------------------------------------------------ |
@@ -252,9 +252,9 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order                                                   |
 | `questionType`  | `QuestionType`            | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
 | `response`      | `QuestionResponseFormat`  | Accepted Student Response shape and constraints                                |
-| `questionAttemptLimit` | `AttemptPolicy`           | Retry bound for this question                                                  |
+| `questionAttemptLimit` | `QuestionAttemptLimit`    | Retry bound for this Question                                                  |
 | `questionAttemptTimeLimit`  | `QuestionAttemptTimeLimit`            | Time limits, with grace                                                        |
-| `randomization` | `RandomizationDefinition` | How content varies                                                             |
+| `questionVariationDefinition` | `QuestionVariationDefinition` | Static or seeded definition for how this Question varies                     |
 | `grading`       | `GradingDefinition`       | How a response is judged                                                       |
 | `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language                                       |
 
@@ -262,16 +262,15 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 `QuestionType` classifies the educational interaction independently of Question
 Format, Question Backend, and the browser control. `QuestionResponseFormat` and
-`StudentResponse` are parallel enums: numeric,
-multiple choice or multiple answer, short text, multi-blank, matching,
-ordering, hotspot, file upload, and external tool. Within a variant, invalid
-field combinations are unrepresentable, so a matching response carries only
-prompt-to-choice associations and a hotspot response carries only normalized
-points. `ChoiceId` is the durable semantic identifier used by this shared
+`StudentResponse` are parallel enums: numeric, multiple choice or multiple
+answer, short text, multi-blank, matching, ordering, hotspot, and external
+tool. Within a variant, invalid field combinations are unrepresentable, so a
+matching response carries only prompt-to-choice associations and a hotspot
+response carries only selected Hotspot Region references.
+`ResponseItemReference` is the durable semantic identifier used by this shared
 model; it is not a visible letter or display position.
 
-`QuestionResponseControl` names the browser interaction. File Upload and
-External Tool are controls rather than Question Types. `ExternalTool` is a
+`QuestionResponseControl` names the browser interaction. `ExternalTool` is a
 fieldless marker variant in both response enums. It carries no
 provider, launch, answer, score, token, or completion material. The server
 owns the later provider exchange through its external-tool broker, so the
@@ -284,11 +283,11 @@ client-side check is a convenience rather than an authority.
 
 Choices, blanks, matching prompts, ordering items, and hotspot regions are
 compared by identifier rather than by displayed label or position. Presenting
-them in a different order therefore does not change answer meaning. Hotspot
-coordinates use the integer range 0 through 10,000 so zoom, image density, and
-responsive layout do not alter the submitted location.
+them in a different order therefore does not change answer meaning. A Hotspot
+selection submits an authored Hotspot Region Reference; its rectangle or ellipse
+geometry belongs to the Question Response Format rather than the Student Response.
 
-Server-side grading loads the attempt's exact published `QuestionDefinition`
+Server-side grading loads the attempt's exact published `QuestionVersion`
 and calls `grading::grade(question, response, key)`. The definition supplies
 the response comparison and point policy that are intentionally absent from
 the compact attempt row; the key remains in the server-only grading boundary.
@@ -297,7 +296,7 @@ Grading is deterministic and automated for every supported Question Type.
 ### Attempt presentation
 
 `presentation` is a second, narrower contract for an issued Student screen.
-It does not replace `QuestionDefinition`, `QuestionPresentation`, or
+It does not replace `QuestionVersion`, `QuestionPresentation`, or
 `StudentResponse`; it projects their public rendering portion for a specific
 attempt and provides a consistency binding for that presentation.
 
@@ -308,7 +307,7 @@ Question Response Format: it replaces durable response-item references with
 rendered IDs while preserving the exact response shape. The schema currently
 covers the eight native flat Question Types:
 
-| `IssuedQuestionResponseFormatV1` | Shared response definition  |
+| `IssuedQuestionResponseFormatV1` | Shared Question Response Format  |
 | -------------------------------- | --------------------------- |
 | `singleChoice`                   | exactly-one multiple choice |
 | `multipleAnswer`                 | one-or-more multiple choice |
@@ -319,16 +318,23 @@ covers the eight native flat Question Types:
 | `ordering`                       | ordering                    |
 | `hotspot`                        | hotspot                     |
 
-`FileUpload` and `ExternalTool` intentionally have no `IssuedQuestionResponseFormatV1`
-variant. The presentation builder rejects them as unsupported rather than
-inventing a browser contract before the server-issued upload capability and
-external-tool route have their own complete delivery contracts.
+The durable Question Response Format names the item role at the model boundary:
+Multiple Choice has Question Choices; MATCH has Matching Prompts and Matching
+Choices; Ordering has Ordering Items. Each record combines its Response Item
+Reference with the learner-visible content. This keeps similar wire shapes from
+becoming interchangeable application meanings.
 
-For selectable and addressable objects, the builder projects durable IDs to
-`RenderedItemIdV1`: four lowercase hexadecimal characters produced by
+`ExternalTool` intentionally has no `IssuedQuestionResponseFormatV1` variant.
+The presentation builder rejects it until its server-owned provider route has a
+complete delivery contract.
+
+For selectable and addressable objects, the builder projects durable IDs to a
+presentation-scoped Response Item Reference (`PresentationResponseItemReference` in the current
+machine contract): four lowercase hexadecimal characters produced by
 CRC-16/CCITT-FALSE. Its input is domain-separated and includes the
 presentation nonce, version, seed, role, ordinal, durable ID, and canonical
-public item basis. The builder permits at most 32 addressable items, requires
+public item basis. Choices, blanks, matching sides, ordering items, and each
+Hotspot Region are separately addressable. The builder permits at most 32 addressable items, requires
 IDs to be unique across the complete presentation, and retries with a fresh
 nonce up to eight times if a CRC16 collision occurs. The server retains the
 ability to rebuild the rendered-to-durable mapping from the exact definition
@@ -367,11 +373,18 @@ error.
 
 ### Policies
 
-Question-level policies are authored with the question: `AttemptPolicy`
+Question-level rules are authored with the Question: `QuestionAttemptLimit`
 (a retry bound) and `QuestionAttemptTimeLimit` (unlimited or limited for one Question Attempt,
 each with a grace period for network delay). Student Feedback Release is not a
 question policy: the assignment owns its five-field `StudentFeedbackReleaseRule`
 and the server evaluates it for current Student projections.
+
+A Question Hint is requested before a Student selects or submits a response.
+Question Feedback is selected only after automatic grading and remains three
+separate authoring levels: selected-choice feedback, correct-outcome feedback,
+and incorrect-outcome feedback. The assignment release rule controls whether
+the applicable post-grade feedback reaches the Student; it does not govern a
+Question Hint.
 For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.
@@ -416,20 +429,21 @@ boundary, so a browser displays current state without inferring it.
 Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
 delivery values are already resolved from exact assignment entitlement and omit
 lifecycle intent, base-policy provenance, course identifiers, and evaluation
-clocks. `ScoringStatus`
+clocks. `AssignmentScoringState`
 is also independent: Current allows the otherwise authorized score projection;
 Recalculating and Failed retain the semantic score state while omitting every
 numeric Student score, Grading Result, and disclosed point value.
 
 ### Generation
 
-`Seed` plus `RandomizationDefinition` fully determine a variant. A seeded
-definition pins a `GeneratorReference` containing both the generator ID and its
+`Question Seed` plus `QuestionVariationDefinition` fully determine a Question
+Variation. A seeded
+definition pins a `QuestionGeneratorReference` containing both the generator ID and its
 additive version. Changing generator behavior therefore creates a new generator
 version instead of changing an existing published question underneath its
 assignments and historical attempts.
 
-Parameters are declared as `ParameterSpec` values rather than computed inline,
+Parameters are declared as `QuestionGeneratorParameter` values rather than computed inline,
 so a preview can show an instructor the space a question draws from and the
 seed-vector corpus can cover every branch.
 

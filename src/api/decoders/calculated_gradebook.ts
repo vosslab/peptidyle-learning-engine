@@ -3,22 +3,21 @@
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
-import type { AssetBindingV1 } from "../../../generated/api/AssetBindingV1";
+import type { PresentedQuestionAsset } from "../../../generated/api/PresentedQuestionAsset";
 import type { CourseGradeMode } from "../../../generated/api/CourseGradeMode";
 import type { CourseGradeRoundingRule } from "../../../generated/api/CourseGradeRoundingRule";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
-import type { InspectedStudentResponseV1 } from "../../../generated/api/InspectedStudentResponseV1";
-import type { InspectedStudentScoreFeedbackV1 } from "../../../generated/api/InspectedStudentScoreFeedbackV1";
+import type { StudentResponseInspection } from "../../../generated/api/StudentResponseInspection";
+import type { StudentResponseInspectionFeedback } from "../../../generated/api/StudentResponseInspectionFeedback";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
-import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
+import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import {
   DecodeError,
   decodeBoolean,
   decodeFiniteNumber,
-  decodeNonnegativeInteger,
   decodeNullable,
   decodeRecord,
   decodeSafeInteger,
@@ -50,11 +49,11 @@ const MODES = [
 const ROUNDING_RULES = [
   "fourDecimalPlacesHalfAwayFromZero",
 ] as const satisfies ReadonlyArray<CourseGradeRoundingRule>;
-const SCORING_STATUSES = [
+const ASSIGNMENT_SCORING_STATES = [
   "current",
   "recalculating",
   "failed",
-] as const satisfies ReadonlyArray<ScoringStatus>;
+] as const satisfies ReadonlyArray<AssignmentScoringState>;
 const COURSE_GRADE_UNAVAILABLE_REASONS = [
   "noIncludedAssignments",
   "recalculating",
@@ -91,7 +90,7 @@ export interface CalculatedAssignmentCell {
   readonly category: string | null;
   readonly availability: "available" | "unavailable";
   readonly selectedScore: number | null;
-  readonly scoringStatus: ScoringStatus;
+  readonly assignmentScoringState: AssignmentScoringState;
   readonly inspectionChoice: AssignmentInspectionChoice;
 }
 
@@ -102,10 +101,10 @@ export interface CalculatedGradebookRow {
   readonly assignmentCells: ReadonlyArray<CalculatedAssignmentCell>;
 }
 
-export interface AssignmentScoringWitness {
+export interface AssignmentScoringSnapshot {
   readonly assignment: AssignmentReference;
   readonly generation: number;
-  readonly status: ScoringStatus;
+  readonly assignmentScoringState: AssignmentScoringState;
 }
 
 export type CalculatedGradebookResult =
@@ -116,7 +115,7 @@ export type CalculatedGradebookResult =
       readonly mode: CourseGradeMode;
       readonly rounding: CourseGradeRoundingRule;
       readonly observationTime: number;
-      readonly scoringWitnesses: ReadonlyArray<AssignmentScoringWitness>;
+      readonly assignmentScoringSnapshots: ReadonlyArray<AssignmentScoringSnapshot>;
       readonly nextCursor: string | null;
       readonly rows: ReadonlyArray<CalculatedGradebookRow>;
     }
@@ -138,7 +137,7 @@ export type InspectedSubmissionEvidence =
   | {
       readonly kind: "issuedPresentation";
       readonly question: QuestionPresentation;
-      readonly assetBindings: ReadonlyArray<AssetBindingV1>;
+      readonly assetBindings: ReadonlyArray<PresentedQuestionAsset>;
       readonly issuedPresentationDigest: string;
     }
   | { readonly kind: "presentationNotApplicable" };
@@ -147,9 +146,9 @@ export interface InspectedStudentSubmission {
   readonly submittedAt: number;
   readonly evidence: InspectedSubmissionEvidence;
   readonly scoringGeneration: number;
-  readonly feedback: InspectedStudentScoreFeedbackV1;
-  readonly response: InspectedStudentResponseV1;
-  readonly scoringStatus: ScoringStatus;
+  readonly feedback: StudentResponseInspectionFeedback;
+  readonly response: StudentResponseInspection;
+  readonly assignmentScoringState: AssignmentScoringState;
 }
 
 export interface InspectedStudentWorkDetail {
@@ -292,7 +291,7 @@ function decodeAssignmentCell(value: unknown, path: string): CalculatedAssignmen
     "category",
     "availability",
     "selectedScore",
-    "scoringStatus",
+    "assignmentScoringState",
     "inspectionChoice",
   ]);
   return {
@@ -308,10 +307,10 @@ function decodeAssignmentCell(value: unknown, path: string): CalculatedAssignmen
       field(record, "selectedScore", path),
       `${path}.selectedScore`,
     ),
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
-      SCORING_STATUSES,
+    assignmentScoringState: decodeStringEnum(
+      field(record, "assignmentScoringState", path),
+      `${path}.assignmentScoringState`,
+      ASSIGNMENT_SCORING_STATES,
     ),
     inspectionChoice: decodeAssignmentInspectionChoice(
       field(record, "inspectionChoice", path),
@@ -335,12 +334,16 @@ function decodeGradebookRow(value: unknown, path: string): CalculatedGradebookRo
   };
 }
 
-function decodeScoringWitness(value: unknown, path: string): AssignmentScoringWitness {
-  const record = closed(value, path, ["assignment", "generation", "status"]);
+function decodeAssignmentScoringSnapshot(value: unknown, path: string): AssignmentScoringSnapshot {
+  const record = closed(value, path, ["assignment", "generation", "assignmentScoringState"]);
   return {
     assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
     generation: positiveSafeInteger(field(record, "generation", path), `${path}.generation`),
-    status: decodeStringEnum(field(record, "status", path), `${path}.status`, SCORING_STATUSES),
+    assignmentScoringState: decodeStringEnum(
+      field(record, "assignmentScoringState", path),
+      `${path}.assignmentScoringState`,
+      ASSIGNMENT_SCORING_STATES,
+    ),
   };
 }
 
@@ -367,7 +370,7 @@ export function decodeCalculatedGradebookResult(
     "mode",
     "rounding",
     "observationTime",
-    "scoringWitnesses",
+    "assignmentScoringSnapshots",
     "nextCursor",
     "rows",
   ]);
@@ -388,11 +391,11 @@ export function decodeCalculatedGradebookResult(
       field(record, "observationTime", path),
       `${path}.observationTime`,
     ),
-    scoringWitnesses: decodeBoundedArray(
-      field(record, "scoringWitnesses", path),
-      `${path}.scoringWitnesses`,
+    assignmentScoringSnapshots: decodeBoundedArray(
+      field(record, "assignmentScoringSnapshots", path),
+      `${path}.assignmentScoringSnapshots`,
       MAX_ASSIGNMENT_ORDERED_ENTRIES,
-      decodeScoringWitness,
+      decodeAssignmentScoringSnapshot,
     ),
     nextCursor:
       nextCursorValue === undefined ? null : decodeCursor(nextCursorValue, `${path}.nextCursor`),
@@ -417,7 +420,7 @@ function inspectedText(value: unknown, path: string): string {
   return decodeString(value, path);
 }
 
-function decodeInspectedResponse(value: unknown, path: string): InspectedStudentResponseV1 {
+function decodeInspectedResponse(value: unknown, path: string): StudentResponseInspection {
   const record = decodeRecord(value, path);
   const responseKind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (responseKind) {
@@ -490,31 +493,15 @@ function decodeInspectedResponse(value: unknown, path: string): InspectedStudent
         ),
       };
     case "hotspot":
-      requireOnlyFields(record, path, ["kind", "points"]);
+      requireOnlyFields(record, path, ["kind", "selectedRegions"]);
       return {
         kind: responseKind,
-        points: decodeBoundedArray(
-          field(record, "points", path),
-          `${path}.points`,
+        selectedRegions: decodeBoundedArray(
+          field(record, "selectedRegions", path),
+          `${path}.selectedRegions`,
           MAX_PRESENTED_ITEMS,
-          (item, itemPath) => {
-            const point = closed(item, itemPath, ["x", "y"]);
-            const x = decodeNonnegativeInteger(field(point, "x", itemPath), `${itemPath}.x`);
-            const y = decodeNonnegativeInteger(field(point, "y", itemPath), `${itemPath}.y`);
-            if (x > 10_000 || y > 10_000) {
-              throw new DecodeError(itemPath, "a normalized hotspot point");
-            }
-            return { x, y };
-          },
+          renderedItemId,
         ),
-      };
-    case "fileUpload":
-      requireOnlyFields(record, path, ["kind", "artifact"]);
-      return {
-        kind: responseKind,
-        artifact: decodeStringEnum(field(record, "artifact", path), `${path}.artifact`, [
-          "submitted",
-        ] as const),
       };
     case "externalTool":
       requireOnlyFields(record, path, ["kind", "completion"]);
@@ -529,7 +516,7 @@ function decodeInspectedResponse(value: unknown, path: string): InspectedStudent
   }
 }
 
-function decodeAssetBinding(value: unknown, path: string): AssetBindingV1 {
+function decodeAssetBinding(value: unknown, path: string): PresentedQuestionAsset {
   const record = closed(value, path, [
     "asset",
     "authoredChecksum",
@@ -593,7 +580,7 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
   };
 }
 
-function decodeScoreFeedback(value: unknown, path: string): InspectedStudentScoreFeedbackV1 {
+function decodeScoreFeedback(value: unknown, path: string): StudentResponseInspectionFeedback {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["correctness", "pointsEarned", "pointsPossible"]);
   const correctness = optionalField(record, "correctness");
@@ -619,7 +606,7 @@ function decodeSubmission(value: unknown, path: string): InspectedStudentSubmiss
     "scoringGeneration",
     "feedback",
     "response",
-    "scoringStatus",
+    "assignmentScoringState",
   ]);
   return {
     submittedAt: decodeTimestamp(field(record, "submittedAt", path), `${path}.submittedAt`),
@@ -630,10 +617,10 @@ function decodeSubmission(value: unknown, path: string): InspectedStudentSubmiss
     ),
     feedback: decodeScoreFeedback(field(record, "feedback", path), `${path}.feedback`),
     response: decodeInspectedResponse(field(record, "response", path), `${path}.response`),
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
-      SCORING_STATUSES,
+    assignmentScoringState: decodeStringEnum(
+      field(record, "assignmentScoringState", path),
+      `${path}.assignmentScoringState`,
+      ASSIGNMENT_SCORING_STATES,
     ),
   };
 }

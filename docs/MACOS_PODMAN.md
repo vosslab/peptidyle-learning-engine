@@ -91,7 +91,7 @@ pinned Caddy build argument. The `webwork-renderer` is an external-project image
 startup reuses the tracked `localhost/pg-renderer:reviewed` selection or rebuilds
 it from the maintained sibling checkout when pruning removed it. PLE resolves that selected name to its OCI
 configuration ID, confirms the container runs that ID, and records both as
-renderer-version provenance. A published deployment can select a pullable
+Question Renderer Version. A published deployment can select a pullable
 `repository@sha256:<64-lowercase-hex>` value through the same configuration
 key.
 

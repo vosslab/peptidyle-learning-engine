@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::QuestionVersionReference;
 use crate::assignment_activity_rules::QuestionVariationRule;
-use crate::generation::GeneratorReference;
+use crate::generation::{QuestionGeneratorReference, QuestionSeed};
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
 use crate::{AssignmentAttemptReference, AssignmentRevisionReference};
@@ -253,16 +253,16 @@ pub struct QuestionAttemptTiming {
 pub enum QuestionAttemptState {
     /// The student may still submit a response.
     Open,
-    /// A student or instructor submitted the current response.
-    Submitted,
-    /// The server submitted automatically at the effective deadline.
-    AutomaticallySubmitted,
+    /// The server accepted one Question Submission.
+    SubmissionAccepted,
+    /// The effective deadline closed this Question Attempt without a submission.
+    ClosedAtDeadline,
 }
 
 /// A grading result without an answer key.
 ///
 /// The server may disclose this according to the assignment feedback policy;
-/// the correct response and grading implementation remain in `grading`.
+/// the correct response and Question Grader code remain in `grading`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GradingResult {
@@ -276,7 +276,7 @@ pub struct GradingResult {
 
 /// One immutable accepted Student Response and its current grading result.
 ///
-/// The containing Question Attempt supplies the exact issue-time source record
+/// The containing Question Attempt supplies the exact issue-time reproduction details
 /// that the grading result reproduces. A Question Attempt has at most one
 /// accepted Question Submission.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -294,17 +294,44 @@ pub struct QuestionSubmission {
     pub grading_result: Option<GradingResult>,
 }
 
-/// A named implementation and the version needed to execute it again.
+/// Exact Question Backend Version recorded with one Question Attempt.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ImplementationVersion {
-    /// Stable implementation identifier.
-    pub id: String,
-    /// Additive implementation version.
+pub struct QuestionBackendVersion {
+    /// Stable Question Backend implementation name.
+    pub name: String,
+    /// Exact Question Backend software version.
+    pub version: String,
+}
+
+/// Exact Question Grader Version recorded with one Question Attempt.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionGraderVersion {
+    /// Stable Question Grader implementation name.
+    pub name: String,
+    /// Exact Question Grader software version.
+    pub version: String,
+}
+
+/// Exact Question Renderer Version recorded with one Question Attempt.
+///
+/// Question Renderer Version has a distinct role from the Question Backend and
+/// Question Grader versions that the same attempt also records.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionRendererVersion {
+    /// Stable Question Renderer implementation name.
+    pub name: String,
+    /// Exact Question Renderer software version.
     pub version: String,
 }
 
 /// Source Object Reference captured for a reproducible Question Attempt.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceObjectReference {
@@ -315,21 +342,22 @@ pub struct SourceObjectReference {
 }
 
 /// Versions and object identities required to reproduce one Question Attempt.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionAttemptSourceRecord {
-    /// Adapter that loaded and interpreted the question.
-    pub adapter: ImplementationVersion,
+pub struct QuestionAttemptReproductionDetails {
+    /// Question Backend that loaded and interpreted the question.
+    pub backend: QuestionBackendVersion,
     /// Renderer used for supplied markup, when the backend has one.
-    pub renderer: Option<ImplementationVersion>,
+    pub renderer_version: Option<QuestionRendererVersion>,
     /// Generator used for parameterized content, when the backend has one.
-    pub generator: Option<GeneratorReference>,
+    pub generator: Option<QuestionGeneratorReference>,
     /// Exact source object and checksum, when the backend stores source bytes.
     pub source_object_reference: Option<SourceObjectReference>,
     /// Objects referenced by the rendered question.
     pub asset_objects: Vec<ObjectId>,
-    /// Server-only grading implementation that produced the result.
-    pub grading: ImplementationVersion,
+    /// Server-only Question Grader that produced the result.
+    pub grader: QuestionGraderVersion,
     /// SHA-256 of the rendered question delivered for this attempt.
     pub rendered_question_sha256: String,
 }
@@ -360,6 +388,7 @@ pub enum IssuedAttemptCapabilityV1 {
 }
 
 /// One server-issued try under an exact Issued Question.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionAttempt {
@@ -367,9 +396,10 @@ pub struct QuestionAttempt {
     pub id: QuestionAttemptId,
     /// Immutable delivered Question that owns this attempt.
     pub issued_question: IssuedQuestionId,
-    /// Seed used to regenerate the exact question variant.
-    pub seed: u64,
+    /// Question Seed used to regenerate the exact Question Variation.
+    pub seed: QuestionSeed,
     /// SHA-256 of the generated parameters.
+    #[serde(skip_serializing)]
     pub parameter_hash: String,
     /// Immutable accepted Student Response, when the server accepted one.
     pub submission: Option<QuestionSubmission>,
@@ -377,10 +407,49 @@ pub struct QuestionAttempt {
     pub state: QuestionAttemptState,
     /// Server-owned timing record.
     pub timing: QuestionAttemptTiming,
-    /// Exact source record required to reproduce this Question Attempt.
-    pub source_record: QuestionAttemptSourceRecord,
+    /// Exact reproduction details required to reproduce this Question Attempt.
+    #[serde(skip_serializing)]
+    pub reproduction_details: QuestionAttemptReproductionDetails,
     /// Checksummed immutable capability for the protected issuance payloads.
     pub issued_capability: IssuedAttemptCapabilityV1,
+}
+
+/// Answer-free Student read of one Question Attempt.
+///
+/// The server constructs this from the durable Question Attempt after it has
+/// applied the Student's disclosure and scoring policy. Reproduction details
+/// and generated-parameter evidence intentionally have no representation here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentQuestionAttemptView {
+    /// Durable Question Attempt identity.
+    pub id: QuestionAttemptId,
+    /// Immutable delivered Question that owns this attempt.
+    pub issued_question: IssuedQuestionId,
+    /// Question Seed used by the issued presentation binding.
+    pub seed: QuestionSeed,
+    /// Immutable accepted Student Response, when the server accepted one.
+    pub submission: Option<QuestionSubmission>,
+    /// Current operational state.
+    pub state: QuestionAttemptState,
+    /// Student-visible timing record.
+    pub timing: QuestionAttemptTiming,
+    /// Checksummed immutable capability for the protected issuance payloads.
+    pub issued_capability: IssuedAttemptCapabilityV1,
+}
+
+impl From<&QuestionAttempt> for StudentQuestionAttemptView {
+    fn from(attempt: &QuestionAttempt) -> Self {
+        Self {
+            id: attempt.id,
+            issued_question: attempt.issued_question,
+            seed: attempt.seed,
+            submission: attempt.submission.clone(),
+            state: attempt.state,
+            timing: attempt.timing,
+            issued_capability: attempt.issued_capability,
+        }
+    }
 }
 
 /// Compact projection read by course pages and the gradebook.
@@ -436,7 +505,7 @@ pub struct AssignmentProgress {
     /// response, are currently withheld, or are available for display.
     pub score_state: AssignmentProgressScoreState,
     /// Current freshness and visibility of the assignment's computed scores.
-    pub scoring_status: crate::ScoringStatus,
+    pub assignment_scoring_state: crate::AssignmentScoringState,
     /// Score selected by the assignment's grade policy when available.
     pub current_score: Option<f64>,
     /// Highest completed Assignment Attempt score when available.
@@ -459,10 +528,10 @@ impl AssignmentProgress {
     /// Projects an entitled Student's assignment before the first durable
     /// educational receipt exists. Reading progress must not create an
     /// Assignment Attempt merely to represent the valid no-Student-work state.
-    pub fn no_activity(scoring_status: crate::ScoringStatus) -> Self {
+    pub fn no_activity(assignment_scoring_state: crate::AssignmentScoringState) -> Self {
         Self {
             score_state: AssignmentProgressScoreState::NoActivity,
-            scoring_status,
+            assignment_scoring_state,
             current_score: None,
             best_score: None,
             latest_score: None,
@@ -478,7 +547,7 @@ impl AssignmentProgress {
     pub fn from_summary(
         summary: &AssignmentProgressRecord,
         score_disclosed: bool,
-        scoring_status: crate::ScoringStatus,
+        assignment_scoring_state: crate::AssignmentScoringState,
     ) -> Self {
         let score_state = if summary.total_question_attempts == 0 {
             AssignmentProgressScoreState::NoActivity
@@ -488,10 +557,13 @@ impl AssignmentProgress {
             AssignmentProgressScoreState::Withheld
         };
         let scores = matches!(score_state, AssignmentProgressScoreState::Available)
-            && matches!(scoring_status, crate::ScoringStatus::Current);
+            && matches!(
+                assignment_scoring_state,
+                crate::AssignmentScoringState::Current
+            );
         Self {
             score_state,
-            scoring_status,
+            assignment_scoring_state,
             current_score: scores.then_some(summary.current_score).flatten(),
             best_score: scores.then_some(summary.best_score).flatten(),
             latest_score: scores.then_some(summary.latest_score).flatten(),
@@ -549,10 +621,10 @@ mod tests {
     #[test]
     fn student_progress_distinguishes_no_activity_withheld_and_available_scores() {
         assert_eq!(
-            AssignmentProgress::no_activity(crate::ScoringStatus::Current),
+            AssignmentProgress::no_activity(crate::AssignmentScoringState::Current),
             AssignmentProgress {
                 score_state: AssignmentProgressScoreState::NoActivity,
-                scoring_status: crate::ScoringStatus::Current,
+                assignment_scoring_state: crate::AssignmentScoringState::Current,
                 current_score: None,
                 best_score: None,
                 latest_score: None,
@@ -567,8 +639,12 @@ mod tests {
             AssignmentId::from_uuid(Uuid::from_u128(3)),
         );
         assert_eq!(
-            AssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current)
-                .score_state,
+            AssignmentProgress::from_summary(
+                &summary,
+                true,
+                crate::AssignmentScoringState::Current
+            )
+            .score_state,
             AssignmentProgressScoreState::NoActivity
         );
 
@@ -576,8 +652,11 @@ mod tests {
         summary.current_score = Some(0.5);
         summary.best_score = Some(0.5);
         summary.latest_score = Some(0.5);
-        let withheld =
-            AssignmentProgress::from_summary(&summary, false, crate::ScoringStatus::Current);
+        let withheld = AssignmentProgress::from_summary(
+            &summary,
+            false,
+            crate::AssignmentScoringState::Current,
+        );
         assert_eq!(withheld.score_state, AssignmentProgressScoreState::Withheld);
         assert_eq!(
             (
@@ -588,8 +667,11 @@ mod tests {
             (None, None, None)
         );
 
-        let available =
-            AssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current);
+        let available = AssignmentProgress::from_summary(
+            &summary,
+            true,
+            crate::AssignmentScoringState::Current,
+        );
         assert_eq!(
             available.score_state,
             AssignmentProgressScoreState::Available
@@ -606,16 +688,17 @@ mod tests {
         );
         summary.total_question_attempts = 1;
         summary.current_score = Some(0.5);
-        for scoring_status in [
-            crate::ScoringStatus::Recalculating,
-            crate::ScoringStatus::Failed,
+        for assignment_scoring_state in [
+            crate::AssignmentScoringState::Recalculating,
+            crate::AssignmentScoringState::Failed,
         ] {
-            let progress = AssignmentProgress::from_summary(&summary, true, scoring_status);
+            let progress =
+                AssignmentProgress::from_summary(&summary, true, assignment_scoring_state);
             assert_eq!(
                 progress.score_state,
                 AssignmentProgressScoreState::Available
             );
-            assert_eq!(progress.scoring_status, scoring_status);
+            assert_eq!(progress.assignment_scoring_state, assignment_scoring_state);
             assert_eq!(progress.current_score, None);
         }
     }
@@ -627,5 +710,95 @@ mod tests {
         let attempt = QuestionAttemptId::from_uuid(raw);
 
         assert_eq!((run.as_uuid(), attempt.as_uuid()), (raw, raw));
+    }
+
+    #[test]
+    fn question_attempt_state_uses_the_closed_operational_wire_vocabulary() {
+        assert_eq!(
+            serde_json::to_value(QuestionAttemptState::Open).expect("open state serializes"),
+            serde_json::json!("open")
+        );
+        assert_eq!(
+            serde_json::to_value(QuestionAttemptState::SubmissionAccepted)
+                .expect("accepted-submission state serializes"),
+            serde_json::json!("submission_accepted")
+        );
+        assert_eq!(
+            serde_json::to_value(QuestionAttemptState::ClosedAtDeadline)
+                .expect("deadline-closed state serializes"),
+            serde_json::json!("closed_at_deadline")
+        );
+    }
+
+    #[test]
+    fn reproduction_details_serialize_role_specific_versions() {
+        let record = QuestionAttemptReproductionDetails {
+            backend: QuestionBackendVersion {
+                name: "native-adapter".to_string(),
+                version: "1".to_string(),
+            },
+            renderer_version: None,
+            generator: None,
+            source_object_reference: None,
+            asset_objects: Vec::new(),
+            grader: QuestionGraderVersion {
+                name: "generic-grader".to_string(),
+                version: "1".to_string(),
+            },
+            rendered_question_sha256: "a".repeat(64),
+        };
+
+        let wire = serde_json::to_value(record).expect("reproduction details serialize");
+        assert!(wire.get("backend").is_some());
+        assert!(wire.get("grader").is_some());
+        assert!(wire.get("adapter").is_none());
+        assert!(wire.get("grading").is_none());
+    }
+
+    #[test]
+    fn question_attempt_browser_wire_omits_reproduction_details() {
+        let attempt = QuestionAttempt {
+            id: QuestionAttemptId::from_uuid(Uuid::from_u128(1)),
+            issued_question: IssuedQuestionId::from_uuid(Uuid::from_u128(2)),
+            seed: QuestionSeed::new(3),
+            parameter_hash: "a".repeat(64),
+            submission: None,
+            state: QuestionAttemptState::Open,
+            timing: QuestionAttemptTiming {
+                issued_at: ActivityTimestamp::from_unix_millis(4),
+                deadline: None,
+                submitted_at: None,
+            },
+            reproduction_details: QuestionAttemptReproductionDetails {
+                backend: QuestionBackendVersion {
+                    name: "native-adapter".to_string(),
+                    version: "1".to_string(),
+                },
+                renderer_version: None,
+                generator: None,
+                source_object_reference: None,
+                asset_objects: Vec::new(),
+                grader: QuestionGraderVersion {
+                    name: "generic-grader".to_string(),
+                    version: "1".to_string(),
+                },
+                rendered_question_sha256: "b".repeat(64),
+            },
+            issued_capability: IssuedAttemptCapabilityV1::NotApplicable,
+        };
+
+        let view = StudentQuestionAttemptView::from(&attempt);
+        let wire = serde_json::to_value(view).expect("Student Question Attempt View serializes");
+        assert!(wire.get("parameterHash").is_none());
+        assert!(wire.get("reproductionDetails").is_none());
+        assert_eq!(
+            wire.get("id"),
+            Some(&serde_json::json!(attempt.id.to_string()))
+        );
+        assert_eq!(
+            wire.get("issuedQuestion"),
+            Some(&serde_json::json!(attempt.issued_question.to_string()))
+        );
+        assert!(wire.get("issuedCapability").is_some());
     }
 }

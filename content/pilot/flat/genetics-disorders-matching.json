@@ -29,8 +29,8 @@
     "incorrect": "Review the chromosome, blood, hemoglobin, and lysosomal-enzyme clues."
   },
   "points": 4.0,
-  "attemptPolicy": { "maxAttempts": null },
-  "timingPolicy": { "kind": "untimed" },
+  "questionAttemptLimit": { "maxAttempts": null },
+  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["genetics", "genetic-disorders", "chapter-1", "matching"],
   "taxonomy": [
     { "scheme": "Peptidyle", "code": "GENETICS.CHAPTER_1", "label": "Genetics Chapter 1" }

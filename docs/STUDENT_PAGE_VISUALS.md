@@ -72,7 +72,7 @@ it does not create an executable artifact list.
 Live evidence uses local-development credentials or invitations because email is unavailable. It may
 describe a local credential or invitation, but must not claim email delivery. Keep student and access
 artifacts under `docs/screenshots/student/` and `docs/screenshots/student/access/`; keep public
-evidence free of answer keys, grading implementations, private source, real email, real identifying
+evidence free of Answer Keys, Question Grader code, private source, real email, real identifying
 records, UUIDs, and FERPA records. Deterministic fictional fixture addresses in the reserved
 `example.invalid` domain are permitted and are not real identifying records.
 

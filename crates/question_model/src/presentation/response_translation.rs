@@ -1,14 +1,16 @@
 //! Server-side translation from rendered response identifiers to durable IDs.
 //!
 //! The presentation binding is server-only.  This operation is deliberately
-//! pure: callers must reproduce and authenticate a [`PresentationV1`] before
+//! pure: callers must reproduce and authenticate an [`IssuedQuestionPresentation`] before
 //! translating a browser response, and validation of the response's bounded
 //! public shape remains the caller's responsibility.
 
-use crate::response::{ResponseItemReference, StudentMatch, StudentResponse, StudentTextEntry};
+use crate::response::{
+    ResponseItemReference, StudentHotspotSelection, StudentMatch, StudentResponse, StudentTextEntry,
+};
 use serde::{Deserialize, Serialize};
 
-use super::{PresentationV1, RenderedItemIdV1, RenderedItemRoleV1};
+use super::{IssuedQuestionPresentation, PresentationResponseItemReference, ResponseItemRole};
 
 /// Fail-closed reasons a browser-rendered identifier cannot be resolved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,7 +40,7 @@ pub enum RenderedResponseTranslationErrorV1 {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-pub enum InspectedStudentResponseV1 {
+pub enum StudentResponseInspection {
     /// A numeric value the Student submitted.
     Numeric {
         /// Submitted numeric value.
@@ -47,7 +49,7 @@ pub enum InspectedStudentResponseV1 {
     /// Rendered choice identifiers the Student selected.
     MultipleChoice {
         /// Issued rendered choice identifiers, never durable choice IDs.
-        selected: Vec<RenderedItemIdV1>,
+        selected: Vec<PresentationResponseItemReference>,
     },
     /// A short text value the Student submitted.
     ShortText {
@@ -67,17 +69,12 @@ pub enum InspectedStudentResponseV1 {
     /// Issued rendered order-item identifiers in Student-selected order.
     Ordering {
         /// Submitted ordering.
-        order: Vec<RenderedItemIdV1>,
+        order: Vec<PresentationResponseItemReference>,
     },
-    /// Submitted hotspot coordinates.
+    /// Submitted Hotspot Region selections.
     Hotspot {
-        /// Submitted points, without image storage or answer data.
-        points: Vec<crate::response::StudentHotspotPoint>,
-    },
-    /// Coarse file-upload submission state.
-    FileUpload {
-        /// Safe submitted-artifact state, without a download locator.
-        artifact: InspectedStudentArtifactStateV1,
+        /// Issued rendered Hotspot Region identifiers selected by the Student.
+        selected_regions: Vec<PresentationResponseItemReference>,
     },
     /// Coarse external-tool completion state.
     ExternalTool {
@@ -91,7 +88,7 @@ pub enum InspectedStudentResponseV1 {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectedTextEntryV1 {
     /// Issued rendered blank identifier binding this entry.
-    pub slot: RenderedItemIdV1,
+    pub slot: PresentationResponseItemReference,
     /// Text submitted for the rendered blank.
     pub text: String,
 }
@@ -101,17 +98,9 @@ pub struct InspectedTextEntryV1 {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectedMatchPairV1 {
     /// Issued rendered prompt identifier.
-    pub prompt: RenderedItemIdV1,
+    pub prompt: PresentationResponseItemReference,
     /// Issued rendered choice identifier.
-    pub choice: RenderedItemIdV1,
-}
-
-/// Safe artifact fact. Storage location and download authority stay private.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum InspectedStudentArtifactStateV1 {
-    /// The Student submitted an artifact; its locator remains private.
-    Submitted,
+    pub choice: PresentationResponseItemReference,
 }
 
 /// Safe external-tool fact. Provider data and launch authority stay private.
@@ -122,7 +111,7 @@ pub enum InspectedExternalToolStateV1 {
     SubmissionRecorded,
 }
 
-impl std::fmt::Debug for InspectedStudentResponseV1 {
+impl std::fmt::Debug for StudentResponseInspection {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let kind = match self {
             Self::Numeric { .. } => "numeric",
@@ -132,11 +121,10 @@ impl std::fmt::Debug for InspectedStudentResponseV1 {
             Self::Matching { .. } => "matching",
             Self::Ordering { .. } => "ordering",
             Self::Hotspot { .. } => "hotspot",
-            Self::FileUpload { .. } => "file_upload",
             Self::ExternalTool { .. } => "external_tool",
         };
         formatter
-            .debug_struct("InspectedStudentResponseV1")
+            .debug_struct("StudentResponseInspection")
             .field("kind", &kind)
             .finish()
     }
@@ -178,7 +166,7 @@ impl std::error::Error for RenderedResponseTranslationErrorV1 {}
 /// no durable mapping or serializable wire type.
 pub fn translate_rendered_response_v1(
     response: &StudentResponse,
-    presentation: &PresentationV1,
+    presentation: &IssuedQuestionPresentation,
 ) -> Result<StudentResponse, RenderedResponseTranslationErrorV1> {
     let durable_id = |id: &ResponseItemReference, role| durable_id_v1(id, role, presentation);
 
@@ -186,7 +174,7 @@ pub fn translate_rendered_response_v1(
         StudentResponse::MultipleChoice { selected } => Ok(StudentResponse::MultipleChoice {
             selected: selected
                 .iter()
-                .map(|id| durable_id(id, RenderedItemRoleV1::Choice))
+                .map(|id| durable_id(id, ResponseItemRole::QuestionChoice))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::MultiBlank { answers } => Ok(StudentResponse::MultiBlank {
@@ -194,7 +182,7 @@ pub fn translate_rendered_response_v1(
                 .iter()
                 .map(|answer| {
                     Ok(StudentTextEntry {
-                        slot: durable_id(&answer.slot, RenderedItemRoleV1::Blank)?,
+                        slot: durable_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
                         text: answer.text.clone(),
                     })
                 })
@@ -205,8 +193,8 @@ pub fn translate_rendered_response_v1(
                 .iter()
                 .map(|pair| {
                     Ok(StudentMatch {
-                        prompt: durable_id(&pair.prompt, RenderedItemRoleV1::MatchPrompt)?,
-                        choice: durable_id(&pair.choice, RenderedItemRoleV1::MatchChoice)?,
+                        prompt: durable_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
+                        choice: durable_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -214,18 +202,22 @@ pub fn translate_rendered_response_v1(
         StudentResponse::Ordering { order } => Ok(StudentResponse::Ordering {
             order: order
                 .iter()
-                .map(|id| durable_id(id, RenderedItemRoleV1::OrderItem))
+                .map(|id| durable_id(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Numeric { value } => Ok(StudentResponse::Numeric { value: *value }),
         StudentResponse::ShortText { text } => {
             Ok(StudentResponse::ShortText { text: text.clone() })
         }
-        StudentResponse::Hotspot { points } => Ok(StudentResponse::Hotspot {
-            points: points.clone(),
-        }),
-        StudentResponse::FileUpload { object_key } => Ok(StudentResponse::FileUpload {
-            object_key: object_key.clone(),
+        StudentResponse::Hotspot { selections } => Ok(StudentResponse::Hotspot {
+            selections: selections
+                .iter()
+                .map(|selection| {
+                    Ok(StudentHotspotSelection {
+                        region: durable_id(&selection.region, ResponseItemRole::HotspotRegion)?,
+                    })
+                })
+                .collect::<Result<_, _>>()?,
         }),
         StudentResponse::ExternalTool {} => Ok(StudentResponse::ExternalTool {}),
     }
@@ -238,59 +230,59 @@ pub fn translate_rendered_response_v1(
 /// inspection boundary.  It is pure and does not reveal grading material.
 pub fn project_durable_response_to_rendered_v1(
     response: &StudentResponse,
-    presentation: &PresentationV1,
-) -> Result<InspectedStudentResponseV1, RenderedResponseTranslationErrorV1> {
+    presentation: &IssuedQuestionPresentation,
+) -> Result<StudentResponseInspection, RenderedResponseTranslationErrorV1> {
     let rendered_id = |id: &ResponseItemReference, role| rendered_id_v1(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
-            Ok(InspectedStudentResponseV1::Numeric { value: *value })
+            Ok(StudentResponseInspection::Numeric { value: *value })
         }
         StudentResponse::MultipleChoice { selected } => {
-            Ok(InspectedStudentResponseV1::MultipleChoice {
+            Ok(StudentResponseInspection::MultipleChoice {
                 selected: selected
                     .iter()
-                    .map(|id| rendered_id(id, RenderedItemRoleV1::Choice))
+                    .map(|id| rendered_id(id, ResponseItemRole::QuestionChoice))
                     .collect::<Result<_, _>>()?,
             })
         }
         StudentResponse::ShortText { text } => {
-            Ok(InspectedStudentResponseV1::ShortText { text: text.clone() })
+            Ok(StudentResponseInspection::ShortText { text: text.clone() })
         }
-        StudentResponse::MultiBlank { answers } => Ok(InspectedStudentResponseV1::MultiBlank {
+        StudentResponse::MultiBlank { answers } => Ok(StudentResponseInspection::MultiBlank {
             answers: answers
                 .iter()
                 .map(|answer| {
                     Ok(InspectedTextEntryV1 {
-                        slot: rendered_id(&answer.slot, RenderedItemRoleV1::Blank)?,
+                        slot: rendered_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
                         text: answer.text.clone(),
                     })
                 })
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::Matching { matches } => Ok(InspectedStudentResponseV1::Matching {
+        StudentResponse::Matching { matches } => Ok(StudentResponseInspection::Matching {
             matches: matches
                 .iter()
                 .map(|pair| {
                     Ok(InspectedMatchPairV1 {
-                        prompt: rendered_id(&pair.prompt, RenderedItemRoleV1::MatchPrompt)?,
-                        choice: rendered_id(&pair.choice, RenderedItemRoleV1::MatchChoice)?,
+                        prompt: rendered_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
+                        choice: rendered_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::Ordering { order } => Ok(InspectedStudentResponseV1::Ordering {
+        StudentResponse::Ordering { order } => Ok(StudentResponseInspection::Ordering {
             order: order
                 .iter()
-                .map(|id| rendered_id(id, RenderedItemRoleV1::OrderItem))
+                .map(|id| rendered_id(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::Hotspot { points } => Ok(InspectedStudentResponseV1::Hotspot {
-            points: points.clone(),
+        StudentResponse::Hotspot { selections } => Ok(StudentResponseInspection::Hotspot {
+            selected_regions: selections
+                .iter()
+                .map(|selection| rendered_id(&selection.region, ResponseItemRole::HotspotRegion))
+                .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::FileUpload { .. } => Ok(InspectedStudentResponseV1::FileUpload {
-            artifact: InspectedStudentArtifactStateV1::Submitted,
-        }),
-        StudentResponse::ExternalTool {} => Ok(InspectedStudentResponseV1::ExternalTool {
+        StudentResponse::ExternalTool {} => Ok(StudentResponseInspection::ExternalTool {
             completion: InspectedExternalToolStateV1::SubmissionRecorded,
         }),
     }
@@ -305,59 +297,60 @@ pub fn project_durable_response_to_rendered_v1(
 /// browser-safe presentations intentionally contain no durable identifiers.
 pub fn project_rendered_response_for_inspection_v1(
     response: &StudentResponse,
-    presentation: &PresentationV1,
-) -> Result<InspectedStudentResponseV1, RenderedResponseTranslationErrorV1> {
-    let rendered_id = |id: &ResponseItemReference, role| verified_rendered_id_v1(id, role, presentation);
+    presentation: &IssuedQuestionPresentation,
+) -> Result<StudentResponseInspection, RenderedResponseTranslationErrorV1> {
+    let rendered_id =
+        |id: &ResponseItemReference, role| verified_rendered_id_v1(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
-            Ok(InspectedStudentResponseV1::Numeric { value: *value })
+            Ok(StudentResponseInspection::Numeric { value: *value })
         }
         StudentResponse::MultipleChoice { selected } => {
-            Ok(InspectedStudentResponseV1::MultipleChoice {
+            Ok(StudentResponseInspection::MultipleChoice {
                 selected: selected
                     .iter()
-                    .map(|id| rendered_id(id, RenderedItemRoleV1::Choice))
+                    .map(|id| rendered_id(id, ResponseItemRole::QuestionChoice))
                     .collect::<Result<_, _>>()?,
             })
         }
         StudentResponse::ShortText { text } => {
-            Ok(InspectedStudentResponseV1::ShortText { text: text.clone() })
+            Ok(StudentResponseInspection::ShortText { text: text.clone() })
         }
-        StudentResponse::MultiBlank { answers } => Ok(InspectedStudentResponseV1::MultiBlank {
+        StudentResponse::MultiBlank { answers } => Ok(StudentResponseInspection::MultiBlank {
             answers: answers
                 .iter()
                 .map(|answer| {
                     Ok(InspectedTextEntryV1 {
-                        slot: rendered_id(&answer.slot, RenderedItemRoleV1::Blank)?,
+                        slot: rendered_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
                         text: answer.text.clone(),
                     })
                 })
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::Matching { matches } => Ok(InspectedStudentResponseV1::Matching {
+        StudentResponse::Matching { matches } => Ok(StudentResponseInspection::Matching {
             matches: matches
                 .iter()
                 .map(|pair| {
                     Ok(InspectedMatchPairV1 {
-                        prompt: rendered_id(&pair.prompt, RenderedItemRoleV1::MatchPrompt)?,
-                        choice: rendered_id(&pair.choice, RenderedItemRoleV1::MatchChoice)?,
+                        prompt: rendered_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
+                        choice: rendered_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::Ordering { order } => Ok(InspectedStudentResponseV1::Ordering {
+        StudentResponse::Ordering { order } => Ok(StudentResponseInspection::Ordering {
             order: order
                 .iter()
-                .map(|id| rendered_id(id, RenderedItemRoleV1::OrderItem))
+                .map(|id| rendered_id(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::Hotspot { points } => Ok(InspectedStudentResponseV1::Hotspot {
-            points: points.clone(),
+        StudentResponse::Hotspot { selections } => Ok(StudentResponseInspection::Hotspot {
+            selected_regions: selections
+                .iter()
+                .map(|selection| rendered_id(&selection.region, ResponseItemRole::HotspotRegion))
+                .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::FileUpload { .. } => Ok(InspectedStudentResponseV1::FileUpload {
-            artifact: InspectedStudentArtifactStateV1::Submitted,
-        }),
-        StudentResponse::ExternalTool {} => Ok(InspectedStudentResponseV1::ExternalTool {
+        StudentResponse::ExternalTool {} => Ok(StudentResponseInspection::ExternalTool {
             completion: InspectedExternalToolStateV1::SubmissionRecorded,
         }),
     }
@@ -365,8 +358,8 @@ pub fn project_rendered_response_for_inspection_v1(
 
 fn durable_id_v1(
     id: &ResponseItemReference,
-    expected_role: RenderedItemRoleV1,
-    presentation: &PresentationV1,
+    expected_role: ResponseItemRole,
+    presentation: &IssuedQuestionPresentation,
 ) -> Result<ResponseItemReference, RenderedResponseTranslationErrorV1> {
     Ok(ResponseItemReference::new(
         rendered_binding_v1(id, expected_role, presentation)?
@@ -377,9 +370,9 @@ fn durable_id_v1(
 
 fn verified_rendered_id_v1(
     id: &ResponseItemReference,
-    expected_role: RenderedItemRoleV1,
-    presentation: &PresentationV1,
-) -> Result<RenderedItemIdV1, RenderedResponseTranslationErrorV1> {
+    expected_role: ResponseItemRole,
+    presentation: &IssuedQuestionPresentation,
+) -> Result<PresentationResponseItemReference, RenderedResponseTranslationErrorV1> {
     Ok(rendered_binding_v1(id, expected_role, presentation)?
         .rendered
         .clone())
@@ -387,10 +380,10 @@ fn verified_rendered_id_v1(
 
 fn rendered_binding_v1<'a>(
     id: &ResponseItemReference,
-    expected_role: RenderedItemRoleV1,
-    presentation: &'a PresentationV1,
-) -> Result<&'a super::RenderedItemBindingV1, RenderedResponseTranslationErrorV1> {
-    let rendered = RenderedItemIdV1::parse(id.as_str())
+    expected_role: ResponseItemRole,
+    presentation: &'a IssuedQuestionPresentation,
+) -> Result<&'a super::ResponseItemBinding, RenderedResponseTranslationErrorV1> {
+    let rendered = PresentationResponseItemReference::parse(id.as_str())
         .map_err(|_| RenderedResponseTranslationErrorV1::MalformedRenderedId)?;
     let mut bindings = presentation
         .item_bindings
@@ -410,9 +403,9 @@ fn rendered_binding_v1<'a>(
 
 fn rendered_id_v1(
     durable: &ResponseItemReference,
-    expected_role: RenderedItemRoleV1,
-    presentation: &PresentationV1,
-) -> Result<RenderedItemIdV1, RenderedResponseTranslationErrorV1> {
+    expected_role: ResponseItemRole,
+    presentation: &IssuedQuestionPresentation,
+) -> Result<PresentationResponseItemReference, RenderedResponseTranslationErrorV1> {
     let mut bindings = presentation
         .item_bindings
         .iter()

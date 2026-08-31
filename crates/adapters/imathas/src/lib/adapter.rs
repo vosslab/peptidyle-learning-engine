@@ -4,21 +4,22 @@ use std::collections::BTreeSet;
 
 use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::{
-    ActivityTimestamp, GradingResult, QuestionAttemptId, QuestionAttemptSourceRecord,
-    QuestionDefinition, QuestionPresentation, QuestionSource, QuestionVersionReference,
-    SourceObjectReference,
+    ActivityTimestamp, GradingResult, QuestionAttemptId, QuestionAttemptReproductionDetails,
+    QuestionPresentation, QuestionRendererVersion, QuestionSource, QuestionVersion,
+    QuestionVersionReference, SourceObjectReference,
 };
 use sha2::{Digest, Sha256};
 
 use crate::cache::{
-    CachedRender, decode_cache, implementation, parameter_hash, render_key, validate_cache,
+    CachedRender, backend_version, decode_cache, grader_version, parameter_hash, render_key,
+    validate_cache,
 };
 use crate::external_question_provider;
 use crate::{
-    ADAPTER_ID, ADAPTER_VERSION, DraftLocator, GRADING_ID, GRADING_VERSION, GradeBinding,
-    ImathasAdapterError, ImathasProvider, PreparedSnapshot, ProviderGradeRequest,
+    ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, GradeBinding, ImathasAdapterError,
+    ImathasDraftQuestionSource, ImathasProvider, PreparedSnapshot, ProviderGradeRequest,
     ProviderRenderRequest, ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex,
     verify_binding,
 };
@@ -54,7 +55,7 @@ impl ImathasSource {
 pub struct ImathasIssuedAttempt {
     pub envelope: QuestionPresentation,
     pub parameter_hash: String,
-    pub source_record: QuestionAttemptSourceRecord,
+    pub reproduction_details: QuestionAttemptReproductionDetails,
     pub cache_hit: bool,
 }
 
@@ -104,7 +105,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         &self,
         draft: &question_model::DraftQuestionSource,
     ) -> Result<PreparedSnapshot, ImathasAdapterError> {
-        let locator = DraftLocator::from_draft(draft)?;
+        let locator = ImathasDraftQuestionSource::from_draft(draft)?;
         let (bytes, profile) = self
             .provider
             .snapshot(&locator)
@@ -153,8 +154,8 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     /// version/seed requests are served from immutable cache storage.
     pub async fn issue(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         source: &ImathasSource,
         created_at: ActivityTimestamp,
     ) -> Result<ImathasIssuedAttempt, ImathasAdapterError> {
@@ -213,10 +214,10 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         match self
             .store
             .put(PutObject {
-                key: key.clone(),
+                address: key.clone(),
                 bytes,
                 media_type: "application/vnd.peptidyle.imathas-render+json".into(),
-                license: "derived-render".into(),
+                license: None,
                 provenance: "safe iMathAS external-tool render cache".into(),
                 created_at,
             })
@@ -249,13 +250,16 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         .as_slice());
         Ok(ImathasIssuedAttempt {
             parameter_hash: parameter_hash(cached.envelope.variation.seed),
-            source_record: QuestionAttemptSourceRecord {
-                adapter: implementation(ADAPTER_ID, ADAPTER_VERSION),
-                renderer: Some(implementation("imathas-profile", &source.profile)),
+            reproduction_details: QuestionAttemptReproductionDetails {
+                backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
+                renderer_version: Some(QuestionRendererVersion {
+                    name: "imathas-profile".to_string(),
+                    version: source.profile.clone(),
+                }),
                 generator: None,
                 source_object_reference: Some(source.artifact.clone()),
                 asset_objects: Vec::new(),
-                grading: implementation(GRADING_ID, GRADING_VERSION),
+                grader: grader_version(GRADING_ID, GRADING_VERSION),
                 rendered_question_sha256: hash,
             },
             envelope: cached.envelope,
@@ -266,10 +270,10 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     /// Accepts only a provider-verifier result matching every server-held binding.
     pub async fn grade(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
         source: &ImathasSource,
         attempt: QuestionAttemptId,
-        seed: Seed,
+        seed: QuestionSeed,
         correlation: &ServerCorrelation,
     ) -> Result<VerifiedGradeReceipt, ImathasAdapterError> {
         verify_binding(question, source)?;
@@ -324,10 +328,10 @@ where
     #[allow(clippy::too_many_arguments)]
     pub async fn begin_contracted_launch(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
         source: &ImathasSource,
         attempt: QuestionAttemptId,
-        seed: Seed,
+        seed: QuestionSeed,
         correlation: ServerCorrelation,
         nonce: crate::scored_embed::ScoredEmbedNonce,
         now: ActivityTimestamp,

@@ -1,4 +1,4 @@
-"""Renderer selection, OCI identity, provenance, and safe probe ownership."""
+"""Question Renderer Version selection, OCI identity, and safe probe ownership."""
 
 import os
 import pathlib
@@ -14,7 +14,7 @@ import local_stack_control.status
 LOCAL_REFERENCE = re.compile(r"^localhost/[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9][A-Za-z0-9._-]*$")
 IMMUTABLE_REFERENCE = re.compile(r"^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$")
 OCI_ID = re.compile(r"^sha256:[0-9a-f]{64}$")
-PROVENANCE_NAME = "webwork-renderer.provenance"
+QUESTION_RENDERER_VERSION_NAME = "question-renderer-version"
 LOCAL_REVIEWED_REFERENCE = "localhost/pg-renderer:reviewed"
 LOCAL_SOURCE_DIRECTORY_NAME = "webwork-pg-renderer"
 
@@ -130,55 +130,55 @@ def require_running_renderer(
 
 
 #============================================
-def private_provenance_path(directory: pathlib.Path) -> pathlib.Path:
-	"""Return the fixed private provenance path under an owner-controlled directory."""
+def question_renderer_version_path(directory: pathlib.Path) -> pathlib.Path:
+	"""Return the fixed private Question Renderer Version path."""
 	if directory.is_symlink() or not directory.is_dir():
-		raise local_stack_control.models.ControllerError("renderer provenance directory is unavailable")
-	return directory / PROVENANCE_NAME
+		raise local_stack_control.models.ControllerError("Question Renderer Version directory is unavailable")
+	return directory / QUESTION_RENDERER_VERSION_NAME
 
 
 #============================================
-def write_provenance(directory: pathlib.Path, provenance: local_stack_control.models.RendererProvenance) -> pathlib.Path:
-	"""Atomically replace the exact two-record private renderer provenance contract."""
-	validate_renderer_reference(provenance.reference)
-	if OCI_ID.fullmatch(provenance.oci_id) is None:
-		raise local_stack_control.models.ControllerError("renderer provenance OCI ID is invalid")
-	path = private_provenance_path(directory)
+def write_question_renderer_version(directory: pathlib.Path, version: local_stack_control.models.QuestionRendererVersion) -> pathlib.Path:
+	"""Atomically replace the exact private Question Renderer Version."""
+	validate_renderer_reference(version.reference)
+	if OCI_ID.fullmatch(version.oci_id) is None:
+		raise local_stack_control.models.ControllerError("Question Renderer Version OCI ID is invalid")
+	path = question_renderer_version_path(directory)
 	if path.exists() or path.is_symlink():
-		read_provenance(directory)
-	content = f"reference={provenance.reference}\noci_id={provenance.oci_id}\n".encode("ascii")
+		read_question_renderer_version(directory)
+	content = f"reference={version.reference}\noci_id={version.oci_id}\n".encode("ascii")
 	local_stack_control.private_files.write_atomic_file(path, content, 0o600)
-	result = read_provenance(directory)
+	result = read_question_renderer_version(directory)
 	return result
 
 
 #============================================
-def read_provenance(directory: pathlib.Path) -> pathlib.Path:
-	"""Validate a private provenance boundary and return its fixed path."""
-	path = private_provenance_path(directory)
+def read_question_renderer_version(directory: pathlib.Path) -> pathlib.Path:
+	"""Validate a private Question Renderer Version and return its fixed path."""
+	path = question_renderer_version_path(directory)
 	metadata = path.lstat()
 	if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
-		raise local_stack_control.models.ControllerError("renderer provenance must be a current-user regular file")
+		raise local_stack_control.models.ControllerError("Question Renderer Version must be a current-user regular file")
 	if stat.S_IMODE(metadata.st_mode) != 0o600:
-		raise local_stack_control.models.ControllerError("renderer provenance must have mode 0600")
+		raise local_stack_control.models.ControllerError("Question Renderer Version must have mode 0600")
 	return path
 
 
 #============================================
-def load_provenance(directory: pathlib.Path) -> local_stack_control.models.RendererProvenance:
-	"""Read exactly the two unique, validated records needed before restart."""
-	path = read_provenance(directory)
+def load_question_renderer_version(directory: pathlib.Path) -> local_stack_control.models.QuestionRendererVersion:
+	"""Read the exact private Question Renderer Version needed before restart."""
+	path = read_question_renderer_version(directory)
 	try:
 		content = local_stack_control.private_files.read_current_user_private_file(path, 512)
 		lines = content.decode("ascii").splitlines()
 	except UnicodeDecodeError as error:
-		raise local_stack_control.models.ControllerError("renderer provenance is malformed") from error
+		raise local_stack_control.models.ControllerError("Question Renderer Version is malformed") from error
 	if len(lines) != 2 or any("=" not in line for line in lines):
-		raise local_stack_control.models.ControllerError("renderer provenance is malformed")
+		raise local_stack_control.models.ControllerError("Question Renderer Version is malformed")
 	values = dict(line.split("=", 1) for line in lines)
 	if set(values) != {"reference", "oci_id"}:
-		raise local_stack_control.models.ControllerError("renderer provenance records are unsafe")
-	return local_stack_control.models.RendererProvenance(
+		raise local_stack_control.models.ControllerError("Question Renderer Version records are unsafe")
+	return local_stack_control.models.QuestionRendererVersion(
 		reference=validate_renderer_reference(values["reference"]),
 		oci_id=values["oci_id"] if OCI_ID.fullmatch(values["oci_id"]) else _invalid_oci_id(),
 	)
@@ -186,16 +186,16 @@ def load_provenance(directory: pathlib.Path) -> local_stack_control.models.Rende
 
 #============================================
 def _invalid_oci_id() -> str:
-	"""Raise a concise error for malformed private provenance."""
-	raise local_stack_control.models.ControllerError("renderer provenance OCI ID is invalid")
+	"""Raise a concise error for a malformed Question Renderer Version OCI ID."""
+	raise local_stack_control.models.ControllerError("Question Renderer Version OCI ID is invalid")
 
 
 #============================================
-def require_restart_provenance(directory: pathlib.Path, selected_oci_id: str) -> None:
-	"""Require restart provenance to match the freshly selected OCI identity."""
-	provenance = load_provenance(directory)
-	if provenance.oci_id != selected_oci_id:
-		raise local_stack_control.models.ControllerError("renderer provenance does not match selected OCI ID")
+def require_question_renderer_version(directory: pathlib.Path, selected_oci_id: str) -> None:
+	"""Require the stored Question Renderer Version to match selected OCI identity."""
+	version = load_question_renderer_version(directory)
+	if version.oci_id != selected_oci_id:
+		raise local_stack_control.models.ControllerError("Question Renderer Version does not match selected OCI ID")
 
 
 #============================================

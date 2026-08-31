@@ -23,8 +23,10 @@ use grading::QuestionGradingOutcome;
 use question_model::GradingResult;
 use question_model::answer::ResponseSelectionRule;
 use question_model::envelope::ContentBlock;
-use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
-use question_model::{QuestionPresentation, StudentResponse};
+use question_model::response::{
+    MatchingChoice, MatchingPrompt, QuestionChoice, QuestionResponseFormat, ResponseItemReference,
+};
+use question_model::{QuestionPresentation, QuestionRendererVersion, StudentResponse};
 use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
 use reqwest::{Client, StatusCode, Url};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
@@ -34,8 +36,8 @@ use serde_json::{Map, Value};
 use super::response_shape::RESPONSE_KEYS;
 
 use crate::renderer_contract::{
-    GradeRequest, RenderRequest, RenderedWebworkQuestion, RendererFailure, RendererIdentity,
-    UpstreamControlV1, WebworkRenderer, WebworkReplayMappingV1,
+    GradeRequest, RenderRequest, RenderedWebworkQuestion, RendererFailure, UpstreamControlV1,
+    WebworkRenderer, WebworkReplayMappingV1,
 };
 
 const JSON_MEDIA_TYPE: &str = "application/json";
@@ -58,7 +60,7 @@ const MAX_HTML_NESTING: usize = 64;
 pub enum RendererConfigError {
     InvalidBaseUri,
     InvalidLimits,
-    MissingRendererIdentity,
+    MissingQuestionRendererVersion,
 }
 
 impl std::fmt::Display for RendererConfigError {
@@ -68,7 +70,7 @@ impl std::fmt::Display for RendererConfigError {
                 "renderer base URI must be absolute http(s), query-free, and fragment-free"
             }
             Self::InvalidLimits => "renderer deadlines and response limit must be positive",
-            Self::MissingRendererIdentity => "renderer identity must be configured",
+            Self::MissingQuestionRendererVersion => "Question Renderer Version must be configured",
         })
     }
 }
@@ -80,7 +82,7 @@ pub struct HttpWebworkRendererConfig {
     base_uri: Url,
     deadline: Duration,
     max_response_bytes: usize,
-    expected_renderer: RendererIdentity,
+    expected_renderer: QuestionRendererVersion,
 }
 
 impl std::fmt::Debug for HttpWebworkRendererConfig {
@@ -101,7 +103,7 @@ impl HttpWebworkRendererConfig {
         base_uri: &str,
         deadline: Duration,
         max_response_bytes: usize,
-        expected_renderer: RendererIdentity,
+        expected_renderer: QuestionRendererVersion,
     ) -> Result<Self, RendererConfigError> {
         let base_uri = Url::parse(base_uri).map_err(|_| RendererConfigError::InvalidBaseUri)?;
         if !matches!(base_uri.scheme(), "http" | "https")
@@ -117,8 +119,8 @@ impl HttpWebworkRendererConfig {
         if deadline.is_zero() || max_response_bytes == 0 {
             return Err(RendererConfigError::InvalidLimits);
         }
-        if expected_renderer.id.trim().is_empty() || expected_renderer.version.trim().is_empty() {
-            return Err(RendererConfigError::MissingRendererIdentity);
+        if expected_renderer.name.trim().is_empty() || expected_renderer.version.trim().is_empty() {
+            return Err(RendererConfigError::MissingQuestionRendererVersion);
         }
         Ok(Self {
             base_uri,
@@ -131,7 +133,7 @@ impl HttpWebworkRendererConfig {
     pub fn with_default_response_limit(
         base_uri: &str,
         deadline: Duration,
-        expected_renderer: RendererIdentity,
+        expected_renderer: QuestionRendererVersion,
     ) -> Result<Self, RendererConfigError> {
         Self::new(
             base_uri,
@@ -206,7 +208,7 @@ impl HttpWebworkRenderer {
 
 #[async_trait]
 impl WebworkRenderer for HttpWebworkRenderer {
-    fn identity(&self) -> &RendererIdentity {
+    fn identity(&self) -> &QuestionRendererVersion {
         &self.settings.expected_renderer
     }
 
@@ -218,7 +220,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         Ok(RenderedWebworkQuestion {
             envelope: parsed.envelope,
             html: parsed.html,
-            renderer: self.settings.expected_renderer.clone(),
+            renderer_version: self.settings.expected_renderer.clone(),
             replay: Some(parsed.replay),
         })
     }
@@ -402,7 +404,7 @@ fn project_single_radio(
     let mut choice_fields = BTreeMap::new();
     for (index, control) in parsed_html.controls.into_iter().enumerate() {
         let id = opaque_choice_id(request, index)?;
-        choices.push(ChoiceOption {
+        choices.push(QuestionChoice {
             id: id.clone(),
             body: vec![ContentBlock::Text {
                 markdown: control.label,
@@ -420,7 +422,7 @@ fn project_single_radio(
         envelope: QuestionPresentation {
             variation: question_model::QuestionVariation::static_variation(
                 request.question_version.clone(),
-                question_model::generation::Seed::new(request.seed),
+                question_model::generation::QuestionSeed::new(request.seed),
             ),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text { markdown: prompt }],
@@ -449,7 +451,7 @@ fn project_matching(
         .enumerate()
         .map(|(index, choice)| {
             let id = opaque_item_id(request, 3, index)?;
-            choices.push(ChoiceOption {
+            choices.push(MatchingChoice {
                 id: id.clone(),
                 body: vec![ContentBlock::Text {
                     markdown: choice.label.clone(),
@@ -460,7 +462,7 @@ fn project_matching(
         .collect::<Result<_, RendererFailure>>()?;
     for (index, prompt) in parsed_html.prompts.into_iter().enumerate() {
         let id = opaque_item_id(request, 2, index)?;
-        prompts.push(ChoiceOption {
+        prompts.push(MatchingPrompt {
             id: id.clone(),
             body: vec![ContentBlock::Text {
                 markdown: prompt.label,
@@ -478,7 +480,7 @@ fn project_matching(
         envelope: QuestionPresentation {
             variation: question_model::QuestionVariation::static_variation(
                 request.question_version.clone(),
-                question_model::generation::Seed::new(request.seed),
+                question_model::generation::QuestionSeed::new(request.seed),
             ),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text {

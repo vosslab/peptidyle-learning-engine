@@ -6,11 +6,11 @@ import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
-import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
-import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
+import type { StudentFeedback } from "../../generated/api/StudentFeedback";
+import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
-import type { ScoringStatus } from "../../generated/api/ScoringStatus";
+import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
@@ -174,8 +174,8 @@ export interface SignedOutResponse {
 }
 
 /** Student attempt projection with the current server-owned score freshness gate. */
-export interface StudentQuestionAttempt extends QuestionAttempt {
-  readonly scoringStatus: ScoringStatus;
+export interface StudentQuestionAttempt extends StudentQuestionAttemptView {
+  readonly assignmentScoringState: AssignmentScoringState;
   /** Null for a fixed item; a safe ordinal explanation for one server-selected pool item. */
   readonly questionPoolSelection: QuestionPoolSelection | null;
 }
@@ -194,12 +194,12 @@ export interface QuestionSubmissionReceipt {
 
 /** A Question Submission Receipt after grading has produced a browser-safe result. */
 export interface GradedQuestionSubmissionReceipt extends QuestionSubmissionReceipt {
-  readonly attempt: QuestionAttempt;
-  readonly scoringStatus: ScoringStatus;
+  readonly attempt: StudentQuestionAttemptView;
+  readonly assignmentScoringState: AssignmentScoringState;
   /** Persisted completion state; successor absence alone is not completion evidence. */
   readonly assignmentAttemptCompletion: AssignmentAttemptCompletion;
   /** Server-redacted teaching material, or an explicit policy withholding it. */
-  readonly feedback: DisclosedFeedback | null;
+  readonly feedback: StudentFeedback | null;
   readonly nextIssued: NextIssuedAttempt | null;
   /** The grade receipt is durable, but a successor has not been issued yet. */
   readonly nextPending: boolean;
@@ -254,8 +254,8 @@ export interface AssignmentAttemptSummaryOutcome {
   readonly issuedQuestion: IssuedQuestion;
   readonly submittedAt: number | null;
   readonly response: StudentResponse | null;
-  readonly feedback: DisclosedFeedback | null;
-  readonly scoringStatus: ScoringStatus;
+  readonly feedback: StudentFeedback | null;
+  readonly assignmentScoringState: AssignmentScoringState;
 }
 
 /** Current server projection; it never includes a question key, result, or release policy. */
@@ -316,7 +316,7 @@ export interface PublicationDiff {
     | "response"
     | "questionAttemptLimit"
     | "questionAttemptTimeLimit"
-    | "randomization"
+    | "questionVariationDefinition"
     | "metadata"
   >;
 }
@@ -332,7 +332,7 @@ export interface PublicationSemanticProjection {
   };
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly randomization: { readonly kind: "static" | "seeded" };
+  readonly questionVariationDefinition: { readonly kind: "static" | "seeded" };
   readonly metadata: {
     readonly tags: ReadonlyArray<string>;
     readonly taxonomy: ReadonlyArray<TaxonomyTerm>;
@@ -350,7 +350,6 @@ export type PublicationResponseKind =
   | "matching"
   | "ordering"
   | "hotspot"
-  | "fileUpload"
   | "externalTool";
 
 export interface PublicationResult {

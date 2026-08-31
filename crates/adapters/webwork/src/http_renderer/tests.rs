@@ -1,6 +1,8 @@
 use serde_json::json;
 use std::sync::LazyLock;
 
+use question_model::QuestionRendererVersion;
+
 use super::*;
 
 #[path = "tests/current_matching.rs"]
@@ -27,8 +29,8 @@ fn config() -> HttpWebworkRendererConfig {
         "http://webwork.internal/",
         Duration::from_secs(1),
         1024,
-        RendererIdentity {
-            id: "webwork-pg-renderer".into(),
+        QuestionRendererVersion {
+            name: "webwork-pg-renderer".into(),
             version: "renderer-a06111-pg-726ff4".into(),
         },
     )
@@ -599,8 +601,8 @@ async fn private_http_client_posts_only_to_render_api_with_form_fields() {
         &base,
         Duration::from_secs(1),
         1024,
-        RendererIdentity {
-            id: "test".into(),
+        QuestionRendererVersion {
+            name: "test".into(),
             version: "1".into(),
         },
     )
@@ -630,8 +632,8 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
             &base,
             Duration::from_secs(1),
             16_384,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -650,8 +652,8 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
             &base,
             Duration::from_secs(1),
             1024,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -672,8 +674,8 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
             &base,
             Duration::from_secs(1),
             1024,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -699,8 +701,8 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
             &base,
             Duration::from_secs(1),
             1024,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -713,8 +715,8 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
         &base,
         Duration::from_secs(1),
         16_384,
-        RendererIdentity {
-            id: "test".into(),
+        QuestionRendererVersion {
+            name: "test".into(),
             version: "1".into(),
         },
     )
@@ -776,8 +778,8 @@ async fn grade_refuses_fractional_upstream_score() {
             &base,
             Duration::from_secs(1),
             16_384,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -790,8 +792,8 @@ async fn grade_refuses_fractional_upstream_score() {
         &base,
         Duration::from_secs(1),
         16_384,
-        RendererIdentity {
-            id: "test".into(),
+        QuestionRendererVersion {
+            name: "test".into(),
             version: "1".into(),
         },
     )
@@ -829,8 +831,8 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
             &base,
             Duration::from_secs(1),
             16_384,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -844,8 +846,8 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
             &base,
             Duration::from_secs(1),
             16_384,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -890,8 +892,8 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
             &base,
             Duration::from_secs(1),
             16_384,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -905,8 +907,8 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
             &base,
             Duration::from_secs(1),
             16_384,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )
@@ -976,8 +978,8 @@ async fn private_http_client_maps_deadline_to_timeout() {
             &format!("http://{address}/"),
             Duration::from_millis(10),
             1024,
-            RendererIdentity {
-                id: "test".into(),
+            QuestionRendererVersion {
+                name: "test".into(),
                 version: "1".into(),
             },
         )

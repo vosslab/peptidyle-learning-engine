@@ -40,7 +40,7 @@ function semanticProjection(definition) {
     response: { kind: response.kind, optionCount },
     questionAttemptLimit: definition.questionAttemptLimit,
     questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
-    randomization: { kind: definition.randomization.kind },
+    questionVariationDefinition: { kind: definition.questionVariationDefinition.kind },
     metadata: {
       tags: definition.metadata.tags,
       taxonomy: definition.metadata.taxonomy,

@@ -2,9 +2,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use domain::generator::{GeneratedValue, generate};
+use domain::generator::{QuestionVariationParameterValue, generate};
 use question_model::generation::{
-    GeneratorReference, ParameterSpec, RandomizationDefinition, Seed,
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
+    QuestionVariationDefinition,
 };
 use serde::Deserialize;
 
@@ -22,8 +23,8 @@ struct SeedCorpus {
 /// One generator definition and its committed expected hashes.
 #[derive(Debug, Deserialize)]
 struct GeneratorCorpus {
-    generator: GeneratorReference,
-    definition: RandomizationDefinition,
+    generator: QuestionGeneratorReference,
+    definition: QuestionVariationDefinition,
     vectors: Vec<SeedVector>,
 }
 
@@ -112,7 +113,7 @@ pub fn assert_committed_seed_vectors() {
 
 /// Verifies coverage and hashes, stopping at the first divergent seed.
 fn assert_generator_corpus(corpus: &GeneratorCorpus) {
-    let RandomizationDefinition::Seeded {
+    let QuestionVariationDefinition::Seeded {
         generator,
         parameters,
     } = &corpus.definition
@@ -143,12 +144,13 @@ fn assert_generator_corpus(corpus: &GeneratorCorpus) {
 
     for vector in &corpus.vectors {
         assert_hash_shape(&generator_label, vector);
-        let output = generate(Seed::new(vector.seed), &corpus.definition).unwrap_or_else(|error| {
-            panic!(
-                "generator `{}` first divergent seed {}: generation failed: {error}",
-                generator_label, vector.seed
-            )
-        });
+        let output =
+            generate(QuestionSeed::new(vector.seed), &corpus.definition).unwrap_or_else(|error| {
+                panic!(
+                    "generator `{}` first divergent seed {}: generation failed: {error}",
+                    generator_label, vector.seed
+                )
+            });
         let actual = output.sha256().unwrap_or_else(|error| {
             panic!(
                 "generator `{}` first divergent seed {}: hashing failed: {error}",
@@ -197,16 +199,18 @@ fn assert_hash_shape(generator: &str, vector: &SeedVector) {
 }
 
 /// Inspects the authored definition so every implementation branch is required.
-fn parameter_coverage(parameters: &BTreeMap<String, ParameterSpec>) -> ParameterCoverage {
+fn parameter_coverage(
+    parameters: &BTreeMap<String, QuestionGeneratorParameter>,
+) -> ParameterCoverage {
     let mut coverage = ParameterCoverage::default();
     for spec in parameters.values() {
         match spec {
-            ParameterSpec::IntegerRange { low, high } => {
+            QuestionGeneratorParameter::IntegerRange { low, high } => {
                 coverage.integer_single |= low == high;
                 coverage.integer_range |= low < high;
                 coverage.integer_full_i64_range |= *low == i64::MIN && *high == i64::MAX;
             }
-            ParameterSpec::DecimalRange {
+            QuestionGeneratorParameter::DecimalRange {
                 low,
                 high,
                 decimals,
@@ -215,11 +219,11 @@ fn parameter_coverage(parameters: &BTreeMap<String, ParameterSpec>) -> Parameter
                 coverage.decimal_range |= low < high;
                 coverage.decimal_zero_places |= *decimals == 0;
             }
-            ParameterSpec::Choice { options } => {
+            QuestionGeneratorParameter::Choice { options } => {
                 coverage.choice_single |= options.len() == 1;
                 coverage.choice_multiple |= options.len() > 1;
             }
-            ParameterSpec::Fixed { .. } => coverage.fixed = true,
+            QuestionGeneratorParameter::Fixed { .. } => coverage.fixed = true,
         }
     }
     coverage
@@ -228,7 +232,7 @@ fn parameter_coverage(parameters: &BTreeMap<String, ParameterSpec>) -> Parameter
 /// Requires random branches to vary and deterministic branches to remain fixed.
 fn assert_observed_variation(
     generator: &str,
-    parameters: &BTreeMap<String, ParameterSpec>,
+    parameters: &BTreeMap<String, QuestionGeneratorParameter>,
     observed: &BTreeMap<String, BTreeSet<String>>,
 ) {
     for (name, spec) in parameters {
@@ -237,10 +241,10 @@ fn assert_observed_variation(
             .expect("every authored parameter must be observed")
             .len();
         let should_vary = match spec {
-            ParameterSpec::IntegerRange { low, high } => low < high,
-            ParameterSpec::DecimalRange { low, high, .. } => low < high,
-            ParameterSpec::Choice { options } => options.len() > 1,
-            ParameterSpec::Fixed { .. } => false,
+            QuestionGeneratorParameter::IntegerRange { low, high } => low < high,
+            QuestionGeneratorParameter::DecimalRange { low, high, .. } => low < high,
+            QuestionGeneratorParameter::Choice { options } => options.len() > 1,
+            QuestionGeneratorParameter::Fixed { .. } => false,
         };
         if should_vary {
             assert!(count > 1, "{generator}: parameter {name} never varied");
@@ -251,11 +255,11 @@ fn assert_observed_variation(
 }
 
 /// Stable display used only to count distinct values observed by the corpus.
-fn observed_value(value: GeneratedValue) -> String {
+fn observed_value(value: QuestionVariationParameterValue) -> String {
     match value {
-        GeneratedValue::Integer { value } => format!("integer:{value}"),
-        GeneratedValue::Decimal { value } => format!("decimal:{value}"),
-        GeneratedValue::Choice { value } => format!("choice:{value}"),
-        GeneratedValue::Fixed { value } => format!("fixed:{value}"),
+        QuestionVariationParameterValue::Integer { value } => format!("integer:{value}"),
+        QuestionVariationParameterValue::Decimal { value } => format!("decimal:{value}"),
+        QuestionVariationParameterValue::Choice { value } => format!("choice:{value}"),
+        QuestionVariationParameterValue::Fixed { value } => format!("fixed:{value}"),
     }
 }

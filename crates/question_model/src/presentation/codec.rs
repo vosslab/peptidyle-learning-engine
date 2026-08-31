@@ -4,10 +4,12 @@ use sha2::{Digest, Sha256};
 
 use crate::envelope::{AssetRef, ContentBlock};
 
-use super::builder::{ItemBasisV1, PresentationBuildError, PresentationV1, RenderedItemRoleV1};
+use super::builder::{
+    IssuedQuestionPresentation, ItemBasisV1, PresentationBuildError, ResponseItemRole,
+};
 use super::model::{
-    AssetBindingV1, IssuedQuestionResponseFormatV1, PresentationDigestTokenV1, PresentedChoiceV1,
-    RenderedItemIdV1,
+    IssuedQuestionResponseFormatV1, PresentationResponseItemReference, PresentedChoiceV1,
+    PresentedQuestionAsset, QuestionPresentationToken,
 };
 
 /// Closed descriptor version stored with every v1 attempt.
@@ -17,9 +19,9 @@ const HOTSPOT_COORDINATE_MAXIMUM: u32 = 10_000;
 
 /// Full SHA-256 binding retained by server persistence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PresentationDigestV1([u8; 32]);
+pub struct QuestionPresentationDigest([u8; 32]);
 
-impl PresentationDigestV1 {
+impl QuestionPresentationDigest {
     pub(crate) fn zero() -> Self {
         Self([0; 32])
     }
@@ -68,14 +70,14 @@ impl PresentationDigestV1 {
     }
 
     /// Produces the browser-facing 128-bit token.
-    pub fn public_token(self) -> PresentationDigestTokenV1 {
-        PresentationDigestTokenV1::from_digest(&self.0)
+    pub fn public_token(self) -> QuestionPresentationToken {
+        QuestionPresentationToken::from_digest(&self.0)
     }
 }
 
 /// Encodes the complete answer-free presentation deterministically.
 pub fn descriptor_bytes_v1(
-    presentation: &PresentationV1,
+    presentation: &IssuedQuestionPresentation,
 ) -> Result<Vec<u8>, PresentationBuildError> {
     let mut encoder = Encoder::new();
     encoder.raw(PRESENTATION_DOMAIN);
@@ -92,7 +94,7 @@ pub fn descriptor_bytes_v1(
     encoder.raw(&presentation.envelope.presentation_nonce.as_bytes());
     encoder.string(&presentation.envelope.title)?;
     encoder.content_blocks(&presentation.envelope.prompt)?;
-    encoder.response_schema(&presentation.envelope.response, presentation)?;
+    encoder.question_response_format(&presentation.envelope.response, presentation)?;
     encoder.u32_len(presentation.item_bindings.len())?;
     for item in &presentation.item_bindings {
         encoder.u16(item.rendered.as_u16());
@@ -108,11 +110,11 @@ pub fn descriptor_bytes_v1(
 
 /// Verifies both the full persisted digest and the public prefix.
 pub fn verify_presentation_v1(
-    presentation: &PresentationV1,
-    expected: PresentationDigestV1,
-    public: &PresentationDigestTokenV1,
+    presentation: &IssuedQuestionPresentation,
+    expected: QuestionPresentationDigest,
+    public: &QuestionPresentationToken,
 ) -> Result<(), PresentationBuildError> {
-    let actual = PresentationDigestV1::compute(&descriptor_bytes_v1(presentation)?);
+    let actual = QuestionPresentationDigest::compute(&descriptor_bytes_v1(presentation)?);
     if actual == expected && actual.public_token() == *public {
         Ok(())
     } else {
@@ -134,7 +136,7 @@ pub(super) fn item_basis_bytes(basis: &ItemBasisV1) -> Result<Vec<u8>, Presentat
     }
     encoder.optional_u32(basis.hotspot_width);
     encoder.optional_u32(basis.hotspot_height);
-    if basis.role == RenderedItemRoleV1::HotspotSurface {
+    if basis.role == ResponseItemRole::HotspotSurface {
         encoder.u32(HOTSPOT_COORDINATE_MAXIMUM);
         encoder.u32_len(basis.hotspot_regions.len())?;
         for region in &basis.hotspot_regions {
@@ -263,7 +265,10 @@ impl Encoder {
         self.checksum(&asset.checksum)
     }
 
-    fn asset_binding(&mut self, asset: &AssetBindingV1) -> Result<(), PresentationBuildError> {
+    fn asset_binding(
+        &mut self,
+        asset: &PresentedQuestionAsset,
+    ) -> Result<(), PresentationBuildError> {
         self.raw(asset.asset.as_uuid().as_bytes());
         self.checksum(&asset.authored_checksum)?;
         self.checksum(&asset.rendition_checksum)?;
@@ -321,15 +326,15 @@ impl Encoder {
         Ok(())
     }
 
-    fn response_schema(
+    fn question_response_format(
         &mut self,
         response: &IssuedQuestionResponseFormatV1,
-        presentation: &PresentationV1,
+        presentation: &IssuedQuestionPresentation,
     ) -> Result<(), PresentationBuildError> {
         match response {
             IssuedQuestionResponseFormatV1::SingleChoice { choices } => {
                 self.u8(0);
-                self.choice_ordinals(choices, presentation, RenderedItemRoleV1::Choice)?;
+                self.choice_ordinals(choices, presentation, ResponseItemRole::QuestionChoice)?;
             }
             IssuedQuestionResponseFormatV1::MultipleAnswer {
                 choices,
@@ -339,7 +344,7 @@ impl Encoder {
                 self.u8(1);
                 self.u32(*minimum);
                 self.u32(*maximum);
-                self.choice_ordinals(choices, presentation, RenderedItemRoleV1::Choice)?;
+                self.choice_ordinals(choices, presentation, ResponseItemRole::QuestionChoice)?;
             }
             IssuedQuestionResponseFormatV1::FillIn { max_characters } => {
                 self.u8(2);
@@ -352,7 +357,7 @@ impl Encoder {
                     self.u32(ordinal_for(
                         &blank.id,
                         presentation,
-                        RenderedItemRoleV1::Blank,
+                        ResponseItemRole::TextEntrySlot,
                     )?);
                     self.u32(blank.max_characters);
                 }
@@ -371,13 +376,13 @@ impl Encoder {
                 reuse_choices,
             } => {
                 self.u8(5);
-                self.choice_ordinals(prompts, presentation, RenderedItemRoleV1::MatchPrompt)?;
-                self.choice_ordinals(choices, presentation, RenderedItemRoleV1::MatchChoice)?;
+                self.choice_ordinals(prompts, presentation, ResponseItemRole::MatchingPrompt)?;
+                self.choice_ordinals(choices, presentation, ResponseItemRole::MatchingChoice)?;
                 self.u8(u8::from(*reuse_choices));
             }
             IssuedQuestionResponseFormatV1::Ordering { items } => {
                 self.u8(6);
-                self.choice_ordinals(items, presentation, RenderedItemRoleV1::OrderItem)?;
+                self.choice_ordinals(items, presentation, ResponseItemRole::OrderingItem)?;
             }
             IssuedQuestionResponseFormatV1::Hotspot {
                 surface,
@@ -388,7 +393,7 @@ impl Encoder {
                 self.u32(ordinal_for(
                     &surface.id,
                     presentation,
-                    RenderedItemRoleV1::HotspotSurface,
+                    ResponseItemRole::HotspotSurface,
                 )?);
                 self.u32(*minimum);
                 self.u32(*maximum);
@@ -400,8 +405,8 @@ impl Encoder {
     fn choice_ordinals(
         &mut self,
         choices: &[PresentedChoiceV1],
-        presentation: &PresentationV1,
-        role: RenderedItemRoleV1,
+        presentation: &IssuedQuestionPresentation,
+        role: ResponseItemRole,
     ) -> Result<(), PresentationBuildError> {
         self.u32_len(choices.len())?;
         for choice in choices {
@@ -412,9 +417,9 @@ impl Encoder {
 }
 
 fn ordinal_for(
-    id: &RenderedItemIdV1,
-    presentation: &PresentationV1,
-    role: RenderedItemRoleV1,
+    id: &PresentationResponseItemReference,
+    presentation: &IssuedQuestionPresentation,
+    role: ResponseItemRole,
 ) -> Result<u32, PresentationBuildError> {
     presentation
         .item_bindings
@@ -422,6 +427,6 @@ fn ordinal_for(
         .find(|item| item.rendered == *id && item.role == role)
         .map(|item| item.ordinal)
         .ok_or(PresentationBuildError::DescriptorEncoding(
-            "response schema refers to an unknown rendered item",
+            "Question Response Format refers to an unknown rendered item",
         ))
 }

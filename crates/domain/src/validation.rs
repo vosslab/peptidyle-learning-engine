@@ -11,7 +11,7 @@ use question_model::presentation::{
     IssuedQuestionResponseFormatV1, PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1,
 };
 use question_model::response::{
-    ResponseItemReference, HotspotRegion, QuestionResponseFormat, StudentResponse, TextEntrySlot,
+    HotspotRegion, QuestionResponseFormat, ResponseItemReference, StudentResponse, TextEntrySlot,
 };
 use serde::{Deserialize, Serialize};
 
@@ -67,12 +67,16 @@ pub enum StudentResponseFormatIssue {
     },
     /// An ordering response is not an exact permutation of the defined items.
     OrderingItemsMismatch,
-    /// A hotspot coordinate lies outside the normalized 0 through 10,000 surface.
-    StudentHotspotPointOutOfBounds,
-    /// A hotspot point does not fall within exactly one public candidate region.
-    StudentHotspotPointOutsideRegion,
-    /// A file-upload response does not contain its server-issued object key.
-    MissingUploadReference,
+    /// A Hotspot Region appears more than once in one response.
+    DuplicateHotspotRegion {
+        /// Repeated Hotspot Region reference.
+        region: ResponseItemReference,
+    },
+    /// A Student Hotspot Selection names a region absent from the Question Response Format.
+    UnknownHotspotRegion {
+        /// Unrecognized Hotspot Region reference.
+        region: ResponseItemReference,
+    },
 }
 
 /// Complete browser-safe format verdict for one student response.
@@ -133,7 +137,8 @@ pub fn validate_response_format(
             StudentResponse::Matching { matches },
         ) => validate_matching(prompts, choices, matches, &mut violations),
         (QuestionResponseFormat::Ordering { items }, StudentResponse::Ordering { order }) => {
-            let expected: BTreeSet<ResponseItemReference> = items.iter().map(|item| item.id.clone()).collect();
+            let expected: BTreeSet<ResponseItemReference> =
+                items.iter().map(|item| item.id.clone()).collect();
             let actual: BTreeSet<ResponseItemReference> = order.iter().cloned().collect();
             if expected.len() != items.len()
                 || actual.len() != order.len()
@@ -147,13 +152,8 @@ pub fn validate_response_format(
             QuestionResponseFormat::Hotspot {
                 regions, selection, ..
             },
-            StudentResponse::Hotspot { points },
-        ) => validate_hotspot(regions, *selection, points, &mut violations),
-        (QuestionResponseFormat::FileUpload { .. }, StudentResponse::FileUpload { object_key }) => {
-            if object_key.trim().is_empty() {
-                violations.push(StudentResponseFormatIssue::MissingUploadReference);
-            }
-        }
+            StudentResponse::Hotspot { selections },
+        ) => validate_hotspot(regions, *selection, selections, &mut violations),
         (QuestionResponseFormat::ExternalTool {}, StudentResponse::ExternalTool {}) => {}
         _ => violations.push(StudentResponseFormatIssue::ResponseKindMismatch),
     }
@@ -239,12 +239,12 @@ pub fn validate_presentation_response_format(
                 minimum,
                 maximum,
             },
-            StudentResponse::Hotspot { points },
+            StudentResponse::Hotspot { selections },
         ) => validate_presented_hotspot(
             &surface.regions,
             *minimum,
             *maximum,
-            points,
+            selections,
             &mut violations,
         ),
         _ => violations.push(StudentResponseFormatIssue::ResponseKindMismatch),
@@ -387,39 +387,21 @@ fn validate_presented_hotspot(
     regions: &[PresentedHotspotRegionV1],
     minimum: u32,
     maximum: u32,
-    points: &[question_model::response::StudentHotspotPoint],
+    selections: &[question_model::response::StudentHotspotSelection],
     violations: &mut Vec<StudentResponseFormatIssue>,
 ) {
-    let actual = count(points.iter());
+    let actual = count(selections.iter());
     if actual < u64::from(minimum) || actual > u64::from(maximum) {
         violations.push(StudentResponseFormatIssue::SelectionCount {
             expected: response_selection_rule(minimum, maximum, regions.len()),
             actual,
         });
     }
-    for point in points {
-        if point.x > 10_000 || point.y > 10_000 {
-            violations.push(StudentResponseFormatIssue::StudentHotspotPointOutOfBounds);
-            continue;
-        }
-        if regions
-            .iter()
-            .filter(|region| presented_region_contains(region, point.x, point.y))
-            .count()
-            != 1
-        {
-            violations.push(StudentResponseFormatIssue::StudentHotspotPointOutsideRegion);
-        }
-    }
-}
-
-fn presented_region_contains(region: &PresentedHotspotRegionV1, x: u16, y: u16) -> bool {
-    let right = u32::from(region.x) + u32::from(region.width);
-    let bottom = u32::from(region.y) + u32::from(region.height);
-    u32::from(x) >= u32::from(region.x)
-        && u32::from(x) <= right
-        && u32::from(y) >= u32::from(region.y)
-        && u32::from(y) <= bottom
+    let available: BTreeSet<_> = regions
+        .iter()
+        .map(|region| ResponseItemReference::new(region.id.as_str()))
+        .collect();
+    validate_hotspot_region_references(selections, &available, violations);
 }
 
 fn validate_multi_blank(
@@ -453,8 +435,8 @@ fn validate_multi_blank(
 }
 
 fn validate_matching(
-    prompts: &[question_model::response::ChoiceOption],
-    choices: &[question_model::response::ChoiceOption],
+    prompts: &[question_model::response::MatchingPrompt],
+    choices: &[question_model::response::MatchingChoice],
     matches: &[question_model::response::StudentMatch],
     violations: &mut Vec<StudentResponseFormatIssue>,
 ) {
@@ -486,33 +468,32 @@ fn validate_matching(
 fn validate_hotspot(
     regions: &[HotspotRegion],
     selection: ResponseSelectionRule,
-    points: &[question_model::response::StudentHotspotPoint],
+    selections: &[question_model::response::StudentHotspotSelection],
     violations: &mut Vec<StudentResponseFormatIssue>,
 ) {
-    validate_selection_count(selection, points.len(), violations);
-    for point in points {
-        if point.x > 10_000 || point.y > 10_000 {
-            violations.push(StudentResponseFormatIssue::StudentHotspotPointOutOfBounds);
-            continue;
-        }
-        if regions
-            .iter()
-            .filter(|region| region_contains(region, point.x, point.y))
-            .count()
-            != 1
-        {
-            violations.push(StudentResponseFormatIssue::StudentHotspotPointOutsideRegion);
-        }
-    }
+    validate_selection_count(selection, selections.len(), violations);
+    let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
+    validate_hotspot_region_references(selections, &available, violations);
 }
 
-fn region_contains(region: &HotspotRegion, x: u16, y: u16) -> bool {
-    let right = u32::from(region.x) + u32::from(region.width);
-    let bottom = u32::from(region.y) + u32::from(region.height);
-    u32::from(x) >= u32::from(region.x)
-        && u32::from(x) <= right
-        && u32::from(y) >= u32::from(region.y)
-        && u32::from(y) <= bottom
+fn validate_hotspot_region_references(
+    selections: &[question_model::response::StudentHotspotSelection],
+    available: &BTreeSet<ResponseItemReference>,
+    violations: &mut Vec<StudentResponseFormatIssue>,
+) {
+    let mut observed = BTreeSet::new();
+    for selection in selections {
+        if !available.contains(&selection.region) {
+            violations.push(StudentResponseFormatIssue::UnknownHotspotRegion {
+                region: selection.region.clone(),
+            });
+        }
+        if !observed.insert(selection.region.clone()) {
+            violations.push(StudentResponseFormatIssue::DuplicateHotspotRegion {
+                region: selection.region.clone(),
+            });
+        }
+    }
 }
 
 fn validate_selection_count(
@@ -536,7 +517,7 @@ fn validate_selection_count(
 
 /// Validates multiple-choice cardinality and identifier membership.
 fn validate_selection(
-    choices: &[question_model::response::ChoiceOption],
+    choices: &[question_model::response::QuestionChoice],
     selection: ResponseSelectionRule,
     selected: &[ResponseItemReference],
     violations: &mut Vec<StudentResponseFormatIssue>,
@@ -555,7 +536,8 @@ fn validate_selection(
         });
     }
 
-    let available: BTreeSet<ResponseItemReference> = choices.iter().map(|choice| choice.id.clone()).collect();
+    let available: BTreeSet<ResponseItemReference> =
+        choices.iter().map(|choice| choice.id.clone()).collect();
     let mut observed = BTreeSet::new();
     for choice in selected {
         if !observed.insert(choice.clone()) {
@@ -581,11 +563,33 @@ mod tests {
     use super::*;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::response::{
-        ChoiceOption, StudentHotspotPoint, HotspotRegion, StudentMatch, StudentTextEntry, TextEntrySlot,
+        HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
+        StudentHotspotSelection, StudentMatch, StudentTextEntry, TextEntrySlot,
     };
 
-    fn choice(id: &str) -> ChoiceOption {
-        ChoiceOption {
+    fn question_choice(id: &str) -> QuestionChoice {
+        QuestionChoice {
+            id: ResponseItemReference::new(id),
+            body: Vec::new(),
+        }
+    }
+
+    fn matching_prompt(id: &str) -> MatchingPrompt {
+        MatchingPrompt {
+            id: ResponseItemReference::new(id),
+            body: Vec::new(),
+        }
+    }
+
+    fn matching_choice(id: &str) -> MatchingChoice {
+        MatchingChoice {
+            id: ResponseItemReference::new(id),
+            body: Vec::new(),
+        }
+    }
+
+    fn ordering_item(id: &str) -> OrderingItem {
+        OrderingItem {
             id: ResponseItemReference::new(id),
             body: Vec::new(),
         }
@@ -624,11 +628,15 @@ mod tests {
     #[test]
     fn selection_reports_count_duplicates_and_unknown_ids() {
         let definition = QuestionResponseFormat::MultipleChoice {
-            choices: vec![choice("a"), choice("b")],
+            choices: vec![question_choice("a"), question_choice("b")],
             selection: ResponseSelectionRule::ExactlyOne,
         };
         let response = StudentResponse::MultipleChoice {
-            selected: vec![ResponseItemReference::new("b"), ResponseItemReference::new("b"), ResponseItemReference::new("z")],
+            selected: vec![
+                ResponseItemReference::new("b"),
+                ResponseItemReference::new("b"),
+                ResponseItemReference::new("z"),
+            ],
         };
 
         assert_eq!(
@@ -685,10 +693,13 @@ mod tests {
     #[test]
     fn ordering_requires_each_defined_item_exactly_once() {
         let definition = QuestionResponseFormat::Ordering {
-            items: vec![choice("first"), choice("second")],
+            items: vec![ordering_item("first"), ordering_item("second")],
         };
         let response = StudentResponse::Ordering {
-            order: vec![ResponseItemReference::new("first"), ResponseItemReference::new("first")],
+            order: vec![
+                ResponseItemReference::new("first"),
+                ResponseItemReference::new("first"),
+            ],
         };
 
         assert_eq!(
@@ -730,8 +741,8 @@ mod tests {
         );
 
         let matching = QuestionResponseFormat::Matching {
-            prompts: vec![choice("dna"), choice("rna")],
-            choices: vec![choice("deoxy"), choice("ribose")],
+            prompts: vec![matching_prompt("dna"), matching_prompt("rna")],
+            choices: vec![matching_choice("deoxy"), matching_choice("ribose")],
         };
         assert_eq!(
             validate_response_format(
@@ -778,27 +789,15 @@ mod tests {
             validate_response_format(
                 &hotspot,
                 &StudentResponse::Hotspot {
-                    points: vec![StudentHotspotPoint { x: 9_000, y: 9_000 }],
+                    selections: vec![StudentHotspotSelection {
+                        region: ResponseItemReference::new("unknown"),
+                    }],
                 },
             )
             .violations,
-            vec![StudentResponseFormatIssue::StudentHotspotPointOutsideRegion]
-        );
-    }
-
-    #[test]
-    fn file_upload_requires_a_server_issued_object_reference() {
-        let definition = QuestionResponseFormat::FileUpload {
-            max_bytes: 10,
-            accepted_extensions: vec!["pdf".to_string()],
-        };
-        let response = StudentResponse::FileUpload {
-            object_key: "  ".to_string(),
-        };
-
-        assert_eq!(
-            validate_response_format(&definition, &response).violations,
-            vec![StudentResponseFormatIssue::MissingUploadReference]
+            vec![StudentResponseFormatIssue::UnknownHotspotRegion {
+                region: ResponseItemReference::new("unknown"),
+            }]
         );
     }
 
@@ -814,9 +813,6 @@ mod tests {
                 text: String::new(),
             },
             StudentResponse::Ordering { order: vec![] },
-            StudentResponse::FileUpload {
-                object_key: "object".to_string(),
-            },
         ] {
             assert_eq!(
                 validate_response_format(&external, &response).violations,

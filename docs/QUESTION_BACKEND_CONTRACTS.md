@@ -32,18 +32,18 @@ them without creating a second product vocabulary.
 
 | Concern                        | Common PLE rule                                                                                                                                                                                                                                       |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source authority               | A published `QuestionDefinition` and immutable `QuestionVersionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                            |
-| Issuance                       | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Source Record. |
+| Source authority               | A published `QuestionVersion` and immutable `QuestionVersionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                            |
+| Issuance                       | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Reproduction Details. |
 | Reproduction                   | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                 |
 | Response                       | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                                                     |
 | Grade                          | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                                            |
-| Question Attempt Source Record | `QuestionAttemptSourceRecord` records adapter, optional renderer/generator, source source_object_reference, bound assets, grader, and rendered-question SHA-256.                                                                                                     |
+| Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                                                                                                     |
 | Failure                        | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a student incorrect response.                                                                                                 |
 | Capabilities                   | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                      |
 
 The browser-safe `QuestionPresentation` contains a public response shape and student presentation, never
 an answer key. Its render `kind` selects the browser widget. The planned compact response wire drops
-the redundant response `kind`, because the authoritative attempt already selects the response schema.
+the redundant response `kind`, because the authoritative attempt already selects the Question Response Format.
 See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and target payloads.
 
 ## Backend comparison
@@ -61,9 +61,9 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 ### Source and render
 
 **Current.** The native adapter compiles versioned PLE flat JSON into two products: an answer-free
-`QuestionDefinition`/`QuestionPresentation` and private grading material. The trusted server bridge
+`QuestionVersion`/`QuestionPresentation` and private grading material. The trusted server bridge
 resolves immutable published-Question asset bindings before issue, replay, or grade. The browser receives prompt
-blocks, public response definition, asset references, version, and seed. It returns only the PLE
+blocks, public Question Response Format, asset references, version, and seed. It returns only the PLE
 response shape; it does not return source bytes, a private key, asset-object binding, implementation
 version, or a scoring decision.
 
@@ -80,7 +80,8 @@ hotspot lifecycle, remains open.
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
 bindings before generic grading or isolated flat grading. First flat grade reads only the issued
 checksummed flat grading contract; ordinary published-Question and browser paths cannot read that material or
-replace it with a current grader view. Provenance names the native adapter and grader, optional
+replace it with a current Question Grader view. Provenance names the native Question Backend and
+Question Grader Versions, optional
 generator, bound objects, and rendered output hash.
 
 Native generation is deterministic for published version and seed. A shared cache may contain only
@@ -91,7 +92,7 @@ provenance is detectable.
 ### Capabilities and extension
 
 Native capabilities are the intersection declared by selected registered implementations. A new Question Implementation must
-add a closed source/parser/compiler contract, browser-safe response definition, server-only key or
+add a closed source/parser/compiler contract, browser-safe Question Response Format, server-only key or
 rubric, deterministic issue/reproduction, capability declaration, strict response validation, and
 conformance coverage. It must not add a parallel run loop or browser grader.
 
@@ -115,7 +116,7 @@ answer binding.
 `QtiBackend` obtains answer-bearing material only through separately injected, least-privilege
 `QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but
 cannot recover correct responses. Issue, replay, and grade fail closed if archive, checksum, item,
-asset mapping, or private binding no longer reproduces. The Question Attempt Source Record records private-profile adapter,
+asset mapping, or private binding no longer reproduces. The Question Attempt Reproduction Details records private-profile adapter,
 source source_object_reference, bound assets, QTI private grader, and rendered envelope hash.
 
 When explicitly configured, QTI declares `serverGrading`. Current accepted import profiles are static
@@ -151,7 +152,7 @@ render or resolve a current published Question definition. The mapping never
 appears in an envelope, safe cache, receipt, log event, or browser response.
 
 The shared immutable cache is keyed by version and seed. It holds only sanitized answer-free
-envelope/markup, source-source_object_reference binding, renderer identity, and rendered-output checksum. A cache hit
+envelope/markup, Source Object Reference binding, Question Renderer Version, and rendered-output checksum. A cache hit
 for a new issuance still performs the bounded private render needed to create that attempt's replay
 mapping; reproduction and normal grade do not. Telemetry uses only `renderer_call` and `cache_hit`
 event names.
@@ -244,9 +245,9 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 ## Extension rules
 
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
-2. Pin source bytes, checksum, license, Question Attempt Source Record facts, implementation/profile facts, and assets at publication.
+2. Pin source bytes, checksum, license, Question Attempt Reproduction Details, implementation/profile facts, and assets at publication.
 3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, correlation, and raw results server-only.
-4. At issue, capture the exact version/seed render, compare the complete Question Attempt Source Record, and persist its
+4. At issue, capture the exact version/seed render, compare the complete Question Attempt Reproduction Details, and persist its
    answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
    grade validate those artifacts rather than rerendering.
 5. Choose one grading authority: private PLE material, private renderer, or verified external result.
@@ -258,7 +259,7 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 
 | Contract                                                 | Primary locations                                                                                                                                                       |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared Question model and Question Attempt Source Record | `crates/question_model/src/{question_library.rs,student_work.rs,envelope.rs,capability.rs}`                                                                                 |
+| Shared Question model and Question Attempt Reproduction Details | `crates/question_model/src/{question_library.rs,student_work.rs,envelope.rs,capability.rs}`                                                                                 |
 | Adapter operations                                       | `crates/adapters/{native,webwork,imathas,qti}`                                                                                                                          |
 | Server composition                                       | `crates/server/src/{application.rs,composition.rs}`; Question delivery composition remains unmounted                                                                    |
 | WeBWorK renderer                                         | `crates/adapters/webwork` and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)                                                                      |

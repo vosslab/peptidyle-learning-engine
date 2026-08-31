@@ -67,7 +67,6 @@ entire route end to end.
 | Numeric         | Tab reaches input and Submit answer; typing enters data; Space activates submission | Browser number adjustment Arrows and ready-input Enter-to-submit               | Source inspection plus shared response-controller tests                                   |
 | Short text      | Tab reaches textarea and Submit answer; Space activates submission                  | Escape returns; Enter remains ordinary multiline text entry                    | Native textarea/button semantics and source inspection                                    |
 | Ordering        | Tab reaches visible move buttons; Space moves and submits                           | Up/Down Arrow moves the item and announces its new position                    | Mounted production-component platform and extension fixtures                              |
-| File upload     | Unavailable state exposes no fake field; Tab and Space activate Return              | Escape returns when it is safe                                                 | Source inspection and native button semantics                                             |
 | External tool   | Tab reaches broker, submit, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract               | Mounted broker fixture plus source inspection; real provider internals remain unevaluated |
 
 ## Findings and corrections

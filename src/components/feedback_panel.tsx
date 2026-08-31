@@ -11,8 +11,8 @@ import {
 } from "solid-js";
 
 import type { ContentBlock } from "../../generated/api/ContentBlock";
-import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
-import type { ScoringStatus } from "../../generated/api/ScoringStatus";
+import type { StudentFeedback } from "../../generated/api/StudentFeedback";
+import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import { formatPointScore, formatScoreValue } from "../score_format";
 
 import {
@@ -30,12 +30,12 @@ export type FeedbackPresentation =
   | {
       readonly kind: "awaiting";
       readonly feedback: null;
-      readonly scoringStatus: ScoringStatus;
+      readonly assignmentScoringState: AssignmentScoringState;
     }
   | {
       readonly kind: "released";
-      readonly feedback: DisclosedFeedback;
-      readonly scoringStatus: ScoringStatus;
+      readonly feedback: StudentFeedback;
+      readonly assignmentScoringState: AssignmentScoringState;
     };
 
 export interface FeedbackPanelProps {
@@ -56,7 +56,7 @@ function assertNever(value: never): never {
 }
 
 function outcomeHeading(disclosure: FeedbackPresentation): string {
-  if (disclosure.kind === "awaiting" || disclosure.scoringStatus !== "current") {
+  if (disclosure.kind === "awaiting" || disclosure.assignmentScoringState !== "current") {
     return "Response recorded";
   }
   if (disclosure.feedback.correctness === true) {
@@ -70,10 +70,10 @@ function outcomeHeading(disclosure: FeedbackPresentation): string {
 
 /** Exposed for focused behavior tests and so the neutral copy stays consistent with the heading. */
 export function feedbackAnnouncement(disclosure: FeedbackPresentation): string {
-  if (disclosure.scoringStatus === "recalculating") {
+  if (disclosure.assignmentScoringState === "recalculating") {
     return "Your response was recorded. Your score is being updated.";
   }
-  if (disclosure.scoringStatus === "failed") {
+  if (disclosure.assignmentScoringState === "failed") {
     return "Your response was recorded. Your score is waiting for instructor review.";
   }
   if (disclosure.kind === "awaiting") {
@@ -173,7 +173,7 @@ function FeedbackSection(props: {
   );
 }
 
-function scoreText(feedback: DisclosedFeedback): string | undefined {
+function scoreText(feedback: StudentFeedback): string | undefined {
   if (feedback.pointsEarned !== undefined && feedback.pointsPossible !== undefined) {
     return `Score: ${formatPointScore(feedback.pointsEarned, feedback.pointsPossible)}`;
   }
@@ -201,7 +201,7 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
   const headingId = `feedback-panel-heading-${createUniqueId()}`;
   const [heading, setHeading] = createSignal<HTMLHeadingElement>();
   const [advance, setAdvance] = createSignal<HTMLButtonElement>();
-  let focusedFeedback: DisclosedFeedback | undefined;
+  let focusedFeedback: StudentFeedback | undefined;
 
   createEffect(() => {
     if (props.disclosure.kind === "awaiting") {
@@ -228,7 +228,7 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
     onCleanup(() => globalThis.clearTimeout(timer));
   });
 
-  const feedback = (): DisclosedFeedback | undefined => {
+  const feedback = (): StudentFeedback | undefined => {
     return props.disclosure.kind === "released" ? props.disclosure.feedback : undefined;
   };
   const advanceLabel = (): string => props.advanceLabel ?? "Continue";
@@ -259,7 +259,9 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
               <Show
                 when={
                   scoreText(released()) !== undefined ||
-                  hasBlocks(released().hint) ||
+                  hasBlocks(released().choiceFeedback) ||
+                  hasBlocks(released().correctFeedback) ||
+                  hasBlocks(released().incorrectFeedback) ||
                   hasBlocks(released().correctResponse) ||
                   hasBlocks(released().rationale)
                 }
@@ -268,10 +270,24 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
                 <></>
               </Show>
             </section>
-            <Show when={hasBlocks(released().hint)}>
+            <Show when={hasBlocks(released().choiceFeedback)}>
               <FeedbackSection
-                title="Hint"
-                blocks={released().hint ?? []}
+                title="About your choice"
+                blocks={released().choiceFeedback ?? []}
+                assetUrl={props.assetUrl}
+              />
+            </Show>
+            <Show when={hasBlocks(released().correctFeedback)}>
+              <FeedbackSection
+                title="Correct-response feedback"
+                blocks={released().correctFeedback ?? []}
+                assetUrl={props.assetUrl}
+              />
+            </Show>
+            <Show when={hasBlocks(released().incorrectFeedback)}>
+              <FeedbackSection
+                title="Incorrect-response feedback"
+                blocks={released().incorrectFeedback ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -293,7 +309,7 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
         )}
       </Show>
       <Show
-        when={props.disclosure.kind === "released" && props.disclosure.scoringStatus !== "current"}
+        when={props.disclosure.kind === "released" && props.disclosure.assignmentScoringState !== "current"}
       >
         <p class="feedback-panel__empty">{feedbackAnnouncement(props.disclosure)}</p>
       </Show>

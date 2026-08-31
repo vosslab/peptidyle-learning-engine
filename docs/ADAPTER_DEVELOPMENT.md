@@ -9,19 +9,19 @@ adapter, not for defining a new student Question Type. The shared public contrac
 ## Non-negotiable boundaries
 
 - Map engine-specific input into `crates/question_model`. Downstream code reads the shared
-  `QuestionDefinition`, `QuestionPresentation`, and `StudentResponse` contracts rather than adapter
+  `QuestionVersion`, `QuestionPresentation`, and `StudentResponse` contracts rather than adapter
   types.
 - Put answer keys, correct-choice bindings, and correctness logic in `crates/grading` or a
   server-only injected grading capability. The browser and WebAssembly dependency closure must not
   reach them. See [SECURITY_MODEL.md](SECURITY_MODEL.md).
-- Deliver only an answer-free envelope: title, prompt blocks, response definition, immutable
+- Deliver only an answer-free envelope: title, prompt blocks, Question Response Format, immutable
   version, and seed. Do not put source bytes, credentials, upstream session state, correct answers,
   or private feedback in an envelope, browser cache, or browser request.
 - Accept an immutable, verified Source Object Reference at issue time and retain the protected attempt
   provenance required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, provider profile, or renderer identity.
-- Record source object and checksum, adapter/grader/renderer implementation versions, parameter
-  hash, rendered-envelope hash, and bound assets in `QuestionAttemptSourceRecord`. Presentation-bearing
+- Record source object and checksum, Question Backend/Grader/Renderer releases, parameter
+  hash, rendered-envelope hash, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
   attempts also persist a checksummed public snapshot and server-only grading envelope; missing or
   mismatched state makes grade unavailable rather than reissuing.
 - Keep provider configuration, credentials, network policy, correlation state, and upstream
@@ -59,10 +59,10 @@ Use the following sequence for a question-agnostic adapter.
    media type, license, provenance, immutable problem/version binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
    display label.
-3. Compile the source to a key-free `QuestionDefinition`. Keep an answer-bearing compilation product
+3. Compile the source to a key-free `QuestionVersion`. Keep an answer-bearing compilation product
    in private grading storage, or retain an immutable source that only server-side grading can read.
 4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
-   `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptSourceRecord`.
+   `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
    public rendered IDs through the protected grading envelope, and use retained immutable source
    provenance where a private grader needs it. A family that needs private first-grade material
@@ -82,7 +82,7 @@ ad hoc adapter widening. See
 ## Determinism and caching
 
 For a seeded adapter, `(immutable version, seed)` is the render identity. Read variable values only
-from the published generation specification and the `Seed`; use ordered collections whenever
+from the published generation specification and the `QuestionSeed`; use ordered collections whenever
 iteration affects output. A source, implementation, or behavior change creates a new published
 version rather than changing historical output. The cross-target rules and seed-vector evidence are
 in [DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md).
@@ -94,7 +94,7 @@ raw provider responses, browser submissions, and upstream session state. If stat
 to write the same key, reload and validate the winning immutable record.
 
 Static questions still record a seed and a deterministic parameter hash. This makes the attempt
-record uniform and lets reproduction reject swapped version/source/Question Attempt Source Records.
+record uniform and lets reproduction reject swapped version/source/Question Attempt Reproduction Details.
 
 ## Browser and grading boundary
 
@@ -151,7 +151,7 @@ documentation, or release notes.
 
 - [ ] Capability declaration is exact and assignment validation refuses unsupported use.
 - [ ] Published source and all assets are immutable, checksummed, private where required, and carried
-      in Question Attempt Source Record.
+      in Question Attempt Reproduction Details.
 - [ ] Issued envelope and cache are answer-free, browser-safe, deterministic, and version/seed bound.
 - [ ] Grading runs server-side from trusted state and revalidates source plus issued provenance.
 - [ ] External integration has no browser endpoint, credential, launch secret, upstream state, or

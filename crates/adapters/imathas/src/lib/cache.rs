@@ -2,11 +2,11 @@
 
 use std::fmt::Write as _;
 
-use objects::ObjectKey;
-use question_model::generation::Seed;
+use objects::ObjectAddress;
+use question_model::generation::QuestionSeed;
 use question_model::{
-    ImplementationVersion, ObjectId, QuestionDefinition, QuestionPresentation, QuestionSource,
-    QuestionVersionReference, SourceObjectReference,
+    ObjectId, QuestionBackendVersion, QuestionGraderVersion, QuestionPresentation, QuestionSource,
+    QuestionVersion, QuestionVersionReference, SourceObjectReference,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -30,8 +30,8 @@ pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterE
 
 pub(super) fn validate_cache(
     cached: &CachedRender,
-    question: &QuestionDefinition,
-    seed: Seed,
+    question: &QuestionVersion,
+    seed: QuestionSeed,
     source: &ImathasSource,
 ) -> Result<(), ImathasAdapterError> {
     if cached.schema != 1
@@ -56,7 +56,7 @@ pub(super) fn validate_cache(
 }
 
 pub(super) fn verify_binding(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
     source: &ImathasSource,
 ) -> Result<(), ImathasAdapterError> {
     if source.question_version
@@ -74,11 +74,11 @@ pub(super) fn verify_binding(
             snapshot,
             snapshot_sha256,
             integration_profile,
-        } if provider == &source.provider
-            && item_ref == &source.item_ref
+        } if provider.as_str() == source.provider.as_str()
+            && item_ref.as_str() == source.item_ref.as_str()
             && snapshot == &source.artifact.object
-            && snapshot_sha256 == &source.artifact.sha256
-            && integration_profile == &source.profile =>
+            && snapshot_sha256.as_str() == source.artifact.sha256.as_str()
+            && integration_profile.as_str() == source.profile.as_str() =>
         {
             Ok(())
         }
@@ -86,15 +86,18 @@ pub(super) fn verify_binding(
     }
 }
 
-pub(super) fn render_key(question_version: &QuestionVersionReference, seed: Seed) -> ObjectKey {
-    ObjectKey::QuestionRender {
+pub(super) fn render_key(
+    question_version: &QuestionVersionReference,
+    seed: QuestionSeed,
+) -> ObjectAddress {
+    ObjectAddress::QuestionRender {
         question_version: question_version.clone(),
         seed,
         object: deterministic_id(question_version, seed),
     }
 }
 
-fn deterministic_id(question_version: &QuestionVersionReference, seed: Seed) -> ObjectId {
+fn deterministic_id(question_version: &QuestionVersionReference, seed: QuestionSeed) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:render-cache:v1");
     hash.update(question_version.question_id.to_string().as_bytes());
@@ -106,16 +109,23 @@ fn deterministic_id(question_version: &QuestionVersionReference, seed: Seed) -> 
     ObjectId::from_uuid(Uuid::from_bytes(bytes))
 }
 
-pub(super) fn parameter_hash(seed: Seed) -> String {
+pub(super) fn parameter_hash(seed: QuestionSeed) -> String {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:parameters:v1");
     hash.update(seed.value().to_be_bytes());
     hex(hash.finalize().as_slice())
 }
 
-pub(super) fn implementation(id: &str, version: &str) -> ImplementationVersion {
-    ImplementationVersion {
-        id: id.into(),
+pub(super) fn backend_version(name: &str, version: &str) -> QuestionBackendVersion {
+    QuestionBackendVersion {
+        name: name.into(),
+        version: version.into(),
+    }
+}
+
+pub(super) fn grader_version(name: &str, version: &str) -> QuestionGraderVersion {
+    QuestionGraderVersion {
+        name: name.into(),
         version: version.into(),
     }
 }

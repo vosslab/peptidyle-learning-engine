@@ -6,16 +6,16 @@ use serde::{Deserialize, Serialize};
 use crate::QuestionVersionReference;
 use crate::course_appearance::CourseThemeId;
 use crate::envelope::{AssetRef, ContentBlock};
-use crate::generation::Seed;
+use crate::generation::QuestionSeed;
 use crate::identity::AssetId;
 use crate::student_work::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct RenderedItemIdV1(String);
+pub struct PresentationResponseItemReference(String);
 
-impl RenderedItemIdV1 {
+impl PresentationResponseItemReference {
     /// Parses the exact browser wire spelling.
     pub fn parse(value: impl Into<String>) -> Result<Self, &'static str> {
         let value = value.into();
@@ -45,7 +45,7 @@ impl RenderedItemIdV1 {
     }
 }
 
-impl TryFrom<String> for RenderedItemIdV1 {
+impl TryFrom<String> for PresentationResponseItemReference {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -53,8 +53,8 @@ impl TryFrom<String> for RenderedItemIdV1 {
     }
 }
 
-impl From<RenderedItemIdV1> for String {
-    fn from(value: RenderedItemIdV1) -> Self {
+impl From<PresentationResponseItemReference> for String {
+    fn from(value: PresentationResponseItemReference) -> Self {
         value.0
     }
 }
@@ -62,9 +62,9 @@ impl From<RenderedItemIdV1> for String {
 /// Sixteen-byte server-minted nonce, rendered as 32 lowercase hex characters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct PresentationNonceV1([u8; 16]);
+pub struct QuestionPresentationNonce([u8; 16]);
 
-impl PresentationNonceV1 {
+impl QuestionPresentationNonce {
     /// Wraps the exact raw nonce bytes.
     pub fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
@@ -104,7 +104,7 @@ impl PresentationNonceV1 {
     }
 }
 
-impl TryFrom<String> for PresentationNonceV1 {
+impl TryFrom<String> for QuestionPresentationNonce {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -112,8 +112,8 @@ impl TryFrom<String> for PresentationNonceV1 {
     }
 }
 
-impl From<PresentationNonceV1> for String {
-    fn from(value: PresentationNonceV1) -> Self {
+impl From<QuestionPresentationNonce> for String {
+    fn from(value: QuestionPresentationNonce) -> Self {
         value.to_hex()
     }
 }
@@ -121,9 +121,9 @@ impl From<PresentationNonceV1> for String {
 /// Public 128-bit prefix of a full presentation SHA-256 digest.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct PresentationDigestTokenV1(String);
+pub struct QuestionPresentationToken(String);
 
-impl PresentationDigestTokenV1 {
+impl QuestionPresentationToken {
     pub(crate) fn from_digest(bytes: &[u8; 32]) -> Self {
         let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes[..16]);
         Self(format!("pd1_{encoded}"))
@@ -152,7 +152,7 @@ impl PresentationDigestTokenV1 {
     }
 }
 
-impl TryFrom<String> for PresentationDigestTokenV1 {
+impl TryFrom<String> for QuestionPresentationToken {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -160,8 +160,8 @@ impl TryFrom<String> for PresentationDigestTokenV1 {
     }
 }
 
-impl From<PresentationDigestTokenV1> for String {
-    fn from(value: PresentationDigestTokenV1) -> Self {
+impl From<QuestionPresentationToken> for String {
+    fn from(value: QuestionPresentationToken) -> Self {
         value.0
     }
 }
@@ -169,7 +169,7 @@ impl From<PresentationDigestTokenV1> for String {
 /// One logical asset and the exact rendition selected for this presentation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssetBindingV1 {
+pub struct PresentedQuestionAsset {
     /// Public presentation binding for the logical asset. This identifier
     /// describes issued rendering and grants no storage or download authority.
     pub asset: AssetId,
@@ -187,7 +187,7 @@ pub struct AssetBindingV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedChoiceV1 {
-    pub id: RenderedItemIdV1,
+    pub id: PresentationResponseItemReference,
     pub body: Vec<ContentBlock>,
 }
 
@@ -195,7 +195,7 @@ pub struct PresentedChoiceV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedBlankV1 {
-    pub id: RenderedItemIdV1,
+    pub id: PresentationResponseItemReference,
     pub label: Vec<ContentBlock>,
     pub max_characters: u32,
 }
@@ -204,6 +204,8 @@ pub struct PresentedBlankV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotRegionV1 {
+    /// Presentation-scoped identifier for this selectable region.
+    pub id: PresentationResponseItemReference,
     pub label: Vec<ContentBlock>,
     pub x: u16,
     pub y: u16,
@@ -211,11 +213,11 @@ pub struct PresentedHotspotRegionV1 {
     pub height: u16,
 }
 
-/// Image-backed surface receiving normalized student coordinates.
+/// Image-backed surface containing selectable regions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotSurfaceV1 {
-    pub id: RenderedItemIdV1,
+    pub id: PresentationResponseItemReference,
     pub asset: AssetRef,
     pub description: String,
     pub regions: Vec<PresentedHotspotRegionV1>,
@@ -268,8 +270,8 @@ pub enum IssuedQuestionResponseFormatV1 {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentationEnvelopeV1 {
     pub question_version: QuestionVersionReference,
-    pub seed: Seed,
-    pub presentation_nonce: PresentationNonceV1,
+    pub seed: QuestionSeed,
+    pub presentation_nonce: QuestionPresentationNonce,
     pub title: String,
     pub prompt: Vec<ContentBlock>,
     pub response: IssuedQuestionResponseFormatV1,
@@ -281,7 +283,7 @@ pub struct PresentationEnvelopeV1 {
 pub struct StudentAttemptDescriptorV1 {
     pub id: QuestionAttemptId,
     pub deadline: Option<ActivityTimestamp>,
-    pub presentation_digest: PresentationDigestTokenV1,
+    pub presentation_digest: QuestionPresentationToken,
 }
 
 /// Course and Assignment shell needed for authorized Student navigation.

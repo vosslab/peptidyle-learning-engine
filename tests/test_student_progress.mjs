@@ -9,7 +9,7 @@ import { studentProgressSummary, studentScoreValue } from "../src/student_progre
 
 const available = {
   score_state: "available",
-  scoring_status: "current",
+  assignment_scoring_state: "current",
   current_score: 0.75,
   best_score: 0.9,
   latest_score: 0.8,
@@ -73,7 +73,7 @@ test("Student class statistics are an exact, optional safe union", () => {
 test("Student score copy distinguishes no activity, withheld, and available nulls", () => {
   const noActivity = {
     score_state: "no_activity",
-    scoring_status: "current",
+    assignment_scoring_state: "current",
     current_score: null,
     best_score: null,
     latest_score: null,
@@ -99,7 +99,7 @@ test("Student score copy distinguishes no activity, withheld, and available null
     studentProgressSummary(
       decodeAssignmentProgress({
         ...available,
-        scoring_status: "recalculating",
+        assignment_scoring_state: "recalculating",
         current_score: null,
         best_score: null,
         latest_score: null,

@@ -107,7 +107,7 @@
     "questionAttemptTimeLimit": {
       "kind": "unlimited"
     },
-    "randomization": {
+    "questionVariationDefinition": {
       "kind": "seeded",
       "generator": {
         "id": "peptide-bond-choice",
@@ -210,7 +210,7 @@
     "questionAttemptTimeLimit": {
       "kind": "unlimited"
     },
-    "randomization": {
+    "questionVariationDefinition": {
       "kind": "seeded",
       "generator": {
         "id": "peptide-bond-choice",
@@ -330,6 +330,10 @@
       "reference": "R-1",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
+      "assignmentRevision": {
+        "assignment": "A-1",
+        "revision_number": "1"
+      },
       "attemptNumber": 1,
       "startedAt": 1786000001000,
       "completedAt": 1786000001300,
@@ -341,6 +345,10 @@
       "reference": "R-2",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
+      "assignmentRevision": {
+        "assignment": "A-1",
+        "revision_number": "1"
+      },
       "attemptNumber": 2,
       "startedAt": 1786000002000,
       "completedAt": 1786000002300,
@@ -352,6 +360,10 @@
       "reference": "R-3",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
+      "assignmentRevision": {
+        "assignment": "A-1",
+        "revision_number": "1"
+      },
       "attemptNumber": 3,
       "startedAt": 1786000003000,
       "completedAt": 1786000003300,
@@ -363,6 +375,10 @@
       "reference": "R-4",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
+      "assignmentRevision": {
+        "assignment": "A-1",
+        "revision_number": "1"
+      },
       "attemptNumber": 4,
       "startedAt": 1786000004000,
       "completedAt": null,
@@ -434,18 +450,18 @@
       "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
       "seed": 1001,
       "parameterHash": "33c6a11b3eadacaac5d49a752148884e27c8815c803ace157c9f58ac9dbe416d",
-      "state": "submitted",
+      "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000001100,
         "deadline": null,
         "submittedAt": 1786000001200
       },
-      "sourceRecord": {
-        "adapter": {
-          "id": "native-adapter",
+      "reproductionDetails": {
+        "backend": {
+          "name": "native-adapter",
           "version": "1"
         },
-        "renderer": null,
+        "rendererVersion": null,
         "generator": {
           "id": "peptide-bond-choice",
           "version": "1"
@@ -455,8 +471,8 @@
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
-        "grading": {
-          "id": "generic-grader",
+        "grader": {
+          "name": "generic-grader",
           "version": "1"
         },
         "renderedQuestionSha256": "7aaba0ea8b4270177ac57c865851adcb1993e0571402d39acb70c4f2a73895dc"
@@ -482,18 +498,18 @@
       "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
       "seed": 1002,
       "parameterHash": "5b19c155569205c9bda96ab6ca1058f70cd06121238e1ff198dd9d6cada2adce",
-      "state": "submitted",
+      "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000002100,
         "deadline": null,
         "submittedAt": 1786000002200
       },
-      "sourceRecord": {
-        "adapter": {
-          "id": "native-adapter",
+      "reproductionDetails": {
+        "backend": {
+          "name": "native-adapter",
           "version": "1"
         },
-        "renderer": null,
+        "rendererVersion": null,
         "generator": {
           "id": "peptide-bond-choice",
           "version": "1"
@@ -503,8 +519,8 @@
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
-        "grading": {
-          "id": "generic-grader",
+        "grader": {
+          "name": "generic-grader",
           "version": "1"
         },
         "renderedQuestionSha256": "8f8d4a36b25098c7378f18638fc542f390012f94272d486ebe1b9b876bdcef39"
@@ -530,18 +546,18 @@
       "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
       "seed": 1003,
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
-      "state": "submitted",
+      "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000003100,
         "deadline": null,
         "submittedAt": 1786000003200
       },
-      "sourceRecord": {
-        "adapter": {
-          "id": "native-adapter",
+      "reproductionDetails": {
+        "backend": {
+          "name": "native-adapter",
           "version": "1"
         },
-        "renderer": null,
+        "rendererVersion": null,
         "generator": {
           "id": "peptide-bond-choice",
           "version": "1"
@@ -551,8 +567,8 @@
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
-        "grading": {
-          "id": "generic-grader",
+        "grader": {
+          "name": "generic-grader",
           "version": "1"
         },
         "renderedQuestionSha256": "a4ac454999e8c60ae901804d6c137a6538df041a8eb5105825af9effa92b0b9c"
@@ -584,12 +600,12 @@
         "deadline": null,
         "submittedAt": null
       },
-      "sourceRecord": {
-        "adapter": {
-          "id": "native-adapter",
+      "reproductionDetails": {
+        "backend": {
+          "name": "native-adapter",
           "version": "1"
         },
-        "renderer": null,
+        "rendererVersion": null,
         "generator": {
           "id": "peptide-bond-choice",
           "version": "1"
@@ -599,8 +615,8 @@
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
-        "grading": {
-          "id": "generic-grader",
+        "grader": {
+          "name": "generic-grader",
           "version": "1"
         },
         "renderedQuestionSha256": "85bd4379baeba8cc65deb814c89635155db80786715f3f65fd1cdc33f3dc729d"
@@ -636,7 +652,7 @@
         "totalQuestionAttempts": 4,
         "lastActivityAt": 1786000004100
       },
-      "scoring_status": "current"
+      "assignment_scoring_state": "current"
     }
   ]
 }

@@ -158,20 +158,19 @@ pub fn qti_question_asset_checksums(
     let mut response_blocks: Vec<&ContentBlock> = Vec::new();
     let mut assets = BTreeMap::new();
     match &question.response {
-        question_model::QuestionResponseFormat::MultipleChoice { choices, .. }
-        | question_model::QuestionResponseFormat::Ordering { items: choices } => {
+        question_model::QuestionResponseFormat::MultipleChoice { choices, .. } => {
             response_blocks.extend(choices.iter().flat_map(|choice| choice.body.iter()));
+        }
+        question_model::QuestionResponseFormat::Ordering { items } => {
+            response_blocks.extend(items.iter().flat_map(|item| item.body.iter()));
         }
         question_model::QuestionResponseFormat::MultiBlank { blanks } => {
             response_blocks.extend(blanks.iter().flat_map(|blank| blank.label.iter()))
         }
-        question_model::QuestionResponseFormat::Matching { prompts, choices } => response_blocks
-            .extend(
-                prompts
-                    .iter()
-                    .chain(choices)
-                    .flat_map(|choice| choice.body.iter()),
-            ),
+        question_model::QuestionResponseFormat::Matching { prompts, choices } => {
+            response_blocks.extend(prompts.iter().flat_map(|prompt| prompt.body.iter()));
+            response_blocks.extend(choices.iter().flat_map(|choice| choice.body.iter()));
+        }
         question_model::QuestionResponseFormat::Hotspot {
             surface, regions, ..
         } => {
@@ -180,7 +179,6 @@ pub fn qti_question_asset_checksums(
         }
         question_model::QuestionResponseFormat::Numeric { .. }
         | question_model::QuestionResponseFormat::ShortText { .. }
-        | question_model::QuestionResponseFormat::FileUpload { .. }
         | question_model::QuestionResponseFormat::ExternalTool {} => {}
     }
     for block in question.prompt.iter().chain(response_blocks) {

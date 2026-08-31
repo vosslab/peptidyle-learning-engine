@@ -5,7 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use domain::generator::generate_hash;
-use question_model::generation::{GeneratorReference, RandomizationDefinition, Seed};
+use question_model::generation::{
+    QuestionGeneratorReference, QuestionSeed, QuestionVariationDefinition,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,8 +19,8 @@ struct SeedCorpus {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GeneratorCorpus {
-    generator: GeneratorReference,
-    definition: RandomizationDefinition,
+    generator: QuestionGeneratorReference,
+    definition: QuestionVariationDefinition,
     vectors: Vec<SeedVector>,
 }
 
@@ -37,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     for generator in &mut corpus.generators {
         for vector in &mut generator.vectors {
             vector.expected_output_sha256 =
-                generate_hash(Seed::new(vector.seed), &generator.definition)?;
+                generate_hash(QuestionSeed::new(vector.seed), &generator.definition)?;
         }
     }
 

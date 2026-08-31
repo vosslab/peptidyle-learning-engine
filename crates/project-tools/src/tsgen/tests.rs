@@ -312,14 +312,32 @@ fn nonserializable_server_contract_is_not_emitted_to_typescript() {
     fs::create_dir_all(&model_dir).expect("temporary model directory should be created");
     fs::write(
         model_dir.join("feedback.rs"),
-        "pub struct FeedbackContent { pub hidden: String }\n",
+        "pub struct QuestionFeedback { pub hidden: String }\n",
     )
     .expect("private feedback fixture should be written");
     run(&[model_dir.as_path()], &out_dir).expect("generation should accept private Rust types");
-    assert!(!out_dir.join("FeedbackContent.ts").exists());
+    assert!(!out_dir.join("QuestionFeedback.ts").exists());
     fs::remove_dir_all(model_dir).expect("temporary model directory should be removed");
     fs::remove_dir_all(out_dir).expect("temporary output directory should be removed");
 }
+
+#[test]
+fn documented_server_held_contract_is_not_emitted_to_typescript() {
+    let model_dir = TestDirectory::new("server-held-model");
+    let out_dir = TestDirectory::new("server-held-output");
+    fs::create_dir_all(model_dir.path()).expect("temporary model directory should be created");
+    fs::write(
+        model_dir.path().join("reproduction.rs"),
+        "#[doc(hidden)]\n#[derive(Serialize)]\npub struct ReproductionDetails { pub secret: String }\n",
+    )
+    .expect("server-held reproduction fixture should be written");
+
+    run(&[model_dir.path()], out_dir.path())
+        .expect("generation should accept server-held contracts");
+
+    assert!(!out_dir.path().join("ReproductionDetails.ts").exists());
+}
+
 #[test]
 fn nested_production_modules_are_generated_but_test_modules_are_not() {
     let model_dir = temporary_output_dir("nested-model");

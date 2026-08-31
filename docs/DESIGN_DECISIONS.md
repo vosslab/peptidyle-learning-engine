@@ -382,7 +382,7 @@ response before grading.
 
 **Why.** An issued Question Attempt already binds Student Record, Course Instance, Assignment,
 Assignment Attempt, Issued Question, immutable Question Version, seed, timing, policy,
-response schema, and grading backend. Repeating those values expands traffic and creates conflicting
+Question Response Format, and grading backend. Repeating those values expands traffic and creates conflicting
 sources of truth.
 
 **Consequence.** Server code loads and validates the issued attempt before accepting a response.
@@ -468,7 +468,7 @@ Assets travel by logical reference through cacheable asset routes, not as repeat
 trimming a few JSON characters. The split also keeps server evidence out of the browser.
 
 **Consequence.** The target response is an attempt-bound `presentationDigest` plus the minimal
-answer for the exact Response Schema. `kind` belongs in the render payload so a widget can be drawn, but the
+answer for the exact Question Response Format. `kind` belongs in the render payload so a widget can be drawn, but the
 server derives its response decoder from the issued attempt.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#target-network-contract)
 and [OBJECT_STORAGE.md](OBJECT_STORAGE.md#delivery-grants).
@@ -481,7 +481,7 @@ and [OBJECT_STORAGE.md](OBJECT_STORAGE.md#delivery-grants).
 an error-detection and correspondence mechanism, never authentication or proof of correctness.
 
 **Why.** A visible label such as `B` is only a position. A rendered ID binds a choice, order item,
-matching side, blank, or hotspot surface to the exact public state the student saw.
+matching side, blank, Hotspot Surface, or Hotspot Region to the exact public state the student saw.
 
 **Consequence.** PLE enforces uniqueness inside one presentation and maintains the authoritative
 mapping to durable semantic IDs server-side. A whole-presentation digest detects stale or

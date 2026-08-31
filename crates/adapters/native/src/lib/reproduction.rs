@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use question_model::envelope::{ContentBlock, QuestionPresentation};
-use question_model::generation::Seed;
-use question_model::{AssetId, ObjectId, QuestionAttemptSourceRecord, QuestionDefinition};
+use question_model::generation::QuestionSeed;
+use question_model::{AssetId, ObjectId, QuestionAttemptReproductionDetails, QuestionVersion};
 
 use crate::{AssetObjectBinding, NativeAdapter, NativeAdapterError, PreparedNativeQuestion};
 
@@ -13,22 +13,18 @@ impl NativeAdapter {
     /// version. No answer key is returned.
     pub fn reproduce(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         recorded_parameter_hash: &str,
-        recorded_source_record: &QuestionAttemptSourceRecord,
+        recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         asset_bindings: &[AssetObjectBinding],
     ) -> Result<QuestionPresentation, NativeAdapterError> {
-        let execution = self.execution_for(
-            &self.adapter_implementations,
-            &recorded_source_record.adapter,
-            "adapter",
-        )?;
+        let execution = self.backend_execution_for(&recorded_reproduction_details.backend)?;
         let prepared = self.prepare_with_execution(question, seed, execution)?;
         verify_record(
             &prepared,
             recorded_parameter_hash,
-            recorded_source_record,
+            recorded_reproduction_details,
             &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
         )?;
         Ok(prepared.envelope)
@@ -38,14 +34,14 @@ impl NativeAdapter {
 pub(super) fn verify_record(
     prepared: &PreparedNativeQuestion,
     recorded_parameter_hash: &str,
-    recorded: &QuestionAttemptSourceRecord,
+    recorded: &QuestionAttemptReproductionDetails,
     expected_asset_objects: &[ObjectId],
 ) -> Result<(), NativeAdapterError> {
     verify_equal(
         prepared.parameter_hash == recorded_parameter_hash,
         "parameterHash",
     )?;
-    verify_equal(recorded.renderer.is_none(), "renderer")?;
+    verify_equal(recorded.renderer_version.is_none(), "rendererVersion")?;
     verify_equal(
         recorded.generator == prepared.generated.generator,
         "generator",
@@ -107,17 +103,20 @@ fn envelope_asset_ids(envelope: &QuestionPresentation) -> BTreeSet<AssetId> {
     let mut assets = BTreeSet::new();
     collect_content_assets(&envelope.prompt, &mut assets);
     match &envelope.response {
-        question_model::response::QuestionResponseFormat::MultipleChoice { choices, .. }
-        | question_model::response::QuestionResponseFormat::Ordering { items: choices } => {
+        question_model::response::QuestionResponseFormat::MultipleChoice { choices, .. } => {
             for choice in choices {
                 collect_content_assets(&choice.body, &mut assets);
+            }
+        }
+        question_model::response::QuestionResponseFormat::Ordering { items } => {
+            for item in items {
+                collect_content_assets(&item.body, &mut assets);
             }
         }
         question_model::response::QuestionResponseFormat::Numeric { .. }
         | question_model::response::QuestionResponseFormat::ShortText { .. }
         | question_model::response::QuestionResponseFormat::MultiBlank { .. }
         | question_model::response::QuestionResponseFormat::Matching { .. }
-        | question_model::response::QuestionResponseFormat::FileUpload { .. }
         | question_model::response::QuestionResponseFormat::ExternalTool {} => {}
         question_model::response::QuestionResponseFormat::Hotspot { surface, .. } => {
             assets.insert(surface.asset);

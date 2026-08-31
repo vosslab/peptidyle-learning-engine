@@ -2,10 +2,11 @@ use std::collections::VecDeque;
 
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
 use crate::envelope::{ContentBlock, QuestionPresentation};
-use crate::generation::Seed;
+use crate::generation::QuestionSeed;
 use crate::response::{
-    ResponseItemReference, ChoiceOption, StudentMatch, QuestionResponseFormat, StudentResponse, StudentTextEntry,
-    TextEntrySlot,
+    HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
+    QuestionResponseFormat, ResponseItemReference, StudentHotspotSelection, StudentMatch,
+    StudentResponse, StudentTextEntry, TextEntrySlot,
 };
 use crate::{QuestionVersionNumber, QuestionVersionReference};
 
@@ -15,20 +16,45 @@ use super::builder::{
 };
 use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
 use super::{
-    InspectedExternalToolStateV1, InspectedStudentArtifactStateV1, InspectedStudentResponseV1,
-    IssuedQuestionResponseFormatV1, PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
-    RenderedResponseTranslationErrorV1, project_durable_response_to_rendered_v1,
+    InspectedExternalToolStateV1, IssuedQuestionResponseFormatV1, QuestionPresentationBinding,
+    QuestionPresentationNonce, RenderedResponseTranslationErrorV1, ResponseItemRole,
+    StudentResponseInspection, project_durable_response_to_rendered_v1,
     project_rendered_response_for_inspection_v1, rebuild_public_presentation_v1,
     reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
 };
 
-fn choice(id: &str, text: &str) -> ChoiceOption {
-    ChoiceOption {
+fn question_choice(id: &str, text: &str) -> QuestionChoice {
+    QuestionChoice {
         id: ResponseItemReference::new(id),
-        body: vec![ContentBlock::Text {
-            markdown: text.to_owned(),
-        }],
+        body: response_item_body(text),
     }
+}
+
+fn matching_prompt(id: &str, text: &str) -> MatchingPrompt {
+    MatchingPrompt {
+        id: ResponseItemReference::new(id),
+        body: response_item_body(text),
+    }
+}
+
+fn matching_choice(id: &str, text: &str) -> MatchingChoice {
+    MatchingChoice {
+        id: ResponseItemReference::new(id),
+        body: response_item_body(text),
+    }
+}
+
+fn ordering_item(id: &str, text: &str) -> OrderingItem {
+    OrderingItem {
+        id: ResponseItemReference::new(id),
+        body: response_item_body(text),
+    }
+}
+
+fn response_item_body(text: &str) -> Vec<ContentBlock> {
+    vec![ContentBlock::Text {
+        markdown: text.to_owned(),
+    }]
 }
 
 fn fixture() -> QuestionPresentation {
@@ -38,7 +64,7 @@ fn fixture() -> QuestionPresentation {
                 question_id: "123-4567".parse().expect("valid Question ID"),
                 version_number: QuestionVersionNumber::new(1).expect("positive version"),
             },
-            Seed::new(42),
+            QuestionSeed::new(42),
         ),
         title: "Peptide bond".to_owned(),
         prompt: vec![ContentBlock::Text {
@@ -46,8 +72,8 @@ fn fixture() -> QuestionPresentation {
         }],
         response: QuestionResponseFormat::MultipleChoice {
             choices: vec![
-                choice("amine", "Amino group"),
-                choice("carboxyl", "Carboxyl group"),
+                question_choice("amine", "Amino group"),
+                question_choice("carboxyl", "Carboxyl group"),
             ],
             selection: ResponseSelectionRule::ExactlyOne,
         },
@@ -93,7 +119,7 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     assert!(bytes.starts_with(b"ple:presentation:v1\0\x01"));
     assert_eq!(
         presentation.envelope.presentation_nonce,
-        PresentationNonceV1::from_bytes([0x11; 16])
+        QuestionPresentationNonce::from_bytes([0x11; 16])
     );
     assert_eq!(presentation.item_bindings.len(), 2);
     assert_ne!(
@@ -178,7 +204,7 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     let mut source = Nonces::new([[5; 16]]);
     let presentation = build_presentation_v1_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
-    let binding = PresentationBindingV1::new(
+    let binding = QuestionPresentationBinding::new(
         presentation.envelope.presentation_nonce,
         presentation.digest,
     );
@@ -188,17 +214,17 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     assert_eq!(json["nonce"].as_str().expect("nonce").len(), 32);
     assert_eq!(json["digest"].as_str().expect("digest").len(), 64);
     assert_eq!(
-        serde_json::from_value::<PresentationBindingV1>(json.clone()).expect("binding"),
+        serde_json::from_value::<QuestionPresentationBinding>(json.clone()).expect("binding"),
         binding
     );
 
     let mut wrong_version = json.clone();
     wrong_version["descriptorVersion"] = serde_json::json!(2);
-    assert!(serde_json::from_value::<PresentationBindingV1>(wrong_version).is_err());
+    assert!(serde_json::from_value::<QuestionPresentationBinding>(wrong_version).is_err());
 
     let mut unknown = json;
     unknown["grading"] = serde_json::json!(true);
-    assert!(serde_json::from_value::<PresentationBindingV1>(unknown).is_err());
+    assert!(serde_json::from_value::<QuestionPresentationBinding>(unknown).is_err());
 
     let reproduced = reproduce_presentation_v1(&fixture(), &[], binding)
         .expect("persisted binding reproduces the exact presentation");
@@ -209,7 +235,7 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     assert!(reproduce_presentation_v1(&changed, &[], binding).is_err());
 }
 
-fn presentation_for(response: QuestionResponseFormat) -> super::PresentationV1 {
+fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPresentation {
     let mut envelope = fixture();
     envelope.response = response;
     let mut source = Nonces::new([[0x91; 16]]);
@@ -217,7 +243,43 @@ fn presentation_for(response: QuestionResponseFormat) -> super::PresentationV1 {
         .expect("valid presentation")
 }
 
-fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> ResponseItemReference {
+fn hotspot_presentation() -> super::IssuedQuestionPresentation {
+    let asset = crate::envelope::AssetRef {
+        asset: crate::AssetId::from_uuid(uuid::Uuid::from_u128(1)),
+        checksum: "a".repeat(64),
+    };
+    let mut envelope = fixture();
+    envelope.response = QuestionResponseFormat::Hotspot {
+        surface: asset.clone(),
+        description: "Cell diagram".to_owned(),
+        regions: vec![HotspotRegion {
+            id: ResponseItemReference::new("nucleus"),
+            label: vec![ContentBlock::Text {
+                markdown: "Nucleus".to_owned(),
+            }],
+            x: 1_000,
+            y: 1_000,
+            width: 2_000,
+            height: 2_000,
+        }],
+        selection: ResponseSelectionRule::ExactlyOne,
+    };
+    let bindings = [super::PresentedQuestionAsset {
+        asset: asset.asset,
+        authored_checksum: asset.checksum.clone(),
+        rendition_checksum: asset.checksum,
+        intrinsic_width: Some(800),
+        intrinsic_height: Some(600),
+    }];
+    let mut source = Nonces::new([[0x92; 16]]);
+    build_presentation_v1_with_nonce_source(&envelope, &bindings, &mut source)
+        .expect("valid hotspot presentation")
+}
+
+fn rendered(
+    presentation: &super::IssuedQuestionPresentation,
+    role: ResponseItemRole,
+) -> ResponseItemReference {
     ResponseItemReference::new(
         presentation
             .item_bindings
@@ -232,11 +294,11 @@ fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> R
 #[test]
 fn rendered_response_translation_rewrites_every_identifier_family() {
     let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
-        choices: vec![choice("a", "A"), choice("b", "B")],
+        choices: vec![question_choice("a", "A"), question_choice("b", "B")],
         selection: ResponseSelectionRule::ExactlyOne,
     });
     let multiple_response = StudentResponse::MultipleChoice {
-        selected: vec![rendered(&multiple, RenderedItemRoleV1::Choice)],
+        selected: vec![rendered(&multiple, ResponseItemRole::QuestionChoice)],
     };
     assert_eq!(
         translate_rendered_response_v1(&multiple_response, &multiple).expect("choice response"),
@@ -257,7 +319,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     });
     let blanks_response = StudentResponse::MultiBlank {
         answers: vec![StudentTextEntry {
-            slot: rendered(&blanks, RenderedItemRoleV1::Blank),
+            slot: rendered(&blanks, ResponseItemRole::TextEntrySlot),
             text: "value".to_owned(),
         }],
     };
@@ -272,13 +334,13 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     );
 
     let matching = presentation_for(QuestionResponseFormat::Matching {
-        prompts: vec![choice("prompt-a", "Prompt")],
-        choices: vec![choice("choice-a", "Choice")],
+        prompts: vec![matching_prompt("prompt-a", "Prompt")],
+        choices: vec![matching_choice("choice-a", "Choice")],
     });
     let matching_response = StudentResponse::Matching {
         matches: vec![StudentMatch {
-            prompt: rendered(&matching, RenderedItemRoleV1::MatchPrompt),
-            choice: rendered(&matching, RenderedItemRoleV1::MatchChoice),
+            prompt: rendered(&matching, ResponseItemRole::MatchingPrompt),
+            choice: rendered(&matching, ResponseItemRole::MatchingChoice),
         }],
     };
     assert_eq!(
@@ -292,10 +354,13 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     );
 
     let ordering = presentation_for(QuestionResponseFormat::Ordering {
-        items: vec![choice("first", "First"), choice("second", "Second")],
+        items: vec![
+            ordering_item("first", "First"),
+            ordering_item("second", "Second"),
+        ],
     });
     let ordering_response = StudentResponse::Ordering {
-        order: vec![rendered(&ordering, RenderedItemRoleV1::OrderItem)],
+        order: vec![rendered(&ordering, ResponseItemRole::OrderingItem)],
     };
     assert_eq!(
         translate_rendered_response_v1(&ordering_response, &ordering).expect("ordering response"),
@@ -303,12 +368,27 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
             order: vec![ResponseItemReference::new("first")],
         }
     );
+
+    let hotspot = hotspot_presentation();
+    let hotspot_response = StudentResponse::Hotspot {
+        selections: vec![StudentHotspotSelection {
+            region: rendered(&hotspot, ResponseItemRole::HotspotRegion),
+        }],
+    };
+    assert_eq!(
+        translate_rendered_response_v1(&hotspot_response, &hotspot).expect("hotspot response"),
+        StudentResponse::Hotspot {
+            selections: vec![StudentHotspotSelection {
+                region: ResponseItemReference::new("nucleus"),
+            }],
+        }
+    );
 }
 
 #[test]
 fn rendered_response_translation_preserves_scalar_question_types() {
     let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
-        choices: vec![choice("a", "A")],
+        choices: vec![question_choice("a", "A")],
         selection: ResponseSelectionRule::ExactlyOne,
     });
     for response in [
@@ -316,10 +396,7 @@ fn rendered_response_translation_preserves_scalar_question_types() {
         StudentResponse::ShortText {
             text: "alpha".to_owned(),
         },
-        StudentResponse::Hotspot { points: vec![] },
-        StudentResponse::FileUpload {
-            object_key: "record.pdf".to_owned(),
-        },
+        StudentResponse::Hotspot { selections: vec![] },
         StudentResponse::ExternalTool {},
     ] {
         assert_eq!(
@@ -332,12 +409,12 @@ fn rendered_response_translation_preserves_scalar_question_types() {
 #[test]
 fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_states() {
     let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
-        choices: vec![choice("a", "A")],
+        choices: vec![question_choice("a", "A")],
         selection: ResponseSelectionRule::ExactlyOne,
     });
     assert!(matches!(
         project_durable_response_to_rendered_v1(&StudentResponse::MultipleChoice { selected: vec![ResponseItemReference::new("a")] }, &multiple),
-        Ok(InspectedStudentResponseV1::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].rendered.clone()]
+        Ok(StudentResponseInspection::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].rendered.clone()]
     ));
 
     let blank = presentation_for(QuestionResponseFormat::MultiBlank {
@@ -350,12 +427,12 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
     });
     assert!(matches!(
         project_durable_response_to_rendered_v1(&StudentResponse::MultiBlank { answers: vec![StudentTextEntry { slot: ResponseItemReference::new("slot"), text: "entered".into() }] }, &blank),
-        Ok(InspectedStudentResponseV1::MultiBlank { answers }) if answers[0].text == "entered"
+        Ok(StudentResponseInspection::MultiBlank { answers }) if answers[0].text == "entered"
     ));
 
     let matching = presentation_for(QuestionResponseFormat::Matching {
-        prompts: vec![choice("p", "P")],
-        choices: vec![choice("c", "C")],
+        prompts: vec![matching_prompt("p", "P")],
+        choices: vec![matching_choice("c", "C")],
     });
     assert!(matches!(
         project_durable_response_to_rendered_v1(
@@ -367,10 +444,10 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
             },
             &matching
         ),
-        Ok(InspectedStudentResponseV1::Matching { .. })
+        Ok(StudentResponseInspection::Matching { .. })
     ));
     let ordering = presentation_for(QuestionResponseFormat::Ordering {
-        items: vec![choice("first", "First")],
+        items: vec![ordering_item("first", "First")],
     });
     assert!(matches!(
         project_durable_response_to_rendered_v1(
@@ -379,7 +456,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
             },
             &ordering
         ),
-        Ok(InspectedStudentResponseV1::Ordering { .. })
+        Ok(StudentResponseInspection::Ordering { .. })
     ));
 
     assert_eq!(
@@ -387,7 +464,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
             &StudentResponse::Numeric { value: 1.5 },
             &multiple,
         ),
-        Ok(InspectedStudentResponseV1::Numeric { value: 1.5 })
+        Ok(StudentResponseInspection::Numeric { value: 1.5 })
     );
     assert_eq!(
         project_durable_response_to_rendered_v1(
@@ -396,31 +473,22 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
             },
             &multiple,
         ),
-        Ok(InspectedStudentResponseV1::ShortText {
+        Ok(StudentResponseInspection::ShortText {
             text: "written".into(),
         })
     );
     assert_eq!(
         project_durable_response_to_rendered_v1(
-            &StudentResponse::Hotspot { points: vec![] },
+            &StudentResponse::Hotspot { selections: vec![] },
             &multiple,
         ),
-        Ok(InspectedStudentResponseV1::Hotspot { points: vec![] })
-    );
-    assert_eq!(
-        project_durable_response_to_rendered_v1(
-            &StudentResponse::FileUpload {
-                object_key: "private/object".into()
-            },
-            &multiple
-        ),
-        Ok(InspectedStudentResponseV1::FileUpload {
-            artifact: InspectedStudentArtifactStateV1::Submitted
+        Ok(StudentResponseInspection::Hotspot {
+            selected_regions: vec![],
         })
     );
     assert_eq!(
         project_durable_response_to_rendered_v1(&StudentResponse::ExternalTool {}, &multiple),
-        Ok(InspectedStudentResponseV1::ExternalTool {
+        Ok(StudentResponseInspection::ExternalTool {
             completion: InspectedExternalToolStateV1::SubmissionRecorded
         })
     );
@@ -429,18 +497,18 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
 #[test]
 fn browser_submitted_response_round_trips_through_safe_inspection() {
     let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
-        choices: vec![choice("a", "A"), choice("b", "B")],
+        choices: vec![question_choice("a", "A"), question_choice("b", "B")],
         selection: ResponseSelectionRule::ExactlyOne,
     });
     let submitted = StudentResponse::MultipleChoice {
-        selected: vec![rendered(&presentation, RenderedItemRoleV1::Choice)],
+        selected: vec![rendered(&presentation, ResponseItemRole::QuestionChoice)],
     };
     let rebuilt = rebuild_public_presentation_v1(&presentation.envelope, &[])
         .expect("browser-safe presentation rebuild");
 
     assert!(matches!(
         project_rendered_response_for_inspection_v1(&submitted, &rebuilt),
-        Ok(InspectedStudentResponseV1::MultipleChoice { selected })
+        Ok(StudentResponseInspection::MultipleChoice { selected })
             if selected == vec![presentation.item_bindings[0].rendered.clone()]
     ));
 }
@@ -448,7 +516,7 @@ fn browser_submitted_response_round_trips_through_safe_inspection() {
 #[test]
 fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_role_ids() {
     let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
-        choices: vec![choice("a", "A")],
+        choices: vec![question_choice("a", "A")],
         selection: ResponseSelectionRule::ExactlyOne,
     });
     let response_for = |id| StudentResponse::MultipleChoice {
@@ -486,12 +554,12 @@ fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_r
     );
 
     let matching = presentation_for(QuestionResponseFormat::Matching {
-        prompts: vec![choice("prompt-a", "Prompt")],
-        choices: vec![choice("choice-a", "Choice")],
+        prompts: vec![matching_prompt("prompt-a", "Prompt")],
+        choices: vec![matching_choice("choice-a", "Choice")],
     });
     assert_eq!(
         translate_rendered_response_v1(
-            &response_for(rendered(&matching, RenderedItemRoleV1::MatchPrompt).as_str()),
+            &response_for(rendered(&matching, ResponseItemRole::MatchingPrompt).as_str()),
             &matching,
         ),
         Err(RenderedResponseTranslationErrorV1::WrongRenderedItemRole)

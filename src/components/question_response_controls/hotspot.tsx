@@ -3,8 +3,7 @@
 import { createSignal, For, type JSX } from "solid-js";
 
 import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
-import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
-import type { StudentHotspotPoint } from "../../../generated/api/StudentHotspotPoint";
+import type { StudentHotspotSelection } from "../../../generated/api/StudentHotspotSelection";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
@@ -16,13 +15,6 @@ import {
   type HotspotDefinition,
   type QuestionResponseControlBodyProps,
 } from "./common";
-
-function center(region: HotspotRegion): { x: number; y: number } {
-  return {
-    x: Math.round(region.x + region.width / 2),
-    y: Math.round(region.y + region.height / 2),
-  };
-}
 
 function selectionCount(definition: HotspotDefinition): number | undefined {
   if (definition.selection.kind === "exactlyOne") return 1;
@@ -47,17 +39,12 @@ function selectionProgress(definition: HotspotDefinition, count: number): string
 export function HotspotResponse(
   props: QuestionResponseControlBodyProps<HotspotDefinition>,
 ): JSX.Element {
-  const restored = props.initialResponse?.points ?? [];
-  const restoredIds = props.definition.regions
-    .filter((region) =>
-      restored.some((point) => point.x === center(region).x && point.y === center(region).y),
-    )
-    .map((region) => region.id);
+  const restored = props.initialResponse?.selections ?? [];
+  const restoredIds = restored.map((selection) => selection.region);
   const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restoredIds);
   let firstRegion!: HTMLInputElement;
-  const points = (): Array<StudentHotspotPoint> =>
-    selected().map((id) => center(props.definition.regions.find((region) => region.id === id)!));
-  const response = (): StudentResponse => ({ kind: "hotspot", points: points() });
+  const selections = (): Array<StudentHotspotSelection> => selected().map((region) => ({ region }));
+  const response = (): StudentResponse => ({ kind: "hotspot", selections: selections() });
   const controller = createSubmissionController(props, response());
   const required = selectionCount(props.definition);
   const progress = (): string | null => selectionProgress(props.definition, selected().length);
@@ -72,9 +59,7 @@ export function HotspotResponse(
     setSelected(next);
     void controller.validate({
       kind: "hotspot",
-      points: next.map((selectedId) =>
-        center(props.definition.regions.find((region) => region.id === selectedId)!),
-      ),
+      selections: next.map((region) => ({ region })),
     });
   }
   function submit(): void {
@@ -85,9 +70,7 @@ export function HotspotResponse(
     setSelected(next);
     void controller.reset({
       kind: "hotspot",
-      points: next.map((id) =>
-        center(props.definition.regions.find((region) => region.id === id)!),
-      ),
+      selections: next.map((region) => ({ region })),
     });
     queueMicrotask(() => firstRegion.focus());
   }

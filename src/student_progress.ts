@@ -6,9 +6,9 @@ import { formatPercentScore } from "./score_format";
 
 /** Human-readable aggregate progress from the server's key-free projection. */
 export function studentProgressSummary(progress: AssignmentProgress): string {
-  if (progress.scoring_status === "recalculating")
+  if (progress.assignment_scoring_state === "recalculating")
     return "Scores are recalculating. Recorded work is safe.";
-  if (progress.scoring_status === "failed")
+  if (progress.assignment_scoring_state === "failed")
     return "Scores are temporarily unavailable. Recorded work is safe.";
   switch (progress.score_state) {
     case "no_activity":

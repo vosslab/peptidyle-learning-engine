@@ -1,9 +1,10 @@
 //! Deterministic browser-safe render-cache identity and validation.
 
-use objects::ObjectKey;
-use question_model::generation::Seed;
+use objects::ObjectAddress;
+use question_model::generation::QuestionSeed;
 use question_model::{
-    ObjectId, QuestionPresentation, QuestionVersionReference, SourceObjectReference,
+    ObjectId, QuestionPresentation, QuestionRendererVersion, QuestionVersionReference,
+    SourceObjectReference,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -18,7 +19,7 @@ pub(super) const CACHE_SCHEMA_VERSION: u8 = 1;
 pub(super) struct SafeRenderedWebworkQuestion {
     pub(super) envelope: QuestionPresentation,
     pub(super) sanitized_html: String,
-    pub(super) renderer: crate::renderer_contract::RendererIdentity,
+    pub(super) renderer_version: QuestionRendererVersion,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -29,8 +30,11 @@ pub(super) struct CachedWebworkRender {
     pub(super) rendered: SafeRenderedWebworkQuestion,
 }
 
-pub(super) fn render_key(question_version: &QuestionVersionReference, seed: Seed) -> ObjectKey {
-    ObjectKey::QuestionRender {
+pub(super) fn render_key(
+    question_version: &QuestionVersionReference,
+    seed: QuestionSeed,
+) -> ObjectAddress {
+    ObjectAddress::QuestionRender {
         question_version: question_version.clone(),
         seed,
         object: deterministic_render_object_id(question_version, seed),
@@ -39,7 +43,7 @@ pub(super) fn render_key(question_version: &QuestionVersionReference, seed: Seed
 
 fn deterministic_render_object_id(
     question_version: &QuestionVersionReference,
-    seed: Seed,
+    seed: QuestionSeed,
 ) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:webwork-render-cache:v1");
@@ -60,21 +64,21 @@ pub(super) fn decode_render(bytes: &[u8]) -> Result<CachedWebworkRender, Webwork
 pub(super) fn validate_cached(
     cached: &CachedWebworkRender,
     question_version: &QuestionVersionReference,
-    seed: Seed,
+    seed: QuestionSeed,
     source: &WebworkSource,
     title: &str,
-    active_renderer: &crate::renderer_contract::RendererIdentity,
+    active_renderer_version: &QuestionRendererVersion,
 ) -> Result<(), WebworkAdapterError> {
     if cached.schema_version != CACHE_SCHEMA_VERSION
         || cached.source_object_reference != source.source_object_reference
-        || cached.rendered.renderer.id.is_empty()
-        || cached.rendered.renderer.version.is_empty()
+        || cached.rendered.renderer_version.name.is_empty()
+        || cached.rendered.renderer_version.version.is_empty()
     {
         return Err(WebworkAdapterError::InvalidCache(
             "cache source record is incomplete or does not match the published source".to_string(),
         ));
     }
-    if &cached.rendered.renderer != active_renderer {
+    if &cached.rendered.renderer_version != active_renderer_version {
         return Err(WebworkAdapterError::InvalidCache(
             "cache renderer identity does not match the configured renderer".to_string(),
         ));
@@ -91,7 +95,7 @@ pub(super) fn validate_cached(
 pub(super) fn validate_envelope(
     envelope: &QuestionPresentation,
     question_version: &QuestionVersionReference,
-    seed: Seed,
+    seed: QuestionSeed,
 ) -> Result<(), WebworkAdapterError> {
     if &envelope.variation.question_version != question_version {
         return Err(WebworkAdapterError::InvalidRendererEnvelope(

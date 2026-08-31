@@ -7,8 +7,8 @@
 //! source execution or echo PLE's signed launch binding claims.
 
 use async_trait::async_trait;
-use question_model::generation::Seed;
-use question_model::{ActivityTimestamp, QuestionAttemptId, QuestionDefinition, QuestionSource};
+use question_model::generation::QuestionSeed;
+use question_model::{ActivityTimestamp, QuestionAttemptId, QuestionSource, QuestionVersion};
 use sha2::{Digest, Sha256};
 
 use crate::scored_embed::{
@@ -16,7 +16,7 @@ use crate::scored_embed::{
     ScoredEmbedLaunchLedger, ScoredEmbedNonce, ScoredEmbedProfileConfig, ScoredEmbedResultVerifier,
 };
 use crate::{
-    DraftLocator, GradeBinding, ImathasAdapterError, ImathasProvider, ImathasSource,
+    GradeBinding, ImathasAdapterError, ImathasDraftQuestionSource, ImathasProvider, ImathasSource,
     ProviderFailure, ProviderGradeRequest, ProviderRenderRequest, SafeProviderRender,
     ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex, sealed, verify_binding,
 };
@@ -199,7 +199,7 @@ impl std::fmt::Debug for ExternalToolLaunchReference {
 
 /// Server-only request sent to a transport's authorized snapshot operation.
 pub struct SnapshotTransportRequest<'a> {
-    pub(crate) locator: &'a DraftLocator,
+    pub(crate) locator: &'a ImathasDraftQuestionSource,
     pub(crate) provider_key: &'a str,
 }
 impl<'a> SnapshotTransportRequest<'a> {
@@ -216,7 +216,7 @@ pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) provider_key: &'a str,
     pub(crate) question_version: question_model::QuestionVersionReference,
-    pub(crate) seed: Seed,
+    pub(crate) seed: QuestionSeed,
 }
 impl<'a> RenderTransportRequest<'a> {
     pub fn snapshot(&self) -> &'a [u8] {
@@ -228,7 +228,7 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn question_version(&self) -> &question_model::QuestionVersionReference {
         &self.question_version
     }
-    pub fn seed(&self) -> Seed {
+    pub fn seed(&self) -> QuestionSeed {
         self.seed
     }
 }
@@ -438,10 +438,10 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
     #[allow(clippy::too_many_arguments)]
     pub async fn begin_launch(
         &self,
-        question: &QuestionDefinition,
+        question: &QuestionVersion,
         source: &ImathasSource,
         attempt: QuestionAttemptId,
-        seed: Seed,
+        seed: QuestionSeed,
         correlation: ServerCorrelation,
         nonce: ScoredEmbedNonce,
         now: ActivityTimestamp,
@@ -460,10 +460,12 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         if integration_profile != SCORED_EMBED_BROKER_PROFILE_ID {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let locator = DraftLocator::from_draft(&question_model::DraftQuestionSource::Imathas {
-            provider: source.provider.clone(),
-            item_ref: source.item_ref.clone(),
-        })?;
+        let locator = ImathasDraftQuestionSource::from_draft(
+            &question_model::DraftQuestionSource::Imathas {
+                provider: source.provider.clone(),
+                item_ref: source.item_ref.clone(),
+            },
+        )?;
         let fresh = self
             .transport
             .fetch_snapshot(SnapshotTransportRequest {
@@ -571,7 +573,7 @@ impl<T: ScoredEmbedTransport> sealed::ProviderSealed for ContractedScoredEmbedPr
 impl<T: ScoredEmbedTransport> ImathasProvider for ContractedScoredEmbedProvider<T> {
     async fn snapshot(
         &self,
-        locator: &DraftLocator,
+        locator: &ImathasDraftQuestionSource,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
         if locator.provider() != self.config.profile.provider_key() {
             return Err(ProviderFailure::UnsupportedProfile);

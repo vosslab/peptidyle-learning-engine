@@ -9,7 +9,7 @@ owner overlay selects seeded production authentication and the TLS gateway. The
 normal path is `./run_live_demo.sh`. Direct controller operations use
 `source source_me.sh && .venv/bin/python local_stack.py`.
 Focused private `local_stack_control` modules and the canonical browser owner
-hold the lease through bootstrap, startup, migration, seed, renderer provenance,
+hold the lease through bootstrap, startup, migration, seed, Question Renderer Version,
 polling, readiness, and exact cleanup.
 
 The stack includes PLE's standalone WeBWorK PG renderer. The owner serves the

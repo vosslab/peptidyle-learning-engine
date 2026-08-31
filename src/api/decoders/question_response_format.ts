@@ -1,7 +1,6 @@
 // Browser-safe content and Question Response Format decoders.
 
 import type { AssetRef } from "../../../generated/api/AssetRef";
-import type { ChoiceOption } from "../../../generated/api/ChoiceOption";
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { NumericResponseTolerance } from "../../../generated/api/NumericResponseTolerance";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
@@ -85,7 +84,12 @@ export function decodeContentBlock(value: unknown, path: string, strict = false)
   }
 }
 
-function decodeChoiceOption(value: unknown, path: string, strict = false): ChoiceOption {
+type DecodedResponseItem = {
+  readonly id: string;
+  readonly body: ContentBlock[];
+};
+
+function decodeResponseItem(value: unknown, path: string, strict = false): DecodedResponseItem {
   const record = decodeRecord(value, path);
   if (strict) requireOnlyFields(record, path, ["id", "body"]);
   return {
@@ -93,7 +97,7 @@ function decodeChoiceOption(value: unknown, path: string, strict = false): Choic
     body: decodeArray(field(record, "body", path), `${path}.body`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, strict),
     ),
-  } satisfies ChoiceOption;
+  };
 }
 
 function decodeNormalizedCoordinate(value: unknown, path: string): number {
@@ -136,7 +140,7 @@ function decodeNumericResponseTolerance(
   }
 }
 
-export function decodeSelectionCardinality(
+export function decodeResponseSelectionRule(
   value: unknown,
   path: string,
   strict = false,
@@ -196,7 +200,6 @@ export function questionResponseFormatSupportsType(
       return questionType === "ordering";
     case "hotspot":
       return questionType === "hotspot";
-    case "fileUpload":
     case "externalTool":
       return true;
   }
@@ -228,9 +231,9 @@ export function decodeQuestionResponseFormat(
         choices: decodeArray(
           field(record, "choices", path),
           `${path}.choices`,
-          (choice, choicePath) => decodeChoiceOption(choice, choicePath, strict),
+          (choice, choicePath) => decodeResponseItem(choice, choicePath, strict),
         ),
-        selection: decodeSelectionCardinality(
+        selection: decodeResponseSelectionRule(
           field(record, "selection", path),
           `${path}.selection`,
           strict,
@@ -278,10 +281,10 @@ export function decodeQuestionResponseFormat(
       return {
         kind: response,
         prompts: decodeArray(field(record, "prompts", path), `${path}.prompts`, (item, itemPath) =>
-          decodeChoiceOption(item, itemPath, strict),
+          decodeResponseItem(item, itemPath, strict),
         ),
         choices: decodeArray(field(record, "choices", path), `${path}.choices`, (item, itemPath) =>
-          decodeChoiceOption(item, itemPath, strict),
+          decodeResponseItem(item, itemPath, strict),
         ),
       } satisfies QuestionResponseFormat;
     case "ordering":
@@ -289,7 +292,7 @@ export function decodeQuestionResponseFormat(
       return {
         kind: response,
         items: decodeArray(field(record, "items", path), `${path}.items`, (item, itemPath) =>
-          decodeChoiceOption(item, itemPath, strict),
+          decodeResponseItem(item, itemPath, strict),
         ),
       } satisfies QuestionResponseFormat;
     case "hotspot":
@@ -339,21 +342,10 @@ export function decodeQuestionResponseFormat(
             };
           },
         ),
-        selection: decodeSelectionCardinality(
+        selection: decodeResponseSelectionRule(
           field(record, "selection", path),
           `${path}.selection`,
           strict,
-        ),
-      } satisfies QuestionResponseFormat;
-    case "fileUpload":
-      if (strict) requireOnlyFields(record, path, ["kind", "maxBytes", "acceptedExtensions"]);
-      return {
-        kind: response,
-        maxBytes: decodePositiveInteger(field(record, "maxBytes", path), `${path}.maxBytes`),
-        acceptedExtensions: decodeArray(
-          field(record, "acceptedExtensions", path),
-          `${path}.acceptedExtensions`,
-          decodeNonemptyString,
         ),
       } satisfies QuestionResponseFormat;
     case "externalTool":

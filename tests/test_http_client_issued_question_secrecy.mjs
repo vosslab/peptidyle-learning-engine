@@ -23,7 +23,7 @@ function clientWithIssuedQuestion(mutator) {
       mutator(issued);
       return jsonResponse(issued);
     }
-    return jsonResponse({ ...attempt, scoringStatus: "current" });
+    return jsonResponse({ ...attempt, assignmentScoringState: "current" });
   });
   return {
     attempt,
@@ -50,7 +50,7 @@ test("issued-question transport preserves a concealed nested-route 404 without a
   assert.ok(attempt);
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) return jsonResponse({}, 404);
-    return jsonResponse({ ...attempt, scoringStatus: "current" });
+    return jsonResponse({ ...attempt, assignmentScoringState: "current" });
   });
   const client = createHttpApiClient({ fetch: recordingFetch });
   await assert.rejects(

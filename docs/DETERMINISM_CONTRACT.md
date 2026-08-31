@@ -15,10 +15,10 @@ attempt uses the stored values.
 
 | Layer                  | Authoritative inputs                                        | Exact result                                     | Owner                              |
 | ---------------------- | ----------------------------------------------------------- | ------------------------------------------------ | ---------------------------------- |
-| Generated parameters   | generator reference, definition, seed                       | `GeneratedVariant` and SHA-256                   | `domain` and Wasm                  |
-| Native issued question | immutable question version, seed                            | envelope and Question Attempt Source Record      | trusted server backend             |
+| Question Variation Parameters | generator reference, definition, seed                 | `QuestionVariationParameters` and SHA-256        | `domain` and Wasm                  |
+| Native issued question | immutable question version, seed                            | envelope and Question Attempt Reproduction Details | trusted server backend             |
 | WeBWorK safe render    | problem, immutable version, source source_object_reference, seed, renderer | safe cached envelope and sanitized markup        | private adapter/renderer           |
-| Student presentation   | answer-free envelope, asset bindings, stored nonce          | response schema, rendered IDs, descriptor digest | trusted server; browser may verify |
+| Student presentation   | answer-free envelope, asset bindings, stored nonce          | Question Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
 | Submission             | authenticated attempt, idempotency key, student response    | one stored receipt or conflict                   | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
@@ -28,16 +28,17 @@ student, replaces TLS, or makes a client-side grade authoritative.
 ## Immutable identity
 
 Published question identity is the pair of durable problem and immutable
-version IDs. A seeded `RandomizationDefinition` additionally carries a
-`GeneratorReference` with a stable generator ID and additive generator
+version IDs. A seeded `QuestionVariationDefinition` additionally carries a
+`QuestionGeneratorReference` with a stable generator ID and additive generator
 version. A changed generator implementation therefore requires a new generator
 version and a new published question version; historical definitions remain
 resolvable.
 
 An issued `QuestionAttempt` records its immutable problem version, server-owned
-seed, generated-parameter hash, and `QuestionAttemptSourceRecord`. The Question Attempt Source Record records the
-adapter, generator where applicable, source source_object_reference, renderer where
-applicable, grading implementation, asset objects, and rendered-question hash.
+seed, generated-parameter hash, and `QuestionAttemptReproductionDetails`. The Question Attempt Reproduction Details records the
+Question Backend Version, generator where applicable, Source Object Reference,
+Question Renderer Version where applicable, Question Grader Version, asset objects,
+and rendered-question hash.
 This is the audit record used to reject a rerender that no longer reproduces
 the issued question.
 
@@ -48,8 +49,8 @@ The authoritative types are in
 
 ## Seeded generation
 
-`domain::generator::generate` is a pure function of a `Seed` and a
-`RandomizationDefinition`. The implementation makes these compatibility
+`domain::generator::generate` is a pure function of a `QuestionSeed` and a
+`QuestionVariationDefinition`. The implementation makes these compatibility
 choices explicit:
 
 - `ChaCha20Rng` receives a 256-bit key derived from the domain separator
@@ -62,7 +63,7 @@ choices explicit:
   values rendered as fixed-precision strings.
 - Fixed and single-value parameters consume no random draw, so adding one does
   not perturb unrelated random values.
-- Canonical generated output is `serde_json` bytes of `GeneratedVariant` and
+- Canonical generated output is `serde_json` bytes of `QuestionVariationParameters` and
   its hash is lowercase SHA-256 hexadecimal.
 
 The browser Wasm module uses the same Rust `domain` code. It does not have an
@@ -114,7 +115,7 @@ descriptor includes:
 
 - descriptor version, immutable question version, and stored seed;
 - a server-minted 16-byte presentation nonce;
-- title, prompt blocks, public response schema, item order, and response
+- title, prompt blocks, public Question Response Format, item order, and response
   constraints;
 - durable asset identity plus authored and selected-rendition checksums; and
 - the rendered IDs and canonical public basis of every addressable item.
@@ -138,15 +139,15 @@ descriptor codec, CRC, or SHA-256 rules.
 
 ### Rendered item IDs
 
-Each addressable choice, blank, matching side, ordering item, or hotspot
-surface receives a four-lowercase-hex `RenderedItemIdV1`. It is CRC-16/CCITT-
+Each addressable choice, blank, matching side, ordering item, Hotspot Surface,
+or Hotspot Region receives a four-lowercase-hex `PresentationResponseItemReference`. It is CRC-16/CCITT-
 FALSE over a domain-separated basis that includes the nonce, version, seed,
 role, ordinal, durable ID, and SHA-256 of canonical public item content.
 
 CRC16 is a compact correspondence value, not an identity or security token.
 The builder permits at most 32 addressable items, checks all IDs for uniqueness
 within the presentation, retries with a new nonce up to eight times, and fails
-closed if it cannot issue an unambiguous presentation. Durable `ChoiceId` and
+closed if it cannot issue an unambiguous presentation. Durable Response Item Reference and
 other internal identities remain server-side.
 
 ### Checksum roles
@@ -182,7 +183,7 @@ renderer, or emit either witness. This distinction is important for latency
 estimates and operational evidence.
 
 The Store persists a bounded `WebworkGradeReplayStateV1`: immutable
-problem/version/source/seed/renderer provenance, presentation digest, and a
+problem/version/source/seed/Question Renderer Version, presentation digest, and a
 redacted mapping from presentation-scoped rendered item IDs to upstream fields and values. The
 mapping is course-owned, validated, RLS-protected, and never serialized to the
 browser or cache.

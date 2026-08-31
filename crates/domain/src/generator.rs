@@ -1,7 +1,7 @@
 //! Seeded parameter generation (WP-C5, MOD-GEN).
 //!
-//! [`generate`] is a pure function of a [`Seed`] and a
-//! [`RandomizationDefinition`]. Random draws come directly from
+//! [`generate`] is a pure function of a [`QuestionSeed`] and a
+//! [`QuestionVariationDefinition`]. Random draws come directly from
 //! `rand_chacha::ChaCha20Rng`; this module does not use `rand` distributions,
 //! whose sampling implementations are a separate compatibility surface.
 //! Ordered input and output maps make canonical JSON and its SHA-256 stable.
@@ -10,7 +10,8 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use question_model::generation::{
-    GeneratorReference, ParameterSpec, RandomizationDefinition, Seed,
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
+    QuestionVariationDefinition,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::{Rng, SeedableRng};
@@ -27,7 +28,7 @@ const SEED_DOMAIN: &[u8] = b"peptidyle-learning-engine/generator/v1\0";
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum GeneratedValue {
+pub enum QuestionVariationParameterValue {
     /// Integer sampled from an inclusive authored range.
     Integer {
         /// Sampled integer.
@@ -50,17 +51,17 @@ pub enum GeneratedValue {
     },
 }
 
-/// Complete deterministic output for one question variant.
+/// Complete deterministic parameter output for one Question Variation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GeneratedVariant {
+pub struct QuestionVariationParameters {
     /// Generator identifier and version pinned by the published Question Version.
-    pub generator: Option<GeneratorReference>,
+    pub generator: Option<QuestionGeneratorReference>,
     /// Generated values in stable parameter-name order.
-    pub parameters: BTreeMap<String, GeneratedValue>,
+    pub parameters: BTreeMap<String, QuestionVariationParameterValue>,
 }
 
-impl GeneratedVariant {
+impl QuestionVariationParameters {
     /// Serializes the ordered output and returns its lowercase SHA-256.
     ///
     /// # Errors
@@ -139,7 +140,7 @@ impl std::error::Error for GenerationError {}
 
 /// Generates one exact parameter map from a seed and authored definition.
 ///
-/// Static definitions return an empty variant and consume no randomness.
+/// Static definitions return empty Question Variation Parameters and consume no randomness.
 /// Seeded definitions iterate their `BTreeMap` in key order. Fixed and
 /// single-value parameters consume no draw, so adding one cannot perturb
 /// unrelated random parameters.
@@ -149,15 +150,15 @@ impl std::error::Error for GenerationError {}
 /// Returns [`GenerationError`] for reversed ranges, decimal bounds that cannot
 /// be represented at their authored precision, or an empty choice list.
 pub fn generate(
-    seed: Seed,
-    definition: &RandomizationDefinition,
-) -> Result<GeneratedVariant, GenerationError> {
-    let RandomizationDefinition::Seeded {
+    seed: QuestionSeed,
+    definition: &QuestionVariationDefinition,
+) -> Result<QuestionVariationParameters, GenerationError> {
+    let QuestionVariationDefinition::Seeded {
         generator,
         parameters,
     } = definition
     else {
-        return Ok(GeneratedVariant {
+        return Ok(QuestionVariationParameters {
             generator: None,
             parameters: BTreeMap::new(),
         });
@@ -170,7 +171,7 @@ pub fn generate(
         generated.insert(name.clone(), value);
     }
 
-    Ok(GeneratedVariant {
+    Ok(QuestionVariationParameters {
         generator: Some(generator.clone()),
         parameters: generated,
     })
@@ -180,16 +181,16 @@ pub fn generate(
 ///
 /// # Errors
 ///
-/// Returns the same errors as [`generate`] and [`GeneratedVariant::sha256`].
+/// Returns the same errors as [`generate`] and [`QuestionVariationParameters::sha256`].
 pub fn generate_hash(
-    seed: Seed,
-    definition: &RandomizationDefinition,
+    seed: QuestionSeed,
+    definition: &QuestionVariationDefinition,
 ) -> Result<String, GenerationError> {
     generate(seed, definition)?.sha256()
 }
 
 /// Expands the stored 64-bit value into the exact key consumed by ChaCha20.
-fn expand_seed(seed: Seed) -> [u8; 32] {
+fn expand_seed(seed: QuestionSeed) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(SEED_DOMAIN);
     hasher.update(seed.value().to_le_bytes());
@@ -199,15 +200,15 @@ fn expand_seed(seed: Seed) -> [u8; 32] {
 /// Generates one parameter without borrowing randomness from another source.
 fn generate_value(
     name: &str,
-    spec: &ParameterSpec,
+    spec: &QuestionGeneratorParameter,
     rng: &mut ChaCha20Rng,
-) -> Result<GeneratedValue, GenerationError> {
+) -> Result<QuestionVariationParameterValue, GenerationError> {
     match spec {
-        ParameterSpec::IntegerRange { low, high } => {
+        QuestionGeneratorParameter::IntegerRange { low, high } => {
             let value = sample_inclusive(name, *low, *high, rng)?;
-            Ok(GeneratedValue::Integer { value })
+            Ok(QuestionVariationParameterValue::Integer { value })
         }
-        ParameterSpec::DecimalRange {
+        QuestionGeneratorParameter::DecimalRange {
             low,
             high,
             decimals,
@@ -225,11 +226,11 @@ fn generate_value(
             let low_scaled = scale_decimal(name, *low, factor)?;
             let high_scaled = scale_decimal(name, *high, factor)?;
             let scaled = sample_inclusive(name, low_scaled, high_scaled, rng)?;
-            Ok(GeneratedValue::Decimal {
+            Ok(QuestionVariationParameterValue::Decimal {
                 value: format_decimal(scaled, factor, *decimals),
             })
         }
-        ParameterSpec::Choice { options } => {
+        QuestionGeneratorParameter::Choice { options } => {
             if options.is_empty() {
                 return Err(GenerationError::EmptyChoice {
                     parameter: name.to_string(),
@@ -248,11 +249,11 @@ fn generate_value(
                     parameter: name.to_string(),
                 })?
             };
-            Ok(GeneratedValue::Choice {
+            Ok(QuestionVariationParameterValue::Choice {
                 value: options[index].clone(),
             })
         }
-        ParameterSpec::Fixed { value } => Ok(GeneratedValue::Fixed {
+        QuestionGeneratorParameter::Fixed { value } => Ok(QuestionVariationParameterValue::Fixed {
             value: value.clone(),
         }),
     }
@@ -343,12 +344,12 @@ mod tests {
 
     #[test]
     fn static_generation_is_an_explicit_empty_variant() {
-        let output = generate(Seed::new(42), &RandomizationDefinition::Static)
+        let output = generate(QuestionSeed::new(42), &QuestionVariationDefinition::Static)
             .expect("static definitions should generate");
 
         assert_eq!(
             output,
-            GeneratedVariant {
+            QuestionVariationParameters {
                 generator: None,
                 parameters: BTreeMap::new(),
             }
@@ -357,20 +358,20 @@ mod tests {
 
     #[test]
     fn fixed_parameters_do_not_shift_random_draws() {
-        let random = ParameterSpec::IntegerRange {
+        let random = QuestionGeneratorParameter::IntegerRange {
             low: i64::MIN,
             high: i64::MAX,
         };
-        let base = RandomizationDefinition::Seeded {
+        let base = QuestionVariationDefinition::Seeded {
             generator: test_generator(),
             parameters: BTreeMap::from([("z_random".to_string(), random.clone())]),
         };
-        let with_fixed = RandomizationDefinition::Seeded {
+        let with_fixed = QuestionVariationDefinition::Seeded {
             generator: test_generator(),
             parameters: BTreeMap::from([
                 (
                     "a_fixed".to_string(),
-                    ParameterSpec::Fixed {
+                    QuestionGeneratorParameter::Fixed {
                         value: "constant".to_string(),
                     },
                 ),
@@ -378,9 +379,10 @@ mod tests {
             ]),
         };
 
-        let base_output = generate(Seed::new(7), &base).expect("base generation should succeed");
+        let base_output =
+            generate(QuestionSeed::new(7), &base).expect("base generation should succeed");
         let fixed_output =
-            generate(Seed::new(7), &with_fixed).expect("fixed generation should succeed");
+            generate(QuestionSeed::new(7), &with_fixed).expect("fixed generation should succeed");
         assert_eq!(
             base_output.parameters.get("z_random"),
             fixed_output.parameters.get("z_random")
@@ -390,28 +392,28 @@ mod tests {
     #[test]
     fn invalid_parameter_shapes_are_refused() {
         let invalid_specs = [
-            ParameterSpec::IntegerRange { low: 2, high: 1 },
-            ParameterSpec::DecimalRange {
+            QuestionGeneratorParameter::IntegerRange { low: 2, high: 1 },
+            QuestionGeneratorParameter::DecimalRange {
                 low: 0.001,
                 high: 0.001,
                 decimals: 2,
             },
-            ParameterSpec::Choice {
+            QuestionGeneratorParameter::Choice {
                 options: Vec::new(),
             },
         ];
 
         for spec in invalid_specs {
-            let definition = RandomizationDefinition::Seeded {
+            let definition = QuestionVariationDefinition::Seeded {
                 generator: test_generator(),
                 parameters: BTreeMap::from([("invalid".to_string(), spec)]),
             };
-            assert!(generate(Seed::new(1), &definition).is_err());
+            assert!(generate(QuestionSeed::new(1), &definition).is_err());
         }
     }
 
-    fn test_generator() -> GeneratorReference {
-        GeneratorReference {
+    fn test_generator() -> QuestionGeneratorReference {
+        QuestionGeneratorReference {
             id: "test".to_string(),
             version: "1".to_string(),
         }

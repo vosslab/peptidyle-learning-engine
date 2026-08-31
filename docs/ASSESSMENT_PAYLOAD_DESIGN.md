@@ -46,8 +46,8 @@ The authenticated `QuestionAttemptId` in the route is the primary student-respon
 server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and immutable
 `QuestionVersionReference` plus seed before reading or mutating anything. A presentation digest checks that
 the browser answered the same render state PLE issued. Compact
-CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, and hotspot
-surfaces within that presentation. Neither the digest nor CRC16 authenticates the student or proves
+CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, Hotspot Surfaces,
+and Hotspot Regions within that presentation. Neither the digest nor CRC16 authenticates the student or proves
 correctness.
 
 ### SD1 authorization binding
@@ -110,12 +110,13 @@ The current browser Assignment Attempt screen receives a complete
 
 - course, Student Record, Assignment Attempt, immutable Question Version reference, Assignment Entry, and seed;
 - parameter hash, response, status, result, and timer state; and
-- adapter, renderer, generator, source-object, asset-object, grading, and rendered-hash provenance.
+- Question Backend Version, Question Renderer Version, generator, source-object,
+  asset-object, Question Grader Version, and rendered-hash provenance.
 
 Most of those fields are legitimate server evidence but unnecessary browser data. The active UI
 needs only the attempt ID, student-visible deadline, presentation binding, and public envelope. It
 does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
-implementation versions, or complete provenance.
+Question Backend, Renderer, or Grader Versions, or complete provenance.
 
 The implemented `getAssignmentAttemptScreen` client currently assembles a screen by loading the
 Assignment Attempt, Student Record, cursor-paged Question Attempts, Assignment, Course Instance,
@@ -151,7 +152,7 @@ aggregate. Neither path reproduces a mutable issued envelope. Therefore the subm
 redundant. The attempt already determines the expected Question Type.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
-and its issued public snapshot response schema, then select a closed, family-specific decoder for `answer`.
+and its issued public snapshot Question Response Format, then select a closed, family-specific decoder for `answer`.
 Unknown fields and shapes must continue to fail closed. Rich tagged Rust and TypeScript draft types
 may remain internal even though the public answer wire is type-free.
 
@@ -236,7 +237,7 @@ descriptor, and one public envelope:
 ```
 
 The Assignment Attempt reference is already in the request path. The response omits complete Student Record, assignment,
-course, Student, Question Attempt, and Question Attempt Source Records. The authenticated server resolves Student ownership
+course, Student, Question Attempt, and Question Attempt Reproduction Details. The authenticated server resolves Student ownership
 from the exact Course Membership; the browser does not choose or receive a Student identifier. The
 browser receives `version` and `seed` because they help identify and reproduce the public render, but
 it does not send either value back when answering.
@@ -253,7 +254,7 @@ Every ordinary answer uses the same outer request:
 ```
 
 The attempt ID remains in the path and the idempotency key remains in the header. The server chooses
-the strict `answer` decoder from the attempt's issued response definition.
+the strict `answer` decoder from the attempt's issued Question Response Format.
 
 | Family            | Minimal `answer` representation                              |
 | ----------------- | ------------------------------------------------------------ |
@@ -264,16 +265,16 @@ the strict `answer` decoder from the attempt's issued response definition.
 | Numerical         | `{ "text": "1.25e-3" }`                                      |
 | Matching          | `{ "matches": [{ "prompt": "12a4", "choice": "ef32" }] }`    |
 | Ordering          | `{ "order": ["91c2", "bb28", "4ef3"] }`                      |
-| Hotspot           | `{ "surface": "4ef3", "points": [{ "x": 512, "y": 233 }] }`  |
+| Hotspot           | `{ "selections": [{ "region": "4ef3" }] }`                      |
 
 Numerical input remains lexical text on the wire. This preserves what the student typed, permits
 strict server parsing, and avoids browser/server disagreement about floating-point serialization or
 accepted scientific notation.
 
 Matching sends only rendered IDs for each relationship, not duplicated prompt or choice objects.
-Ordering sends the ordered identifiers, not item content. Hotspot coordinates use a documented
-normalized integer coordinate space bound to a rendered surface ID; the browser never sends raw
-image bytes or grading regions.
+Ordering sends the ordered identifiers, not item content. Hotspot sends rendered Hotspot Region
+identifiers; the server resolves each one against the exact issued presentation. The browser never
+sends raw image bytes, grading regions, or authoring geometry.
 
 ### Grading result
 
@@ -313,14 +314,14 @@ Rendered IDs apply to:
 - multi-blank slots;
 - both sides of matching;
 - ordering items; and
-- hotspot surfaces or named regions where the response contract needs one.
+- hotspot surfaces and named regions.
 
 A single free-text or numeric field does not need an item ID unless a presentation contains multiple
 addressable fields.
 
 ### CRC16 contract
 
-`RenderedItemIdV1` is exactly four lowercase hexadecimal characters derived with
+`PresentationResponseItemReference` is exactly four lowercase hexadecimal characters derived with
 CRC-16/CCITT-FALSE:
 
 - polynomial `0x1021`;
@@ -335,7 +336,8 @@ This contract defines the normative byte framing.
 Rust owns this codec; the browser calls the Rust/Wasm implementation and does not reimplement it in
 TypeScript.
 
-CRC16 does not replace the durable internal `ChoiceId`, slot ID, or item identity. PLE stores or
+CRC16 does not replace the durable Response Item Reference, Text Entry Slot Reference, or other
+Question Response Format identity. PLE stores or
 reproduces an authoritative mapping from the presentation ID to the internal object for the attempt.
 
 ### Collision handling
@@ -364,7 +366,7 @@ complete public presentation:
 - immutable version and seed;
 - presentation nonce;
 - public title and prompt blocks;
-- response schema and widget constraints;
+- Question Response Format and widget constraints;
 - rendered item roles, order, IDs, and public content;
 - asset IDs and content checksums; and
 - normalized hotspot geometry where applicable.
@@ -377,7 +379,7 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 
 | Mechanism                         | Detects                                                                                                 | Does not prove                                                 |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, wrong hotspot surface | Student identity or correctness                                |
+| Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
 | Presentation digest               | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce      | TLS, browser integrity, pixel display, or image decode success |
 | Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                | That the browser rendered every asset                          |
 | Idempotency record                | Exact retry versus changed replay                                                                       | Correctness of the answer                                      |
@@ -397,7 +399,7 @@ The browser then:
 1. disables submission;
 2. preserves the student's editable draft in memory under attempt ID plus digest;
 3. reloads the same attempt presentation;
-4. restores the draft only when the response schema and rendered IDs remain compatible;
+4. restores the draft only when the Question Response Format and rendered IDs remain compatible;
 5. asks the student to review the restored answer; and
 6. submits again only after the current presentation validates.
 
@@ -412,7 +414,7 @@ For native flat questions, PLE owns both immutable content and grading. The norm
 1. Load the authenticated active attempt.
 2. Load its checksummed issued flat grading contract, not a current published Question or grader view.
 3. Verify the stored and submitted presentation digest.
-4. Decode the type-free `answer` using the issued public response schema.
+4. Decode the type-free `answer` using the issued public Question Response Format.
 5. Map rendered IDs to durable internal IDs.
 6. Apply answer normalization, correctness, and partial-credit rules server-side.
 7. Atomically persist response, score events, attempt/run transitions, and idempotency result.
@@ -754,10 +756,8 @@ The pre-production cutover:
 6. rejects retired route/body usage with stable `410 contract_retired`.
 
 Historical records remain available through bounded history and summary projections. Production data
-is never deleted or recreated as a shortcut. File upload and external-tool submission contracts stay
-out of this v1 cutover because they require separate object-transfer and broker designs. The file
-boundary is specified separately in
-`docs/active_plans/active/secure_student_file_upload_plan.md`.
+is never deleted or recreated as a shortcut. External-tool submission contracts stay out of this v1
+cutover because they require a separate broker design.
 
 ## Final decisions
 

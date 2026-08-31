@@ -18,8 +18,8 @@ use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAt
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::definition::{GradingDefinition, QuestionMetadata, QuestionSource};
 use question_model::envelope::ContentBlock;
-use question_model::generation::RandomizationDefinition;
-use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
+use question_model::generation::QuestionVariationDefinition;
+use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
 
 /// Version of the persisted H5P import record schema.
@@ -187,8 +187,8 @@ pub struct H5pImportRequest {
 
 /// A converted, unpublished H5P sandbox draft.
 ///
-/// This intentionally is not [`QuestionDefinition`]: an H5P import has no
-/// published problem or version identity.  The Question Library's publication transition
+/// This intentionally is not [`QuestionVersion`]: an H5P import has no
+/// published Question or version identity. The Question Library's publication transition
 /// owns that identity assignment, preserving the invariant that sandbox
 /// imports cannot masquerade as immutable published content.
 #[derive(Debug, Clone, PartialEq)]
@@ -208,7 +208,7 @@ pub struct ImportedH5pQuestion {
     /// The only timing policy currently supported by the adapter.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// H5P imports are static until a server-owned generator is selected.
-    pub randomization: RandomizationDefinition,
+    pub question_variation_definition: QuestionVariationDefinition,
     /// Always `Ungraded` for native H5P practice.
     pub grading: GradingDefinition,
     /// Browser-safe title, taxonomy, and licensing metadata.
@@ -275,7 +275,7 @@ impl H5pImporter {
             },
             question_attempt_limit: request.question_attempt_limit,
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            randomization: RandomizationDefinition::Static,
+            question_variation_definition: QuestionVariationDefinition::Static,
             grading: GradingDefinition::Ungraded,
             metadata: request.metadata,
             source_identity,
@@ -496,7 +496,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hexadecimal
 }
 
-fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<ChoiceOption>, H5pImportError> {
+fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<QuestionChoice>, H5pImportError> {
     if choices.len() < 2 {
         return Err(H5pImportError::TooFewChoices);
     }
@@ -513,7 +513,7 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<ChoiceOption>, H5pIm
             if choice.markdown.trim().is_empty() {
                 return Err(H5pImportError::EmptyChoiceBody(choice.id));
             }
-            Ok(ChoiceOption {
+            Ok(QuestionChoice {
                 id: ResponseItemReference::new(choice.id),
                 body: vec![ContentBlock::Text {
                     markdown: choice.markdown,

@@ -78,7 +78,9 @@ test("calculated Gradebook decoder accepts a nested page and rejects extra field
     mode: "totalPoints",
     rounding: "fourDecimalPlacesHalfAwayFromZero",
     observationTime: 1_700_000_000_000,
-    scoringWitnesses: [{ assignment: "A-2", generation: 1, status: "current" }],
+    assignmentScoringSnapshots: [
+      { assignment: "A-2", generation: 1, assignmentScoringState: "current" },
+    ],
     rows: [
       {
         membership: "M-1",
@@ -92,7 +94,7 @@ test("calculated Gradebook decoder accepts a nested page and rejects extra field
             category: null,
             availability: "unavailable",
             selectedScore: null,
-            scoringStatus: "current",
+            assignmentScoringState: "current",
             inspectionChoice: { kind: "noSubmittedRun" },
           },
         ],

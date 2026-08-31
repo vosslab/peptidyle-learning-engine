@@ -38,7 +38,7 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
 }
 import type { AssignmentPointValue } from "../../../generated/api/AssignmentPointValue";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
-import type { SelectionOrdering } from "../../../generated/api/SelectionOrdering";
+import type { QuestionPoolSelectionOrdering } from "../../../generated/api/QuestionPoolSelectionOrdering";
 import type { QuestionPoolSelectionRule } from "../../../generated/api/QuestionPoolSelectionRule";
 import type {
   AssignmentContentInput,
@@ -786,7 +786,7 @@ function decodeQuestionPoolSelectionRule(value: unknown, path: string): Question
     ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
       "candidateOrder",
       "randomized",
-    ] as const satisfies ReadonlyArray<SelectionOrdering>),
+    ] as const satisfies ReadonlyArray<QuestionPoolSelectionOrdering>),
   };
 }
 

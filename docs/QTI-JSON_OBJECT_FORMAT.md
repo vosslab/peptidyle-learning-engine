@@ -54,6 +54,54 @@ Prompt, choice, and feedback content is Markdown. It passes through the normal
 sanitized content renderer; the format does not accept raw browser HTML or
 executable content.
 
+## Teaching support and assets
+
+PLE follows the assessment meanings demonstrated by QTI v3 without importing
+QTI's general response-processing language into the flat-question format. QTI
+uses response and outcome processing to select inline, block, or modal feedback.
+It represents a requested Hint through a distinct request response even though
+the displayed Hint content may live in a QTI feedback block. QTI represents
+correct-response facts separately from a model solution, even when displayed
+solution content lives in a feedback block, and packages referenced images or
+other media as explicit files or resources.
+
+PLE maps those meanings to narrower contracts:
+
+| Reviewed QTI meaning                      | PLE contract                       | PLE timing and ownership                                      |
+| ----------------------------------------- | ---------------------------------- | ------------------------------------------------------------- |
+| Requested Hint                            | Question Hint                      | Issued-Question-bound support before response or grading      |
+| Feedback selected by a response item      | Choice Feedback                    | Post-grading Question Feedback                                |
+| Feedback selected by a correct outcome    | Correct Feedback                   | Post-grading Question Feedback                                |
+| Feedback selected by an incorrect outcome | Incorrect Feedback                 | Post-grading Question Feedback                                |
+| Correct-response declaration              | Answer Key, then Question Answer   | Private grading facts, then separately released display form  |
+| Model solution                            | Question Answer Explanation        | Explanatory content with independent release timing           |
+| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role  | Checksummed Object bound to the exact Question Version        |
+
+A QTI Hint request maps to Question Hint even when QTI uses a feedback block as
+its display container. A correct-response declaration supplies private Answer
+Key facts and a trusted source for the display-ready Question Answer. A QTI
+model-solution block maps separately to Question Answer Explanation. A QTI item
+whose adaptive response processing cannot preserve these meanings remains in
+the QTI Question Format or produces an explicit unsupported-feature result. The
+adapter preserves the exact instructional meaning.
+
+The current flat-question v2 source implements Choice Feedback through
+`response.choices[].feedback`, Correct Feedback through `feedback.correct`, and
+Incorrect Feedback through `feedback.incorrect`. Its accepted-answer members
+compile into the Answer Key. A dedicated Question Answer output, authored
+Question Hint, and authored Question Answer Explanation are open migration
+tasks. Unknown members remain invalid; the dedicated runtime Question Hint
+capability stays separate from the flat-question v2 source contract until that
+migration lands.
+
+The current format supports one image-bearing source shape: the HOTSPOT
+`surface` binds an exact Question Asset Reference, checksum, and accessible
+description. Prompt, choice, Hint, Feedback, Answer, and Answer Explanation
+fields currently accept text content rather than file paths or browser URLs.
+Their future image or file support uses explicit Question Hint Asset, Question
+Feedback Asset, Question Answer Asset, or Question Answer Explanation Asset
+relationships and retains the same checksum and accessibility requirements.
+
 ## Version 2 contract
 
 Version 2 keeps the same top-level metadata and policies but places family data
@@ -65,9 +113,13 @@ refused at every level.
 
 `questionAttemptLimit` is closed and contains only `maxAttempts`, which controls the
 retry bound. It does not disclose results, feedback, or answers. Student
-Feedback Release is assignment-owned through the independent five-field
+Feedback Release is assignment-owned through the target independent six-field
 `StudentFeedbackReleaseRule`: score, per-item correctness, feedback text,
-solution, and class statistics.
+Question Answer, Question Answer Explanation, and class statistics. The current
+combined `solution` field remains an open migration item.
+The server derives Student Feedback for the authorized read. The Assignment
+Revision retains the rule, while the Grading Result and exact Question records
+retain the durable facts.
 
 The eight exact response shapes are:
 
@@ -151,8 +203,8 @@ answer-bearing PLE JSON
  strict native compiler
        /        \
       v          v
-public question  private grader material
-model            answer key + feedback
+public question  private answer and feedback records
+model            answer key + three feedback forms
 ```
 
 | Value                        | Storage and readers                                                                       | Contents                                                                                           |
@@ -160,10 +212,11 @@ model            answer key + feedback
 | Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback      |
 | Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import       |
 | Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, taxonomy, license, and language; no answer or private feedback  |
-| Private compiled material    | Checksummed grader-only `answer_key` JSONB                                                | Answer key, per-choice and outcome feedback, schema version, and binding to the exact public model |
+| Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
 | Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                       |
 
-The private material carries the SHA-256 binding of the public model. Grading
+The private Answer Key and Question Feedback record carries the SHA-256 binding
+of the public model. Grading
 refuses a different prompt, choice set, policy, metadata record, source family,
 or grading definition. Authored and published source objects are private source
 records and cannot receive signed delivery URLs. Publication IDs are minted
@@ -201,7 +254,7 @@ The native codec currently enforces these bounds:
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
 - prompt, choice, title, tag, taxonomy, language, and license text is nonblank and bounded;
-- per-choice and correct/incorrect feedback is optional; when present, it is nonblank and bounded;
+- Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
 
@@ -212,10 +265,10 @@ prompt once to one unique available choice; ordering names every item exactly
 once; and hotspot assets, checksums, rectangles, accessible labels, and correct
 region subsets are complete and internally consistent.
 
-Per-choice feedback is selected for the submitted choice. Correct or incorrect
-outcome feedback is appended according to the server-derived grade. The normal
-assignment-owned student disclosure policy still decides whether and when the
-student receives that teaching content.
+Choice Feedback is selected for the submitted choice. Correct or Incorrect
+Feedback is appended according to the server-derived grade. The
+assignment-owned Student Feedback Release Rule decides whether and when the
+Student receives that teaching content.
 
 Canonicalization preserves choice order because order is authored behavior.
 Whitespace and JSON object-member order do not change the canonical checksum.
@@ -242,7 +295,8 @@ with focused in-memory and PostgreSQL implementations, and the server owner is
 `crates/server/src/flat_question_publication.rs`. The private source saves
 atomically with its typed draft, publication copies its exact canonical bytes
 to an immutable non-signable source object, and the runtime obtains private
-material only through an injected grader capability. The instructor editor is
+Answer Keys and Question Grading Input only through an injected grading
+capability. The instructor editor is
 complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-native conversion, and their
 live and independent-review gates are accepted. The remaining visual authoring,
 external QTI-JSONL, pilot-content, and hotspot pointer-overlay work is tracked

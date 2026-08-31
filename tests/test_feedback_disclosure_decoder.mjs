@@ -5,16 +5,15 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import {
-  decodeDisclosedFeedback,
+  decodeStudentFeedback,
   decodeStudentQuestionAttempt,
-  decodeQuestionAttempt,
   decodeAssignmentAttemptSummaryResponse,
   decodeGradedQuestionSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 
 const studentProgress = {
-  scoring_status: "current",
+  assignment_scoring_state: "current",
   score_state: "available",
   current_score: 0,
   best_score: 1,
@@ -27,27 +26,23 @@ const studentProgress = {
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {
   const feedback = {
     correctness: false,
-    hint: [{ kind: "math", latex: "x + 1", description: "x plus one" }],
+    choiceFeedback: [{ kind: "text", markdown: "This choice has no chromosome pair." }],
+    incorrectFeedback: [{ kind: "text", markdown: "Review mitosis vocabulary." }],
   };
-  assert.deepEqual(decodeDisclosedFeedback(feedback), feedback);
-  assert.deepEqual(decodeDisclosedFeedback({}), {});
+  assert.deepEqual(decodeStudentFeedback(feedback), feedback);
+  assert.deepEqual(decodeStudentFeedback({}), {});
 });
 
 test("Student attempts require score freshness and redact stale numeric results", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
-  const current = { ...attempt, scoringStatus: "current" };
+  const current = { ...attempt, assignmentScoringState: "current" };
   assert.deepEqual(decodeStudentQuestionAttempt(current), current);
-  assert.throws(
-    () => decodeQuestionAttempt(current),
-    DecodeError,
-    "the storage attempt decoder must stay exact",
-  );
 
-  for (const scoringStatus of ["recalculating", "failed"]) {
+  for (const assignmentScoringState of ["recalculating", "failed"]) {
     const redacted = {
       ...attempt,
       submission: { ...attempt.submission, gradingResult: null },
-      scoringStatus,
+      assignmentScoringState,
     };
     assert.deepEqual(decodeStudentQuestionAttempt(redacted), redacted);
     assert.throws(
@@ -57,31 +52,54 @@ test("Student attempts require score freshness and redact stale numeric results"
           submission: { ...redacted.submission, gradingResult: attempt.submission.gradingResult },
         }),
       DecodeError,
-      `${scoringStatus} must reject a numeric result`,
+      `${assignmentScoringState} must reject a numeric result`,
     );
   }
 
-  const { scoringStatus: _scoringStatus, ...missingStatus } = current;
-  assert.throws(() => decodeStudentQuestionAttempt(missingStatus), DecodeError);
+  const { assignmentScoringState: _assignmentScoringState, ...missingState } = current;
+  assert.throws(() => decodeStudentQuestionAttempt(missingState), DecodeError);
   assert.throws(
-    () => decodeStudentQuestionAttempt({ ...attempt, scoringStatus: "stale" }),
+    () => decodeStudentQuestionAttempt({ ...attempt, assignmentScoringState: "stale" }),
     DecodeError,
   );
 });
 
-test("attempt decoder rejects an unrecognized Question Attempt state", () => {
+test("attempt decoder accepts only the closed Question Attempt state vocabulary", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
-  assert.throws(
-    () => decodeStudentQuestionAttempt({ ...attempt, state: "retired_question_attempt_state" }),
-    DecodeError,
+  const deadlineClosed = {
+    ...structuredClone(publishedProblemFixture.attempts.at(-1)),
+    state: "closed_at_deadline",
+    assignmentScoringState: "current",
+    questionPoolSelection: null,
+  };
+  assert.equal(
+    decodeStudentQuestionAttempt(deadlineClosed).state,
+    "closed_at_deadline",
   );
+  for (const retiredState of [
+    "submitted",
+    "automatically_submitted",
+    "retired_question_attempt_state",
+  ]) {
+    assert.throws(
+      () =>
+        decodeStudentQuestionAttempt({
+          ...attempt,
+          state: retiredState,
+          assignmentScoringState: "current",
+          questionPoolSelection: null,
+        }),
+      DecodeError,
+      `${retiredState} must be rejected`,
+    );
+  }
 });
 
 test("Student Question Pool selection exposes only a valid server-selected ordinal", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   const pooled = {
     ...attempt,
-    scoringStatus: "current",
+    assignmentScoringState: "current",
     questionPoolSelection: { itemNumber: 1, itemCount: 2 },
   };
   assert.deepEqual(decodeStudentQuestionAttempt(pooled), pooled);
@@ -120,7 +138,7 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
           submittedAt: 1,
           response: null,
           feedback: null,
-          scoringStatus: "current",
+          assignmentScoringState: "current",
         },
       ],
       nextCursor: null,
@@ -159,7 +177,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     accepted: true,
     attempt,
     feedback: { correctness: true },
-    scoringStatus: "current",
+    assignmentScoringState: "current",
     assignmentAttemptCompletion: "inProgress",
     nextIssued: null,
     nextPending: false,
@@ -177,9 +195,9 @@ test("submission receipts require an exact feedback field and reject hostile nes
     DecodeError,
   );
 
-  for (const scoringStatus of ["recalculating", "failed"]) {
+  for (const assignmentScoringState of ["recalculating", "failed"]) {
     const redacted = structuredClone(receipt);
-    redacted.scoringStatus = scoringStatus;
+    redacted.assignmentScoringState = assignmentScoringState;
     redacted.attempt.submission.gradingResult = null;
     redacted.feedback = { correctness: true };
     assert.deepEqual(decodeGradedQuestionSubmissionReceipt(redacted), {
@@ -195,8 +213,11 @@ test("submission receipts require an exact feedback field and reject hostile nes
     pointLeak.feedback = { correctness: true, pointsEarned: 1, pointsPossible: 1 };
     assert.throws(() => decodeGradedQuestionSubmissionReceipt(pointLeak), DecodeError);
   }
-  const { scoringStatus: _scoringStatus, ...withoutScoringStatus } = receipt;
-  assert.throws(() => decodeGradedQuestionSubmissionReceipt(withoutScoringStatus), DecodeError);
+  const { assignmentScoringState: _assignmentScoringState, ...withoutAssignmentScoringState } = receipt;
+  assert.throws(
+    () => decodeGradedQuestionSubmissionReceipt(withoutAssignmentScoringState),
+    DecodeError,
+  );
   const {
     assignmentAttemptCompletion: _assignmentAttemptCompletion,
     ...withoutAssignmentAttemptCompletion
@@ -208,8 +229,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
   for (const [path, forbidden] of [
     ["answerKey", "answerKey"],
     ["timing.key", "key"],
-    ["sourceRecord.adapter.provider", "provider"],
-    ["sourceRecord.sourceObjectReference.source", "source"],
+    ["reproductionDetails", { backend: { id: "private", version: "1" } }],
     ["submission.gradingResult.checker", "checker"],
   ]) {
     const hostile = structuredClone(receipt);
@@ -217,15 +237,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     let target = hostile.attempt;
     for (const field of fields.slice(0, -1)) {
       if (field === "answerKey") break;
-      if (target[field] === null) {
-        target[field] =
-          field === "sourceObjectReference"
-            ? {
-                object: "0198e000-0000-7000-8000-000000000011",
-                sha256: "4cddff550d3e53f980baab609ada99a57ca7854edbfd2426f2c8db7cd43a6c01",
-              }
-            : {};
-      }
+      if (target[field] === null) target[field] = {};
       target = target[field];
     }
     target[fields.at(-1)] = forbidden;
@@ -292,17 +304,19 @@ test("disclosed feedback rejects private material and malformed blocks", () => {
     "token",
   ]) {
     assert.throws(
-      () => decodeDisclosedFeedback({ ...feedback, [forbidden]: "private" }),
+      () => decodeStudentFeedback({ ...feedback, [forbidden]: "private" }),
       DecodeError,
       `feedback must reject ${forbidden}`,
     );
   }
   assert.throws(
     () =>
-      decodeDisclosedFeedback({
-        hint: [{ kind: "text", markdown: "Try again.", providerTranscript: "private" }],
+      decodeStudentFeedback({
+        choiceFeedback: [
+          { kind: "text", markdown: "Try again.", providerTranscript: "private" },
+        ],
       }),
     DecodeError,
-    "feedback blocks must reject unknown provider fields",
+    "Student Feedback must reject private nested provider data",
   );
 });

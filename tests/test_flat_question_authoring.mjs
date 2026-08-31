@@ -66,7 +66,7 @@ function publicDefinition(includeVersion = false) {
     questionType: "multipleChoice",
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
-    randomization: { kind: "static" },
+    questionVariationDefinition: { kind: "static" },
     grading: { mode: "allOrNothing", points: 1 },
     metadata: {
       title: "Favorite color",
@@ -290,7 +290,7 @@ test("matching codec refuses duplicate or incomplete pairings", () => {
   assert.throws(() => decodeFlatQuestionSource(matching));
 });
 
-test("all remaining v2 source Question Types retain semantic IDs and publish answer-free response definitions", () => {
+test("all remaining v2 source Question Types retain semantic IDs and publish answer-free Question Response Formats", () => {
   const cases = [
     {
       kind: "multipleAnswer",

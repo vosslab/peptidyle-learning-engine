@@ -22,7 +22,9 @@ function gradebookPage(membership, nextCursor = null) {
     mode: "totalPoints",
     rounding: "fourDecimalPlacesHalfAwayFromZero",
     observationTime: 1,
-    scoringWitnesses: [{ assignment, generation: 1, status: "current" }],
+    assignmentScoringSnapshots: [
+      { assignment, generation: 1, assignmentScoringState: "current" },
+    ],
     nextCursor,
     rows: [
       {
@@ -44,7 +46,7 @@ function gradebookPage(membership, nextCursor = null) {
             category: null,
             availability: "available",
             selectedScore: 0.8,
-            scoringStatus: "current",
+            assignmentScoringState: "current",
             inspectionChoice: { kind: "noSubmittedRun" },
           },
         ],

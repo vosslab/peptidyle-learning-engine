@@ -3,8 +3,9 @@
 use std::collections::HashSet;
 
 use question_model::{
-    AssignmentId, AssignmentPointValue, CourseGradeMode, CourseGradeRoundingRule,
-    CourseGradeScheme, CourseGradeSchemeError, GradeCategory, GradeCategoryId, ScoringStatus,
+    AssignmentId, AssignmentPointValue, AssignmentScoringState, CourseGradeMode,
+    CourseGradeRoundingRule, CourseGradeScheme, CourseGradeSchemeError, GradeCategory,
+    GradeCategoryId,
 };
 
 /// One assignment's already-selected current score and grading configuration.
@@ -16,7 +17,7 @@ pub struct CourseGradeAssignment {
     pub category: Option<GradeCategoryId>,
     pub selected_current_score: Option<f64>,
     pub points_possible: AssignmentPointValue,
-    pub scoring_status: ScoringStatus,
+    pub assignment_scoring_state: AssignmentScoringState,
 }
 
 /// Why a course score is intentionally unavailable instead of treated as zero.
@@ -116,10 +117,10 @@ fn unavailable_status(
 ) -> Option<CourseGradeUnavailableReason> {
     let mut recalculating = false;
     for assignment in assignments.iter().filter(|assignment| assignment.included) {
-        match assignment.scoring_status {
-            ScoringStatus::Current => {}
-            ScoringStatus::Recalculating => recalculating = true,
-            ScoringStatus::Failed => return Some(CourseGradeUnavailableReason::Failed),
+        match assignment.assignment_scoring_state {
+            AssignmentScoringState::Current => {}
+            AssignmentScoringState::Recalculating => recalculating = true,
+            AssignmentScoringState::Failed => return Some(CourseGradeUnavailableReason::Failed),
         }
     }
     recalculating.then_some(CourseGradeUnavailableReason::Recalculating)
@@ -316,7 +317,7 @@ mod tests {
             category: None,
             selected_current_score: score,
             points_possible: AssignmentPointValue::from_whole(points),
-            scoring_status: ScoringStatus::Current,
+            assignment_scoring_state: AssignmentScoringState::Current,
         }
     }
     fn category(id: u128, position: u32, drop_lowest: u32) -> GradeCategory {
@@ -450,13 +451,13 @@ mod tests {
             Err(CourseGradeError::MissingCategory { .. })
         ));
         let mut item = assignment(2, 0, 1, Some(1.0));
-        item.scoring_status = ScoringStatus::Recalculating;
+        item.assignment_scoring_state = AssignmentScoringState::Recalculating;
         let result = calculate_course_grade(&total(), &[item.clone()]).expect("outcome");
         assert_eq!(
             result.unavailable_reason,
             Some(CourseGradeUnavailableReason::Recalculating)
         );
-        item.scoring_status = ScoringStatus::Failed;
+        item.assignment_scoring_state = AssignmentScoringState::Failed;
         let failed = calculate_course_grade(&total(), &[item]).expect("outcome");
         assert_eq!(
             failed.unavailable_reason,

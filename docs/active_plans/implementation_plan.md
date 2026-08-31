@@ -220,7 +220,7 @@ decoders and behavior. Durable M0 package evidence is recorded in
 migration/schema/source/route/generated inventories, screenshots, and timing observations are
 historical evidence only and are not referenced through an ignored scratch source_object_reference.
 
-**Local renderer provenance.** WP-R1 is accepted on 2026-08-14. Its completed Chapter One
+**Local Question Renderer Version.** WP-R1 is accepted on 2026-08-14. Its completed Chapter One
 pilot/browser and aggregate-acceptance Python work uses one designated configured renderer image name
 as the stable local selection and rebuild target. Each live run records the inspected immutable OCI
 image configuration ID as exact runtime provenance. Image pruning may remove the selected local bytes,
@@ -270,7 +270,7 @@ release boundary while writing code.
   server-side processing time is measured and recorded as a baseline.
 - Support unlimited post-completion practice runs as a first-class product behavior, with completion,
   grading, and variation as three independent policies.
-- Guarantee no answer, key, or grading implementation is reachable from the browser, enforced by the
+- Guarantee no Answer Key or Question Grader code is reachable from the browser, enforced by the
   crate dependency graph rather than reviewer discipline.
 - Make every historical attempt reproducible from seed, generator version, and problem version, at a
   per-row cost small enough to survive hundreds of millions of rows.
@@ -724,7 +724,7 @@ Five ownership levels, per reviewer 3:
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `assignment_attempt` | Direct Student Record and Assignment parents, attempt number, started and completed times, score, activity, and variation policy | Many per Student Record and Assignment; 30 or more is normal |
 | `issued_question`    | Source Assignment Entry, exact Question Version, issued order, scoring treatment, and selection evidence                         | One per delivered Question within an Assignment Attempt      |
-| `question_attempt`   | Issued Question ID, seed, parameter hash, timing, operational state, and exact source record                                     | Several per Issued Question                                  |
+| `question_attempt`   | Issued Question ID, seed, parameter hash, timing, operational state, and exact Question Attempt Reproduction Details             | Several per Issued Question                                  |
 | `question_submission` | One accepted Student Response for its exact Question Attempt                                                                    | At most one per Question Attempt                             |
 | `grading_result`     | One authoritative evaluation for its exact Question Submission and automated grading operation                                    | At most one per Question Submission                          |
 
@@ -1003,8 +1003,8 @@ chosen inside MOD-OBJ, so a later move to `objects/sha256/ab/cd/...` changes no 
 ## Reproducibility record
 
 Every Question Attempt persists its exact `QuestionVersionReference { question_id, version_number }`, source Object Reference `object_id` and `sha256`,
-adapter id and version, renderer version where one applies, generator id and version, seed,
-**parameter hash**, asset `object_id` list, grading implementation version, and rendered-question hash.
+Question Backend Version, Question Renderer Version where one applies, Question Generator,
+seed, **parameter hash**, asset `object_id` list, Question Grader Version, and rendered-question hash.
 
 The record stores a parameter _hash_ rather than the parameters, because parameters are reproducible
 from seed plus generator version by construction and WP-C4 proves regeneration is exact. At 300 M
@@ -1083,15 +1083,15 @@ than as wrong content shown to a student.
 
 ### Grading version compatibility and regrading
 
-**Grading implementations are additive and permanently executable.** A grading version is never
+**Question Grader Versions are additive and permanently executable.** A Question Grader Version is never
 removed while any attempt references it, because a grade is a record and being unable to explain how it
 was produced is not acceptable.
 
-Regrading is supported and explicit: it creates a **new grade event** referencing the new grading
-version, never overwriting the old one. The history therefore shows both results and the reason for the
-change, which is what makes "why did my grade change" answerable. Durable replay behavior tests invoke
-representative retained grading implementations; a one-time compatibility review confirms that every
-version referenced by accepted historical records remains callable.
+Regrading is supported and explicit: it creates a **new grade event** referencing the new Question
+Grader Version, never overwriting the old one. The history therefore shows both results and the reason for
+the change, which is what makes "why did my grade change" answerable. Durable replay behavior tests invoke
+representative retained Question Grader Versions; a one-time compatibility review confirms that every
+release referenced by accepted historical records remains callable.
 
 ## Scale evaluation
 
@@ -1245,8 +1245,8 @@ effect.
 Rendering a backend-neutral question is the most security-sensitive part of the frontend, because two
 adapters return markup produced elsewhere.
 
-The pipeline: the API returns a **render envelope** holding prompt blocks, a response definition, and
-asset references. The renderer maps each block to a component, and each response definition to a
+The pipeline: the API returns a **render envelope** holding prompt blocks, a Question Response Format, and
+asset references. The renderer maps each block to a component, and each Question Response Format to a
 question response control. Two block kinds carry supplied markup -- WeBWorK rendered HTML and QTI converted
 content -- and both pass through a **server-side allowlist sanitizer** before ever reaching the
 envelope. Sanitization happens on the server, in the worker at render time, so the sanitized form is
@@ -1260,7 +1260,7 @@ markup is visible rather than silent.
 
 Question Response Controls, one per response type in `question_model`, are the reusable core of the student UI:
 numeric entry with unit display, formula entry with live format validation, single and multiple
-selection, ordering, matching, short text, and file upload. Each widget calls the WASM
+selection, ordering, matching, and short text. Each widget calls the WASM
 format-validator on input and shows a local, immediate hint when the shape is wrong -- the one place
 the browser gives a real-time answer-adjacent response, and it is safe because format validity carries
 no information about correctness.
@@ -1494,7 +1494,7 @@ substitution for a required production path.
 | MOD-TIME                   | Timing rules                                                             | `timer_verdict(...)` pure fn                                                        | MOD-QM                                                                | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                          |
 | MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, summary projection                                                    | MOD-QM, MOD-ACTIVITY                                                  | n/a                                  | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
 | MOD-CAP                    | Capability validation                                                    | `validate_assignment_config -> Vec<Violation>`                                      | MOD-QM                                                                | n/a                                  | Committed violation table                                                                                                                                                                                                                   |
-| MOD-GEN                    | Seeded generation                                                        | `generate(seed, spec)`                                                              | MOD-QM                                                                | n/a                                  | Seed-vector parity (WP-C4)                                                                                                                                                                                                                  |
+| MOD-GEN                    | Question Variation generation                                             | `generate(question_seed, definition)`                                               | MOD-QM                                                                | n/a                                  | Question Seed parity (WP-C4)                                                                                                                                                                                                                |
 | MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed flat private integrity                   | MOD-QM, MOD-STATE                                                     | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
 | MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                 | MOD-ID                                                                | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
 | MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                       | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                     | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                         |
@@ -1833,7 +1833,7 @@ or implementer-authored specification is required.
 
 - Owner: `architect`. Module: MOD-QM. Depends on: WP-F1.
 - Touch points: `crates/question_model/src/`, `docs/QUESTION_MODEL.md`.
-- Acceptance criteria: covers the spec's `QuestionDefinition` fields; `QuestionBackendCapabilities` carries all
+- Acceptance criteria: covers the spec's `QuestionVersion` fields; `QuestionBackendCapabilities` carries all
   eight flags; response and grading shapes are enums whose invalid combinations do not compile; tags,
   taxonomy, and licensing types included as shared-content data; **no answer-bearing type defined
   here**; every public item documented per `docs/RUST_STYLE.md` section 13; `ts-rs` derives on every

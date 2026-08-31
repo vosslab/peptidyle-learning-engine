@@ -1,19 +1,22 @@
 use std::collections::BTreeMap;
 
 use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_native_draft};
-use domain::generator::GeneratedVariant;
+use domain::generator::QuestionVariationParameters;
 use grading::{AnswerKey, GradingError};
 use question_model::answer::{NumericResponseTolerance, ResponseSelectionRule};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::envelope::{AssetRef, ContentBlock};
-use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
-use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
+use question_model::generation::{
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
+    QuestionVariationDefinition,
+};
+use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::taxonomy::License;
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    ImplementationVersion, QuestionFormat, QuestionId, QuestionMetadata, QuestionSource,
-    QuestionType, QuestionVersionNumber, StudentResponse, WorkspaceId,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionFormat,
+    QuestionId, QuestionMetadata, QuestionSource, QuestionType, QuestionVersion,
+    QuestionVersionNumber, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -28,7 +31,7 @@ fn version_number(value: u32) -> QuestionVersionNumber {
     QuestionVersionNumber::new(value).expect("positive Question Version Number")
 }
 
-fn flat_question() -> QuestionDefinition {
+fn flat_question() -> QuestionVersion {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let document =
         crate::flat_question::FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
@@ -38,7 +41,7 @@ fn flat_question() -> QuestionDefinition {
         .expect("flat fixture should compile")
         .into_parts()
         .0;
-    QuestionDefinition::from_draft(
+    QuestionVersion::from_draft(
         draft,
         question_id(),
         version_number(1),
@@ -46,8 +49,8 @@ fn flat_question() -> QuestionDefinition {
     )
 }
 
-fn choice(id: &str, label: &str) -> ChoiceOption {
-    ChoiceOption {
+fn question_choice(id: &str, label: &str) -> QuestionChoice {
+    QuestionChoice {
         id: ResponseItemReference::new(id),
         body: vec![ContentBlock::Text {
             markdown: label.to_string(),
@@ -65,19 +68,19 @@ fn metadata(title: &str) -> QuestionMetadata {
     }
 }
 
-fn peptide_question() -> QuestionDefinition {
+fn peptide_question() -> QuestionVersion {
     peptide_question_with_generator_version(peptide_bond_geometry::GENERATOR_VERSION)
 }
 
-fn peptide_question_with_generator_version(generator_version: &str) -> QuestionDefinition {
+fn peptide_question_with_generator_version(generator_version: &str) -> QuestionVersion {
     let mut parameters = BTreeMap::new();
     parameters.insert(
         "residue".to_string(),
-        ParameterSpec::Choice {
+        QuestionGeneratorParameter::Choice {
             options: vec!["alanine".to_string(), "glycine".to_string()],
         },
     );
-    QuestionDefinition {
+    QuestionVersion {
         question_id: question_id(),
         version_number: version_number(1),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
@@ -88,9 +91,9 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
         }],
         response: QuestionResponseFormat::MultipleChoice {
             choices: vec![
-                choice("ester", "ester"),
-                choice("amide", "amide"),
-                choice("ether", "ether"),
+                question_choice("ester", "ester"),
+                question_choice("amide", "amide"),
+                question_choice("ether", "ether"),
             ],
             selection: ResponseSelectionRule::ExactlyOne,
         },
@@ -100,8 +103,8 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
             seconds: 90,
             grace_seconds: 5,
         },
-        randomization: RandomizationDefinition::Seeded {
-            generator: GeneratorReference {
+        question_variation_definition: QuestionVariationDefinition::Seeded {
+            generator: QuestionGeneratorReference {
                 id: peptide_bond_geometry::GENERATOR_ID.to_string(),
                 version: generator_version.to_string(),
             },
@@ -123,7 +126,7 @@ fn peptide_draft() -> DraftQuestionDefinition {
         question_type: question.question_type,
         question_attempt_limit: question.question_attempt_limit,
         question_attempt_time_limit: question.question_attempt_time_limit,
-        randomization: question.randomization,
+        question_variation_definition: question.question_variation_definition,
         grading: question.grading,
         metadata: question.metadata,
     }
@@ -134,11 +137,11 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
     let adapter = NativeAdapter::new();
     let draft = peptide_draft();
     let first = adapter
-        .author_presentation(&draft, Seed::new(1))
+        .author_presentation(&draft, QuestionSeed::new(1))
         .expect("valid peptide draft should materialize")
         .expect("peptide Question Implementation supplies an author presentation");
     let replay = adapter
-        .author_presentation(&draft, Seed::new(1))
+        .author_presentation(&draft, QuestionSeed::new(1))
         .expect("valid peptide draft should replay")
         .expect("peptide Question Implementation supplies an author presentation");
 
@@ -164,7 +167,7 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
 
     let varies = (2..=256).any(|seed| {
         adapter
-            .author_presentation(&draft, Seed::new(seed))
+            .author_presentation(&draft, QuestionSeed::new(seed))
             .expect("valid seeded draft should materialize")
             .is_some_and(|presentation| presentation.prompt != first.prompt)
     });
@@ -184,14 +187,14 @@ fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
     draft.source = DraftQuestionSource::Native;
     draft.question_format = QuestionFormat::NativeAlgorithmic;
     draft.question_type = QuestionType::Numeric;
-    draft.randomization = RandomizationDefinition::Static;
+    draft.question_variation_definition = QuestionVariationDefinition::Static;
     draft.prompt = vec![ContentBlock::Text {
         markdown: "Enter the reference value.".to_string(),
     }];
 
     assert!(
         adapter
-            .author_presentation(&draft, Seed::new(4))
+            .author_presentation(&draft, QuestionSeed::new(4))
             .expect("the default author-presentation implementation is safe")
             .is_none(),
         "Question Implementations opt in explicitly; the engine never serializes a grading key as a fallback"
@@ -204,10 +207,10 @@ fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
     let question = peptide_question();
 
     let first = adapter
-        .issue(&question, Seed::new(37), &[])
+        .issue(&question, QuestionSeed::new(37), &[])
         .expect("valid peptide question should issue");
     let replay = adapter
-        .issue(&question, Seed::new(37), &[])
+        .issue(&question, QuestionSeed::new(37), &[])
         .expect("same question and seed should issue again");
 
     assert_eq!(first, replay);
@@ -215,11 +218,11 @@ fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
         .expect("issued envelope should serialize for the browser");
     assert!(!delivered.contains("correct"));
     assert!(!delivered.contains("expected"));
-    assert_eq!(first.source_record.adapter.version, ADAPTER_VERSION);
-    assert_eq!(first.source_record.grading.version, GRADING_VERSION);
+    assert_eq!(first.reproduction_details.backend.version, ADAPTER_VERSION);
+    assert_eq!(first.reproduction_details.grader.version, GRADING_VERSION);
     assert_eq!(
-        first.source_record.generator,
-        Some(GeneratorReference {
+        first.reproduction_details.generator,
+        Some(QuestionGeneratorReference {
             id: peptide_bond_geometry::GENERATOR_ID.to_string(),
             version: peptide_bond_geometry::GENERATOR_VERSION.to_string(),
         })
@@ -244,14 +247,14 @@ fn flat_question_capabilities_are_installed_and_reproducible_without_answer_keys
         expected
     );
     let issue = adapter
-        .issue(&question, Seed::new(10), &[])
+        .issue(&question, QuestionSeed::new(10), &[])
         .expect("flat Question Implementation issue should be key free");
     let replay = adapter
         .reproduce(
             &question,
-            Seed::new(10),
+            QuestionSeed::new(10),
             &issue.parameter_hash,
-            &issue.source_record,
+            &issue.reproduction_details,
             &[],
         )
         .expect("flat issue should reproduce exactly");
@@ -268,15 +271,15 @@ fn flat_question_grade_refuses_without_server_persisted_material() {
     let adapter = NativeAdapter::new();
     let question = flat_question();
     let issue = adapter
-        .issue(&question, Seed::new(11), &[])
+        .issue(&question, QuestionSeed::new(11), &[])
         .expect("flat issue should deliver reproducible envelope");
 
     assert!(matches!(
         adapter.grade(
             &question,
-            Seed::new(11),
+            QuestionSeed::new(11),
             &issue.parameter_hash,
-            &issue.source_record,
+            &issue.reproduction_details,
             &[],
             &StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("blue")],
@@ -290,7 +293,7 @@ fn flat_question_grade_refuses_without_server_persisted_material() {
 fn native_draft_preview_matches_the_published_envelope_presentation() {
     let adapter = NativeAdapter::new();
     let question = peptide_question();
-    let seed = Seed::new(37);
+    let seed = QuestionSeed::new(37);
     let issued = adapter.issue(&question, seed, &[]).expect("native issue");
     let preview = preview_native_draft(
         &DraftPreviewRequest {
@@ -299,7 +302,7 @@ fn native_draft_preview_matches_the_published_envelope_presentation() {
             title: question.metadata.title.clone(),
             prompt: question.prompt.clone(),
             response: question.response.clone(),
-            randomization: question.randomization.clone(),
+            question_variation_definition: question.question_variation_definition.clone(),
         },
         seed,
     )
@@ -317,15 +320,15 @@ fn correct_and_wrong_responses_are_graded_only_after_regeneration() {
     let adapter = NativeAdapter::new();
     let question = peptide_question();
     let issued = adapter
-        .issue(&question, Seed::new(99), &[])
+        .issue(&question, QuestionSeed::new(99), &[])
         .expect("valid peptide question should issue");
 
     let correct = adapter
         .grade(
             &question,
-            Seed::new(99),
+            QuestionSeed::new(99),
             &issued.parameter_hash,
-            &issued.source_record,
+            &issued.reproduction_details,
             &[],
             &StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("amide")],
@@ -335,9 +338,9 @@ fn correct_and_wrong_responses_are_graded_only_after_regeneration() {
     let wrong = adapter
         .grade(
             &question,
-            Seed::new(99),
+            QuestionSeed::new(99),
             &issued.parameter_hash,
-            &issued.source_record,
+            &issued.reproduction_details,
             &[],
             &StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("ester")],
@@ -360,14 +363,14 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
     let adapter = NativeAdapter::new();
     let question = peptide_question();
     let issued = adapter
-        .issue(&question, Seed::new(99), &[])
+        .issue(&question, QuestionSeed::new(99), &[])
         .expect("native issue");
     let (outcome, feedback) = adapter
         .grade_with_feedback(
             &question,
-            Seed::new(99),
+            QuestionSeed::new(99),
             &issued.parameter_hash,
-            &issued.source_record,
+            &issued.reproduction_details,
             &[],
             &StudentResponse::MultipleChoice {
                 selected: vec![ResponseItemReference::new("ester")],
@@ -381,13 +384,22 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
             markdown: "amide".to_string(),
         }])
     );
-    let hint = feedback
-        .hint
+    let hint = adapter
+        .hint_for_issued_question(
+            &question,
+            QuestionSeed::new(99),
+            &issued.parameter_hash,
+            &issued.reproduction_details,
+            &[],
+        )
+        .expect("verified issued Question accepts a hint request")
         .expect("implemented Question Implementation advertises a real hint");
     let rationale = feedback
         .rationale
         .expect("implemented Question Implementation provides rationale");
-    assert!(matches!(&hint[0], ContentBlock::Text { markdown } if markdown.contains("lone pair")));
+    assert!(
+        matches!(&hint.content()[0], ContentBlock::Text { markdown } if markdown.contains("lone pair"))
+    );
     assert!(
         matches!(&rationale[0], ContentBlock::Text { markdown } if markdown.contains("partial double-bond") && markdown.contains("planar"))
     );
@@ -400,19 +412,19 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
 }
 
 #[test]
-fn altered_question_attempt_source_record_is_refused_before_grading() {
+fn altered_question_attempt_reproduction_details_are_refused_before_grading() {
     let adapter = NativeAdapter::new();
     let question = peptide_question();
     let issued = adapter
-        .issue(&question, Seed::new(5), &[])
+        .issue(&question, QuestionSeed::new(5), &[])
         .expect("valid peptide question should issue");
-    let mut altered = issued.source_record;
-    altered.grading.version = "different".to_string();
+    let mut altered = issued.reproduction_details;
+    altered.grader.version = "different".to_string();
 
     assert!(matches!(
         adapter.grade(
             &question,
-            Seed::new(5),
+            QuestionSeed::new(5),
             &issued.parameter_hash,
             &altered,
             &[],
@@ -420,10 +432,7 @@ fn altered_question_attempt_source_record_is_refused_before_grading() {
                 selected: vec![ResponseItemReference::new("amide")],
             },
         ),
-        Err(NativeAdapterError::UnknownImplementation {
-            field: "grading",
-            ..
-        })
+        Err(NativeAdapterError::UnknownQuestionGraderVersion { .. })
     ));
 }
 
@@ -431,14 +440,11 @@ fn altered_question_attempt_source_record_is_refused_before_grading() {
 fn uninstalled_execution_versions_are_refused_before_issue_or_grading() {
     let mut adapter = NativeAdapter::new();
     assert!(matches!(
-        adapter.select_current_implementations(
-            implementation_version(ADAPTER_ID, "2"),
-            implementation_version(GRADING_ID, GRADING_VERSION),
+        adapter.select_current_versions(
+            backend_version(ADAPTER_ID, "2"),
+            grader_version(GRADING_ID, GRADING_VERSION),
         ),
-        Err(NativeAdapterError::UnknownImplementation {
-            field: "adapter",
-            ..
-        })
+        Err(NativeAdapterError::UnknownQuestionBackendVersion { .. })
     ));
 }
 
@@ -446,13 +452,15 @@ fn uninstalled_execution_versions_are_refused_before_issue_or_grading() {
 fn uninstalled_generator_versions_are_refused_without_fallback() {
     let adapter = NativeAdapter::new();
     let mut question = peptide_question();
-    let RandomizationDefinition::Seeded { generator, .. } = &mut question.randomization else {
+    let QuestionVariationDefinition::Seeded { generator, .. } =
+        &mut question.question_variation_definition
+    else {
         panic!("peptide fixture is seeded")
     };
     generator.version = "2".to_string();
 
     assert!(matches!(
-        adapter.issue(&question, Seed::new(61), &[]),
+        adapter.issue(&question, QuestionSeed::new(61), &[]),
         Err(NativeAdapterError::UnknownQuestionImplementation { generator: Some(found), .. })
             if found.version == "2"
     ));
@@ -483,18 +491,21 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
         object: ObjectId::from_uuid(Uuid::from_u128(82)),
     }];
     let issued = adapter
-        .issue(&question, Seed::new(82), &bindings)
+        .issue(&question, QuestionSeed::new(82), &bindings)
         .expect("trusted assets should be recorded at issue time");
-    assert_eq!(issued.source_record.asset_objects, vec![bindings[0].object]);
+    assert_eq!(
+        issued.reproduction_details.asset_objects,
+        vec![bindings[0].object]
+    );
 
     assert!(matches!(
-        adapter.issue(&question, Seed::new(82), &[]),
+        adapter.issue(&question, QuestionSeed::new(82), &[]),
         Err(NativeAdapterError::MissingAssetBinding(found)) if found == rendered_asset
     ));
     assert!(matches!(
         adapter.issue(
             &peptide_question(),
-            Seed::new(82),
+            QuestionSeed::new(82),
             &bindings,
         ),
         Err(NativeAdapterError::UnrelatedAssetBinding(found)) if found == rendered_asset
@@ -502,7 +513,7 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
     assert!(matches!(
         adapter.issue(
             &question,
-            Seed::new(82),
+            QuestionSeed::new(82),
             &[
                 bindings[0],
                 AssetObjectBinding {
@@ -514,15 +525,15 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
         Err(NativeAdapterError::ConflictingAssetBinding(found)) if found == rendered_asset
     ));
 
-    let mut altered_source_record = issued.source_record.clone();
-    altered_source_record.asset_objects = vec![ObjectId::from_uuid(Uuid::from_u128(84))];
+    let mut altered_reproduction_details = issued.reproduction_details.clone();
+    altered_reproduction_details.asset_objects = vec![ObjectId::from_uuid(Uuid::from_u128(84))];
 
     assert!(matches!(
         adapter.reproduce(
             &question,
-            Seed::new(82),
+            QuestionSeed::new(82),
             &issued.parameter_hash,
-            &altered_source_record,
+            &altered_reproduction_details,
             &bindings,
         ),
         Err(NativeAdapterError::ReproductionMismatch {
@@ -554,11 +565,11 @@ fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
     ];
 
     let issued = adapter
-        .issue(&question, Seed::new(91), &bindings)
+        .issue(&question, QuestionSeed::new(91), &bindings)
         .expect("prompt and nested response assets should resolve");
 
     assert_eq!(
-        issued.source_record.asset_objects,
+        issued.reproduction_details.asset_objects,
         vec![bindings[1].object, bindings[0].object],
         "asset IDs, not caller order, canonically order persisted objects"
     );
@@ -568,10 +579,10 @@ fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
 fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
     let adapter = NativeAdapter::new();
     let issued = adapter
-        .issue(&peptide_question(), Seed::new(37), &[])
+        .issue(&peptide_question(), QuestionSeed::new(37), &[])
         .expect("fixed vector should issue");
     assert_eq!(
-        issued.source_record.rendered_question_sha256,
+        issued.reproduction_details.rendered_question_sha256,
         "d1174a00295e0bf9ab85f935ef6eadab8548dce254a315281f4a704f20afac22"
     );
 }
@@ -583,7 +594,7 @@ fn historical_blank_or_oversized_titles_are_refused_before_issue() {
         let mut question = peptide_question();
         question.metadata.title = title;
         assert!(matches!(
-            adapter.issue(&question, Seed::new(37), &[]),
+            adapter.issue(&question, QuestionSeed::new(37), &[]),
             Err(NativeAdapterError::InvalidTitle(_))
         ));
     }
@@ -598,7 +609,7 @@ fn an_implementation_refuses_seeded_content_that_cannot_show_its_variation() {
     }];
 
     assert!(matches!(
-        adapter.issue(&question, Seed::new(1), &[]),
+        adapter.issue(&question, QuestionSeed::new(1), &[]),
         Err(NativeAdapterError::IncompatibleQuestionImplementation { .. })
     ));
 }
@@ -615,14 +626,14 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
         QuestionType::Numeric
     }
 
-    fn implementation_release(&self) -> ImplementationVersion {
-        ImplementationVersion {
+    fn implementation_release(&self) -> crate::generator::NativeQuestionImplementationRelease {
+        crate::generator::NativeQuestionImplementationRelease {
             id: "numeric-reference".to_string(),
             version: "1".to_string(),
         }
     }
 
-    fn generator(&self) -> Option<GeneratorReference> {
+    fn generator(&self) -> Option<QuestionGeneratorReference> {
         None
     }
 
@@ -635,8 +646,8 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionDefinition,
-        _generated: &GeneratedVariant,
+        question: &QuestionVersion,
+        _generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
         if !matches!(question.response, QuestionResponseFormat::Numeric { .. }) {
             return Err(NativeAdapterError::IncompatibleQuestionImplementation {
@@ -653,7 +664,7 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
     adapter
         .register_implementation(NumericReferenceImplementation)
         .expect("new implementation identifier should register");
-    let question = QuestionDefinition {
+    let question = QuestionVersion {
         question_id: question_id(),
         version_number: version_number(3),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
@@ -671,12 +682,12 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
             max_attempts: Some(1),
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        randomization: RandomizationDefinition::Static,
+        question_variation_definition: QuestionVariationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: metadata("Numeric registry extension"),
     };
     let issued = adapter
-        .issue(&question, Seed::new(123), &[])
+        .issue(&question, QuestionSeed::new(123), &[])
         .expect("registered Question Implementation should issue through the generic adapter");
 
     assert!(
@@ -688,9 +699,9 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
     assert!(matches!(
         adapter.grade(
             &question,
-            Seed::new(123),
+            QuestionSeed::new(123),
             &issued.parameter_hash,
-            &issued.source_record,
+            &issued.reproduction_details,
             &[],
             &StudentResponse::Numeric { value: 7.0 },
         ),
@@ -714,15 +725,15 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
         QuestionType::Numeric
     }
 
-    fn implementation_release(&self) -> ImplementationVersion {
-        ImplementationVersion {
+    fn implementation_release(&self) -> crate::generator::NativeQuestionImplementationRelease {
+        crate::generator::NativeQuestionImplementationRelease {
             id: "versioned-numeric".to_string(),
             version: self.version.to_string(),
         }
     }
 
-    fn generator(&self) -> Option<GeneratorReference> {
-        Some(GeneratorReference {
+    fn generator(&self) -> Option<QuestionGeneratorReference> {
+        Some(QuestionGeneratorReference {
             id: "versioned-numeric-generator".to_string(),
             version: self.version.to_string(),
         })
@@ -738,8 +749,8 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionDefinition,
-        _generated: &GeneratedVariant,
+        question: &QuestionVersion,
+        _generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
         let _ = question;
         Ok(Some(AnswerKey::Numeric {
@@ -748,8 +759,8 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
     }
 }
 
-fn versioned_numeric_question(version: &str) -> QuestionDefinition {
-    QuestionDefinition {
+fn versioned_numeric_question(version: &str) -> QuestionVersion {
+    QuestionVersion {
         question_id: question_id(),
         version_number: version_number(if version == "1" { 5 } else { 6 }),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
@@ -767,8 +778,8 @@ fn versioned_numeric_question(version: &str) -> QuestionDefinition {
             max_attempts: Some(1),
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        randomization: RandomizationDefinition::Seeded {
-            generator: GeneratorReference {
+        question_variation_definition: QuestionVariationDefinition::Seeded {
+            generator: QuestionGeneratorReference {
                 id: "versioned-numeric-generator".to_string(),
                 version: version.to_string(),
             },
@@ -800,10 +811,10 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
     let version_one = versioned_numeric_question("1");
     let version_two = versioned_numeric_question("2");
     let first_issue = adapter
-        .issue(&version_one, Seed::new(41), &[])
+        .issue(&version_one, QuestionSeed::new(41), &[])
         .expect("published generator version 1 remains dispatchable");
     let second_issue = adapter
-        .issue(&version_two, Seed::new(41), &[])
+        .issue(&version_two, QuestionSeed::new(41), &[])
         .expect("published generator version 2 dispatches independently");
 
     let catalog_capabilities = adapter
@@ -814,9 +825,9 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
     assert!(matches!(
         adapter.grade(
             &version_one,
-            Seed::new(41),
+            QuestionSeed::new(41),
             &first_issue.parameter_hash,
-            &first_issue.source_record,
+            &first_issue.reproduction_details,
             &[],
             &StudentResponse::Numeric { value: 1.0 },
         ),
@@ -825,9 +836,9 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
     assert!(matches!(
         adapter.grade(
             &version_two,
-            Seed::new(41),
+            QuestionSeed::new(41),
             &second_issue.parameter_hash,
-            &second_issue.source_record,
+            &second_issue.reproduction_details,
             &[],
             &StudentResponse::Numeric { value: 2.0 },
         ),

@@ -6,9 +6,8 @@
 //! reconstructs access decisions nor records a feedback-release receipt.
 
 use question_model::{
-    ActivityTimestamp, DisclosedFeedback, FeedbackContent, GradingResult,
-    InspectedStudentScoreFeedbackV1, ScoringStatus, StudentFeedbackReleaseRule,
-    StudentFeedbackReleaseTiming,
+    ActivityTimestamp, AssignmentScoringState, GradingResult, QuestionFeedback, StudentFeedback,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback,
 };
 
 use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssignmentPolicy};
@@ -32,9 +31,9 @@ pub struct StudentFeedbackReleaseDecision {
 /// correctness verdict beside its current status.
 pub fn score_current_student_feedback_release(
     mut decision: StudentFeedbackReleaseDecision,
-    scoring_status: ScoringStatus,
+    assignment_scoring_state: AssignmentScoringState,
 ) -> StudentFeedbackReleaseDecision {
-    if !matches!(scoring_status, ScoringStatus::Current) {
+    if !matches!(assignment_scoring_state, AssignmentScoringState::Current) {
         decision.score = false;
         decision.per_item_correctness = false;
     }
@@ -45,12 +44,12 @@ pub fn score_current_student_feedback_release(
 ///
 /// `None` means no feedback field is currently visible. Hidden fields are
 /// omitted rather than represented by null or a protected-content marker.
-pub fn project_disclosed_feedback(
+pub fn project_student_feedback(
     decision: StudentFeedbackReleaseDecision,
     result: Option<GradingResult>,
-    content: &FeedbackContent,
-) -> Option<DisclosedFeedback> {
-    let mut disclosed = DisclosedFeedback::empty();
+    question_feedback: &QuestionFeedback,
+) -> Option<StudentFeedback> {
+    let mut disclosed = StudentFeedback::empty();
     if let Some(result) = result {
         if decision.per_item_correctness {
             disclosed.correctness = Some(result.correct);
@@ -61,11 +60,13 @@ pub fn project_disclosed_feedback(
         }
     }
     if decision.feedback_text {
-        disclosed.hint = content.hint.clone();
-        disclosed.rationale = content.rationale.clone();
+        disclosed.choice_feedback = question_feedback.choice_feedback.clone();
+        disclosed.correct_feedback = question_feedback.correct_feedback.clone();
+        disclosed.incorrect_feedback = question_feedback.incorrect_feedback.clone();
+        disclosed.rationale = question_feedback.rationale.clone();
     }
     if decision.solution {
-        disclosed.correct_response = content.correct_response.clone();
+        disclosed.correct_response = question_feedback.correct_response.clone();
     }
     (decision.per_item_correctness || decision.score || decision.feedback_text || decision.solution)
         .then_some(disclosed)
@@ -74,15 +75,15 @@ pub fn project_disclosed_feedback(
 /// Projects feedback for an Instructor inspecting one Student's submitted work.
 ///
 /// Inspection can show only the current score and correctness permitted by
-/// assignment disclosure. Hint, rationale, solution, and correct-response
+/// assignment disclosure. Question Hint, rationale, solution, and correct-response
 /// content have no representation in this detail capability.
-pub fn project_inspected_student_score_feedback(
+pub fn project_student_response_inspection_feedback(
     decision: StudentFeedbackReleaseDecision,
-    scoring_status: ScoringStatus,
+    assignment_scoring_state: AssignmentScoringState,
     result: Option<GradingResult>,
-) -> InspectedStudentScoreFeedbackV1 {
-    let decision = score_current_student_feedback_release(decision, scoring_status);
-    let mut feedback = InspectedStudentScoreFeedbackV1::empty();
+) -> StudentResponseInspectionFeedback {
+    let decision = score_current_student_feedback_release(decision, assignment_scoring_state);
+    let mut feedback = StudentResponseInspectionFeedback::empty();
     if let Some(result) = result {
         if decision.per_item_correctness {
             feedback.correctness = Some(result.correct);

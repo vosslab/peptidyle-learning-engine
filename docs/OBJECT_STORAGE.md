@@ -1,7 +1,7 @@
 # Object storage
 
 PLE treats object storage as four separate security domains, not as one bucket
-with naming conventions. `ObjectKey` is the only physical-key constructor;
+with naming conventions. `ObjectAddress` is the only physical-address constructor;
 routes and browser payloads name logical delivery IDs, never buckets, paths, or
 client-selected filenames.
 
@@ -11,14 +11,14 @@ canonical live-demo path uses these same domains and delivery rules.
 
 ## Physical domains
 
-| Domain                        | Typed bucket     | Contents                                                                                                                                | Delivery rule                                                                                                                                                                                                                                        |
+| Domain                        | Object Storage Area | Contents                                                                                                                              | Delivery rule                                                                                                                                                                                                                                        |
 | ----------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Published presentation assets | `PublicAssets`   | Only immutable, answer-free renditions of Published Questions                                                                           | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and approved-Instructor Question Library access or exact Student assignment entitlement. |
 | Private content               | `PrivateContent` | Private workspace source and assets, generation and grader keys or payloads, provenance, renders, and course-record presentation assets | Never CDN-readable. A protected delivery uses its exact server-derived authority.                                                                                                                                                                    |
 | Student records               | `StudentRecords` | Student work and protected course-record artifacts, exports, and annotations                                                            | Never public; delivery requires the exact Student, course, or typed support authority for that record.                                                                                                                                               |
 | Temporary processing          | `TempProcessing` | Conversion workspaces and short-lived course-banner candidates                                                                          | Never signable or browser-served.                                                                                                                                                                                                                    |
 
-Each production domain has its own bucket and KMS key. This physical split is
+Each Object Storage Area maps to its own provider bucket and KMS key. This physical split is
 an enforcement boundary: a public CDN policy cannot expose private workspace
 source, grading material, Student work, or course records. Local MinIO uses
 four correspondingly named buckets to preserve the routing contract, but it is
@@ -27,27 +27,27 @@ configuration.
 
 ## Typed immutable objects
 
-`crates/objects/src/bucket.rs` derives a key's bucket, path, category, version,
-and object identity from typed server values. There is no raw-string key
+`crates/objects/src/bucket.rs` derives an Object Address's Object Storage Area, path, and version,
+and object identity from typed server values. There is no raw-string address
 variant. Important mappings are:
 
-| Object class                                           | Key family                                                                               | Domain and delivery authority                                                                                                                                                                          |
+| Object class                                           | Object Address family                                                                    | Domain and delivery authority                                                                                                                                                                          |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Private workspace source and authoring assets          | `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset`, `WorkspaceQuestionAsset` | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace projection. Collaboration is a future separately designed capability, not current authority. |
-| Published answer-free presentation asset               | `ProblemAsset`                                                                           | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source or grading material.              |
-| Published source, provenance, and private render state | `ProblemSource`, `PublishedImportArchive`, `ProblemRender`                               | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it.                                                                                |
+| Published answer-free presentation asset               | `QuestionAsset`                                                                          | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source or grading material.              |
+| Published source, provenance, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                             | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it.                                                                                |
 | Generation/grader keys and payloads                    | Server-only private records and any typed private object used by their owning worker     | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it.                                                                                        |
 | Course-record presentation asset                       | `CourseBanner`                                                                           | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                       |
 | Student work or protected artifact                     | `StudentRecord`                                                                          | `StudentRecords`; delivery rechecks exact Student ownership, course Instructor authority, or a narrow audited support capability.                                                                      |
 | Processing candidate or scratch object                 | `CourseBannerCandidate`, `Temporary`                                                     | `TempProcessing`; never delivered, signed, or used as a public publication result.                                                                                                                     |
 
-Objects are immutable. A write to an existing typed key is refused; replacement
+Objects are immutable. A write to an existing typed Object Address is refused; replacement
 uses a new identity and, for published content, a new immutable version. The
 object record carries server-computed SHA-256, size, verified media type,
-category, provenance, and creation time. Reads recompute SHA-256 and reject a
+provenance, and creation time. Reads recompute SHA-256 and reject a
 mismatch. The checksum detects storage corruption or a substituted object; it
 does not authenticate a writer or authorize a reader. Database ownership,
-bucket/IAM policy, TLS, and publication immutability provide those properties.
+provider bucket/IAM policy, TLS, and publication immutability provide those properties.
 
 ## Instructional image boundary
 
@@ -67,7 +67,7 @@ paths support.
 
 ## Delivery authority
 
-Every delivery selects one server-derived authority. The bucket and an opaque
+Every delivery selects one server-derived authority. The Object Storage Area and an opaque
 object or delivery ID never supply authority by themselves:
 
 1. Approved-Instructor Question Library access delivers safe Question Library
@@ -107,7 +107,7 @@ Student-record URLs are at most five minutes. Protected responses use
 `no-store`, `Pragma: no-cache`, and `Referrer-Policy: no-referrer`. Temporary
 objects are never signable.
 
-The route never accepts a bucket, object key, checksum, or filename. A signed
+The route never accepts an Object Storage Area, Object Address, checksum, or filename. A signed
 URL is a short-lived bearer capability, not a durable browser datum: clients
 must not place it in browser storage, analytics, a referrer chain, or logs.
 
@@ -131,7 +131,7 @@ function changes the complete batch from `Pending` to `Ready` and completes
 that same job atomically. Pending records have no public route result.
 
 The pending source is an exact allowlist: a private workspace asset with the
-expected workspace, object, category, and no published version. It is never a
+exact Workspace Asset Object Address and no published version. It is never a
 public object, arbitrary private key, browser value, or queue payload byte
 sequence. The dedicated publisher has a separate database capability and
 production IAM role; ordinary API and worker roles cannot materialize public

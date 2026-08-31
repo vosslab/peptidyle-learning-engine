@@ -4,9 +4,9 @@ import type { QuestionAttemptLimit } from "../../../generated/api/QuestionAttemp
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../../generated/api/DraftQuestionSource";
 import type { GradingDefinition } from "../../../generated/api/GradingDefinition";
-import type { ParameterSpec } from "../../../generated/api/ParameterSpec";
+import type { QuestionGeneratorParameter } from "../../../generated/api/QuestionGeneratorParameter";
 import type { QuestionSource } from "../../../generated/api/QuestionSource";
-import type { RandomizationDefinition } from "../../../generated/api/RandomizationDefinition";
+import type { QuestionVariationDefinition } from "../../../generated/api/QuestionVariationDefinition";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { QuestionAttemptTimeLimit } from "../../../generated/api/QuestionAttemptTimeLimit";
@@ -61,14 +61,14 @@ import {
   decodeQuestionResponseFormat,
   decodeQuestionType,
   questionResponseFormatSupportsType,
-  decodeSelectionCardinality,
+  decodeResponseSelectionRule,
 } from "./question_response_format";
 
 export {
   decodeContentBlock,
   decodeQuestionResponseFormat,
   decodeQuestionType,
-  decodeSelectionCardinality,
+  decodeResponseSelectionRule,
   questionResponseFormatSupportsType,
 };
 
@@ -244,7 +244,11 @@ export function decodeGeneratorReference(
   };
 }
 
-export function decodeParameterSpec(value: unknown, path: string, strict = false): ParameterSpec {
+export function decodeQuestionGeneratorParameter(
+  value: unknown,
+  path: string,
+  strict = false,
+): QuestionGeneratorParameter {
   const record = decodeRecord(value, path);
   const parameter = kind(record, path);
   switch (parameter) {
@@ -256,7 +260,7 @@ export function decodeParameterSpec(value: unknown, path: string, strict = false
         kind: parameter,
         low: decodeSafeInteger(field(record, "low", path), `${path}.low`),
         high: decodeSafeInteger(field(record, "high", path), `${path}.high`),
-      } satisfies ParameterSpec;
+      } satisfies QuestionGeneratorParameter;
       return decoded;
     }
     case "decimalRange": {
@@ -268,7 +272,7 @@ export function decodeParameterSpec(value: unknown, path: string, strict = false
         low: decodeFiniteNumber(field(record, "low", path), `${path}.low`),
         high: decodeFiniteNumber(field(record, "high", path), `${path}.high`),
         decimals: decodeNonnegativeInteger(field(record, "decimals", path), `${path}.decimals`),
-      } satisfies ParameterSpec;
+      } satisfies QuestionGeneratorParameter;
       return decoded;
     }
     case "choice": {
@@ -278,7 +282,7 @@ export function decodeParameterSpec(value: unknown, path: string, strict = false
       const decoded = {
         kind: parameter,
         options: decodeArray(field(record, "options", path), `${path}.options`, decodeString),
-      } satisfies ParameterSpec;
+      } satisfies QuestionGeneratorParameter;
       return decoded;
     }
     case "fixed": {
@@ -288,7 +292,7 @@ export function decodeParameterSpec(value: unknown, path: string, strict = false
       const decoded = {
         kind: parameter,
         value: decodeString(field(record, "value", path), `${path}.value`),
-      } satisfies ParameterSpec;
+      } satisfies QuestionGeneratorParameter;
       return decoded;
     }
     default:
@@ -296,25 +300,25 @@ export function decodeParameterSpec(value: unknown, path: string, strict = false
   }
 }
 
-export function decodeRandomization(
+export function decodeQuestionVariationDefinition(
   value: unknown,
   path: string,
   strict = false,
-): RandomizationDefinition {
+): QuestionVariationDefinition {
   const record = decodeRecord(value, path);
-  const randomization = kind(record, path);
-  switch (randomization) {
+  const variationDefinition = kind(record, path);
+  switch (variationDefinition) {
     case "static":
       if (strict) {
         requireOnlyFields(record, path, ["kind"]);
       }
-      return { kind: randomization };
+      return { kind: variationDefinition };
     case "seeded": {
       if (strict) {
         requireOnlyFields(record, path, ["kind", "generator", "parameters"]);
       }
       const decoded = {
-        kind: randomization,
+        kind: variationDefinition,
         generator: decodeGeneratorReference(
           field(record, "generator", path),
           `${path}.generator`,
@@ -323,13 +327,14 @@ export function decodeRandomization(
         parameters: decodeDictionary(
           field(record, "parameters", path),
           `${path}.parameters`,
-          (parameter, parameterPath) => decodeParameterSpec(parameter, parameterPath, strict),
+          (parameter, parameterPath) =>
+            decodeQuestionGeneratorParameter(parameter, parameterPath, strict),
         ),
-      } satisfies RandomizationDefinition;
+      } satisfies QuestionVariationDefinition;
       return decoded;
     }
     default:
-      throw new DecodeError(`${path}.kind`, "a known randomization definition");
+      throw new DecodeError(`${path}.kind`, "a known Question Variation Definition");
   }
 }
 
@@ -352,7 +357,11 @@ export function decodeQuestionAttemptLimit(
   return decoded;
 }
 
-export function decodeQuestionAttemptTimeLimit(value: unknown, path: string, strict = false): QuestionAttemptTimeLimit {
+export function decodeQuestionAttemptTimeLimit(
+  value: unknown,
+  path: string,
+  strict = false,
+): QuestionAttemptTimeLimit {
   const record = decodeRecord(value, path);
   const timing = kind(record, path);
   switch (timing) {
@@ -461,7 +470,7 @@ const PUBLICATION_FIELDS = [
   "response",
   "questionAttemptLimit",
   "questionAttemptTimeLimit",
-  "randomization",
+  "questionVariationDefinition",
   "metadata",
 ] as const;
 
@@ -537,7 +546,7 @@ function decodePublicationSemanticProjection(
     "response",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "randomization",
+    "questionVariationDefinition",
     "metadata",
   ]);
   const prompt = decodeRecord(field(record, "prompt", path), `${path}.prompt`);
@@ -555,7 +564,6 @@ function decodePublicationSemanticProjection(
       "matching",
       "ordering",
       "hotspot",
-      "fileUpload",
       "externalTool",
     ],
   );
@@ -573,8 +581,11 @@ function decodePublicationSemanticProjection(
       "present only for option-based responses",
     );
   }
-  const randomization = decodeRecord(field(record, "randomization", path), `${path}.randomization`);
-  requireOnlyFields(randomization, `${path}.randomization`, ["kind"]);
+  const questionVariationDefinition = decodeRecord(
+    field(record, "questionVariationDefinition", path),
+    `${path}.questionVariationDefinition`,
+  );
+  requireOnlyFields(questionVariationDefinition, `${path}.questionVariationDefinition`, ["kind"]);
   const metadata = decodeRecord(field(record, "metadata", path), `${path}.metadata`);
   requireOnlyFields(metadata, `${path}.metadata`, ["tags", "taxonomy", "license", "language"]);
   return {
@@ -604,10 +615,10 @@ function decodePublicationSemanticProjection(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    randomization: {
+    questionVariationDefinition: {
       kind: decodeStringEnum(
-        field(randomization, "kind", `${path}.randomization`),
-        `${path}.randomization.kind`,
+        field(questionVariationDefinition, "kind", `${path}.questionVariationDefinition`),
+        `${path}.questionVariationDefinition.kind`,
         ["static", "seeded"],
       ),
     },

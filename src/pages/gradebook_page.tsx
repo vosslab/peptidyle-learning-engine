@@ -80,8 +80,8 @@ function filterLabel(filter: GradebookRouteFilter | undefined): string {
 }
 function scoreLabel(cell: CalculatedAssignmentCell): string {
   if (cell.availability === "unavailable") return "Not assigned";
-  if (cell.scoringStatus === "recalculating") return "Recalculating";
-  if (cell.scoringStatus === "failed") return "Needs attention";
+  if (cell.assignmentScoringState === "recalculating") return "Recalculating";
+  if (cell.assignmentScoringState === "failed") return "Needs attention";
   return cell.selectedScore === null ? "No score" : formatPercentScore(cell.selectedScore);
 }
 function studentLabel(
@@ -200,7 +200,7 @@ function AssignmentCell(props: {
         assignmentTitle={props.cell.title}
         onChooseRun={props.onChooseRun}
       />
-      <Show when={props.cell.scoringStatus === "failed"}>
+      <Show when={props.cell.assignmentScoringState === "failed"}>
         <A class="gradebook-operations-link" href={operationsHref()}>
           Open grading operations
         </A>

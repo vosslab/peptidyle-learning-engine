@@ -3,7 +3,7 @@
 use sha2::{Digest, Sha256};
 
 use objects::ObjectStoreError;
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::{
     GradingResult, QuestionAttemptId, QuestionTitleError, QuestionVersionReference,
 };
@@ -68,7 +68,7 @@ impl CorrelationIssuer {
 pub struct GradeBinding {
     pub attempt: QuestionAttemptId,
     pub question_version: QuestionVersionReference,
-    pub seed: Seed,
+    pub seed: QuestionSeed,
 }
 
 /// Opaque database-persistable correlation encoding. It has no serde impl and
@@ -130,7 +130,7 @@ pub struct VerifiedProviderGrade {
     pub(crate) result: GradingResult,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) question_version: QuestionVersionReference,
-    pub(crate) seed: Seed,
+    pub(crate) seed: QuestionSeed,
     pub(crate) correlation: String,
 }
 
@@ -169,7 +169,7 @@ impl VerifiedProviderGrade {
         result: GradingResult,
         attempt: QuestionAttemptId,
         question_version: QuestionVersionReference,
-        seed: Seed,
+        seed: QuestionSeed,
         correlation: &ServerCorrelation,
     ) -> Self {
         Self {

@@ -217,12 +217,12 @@ session account and the appropriate parent relationship before returning a recor
 | `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, and `W-` locators resolved only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship. |
 | `QuestionAttemptId` in a route                                                                                | Names an already issued Question Attempt           | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                                     |
 | `SubmissionIdempotencyKey` header                                                                             | Bounded ASCII key for one retry                    | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                                 |
-| `RenderedItemIdV1`                                                                                            | Compact presentation-specific selection value      | Maps only through server-held attempt presentation state to a semantic item identity.                                                                         |
-| `PresentationNonceV1` and `PresentationDigestTokenV1`                                                         | Presentation binding values                        | Bind a response to the intended server-generated presentation; neither authorizes a request.                                                                  |
-| Normalized hotspot coordinates                                                                                | Integer response coordinates from 0 through 10,000 | Describe a response surface, not pixels, device geometry, or record authority.                                                                                |
+| `PresentationResponseItemReference`                                                                                            | Presentation-scoped Response Item Reference        | Maps only through server-held attempt presentation state to a semantic item identity.                                                                         |
+| `QuestionPresentationNonce` and `QuestionPresentationToken`                                                   | Presentation binding values                        | Bind a response to the intended server-generated presentation; neither authorizes a request.                                                                  |
+| Student Hotspot Selection                                                                                     | One selected presentation-scoped Hotspot Region    | Resolves through the exact issued presentation to a durable Hotspot Region; authored geometry remains in Question Response Format.                              |
 
-`ChoiceId` remains a server-side semantic identity for a choice, slot, match
-endpoint, order item, or hotspot region. `Seed` plus generator version and the
+Response Item Reference remains a server-side semantic identity for a Question Choice, slot, match
+endpoint, order item, or hotspot region. `QuestionSeed` plus generator version and the
 full stored presentation digest reproduce an issued variant. They are not
 student authority to select another variant or browser input to define grading.
 

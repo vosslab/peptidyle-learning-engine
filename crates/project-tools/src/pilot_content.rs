@@ -6,9 +6,11 @@ use std::path::{Component, Path, PathBuf};
 
 use adapter_native::flat_question::FlatQuestionDocument;
 use anyhow::{Context, Result, bail};
-use question_model::response::{ResponseItemReference, StudentMatch, QuestionType, StudentResponse};
+use question_model::response::{
+    QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
+};
 use question_model::{
-    QuestionDefinition, QuestionFormat, QuestionId, QuestionSource, QuestionVersionNumber,
+    QuestionFormat, QuestionId, QuestionSource, QuestionVersion, QuestionVersionNumber,
     WorkspaceId, taxonomy::License,
 };
 use serde::Deserialize;
@@ -399,7 +401,7 @@ fn validate_correct_and_wrong_grading(
     if !matches!(draft.source, question_model::DraftQuestionSource::Native) {
         bail!("PLE flat payload compiled to a non-native source");
     }
-    let published = QuestionDefinition::from_draft(
+    let published = QuestionVersion::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionVersionNumber::new(1).expect("positive version"),
@@ -450,7 +452,10 @@ fn source_responses(
                 .get("matches")
                 .and_then(Value::as_array)
                 .ok_or_else(|| anyhow::anyhow!("PLE flat MATCH payload lacks matches"))?;
-            let correct = matches.iter().map(student_match).collect::<Result<Vec<_>>>()?;
+            let correct = matches
+                .iter()
+                .map(student_match)
+                .collect::<Result<Vec<_>>>()?;
             let mut wrong = correct.clone();
             if wrong.len() < 2 {
                 bail!("PLE flat MATCH payload needs at least two matches");

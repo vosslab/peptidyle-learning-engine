@@ -1,7 +1,7 @@
 // Closed student submission acknowledgement decoder.
 
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
-import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
+import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import type {
   GradedQuestionSubmissionReceipt,
   NextIssuedAttempt,
@@ -18,15 +18,18 @@ import {
   decodeStringEnum,
   decodeTrue,
 } from "../decoder";
-import { decodeIssuedQuestion, decodeQuestionAttempt } from "./assignment_attempt";
-import { decodeDisclosedFeedback } from "./question_delivery";
+import {
+  decodeIssuedQuestion,
+  decodeStudentQuestionAttemptView,
+} from "./assignment_attempt";
+import { decodeStudentFeedback } from "./question_delivery";
 import { decodeIdentifier, decodeSha256, field, requireOnlyFields } from "./shared";
 
-const SCORING_STATUSES = [
+const ASSIGNMENT_SCORING_STATES = [
   "current",
   "recalculating",
   "failed",
-] as const satisfies ReadonlyArray<ScoringStatus>;
+] as const satisfies ReadonlyArray<AssignmentScoringState>;
 const RUN_COMPLETION_STATUSES = [
   "inProgress",
   "completed",
@@ -41,23 +44,23 @@ export function decodeGradedQuestionSubmissionReceipt(
     "accepted",
     "attempt",
     "feedback",
-    "scoringStatus",
+    "assignmentScoringState",
     "assignmentAttemptCompletion",
     "nextIssued",
     "nextPending",
   ]);
   const decoded = {
     accepted: decodeTrue(field(record, "accepted", path), `${path}.accepted`),
-    attempt: decodeQuestionAttempt(field(record, "attempt", path), `${path}.attempt`),
+    attempt: decodeStudentQuestionAttemptView(field(record, "attempt", path), `${path}.attempt`),
     feedback: decodeNullable(
       field(record, "feedback", path),
       `${path}.feedback`,
-      decodeDisclosedFeedback,
+      decodeStudentFeedback,
     ),
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
-      SCORING_STATUSES,
+    assignmentScoringState: decodeStringEnum(
+      field(record, "assignmentScoringState", path),
+      `${path}.assignmentScoringState`,
+      ASSIGNMENT_SCORING_STATES,
     ),
     assignmentAttemptCompletion: decodeStringEnum(
       field(record, "assignmentAttemptCompletion", path),
@@ -88,7 +91,7 @@ export function decodeGradedQuestionSubmissionReceipt(
     throw new DecodeError(path, "a completed run without successor delivery state");
   }
   if (
-    receipt.scoringStatus !== "current" &&
+    receipt.assignmentScoringState !== "current" &&
     receipt.attempt.submission !== null &&
     receipt.attempt.submission.gradingResult !== null
   ) {
@@ -98,7 +101,7 @@ export function decodeGradedQuestionSubmissionReceipt(
     );
   }
   if (
-    receipt.scoringStatus !== "current" &&
+    receipt.assignmentScoringState !== "current" &&
     (receipt.feedback?.pointsEarned !== undefined || receipt.feedback?.pointsPossible !== undefined)
   ) {
     throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");

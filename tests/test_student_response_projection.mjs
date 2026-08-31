@@ -28,16 +28,3 @@ test("Student response projection uses only public choice bodies and rejects mis
   );
   assert.deepEqual(projectStudentResponse(envelope, { kind: "shortText", text: "wrong kind" }), []);
 });
-
-test("file and external Student projections never expose private object identifiers", () => {
-  const file = {
-    ...envelope,
-    response: { kind: "fileUpload", maxBytes: 1, acceptedExtensions: [] },
-  };
-  const blocks = projectStudentResponse(file, {
-    kind: "fileUpload",
-    objectKey: "student-records/private-key",
-  });
-  assert.deepEqual(blocks, [{ kind: "text", markdown: "A file was submitted." }]);
-  assert.equal(JSON.stringify(blocks).includes("private-key"), false);
-});

@@ -8,10 +8,11 @@
 
 use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 use question_model::{
-    ActivityTimestamp, ImplementationVersion, QuestionAttemptSourceRecord, QuestionDefinition,
-    QuestionPresentation, QuestionSource, QuestionTitleError, StudentResponse,
+    ActivityTimestamp, QuestionAttemptReproductionDetails, QuestionBackendVersion,
+    QuestionGraderVersion, QuestionPresentation, QuestionRendererVersion, QuestionSource,
+    QuestionTitleError, QuestionVersion, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 #[cfg(test)]
@@ -23,9 +24,9 @@ use crate::renderer_contract::{
 use crate::sanitizer::sanitize_webwork_html;
 use crate::source_object_reference::WebworkSource;
 
-/// Stable adapter identifier recorded for WeBWorK attempts.
+/// Stable Question Backend identifier recorded for WeBWorK attempts.
 pub const ADAPTER_ID: &str = "webwork-adapter";
-/// Current adapter compatibility implementation version.
+/// Current Question Backend Version.
 ///
 /// This is intentionally independent of the repository's CalVer release.
 pub const ADAPTER_VERSION: &str = "1";
@@ -61,7 +62,7 @@ pub struct WebworkIssuedAttempt {
     /// Deterministic parameter record for the version/seed pair.
     pub parameter_hash: String,
     /// Immutable source, implementation, and rendered-output evidence.
-    pub source_record: QuestionAttemptSourceRecord,
+    pub reproduction_details: QuestionAttemptReproductionDetails,
     /// Private field/value mapping captured from the exact trusted render.
     /// It is persisted under the attempt's course boundary and is never part
     /// of the browser envelope or safe render cache.
@@ -77,7 +78,7 @@ impl std::fmt::Debug for WebworkIssuedAttempt {
             .field("envelope", &self.envelope)
             .field("sanitized_html", &self.sanitized_html)
             .field("parameter_hash", &self.parameter_hash)
-            .field("source_record", &self.source_record)
+            .field("reproduction_details", &self.reproduction_details)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
             .field("cache_hit", &self.cache_hit)
             .finish()
@@ -203,7 +204,7 @@ where
     }
 
     /// Returns the configured renderer identity used by this adapter.
-    pub fn renderer_identity(&self) -> &crate::renderer_contract::RendererIdentity {
+    pub fn renderer_version(&self) -> &QuestionRendererVersion {
         self.renderer.identity()
     }
 
@@ -224,8 +225,8 @@ where
     /// are owned by the server snapshot path and do not invoke this method.
     pub async fn issue(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         source: &WebworkSource,
         created_at: ActivityTimestamp,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
@@ -282,7 +283,7 @@ where
                     rendered: crate::cache::SafeRenderedWebworkQuestion {
                         envelope: untrusted.envelope,
                         sanitized_html: sanitize_webwork_html(&untrusted.html),
-                        renderer: untrusted.renderer,
+                        renderer_version: untrusted.renderer_version,
                     },
                 };
                 crate::cache::validate_cached(
@@ -299,10 +300,10 @@ where
                 match self
                     .store
                     .put(PutObject {
-                        key: cache_key.clone(),
+                        address: cache_key.clone(),
                         bytes,
                         media_type: "application/json".to_string(),
-                        license: license_label(&question.metadata.license),
+                        license: Some(question.metadata.license.clone()),
                         provenance: format!(
                             "WeBWorK render for {} seed {}",
                             question_version.version_number,
@@ -341,8 +342,8 @@ where
     /// Delegates correctness to the server-only renderer without exposing a key.
     pub async fn grade(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         source: &WebworkSource,
         response: &StudentResponse,
         replay: &WebworkReplayMappingV1,
@@ -354,8 +355,8 @@ where
     /// Attempt-bound replay state is loaded separately from course storage.
     pub async fn reproduce(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         source: &WebworkSource,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
         question
@@ -385,8 +386,8 @@ where
 
     async fn render_replay(
         &self,
-        question: &QuestionDefinition,
-        seed: Seed,
+        question: &QuestionVersion,
+        seed: QuestionSeed,
         source: &WebworkSource,
         pg_path: &str,
         cached: &crate::cache::CachedWebworkRender,
@@ -416,7 +417,7 @@ where
             rendered: crate::cache::SafeRenderedWebworkQuestion {
                 envelope: rendered.envelope,
                 sanitized_html: sanitize_webwork_html(&rendered.html),
-                renderer: rendered.renderer,
+                renderer_version: rendered.renderer_version,
             },
         };
         if &reproduced != cached {
@@ -430,24 +431,25 @@ where
     fn issued(
         &self,
         rendered: crate::cache::CachedWebworkRender,
-        seed: Seed,
+        seed: QuestionSeed,
         source: &WebworkSource,
         replay: Option<WebworkReplayMappingV1>,
         cache_hit: bool,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
         let rendered_question_sha256 = crate::cache::rendered_hash(&rendered)?;
-        let renderer = rendered.rendered.renderer;
+        let renderer_version = rendered.rendered.renderer_version;
+        let grader = grader_version(GRADING_ID, &renderer_version.version);
         Ok(WebworkIssuedAttempt {
             envelope: rendered.rendered.envelope,
             sanitized_html: rendered.rendered.sanitized_html,
             parameter_hash: parameter_hash(seed),
-            source_record: QuestionAttemptSourceRecord {
-                adapter: implementation(ADAPTER_ID, ADAPTER_VERSION),
-                renderer: Some(implementation(&renderer.id, &renderer.version)),
+            reproduction_details: QuestionAttemptReproductionDetails {
+                backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
+                renderer_version: Some(renderer_version),
                 generator: None,
                 source_object_reference: Some(source.source_object_reference.clone()),
                 asset_objects: Vec::new(),
-                grading: implementation(GRADING_ID, &renderer.version),
+                grader,
                 rendered_question_sha256,
             },
             replay,
@@ -456,31 +458,25 @@ where
     }
 }
 
-fn implementation(id: &str, version: &str) -> ImplementationVersion {
-    ImplementationVersion {
-        id: id.to_string(),
+fn backend_version(name: &str, version: &str) -> QuestionBackendVersion {
+    QuestionBackendVersion {
+        name: name.to_string(),
         version: version.to_string(),
     }
 }
 
-fn parameter_hash(seed: Seed) -> String {
+fn grader_version(name: &str, version: &str) -> QuestionGraderVersion {
+    QuestionGraderVersion {
+        name: name.to_string(),
+        version: version.to_string(),
+    }
+}
+
+fn parameter_hash(seed: QuestionSeed) -> String {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:webwork-parameters:v1");
     hash.update(seed.value().to_be_bytes());
     crate::cache::hex_digest(hash.finalize().as_slice())
-}
-
-fn license_label(license: &question_model::taxonomy::License) -> String {
-    use question_model::taxonomy::License;
-
-    match license {
-        License::AllRightsReserved => "all-rights-reserved".to_string(),
-        License::CcBy => "CC-BY-4.0".to_string(),
-        License::CcBySa => "CC-BY-SA-4.0".to_string(),
-        License::CcByNc => "CC-BY-NC-4.0".to_string(),
-        License::Cc0 => "CC0-1.0".to_string(),
-        License::Other { spdx } => spdx.clone(),
-    }
 }
 
 #[cfg(test)]

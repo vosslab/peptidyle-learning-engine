@@ -5,11 +5,12 @@ use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::envelope::ContentBlock;
-use question_model::generation::RandomizationDefinition;
+use question_model::generation::QuestionVariationDefinition;
 use question_model::taxonomy::License;
 use question_model::{
     GradingDefinition, ObjectId, QuestionFormat, QuestionId, QuestionMetadata, QuestionType,
-    QuestionVersionNumber, QuestionVersionReference, SourceObjectReference, WorkspaceId,
+    QuestionVersion, QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
+    WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -101,7 +102,7 @@ fn config() -> ContractedScoredEmbedConfig {
     .unwrap()
 }
 
-fn question_and_source() -> (QuestionDefinition, ImathasSource) {
+fn question_and_source() -> (QuestionVersion, ImathasSource) {
     let question_version = QuestionVersionReference {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         version_number: QuestionVersionNumber::new(2).expect("positive version"),
@@ -113,7 +114,7 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
         object,
         sha256: digest.clone(),
     };
-    let question = QuestionDefinition {
+    let question = QuestionVersion {
         question_id: question_version.question_id.clone(),
         version_number: question_version.version_number,
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
@@ -130,7 +131,7 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
         question_type: QuestionType::Numeric,
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        randomization: RandomizationDefinition::Static,
+        question_variation_definition: QuestionVariationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded broker question".into(),
@@ -151,7 +152,7 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
     (question, source)
 }
 
-fn correlation(question: &QuestionDefinition, seed: Seed) -> ServerCorrelation {
+fn correlation(question: &QuestionVersion, seed: QuestionSeed) -> ServerCorrelation {
     let binding = GradeBinding {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         question_version: QuestionVersionReference {
@@ -187,7 +188,7 @@ fn result_token(session: &ContractedLaunchSession, score: f64) -> Vec<u8> {
 
 async fn launch(
     provider: &ContractedScoredEmbedProvider<RecordedTransport>,
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
     source: &ImathasSource,
     nonce: u8,
 ) -> ContractedLaunchSession {
@@ -196,8 +197,8 @@ async fn launch(
             question,
             source,
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            Seed::new(10_001),
-            correlation(question, Seed::new(10_001)),
+            QuestionSeed::new(10_001),
+            correlation(question, QuestionSeed::new(10_001)),
             ScoredEmbedNonce::from_server_random([nonce; 32]).unwrap(),
             ActivityTimestamp::from_unix_millis(1_000),
         )
@@ -238,8 +239,8 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
                 &question,
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                Seed::new(10_001),
-                correlation(&question, Seed::new(10_001)),
+                QuestionSeed::new(10_001),
+                correlation(&question, QuestionSeed::new(10_001)),
                 ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
                 ActivityTimestamp::from_unix_millis(1_000),
             )
@@ -254,8 +255,8 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
                 &question,
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                Seed::new(10_001),
-                correlation(&question, Seed::new(10_001)),
+                QuestionSeed::new(10_001),
+                correlation(&question, QuestionSeed::new(10_001)),
                 ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
                 ActivityTimestamp::from_unix_millis(1_000),
             )
@@ -300,7 +301,7 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
         provider: "foreign-imathas".into(),
         item_ref: "17".into(),
     };
-    let locator = DraftLocator::from_draft(&foreign_draft).unwrap();
+    let locator = ImathasDraftQuestionSource::from_draft(&foreign_draft).unwrap();
     assert_eq!(
         provider.snapshot(&locator).await,
         Err(ProviderFailure::UnsupportedProfile)
@@ -318,8 +319,8 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
                 &question,
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                Seed::new(10_001),
-                correlation(&question, Seed::new(10_001)),
+                QuestionSeed::new(10_001),
+                correlation(&question, QuestionSeed::new(10_001)),
                 ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
                 ActivityTimestamp::from_unix_millis(1_000),
             )
@@ -343,7 +344,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
                 question_id: question.question_id.clone(),
                 version_number: question.version_number,
             },
-            seed: Seed::new(10_001),
+            seed: QuestionSeed::new(10_001),
         },
         "self-hosted-imathas",
         source.artifact.sha256.clone(),
@@ -415,7 +416,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
                 question_id: question.question_id.clone(),
                 version_number: question.version_number,
             },
-            seed: Seed::new(10_001),
+            seed: QuestionSeed::new(10_001),
         },
         "self-hosted-imathas",
         source.artifact.sha256.clone(),

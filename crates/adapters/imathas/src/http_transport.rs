@@ -484,11 +484,13 @@ mod tests {
         });
         (fixture, format!("http://{address}/"))
     }
-    fn locator() -> crate::DraftLocator {
-        crate::DraftLocator::from_draft(&question_model::DraftQuestionSource::Imathas {
-            provider: "self-hosted-imathas".into(),
-            item_ref: "17".into(),
-        })
+    fn locator() -> crate::ImathasDraftQuestionSource {
+        crate::ImathasDraftQuestionSource::from_draft(
+            &question_model::DraftQuestionSource::Imathas {
+                provider: "self-hosted-imathas".into(),
+                item_ref: "17".into(),
+            },
+        )
         .unwrap()
     }
     #[tokio::test]
@@ -574,7 +576,7 @@ mod tests {
                         version_number: question_model::QuestionVersionNumber::new(1)
                             .expect("positive version"),
                     },
-                    seed: question_model::generation::Seed::new(7)
+                    seed: question_model::generation::QuestionSeed::new(7)
                 })
                 .await
                 .unwrap()
@@ -599,7 +601,7 @@ mod tests {
                 version_number: question_model::QuestionVersionNumber::new(4)
                     .expect("positive version"),
             },
-            seed: question_model::generation::Seed::new(7),
+            seed: question_model::generation::QuestionSeed::new(7),
         };
         let issuer = crate::CorrelationIssuer::from_server_secret([1; 32]);
         let correlation = issuer

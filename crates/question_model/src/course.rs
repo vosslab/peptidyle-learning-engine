@@ -6,10 +6,10 @@ use crate::{
     ActivityTimestamp, AssignmentActivityRules, AssignmentDeadlineRule,
     AssignmentEntryAvailability, AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId,
     AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord, AssignmentReference,
-    AssignmentTitle, CourseId, CourseInstanceReference, CourseTimeZone, LateWorkRule,
-    QuestionBackend, QuestionBackendCapabilities, QuestionId, QuestionPoolCandidateAvailability,
-    QuestionPoolCandidateId, QuestionPoolSelectionRule, QuestionVariationRule, ScoringStatus,
-    StudentFeedbackReleaseRule, StudentRecordId,
+    AssignmentScoringState, AssignmentTitle, CourseId, CourseInstanceReference, CourseTimeZone,
+    LateWorkRule, QuestionBackend, QuestionBackendCapabilities, QuestionId,
+    QuestionPoolCandidateAvailability, QuestionPoolCandidateId, QuestionPoolSelectionRule,
+    QuestionVariationRule, StudentFeedbackReleaseRule, StudentRecordId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -286,7 +286,7 @@ pub struct GradebookSummaryRow {
     /// Transactionally maintained compact activity and score projection.
     pub summary: AssignmentProgressRecord,
     /// Current visibility and freshness of assignment scores.
-    pub scoring_status: ScoringStatus,
+    pub assignment_scoring_state: AssignmentScoringState,
 }
 
 #[cfg(test)]
@@ -430,7 +430,7 @@ mod tests {
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
                 AssignmentId::from_uuid(Uuid::from_u128(5)),
             ),
-            scoring_status: crate::ScoringStatus::Current,
+            assignment_scoring_state: crate::AssignmentScoringState::Current,
         };
 
         let value = serde_json::to_value(row).expect("gradebook row should serialize");
@@ -441,7 +441,7 @@ mod tests {
             Some("Ada Student")
         );
         assert!(value.get("summary").is_some());
-        assert_eq!(value["scoring_status"], "current");
+        assert_eq!(value["assignment_scoring_state"], "current");
         assert!(value.get("best_score").is_none());
     }
 }

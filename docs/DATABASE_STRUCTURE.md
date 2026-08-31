@@ -77,10 +77,19 @@ generic Course Invitation boundary.
 An Object Delivery authorizes retrieval of one exact Object Reference. An Object
 Storage Check records a completed verified, missing, or mismatched observation.
 Object Cleanup requires a separate manifest, Job, and immutable receipt.
+Object metadata carries optional Object License reuse terms separately from its
+required Object Data Class, which derives from the exact Object Address and
+owning relationship.
 
 Accepted Student responses, automated grading, Gradebook calculations, and
 retention lifecycle operations each retain their own immutable receipts or
-events. No aggregate projection replaces the source record that proves it.
+events. No aggregate projection replaces the exact record that proves it.
+
+Each private Question Attempt stores its issued Question, unsigned Question
+Seed, generated-parameter SHA-256, issued/deadline times, closed Question
+Attempt State, and Question Attempt Reproduction Details. A Question
+Submission separately owns the accepted Student Response and submission time;
+the attempt state never invents a response when a deadline closes work.
 
 ## Verification
 

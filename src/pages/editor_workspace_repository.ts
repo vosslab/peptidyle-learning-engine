@@ -31,7 +31,7 @@ function editorDraft(definition: DraftQuestionDefinition): EditorDraft {
     response: definition.response,
     questionAttemptLimit: definition.questionAttemptLimit,
     questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
-    randomization: definition.randomization,
+    questionVariationDefinition: definition.questionVariationDefinition,
   };
 }
 
@@ -49,7 +49,7 @@ function updateDefinition(
     response: draft.response,
     questionAttemptLimit: draft.questionAttemptLimit,
     questionAttemptTimeLimit: draft.questionAttemptTimeLimit,
-    randomization: draft.randomization,
+    questionVariationDefinition: draft.questionVariationDefinition,
     metadata: { ...existing.metadata, title: draft.title },
   };
 }

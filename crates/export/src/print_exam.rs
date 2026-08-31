@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use objects::Sha256Digest;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::{
-    AssetId, Capability, QuestionBackendCapabilities, QuestionDefinition, QuestionResponseFormat,
+    AssetId, Capability, QuestionBackendCapabilities, QuestionResponseFormat, QuestionVersion,
 };
 
 /// The rendition selected by an instructor or accessibility workflow.
@@ -52,7 +52,7 @@ pub struct ExportBundle {
 /// One question plus the capability declaration made by its adapter.
 #[derive(Debug, Clone)]
 pub struct ExportCandidate<'a> {
-    pub question: &'a QuestionDefinition,
+    pub question: &'a QuestionVersion,
     pub capabilities: &'a QuestionBackendCapabilities,
 }
 
@@ -148,10 +148,7 @@ impl PrintExam {
             let mut reason = None;
             if !candidate.capabilities.supports(Capability::PrintExport) {
                 reason = Some("the backend does not declare printExport".to_string());
-            } else if matches!(
-                question.response,
-                QuestionResponseFormat::FileUpload { .. } | QuestionResponseFormat::ExternalTool {}
-            ) {
+            } else if matches!(question.response, QuestionResponseFormat::ExternalTool {}) {
                 reason = Some(
                     "this response requires an online interaction and cannot be completed on paper"
                         .to_string(),
@@ -202,7 +199,7 @@ impl PrintExam {
 }
 
 fn resolve_question_assets(
-    question: &QuestionDefinition,
+    question: &QuestionVersion,
     resolver: &dyn TrustedAssetResolver,
     target: &mut BTreeMap<AssetId, PrintableAsset>,
 ) -> Result<(), String> {
@@ -452,7 +449,7 @@ fn append_response_flow(
                 }
             }
         }
-        QuestionResponseFormat::FileUpload { .. } | QuestionResponseFormat::ExternalTool {} => {
+        QuestionResponseFormat::ExternalTool {} => {
             unreachable!("validated before print build")
         }
     }
@@ -475,19 +472,22 @@ mod tests {
     use serde::Deserialize;
     use std::collections::BTreeMap;
     use std::fs;
+    use std::path::Path;
     use std::process::Command;
 
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Fixture {
-        published_problem: QuestionDefinition,
+        published_problem: QuestionVersion,
     }
-    fn fixture_question() -> QuestionDefinition {
-        serde_json::from_str::<Fixture>(include_str!(
-            "../../../tests/fixtures/published_problem/fixture_set.json"
-        ))
-        .expect("fixture")
-        .published_problem
+    fn fixture_question() -> QuestionVersion {
+        let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/published_problem/fixture_set.json");
+        let fixture = fs::read_to_string(&fixture_path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", fixture_path.display()));
+        serde_json::from_str::<Fixture>(&fixture)
+            .expect("approved stored Question fixture decodes")
+            .published_problem
     }
     fn printable_capabilities() -> QuestionBackendCapabilities {
         QuestionBackendCapabilities::from_iter([Capability::PrintExport])
@@ -509,7 +509,7 @@ mod tests {
                 .ok_or_else(|| "not found".to_string())
         }
     }
-    fn assets_for(question: &QuestionDefinition) -> Assets {
+    fn assets_for(question: &QuestionVersion) -> Assets {
         let bytes = png();
         let mut map = BTreeMap::new();
         let mut all = assets_in_blocks(&question.prompt);
@@ -537,24 +537,32 @@ mod tests {
         }
         Assets(map)
     }
-    fn set_asset_checksums(question: &mut QuestionDefinition) {
+    fn set_asset_checksums(question: &mut QuestionVersion) {
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut question.prompt {
             if let ContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
             }
         }
-        let groups = match &mut question.response {
-            QuestionResponseFormat::MultipleChoice { choices, .. } => choices,
-            QuestionResponseFormat::Ordering { items } => items,
-            _ => return,
-        };
-        for item in groups {
-            for block in &mut item.body {
+        let set_response_item_checksum = |body: &mut Vec<ContentBlock>| {
+            for block in body {
                 if let ContentBlock::Image { asset, .. } = block {
                     asset.checksum = checksum.clone();
                 }
             }
+        };
+        match &mut question.response {
+            QuestionResponseFormat::MultipleChoice { choices, .. } => {
+                for choice in choices {
+                    set_response_item_checksum(&mut choice.body);
+                }
+            }
+            QuestionResponseFormat::Ordering { items } => {
+                for item in items {
+                    set_response_item_checksum(&mut item.body);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -679,7 +687,7 @@ mod tests {
             description: description.to_string(),
         };
         question.response = QuestionResponseFormat::MultipleChoice {
-            choices: vec![question_model::response::ChoiceOption {
+            choices: vec![question_model::response::QuestionChoice {
                 id: question_model::response::ResponseItemReference::new("figure"),
                 body: vec![figure("choice figure")],
             }],
@@ -704,7 +712,7 @@ mod tests {
         assert!(bundle.pdf.bytes.windows(4).any(|window| window == b"/Im1"));
 
         question.response = QuestionResponseFormat::Ordering {
-            items: vec![question_model::response::ChoiceOption {
+            items: vec![question_model::response::OrderingItem {
                 id: question_model::response::ResponseItemReference::new("ordering-figure"),
                 body: vec![figure("ordering figure")],
             }],

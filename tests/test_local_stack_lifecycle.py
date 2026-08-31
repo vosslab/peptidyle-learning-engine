@@ -762,11 +762,11 @@ def test_restart_baseline_refuses_duplicate_selected_service() -> None:
 
 
 #============================================
-def test_renderer_restart_checks_existing_provenance_before_recreate(
+def test_renderer_restart_checks_current_version_before_recreate(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""Renderer recovery keeps its preexisting image attestation ahead of the mutation boundary."""
+	"""Renderer recovery keeps its current version proof ahead of the mutation boundary."""
 	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
 	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
 	events: list[str] = []
@@ -788,7 +788,7 @@ def test_renderer_restart_checks_existing_provenance_before_recreate(
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_restart_baseline", lambda selected, runner, service: events.append("baseline"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda selected: {})
 	monkeypatch.setattr(local_stack_control.renderer, "inspect_renderer_oci_id", lambda runner, root, reference, environment: events.append("image") or "sha256:" + "a" * 64)
-	monkeypatch.setattr(local_stack_control.lifecycle, "require_renderer_restart_provenance", lambda selected, selected_values, oci_id: events.append("provenance"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "require_question_renderer_version", lambda selected, selected_values, oci_id: events.append("version"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", mark_compose)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda selected, runner, selected_options, oci_id: events.append("renderer-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda selected, runner, root, selected_values, oci_id: events.append("attest"))
@@ -797,20 +797,20 @@ def test_renderer_restart_checks_existing_provenance_before_recreate(
 	local_stack_control.lifecycle.restart_lifecycle(
 		target, UnexpectedRunner(), tmp_path, "webwork-renderer", options
 	)
-	assert events.index("provenance") < events.index("recreate") < events.index("renderer-ready") < events.index("attest")
+	assert events.index("version") < events.index("recreate") < events.index("renderer-ready") < events.index("attest")
 	assert compose_arguments == [[
 		"up", "-d", "--force-recreate", "--no-deps", "webwork-renderer",
 	]]
 
 
 #============================================
-def test_renderer_provenance_is_replaceable_private_attestation(tmp_path: pathlib.Path) -> None:
-	"""A new renderer proof atomically replaces a previous valid local provenance record."""
-	first = local_stack_control.models.RendererProvenance("localhost/renderer:one", "sha256:" + "a" * 64)
-	second = local_stack_control.models.RendererProvenance("localhost/renderer:two", "sha256:" + "b" * 64)
-	local_stack_control.renderer.write_provenance(tmp_path, first)
-	local_stack_control.renderer.write_provenance(tmp_path, second)
-	assert local_stack_control.renderer.load_provenance(tmp_path) == second
+def test_question_renderer_version_is_replaceable_private_attestation(tmp_path: pathlib.Path) -> None:
+	"""A verified Question Renderer Version atomically replaces the prior version record."""
+	first = local_stack_control.models.QuestionRendererVersion("localhost/renderer:one", "sha256:" + "a" * 64)
+	second = local_stack_control.models.QuestionRendererVersion("localhost/renderer:two", "sha256:" + "b" * 64)
+	local_stack_control.renderer.write_question_renderer_version(tmp_path, first)
+	local_stack_control.renderer.write_question_renderer_version(tmp_path, second)
+	assert local_stack_control.renderer.load_question_renderer_version(tmp_path) == second
 
 
 #============================================

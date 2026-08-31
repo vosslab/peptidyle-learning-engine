@@ -81,7 +81,7 @@ and [SOLID_MODEL.md](SOLID_MODEL.md).
 
 ## Why is grading server-only?
 
-The browser may check response format, but it never receives answer keys, grading implementations,
+The browser may check response format, but it never receives Answer Keys, Question Grader code,
 or correctness decisions. Those live in `crates/grading`, outside the WebAssembly dependency
 closure. The server repeats format validation and makes the authoritative grading decision. If
 WebAssembly is unavailable, the browser uses a key-free server format-validation route; it does not

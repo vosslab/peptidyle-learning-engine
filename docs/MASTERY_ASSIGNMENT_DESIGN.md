@@ -74,7 +74,7 @@ and [crates/domain/src/effective_assignment_policy.rs](../crates/domain/src/effe
 
 An incorrect response enters `RetryAvailable` only when policy permits another response. Starting
 the retry issues a new `QuestionAttempt`; it never overwrites the prior response, grade, seed, or
-Question Attempt Source Record. An unlimited question attempt policy is represented by `max_attempts: None`. This is the
+Question Attempt Reproduction Details. An unlimited question attempt policy is represented by `max_attempts: None`. This is the
 implemented mastery retry behavior in
 [Question Model Student Work Records](../crates/question_model/src/lib.rs) and
 [the Domain Assignment Activity module](../crates/domain/src/lib.rs).
@@ -159,8 +159,15 @@ For the recommended mastery bundle, set all five fields to `AfterSubmit`.
 An assessment can instead schedule each field independently without changing
 the selected question or its retry bound.
 
-Private feedback is intentionally not serializable or debug-printable. The public
-`DisclosedFeedback` DTO omits locked fields rather than sending hidden nulls. The implementation is
+Question Feedback is intentionally not serializable or debug-printable. It has
+separate selected-choice, correct-outcome, and incorrect-outcome feedback;
+automatic grading selects only the applicable authored content. A Question Hint
+is separate pre-response instructional support and never belongs to Question
+Feedback or the post-grade `StudentFeedback` DTO. The Native adapter verifies
+the exact issued Question through its separate `hint_for_issued_question` path
+before it provides a Question Hint. The public `StudentFeedback`
+DTO is the automatic, policy-released result for one Student; it omits locked
+fields rather than sending hidden nulls. The implementation is
 in [crates/question_model/src/feedback.rs](../crates/question_model/src/feedback.rs) and
 `crates/domain/src/student_feedback_release.rs`; Store
 integration returns with the fresh course-delivery reconstruction.
@@ -268,7 +275,7 @@ The browser presents a learning experience; it does not administer the assignmen
 
 - derives course and student authority from the authenticated session;
 - chooses or resumes the Assignment Attempt and assigns its attempt number;
-- issues attempt identifiers, seeds, deadlines, and immutable Question Attempt Source Records;
+- issues attempt identifiers, seeds, deadlines, and immutable Question Attempt Reproduction Details;
 - validates response format again before calling a trusted grading backend;
 - computes correctness, points, retry availability, completion, and grade summary;
 - commits response, feedback record, summary projection, and completion transition atomically; and

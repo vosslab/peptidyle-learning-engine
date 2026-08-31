@@ -32,8 +32,8 @@
     "incorrect": "Compare each group's characteristic atoms with its biochemical role."
   },
   "points": 4.0,
-  "attemptPolicy": { "maxAttempts": null },
-  "timingPolicy": { "kind": "untimed" },
+  "questionAttemptLimit": { "maxAttempts": null },
+  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["biochemistry", "functional-groups", "chapter-1", "matching"],
   "taxonomy": [
     { "scheme": "Peptidyle", "code": "BIOCHEMISTRY.CHAPTER_1", "label": "Biochemistry Chapter 1" }

@@ -18,7 +18,7 @@ pub mod scored_embed;
 #[cfg(feature = "test-support")]
 pub mod test_support;
 
-/// Stable adapter identity persisted in the Question Attempt Source Record, independent of CalVer.
+/// Stable adapter identity persisted in Question Attempt Reproduction Details, independent of CalVer.
 pub const ADAPTER_ID: &str = "imathas-adapter";
 /// Current compatible adapter implementation.
 pub const ADAPTER_VERSION: &str = "1";
@@ -33,8 +33,8 @@ pub use grade::{
     ServerCorrelation, VerifiedProviderGrade,
 };
 pub use provider::{
-    DraftLocator, ImathasProvider, PreparedSnapshot, ProviderGradeRequest, ProviderRenderRequest,
-    SafeProviderRender, SupportedProfile,
+    ImathasDraftQuestionSource, ImathasProvider, PreparedSnapshot, ProviderGradeRequest,
+    ProviderRenderRequest, SafeProviderRender, SupportedProfile,
 };
 
 pub(crate) use cache::{constant_time_eq, hex, verify_binding};
@@ -50,15 +50,15 @@ mod tests;
 #[cfg(test)]
 use async_trait::async_trait;
 #[cfg(test)]
-use objects::{ObjectKey, ObjectStore, PutObject};
+use objects::{ObjectAddress, ObjectStore, PutObject};
 #[cfg(test)]
 use question_model::envelope::ContentBlock;
 #[cfg(test)]
-use question_model::generation::Seed;
+use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionDefinition, QuestionId,
-    QuestionSource, QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
+    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionId, QuestionSource,
+    QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
 };
 #[cfg(test)]
 use sha2::{Digest, Sha256};
